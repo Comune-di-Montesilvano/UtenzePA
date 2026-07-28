@@ -1,0 +1,169 @@
+<div style="display: flex; justify-content: space-between; align-items: center;">
+  <h3>Elenco ({{ data.length }})</h3>
+  <button
+    pButton
+    class="p-button p-component"
+    (click)="openCreateDialog()"
+    [appHasRole]="['Admin', 'Operatore']"
+  >
+    <i pButtonIcon class="pi pi-plus"></i>
+    <span pButtonLabel>Aggiungi Utilizzatore</span>
+  </button>
+
+</div>
+
+<p-table
+  [value]="loading ? skeletonRows : data"
+  [paginator]="true"
+  [rows]="10"
+  paginatorPosition="bottom"
+  [scrollable]="true"
+  [scrollHeight]="(height - 500) + 'px'"
+  #myTable
+  [style]="{ '--row-height': rowHeight + 'px' }"
+  class="dynamic-rows"
+  [size]="'small'"
+  [rowsPerPageOptions]=rowsPerPageOptions
+>
+
+  <ng-template pTemplate="header">
+    <tr>
+      <th style="min-width: 100px;">Azioni</th>
+      <th style="min-width: 50px;" pSortableColumn="id">ID
+        <p-sortIcon field="id"></p-sortIcon>
+      </th>
+      <th style="min-width: 200px;" pSortableColumn="name">Nome
+        <p-sortIcon field="name"></p-sortIcon>
+      </th>
+      <th style="min-width: 250px;" pSortableColumn="description">Descrizione
+        <p-sortIcon field="description"></p-sortIcon>
+      </th>
+    </tr>
+  </ng-template>
+
+  <ng-template pTemplate="body" let-utilizer>
+    @if (loading) {
+      <tr>
+        @for (col of skeletonCols; track col) {
+          <td><p-skeleton height="1.5rem"/></td>
+        }
+      </tr>
+    } @else {
+      <tr [ngClass]="{ 'row-deleted': utilizer.deleted }">
+        <td>
+          <button pButton class="p-button-text p-button-sm action-button"
+                  (click)="openEditDialog(utilizer)" [appHasRole]="['Admin', 'Operatore', 'Lettore']">
+            <i pButtonIcon class="pi pi-pencil"></i>
+          </button>
+
+          @if (!utilizer.deleted) {
+            <button pButton class="p-button-text p-button-sm action-button"
+                    (click)="openDeleteDialog(utilizer)" [appHasRole]="['Admin', 'Operatore']">
+              <i pButtonIcon class="pi pi-trash"></i>
+            </button>
+          } @else {
+            <button pButton class="p-button-text p-button-sm action-button"
+                    (click)="restoreItem(utilizer)" [appHasRole]="['Admin', 'Operatore']">
+              <i pButtonIcon class="pi pi-undo"></i>
+            </button>
+          }
+        </td>
+        <td>{{ utilizer.id }}</td>
+        <td>{{ utilizer.name }}</td>
+        <td>{{ utilizer.description }}</td>
+      </tr>
+    }
+  </ng-template>
+
+  <ng-template pTemplate="emptymessage">
+    <tr>
+      <td colspan="8" class="text-center">Nessuna utilizzatore trovato.</td>
+    </tr>
+  </ng-template>
+</p-table>
+
+<p-dialog
+  [header]="isNew ? 'Aggiungi Utilizzatore' : 'Modifica Utilizzatore: ' + selectedItem?.name"
+  [(visible)]="editDialogVisible"
+  [modal]="true"
+  [style]="{width: '800px'}"
+  styleClass="max-w-screen-lg">
+
+  @if (form) {
+    <form [formGroup]="form" [readOnly]="['Lettore']" class="edit-form p-fluid">
+      <div style="display: flex; gap: 1.5rem;">
+
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 1rem;">
+
+          <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+            <label for="name">Utilizzatore *</label>
+            <input id="name" type="text" pInputText formControlName="name"
+                   placeholder="Nome dell'utilizzatore" style="width: 100%;"
+                   [class.ng-invalid]="form.controls['name'].invalid && form.controls['name'].touched"
+                   [class.ng-dirty]="form.controls['name'].dirty"/>
+            @if (form.controls['name'].invalid && form.controls['name'].touched) {
+              <small class="p-error">Obbligatorio</small>
+            }
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.25rem; flex-grow: 1;">
+            <label for="description">Descrizione</label>
+            <textarea id="description" pInputTextarea formControlName="description"
+                      rows="4" placeholder="Descrizione"
+                      style="width: 100%; flex-grow: 1;"></textarea>
+          </div>
+        </div>
+
+      </div>
+    </form>
+  }
+
+  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+    <button pButton class="p-button-secondary p-component" (click)="editDialogVisible=false">
+      <span pButtonLabel>Annulla</span>
+    </button>
+    <button pButton class="p-button p-component" (click)="saveItem()"
+            [disabled]="!isFormValid()"
+            [appHasRole]="['Admin', 'Operatore']">
+      <span pButtonLabel>Salva Utilizzatore</span>
+    </button>
+  </div>
+
+</p-dialog>
+
+<p-dialog header="Elimina Utilizzatore" [(visible)]="deleteDialogVisible" [modal]="true" [style]="{width: '350px'}">
+  <p>Sei sicuro di voler eliminare l'Utilizzatore <b>{{ selectedItem?.name }}</b>?</p>
+  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+    <button pButton class="p-button-secondary" (click)="deleteDialogVisible=false">
+      <span pButtonLabel>Annulla</span>
+    </button>
+    <button pButton (click)="confirmDelete()" severity="danger">
+      <span pButtonLabel>Elimina</span>
+    </button>
+  </div>
+</p-dialog>
+
+<p-dialog header="Ripristina Utilizzatore" [(visible)]="restoreDialogVisible" [modal]="true" [style]="{width: '350px'}">
+  <p>Riattiva Utilizzatore <b>{{ selectedItem?.name }}</b>?</p>
+  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+    <button pButton class="p-button-secondary" (click)="restoreDialogVisible=false">
+      <span pButtonLabel>Annulla</span>
+    </button>
+    <button pButton class="p-button-success" (click)="confirmRestore()">
+      <span pButtonLabel>Ripristina</span>
+    </button>
+  </div>
+</p-dialog>
+
+<style>
+  .row-deleted {
+    background-color: #fcebeb;
+    opacity: 0.7;
+    text-decoration: line-through;
+  }
+
+  .action-button {
+    padding: 0.2rem !important;
+    margin: 0 0.1rem;
+    height: auto;
+  }
+</style>

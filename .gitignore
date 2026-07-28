@@ -1,0 +1,23 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Docker
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.sublime-workspace
+
+# Node
+node_modules/
+
+# Misc
+*.log
+

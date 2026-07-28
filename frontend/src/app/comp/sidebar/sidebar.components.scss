@@ -1,0 +1,87 @@
+.sidebar {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  width: 249px;
+  height: calc(100vh - 60px);
+  background-color: #fff;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Inter', sans-serif;
+
+  .sidebar-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .menu-item,
+  .submenu-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+    color: #000;
+    text-decoration: none;
+
+    i {
+      margin-right: 10px;
+    }
+  }
+
+  .has-submenu {
+    cursor: pointer;
+  }
+
+  .submenu {
+    list-style: none;
+
+    .submenu-item {
+      padding: 8px 16px;
+      font-size: 13px;
+    }
+  }
+
+  .arrow {
+    margin-left: auto;
+    transition: transform 0.2s;
+
+    &.open {
+      transform: rotate(90deg);
+    }
+  }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 15px 19px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+    color: #E7000B;
+    border-top: 1px solid #ddd;
+
+    i {
+      margin-right: 10px;
+    }
+  }
+}
+
+.active-link {
+  font-weight: bold;
+}
+
+.submenu-item.active-link {
+  font-weight: 700 !important;
+  color: #000 !important;
+}
+.menu-item.active-link {
+  font-weight: 700 !important;
+  color: #000 !important;
+}
+.menu-item:hover, .submenu-item:hover {
+  background-color: #f5f5f5;
+}

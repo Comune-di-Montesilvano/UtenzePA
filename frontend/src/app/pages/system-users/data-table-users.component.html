@@ -1,0 +1,179 @@
+<div style="display: flex; justify-content: space-between; align-items: center;">
+  <h3>Elenco utenti ({{ data.length }})</h3>
+  <button pButton class="p-button p-sm" (click)="openCreateDialog()" [appHasRole]="['Admin', 'Operatore']">
+    <i pButtonIcon class="pi pi-plus"></i>
+    <span pButtonLabel>Aggiungi utente</span>
+  </button>
+</div>
+
+<p-table
+  [value]="data"
+  [paginator]="true"
+  [rows]="10"
+  paginatorPosition="bottom"
+  [scrollable]="true"
+  [scrollHeight]="(height - 500) + 'px'"
+  #myTable
+  [style]="{ '--row-height': rowHeight + 'px' }"
+  class="dynamic-rows"
+  [size]="'small'"
+  [rowsPerPageOptions]=rowsPerPageOptions
+>
+  <ng-template pTemplate="header">
+    <tr>
+      <th style="min-width: 100px;">Azioni</th>
+      <th style="min-width: 50px;" pSortableColumn="id">ID
+        <p-sortIcon field="id"/>
+      </th>
+      <th style="min-width: 120px;" pSortableColumn="firstName">Nome
+        <p-sortIcon field="firstName"/>
+      </th>
+      <th style="min-width: 120px;" pSortableColumn="lastName">Cognome
+        <p-sortIcon field="lastName"/>
+      </th>
+      <th style="min-width: 180px;" pSortableColumn="email">Email
+        <p-sortIcon field="email"/>
+      </th>
+      <th style="min-width: 100px;" pSortableColumn="role">Ruolo
+        <p-sortIcon field="role"/>
+      </th>
+      <th style="min-width: 100px;" pSortableColumn="status">Status
+        <p-sortIcon field="status"/>
+      </th>
+      <th style="min-width: 130px;" pSortableColumn="create_date">Data Creazione
+        <p-sortIcon field="create_date"/>
+      </th>
+    </tr>
+  </ng-template>
+
+  <ng-template pTemplate="body" let-item>
+    <tr [ngClass]="{ 'row-deleted': item.deleted }">
+      <td>
+        @if (!item.deleted) {
+          <button pButton class="p-button-text p-button-sm action-button"
+                  (click)="openEditDialog(item)" [appHasRole]="['Admin', 'Operatore']">
+            <i pButtonIcon class="pi pi-pencil"></i>
+          </button>
+        }
+        <button pButton class="p-button-text p-button-sm action-button p-button-danger"
+                (click)="openDeleteDialog(item)" [appHasRole]="['Admin']">
+          <i pButtonIcon class="pi pi-trash"></i>
+        </button>
+      </td>
+      <td>{{ item.id }}</td>
+      <td>{{ item.firstName }}</td>
+      <td>{{ item.lastName }}</td>
+      <td>{{ item.email }}</td>
+      <td>{{ item.role }}</td>
+      <td>{{ item.status }}</td>
+      <td>{{ item.create_date | date:'dd/MM/yyyy HH:mm' }}</td>
+    </tr>
+  </ng-template>
+
+  <ng-template pTemplate="emptymessage">
+    <tr>
+      <td colspan="8" class="text-center">Nessun utente trovato.</td>
+    </tr>
+  </ng-template>
+</p-table>
+
+<!-- Dialog crea/modifica -->
+<p-dialog
+  [header]="isNew ? 'Crea nuovo utente' : 'Modifica utente: ' + selectedItem?.firstName + ' ' + selectedItem?.lastName"
+  [(visible)]="editDialogVisible"
+  [modal]="true"
+  [style]="{width: '600px'}">
+
+  @if (form) {
+    <form [formGroup]="form" [readOnly]="['Lettore']" class="edit-form"
+          style="display: flex; flex-wrap: wrap; gap: 1rem;">
+
+      <div style="flex: 1 1 45%;">
+        <label for="firstName">Nome *</label>
+        <input id="firstName" type="text" pInputText formControlName="firstName"
+               class="p-inputtext p-component" style="width: 100%;"
+               [class.ng-invalid]="form.controls['firstName'].invalid && form.controls['firstName'].touched"
+               [class.ng-dirty]="form.controls['firstName'].dirty">
+        @if (form.controls['firstName'].invalid && form.controls['firstName'].touched) {
+          <small class="p-error">Obbligatorio</small>
+        }
+      </div>
+
+      <div style="flex: 1 1 45%;">
+        <label for="lastName">Cognome *</label>
+        <input id="lastName" type="text" pInputText formControlName="lastName"
+               class="p-inputtext p-component" style="width: 100%;"
+               [class.ng-invalid]="form.controls['lastName'].invalid && form.controls['lastName'].touched"
+               [class.ng-dirty]="form.controls['lastName'].dirty">
+        @if (form.controls['lastName'].invalid && form.controls['lastName'].touched) {
+          <small class="p-error">Obbligatorio</small>
+        }
+      </div>
+
+      <div style="flex: 1 1 45%;">
+        <label for="email">Email *</label>
+        <input id="email" type="email" pInputText formControlName="email"
+               class="p-inputtext p-component" style="width: 100%;"
+               [class.ng-invalid]="form.controls['email'].invalid && form.controls['email'].touched"
+               [class.ng-dirty]="form.controls['email'].dirty">
+        @if (form.controls['email'].errors?.['required'] && form.controls['email'].touched) {
+          <small class="p-error">Obbligatorio</small>
+        } @else if (form.controls['email'].errors?.['email'] && form.controls['email'].touched) {
+          <small class="p-error">Email non valida</small>
+        }
+      </div>
+
+      <div style="flex: 1 1 45%; overflow: hidden;">
+        <label for="role">Ruolo *</label>
+        <p-select id="role" [options]="roles" formControlName="role"
+                  optionLabel="label" optionValue="value"
+                  placeholder="Seleziona ruolo" [showClear]="true"
+                  style="width: 100%;" [appendTo]="'body'"
+                  class="p-select-wide-wrap"
+                  [class.ng-invalid]="form.controls['role'].invalid && form.controls['role'].touched"/>
+        @if (form.controls['role'].invalid && form.controls['role'].touched) {
+          <small class="p-error">Obbligatorio</small>
+        }
+      </div>
+
+      <div style="flex: 1 1 45%; overflow: hidden;">
+        <label for="status">Status *</label>
+        <p-select id="status" [options]="statuses" formControlName="status"
+                  optionLabel="label" optionValue="value"
+                  placeholder="Seleziona status" [showClear]="true"
+                  style="width: 100%;" [appendTo]="'body'"
+                  [class.ng-invalid]="form.controls['status'].invalid && form.controls['status'].touched"/>
+        @if (form.controls['status'].invalid && form.controls['status'].touched) {
+          <small class="p-error">Obbligatorio</small>
+        }
+      </div>
+
+    </form>
+  }
+
+  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+    <button pButton class="p-button-secondary p-component" (click)="editDialogVisible=false">
+      <span pButtonLabel>Annulla</span>
+    </button>
+    <button pButton class="p-button p-component" (click)="saveItem()"
+            [disabled]="!isFormValid()"
+            [appHasRole]="['Admin', 'Operatore']">
+      <span pButtonLabel>Salva</span>
+    </button>
+  </div>
+</p-dialog>
+
+<!-- Dialog elimina -->
+<p-dialog header="Elimina utente" [(visible)]="deleteDialogVisible" [modal]="true" [style]="{width: '350px'}">
+  <p style="margin-bottom: 50px;">
+    Vuoi eliminare <b>{{ selectedItem?.firstName }} {{ selectedItem?.lastName }}</b>?
+  </p>
+  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+    <button pButton class="p-button-secondary p-component" (click)="deleteDialogVisible=false">
+      <span pButtonLabel>Annulla</span>
+    </button>
+    <button pButton (click)="confirmDelete()" severity="danger">
+      <span pButtonLabel>Elimina</span>
+    </button>
+  </div>
+</p-dialog>

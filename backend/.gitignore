@@ -1,0 +1,83 @@
+# compiled output
+/dist
+/node_modules
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+
+# Tests
+/coverage
+/.nyc_output
+
+# IDEs and editors
+/.idea
+/qodana.yaml
+/.qodo
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.vscode
+
+#ENV
+.env
+.env-*
+.env.*
+!.env.example
+.env.infisical
+.env.production
+src/config/*.yml
+
+# Infisical
+.infisical.json
+.infisical/
+
+# Sentry Config File
+.sentryclirc
+
+
+# Terraform
+/terraform/.terraform
+/terraform/*.pem
+/terraform/terraform.tfstate*
+/terraform/.terraform.lock*
+/terraform/variables.tf
+
+
+#DOCS
+/Docs.md
+
+#METABASE
+/metabase/data
+
+# act
+/.actrc
+
+/data
+
+dump-*.sql
+*.sql
+
+.nvmrc
+
+schema_db.sql
+
+src/data-importer/source/*.csv

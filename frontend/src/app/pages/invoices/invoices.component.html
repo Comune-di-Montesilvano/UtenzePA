@@ -1,0 +1,25 @@
+<p-toast position="top-right" key="global"></p-toast>
+
+<div style="padding: 1rem;">
+    <div>
+        <h1>Gestione Fatture</h1>
+        <p style="color: #6A7282;">Gestisci le anagrafiche e i dettagli delle fatture.</p>
+    </div>
+
+    <div style="margin-top: 1rem;">
+        <app-search-invoices (search)="onSearch($event)"></app-search-invoices>
+    </div>
+
+    <div style="margin-top: 1.5rem;">
+        <app-data-table-invoices
+            [data]="list"
+            [loading]="loading"
+            (onSave)="onSave($event)"
+            (onDelete)="onDelete($event)"
+            (onCreate)="onCreate($event)"
+            (onRestore)="onRestore($event)"
+            [creationResult]="creationResult"
+            [resetPagingTrigger]="resetPagingCount"
+        ></app-data-table-invoices>
+    </div>
+</div>

@@ -1,0 +1,24 @@
+<p-toast position="top-right" key="global"></p-toast>
+
+<div class="p-grid" style="padding: 1rem;">
+  <div>
+    <h1>Aggregati Immobili</h1>
+    <p style="color: #6A7282;">Gestisci gli aggregati di immobili</p>
+  </div>
+
+  <div class="p-col-12" style="margin-top: 1rem;">
+    <app-search-aggregators (search)="onSearch($event)"></app-search-aggregators>
+  </div>
+
+  <div class="p-col-12" style="margin-top: 1.5rem;">
+    <app-data-table-aggregators
+      [data]="list"
+      [loading]="loading"
+      (onSave)="onSave($event)"
+      (onDelete)="onDelete($event)"
+      (onCreate)="onCreate($event)"
+      (onRestore)="onRestore($event)"
+      [resetPagingTrigger]="resetPagingCount"
+    ></app-data-table-aggregators>
+  </div>
+</div>

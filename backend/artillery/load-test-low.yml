@@ -1,0 +1,84 @@
+config:
+  target: http://localhost:3000
+  environments:
+    default:
+      variables:
+        SENTRY_DNS: null
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: Low load - 5 requests per second for 1 minute
+  defaults:
+    headers:
+      Content-Type: application/json
+scenarios:
+  - name: Health and public endpoints
+    weight: 30
+    flow:
+      - get:
+          url: /api/v1/health
+
+  - name: Authentication flow
+    weight: 40
+    flow:
+      - post:
+          url: /api/v1/auth/register
+          json:
+            email: user-{{ $randomString() }}@test.com
+            password: Test123!@#
+            passwordConfirm: Test123!@#
+          capture:
+            - json: $.user._id
+              as: userId
+      - post:
+          url: /api/v1/auth/login
+          json:
+            email: user-{{ $randomString() }}@test.com
+            password: Test123!@#
+          capture:
+            - json: $.accessToken
+              as: accessToken
+            - json: $.refreshToken
+              as: refreshToken
+      - post:
+          url: /api/v1/auth/refresh
+          ifTrue: refreshToken
+          json:
+            refreshToken: { { refreshToken } }
+          capture:
+            - json: $.accessToken
+              as: newAccessToken
+      - post:
+          url: /api/v1/auth/logout
+          ifTrue: accessToken
+          headers:
+            Authorization: Bearer {{ accessToken }}
+          json:
+            refreshToken: { { refreshToken } }
+
+  - name: CRUD operations on test entity
+    weight: 30
+    flow:
+      - get:
+          url: /api/v1/health
+      - post:
+          url: /api/v1/test
+          json:
+            name: Test Entity {{ $randomString() }}
+          capture:
+            - json: $._id
+              as: testId
+      - get:
+          url: /api/v1/test
+      - get:
+          url: /api/v1/test/{{ testId }}
+          ifTrue: testId
+      - put:
+          url: /api/v1/test/{{ testId }}
+          ifTrue: testId
+          json:
+            _id: { { testId } }
+            name: Updated Entity {{ $randomString() }}
+      - delete:
+          url: /api/v1/test/{{ testId }}
+          ifTrue: testId

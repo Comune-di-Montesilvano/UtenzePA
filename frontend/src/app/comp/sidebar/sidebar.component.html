@@ -1,0 +1,45 @@
+<aside class="sidebar">
+  <ul class="sidebar-menu">
+    
+    <li *ngFor="let item of menu">
+
+      <a *ngIf="!item.submenu"
+         class="menu-item"
+         [routerLink]="item.route"
+         routerLinkActive="active-link"
+         [routerLinkActiveOptions]="{ exact: true }"
+         (click)="onMainItemClick()"
+         >
+        <i [class]="item.icon"></i>
+        {{ item.label }}
+      </a>
+
+      <div *ngIf="item.submenu"
+           class="menu-item has-submenu"
+           (click)="toggleSubmenu(item)">
+        <i [class]="item.icon"></i>
+        {{ item.label }}
+        <span class="arrow" [class.open]="item.open">></span>
+      </div>
+
+      <ul *ngIf="item.submenu && item.open" class="submenu">
+        <li *ngFor="let sub of item.submenu">
+          <a class="submenu-item"
+             [routerLink]="sub.route"
+             (click)="onSubmenuItemClick(item)"
+             routerLinkActive="active-link"
+             [routerLinkActiveOptions]="{ exact: true }">
+            <i [class]="sub.icon"></i>
+            {{ sub.label }}
+          </a>
+        </li>
+      </ul>
+
+    </li>
+  </ul>
+
+  <div class="sidebar-footer" (click)="logout()">
+    <i class="pi pi-sign-out"></i>
+    <span>Esci</span>
+  </div>
+</aside>

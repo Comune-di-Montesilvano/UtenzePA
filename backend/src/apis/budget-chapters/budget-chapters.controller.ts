@@ -1,0 +1,56 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { BudgetChaptersService } from './budget-chapters.service';
+import { CreateBudgetChapterDto } from './dto/create-budget-chapters.dto';
+import { UpdateBudgetChapterDto } from './dto/update-budget-chapters.dto';
+import { JwtAuthGuard } from '@/core/auth/guards/jwt-auth.guard';
+import { RolesGuard } from '@/core/auth/guards/roles.guard';
+import { Roles } from '@/core/auth/decorators/roles.decorator';
+import { CurrentUser, ICurrentUser } from '@/core/auth/decorators/current-user.decorator';
+import { BudgetChapter } from './entity/budgetChapter.entity';
+import { SearchBudgetChapterDto } from '@apis/budget-chapters/dto/search-budget-chapter.dto';
+
+@Controller('budget-chapters')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class BudgetChaptersController {
+  constructor(private readonly service: BudgetChaptersService) {}
+
+  @Get()
+  getAll(@Query() filters: SearchBudgetChapterDto): Promise<BudgetChapter[]> {
+    return this.service.findAll(filters);
+  }
+
+  @Roles('Admin', 'Operatore')
+  @Post()
+  create(
+    @Body() dto: CreateBudgetChapterDto,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<BudgetChapter> {
+    return this.service.create(dto, user.id);
+  }
+
+  @Roles('Admin', 'Operatore')
+  @Patch(':id')
+  update(
+    @Param('id') id: number,
+    @Body() dto: UpdateBudgetChapterDto,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<BudgetChapter> {
+    return this.service.update(id, dto, user.id);
+  }
+
+  @Roles('Admin', 'Operatore')
+  @Delete(':id')
+  remove(@Param('id') id: number, @Body() dto: UpdateBudgetChapterDto): Promise<void> {
+    return this.service.remove(id, dto.updated_by_user_id);
+  }
+}

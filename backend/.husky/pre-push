@@ -1,0 +1,53 @@
+#!/bin/sh
+
+echo "🚀 Running pre-push checks..."
+
+# 1. Run full test suite
+echo "\n🧪 Running complete test suite..."
+npm test -- --coverage --passWithNoTests
+
+if [ $? -ne 0 ]; then
+    echo "\n❌ PUSH BLOCKED: Tests failed!"
+    echo "💡 All tests must pass before pushing to remote.\n"
+    exit 1
+fi
+
+# 2. Build check
+echo "\n🔨 Checking if project builds..."
+npm run build
+
+if [ $? -ne 0 ]; then
+    echo "\n❌ PUSH BLOCKED: Build failed!"
+    echo "💡 Fix build errors before pushing.\n"
+    exit 1
+fi
+
+# 3. Docker build check
+echo "\n🐳 Checking if Docker build succeeds..."
+docker build --target build -t nestjs-template-build-check .
+
+if [ $? -ne 0 ]; then
+    echo "\n❌ PUSH BLOCKED: Docker build failed!"
+    echo "💡 Fix Docker build errors before pushing.\n"
+    exit 1
+fi
+
+# Clean up the build check image
+docker rmi nestjs-template-build-check 2>/dev/null || true
+
+echo "✅ Docker build check passed!"
+
+# @DEV: Removed due to two vulnerabilities: one in Infisical and one in Artillery. Neither has released a security update to date. We're blocking this audit for now, but we're monitoring the situation to reactivate it as soon as possible.
+
+# # 4. Final security audit
+# echo "\n🔒 Final security check..."
+# npm audit --audit-level=critical 2>/dev/null
+
+# if [ $? -ne 0 ]; then
+#     echo "\n⚠️  WARNING: Security vulnerabilities detected!"
+#     echo "💡 Consider fixing security issues before pushing."
+#     echo "   Run 'npm audit' for details.\n"
+#     # Not blocking push, just warning
+# fi
+
+# echo "\n✅ All pre-push checks passed! Pushing to remote...\n"

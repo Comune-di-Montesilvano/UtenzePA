@@ -1,0 +1,168 @@
+<div style="display: flex; justify-content: space-between; align-items: center;">
+  <h3>Elenco ({{ data.length }})</h3>
+  <button
+    pButton
+    class="p-button"
+    (click)="openCreateDialog()"
+    [appHasRole]="['Admin', 'Operatore']">
+    <i pButtonIcon class="pi pi-plus"></i>
+    <span pButtonLabel>Aggiungi Aggregato Utenza</span>
+  </button>
+</div>
+
+<p-table
+  [value]="loading ? skeletonRows : data"
+  [paginator]="true"
+  [rows]="10"
+  paginatorPosition="bottom"
+  [scrollable]="true"
+  [scrollHeight]="(height - 500) + 'px'"
+  #myTable
+  [style]="{ '--row-height': rowHeight + 'px' }"
+  class="dynamic-rows"
+  [sortMode]="'multiple'"
+  [size]="'small'"
+  [rowsPerPageOptions]=rowsPerPageOptions
+>
+  <ng-template pTemplate="header">
+    <tr>
+      <th style="width: 15%;">Azioni</th>
+
+      <th pSortableColumn="id" style="width: 10%;">
+        ID
+        <p-sortIcon field="id"></p-sortIcon>
+      </th>
+
+      <th pSortableColumn="code" style="width: 25%;">
+        Codice
+        <p-sortIcon field="code"></p-sortIcon>
+      </th>
+
+      <th pSortableColumn="description" style="width: 50%;">
+        Descrizione
+        <p-sortIcon field="description"></p-sortIcon>
+      </th>
+    </tr>
+  </ng-template>
+
+  <ng-template pTemplate="body" let-aggregator>
+    @if (loading) {
+      <tr>
+        @for (col of skeletonCols; track col) {
+          <td><p-skeleton height="1.5rem"/></td>
+        }
+      </tr>
+    } @else {
+      <tr [ngClass]="{ 'row-deleted': aggregator.deleted }">
+        <td>
+          @if (!aggregator.deleted) {
+            <button pButton class="p-button-text p-button-sm action-button"
+                    (click)="openEditDialog(aggregator)" [appHasRole]="['Admin', 'Operatore', 'Lettore']">
+              <i pButtonIcon class="pi pi-pencil"></i>
+            </button>
+            <button pButton class="p-button-text p-button-sm p-button-danger action-button"
+                    (click)="openDeleteDialog(aggregator)" [appHasRole]="['Admin', 'Operatore']">
+              <i pButtonIcon class="pi pi-trash"></i>
+            </button>
+          } @else {
+            <button pButton class="p-button-text p-button-sm p-button-success action-button"
+                    (click)="restoreItem(aggregator)" [appHasRole]="['Admin', 'Operatore']">
+              <i pButtonIcon class="pi pi-undo"></i>
+            </button>
+          }
+        </td>
+        <td>{{ aggregator.id }}</td>
+        <td>{{ aggregator.code }}</td>
+        <td>{{ aggregator.description }}</td>
+      </tr>
+    }
+  </ng-template>
+
+  <ng-template pTemplate="emptymessage">
+    <tr>
+      <td colspan="5" class="text-center">Nessun aggregato utenza trovato.</td>
+    </tr>
+  </ng-template>
+</p-table>
+
+<p-dialog
+  [header]="isNew ? 'Nuovo Aggregato Utenza' : 'Modifica Aggregato Utenza: ' + selectedItem?.code"
+  [(visible)]="editDialogVisible"
+  [modal]="true"
+  [style]="{width: '600px'}">
+
+  @if (form) {
+    <form [formGroup]="form" [readOnly]="['Lettore']" class="edit-form"
+          style="display: flex; flex-wrap: wrap; gap: 1rem;">
+
+      <div style="flex: 1 1 45%;">
+        <label for="code">Codice *</label>
+        <input id="code" type="text" pInputText formControlName="code"
+               class="p-inputtext p-component" style="width: 100%;"
+               [class.ng-invalid]="form.controls['code'].invalid && form.controls['code'].touched"
+               [class.ng-dirty]="form.controls['code'].dirty">
+        @if (form.controls['code'].invalid && form.controls['code'].touched) {
+          <small class="p-error">Obbligatorio</small>
+        }
+      </div>
+
+      <div style="flex: 1 1 100%;">
+        <label for="description">Descrizione</label>
+        <textarea id="description" pInputTextarea formControlName="description"
+                  rows="3" style="width: 100%;"></textarea>
+      </div>
+
+    </form>
+  }
+
+  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+    <button pButton class="p-button-secondary p-component" (click)="editDialogVisible=false">
+      <span pButtonLabel>Annulla</span>
+    </button>
+    <button pButton class="p-button p-component" (click)="saveItem()"
+            [disabled]="!isFormValid()"
+            [appHasRole]="['Admin', 'Operatore']">
+      <span pButtonLabel>Salva</span>
+    </button>
+  </div>
+
+</p-dialog>
+
+<p-dialog header="Elimina Aggregato Utenza" [(visible)]="deleteDialogVisible" [modal]="true" [style]="{width: '350px'}">
+  <p>Sei sicuro di voler eliminare l'anagrafica <b>{{ selectedItem?.code }}</b>?</p>
+  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+    <button pButton class="p-button-secondary" (click)="deleteDialogVisible=false">
+      <span pButtonLabel>Annulla</span>
+    </button>
+    <button pButton (click)="confirmDelete()" severity="danger">
+      <span pButtonLabel>Elimina</span>
+    </button>
+  </div>
+</p-dialog>
+
+<p-dialog header="Ripristina Aggregato Utenza" [(visible)]="restoreDialogVisible" [modal]="true"
+          [style]="{width: '350px'}">
+  <p>Riattiva Aggregato Utenza <b>{{ selectedItem?.code }}</b>?</p>
+  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+    <button pButton class="p-button-secondary" (click)="restoreDialogVisible=false">
+      <span pButtonLabel>Annulla</span>
+    </button>
+    <button pButton class="p-button-success" (click)="confirmRestore()">
+      <span pButtonLabel>Ripristina</span>
+    </button>
+  </div>
+</p-dialog>
+
+<style>
+  .row-deleted {
+    background-color: #fcebeb;
+    opacity: 0.7;
+    text-decoration: line-through;
+  }
+
+  .action-button {
+    padding: 0.2rem !important;
+    margin: 0 0.1rem;
+    height: auto;
+  }
+</style>

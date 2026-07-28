@@ -1,0 +1,1015 @@
+{
+  "info": {
+    "name": "NestJS Template API",
+    "description": "Collezione completa delle API per il template NestJS con autenticazione, 2FA, gestione utenti e test entities.\n\n## Configurazione\n1. Importa anche il file `environment.json` per le variabili d'ambiente\n2. Assicurati di avere un'istanza del server running su `{{baseUrl}}`\n3. Dopo il login o register, i token verranno salvati automaticamente nelle variabili\n\n## Flusso di autenticazione\n1. **Register** - Crea un nuovo account\n2. **Login** - Ottieni access e refresh token\n3. **Enable 2FA** (opzionale) - Abilita autenticazione a due fattori\n4. **Verify 2FA Setup** - Conferma configurazione 2FA\n5. **Refresh Token** - Rinnova access token scaduto\n6. **Logout** - Invalida refresh token\n\n## Rate Limiting\nTutte le API hanno rate limiting configurato:\n- Register: 3 richieste/ora\n- Login: 5 richieste/15min\n- Verify 2FA: 5 richieste/5min\n- Refresh: 10 richieste/min",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tempToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "description": "Endpoint per registrazione, login, logout e gestione token",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "// Verifica presenza messaggio di successo",
+                  "pm.test(\"Response contains success message\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "    pm.expect(jsonData.message).to.include('registrato');",
+                  "});",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 2000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "",
+                  "// Log della risposta",
+                  "console.log('Register response:', pm.response.json());"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"passwordConfirm\": \"{{testPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Registra un nuovo utente nel sistema.\n\n**Rate Limit:** 3 richieste per ora\n\n**Validazioni:**\n- Email deve essere valida e univoca\n- Password minimo 12 caratteri, massimo 128\n- Password e passwordConfirm devono coincidere\n\n**Risposta:**\n- 201: Utente registrato con successo\n- 400: Dati non validi\n- 409: Email già esistente\n- 429: Rate limit superato"
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// Se 2FA non è abilitato, salva i token",
+                  "if (jsonData.accessToken && jsonData.refreshToken) {",
+                  "    pm.test(\"Access token is present\", function () {",
+                  "        pm.expect(jsonData.accessToken).to.be.a('string');",
+                  "    });",
+                  "    ",
+                  "    pm.test(\"Refresh token is present\", function () {",
+                  "        pm.expect(jsonData.refreshToken).to.be.a('string');",
+                  "    });",
+                  "    ",
+                  "    // Salva i token nelle variabili della collection",
+                  "    pm.collectionVariables.set(\"accessToken\", jsonData.accessToken);",
+                  "    pm.collectionVariables.set(\"refreshToken\", jsonData.refreshToken);",
+                  "    ",
+                  "    console.log('Tokens saved successfully');",
+                  "}",
+                  "",
+                  "// Se 2FA è abilitato, salva il token temporaneo",
+                  "if (jsonData.requires2FA && jsonData.tempToken) {",
+                  "    pm.test(\"2FA is required\", function () {",
+                  "        pm.expect(jsonData.requires2FA).to.be.true;",
+                  "    });",
+                  "    ",
+                  "    pm.collectionVariables.set(\"tempToken\", jsonData.tempToken);",
+                  "    console.log('2FA required - temp token saved');",
+                  "}",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 2000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Autentica un utente e ritorna i token JWT.\n\n**Rate Limit:** 5 richieste per 15 minuti\n\n**Flusso:**\n- Se 2FA non è abilitato: ritorna accessToken e refreshToken\n- Se 2FA è abilitato: ritorna tempToken e requires2FA=true (usare endpoint verify-2fa)\n\n**Risposta:**\n- 200: Login effettuato con successo\n- 401: Credenziali non valide\n- 429: Rate limit superato\n\n**Audit Log:**\nOgni login viene registrato con IP e User-Agent per sicurezza."
+          }
+        },
+        {
+          "name": "Verify 2FA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// Verifica presenza token",
+                  "pm.test(\"Access token is present\", function () {",
+                  "    pm.expect(jsonData.accessToken).to.be.a('string');",
+                  "});",
+                  "",
+                  "pm.test(\"Refresh token is present\", function () {",
+                  "    pm.expect(jsonData.refreshToken).to.be.a('string');",
+                  "});",
+                  "",
+                  "// Salva i token",
+                  "pm.collectionVariables.set(\"accessToken\", jsonData.accessToken);",
+                  "pm.collectionVariables.set(\"refreshToken\", jsonData.refreshToken);",
+                  "pm.collectionVariables.set(\"tempToken\", \"\");",
+                  "",
+                  "console.log('2FA verified - tokens saved');",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 1000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tempToken\": \"{{tempToken}}\",\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-2fa",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "verify-2fa"]
+            },
+            "description": "Verifica il codice TOTP 2FA dopo il login.\n\n**Rate Limit:** 5 richieste per 5 minuti\n\n**Body:**\n- tempToken: Token temporaneo ottenuto dal login\n- code: Codice TOTP a 6 cifre dall'app authenticator\n\n**Risposta:**\n- 200: 2FA verificato, ritorna accessToken e refreshToken\n- 401: Codice non valido o token scaduto\n- 429: Rate limit superato\n\n**Note:**\nIl codice può essere anche un backup code se TOTP non disponibile."
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// Verifica nuovo access token",
+                  "pm.test(\"New access token is present\", function () {",
+                  "    pm.expect(jsonData.accessToken).to.be.a('string');",
+                  "});",
+                  "",
+                  "// Aggiorna access token",
+                  "pm.collectionVariables.set(\"accessToken\", jsonData.accessToken);",
+                  "",
+                  "console.log('Access token refreshed');",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 1000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Rinnova l'access token usando il refresh token.\n\n**Rate Limit:** 10 richieste per minuto\n\n**Quando usarlo:**\n- Access token scaduto (default: 15 minuti)\n- Prima di operazioni critiche per garantire token valido\n\n**Risposta:**\n- 200: Nuovo accessToken\n- 401: Refresh token non valido o scaduto\n- 429: Rate limit superato\n\n**Note:**\nIl refresh token ha durata maggiore (default: 7 giorni) e viene ruotato automaticamente per sicurezza."
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// Verifica messaggio di successo",
+                  "pm.test(\"Response contains success message\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "});",
+                  "",
+                  "// Pulisci i token",
+                  "pm.collectionVariables.set(\"accessToken\", \"\");",
+                  "pm.collectionVariables.set(\"refreshToken\", \"\");",
+                  "pm.collectionVariables.set(\"tempToken\", \"\");",
+                  "",
+                  "console.log('Logged out - tokens cleared');",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 1000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Effettua il logout invalidando il refresh token.\n\n**Auth richiesta:** Bearer Token (accessToken)\n\n**Body:**\n- refreshToken: Token da invalidare\n\n**Risposta:**\n- 200: Logout effettuato con successo\n- 401: Non autenticato\n\n**Note:**\nDopo il logout, sia access che refresh token diventano inutilizzabili.\nL'audit log registra l'evento."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Two Factor Authentication",
+      "description": "Endpoint per configurare e gestire l'autenticazione a due fattori (2FA)",
+      "item": [
+        {
+          "name": "Enable 2FA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// Verifica presenza QR code",
+                  "pm.test(\"QR code URL is present\", function () {",
+                  "    pm.expect(jsonData).to.have.property('qrCodeUrl');",
+                  "    pm.expect(jsonData.qrCodeUrl).to.be.a('string');",
+                  "});",
+                  "",
+                  "// Verifica presenza secret (opzionale per setup manuale)",
+                  "pm.test(\"Secret is present\", function () {",
+                  "    pm.expect(jsonData).to.have.property('secret');",
+                  "});",
+                  "",
+                  "// Verifica backup codes",
+                  "pm.test(\"Backup codes are present\", function () {",
+                  "    pm.expect(jsonData).to.have.property('backupCodes');",
+                  "    pm.expect(jsonData.backupCodes).to.be.an('array');",
+                  "    pm.expect(jsonData.backupCodes).to.have.lengthOf.at.least(8);",
+                  "});",
+                  "",
+                  "console.log('2FA setup initiated - save backup codes securely!');",
+                  "console.log('Backup codes:', jsonData.backupCodes);",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 2000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/enable",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "enable"]
+            },
+            "description": "Inizia il processo di abilitazione 2FA per l'utente.\n\n**Auth richiesta:** Bearer Token (accessToken)\n\n**Risposta:**\n- qrCodeUrl: URL del QR code da scansionare con app authenticator\n- secret: Chiave segreta per configurazione manuale\n- backupCodes: Array di 8-10 codici di backup usa e getta\n\n**Procedura:**\n1. Scansiona il QR code con app authenticator (Google Authenticator, Authy, etc.)\n2. **IMPORTANTE:** Salva i backup codes in un posto sicuro\n3. Usa l'endpoint verify-setup per confermare con il primo codice TOTP\n\n**Note:**\n- I backup codes possono essere usati una sola volta ciascuno\n- Il 2FA non è attivo finché non viene verificato con verify-setup"
+          }
+        },
+        {
+          "name": "Verify 2FA Setup",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// Verifica messaggio di successo",
+                  "pm.test(\"2FA enabled successfully\", function () {",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "    pm.expect(jsonData.message).to.include('abilitato');",
+                  "});",
+                  "",
+                  "console.log('2FA is now active for this account');",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 1000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/verify-setup",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "verify-setup"]
+            },
+            "description": "Completa l'abilitazione del 2FA verificando il primo codice TOTP.\n\n**Auth richiesta:** Bearer Token (accessToken)\n\n**Body:**\n- code: Codice TOTP a 6 cifre generato dall'app authenticator\n\n**Risposta:**\n- 200: 2FA abilitato con successo\n- 400: Codice non valido\n- 401: Non autenticato\n\n**Importante:**\nDopo questa chiamata, il 2FA è attivo. Tutti i login successivi richiederanno:\n1. Email + Password → ricevi tempToken\n2. Codice TOTP → ricevi accessToken + refreshToken"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "Endpoint per gestione profilo utente",
+      "item": [
+        {
+          "name": "Get Current User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// Verifica struttura utente",
+                  "pm.test(\"User object has required fields\", function () {",
+                  "    pm.expect(jsonData).to.have.property('_id');",
+                  "    pm.expect(jsonData).to.have.property('email');",
+                  "    pm.expect(jsonData).to.have.property('createdAt');",
+                  "});",
+                  "",
+                  "// Verifica che password non sia esposta",
+                  "pm.test(\"Password is not exposed\", function () {",
+                  "    pm.expect(jsonData).to.not.have.property('password');",
+                  "    pm.expect(jsonData).to.not.have.property('passwordHash');",
+                  "});",
+                  "",
+                  "// Salva userId per altre richieste",
+                  "if (jsonData._id) {",
+                  "    pm.collectionVariables.set(\"userId\", jsonData._id);",
+                  "}",
+                  "",
+                  "console.log('User info retrieved:', jsonData.email);",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 500ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            },
+            "description": "Ottieni le informazioni dell'utente corrente autenticato.\n\n**Auth richiesta:** Bearer Token (accessToken)\n\n**Risposta:**\n- 200: Oggetto utente con campi:\n  - _id: ID univoco utente\n  - email: Email utente\n  - twoFactorEnabled: Se 2FA è attivo\n  - createdAt: Data di registrazione\n  - updatedAt: Ultima modifica\n\n**Note:**\n- I campi sensibili (password, secret 2FA) non sono mai esposti\n- Utile per verificare lo stato dell'autenticazione"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Test Entity",
+      "description": "CRUD completo per entità di test (esempio di implementazione)",
+      "item": [
+        {
+          "name": "Create Test Entity",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// Verifica struttura risposta",
+                  "pm.test(\"Response has _id and name\", function () {",
+                  "    pm.expect(jsonData).to.have.property('_id');",
+                  "    pm.expect(jsonData).to.have.property('name');",
+                  "});",
+                  "",
+                  "// Salva ID per altre operazioni",
+                  "if (jsonData._id) {",
+                  "    pm.environment.set(\"testEntityId\", jsonData._id);",
+                  "    console.log('Test entity created with ID:', jsonData._id);",
+                  "}",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 1000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Entity {{$randomInt}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/test",
+              "host": ["{{baseUrl}}"],
+              "path": ["test"]
+            },
+            "description": "Crea una nuova entità di test.\n\n**Body:**\n- name: Nome dell'entità (required, string)\n\n**Risposta:**\n- 201: Entità creata con successo\n- 400: Dati non validi\n\n**Note:**\nQuesta API viene loggata su Sentry per demo del monitoring."
+          }
+        },
+        {
+          "name": "Get All Test Entities",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// Verifica che sia un array",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "});",
+                  "",
+                  "console.log('Found', jsonData.length, 'test entities');",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 1000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/test",
+              "host": ["{{baseUrl}}"],
+              "path": ["test"]
+            },
+            "description": "Ottieni tutte le entità di test presenti nel database.\n\n**Risposta:**\n- 200: Array di entità test\n\n**Note:**\nIn un'applicazione reale, implementare paginazione per performance."
+          }
+        },
+        {
+          "name": "Get Test Entity by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// Verifica struttura",
+                  "pm.test(\"Response has expected structure\", function () {",
+                  "    pm.expect(jsonData).to.have.property('_id');",
+                  "    pm.expect(jsonData).to.have.property('name');",
+                  "});",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 500ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/test/{{testEntityId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["test", "{{testEntityId}}"]
+            },
+            "description": "Ottieni una specifica entità di test tramite ID.\n\n**Path Parameters:**\n- id: MongoDB ObjectId dell'entità\n\n**Risposta:**\n- 200: Entità trovata\n- 404: Entità non trovata"
+          }
+        },
+        {
+          "name": "Update Test Entity",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// Verifica aggiornamento",
+                  "pm.test(\"Entity was updated\", function () {",
+                  "    pm.expect(jsonData).to.have.property('name');",
+                  "});",
+                  "",
+                  "console.log('Entity updated successfully');",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 1000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Test Entity {{$randomInt}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/test/{{testEntityId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["test", "{{testEntityId}}"]
+            },
+            "description": "Aggiorna un'entità di test esistente.\n\n**Path Parameters:**\n- id: MongoDB ObjectId dell'entità\n\n**Body:**\n- name: Nuovo nome (opzionale, partial update)\n\n**Risposta:**\n- 200: Entità aggiornata\n- 404: Entità non trovata\n- 400: Dati non validi"
+          }
+        },
+        {
+          "name": "Delete Test Entity",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// Pulisci variabile",
+                  "pm.environment.unset(\"testEntityId\");",
+                  "",
+                  "console.log('Entity deleted successfully');",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 1000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/test/{{testEntityId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["test", "{{testEntityId}}"]
+            },
+            "description": "Elimina un'entità di test.\n\n**Path Parameters:**\n- id: MongoDB ObjectId dell'entità\n\n**Risposta:**\n- 200: Entità eliminata\n- 404: Entità non trovata"
+          }
+        },
+        {
+          "name": "Slow Query (Performance Test)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var delay = pm.request.url.query.get('delay') || 3000;",
+                  "",
+                  "// Verifica che il delay sia stato rispettato",
+                  "pm.test(\"Response time matches delay\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.at.least(parseInt(delay) - 100);",
+                  "});",
+                  "",
+                  "console.log('Slow query completed with', delay, 'ms delay');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/test/slow?delay=3000",
+              "host": ["{{baseUrl}}"],
+              "path": ["test", "slow"],
+              "query": [
+                {
+                  "key": "delay",
+                  "value": "3000",
+                  "description": "Delay in milliseconds (default: 3000)"
+                }
+              ]
+            },
+            "description": "Simula una query lenta al database per test di performance e monitoring.\n\n**Query Parameters:**\n- delay: Ritardo in millisecondi (default: 3000)\n\n**Risposta:**\n- 200: Array di entità dopo il delay simulato\n\n**Uso:**\n- Test di timeout\n- Test di monitoring (Sentry, APM)\n- Simulazione di query pesanti"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "description": "Endpoint per health check e monitoring",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// Verifica status",
+                  "pm.test(\"Status is ok\", function () {",
+                  "    pm.expect(jsonData.status).to.eql('ok');",
+                  "});",
+                  "",
+                  "// Verifica info sistema",
+                  "pm.test(\"System info is present\", function () {",
+                  "    pm.expect(jsonData).to.have.property('info');",
+                  "});",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 500ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "",
+                  "console.log('Health check passed');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Verifica lo stato di salute dell'applicazione e delle sue dipendenze.\n\n**Risposta:**\n- status: 'ok' se tutto funziona\n- info: Informazioni su database, redis, memoria, etc.\n- error: Dettagli errori se presenti\n\n**Uso:**\n- Monitoring continuo\n- Alert su servizi down\n- Dashboard di stato\n\n**Note:**\nEndpoint pubblico, non richiede autenticazione."
+          }
+        },
+        {
+          "name": "Liveness Probe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "pm.test(\"Status is ok\", function () {",
+                  "    pm.expect(jsonData.status).to.eql('ok');",
+                  "});",
+                  "",
+                  "// Verifica tempo di risposta veloce",
+                  "pm.test(\"Response time is less than 200ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/liveness",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "liveness"]
+            },
+            "description": "Liveness probe per Kubernetes/Docker.\n\n**Scopo:**\nVerifica che il processo dell'applicazione sia alive (non in deadlock).\n\n**Risposta:**\n- 200: Applicazione alive\n- Timeout/Error: Container deve essere riavviato\n\n**Note:**\nDeve essere ultra-veloce (< 200ms), senza check di dipendenze esterne."
+          }
+        },
+        {
+          "name": "Readiness Probe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var jsonData = pm.response.json();",
+                  "",
+                  "// Verifica che l'app sia ready",
+                  "pm.test(\"Application is ready\", function () {",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "    pm.expect(jsonData.status).to.eql('ok');",
+                  "});",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 1000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(1000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/readiness",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "readiness"]
+            },
+            "description": "Readiness probe per Kubernetes/Docker.\n\n**Scopo:**\nVerifica che l'applicazione sia pronta a ricevere traffico (database connesso, inizializzazioni complete).\n\n**Risposta:**\n- 200: Applicazione ready, può ricevere traffico\n- 503: Non pronta, rimuovi dal load balancer\n\n**Note:**\nPuò fare check di dipendenze (DB, Redis, Infisical)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Root",
+      "description": "Endpoint base dell'applicazione",
+      "item": [
+        {
+          "name": "Get Hello",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Verifica status code",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// Verifica che ritorna una stringa",
+                  "pm.test(\"Response is a string\", function () {",
+                  "    pm.expect(pm.response.text()).to.be.a('string');",
+                  "});",
+                  "",
+                  "// Verifica tempo di risposta",
+                  "pm.test(\"Response time is less than 200ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            },
+            "description": "Endpoint base dell'applicazione.\n\n**Risposta:**\nMessaggio di benvenuto (stringa)\n\n**Uso:**\nVerifica rapida che il server sia up."
+          }
+        },
+        {
+          "name": "Get Error (Sentry Test)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Questo endpoint dovrebbe ritornare un errore",
+                  "pm.test(\"Status code is 5xx\", function () {",
+                  "    pm.expect(pm.response.code).to.be.at.least(500);",
+                  "});",
+                  "",
+                  "console.log('Error endpoint called - check Sentry dashboard for error log');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/error",
+              "host": ["{{baseUrl}}"],
+              "path": ["error"]
+            },
+            "description": "Endpoint che genera intenzionalmente un errore per testare Sentry.\n\n**Risposta:**\n- 500: Internal Server Error\n\n**Uso:**\nVerificare che il monitoring degli errori funzioni correttamente.\nL'errore dovrebbe apparire nella dashboard Sentry."
+          }
+        }
+      ]
+    }
+  ]
+}

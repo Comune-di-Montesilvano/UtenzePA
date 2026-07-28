@@ -1,0 +1,11 @@
+.field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.field-group label {
+    font-weight: 600;
+    color: var(--p-text-color-secondary);
+}

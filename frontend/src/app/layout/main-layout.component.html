@@ -1,0 +1,23 @@
+<div class="main-layout">
+
+  <header class="header">
+    <div class="header-left">
+      <h1>Gestione Utenze</h1>
+      <p>Comune di Montesilvano</p>
+    </div>
+    <div class="header-right">
+      <span class="user-initials">{{ userInitials }}</span>
+    </div> 
+  </header>
+
+  <div class="body">
+    <aside class="sidebar">
+      <app-sidebar></app-sidebar>
+    </aside>
+
+    <main class="content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+
+</div>

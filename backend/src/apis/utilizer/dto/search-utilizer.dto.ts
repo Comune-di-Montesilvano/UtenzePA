@@ -1,0 +1,20 @@
+import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { Transform } from 'class-transformer';
+
+export class SearchUtilizerDto {
+  @IsOptional()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === 1 || value === true) return true;
+    if (value === 'false' || value === 0 || value === false) return false;
+    return value;
+  })
+  deleted?: boolean;
+}

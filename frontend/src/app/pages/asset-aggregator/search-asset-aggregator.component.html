@@ -1,0 +1,50 @@
+<!-- Barra principale -->
+<div [formGroup]="qSearch" style="display: flex; align-items: center; gap: 0.5rem;">
+  <div style="flex: 1;">
+    <input
+      type="text"
+      pInputText
+      placeholder="Cerca..."
+      formControlName="qsearch"
+      (keyup.enter)="onQuickSearch()"
+      style="width: 100%; height: 3rem;">
+  </div>
+
+  <button
+    pButton
+    class="p-button-outlined p-button-secondary"
+    (click)="filterDialogVisible = true"
+    style="height: 3rem;">
+    <i pButtonIcon class="pi pi-filter"></i>
+    <span pButtonLabel class="p-button-label">Filtri</span>
+  </button>
+</div>
+
+<p-dialog
+  header="Filtri di ricerca"
+  [(visible)]="filterDialogVisible"
+  [modal]="true"
+  [style]="{width: '450px'}"
+>
+  <form id="filter-form" [formGroup]="qSearch" (ngSubmit)="onSearch()" class="p-fluid" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+    <div style="flex: 1 1 100%;">
+      <label for="code">Codice</label>
+      <input id="code" pInputText formControlName="code" style="width: 100%;">
+    </div>
+    <div style="flex: 1 1 100%;">
+      <label for="description">Descrizione</label>
+      <input id="description" pInputText formControlName="description" style="width: 100%;">
+    </div>
+  </form>
+
+  <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem; gap: 0.5rem;">
+    <button pButton type="button" class="p-button-outlined p-button-secondary" (click)="onClear()">
+      <i pButtonIcon class="pi pi-filter-slash"></i>
+      <span pButtonLabel>Pulisci Filtri</span>
+    </button>
+    <button pButton type="submit" form="filter-form" class="p-button">
+      <i pButtonIcon class="pi pi-search"></i>
+      <span pButtonLabel>Applica Filtri</span>
+    </button>
+  </div>
+</p-dialog>

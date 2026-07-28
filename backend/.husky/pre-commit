@@ -1,0 +1,96 @@
+#!/bin/sh
+
+echo "🔍 Running pre-commit checks..."
+
+# Skip all checks for CI/CD environments
+if [ "$CI" = "true" ] || [ "$GITHUB_ACTIONS" = "true" ] || [ "$SEMANTIC_RELEASE" = "true" ]; then
+    echo "🤖 CI/CD environment detected, skipping pre-commit checks..."
+    exit 0
+fi
+
+# Skip for semantic-release commits
+if git log -1 --pretty=%B | grep -q "chore(release):"; then
+    echo "🚀 Semantic release commit detected, skipping checks..."
+    exit 0
+fi
+
+# 1. Branch protection check
+echo "\n🌿 Checking current branch..."
+
+# Get current branch name
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Define protected branches
+PROTECTED_BRANCHES="main staging"
+
+# Check if current branch is protected
+if echo "$PROTECTED_BRANCHES" | grep -w "$CURRENT_BRANCH" > /dev/null; then
+    echo "\n❌ COMMIT BLOCKED: Direct commits to '$CURRENT_BRANCH' branch are not allowed!"
+    echo ""
+    echo "📝 To preserve your work and switch to a feature branch:"
+    echo ""
+    echo "   1. Stash your changes:"
+    echo "      $ git stash"
+    echo ""
+    echo "   2. Create and switch to a new branch:"
+    echo "      $ git checkout -b <branch-type>/<branch-name>"
+    echo ""
+    echo "   3. Apply your stashed changes:"
+    echo "      $ git stash pop"
+    echo ""
+    echo "   4. Commit your changes:"
+    echo "      $ git add ."
+    echo "      $ git commit -m \"<your commit message>\""
+    echo ""
+    echo "📋 Accepted branch prefixes:"
+    echo "   • feature/  - New features (e.g., feature/user-authentication)"
+    echo "   • fix/      - Bug fixes (e.g., fix/login-error)"
+    echo "   • hotfix/   - Urgent production fixes (e.g., hotfix/critical-security-issue)"
+    echo "   • chore/    - Maintenance tasks (e.g., chore/update-dependencies)"
+    echo "   • docs/     - Documentation changes (e.g., docs/api-documentation)"
+    echo "   • test/     - Test additions or fixes (e.g., test/add-user-tests)"
+    echo "   • refactor/ - Code refactoring (e.g., refactor/optimize-queries)"
+    echo "   • style/    - Code style changes (e.g., style/format-code)"
+    echo "   • perf/     - Performance improvements (e.g., perf/optimize-database)"
+    echo "   • ci/       - CI/CD changes (e.g., ci/update-pipeline)"
+    echo "   • build/    - Build system changes (e.g., build/update-webpack)"
+    echo "   • revert/   - Revert commits (e.g., revert/feature-x)"
+    echo ""
+    echo "💡 Example:"
+    echo "   $ git stash"
+    echo "   $ git checkout -b feature/add-payment-system"
+    echo "   $ git stash pop"
+    echo "   $ git add ."
+    echo "   $ git commit -m \"feat: implement payment system\""
+    echo ""
+    exit 1
+fi
+
+# Optional: Check branch naming convention
+VALID_BRANCH_REGEX="^(feature|fix|hotfix|chore|docs|test|refactor|style|perf|ci|build|revert|release)/.+$"
+
+# Skip check for protected branches (already blocked above)
+if ! echo "$CURRENT_BRANCH" | grep -qE "$VALID_BRANCH_REGEX"; then
+    if ! echo "$PROTECTED_BRANCHES" | grep -w "$CURRENT_BRANCH" > /dev/null; then
+        echo "\n⚠️  WARNING: Branch name '$CURRENT_BRANCH' doesn't follow naming convention!"
+        echo "   Expected format: <type>/<description>"
+        echo "   Example: feature/login, fix/bug-123"
+        echo ""
+        echo "   Continuing anyway, but consider renaming your branch:"
+        echo "   $ git branch -m <new-branch-name>"
+        echo ""
+        # Don't block, just warn
+    fi
+fi
+
+echo "✅ Branch check passed: '$CURRENT_BRANCH'"
+
+# 2. Run lint-staged (ESLint + Prettier on staged files)
+echo "\n🎨 Running ESLint and Prettier on staged files..."
+npx lint-staged
+
+if [ $? -ne 0 ]; then
+    echo "\n❌ COMMIT BLOCKED: Linting or formatting issues detected!"
+    echo "💡 Fix the issues above and try again.\n"
+    exit 1
+fi

@@ -1,0 +1,22 @@
+<p-toast position="top-right" key="global"></p-toast>
+<div class="p-grid" style="padding: 1rem;">
+  <div>
+    <h1>Fornitori</h1>
+    <p style="color: #6A7282;">Gestisci le anagrafiche dei fornitori</p>
+  </div>
+  <div class="p-col-12" style="margin-top: 1rem;">
+    <app-search-suppliers (search)="onSearch($event)"></app-search-suppliers>
+  </div>
+  <div class="p-col-12" style="margin-top: 1.5rem;">
+    <app-data-table-suppliers
+      [data]="list"
+      [loading]="loading"
+      (onSave)="onSave($event)"
+      (onDelete)="onDelete($event)"
+      (onCreate)="onCreate($event)"
+      (onRestore)="onRestore($event)"
+      [creationResult]="creationResult"
+      [resetPagingTrigger]="resetPagingCount"
+    ></app-data-table-suppliers>
+  </div>
+</div>

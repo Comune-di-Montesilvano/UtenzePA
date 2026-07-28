@@ -1,0 +1,194 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+@import "font-awesome/css/font-awesome.min.css";
+
+body, html {
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  font-style: normal;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: -0.15px;
+  margin: 0px;
+}
+
+ul {
+  list-style-type: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+li a {
+    text-decoration: none;
+    color: black;
+}
+
+p-dialog .p-datatable-table-container {
+    height: 30vh;
+}
+
+p-table.p-component.p-datatable, .search-params {
+    padding: 20px;
+    border: 1px solid #dddddd;
+    margin-top: 10px;
+    border-radius: 12px;
+}
+
+.p-fluid.p-formgrid.p-grid {
+    display: flex;
+}
+
+.p-field.p-col-4 {
+    display: grid;
+    margin-right: 16px;
+}
+
+.p-col-12.p-d-flex.p-jc-start.p-mt-2 {
+    margin-top: 20px;
+}
+
+html, :root, .p-component, body {
+  --p-button-primary-background: #030213;
+  --p-button-primary-hover-background: #030213;
+  --p-button-primary-color: #ffffff;
+  --p-primary-color: #030213;
+  --p-button-primary-border-color : #030213;
+
+  --p-button-secondary-background: #ffffff;
+  --p-button-secondary-hover-background: #ffffff;
+  --p-button-secondary-color: #030213;
+  --p-secondary-color: #030213;
+  --p-button-secondary-border-color : #D4D4D4;
+
+}
+
+button.p-button.p-component {
+    margin-right: 4px;
+}
+
+
+.action-button .pi,
+.action-button:hover,
+.action-button:focus {
+  color: #000 !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.custom-button {
+  background-color: black !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.custom-button:hover,
+.custom-button:focus {
+  background-color: black !important;
+  color: white !important;
+  box-shadow: none !important;
+}
+
+.row-deleted {
+  color: #9ca3af !important;
+  opacity: 0.6;
+}
+
+.row-deleted td {
+  color: inherit !important;
+}
+
+.btn-green .pi {
+  color: #00C10D !important;
+}
+
+.btn-red .pi {
+  color: #E7000B !important;
+}
+
+ul.sidebar-menu li {
+    margin-left: 14px;
+    margin-top: 4px;
+    margin-bottom: 9px;
+}
+
+.submenu i.pi {
+    margin-right: 10px;
+}
+
+textarea,
+textarea:hover,
+textarea:active {
+  font-family: inherit !important;
+  font-feature-settings: inherit !important;
+  font-size: 1rem !important;
+  color: var(--p-inputtext-color) !important;
+  background: var(--p-inputtext-background) !important;
+  padding-block: var(--p-inputtext-padding-y) !important;
+  padding-inline: var(--p-inputtext-padding-x) !important;
+  border: 1px solid var(--p-inputtext-border-color) !important;
+  appearance: none !important;
+  border-radius: var(--p-inputtext-border-radius) !important;
+  box-shadow: var(--p-inputtext-shadow) !important;
+  outline: none !important;
+}
+
+textarea:focus,
+textarea:focus-visible,
+textarea:focus-within {
+  font-family: inherit !important;
+  font-feature-settings: inherit !important;
+  font-size: 1rem !important;
+  color: var(--p-inputtext-color) !important;
+  background: var(--p-inputtext-background) !important;
+  padding-block: var(--p-inputtext-padding-y) !important;
+  padding-inline: var(--p-inputtext-padding-x) !important;
+  border-color: var(--p-inputtext-focus-border-color) !important;
+  appearance: none !important;
+  border-radius: var(--p-inputtext-border-radius) !important;
+  box-shadow: var(--p-inputtext-focus-ring-shadow) !important;
+  outline: none !important;
+}
+.p-card {
+  box-shadow: none !important;
+  border: 1px solid #dddddd !important;
+}
+
+//.p-card-body {
+//  height: 76vh;
+//}
+
+aside.sidebar {
+    padding-top: 20px;
+}
+
+.dynamic-rows .p-datatable-tbody > tr {
+  height: var(--row-height) !important;
+}
+
+.p-datatable-table-container {
+    height: 100vh;
+}
+
+p-paginator.p-component.p-paginator {
+    padding-top: 25px;
+}
+
+.p-datatable-table-container {
+    background-color: #f3f3f375;
+}
+
+.cursor-pointer {
+  cursor: pointer!important;
+}
+
+.cursor-pointer.linker:hover {
+  background-color: #f5f5f5!important;
+}
+
+.card-widget .p-card-body {
+  padding-top: 0!important;
+}
+
+.card-widget .p-card-content p-table {
+  margin-top: 0!important;
+}

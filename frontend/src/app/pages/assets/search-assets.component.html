@@ -1,0 +1,254 @@
+<div [formGroup]="qSearch" style="display: flex; align-items: center; gap: 0.5rem;">
+  <div style="flex: 1;">
+        <span class="p-input-icon-left" style="width: 100%;">
+            <input
+              type="text"
+              pInputText
+              placeholder="Cerca per nome Asset, indirizzo o toponimo..."
+              formControlName="qsearch"
+              (keyup.enter)="onQuickSearch()"
+              style="width: 100%; height: 3rem;"
+            >
+        </span>
+  </div>
+
+  <button
+    pButton
+    class="p-button-outlined p-button-secondary"
+    (click)="filterDialogVisible = true"
+    style="height: 3rem;">
+    <i pButtonIcon class="pi pi-filter"></i>
+    <span pButtonLabel class="p-button-label">Filtri</span>
+  </button>
+</div>
+
+<p-dialog
+  header="Filtri di ricerca Immobili"
+  [(visible)]="filterDialogVisible"
+  [modal]="true"
+  [style]="{width: '1000px'}"
+  styleClass="max-w-screen-xl"
+>
+  <form id="filter-form" [formGroup]="qSearch" (ngSubmit)="onSearch()" class="p-fluid"
+        style="display: flex; flex-direction: column; gap: 1rem;">
+
+    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <label for="asset_name">Codice univoco</label>
+        <input id="asset_name" pInputText formControlName="asset_name" style="width: 100%;">
+      </div>
+
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <label for="asset_type_id">Tipo immobile</label>
+        <p-select
+          id="asset_type_id"
+          [options]="assetAggregatorOptions"
+          formControlName="asset_type_id"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Seleziona Tipo"
+          [filter]="true"
+          filterBy="label"
+          [showClear]="true"
+          style="width: 100%;"
+        />
+      </div>
+
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <label for="category">Categoria</label>
+        <p-select
+          id="category"
+          [options]="categoryOptions"
+          formControlName="category"
+          placeholder="Seleziona"
+          [showClear]="true"
+          optionLabel="label"
+          optionValue="value"
+          style="width: 100%;"
+        />
+      </div>
+
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <label>Proprietà</label>
+        <div style="display: flex; gap: 1rem; align-items: center; padding-top: 0.4rem;">
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <p-radioButton inputId="own_all" formControlName="ownership" [value]="null"/>
+            <label for="own_all">Tutti</label>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <p-radioButton inputId="own_yes" formControlName="ownership" [value]="1"/>
+            <label for="own_yes">Sì</label>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <p-radioButton inputId="own_no" formControlName="ownership" [value]="0"/>
+            <label for="own_no">No</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <label for="toponym">Toponimo</label>
+        <p-select
+          id="toponym"
+          [options]="toponomyOptions"
+          formControlName="toponym"
+          placeholder="Seleziona"
+          [showClear]="true"
+          optionLabel="label"
+          optionValue="value"
+          style="width: 100%;"
+        />
+      </div>
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <label for="address">Indirizzo</label>
+        <input id="address" pInputText formControlName="address" style="width: 100%;">
+      </div>
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <label for="civic_number">Civico</label>
+        <input id="civic_number" pInputText formControlName="civic_number" style="width: 100%;">
+      </div>
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <label for="municipality">Comune</label>
+        <input id="municipality" pInputText formControlName="municipality" style="width: 100%;">
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <label for="zip_code">CAP</label>
+        <input id="zip_code" pInputText formControlName="zip_code" style="width: 100%;">
+      </div>
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <label for="services_and_artifacts">Servizi/Manufatti</label>
+        <input id="services_and_artifacts" pInputText formControlName="services_and_artifacts" style="width: 100%;">
+      </div>
+      <div style="flex: 1 1 calc(50% - 0.75rem); display: flex; gap: 0.75rem;">
+        <div style="flex: 1; overflow: hidden;">
+          <label for="latitude">Latitudine</label>
+          <input
+            id="latitude"
+            type="text"
+            pInputText
+            formControlName="latitude"
+            placeholder="Es. 41.1158"
+            style="width: 100%;"
+            geoLatitude
+          >
+        </div>
+
+        <div style="flex: 1; overflow: hidden;">
+          <label for="longitude">Longitudine</label>
+          <input
+            id="longitude"
+            type="text"
+            pInputText
+            formControlName="longitude"
+            placeholder="Es. 16.8776"
+            style="width: 100%;"
+            geoLongitude
+          >
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+      <div style="flex: 1 1 0; display: flex; flex-direction: column;">
+        <label for="cadastral_value">Valore catastale</label>
+        <p-inputNumber
+          inputId="cadastral_value"
+          formControlName="cadastral_value"
+          mode="decimal"
+          locale="it-IT"
+          [minFractionDigits]="0"
+          [maxFractionDigits]="2"
+          fluid
+        ></p-inputNumber>
+      </div>
+      <div style="flex: 1 1 0; display:flex; flex-direction: column;">
+        <label for="area_sqm">Superficie (mq)</label>
+        <p-inputNumber
+          inputId="area_sqm"
+          formControlName="area_sqm"
+          mode="decimal"
+          [minFractionDigits]="2"
+          [maxFractionDigits]="2"
+          fluid
+        ></p-inputNumber>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <label for="sheet">Foglio</label>
+        <input id="sheet" pInputText formControlName="sheet" style="width: 100%;">
+      </div>
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <label for="parcel">Particella (Mappale)</label>
+        <input id="parcel" pInputText formControlName="parcel" style="width: 100%;">
+      </div>
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <label for="subordinate">Subalterno</label>
+        <input id="subordinate" pInputText formControlName="subordinate" style="width: 100%;">
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 1rem; width: 100%;">
+
+      <div style="display: flex; flex-direction: row; gap: 1rem;">
+        <div style="display: flex; flex-direction: column; gap: 0.25rem; width: 100%;">
+          <label for="associated_building" class="text-sm font-medium text-gray-700">
+            Descrizione fabbricato
+          </label>
+          <textarea
+            id="associated_building"
+            formControlName="associated_building"
+            rows="4"
+            style="width: 100%;"
+          ></textarea>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.25rem; width: 100%;">
+          <label for="specific_details" class="text-sm font-medium text-gray-700">
+            Specifiche
+          </label>
+          <textarea
+            id="specific_details"
+            formControlName="specific_details"
+            rows="4"
+            style="width: 100%;"
+          ></textarea>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 0.25rem; width: 100%;">
+        <label for="memo" class="text-sm font-medium text-gray-700">
+          Promemoria
+        </label>
+        <textarea
+          id="memo"
+          formControlName="memo"
+          rows="4"
+          class="w-full p-2 border border-gray-300 rounded
+                        focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-y"
+          style="width: 100%;"
+        ></textarea>
+      </div>
+
+    </div>
+
+
+  </form>
+
+  <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem; gap: 0.5rem;">
+    <button pButton type="button" class="p-button-outlined p-button-secondary" (click)="onClear()">
+      <i pButtonIcon class="pi pi-filter-slash"></i>
+      <span pButtonLabel>Pulisci Filtri</span>
+    </button>
+    <button pButton type="submit" form="filter-form" class="p-button">
+      <i pButtonIcon class="pi pi-search"></i>
+      <span pButtonLabel>Applica Filtri</span>
+    </button>
+  </div>
+</p-dialog>

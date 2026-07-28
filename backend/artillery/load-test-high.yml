@@ -1,0 +1,111 @@
+config:
+  target: http://localhost:3000
+  environments:
+    default:
+      variables:
+        SENTRY_DNS: null
+  phases:
+    - duration: 180
+      arrivalRate: 50
+      name: High load - 50 requests per second for 3 minutes
+    - duration: 60
+      arrivalRate: 100
+      name: Peak load - 100 requests per second for 1 minute
+    - duration: 180
+      arrivalRate: 50
+      name: High load - 50 requests per second for 3 minutes
+    - duration: 60
+      arrivalRate: 1000
+      name: Peak load - 1000 requests per second for 1 minute
+    - duration: 120
+      arrivalRate: 500
+      name: High load - 500 requests per second for 2 minutes
+  defaults:
+    headers:
+      Content-Type: application/json
+scenarios:
+  - name: Health and public endpoints
+    weight: 15
+    flow:
+      - get:
+          url: /api/v1/health
+
+  - name: Authentication flow with 2FA setup
+    weight: 55
+    flow:
+      - post:
+          url: /api/v1/auth/register
+          json:
+            email: user-{{ $randomString() }}@test.com
+            password: Test123!@#
+            passwordConfirm: Test123!@#
+          capture:
+            - json: $.user._id
+              as: userId
+            - json: $.accessToken
+              as: accessToken
+      - post:
+          url: /api/v1/auth/2fa/enable
+          ifTrue: accessToken
+          headers:
+            Authorization: Bearer {{ accessToken }}
+          capture:
+            - json: $.secret
+              as: secret2FA
+      - post:
+          url: /api/v1/auth/login
+          json:
+            email: user-{{ $randomString() }}@test.com
+            password: Test123!@#
+          capture:
+            - json: $.accessToken
+              as: accessToken
+            - json: $.refreshToken
+              as: refreshToken
+      - get:
+          url: /api/v1/users/me
+          ifTrue: accessToken
+          headers:
+            Authorization: Bearer {{ accessToken }}
+      - post:
+          url: /api/v1/auth/refresh
+          ifTrue: refreshToken
+          json:
+            refreshToken: { { refreshToken } }
+          capture:
+            - json: $.accessToken
+              as: newAccessToken
+      - post:
+          url: /api/v1/auth/logout
+          ifTrue: accessToken
+          headers:
+            Authorization: Bearer {{ accessToken }}
+          json:
+            refreshToken: { { refreshToken } }
+
+  - name: CRUD operations on test entity
+    weight: 30
+    flow:
+      - get:
+          url: /api/v1/health
+      - post:
+          url: /api/v1/test
+          json:
+            name: Test Entity {{ $randomString() }}
+          capture:
+            - json: $._id
+              as: testId
+      - get:
+          url: /api/v1/test
+      - get:
+          url: /api/v1/test/{{ testId }}
+          ifTrue: testId
+      - put:
+          url: /api/v1/test/{{ testId }}
+          ifTrue: testId
+          json:
+            _id: { { testId } }
+            name: Updated Entity {{ $randomString() }}
+      - delete:
+          url: /api/v1/test/{{ testId }}
+          ifTrue: testId
