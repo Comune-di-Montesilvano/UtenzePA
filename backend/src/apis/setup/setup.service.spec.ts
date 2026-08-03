@@ -38,6 +38,16 @@ describe('SetupService', () => {
   });
 
   describe('requestOtp', () => {
+    const originalBootstrapToken = process.env.SETUP_BOOTSTRAP_TOKEN;
+
+    beforeEach(() => {
+      process.env.SETUP_BOOTSTRAP_TOKEN = 'test-bootstrap-token';
+    });
+
+    afterEach(() => {
+      process.env.SETUP_BOOTSTRAP_TOKEN = originalBootstrapToken;
+    });
+
     it('genera un OTP a 6 cifre, hasha la password e invia l\'email se non esiste nessun admin', async () => {
       userRepository.count.mockResolvedValue(0);
 
@@ -46,6 +56,7 @@ describe('SetupService', () => {
         firstName: 'Mario',
         lastName: 'Rossi',
         password: 'PasswordForte123!',
+        bootstrapToken: 'test-bootstrap-token',
       });
 
       expect(result).toBe(true);
@@ -63,6 +74,22 @@ describe('SetupService', () => {
         firstName: 'Mario',
         lastName: 'Rossi',
         password: 'PasswordForte123!',
+        bootstrapToken: 'test-bootstrap-token',
+      });
+
+      expect(result).toBe(false);
+      expect(mailer.sendMail).not.toHaveBeenCalled();
+    });
+
+    it('rifiuta la richiesta se il bootstrap token non combacia, anche a DB vuoto', async () => {
+      userRepository.count.mockResolvedValue(0);
+
+      const result = await service.requestOtp({
+        email: 'admin@comune.it',
+        firstName: 'Mario',
+        lastName: 'Rossi',
+        password: 'PasswordForte123!',
+        bootstrapToken: 'token-sbagliato',
       });
 
       expect(result).toBe(false);
@@ -71,6 +98,16 @@ describe('SetupService', () => {
   });
 
   describe('verifyOtp', () => {
+    const originalBootstrapToken = process.env.SETUP_BOOTSTRAP_TOKEN;
+
+    beforeEach(() => {
+      process.env.SETUP_BOOTSTRAP_TOKEN = 'test-bootstrap-token';
+    });
+
+    afterEach(() => {
+      process.env.SETUP_BOOTSTRAP_TOKEN = originalBootstrapToken;
+    });
+
     const requestValidPending = async (manager: {
       query: jest.Mock;
       insert: jest.Mock;
@@ -82,6 +119,7 @@ describe('SetupService', () => {
         firstName: 'Mario',
         lastName: 'Rossi',
         password: 'PasswordForte123!',
+        bootstrapToken: 'test-bootstrap-token',
       });
       const otp = mailer.sendMail.mock.calls[0][2].match(/\d{6}/)[0];
       dataSource.transaction.mockImplementation((cb) => cb(manager));
@@ -155,6 +193,37 @@ describe('SetupService', () => {
       expect(manager.query).toHaveBeenCalledWith('SET FOREIGN_KEY_CHECKS=0');
       expect(manager.query).toHaveBeenCalledWith('SET FOREIGN_KEY_CHECKS=1');
       expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    it('rifiuta un OTP corretto ma scaduto', async () => {
+      const manager = { query: jest.fn(), insert: jest.fn(), update: jest.fn() };
+      const otp = await requestValidPending(manager);
+      userRepository.count.mockResolvedValue(0);
+
+      // Forza la scadenza dello stato pendente creato da requestValidPending.
+      const pending = (service as unknown as { pending: { otpExpiry: Date } }).pending;
+      pending.otpExpiry = new Date(Date.now() - 60 * 1000);
+
+      const result = await service.verifyOtp('admin@comune.it', otp);
+
+      expect(result).toBe(false);
+      expect(manager.insert).not.toHaveBeenCalled();
+    });
+
+    it('invalida lo stato pendente dopo troppi tentativi falliti, rifiutando anche l\'OTP corretto', async () => {
+      const manager = { query: jest.fn(), insert: jest.fn(), update: jest.fn() };
+      const otp = await requestValidPending(manager);
+      userRepository.count.mockResolvedValue(0);
+
+      // 6 tentativi con OTP sbagliato superano il limite di 5.
+      for (let i = 0; i < 6; i++) {
+        await service.verifyOtp('admin@comune.it', '000000');
+      }
+
+      const result = await service.verifyOtp('admin@comune.it', otp);
+
+      expect(result).toBe(false);
+      expect(manager.insert).not.toHaveBeenCalled();
     });
   });
 });
