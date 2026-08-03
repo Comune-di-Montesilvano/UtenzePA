@@ -23,6 +23,7 @@ export class SetupController {
   @UseGuards(SetupGuard)
   @Post('verify')
   async verify(@Body() body: { email: string; otp: string }) {
-    return { status: 'ok' };
+    const success = await this.setupService.verifyOtp(body.email, body.otp);
+    return { status: success ? 'ok' : 'error' };
   }
 }

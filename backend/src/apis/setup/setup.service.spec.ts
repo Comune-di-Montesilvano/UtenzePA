@@ -69,4 +69,74 @@ describe('SetupService', () => {
       expect(mailer.sendMail).not.toHaveBeenCalled();
     });
   });
+
+  describe('verifyOtp', () => {
+    const requestValidPending = async (manager: {
+      query: jest.Mock;
+      insert: jest.Mock;
+      update: jest.Mock;
+    }) => {
+      userRepository.count.mockResolvedValue(0);
+      await service.requestOtp({
+        email: 'admin@comune.it',
+        firstName: 'Mario',
+        lastName: 'Rossi',
+        password: 'PasswordForte123!',
+      });
+      const otp = mailer.sendMail.mock.calls[0][2].match(/\d{6}/)[0];
+      dataSource.transaction.mockImplementation((cb) => cb(manager));
+      return otp;
+    };
+
+    it('crea l\'admin se OTP corretto e nessun utente esiste ancora', async () => {
+      const manager = {
+        query: jest.fn(),
+        insert: jest.fn().mockResolvedValue({ identifiers: [{ id: 1 }] }),
+        update: jest.fn(),
+      };
+      const otp = await requestValidPending(manager);
+      userRepository.count.mockResolvedValue(0); // ricontrollo anti-race dentro verify
+
+      const result = await service.verifyOtp('admin@comune.it', otp);
+
+      expect(result).toBe(true);
+      expect(manager.query).toHaveBeenCalledWith('SET FOREIGN_KEY_CHECKS=0');
+      expect(manager.insert).toHaveBeenCalledWith(
+        SystemUser,
+        expect.objectContaining({ email: 'admin@comune.it', role: 'Admin' }),
+      );
+      expect(manager.update).toHaveBeenCalledWith(SystemUser, 1, {
+        created_by_user_id: 1,
+        updated_by_user_id: 1,
+      });
+      expect(manager.query).toHaveBeenCalledWith('SET FOREIGN_KEY_CHECKS=1');
+    });
+
+    it('rifiuta un OTP sbagliato', async () => {
+      const manager = { query: jest.fn(), insert: jest.fn(), update: jest.fn() };
+      await requestValidPending(manager);
+
+      const result = await service.verifyOtp('admin@comune.it', '000000');
+
+      expect(result).toBe(false);
+      expect(manager.insert).not.toHaveBeenCalled();
+    });
+
+    it('rifiuta se nel frattempo esiste già un utente (anti-race)', async () => {
+      const manager = { query: jest.fn(), insert: jest.fn(), update: jest.fn() };
+      const otp = await requestValidPending(manager);
+      userRepository.count.mockResolvedValue(1); // un'altra richiesta ha vinto la race
+
+      const result = await service.verifyOtp('admin@comune.it', otp);
+
+      expect(result).toBe(false);
+      expect(manager.insert).not.toHaveBeenCalled();
+    });
+
+    it('rifiuta se non c\'è nessuna richiesta pendente', async () => {
+      const result = await service.verifyOtp('nessuno@comune.it', '123456');
+
+      expect(result).toBe(false);
+    });
+  });
 });
