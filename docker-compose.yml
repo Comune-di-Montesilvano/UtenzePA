@@ -28,6 +28,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       # MySQL
       - MYSQL_HOST=mysql
       - MYSQL_PORT=3306

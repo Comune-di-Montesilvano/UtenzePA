@@ -33,18 +33,19 @@ npm run start:dev          # watch mode
 npm run start:debug        # watch + debugger su 0.0.0.0:9229
 npm run build && npm run start:prod
 
-npm run test                # tutti gli unit test (jest)
-npm run test:unit           # solo src/**/*.spec.ts
-npm run test:e2e            # test/jest-e2e.json
-npm run test:integration    # jest.integration.config.js, usa mongodb-memory-server
-npm run test:cov            # con coverage
-npx jest path/al/file.spec.ts          # singolo file
-npx jest -t "nome del test"            # singolo test per nome
+npm run test -- --maxWorkers=2               # tutti gli unit test (jest)
+npm run test:unit -- --maxWorkers=2          # solo src/**/*.spec.ts
+npm run test:e2e -- --maxWorkers=2           # test/jest-e2e.json
+npm run test:integration -- --maxWorkers=2   # jest.integration.config.js, usa mongodb-memory-server
+npm run test:cov -- --maxWorkers=2           # con coverage
+npx jest path/al/file.spec.ts --maxWorkers=2          # singolo file
+npx jest -t "nome del test" --maxWorkers=2            # singolo test per nome
 
 npm run lint                # eslint --fix
 npm run format               # prettier --write
 npm run type-check           # tsc --noEmit
 ```
+Sempre con `--maxWorkers=2` sui comandi jest (container/runner con poche CPU disponibili — jest di default ne spawna quanti core rileva ed è facile saturare la macchina).
 
 **Migration DB**: `migrationsRun: true` in `mysql.module.ts` — le migration pendenti girano da sole a ogni avvio (dev e prod). Dopo aver modificato un'entity, generare la migration (dentro il container, sempre — vedi nota Docker sopra):
 ```
