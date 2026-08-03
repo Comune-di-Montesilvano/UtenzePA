@@ -515,8 +515,7 @@ TWO_FACTOR_WINDOW=2
 COOKIE_SECRET=your-cookie-secret-min-32-chars
 COOKIE_DOMAIN=localhost
 
-# CORS
-CORS_ORIGIN=http://localhost:3000
+# CORS: gestita solo a livello root (.env / docker-compose.yml), non qui.
 ```
 
 ### Infisical Integration

@@ -165,7 +165,7 @@ comune-montesilvano/
 ├── backend/                 # API NestJS
 │   ├── src/
 │   │   ├── apis/            # Moduli API (controllers, services, entities)
-│   │   ├── common/          # Decoratori, codici, mailer
+│   │   ├── common/          # Decoratori, codici
 │   │   ├── core/            # Auth, database, cronjobs, email, exceptions
 │   │   ├── data-importer/   # Importazione dati
 │   │   ├── helpers/         # Utility helpers

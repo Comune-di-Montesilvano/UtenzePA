@@ -71,7 +71,7 @@ npm run start:dev
 - ✅ **HTTP Compression** - Gzip automatico con livelli configurabili (60-80% reduction)
 - ✅ **Health Checks** - Endpoint `/health` per monitoring e readiness
 - ✅ **Sentry Integration** - Error tracking, profiling e monitoring avanzato
-- ✅ **Email Service** - Mailer con template support
+- ✅ **Email Service** - Invio email (`core/email/email.service.ts`)
 - ✅ **Environment Validator** - Validazione type-safe delle variabili d'ambiente
 - ✅ **YAML Configuration** - Config per environment (dev, staging, prod, test)
 
