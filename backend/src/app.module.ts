@@ -11,6 +11,7 @@ import { InfisicalModule } from '@core/infisical/infisical.module';
 import { MySqlModule } from '@core/database/mysql/mysql.module';
 // import { CsvCheckerModule } from './csv-checker/csv-checker.module';
 import { AuthMysqlModule } from '@apis/auth/auth.module';
+import { SetupModule } from '@apis/setup/setup.module';
 import { SystemUsersModule } from '@apis/system-users/system-users.module';
 import { UtilityTypesModule } from '@apis/utility-types/utility-types.module';
 import { SuppliersModule } from '@apis/suppliers/suppliers.module';
@@ -39,6 +40,7 @@ import { DataImporterModule } from '@/data-importer/data-importer.module';
     MySqlModule,
     // CsvCheckerModule,
     AuthMysqlModule,
+    SetupModule,
     SystemUsersModule,
     UtilityTypesModule,
     SuppliersModule,
