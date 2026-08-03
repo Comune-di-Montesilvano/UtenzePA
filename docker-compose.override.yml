@@ -16,8 +16,12 @@ services:
     image: axllent/mailpit
     restart: unless-stopped
     ports:
-      - '1025:1025'
-      - '8025:8025'
+      # Porte host non standard: 1025/8025 spesso già occupate da altri
+      # progetti locali con mailpit proprio (es. comunicaPA). Le porte
+      # interne al container restano 1025/8025 (vedi PORT_EMAIL sotto),
+      # solo il mapping host cambia.
+      - '1026:1025'
+      - '8026:8025'
     networks:
       - utenzepa-network
 
