@@ -138,5 +138,23 @@ describe('SetupService', () => {
 
       expect(result).toBe(false);
     });
+
+    it('riabilita FOREIGN_KEY_CHECKS anche se insert fallisce (es. race su email duplicata)', async () => {
+      const manager = {
+        query: jest.fn(),
+        insert: jest.fn().mockRejectedValue(new Error('ER_DUP_ENTRY')),
+        update: jest.fn(),
+      };
+      const otp = await requestValidPending(manager);
+      userRepository.count.mockResolvedValue(0);
+
+      await expect(service.verifyOtp('admin@comune.it', otp)).rejects.toThrow(
+        'ER_DUP_ENTRY',
+      );
+
+      expect(manager.query).toHaveBeenCalledWith('SET FOREIGN_KEY_CHECKS=0');
+      expect(manager.query).toHaveBeenCalledWith('SET FOREIGN_KEY_CHECKS=1');
+      expect(manager.update).not.toHaveBeenCalled();
+    });
   });
 });

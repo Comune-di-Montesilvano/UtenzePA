@@ -80,22 +80,25 @@ export class SetupService {
       // sola connessione di questa transazione, si inserisce, si fa
       // puntare la riga a se stessa, si riabilitano i check.
       await manager.query('SET FOREIGN_KEY_CHECKS=0');
-      const insertResult = await manager.insert(SystemUser, {
-        firstName,
-        lastName,
-        email,
-        passwordHash,
-        role: UserRole.ADMIN,
-        status: UserStatus.ATTIVO,
-        created_by_user_id: 0,
-        updated_by_user_id: 0,
-      });
-      const newId = insertResult.identifiers[0].id as number;
-      await manager.update(SystemUser, newId, {
-        created_by_user_id: newId,
-        updated_by_user_id: newId,
-      });
-      await manager.query('SET FOREIGN_KEY_CHECKS=1');
+      try {
+        const insertResult = await manager.insert(SystemUser, {
+          firstName,
+          lastName,
+          email,
+          passwordHash,
+          role: UserRole.ADMIN,
+          status: UserStatus.ATTIVO,
+          created_by_user_id: 0,
+          updated_by_user_id: 0,
+        });
+        const newId = insertResult.identifiers[0].id as number;
+        await manager.update(SystemUser, newId, {
+          created_by_user_id: newId,
+          updated_by_user_id: newId,
+        });
+      } finally {
+        await manager.query('SET FOREIGN_KEY_CHECKS=1');
+      }
     });
 
     this.pending = null;
