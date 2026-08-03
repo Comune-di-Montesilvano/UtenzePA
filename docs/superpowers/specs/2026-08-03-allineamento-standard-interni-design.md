@@ -20,7 +20,7 @@ Priorità immediata, rischio di conflitto basso (file isolati, non toccati dalla
 - **Guard anti-secret-di-default in produzione**: bootstrap check stile comunicaPA `production-guards.ts`. Se `NODE_ENV=production` e `JWT_ACCESS_SECRET`/`COOKIE_SECRET`/`MYSQL_PASSWORD` contengono ancora il placeholder `change-me-in-production...`, l'app deve rifiutarsi di avviarsi con un errore esplicito, invece di partire silenziosamente con credenziali deboli.
 - **README**: aggiungere sezione "Contribuire" (requisiti minimi prima di una PR: lint pulito, test verdi, lettura di CLAUDE.md).
 
-## 2. Persistenza dati — migration DB
+## 2. Persistenza dati — migration DB (implementato)
 
 Rischio più alto di questo elenco: tocca un modulo su cui la ditta terza lavora attivamente.
 

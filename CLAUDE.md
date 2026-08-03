@@ -45,6 +45,12 @@ npm run lint                # eslint --fix
 npm run format               # prettier --write
 npm run type-check           # tsc --noEmit
 ```
+
+**Migration DB**: `migrationsRun: true` in `mysql.module.ts` — le migration pendenti girano da sole a ogni avvio (dev e prod). Dopo aver modificato un'entity, generare la migration (dentro il container, sempre — vedi nota Docker sopra):
+```
+docker exec -u root utenzepa-api-1 node -r ts-node/register -r tsconfig-paths/register node_modules/typeorm/cli.js migration:generate src/database/migrations/NomeMigration -d src/database/data-source.ts
+```
+`SYNCHRONIZE=true`/`DROPSCHEMA=true` restano disponibili come escape hatch per iterazione rapida in dev, ma bypassano le migration — mai in produzione.
 Nota: gli script `docker:dev*` in `backend/package.json` referenziano `docker-compose-development.yml`, che non esiste nel repo — non funzionanti allo stato attuale, usare il `docker-compose.yml` di root o `npm run start:dev` in locale.
 
 ### Frontend (`frontend/`)
@@ -61,8 +67,8 @@ Nessun ESLint configurato sul frontend.
 - `src/apis/` — moduli di dominio, uno per risorsa REST: `auth`, `system-users`, `asset`, `asset-aggregators`, `utility`, `utility-types`, `utility-aggregators`, `invoices`, `suppliers`, `budget-chapters`, `consip-agreement`, `costs-borne-by`, `maintenance-managers`, `purpose`, `utilizer`, `utilizer-grant`, `health`.
 - `src/core/` — infrastruttura trasversale (auth, database, cronjobs, email, exceptions).
 - `src/common/`, `src/helpers/`, `src/utils/`, `src/data-importer/`.
-- Persistenza: TypeORM su MySQL è lo stack effettivamente usato (vedi `docker-compose.yml` root e README). Il progetto include anche Mongoose/MongoDB come dipendenza e variabile `MONGODB_URI` nel compose — probabile residuo del template NestJS di partenza; non assumere che sia in uso reale senza verificare nei moduli specifici.
-- Cache/sessioni: Redis (ioredis, cache-manager/keyv).
+- `src/database/` — migration TypeORM (`migrations/`) e `data-source.ts` dedicato per la CLI. Entity individuate via glob (`src/apis/**/*.entity.ts`), niente elenco esplicito da tenere sincronizzato a mano.
+- Persistenza: TypeORM su MySQL. Mongoose/Redis/cache-manager (dipendenze morte ereditate dal template NestJS di partenza) sono stati rimossi.
 - Auth: JWT (access+refresh) con 2FA/TOTP (speakeasy, qrcode), bcrypt 12 rounds, blocco account dopo 5 tentativi falliti.
 - Docs API: Swagger, gestione secrets opzionale via Infisical, error tracking opzionale via Sentry.
 - Path alias Jest/TS: `@core`, `@apis`, `@common`, `@config`, `@modules`, `@utils` → rispettive cartelle in `src/`.
@@ -88,8 +94,9 @@ Primo giro (soft, da PR dedicata) per adeguare il repo alle convenzioni usate ne
 - CORS aperto a qualsiasi origine (`cors: true` hardcoded in `main.ts`); la variabile `CORS_ORIGIN` presente in `backend/.env.example` non è letta da nessun modulo.
 - Doppio sistema email: `core/email/email.service.ts` (usato realmente da `AuthMysqlModule`, legge `HOST_EMAIL`/`PORT_EMAIL`/`USERNAME_EMAIL`/`PASSWORD_EMAIL`/`SMTP_SECURE_PROTOCOL`) e `common/mailer/mailer.service.ts` (generico, legge `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD` — verificare se è effettivamente wired in `app.module.ts` prima di usarlo).
 - Nessun meccanismo per creare il primo utente Admin: `POST /system-users` richiede già un Admin (`@Roles('Admin')`), e non esiste script di seed. A differenza di comunicaPA (dove l'auth operatori è delegata a LDAP/AD, quindi il problema non esiste), qui gli account sono locali (bcrypt+JWT) — serve un mini-wizard di bootstrap, subordinato a un SMTP funzionante configurato via `.env` (in discussione con l'utente, non ancora implementato).
-- `Mongoose`/`MongoDB` restano dipendenza morta (nessun `@InjectModel`/`MongooseModule` nel codice) — candidati alla rimozione da `package.json` in un giro successivo.
 - `backend/.env.example` non riflette le variabili realmente lette dal codice (elenca `MONGODB_URI`, `SMTP_HOST` ecc. non usati, non elenca `MYSQL_*`) — da riscrivere in un giro dedicato.
+
+**Migration DB (sezione 2 della roadmap, completata)**: aggiunta `src/database/migrations/` + `data-source.ts`, `migrationsRun: true` in `mysql.module.ts` (sempre, dev e prod). Generata `InitialSchema` come baseline dallo schema esistente. `SYNCHRONIZE`/`DROPSCHEMA` restano solo come escape hatch dev, mai in produzione. Testato: due riavvii consecutivi del container `api` puliti, migration idempotente.
 
 ## Roadmap allineamento agli standard interni
 

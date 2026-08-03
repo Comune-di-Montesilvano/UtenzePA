@@ -21,6 +21,9 @@ import { InfisicalConfigService } from '../../infisical/infisical-config.service
           database: process.env.MYSQL_DB || 'mydatabase',
           logging: ['error', 'warn'],
           autoLoadEntities: true,
+          migrations: [`${__dirname}/../../../database/migrations/*.{ts,js}`],
+          migrationsRun: true,
+          // Escape hatch per iterazione rapida in dev (mai in produzione: bypassa le migration).
           synchronize: process.env.SYNCHRONIZE === 'true' || process.env.IMPORT_DATA === 'true',
           dropSchema: process.env.DROPSCHEMA === 'true' || process.env.IMPORT_DATA === 'true',
         };
