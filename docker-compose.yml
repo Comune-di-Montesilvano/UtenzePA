@@ -56,6 +56,10 @@ services:
   frontend:
     image: ghcr.io/comune-di-montesilvano/utenzepa-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    environment:
+      # URL pubblico del backend raggiungibile dal browser (non dalla rete
+      # Docker interna). Vuoto: il frontend usa il valore statico compilato.
+      - API_URL=${API_URL:-}
     ports:
       - '${DOCKER_FRONTEND_PORT:-4300}:80'
     depends_on:

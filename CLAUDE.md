@@ -78,7 +78,8 @@ Nessun ESLint configurato sul frontend.
 - Angular standalone components (no NgModule-based feature modules), tema PrimeNG "Aura".
 - `src/app/pages/` (viste), `src/app/core/` (components/directives/entities/helpers/interfaces/pipes/services/types/validators), `src/app/services/` (es. `auth.service.ts`), `src/app/guards/`.
 - Nessuno state manager dedicato (no NgRx/Akita): stato gestito via Angular services + RxJS.
-- Config ambiente in `src/environments/environment*.ts` (dev/stage/prod), non `.env` — contiene `apiUrl` del backend e DSN Sentry. Nessun proxy CLI: le chiamate HTTP vanno dirette all'`apiUrl` configurato.
+- Config ambiente in `src/environments/environment*.ts` (dev/stage/prod) — contiene `apiUrl` del backend e DSN Sentry. `apiUrl` legge prima `window.__UTENZEPA_CONFIG__` (iniettata a runtime da `nginx/20-runtime-config.sh` via `API_URL` env, vedi `runtime-config.ts`), fallback al valore statico compilato se assente (es. `ng serve`, nessun nginx). Nessun proxy CLI: le chiamate HTTP vanno dirette all'`apiUrl` risolto — per questo il backend ha CORS aperto (frontend e backend sono origin diverse, non stesso dominio via reverse-proxy).
+- Interceptor HTTP (`core/interceptors/auth-error.interceptor.ts`, registrato in `app.config.ts`): su 401 fa `logout()` + redirect a `/login`. Copre solo le chiamate via `HttpClient` (i servizi che estendono `AbstractService`); `AuthService` usa `axios` direttamente per login/OTP, fuori dall'interceptor (non serve: quelle chiamate non hanno ancora un token da invalidare).
 - Dockerfile multi-stage: stage `dev` esegue `ng serve`, stage prod builda e serve via `nginx` (SPA fallback su `index.html`, config in `nginx.conf`).
 
 ### Docker Compose (root)

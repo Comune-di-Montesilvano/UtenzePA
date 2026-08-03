@@ -63,6 +63,8 @@ export class AuthService {
 
   logout(): void {
     sessionStorage.removeItem(this.TOKEN_KEY);
+    sessionStorage.removeItem('auth_user');
+    this.currentUserSubject.next(null);
   }
 
   get authenticated(): boolean {

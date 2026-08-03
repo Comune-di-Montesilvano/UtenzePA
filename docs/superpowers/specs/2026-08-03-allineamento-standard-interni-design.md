@@ -36,7 +36,7 @@ Da fare in branch dedicato, comunicato esplicitamente alla ditta terza prima di 
 
 Decisione: priorità sui moduli critici — `auth`, `invoices`, `asset` (logica di business/dati sensibili) — nessuna soglia percentuale rigida in CI per questo giro. `tests.yml` resta con solo `test:unit`; valutare `test:integration`/`test:e2e` in CI quando i moduli critici hanno copertura solida.
 
-## 4. Frontend — config runtime e interceptor
+## 4. Frontend — config runtime e interceptor (implementato)
 
 - **Config runtime**: oggi `environment.ts`/`environment.prod.ts` sono compilati nel bundle a build time — cambiare `apiUrl` per un nuovo ambiente richiede un rebuild dell'immagine. comunicaPA inietta la config a runtime: l'entrypoint nginx genera `assets/config.js` da una variabile d'ambiente (`API_URL`) all'avvio del container, letto da `window.__CONFIG__`. Decisione: adottare lo stesso pattern per utenzepa (`window.__UTENZEPA_CONFIG__`), con fallback al valore statico attuale in `environment.ts` per non rompere `ng serve` in sviluppo locale (dove non c'è nginx).
 - **Interceptor HTTP 401**: nessuna gestione centralizzata di sessione scaduta — l'header `Authorization` è aggiunto manualmente per ogni chiamata (`AbstractService.getAuthHeaders()`), un 401 non fa scattare automaticamente logout/redirect. Decisione: `HttpInterceptorFn` che intercetta 401 → logout + redirect a login. Niente gestione refresh-token: `JWT_REFRESH_SECRET` è dead code lato backend (nessun endpoint di refresh reale), quindi non c'è nulla da orchestrare oltre al logout.
