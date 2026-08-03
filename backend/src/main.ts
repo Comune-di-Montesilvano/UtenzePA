@@ -10,8 +10,11 @@ import * as cookieParser from 'cookie-parser';
 import { HttpExceptionFilter } from '@core/exceptions/http-exception.filter';
 import { generateHttpOptions } from '@utils/httpOptionsNest/httpOptions';
 import { configureCompression } from '@utils/compression';
+import { assertProductionSecrets } from '@utils/production-guards/production-guards';
 
 async function bootstrap() {
+  assertProductionSecrets(process.env.NODE_ENV);
+
   EnvValidator.validate();
   EnvValidator.logConfiguration();
 
@@ -70,18 +73,7 @@ async function bootstrap() {
   const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
   await app.listen(port);
 
-  console.log('================================');
-  console.log('================================');
-  console.log('================================');
-  console.log('================================');
-  console.log('Infisical Secret:', infisicalConfig.get('infisical_super_secret'));
-  console.log('NODE_ENV:', process.env.NODE_ENV);
-  console.log('================================');
-  console.log('================================');
-  console.log('================================');
-  console.log('================================');
-
-  console.info('Bootstrap done. App ready on: ', port);
+  console.info(`Bootstrap done. App ready on: ${port} (NODE_ENV=${process.env.NODE_ENV})`);
 }
 
 bootstrap().then(() => 1);

@@ -14,6 +14,8 @@ Monorepo semplice (nessun workspace tool): `backend/` (NestJS) + `frontend/` (An
 | Frontend | Angular 20 + PrimeNG 20 | 4300 |
 | Database | MySQL 8 | 3307 |
 
+**Versioni tool**: usare sempre Docker per lanciare comandi che richiedono versioni software specifiche (`npm install`, build, ecc.) — l'host locale può avere Node/npm diversi da quelli richiesti dal progetto (`backend/package.json` richiede Node ≥24, potrebbe non corrispondere alla versione installata sulla macchina). `docker exec` sul container `api` (avviato con l'override di sviluppo) garantisce la versione corretta.
+
 ## Comandi
 
 ### Avvio con Docker (root)

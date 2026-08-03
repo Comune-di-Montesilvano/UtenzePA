@@ -184,7 +184,14 @@ comune-montesilvano/
         └── environments/    # Configurazioni ambiente
 ```
 
+## Contribuire
+
+Prima di aprire una PR:
+- `npm run lint` e `npm run test` puliti nel backend che tocchi
+- `npm run build` verde nel frontend se tocchi codice Angular
+- leggi `CLAUDE.md` per le convenzioni del repo
+
 ## Licenza
 
-Progetto del Comune di Montesilvano. Tutti i diritti riservati.
+Distribuito sotto licenza [EUPL-1.2](LICENSE).
 
