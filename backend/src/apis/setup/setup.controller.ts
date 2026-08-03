@@ -16,7 +16,8 @@ export class SetupController {
   async requestOtp(
     @Body() body: { email: string; firstName: string; lastName: string; password: string },
   ) {
-    return { status: 'ok' };
+    const success = await this.setupService.requestOtp(body);
+    return { status: success ? 'ok' : 'error' };
   }
 
   @UseGuards(SetupGuard)
