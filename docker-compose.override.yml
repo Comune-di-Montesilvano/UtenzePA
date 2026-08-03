@@ -1,0 +1,56 @@
+# SVILUPPO: attivato da COMPOSE_FILE=docker-compose.yml;docker-compose.override.yml
+# in .env (Windows usa ";" come separatore, Linux/macOS usa ":"). Build in
+# locale da Dockerfile (target development/dev), bind mount per hot-reload,
+# porta MySQL e porta debug Node esposte.
+
+services:
+
+  mysql:
+    ports:
+      - '3307:3306'
+    command: --skip-log-bin
+    logging:
+      driver: none
+
+  mailpit:
+    image: axllent/mailpit
+    restart: unless-stopped
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+    networks:
+      - utenzepa-network
+
+  api:
+    image: utenzepa/backend:dev
+    build:
+      context: ./backend
+      target: development
+    environment:
+      - NODE_ENV=development
+      - SWAGGER=true
+      # In dev le email finiscono su mailpit (UI: http://localhost:8025), niente SMTP reale
+      - HOST_EMAIL=mailpit
+      - PORT_EMAIL=1025
+      - SMTP_SECURE_PROTOCOL=false
+    user: "1000:1000"
+    volumes:
+      - ./backend:/usr/src/app
+      - api_node_modules:/usr/src/app/node_modules
+    ports:
+      - '9229:9229'
+
+  frontend:
+    image: utenzepa/frontend:dev
+    build:
+      context: ./frontend
+      target: dev
+    ports: !override
+      - '${DOCKER_FRONTEND_PORT:-4300}:4300'
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+
+volumes:
+  api_node_modules:
+  frontend_node_modules:

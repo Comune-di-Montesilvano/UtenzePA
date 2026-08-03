@@ -1,82 +1,71 @@
+name: utenzepa
+
+# PRODUZIONE (registry/Portainer): immagini da GHCR, solo volumi named,
+# nessun bind mount, nessuna porta di debug esposta. Per lo sviluppo vedi
+# docker-compose.override.yml (attivato da COMPOSE_FILE in .env).
+
 services:
-  api:
-    container_name: montesilvano-be-apis
-    build:
-      context: ./backend
-      target: development
-    environment:
-      # Node Environment
-      - NODE_ENV=${NODE_ENV:-development}
-      - PORT=${PORT:-3000}
-      - APP_URL=${APP_URL:-http://localhost:3000}
-      - APP_NAME=${APP_NAME:-NestJS Template}
-      # MongoDB
-      - MONGODB_URI=mongodb://montesilvano-be-apis-mongodb:27017/nestjs_template
-      # MySQL
-      - MYSQL_HOST=montesilvano-be-apis-mysql
-      - MYSQL_PORT=3306
-      - MYSQL_USER=root
-      - MYSQL_PASSWORD=password
-      - MYSQL_DB=mydatabase
-      # JWT (will be loaded from Infisical if available)
-      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-abracadabra}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-}
-      - JWT_ACCESS_EXPIRATION=15m
-      - JWT_REFRESH_EXPIRATION=7d
-      # Security
-      - BCRYPT_ROUNDS=12
-      - MAX_FAILED_LOGIN_ATTEMPTS=5
-      - ACCOUNT_LOCK_DURATION_MS=1800000
-      - PASSWORD_RESET_TOKEN_EXPIRATION_MS=3600000
-      - EMAIL_VERIFICATION_TOKEN_EXPIRATION_MS=86400000
-      # 2FA
-      - TWO_FACTOR_APP_NAME=NestJS Template
-      - TWO_FACTOR_WINDOW=2
-      # Swagger
-      - SWAGGER=true
-    user: "1000:1000"
-    volumes:
-      - ./backend:/usr/src/app
-      - /usr/src/app/node_modules
-    ports:
-      - '${DOCKER_API_PORT:-3000}:3000'
-      - '${DOCKER_API_DEBUG_PORT:-9229}:9229'
-    networks:
-      - montesilvano-network
-    restart: always
-    depends_on:
-      - mysql
 
   mysql:
     image: mysql:8
-    container_name: montesilvano-be-apis-mysql
-    restart: always
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD obbligatorio - genera con openssl rand -hex 24}
       MYSQL_DATABASE: ${MYSQL_DB:-mydatabase}
-    ports:
-      - '${DOCKER_MYSQL_PORT:-3307}:3306'
     volumes:
-      - mysql:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
     networks:
-      - montesilvano-network
-    command: --skip-log-bin
-    logging:
-      driver: none
+      - utenzepa-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: ghcr.io/comune-di-montesilvano/utenzepa-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # MySQL
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:?MYSQL_PASSWORD obbligatorio - genera con openssl rand -hex 24}
+      - MYSQL_DB=${MYSQL_DB:-mydatabase}
+      # Secret (obbligatori)
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET obbligatorio - genera con openssl rand -hex 32}
+      - COOKIE_SECRET=${COOKIE_SECRET:?COOKIE_SECRET obbligatorio - genera con openssl rand -hex 32}
+      # Email (invio notifiche/reset password)
+      - HOST_EMAIL=${HOST_EMAIL:-}
+      - PORT_EMAIL=${PORT_EMAIL:-587}
+      - USERNAME_EMAIL=${USERNAME_EMAIL:-}
+      - PASSWORD_EMAIL=${PASSWORD_EMAIL:-}
+      - SMTP_SECURE_PROTOCOL=${SMTP_SECURE_PROTOCOL:-true}
+      # Swagger — mai true in produzione pubblica
+      - SWAGGER=${SWAGGER:-false}
+    ports:
+      - '${DOCKER_API_PORT:-3000}:3000'
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - utenzepa-network
 
   frontend:
-    build:
-      context: ./frontend
-    container_name: montesilvano-fe
+    image: ghcr.io/comune-di-montesilvano/utenzepa-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
     ports:
-      - "${DOCKER_FRONTEND_PORT:-4300}:80"
+      - '${DOCKER_FRONTEND_PORT:-4300}:80'
+    depends_on:
+      - api
     networks:
-      - montesilvano-network
+      - utenzepa-network
 
 volumes:
-  node_modules:
-  mysql:
+  mysql_data:
 
 networks:
-  montesilvano-network:
+  utenzepa-network:
     driver: bridge
