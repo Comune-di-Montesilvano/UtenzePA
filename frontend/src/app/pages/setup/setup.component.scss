@@ -1,0 +1,21 @@
+.setup-container {
+  max-width: 420px;
+  margin: 4rem auto;
+  padding: 2rem;
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .error {
+    color: #c0392b;
+  }
+}

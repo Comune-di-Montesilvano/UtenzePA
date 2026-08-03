@@ -1,0 +1,30 @@
+<div class="setup-container">
+  <h1>Configurazione iniziale</h1>
+  <p>Crea il primo utente amministratore per iniziare a usare il sistema.</p>
+
+  <form *ngIf="!showOtp" [formGroup]="form" (ngSubmit)="requestOtp()">
+    <label>Nome
+      <input type="text" formControlName="firstName">
+    </label>
+    <label>Cognome
+      <input type="text" formControlName="lastName">
+    </label>
+    <label>Email
+      <input type="email" formControlName="email">
+    </label>
+    <label>Password
+      <input type="password" formControlName="password">
+    </label>
+    <p class="error" *ngIf="error">{{ error }}</p>
+    <button type="submit">Invia codice di verifica</button>
+  </form>
+
+  <form *ngIf="showOtp" [formGroup]="otpForm" (ngSubmit)="verifyOtp()">
+    <p>Ti abbiamo inviato un codice di verifica via email.</p>
+    <label>Codice OTP
+      <input type="text" formControlName="otp">
+    </label>
+    <p class="error" *ngIf="otpError">{{ otpError }}</p>
+    <button type="submit">Conferma e crea l'account</button>
+  </form>
+</div>
