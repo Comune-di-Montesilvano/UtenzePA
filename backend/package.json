@@ -28,7 +28,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "test:unit": "jest --testPathPattern=src/.*\\.spec\\.ts$",
+    "test:unit": "jest --testPathPatterns=src/.*\\.spec\\.ts$",
     "test:integration": "cross-env NODE_ENV=test jest --config jest.integration.config.js",
     "test:integration:watch": "cross-env NODE_ENV=test jest --config jest.integration.config.js --watch",
     "test:integration:cov": "cross-env NODE_ENV=test jest --config jest.integration.config.js --coverage",
