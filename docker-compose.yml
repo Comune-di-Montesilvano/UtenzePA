@@ -29,6 +29,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:4300}
       # MySQL
       - MYSQL_HOST=mysql
       - MYSQL_PORT=3306

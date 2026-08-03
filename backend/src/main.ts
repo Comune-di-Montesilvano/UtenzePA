@@ -41,8 +41,13 @@ async function bootstrap() {
   const logLevelName = (process.env.LOG_LEVEL ?? 'info').toLowerCase();
   const logLevels = LOG_LEVELS_BY_NAME[logLevelName] ?? LOG_LEVELS_BY_NAME.info;
 
+  const corsOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:4300')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
   const options: NestApplicationOptions = {
-    cors: true,
+    cors: { origin: corsOrigins },
     logger: logLevels,
     ...(httpsOptions.key && httpsOptions.cert && { httpsOptions }),
   };
