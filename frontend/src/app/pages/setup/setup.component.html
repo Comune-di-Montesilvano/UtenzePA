@@ -15,6 +15,9 @@
     <label>Password
       <input type="password" formControlName="password">
     </label>
+    <label>Token di attivazione
+      <input type="password" formControlName="bootstrapToken">
+    </label>
     <p class="error" *ngIf="error">{{ error }}</p>
     <button type="submit">Invia codice di verifica</button>
   </form>

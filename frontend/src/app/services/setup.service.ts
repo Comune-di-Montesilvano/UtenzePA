@@ -17,10 +17,10 @@ export class SetupService {
     }
   }
 
-  async requestOtp(email: string, firstName: string, lastName: string, password: string): Promise<boolean> {
+  async requestOtp(email: string, firstName: string, lastName: string, password: string, bootstrapToken: string): Promise<boolean> {
     try {
       const response = await axios.post(`${this.BASE_URL}/setup/request-otp`, {
-        email, firstName, lastName, password
+        email, firstName, lastName, password, bootstrapToken
       });
       return response.data?.status === 'ok';
     } catch (error) {

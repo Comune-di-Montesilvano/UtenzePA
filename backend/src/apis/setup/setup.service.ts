@@ -5,6 +5,9 @@ import { SystemUser } from '../system-users/entity/system-user.entity';
 import { EMailerService } from '@/core/email/email.service';
 import * as bcrypt from 'bcrypt';
 import { UserRole, UserStatus } from '../shared/enum/user.enums';
+import { generateOtp } from '../shared/otp.helper';
+
+const MAX_OTP_ATTEMPTS = 5;
 
 interface PendingSetup {
   email: string;
@@ -13,6 +16,7 @@ interface PendingSetup {
   passwordHash: string;
   otp: string;
   otpExpiry: Date;
+  attempts: number;
 }
 
 @Injectable()
@@ -35,12 +39,16 @@ export class SetupService {
     firstName: string;
     lastName: string;
     password: string;
+    bootstrapToken: string;
   }): Promise<boolean> {
+    // Confronto prima di ogni altro controllo (anche prima di isAvailable()):
+    // stesso `return false` di un fallimento generico, per non dare a un
+    // attaccante un oracolo per capire se il token è la causa del rifiuto.
+    if (dto.bootstrapToken !== process.env.SETUP_BOOTSTRAP_TOKEN) return false;
+
     if (!(await this.isAvailable())) return false;
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpiry = new Date();
-    otpExpiry.setMinutes(otpExpiry.getMinutes() + 60);
+    const { code: otp, expiry: otpExpiry } = generateOtp();
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
     this.pending = {
@@ -50,6 +58,7 @@ export class SetupService {
       passwordHash,
       otp,
       otpExpiry,
+      attempts: 0,
     };
 
     await this.mailer.sendMail(
@@ -64,7 +73,15 @@ export class SetupService {
 
   async verifyOtp(email: string, otp: string): Promise<boolean> {
     if (!this.pending || this.pending.email !== email) return false;
-    if (this.pending.otp !== otp) return false;
+    if (this.pending.otp !== otp) {
+      this.pending.attempts += 1;
+      if (this.pending.attempts > MAX_OTP_ATTEMPTS) {
+        // Troppi tentativi falliti: invalida lo stato pendente per mitigare
+        // il brute-force, l'utente deve rifare da capo la richiesta OTP.
+        this.pending = null;
+      }
+      return false;
+    }
     if (new Date() > this.pending.otpExpiry) return false;
 
     // Anti-race: un'altra richiesta potrebbe aver creato l'admin nel

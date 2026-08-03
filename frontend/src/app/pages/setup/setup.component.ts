@@ -23,7 +23,8 @@ export class SetupComponent {
       firstName: ['', Validators.required],
       lastName: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(8)]]
+      password: ['', [Validators.required, Validators.minLength(8)]],
+      bootstrapToken: ['', Validators.required]
     });
 
     this.otpForm = this.fb.group({
@@ -36,8 +37,8 @@ export class SetupComponent {
       this.error = 'Compilare tutti i campi richiesti.';
       return;
     }
-    const { firstName, lastName, email, password } = this.form.value;
-    const success = await this.setup.requestOtp(email, firstName, lastName, password);
+    const { firstName, lastName, email, password, bootstrapToken } = this.form.value;
+    const success = await this.setup.requestOtp(email, firstName, lastName, password, bootstrapToken);
     if (success) {
       this.showOtp = true;
       this.error = '';
