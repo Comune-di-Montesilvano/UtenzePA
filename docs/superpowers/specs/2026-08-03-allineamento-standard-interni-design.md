@@ -30,7 +30,7 @@ Decisione: passare a migration TypeORM esplicite, come comunicaPA (`src/database
 
 Da fare in branch dedicato, comunicato esplicitamente alla ditta terza prima di partire (rischio di conflitto se aggiungono entità nel frattempo).
 
-## 3. Test coverage backend
+## 3. Test coverage backend (implementato)
 
 ~15 moduli di dominio (`asset`, `invoices`, `suppliers`, `utility-*`, `utilizer*`, ecc.) senza un solo test; i pochi test esistenti (11 file) coprono solo infrastruttura (health, mailer, cronjobs, exceptions, infisical, compression, env-validator).
 
