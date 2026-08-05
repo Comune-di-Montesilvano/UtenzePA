@@ -116,6 +116,8 @@ Spostare un tag dopo un fix (es. release rotta): `git tag -d vX`, `git push orig
 
 Dependabot PR: se il branch è stato toccato da altro (es. `gh api .../update-branch`), commentare `@dependabot rebase` fallisce ("edited by someone other than Dependabot") — usare `@dependabot recreate`. Merge sequenziale di più PR dependabot sullo stesso lockfile causa conflitti a cascata sulle successive: ri-aggiornarle (`update-branch` o recreate) una alla volta dopo ogni merge.
 
+`main` è protetta (branch protection API): PR obbligatoria, check `backend`+`frontend` richiesti (branch aggiornata), no force-push/delete, 0 approvazioni umane richieste (CI come unico gate). Push diretti a `main` vengono rifiutati.
+
 **Migration DB (sezione 2 della roadmap, completata)**: aggiunta `src/database/migrations/` + `data-source.ts`, `migrationsRun: true` in `mysql.module.ts` (sempre, dev e prod). Generata `InitialSchema` come baseline dallo schema esistente. `SYNCHRONIZE`/`DROPSCHEMA` restano solo come escape hatch dev, mai in produzione. Testato: due riavvii consecutivi del container `api` puliti, migration idempotente.
 
 ## Roadmap allineamento agli standard interni
