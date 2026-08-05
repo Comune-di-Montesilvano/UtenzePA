@@ -29,6 +29,7 @@ import { PurposeModule } from '@apis/purpose/purpose.module';
 import { UtilizerModule } from '@apis/utilizer/utilizer.module';
 import { DataImporterModule } from '@/data-importer/data-importer.module';
 import { BackupModule } from '@apis/backup/backup.module';
+import { ImportModule } from '@apis/import/import.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { BackupModule } from '@apis/backup/backup.module';
     UtilizerModule,
     DataImporterModule,
     BackupModule,
+    ImportModule,
   ],
   controllers: [AppController],
   providers: [
