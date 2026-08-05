@@ -1,0 +1,74 @@
+publiccodeYmlVersion: "0"
+
+name: UtenzePA
+url: "https://github.com/Comune-di-Montesilvano/UtenzePA.git"
+landingURL: "https://github.com/Comune-di-Montesilvano/UtenzePA"
+softwareVersion: "v0.1.0"
+releaseDate: "2026-08-03"
+
+platforms:
+  - web
+
+categories:
+  - it-service-management
+  - facility-management
+
+developmentStatus: development
+
+softwareType: "standalone/web"
+
+intendedAudience:
+  scope:
+    - government
+    - local-authorities
+  countries:
+    - IT
+
+description:
+  it:
+    localisedName: UtenzePA
+    shortDescription: >-
+      Gestionale per il patrimonio, le utenze, i fornitori e le fatture
+      del Comune di Montesilvano.
+    longDescription: >-
+      UtenzePA consente all'ente di gestire il patrimonio immobiliare
+      (asset), le utenze e i relativi contratti, i fornitori e le fatture
+      collegate, con aggregatori e capitoli di bilancio associati. Un
+      backend REST (NestJS) espone le risorse di dominio, un frontend
+      Angular fornisce l'interfaccia operativa per gli utenti di sistema.
+
+
+      L'autenticazione degli operatori è basata su JWT con supporto a
+      due fattori (TOTP), password con hashing bcrypt e blocco account
+      dopo tentativi di accesso falliti ripetuti.
+
+
+      Lo stack gira interamente in Docker (backend NestJS, frontend
+      Angular/nginx, MySQL), senza dipendenze da servizi cloud esterni.
+    features:
+      - Gestione patrimonio immobiliare (asset e aggregatori)
+      - Gestione utenze, tipologie e aggregatori di utenze
+      - Gestione fornitori e fatture collegate
+      - Capitoli di bilancio e convenzioni CONSIP
+      - Autenticazione JWT con 2FA (TOTP)
+      - Documentazione API via Swagger
+
+legal:
+  license: EUPL-1.2
+  mainCopyrightOwner: Comune di Montesilvano
+
+maintenance:
+  type: internal
+  contacts:
+    - name: Comune di Montesilvano — Innovazione Tecnologica
+      email: supporto@comune.montesilvano.pe.it
+      affiliation: Comune di Montesilvano
+
+localisation:
+  localisationReady: false
+  availableLanguages:
+    - it
+
+organisation:
+  uri: urn:x-italian-pa:c_f646
+  name: Comune di Montesilvano

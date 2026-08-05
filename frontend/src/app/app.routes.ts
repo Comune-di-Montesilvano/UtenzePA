@@ -17,6 +17,8 @@ import {DashboardComponent} from "./pages/dashboard/dashboard.component";
 import {ConsipAgreementComponent} from './pages/consip-agreement/consip-agreement.component';
 import {PurposeComponent} from './pages/purpose/purpose.component';
 import {UtilizerComponent} from './pages/utilizer/utilizer.component';
+import {SetupComponent} from "./pages/setup/setup.component";
+import {SetupGuard} from "./guards/setup.guard";
 
 export const routes: Routes = [
   {
@@ -45,6 +47,7 @@ export const routes: Routes = [
 
     ]
   },
+  {path: 'setup', component: SetupComponent, canActivate: [SetupGuard]},
   {path: 'login', component: LoginComponent},
   {path: '**', redirectTo: '', pathMatch: 'full'}
 ];

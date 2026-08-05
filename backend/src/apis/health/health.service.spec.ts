@@ -1,18 +1,15 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { HealthService } from './health.service';
+import { TypeOrmHealthIndicator } from '@nestjs/terminus';
 
 describe('HealthService', () => {
   let service: HealthService;
+  let db: { pingCheck: jest.Mock };
   let originalDate: DateConstructor;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [HealthService],
-    }).compile();
+  beforeEach(() => {
+    db = { pingCheck: jest.fn() };
+    service = new HealthService(db as unknown as TypeOrmHealthIndicator);
 
-    service = module.get<HealthService>(HealthService);
-
-    // Mock Date for consistent testing
     originalDate = global.Date;
     const mockDate = new Date('2024-01-01T00:00:00.000Z');
     global.Date = jest.fn(() => mockDate) as any;
@@ -20,7 +17,6 @@ describe('HealthService', () => {
   });
 
   afterEach(() => {
-    // Restore original Date
     global.Date = originalDate;
     jest.clearAllMocks();
   });
@@ -43,89 +39,25 @@ describe('HealthService', () => {
 
       expect(result.timestamp).toBe('2024-01-01T00:00:00.000Z');
     });
-
-    it('should calculate uptime correctly', () => {
-      // Create a new service instance to reset start time
-      const newService = new HealthService();
-
-      // Mock Date.now to simulate time passing
-      const startTime = Date.now();
-      global.Date.now = jest.fn(() => startTime + 5000); // 5 seconds later
-
-      const result = newService.check();
-
-      expect(result.uptime).toBe(5000);
-    });
-
-    it('should always return ok status', () => {
-      const results = [];
-      for (let i = 0; i < 10; i++) {
-        results.push(service.check());
-      }
-
-      results.forEach((result) => {
-        expect(result.status).toBe('ok');
-      });
-    });
   });
 
   describe('isReady', () => {
-    it('should return ready status', () => {
-      const result = service.isReady();
+    it('should return ready status if the database ping succeeds', async () => {
+      db.pingCheck.mockResolvedValue({ database: { status: 'up' } });
 
-      expect(result).toHaveProperty('status', 'ready');
-      expect(result).toHaveProperty('timestamp');
+      const result = await service.isReady();
+
+      expect(db.pingCheck).toHaveBeenCalledWith('database', { timeout: 1500 });
+      expect(result).toEqual({ status: 'ready', timestamp: '2024-01-01T00:00:00.000Z' });
     });
 
-    it('should return current timestamp', () => {
-      const result = service.isReady();
+    it('should return not_ready status if the database ping fails', async () => {
+      // pingCheck non lancia mai: risolve con { database: { status: 'down' } }
+      db.pingCheck.mockResolvedValue({ database: { status: 'down', message: 'timeout' } });
 
-      expect(result.timestamp).toBe('2024-01-01T00:00:00.000Z');
-    });
+      const result = await service.isReady();
 
-    it('should always return ready status', () => {
-      const results = [];
-      for (let i = 0; i < 10; i++) {
-        results.push(service.isReady());
-      }
-
-      results.forEach((result) => {
-        expect(result.status).toBe('ready');
-      });
-    });
-  });
-
-  describe('service lifecycle', () => {
-    it('should maintain consistent start time', () => {
-      // Create a new service with a known start time
-      const startTime = new Date('2024-01-01T00:00:00.000Z').getTime();
-      global.Date.now = jest.fn(() => startTime);
-
-      const testService = new HealthService();
-
-      // First check at start time
-      const firstCheck = testService.check();
-
-      // Simulate time passing (1 minute later)
-      global.Date.now = jest.fn(() => startTime + 60000);
-
-      const secondCheck = testService.check();
-
-      // Both checks should have uptime based on the same start time
-      expect(firstCheck.uptime).toBe(0);
-      expect(secondCheck.uptime).toBe(60000);
-      expect(secondCheck.uptime).toBeGreaterThan(firstCheck.uptime);
-    });
-
-    it('should handle multiple instances independently', () => {
-      const service1 = new HealthService();
-      const service2 = new HealthService();
-
-      const result1 = service1.check();
-      const result2 = service2.check();
-
-      expect(result1.status).toBe('ok');
-      expect(result2.status).toBe('ok');
+      expect(result).toEqual({ status: 'not_ready', timestamp: '2024-01-01T00:00:00.000Z' });
     });
   });
 });

@@ -45,6 +45,10 @@ COPY --from=build /app/dist/montesilvano-fe/browser /usr/share/nginx/html
 # Copia configurazione nginx personalizzata per SPA routing
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Genera config.js da API_URL a ogni avvio container (/docker-entrypoint.d/
+# e' eseguito automaticamente dall'immagine ufficiale nginx prima di avviare)
+COPY --chmod=755 nginx/20-runtime-config.sh /docker-entrypoint.d/20-runtime-config.sh
+
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]

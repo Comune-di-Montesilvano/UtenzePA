@@ -10,40 +10,22 @@ import { InfisicalConfigService } from '../../infisical/infisical-config.service
       // imports: [InfisicalModule],
 
       useFactory: (_infisicalConfig: InfisicalConfigService): TypeOrmModuleOptions => {
-        // Controlla se l'ambiente è 'development'. Deve essere impostato tramite process.env
-        const isDevelopment = process.env.NODE_ENV === 'development';
-
-        const baseConfig: TypeOrmModuleOptions = {
+        // Stesse variabili in ogni ambiente: chi orchestra il container (compose)
+        // passa sempre MYSQL_HOST/MYSQL_PORT/MYSQL_USER/MYSQL_PASSWORD/MYSQL_DB.
+        return {
           type: 'mysql',
-          database: 'mydatabase',
+          host: process.env.MYSQL_HOST || 'mysql',
+          port: parseInt(process.env.MYSQL_PORT || '3306'),
+          username: process.env.MYSQL_USER || 'root',
+          password: process.env.MYSQL_PASSWORD || 'password',
+          database: process.env.MYSQL_DB || 'mydatabase',
           logging: ['error', 'warn'],
           autoLoadEntities: true,
-          synchronize: process.env.SYNCHRONIZE === 'true',
-          dropSchema: process.env.DROPSCHEMA === 'true',
-        };
-
-        if (isDevelopment) {
-          console.log('--- Using Local Development MySQL Config ---');
-
-          return {
-            ...baseConfig,
-            host: 'mysql',
-            port: 3306,
-            username: 'root',
-            password: 'password',
-          };
-        }
-
-        // Configurazione per ambiente di PRODUZIONE
-        console.log('--- Using Production MySQL Config ---');
-        return {
-          ...baseConfig,
-          host: process.env.DB_HOST || 'mysql',
-          port: parseInt(process.env.DB_PORT || '3306'),
-          username: process.env.DB_USERNAME || 'root',
-          password: process.env.DB_PASSWORD || 'password',
-          synchronize: process.env.IMPORT_DATA === 'true',
-          dropSchema: process.env.IMPORT_DATA === 'true',
+          migrations: [`${__dirname}/../../../database/migrations/*.{ts,js}`],
+          migrationsRun: true,
+          // Escape hatch per iterazione rapida in dev (mai in produzione: bypassa le migration).
+          synchronize: process.env.SYNCHRONIZE === 'true' || process.env.IMPORT_DATA === 'true',
+          dropSchema: process.env.DROPSCHEMA === 'true' || process.env.IMPORT_DATA === 'true',
         };
       },
 

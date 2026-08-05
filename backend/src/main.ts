@@ -1,7 +1,13 @@
 import '@core/sentry/instrument';
 
 import { NestFactory, Reflector } from '@nestjs/core';
-import { ClassSerializerInterceptor, NestApplicationOptions, ValidationPipe } from '@nestjs/common';
+import {
+  ClassSerializerInterceptor,
+  Logger,
+  LogLevel,
+  NestApplicationOptions,
+  ValidationPipe,
+} from '@nestjs/common';
 import { AppModule } from '@/app.module';
 import { EnvValidator } from '@utils/env-validator/env-validator';
 import { InfisicalConfigService } from '@core/infisical/infisical-config.service';
@@ -10,15 +16,39 @@ import * as cookieParser from 'cookie-parser';
 import { HttpExceptionFilter } from '@core/exceptions/http-exception.filter';
 import { generateHttpOptions } from '@utils/httpOptionsNest/httpOptions';
 import { configureCompression } from '@utils/compression';
+import { assertProductionSecrets } from '@utils/production-guards/production-guards';
+
+// Il default NestJS esclude 'debug'/'verbose': LOG_LEVEL=debug in .env abilita
+// i log di dettaglio senza rebuild (analogo a LOG_LEVELS_BY_NAME in comunicaPA).
+const LOG_LEVELS_BY_NAME: Record<string, LogLevel[]> = {
+  error: ['error'],
+  warn: ['error', 'warn'],
+  info: ['error', 'warn', 'log'],
+  log: ['error', 'warn', 'log'],
+  debug: ['error', 'warn', 'log', 'debug'],
+  verbose: ['error', 'warn', 'log', 'debug', 'verbose'],
+};
+
+const bootstrapLogger = new Logger('Bootstrap');
 
 async function bootstrap() {
+  assertProductionSecrets(process.env.NODE_ENV);
+
   EnvValidator.validate();
   EnvValidator.logConfiguration();
 
   const httpsOptions = generateHttpOptions();
+  const logLevelName = (process.env.LOG_LEVEL ?? 'info').toLowerCase();
+  const logLevels = LOG_LEVELS_BY_NAME[logLevelName] ?? LOG_LEVELS_BY_NAME.info;
+
+  const corsOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:4300')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
   const options: NestApplicationOptions = {
-    cors: true,
+    cors: { origin: corsOrigins },
+    logger: logLevels,
     ...(httpsOptions.key && httpsOptions.cert && { httpsOptions }),
   };
 
@@ -62,7 +92,7 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api-docs', app, document);
-    console.info('Swagger documentation enabled at /api-docs');
+    bootstrapLogger.log('Swagger documentation enabled at /api-docs');
   }
 
   app.use(helmet());
@@ -70,18 +100,7 @@ async function bootstrap() {
   const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
   await app.listen(port);
 
-  console.log('================================');
-  console.log('================================');
-  console.log('================================');
-  console.log('================================');
-  console.log('Infisical Secret:', infisicalConfig.get('infisical_super_secret'));
-  console.log('NODE_ENV:', process.env.NODE_ENV);
-  console.log('================================');
-  console.log('================================');
-  console.log('================================');
-  console.log('================================');
-
-  console.info('Bootstrap done. App ready on: ', port);
+  bootstrapLogger.log(`Bootstrap done. App ready on: ${port} (NODE_ENV=${process.env.NODE_ENV})`);
 }
 
 bootstrap().then(() => 1);

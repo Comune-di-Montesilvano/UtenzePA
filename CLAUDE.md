@@ -1,0 +1,107 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Panoramica progetto
+
+Gestionale del patrimonio/utenze del Comune di Montesilvano (asset, utenze, fornitori, fatture). Sviluppato da terzi, in allineamento agli standard interni del team (rif. stile `comunicaPA`) tramite un primo giro "soft" — vedi sezione "Allineamento agli standard interni".
+
+Monorepo semplice (nessun workspace tool): `backend/` (NestJS) + `frontend/` (Angular), orchestrati da Docker Compose (root).
+
+| Servizio | Stack | Porta default |
+|---|---|---|
+| Backend API | NestJS 11 (Node ≥24) | 3000 (debug 9229) |
+| Frontend | Angular 20 + PrimeNG 20 | 4300 |
+| Database | MySQL 8 | 3307 |
+
+**Versioni tool**: usare sempre Docker per lanciare comandi che richiedono versioni software specifiche (`npm install`, build, ecc.) — l'host locale può avere Node/npm diversi da quelli richiesti dal progetto (`backend/package.json` richiede Node ≥24, potrebbe non corrispondere alla versione installata sulla macchina). `docker exec` sul container `api` (avviato con l'override di sviluppo) garantisce la versione corretta.
+
+## Comandi
+
+### Avvio con Docker (root)
+Il `docker-compose.yml` di root è ora orientato alla **produzione** (immagini da GHCR, nessun bind mount, secret obbligatori). Per lo sviluppo serve l'override:
+```
+cp .env.example .env
+# scommenta COMPOSE_FILE in .env per attivare docker-compose.override.yml (build locale + bind mount)
+docker compose up -d
+```
+Frontend: http://localhost:4300 — API: http://localhost:3000 — Swagger: http://localhost:3000/api-docs (il README indica `/api`, verificare in `backend/src/main.ts` in caso di dubbio).
+
+### Backend (`backend/`)
+```
+npm run start:dev          # watch mode
+npm run start:debug        # watch + debugger su 0.0.0.0:9229
+npm run build && npm run start:prod
+
+npm run test -- --maxWorkers=2               # tutti gli unit test (jest)
+npm run test:unit -- --maxWorkers=2          # solo src/**/*.spec.ts
+npm run test:e2e -- --maxWorkers=2           # test/jest-e2e.json
+npm run test:integration -- --maxWorkers=2   # jest.integration.config.js, usa mongodb-memory-server
+npm run test:cov -- --maxWorkers=2           # con coverage
+npx jest path/al/file.spec.ts --maxWorkers=2          # singolo file
+npx jest -t "nome del test" --maxWorkers=2            # singolo test per nome
+
+npm run lint                # eslint --fix
+npm run format               # prettier --write
+npm run type-check           # tsc --noEmit
+```
+Sempre con `--maxWorkers=2` sui comandi jest (container/runner con poche CPU disponibili — jest di default ne spawna quanti core rileva ed è facile saturare la macchina).
+
+**Migration DB**: `migrationsRun: true` in `mysql.module.ts` — le migration pendenti girano da sole a ogni avvio (dev e prod). Dopo aver modificato un'entity, generare la migration (dentro il container, sempre — vedi nota Docker sopra):
+```
+docker exec -u root utenzepa-api-1 node -r ts-node/register -r tsconfig-paths/register node_modules/typeorm/cli.js migration:generate src/database/migrations/NomeMigration -d src/database/data-source.ts
+```
+`SYNCHRONIZE=true`/`DROPSCHEMA=true` restano disponibili come escape hatch per iterazione rapida in dev, ma bypassano le migration — mai in produzione.
+Nota: gli script `docker:dev*` in `backend/package.json` referenziano `docker-compose-development.yml`, che non esiste nel repo — non funzionanti allo stato attuale, usare il `docker-compose.yml` di root o `npm run start:dev` in locale.
+
+### Frontend (`frontend/`)
+```
+npm run start        # ng serve, porta 4300
+npm run build         # ng build --configuration production
+ng test               # Karma/Jasmine (non presente come script npm)
+```
+Nessun ESLint configurato sul frontend.
+
+## Architettura
+
+### Backend
+- `src/apis/` — moduli di dominio, uno per risorsa REST: `auth`, `system-users`, `asset`, `asset-aggregators`, `utility`, `utility-types`, `utility-aggregators`, `invoices`, `suppliers`, `budget-chapters`, `consip-agreement`, `costs-borne-by`, `maintenance-managers`, `purpose`, `utilizer`, `utilizer-grant`, `health`.
+- `src/core/` — infrastruttura trasversale (auth, database, cronjobs, email, exceptions).
+- `src/common/`, `src/helpers/`, `src/utils/`, `src/data-importer/`.
+- `src/database/` — migration TypeORM (`migrations/`) e `data-source.ts` dedicato per la CLI. Entity individuate via glob (`src/apis/**/*.entity.ts`), niente elenco esplicito da tenere sincronizzato a mano.
+- Persistenza: TypeORM su MySQL. Mongoose/Redis/cache-manager (dipendenze morte ereditate dal template NestJS di partenza) sono stati rimossi.
+- Auth: JWT (access+refresh) con 2FA/TOTP (speakeasy, qrcode), bcrypt 12 rounds, blocco account dopo 5 tentativi falliti.
+- Docs API: Swagger, gestione secrets opzionale via Infisical, error tracking opzionale via Sentry.
+- Path alias Jest/TS: `@core`, `@apis`, `@common`, `@config`, `@modules`, `@utils` → rispettive cartelle in `src/`.
+- Conventional Commits imposti via commitlint + husky/lint-staged (pre-commit).
+
+### Frontend
+- Angular standalone components (no NgModule-based feature modules), tema PrimeNG "Aura".
+- `src/app/pages/` (viste), `src/app/core/` (components/directives/entities/helpers/interfaces/pipes/services/types/validators), `src/app/services/` (es. `auth.service.ts`), `src/app/guards/`.
+- Nessuno state manager dedicato (no NgRx/Akita): stato gestito via Angular services + RxJS.
+- Config ambiente in `src/environments/environment*.ts` (dev/stage/prod) — contiene `apiUrl` del backend e DSN Sentry. `apiUrl` legge prima `window.__UTENZEPA_CONFIG__` (iniettata a runtime da `nginx/20-runtime-config.sh` via `API_URL` env, vedi `runtime-config.ts`), fallback al valore statico compilato se assente (es. `ng serve`, nessun nginx). Nessun proxy CLI: le chiamate HTTP vanno dirette all'`apiUrl` risolto (frontend e backend sono origin diverse, non stesso dominio via reverse-proxy) — CORS è ristretto via `CORS_ORIGIN` (`main.ts` legge la variabile, non più `cors: true` hardcoded).
+- Interceptor HTTP (`core/interceptors/auth-error.interceptor.ts`, registrato in `app.config.ts`): su 401 fa `logout()` + redirect a `/login`. Copre solo le chiamate via `HttpClient` (i servizi che estendono `AbstractService`); `AuthService` usa `axios` direttamente per login/OTP, fuori dall'interceptor (non serve: quelle chiamate non hanno ancora un token da invalidare).
+- Dockerfile multi-stage: stage `dev` esegue `ng serve`, stage prod builda e serve via `nginx` (SPA fallback su `index.html`, config in `nginx.conf`).
+
+### Docker Compose (root)
+Pattern comunicaPA: `docker-compose.yml` = produzione (immagini `ghcr.io/comune-di-montesilvano/utenzepa-{backend,frontend}`, volumi named, secret obbligatori via `${VAR:?}`), `docker-compose.override.yml` = sviluppo (build locale da Dockerfile, bind mount, porta MySQL/debug esposte), attivato da `COMPOSE_FILE` in `.env`. `.env.example` in root documenta tutte le variabili.
+
+## Allineamento agli standard interni
+
+Primo giro (soft, da PR dedicata) per adeguare il repo alle convenzioni usate negli altri progetti del team (rif. `comunicaPA`): aggiunti `.github/workflows/` (`tests.yml` su push/PR verso main, `release.yml` build&push GHCR su tag `v*`, `publiccode-validate.yml`), split `docker-compose.yml`/`docker-compose.override.yml`, `.env.example` root, `publiccode.yml`.
+
+**Bug corretto in questo giro** (`backend/src/core/database/mysql/mysql.module.ts`): il modulo TypeORM ignorava le variabili passate dal compose. In dev host/porta/user/password erano hardcoded (`mysql`/`3306`/`root`/`password`), in produzione leggeva `DB_HOST`/`DB_PORT`/`DB_USERNAME`/`DB_PASSWORD` (nomi diversi da quelli nel compose, `MYSQL_*`) — una `MYSQL_PASSWORD` forte in `.env` veniva quindi ignorata in silenzio e l'app ricadeva sulla password debole di default. Il nome del database era inoltre sempre hardcoded a `'mydatabase'`, ignorando `MYSQL_DB` in ogni ambiente. Ora il modulo legge sempre `MYSQL_HOST`/`MYSQL_PORT`/`MYSQL_USER`/`MYSQL_PASSWORD`/`MYSQL_DB`, stessi nomi in dev e prod, con gli stessi default di prima come fallback.
+
+**Risolto in giri successivi** (era elencato qui come nota aperta):
+- CORS non è più aperto a qualsiasi origine: `main.ts` legge `CORS_ORIGIN` (root `.env`/`docker-compose.yml`, non `backend/.env.example`) e la usa come whitelist.
+- Il doppio sistema email non esiste più: `common/mailer/mailer.service.ts` è stato rimosso, resta solo `core/email/email.service.ts`.
+- Bootstrap del primo utente Admin implementato: wizard `/setup` (frontend) + `POST /api/v1/setup/{request-otp,verify}` (backend, `backend/src/apis/setup/`). Protetto da OTP email (helper condiviso `backend/src/apis/shared/otp.helper.ts`, usato anche da `AuthService`) **e** da `SETUP_BOOTSTRAP_TOKEN`, secret obbligatorio (root `.env`/`docker-compose.yml`, stesso pattern di `JWT_ACCESS_SECRET`) comunicato fuori banda a chi crea il primo Admin — senza il token corretto la richiesta OTP fallisce anche a DB vuoto.
+
+**Note aperte, non risolte** (da valutare con la ditta terza):
+- `backend/.env.example` non riflette le variabili realmente lette dal codice (elenca `MONGODB_URI`, `SMTP_HOST` ecc. non usati, non elenca `MYSQL_*`) — da riscrivere in un giro dedicato.
+
+**Migration DB (sezione 2 della roadmap, completata)**: aggiunta `src/database/migrations/` + `data-source.ts`, `migrationsRun: true` in `mysql.module.ts` (sempre, dev e prod). Generata `InitialSchema` come baseline dallo schema esistente. `SYNCHRONIZE`/`DROPSCHEMA` restano solo come escape hatch dev, mai in produzione. Testato: due riavvii consecutivi del container `api` puliti, migration idempotente.
+
+## Roadmap allineamento agli standard interni
+
+Gap analysis completa vs comunicaPA (7 sottosistemi, decisioni prese) in `docs/superpowers/specs/2026-08-03-allineamento-standard-interni-design.md`.

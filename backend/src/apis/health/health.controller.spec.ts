@@ -60,18 +60,27 @@ describe('HealthController', () => {
   });
 
   describe('readiness', () => {
-    it('should return readiness status', () => {
+    it('should return readiness status when ready', async () => {
       const mockResult = {
         status: 'ready',
         timestamp: '2024-01-01T00:00:00.000Z',
       };
 
-      mockHealthService.isReady.mockReturnValue(mockResult);
+      mockHealthService.isReady.mockResolvedValue(mockResult);
 
-      const result = controller.readiness();
+      const result = await controller.readiness();
 
       expect(result).toEqual(mockResult);
       expect(mockHealthService.isReady).toHaveBeenCalled();
+    });
+
+    it('should throw 503 when not ready', async () => {
+      mockHealthService.isReady.mockResolvedValue({
+        status: 'not_ready',
+        timestamp: '2024-01-01T00:00:00.000Z',
+      });
+
+      await expect(controller.readiness()).rejects.toThrow();
     });
   });
 });

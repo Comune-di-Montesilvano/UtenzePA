@@ -12,9 +12,10 @@ import {routes} from './app.routes';
 import {providePrimeNG} from 'primeng/config';
 import Aura from '@primeuix/themes/aura';
 import {NgIdleKeepaliveModule} from '@ng-idle/keepalive';
-import {provideHttpClient} from '@angular/common/http';
+import {provideHttpClient, withInterceptors} from '@angular/common/http';
 import {provideAnimationsAsync} from '@angular/platform-browser/animations/async';
 import * as Sentry from '@sentry/angular';
+import {authErrorInterceptor} from './core/interceptors/auth-error.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -41,7 +42,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideZoneChangeDetection({eventCoalescing: true}),
     provideRouter(routes),
-    provideHttpClient(),
+    provideHttpClient(withInterceptors([authErrorInterceptor])),
     provideAnimationsAsync(),
     importProvidersFrom(NgIdleKeepaliveModule.forRoot()),
     {

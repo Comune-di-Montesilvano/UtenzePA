@@ -40,7 +40,7 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
       qb.where('assets.deleted = :deleted_default', { deleted_default: 0 });
     }
 
-    this.applyFilters(qb, filters, 'assets', ['deleted']);
+    this.applyFilters(qb, filters ?? {}, 'assets', ['deleted']);
 
     return qb.orderBy('assets.id', 'ASC').getMany();
   }

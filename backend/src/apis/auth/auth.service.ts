@@ -5,6 +5,7 @@ import { SystemUser } from '../system-users/entity/system-user.entity';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { EMailerService } from '@/core/email/email.service';
+import { generateOtp } from '../shared/otp.helper';
 
 @Injectable()
 export class AuthService {
@@ -49,9 +50,7 @@ export class AuthService {
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) return false;
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiry = new Date();
-    expiry.setMinutes(expiry.getMinutes() + 60);
+    const { code: otp, expiry } = generateOtp();
 
     user.otp = otp;
     user.otp_expiry = expiry;

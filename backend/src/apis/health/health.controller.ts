@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Public } from '@common/decorators/public.decorator';
 import { HealthService } from './health.service';
@@ -37,7 +37,12 @@ export class HealthController {
   @Public()
   @ApiOperation({ summary: 'Readiness probe for Kubernetes' })
   @ApiResponse({ status: 200, description: 'Application is ready' })
-  readiness() {
-    return this.healthService.isReady();
+  @ApiResponse({ status: 503, description: 'Application is not ready (es. database irraggiungibile)' })
+  async readiness() {
+    const result = await this.healthService.isReady();
+    if (result.status !== 'ready') {
+      throw new ServiceUnavailableException(result);
+    }
+    return result;
   }
 }
