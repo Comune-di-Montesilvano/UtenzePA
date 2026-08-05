@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as childProcess from 'child_process';
@@ -130,5 +131,34 @@ export class BackupService {
       child.stdin.write(sqlContent);
       child.stdin.end();
     });
+  }
+
+  async applyRetention(retentionDays: number): Promise<{ deleted: string[] }> {
+    const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+    const backups = await this.listBackups();
+    const deleted: string[] = [];
+
+    for (const backup of backups) {
+      if (backup.createdAt.getTime() < cutoff) {
+        await this.deleteBackup(backup.filename);
+        deleted.push(backup.filename);
+      }
+    }
+
+    if (deleted.length > 0) {
+      this.logger.log(`Retention: cancellati ${deleted.length} backup oltre ${retentionDays} giorni`);
+    }
+    return { deleted };
+  }
+
+  @Cron(process.env.BACKUP_CRON_SCHEDULE ?? CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async handleScheduledBackup(): Promise<void> {
+    try {
+      await this.createBackup();
+      const retentionDays = parseInt(process.env.BACKUP_RETENTION_DAYS ?? '30', 10);
+      await this.applyRetention(retentionDays);
+    } catch (err) {
+      this.logger.error(`Backup schedulato fallito: ${(err as Error).message}`);
+    }
   }
 }

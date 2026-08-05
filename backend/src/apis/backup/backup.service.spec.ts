@@ -135,4 +135,36 @@ describe('BackupService', () => {
 
     await expect(service.restoreFromFile(sqlFile)).rejects.toThrow('ERROR 1064: syntax error');
   });
+
+  it('applyRetention cancella solo i backup più vecchi della retention', async () => {
+    // createdAt è derivato dal nome file (parseFilenameDate), non da stat.birthtime/mtime
+    // (vedi nota Task 4/7: birthtime non è affidabile su ogni filesystem). Il nome del
+    // file "recente" va quindi calcolato rispetto alla data reale del test, non
+    // hardcodato, altrimenti col passare del tempo diventa "vecchio" e il test rompe.
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const buildName = (date: Date) => {
+      const y = date.getFullYear();
+      const mo = pad(date.getMonth() + 1);
+      const d = pad(date.getDate());
+      const h = pad(date.getHours());
+      const mi = pad(date.getMinutes());
+      const s = pad(date.getSeconds());
+      return `utenzepa_${y}${mo}${d}_${h}${mi}${s}.sql`;
+    };
+
+    const oldName = 'utenzepa_20200101_000000.sql';
+    const recentName = buildName(new Date());
+    const oldFile = path.join(backupDir, oldName);
+    const recentFile = path.join(backupDir, recentName);
+    fs.writeFileSync(oldFile, 'old');
+    fs.writeFileSync(recentFile, 'recent');
+    fs.utimesSync(oldFile, new Date('2020-01-01'), new Date('2020-01-01'));
+    fs.utimesSync(recentFile, new Date(), new Date());
+
+    const result = await service.applyRetention(30);
+
+    expect(result.deleted).toEqual([oldName]);
+    expect(fs.existsSync(oldFile)).toBe(false);
+    expect(fs.existsSync(recentFile)).toBe(true);
+  });
 });
