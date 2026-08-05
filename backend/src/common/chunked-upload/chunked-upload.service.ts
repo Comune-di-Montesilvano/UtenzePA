@@ -1,0 +1,60 @@
+import { Injectable } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
+
+@Injectable()
+export class ChunkedUploadService {
+  private chunkFileName(uploadId: string, chunkIndex: number): string {
+    return `${uploadId}.chunk${chunkIndex}`;
+  }
+
+  saveChunk(
+    uploadId: string,
+    chunkIndex: number,
+    totalChunks: number,
+    buffer: Buffer,
+    destDir: string,
+  ): void {
+    if (chunkIndex < 0 || chunkIndex >= totalChunks) {
+      throw new Error(`chunkIndex ${chunkIndex} fuori range (totalChunks=${totalChunks})`);
+    }
+    fs.mkdirSync(destDir, { recursive: true });
+    const chunkPath = path.join(destDir, this.chunkFileName(uploadId, chunkIndex));
+    fs.writeFileSync(chunkPath, buffer);
+  }
+
+  isComplete(uploadId: string, totalChunks: number, destDir: string): boolean {
+    for (let i = 0; i < totalChunks; i++) {
+      const chunkPath = path.join(destDir, this.chunkFileName(uploadId, i));
+      if (!fs.existsSync(chunkPath)) return false;
+    }
+    return true;
+  }
+
+  assemble(uploadId: string, totalChunks: number, destDir: string, finalFileName: string): string {
+    if (!this.isComplete(uploadId, totalChunks, destDir)) {
+      throw new Error(`Chunk mancanti per upload ${uploadId}`);
+    }
+
+    const finalPath = path.join(destDir, finalFileName);
+    try {
+      const writeStream = fs.openSync(finalPath, 'w');
+      for (let i = 0; i < totalChunks; i++) {
+        const chunkPath = path.join(destDir, this.chunkFileName(uploadId, i));
+        const chunkBuffer = fs.readFileSync(chunkPath);
+        fs.writeSync(writeStream, chunkBuffer);
+      }
+      fs.closeSync(writeStream);
+      return finalPath;
+    } finally {
+      this.cleanup(uploadId, totalChunks, destDir);
+    }
+  }
+
+  cleanup(uploadId: string, totalChunks: number, destDir: string): void {
+    for (let i = 0; i < totalChunks; i++) {
+      const chunkPath = path.join(destDir, this.chunkFileName(uploadId, i));
+      if (fs.existsSync(chunkPath)) fs.unlinkSync(chunkPath);
+    }
+  }
+}
