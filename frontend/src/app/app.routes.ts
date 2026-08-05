@@ -20,6 +20,7 @@ import {UtilizerComponent} from './pages/utilizer/utilizer.component';
 import {SetupComponent} from "./pages/setup/setup.component";
 import {SetupGuard} from "./guards/setup.guard";
 import {RedirectToSetupGuard} from "./guards/redirect-to-setup.guard";
+import {BackupImportComponent} from './pages/backup-import/backup-import.component';
 
 export const routes: Routes = [
   {
@@ -30,6 +31,7 @@ export const routes: Routes = [
     children: [
       {path: '', redirectTo: 'dashboard', pathMatch: 'full'},
       {path: 'system-users', component: SystemUsersComponent},
+      {path: 'backup-import', component: BackupImportComponent},
       {path: 'utility-types', component: UtilityTypesComponent},
       {path: 'suppliers', component: SuppliersComponent},
       {path: 'asset-aggregator', component: AssetAggregatorsComponent},
