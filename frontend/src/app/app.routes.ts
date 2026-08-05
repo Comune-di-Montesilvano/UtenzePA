@@ -19,6 +19,7 @@ import {PurposeComponent} from './pages/purpose/purpose.component';
 import {UtilizerComponent} from './pages/utilizer/utilizer.component';
 import {SetupComponent} from "./pages/setup/setup.component";
 import {SetupGuard} from "./guards/setup.guard";
+import {RedirectToSetupGuard} from "./guards/redirect-to-setup.guard";
 
 export const routes: Routes = [
   {
@@ -48,6 +49,6 @@ export const routes: Routes = [
     ]
   },
   {path: 'setup', component: SetupComponent, canActivate: [SetupGuard]},
-  {path: 'login', component: LoginComponent},
+  {path: 'login', component: LoginComponent, canActivate: [RedirectToSetupGuard]},
   {path: '**', redirectTo: '', pathMatch: 'full'}
 ];
