@@ -37,7 +37,7 @@
     "class-transformer": "^0.5.1",
     "font-awesome": "^4.7.0",
     "primeicons": "^8.0.0",
-    "primeng": "^20.3.0",
+    "primeng": "^22.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
