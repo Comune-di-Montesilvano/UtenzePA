@@ -85,6 +85,7 @@ Nessun ESLint configurato sul frontend.
 - Nessuno state manager dedicato (no NgRx/Akita): stato gestito via Angular services + RxJS.
 - Config ambiente in `src/environments/environment*.ts` (dev/stage/prod) — contiene `apiUrl` del backend e DSN Sentry. `apiUrl` legge prima `window.__UTENZEPA_CONFIG__` (iniettata a runtime da `nginx/20-runtime-config.sh` via `API_URL` env, vedi `runtime-config.ts`), fallback al valore statico compilato se assente (es. `ng serve`, nessun nginx). Nessun proxy CLI: le chiamate HTTP vanno dirette all'`apiUrl` risolto (frontend e backend sono origin diverse, non stesso dominio via reverse-proxy) — CORS è ristretto via `CORS_ORIGIN` (`main.ts` legge la variabile, non più `cors: true` hardcoded).
 - Interceptor HTTP (`core/interceptors/auth-error.interceptor.ts`, registrato in `app.config.ts`): su 401 fa `logout()` + redirect a `/login`. Copre solo le chiamate via `HttpClient` (i servizi che estendono `AbstractService`); `AuthService` usa `axios` direttamente per login/OTP, fuori dall'interceptor (non serve: quelle chiamate non hanno ancora un token da invalidare).
+- Route `login` protetta anche da `RedirectToSetupGuard` (guards/redirect-to-setup.guard.ts): se non esiste ancora nessun utente (`GET /setup/status` → `available:true`), redirige automaticamente a `/setup` invece di mostrare il form di login.
 - Dockerfile multi-stage: stage `dev` esegue `ng serve`, stage prod builda e serve via `nginx` (SPA fallback su `index.html`, config in `nginx.conf`).
 
 ### Docker Compose (root)
@@ -105,7 +106,17 @@ Primo giro (soft, da PR dedicata) per adeguare il repo alle convenzioni usate ne
 - `backend/.env.example` non riflette le variabili realmente lette dal codice (elenca `MONGODB_URI`, `SMTP_HOST` ecc. non usati, non elenca `MYSQL_*`) — da riscrivere in un giro dedicato.
 - `@nestjs-modules/mailer` in `backend/package.json` è dipendenza morta (mai importata) — un bump dependabot (PR #13) ha rotto la CI per conflitto peer con `nodemailer`. Da rimuovere, non aggiornare.
 
-Dependabot: `@angular/*` raggruppato in un'unica PR (`.github/dependabot.yml`) — i pacchetti Angular vanno aggiornati insieme, un bump isolato rompe il peer dependency resolution (visto su PR #4/#7/#8, chiuse per questo).
+**Debug "il wizard/login non risponde" su un deploy**: quasi sempre `CORS_ORIGIN`/`API_URL` non allineati all'origine reale del browser (`SetupService.getStatus()` in errore di rete ritorna `false` di default, indistinguibile da "admin già esiste" senza controllare la Network tab), oppure c'è già un admin in `system_users`. Controllare prima quei due prima di sospettare un bug applicativo.
+
+Dependabot: `@angular/*` e `@sentry/*` raggruppati in un'unica PR ciascuno (`.github/dependabot.yml`) — i pacchetti di una stessa famiglia vanno aggiornati insieme, un bump isolato rompe il peer dependency resolution (visto su PR #4/#7/#8 Angular, PR #11/#16 Sentry). `@angular/animations` resta fuori dal gruppo perché non è dichiarata come dipendenza diretta in `package.json` (solo transitiva) — dependabot non la vede, va aggiunta esplicitamente prima di riprovare la migrazione Angular 20→22 (PR #29).
+
+`tests.yml` esegue `npm run build` sia su backend sia su frontend (non solo lint+test) — un errore di tipo non preso da `ts-jest` (isolatedModules) può comunque rompere `nest build`/Docker, come successo con Sentry.
+
+Spostare un tag dopo un fix (es. release rotta): `git tag -d vX`, `git push origin :refs/tags/vX`, ricreare (`git tag -a vX -m "..."`) e ripushare — rifà partire `release.yml` sul nuovo commit. Sicuro solo se il tag non ha consumer esterni noti.
+
+Dependabot PR: se il branch è stato toccato da altro (es. `gh api .../update-branch`), commentare `@dependabot rebase` fallisce ("edited by someone other than Dependabot") — usare `@dependabot recreate`. Merge sequenziale di più PR dependabot sullo stesso lockfile causa conflitti a cascata sulle successive: ri-aggiornarle (`update-branch` o recreate) una alla volta dopo ogni merge.
+
+`main` è protetta (branch protection API): PR obbligatoria, check `backend`+`frontend` richiesti (branch aggiornata), no force-push/delete, 0 approvazioni umane richieste (CI come unico gate). Push diretti a `main` vengono rifiutati.
 
 **Migration DB (sezione 2 della roadmap, completata)**: aggiunta `src/database/migrations/` + `data-source.ts`, `migrationsRun: true` in `mysql.module.ts` (sempre, dev e prod). Generata `InitialSchema` come baseline dallo schema esistente. `SYNCHRONIZE`/`DROPSCHEMA` restano solo come escape hatch dev, mai in produzione. Testato: due riavvii consecutivi del container `api` puliti, migration idempotente.
 
