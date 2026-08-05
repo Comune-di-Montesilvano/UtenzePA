@@ -12,7 +12,7 @@
 
 - Solo ruolo `Admin` può accedere a backup/restore/import (spec, sez. "Sicurezza").
 - Upload (file `.sql` di restore, file CSV di import) SEMPRE a chunk da 1MB — mai multipart in singola richiesta (limite reverse proxy di produzione).
-- `mysqldump`/`mysql` eseguiti SOLO via `child_process.execFile` con argomenti array — mai `exec`/stringa shell.
+- `mysqldump`/`mysql` eseguiti SOLO via `child_process.execFile` o `child_process.spawn` con argomenti array — mai `exec`/stringa shell. `mysql` in restore usa `spawn` (serve pipare lo stdin, `execFile` async non supporta l'opzione `input`); `mysqldump` in backup usa `execFile` (output via `--result-file`, nessuno stdin da pipare).
 - Password DB passata al processo figlio via env `MYSQL_PWD`, mai in argv.
 - `data-importer/` esistente NON deve cambiare comportamento esterno (stessi endpoint, stessa risposta) — le uniche modifiche ammesse sono parametri opzionali retrocompatibili.
 - Comandi jest sempre con `--maxWorkers=2` (vedi CLAUDE.md).
@@ -801,37 +801,63 @@ git commit -m "feat: aggiungi BackupController con endpoint create/list/download
 Aggiungi a `backend/src/apis/backup/backup.service.spec.ts`, dentro il blocco `describe('BackupService', ...)`:
 
 ```typescript
-  it('restoreFromFile esegue mysql con execFile leggendo lo stdin dal file', async () => {
+  it('restoreFromFile esegue mysql via spawn e scrive il contenuto del file su stdin', async () => {
     const sqlFile = path.join(backupDir, 'restore-input.sql');
     fs.writeFileSync(sqlFile, 'INSERT INTO x VALUES (1);');
 
-    (childProcess.execFile as unknown as jest.Mock).mockImplementation(
-      (_cmd, _args, _opts, cb) => cb(null, '', ''),
-    );
+    const stdinChunks: Buffer[] = [];
+    const fakeChild: any = new EventEmitter();
+    fakeChild.stdin = {
+      write: (chunk: Buffer) => {
+        stdinChunks.push(chunk);
+        return true;
+      },
+      end: jest.fn(),
+    };
+    fakeChild.stderr = new EventEmitter();
+    (childProcess.spawn as unknown as jest.Mock).mockImplementation(() => {
+      // il close arriva async, dopo che il chiamante ha già collegato gli handler
+      setImmediate(() => fakeChild.emit('close', 0));
+      return fakeChild;
+    });
 
     await service.restoreFromFile(sqlFile);
 
-    expect(childProcess.execFile).toHaveBeenCalledWith(
+    expect(childProcess.spawn).toHaveBeenCalledWith(
       'mysql',
       expect.arrayContaining(['--host=localhost', '--port=3306', '--user=root', 'mydatabase']),
       expect.objectContaining({ env: expect.objectContaining({ MYSQL_PWD: 'secret' }) }),
-      expect.any(Function),
     );
+    expect(Buffer.concat(stdinChunks).toString()).toBe('INSERT INTO x VALUES (1);');
+    expect(fakeChild.stdin.end).toHaveBeenCalled();
   });
 
-  it('restoreFromFile propaga l\'errore se mysql fallisce', async () => {
+  it('restoreFromFile propaga l\'errore (stderr) se mysql termina con codice diverso da 0', async () => {
     const sqlFile = path.join(backupDir, 'restore-input.sql');
     fs.writeFileSync(sqlFile, 'INSERT INTO x VALUES (1);');
 
-    (childProcess.execFile as unknown as jest.Mock).mockImplementation((_cmd, _args, _opts, cb) => {
-      cb(new Error('syntax error'), '', 'error');
+    const fakeChild: any = new EventEmitter();
+    fakeChild.stdin = { write: jest.fn(), end: jest.fn() };
+    fakeChild.stderr = new EventEmitter();
+    (childProcess.spawn as unknown as jest.Mock).mockImplementation(() => {
+      setImmediate(() => {
+        fakeChild.stderr.emit('data', Buffer.from('ERROR 1064: syntax error'));
+        fakeChild.emit('close', 1);
+      });
+      return fakeChild;
     });
 
-    await expect(service.restoreFromFile(sqlFile)).rejects.toThrow('syntax error');
+    await expect(service.restoreFromFile(sqlFile)).rejects.toThrow('ERROR 1064: syntax error');
   });
 ```
 
-Nota implementativa: dato che `execFile` con `promisify` non supporta nativamente il redirect `< file` di shell (non c'è shell), il contenuto del file va passato come `stdin` del processo figlio tramite l'opzione `input` — vedi implementazione sotto.
+Nota implementativa: `child_process.execFile`/`exec` asincroni (a differenza delle varianti `*Sync`) NON supportano un'opzione `input` per scrivere su stdin — verrebbe ignorata silenziosamente e il comando `mysql` non riceverebbe mai il contenuto del backup. Per pipare lo stdin serve `child_process.spawn`, scrivendo esplicitamente su `child.stdin`. `spawn` con argomenti array (nessuna shell) rispetta comunque il vincolo di sicurezza del piano (mai stringa shell interpolata) — `mysqldump` (Task 4) resta invece su `execFile`, che va bene lì perché l'output passa da `--result-file`, non da stdin/stdout.
+
+Aggiungi in cima a `backend/src/apis/backup/backup.service.spec.ts` l'import mancante:
+
+```typescript
+import { EventEmitter } from 'events';
+```
 
 - [ ] **Step 2: Esegui il test per verificare che fallisca**
 
@@ -839,6 +865,12 @@ Run: `docker exec utenzepa-api-1 npx jest apis/backup/backup.service --maxWorker
 Expected: FAIL — `service.restoreFromFile is not a function`
 
 - [ ] **Step 3: Implementa `restoreFromFile` in `BackupService`**
+
+Aggiungi in cima a `backend/src/apis/backup/backup.service.ts` l'import di `spawn` (accanto a quello già presente di `child_process`):
+
+```typescript
+import { spawn } from 'child_process';
+```
 
 Aggiungi a `backend/src/apis/backup/backup.service.ts`, dentro la classe `BackupService`, dopo `deleteBackup`:
 
@@ -853,17 +885,30 @@ Aggiungi a `backend/src/apis/backup/backup.service.ts`, dentro la classe `Backup
       process.env.MYSQL_DB as string,
     ];
 
-    try {
-      await execFile('mysql', args, {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn('mysql', args, {
         env: { ...process.env, MYSQL_PWD: process.env.MYSQL_PASSWORD },
-        input: sqlContent,
-        maxBuffer: 1024 * 1024 * 100,
       });
-      this.logger.log(`Restore completato da: ${filePath}`);
-    } catch (err) {
-      this.logger.error(`Restore fallito: ${(err as Error).message}`);
-      throw err;
-    }
+
+      let stderr = '';
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+      child.on('error', reject);
+      child.on('close', (code) => {
+        if (code === 0) {
+          this.logger.log(`Restore completato da: ${filePath}`);
+          resolve();
+        } else {
+          const message = stderr.trim() || `mysql terminato con codice ${code}`;
+          this.logger.error(`Restore fallito: ${message}`);
+          reject(new Error(message));
+        }
+      });
+
+      child.stdin.write(sqlContent);
+      child.stdin.end();
+    });
   }
 ```
 
