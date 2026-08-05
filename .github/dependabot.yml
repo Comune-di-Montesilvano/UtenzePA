@@ -9,6 +9,14 @@ updates:
     directory: /frontend
     schedule:
       interval: weekly
+    groups:
+      # I pacchetti @angular/* vanno aggiornati insieme come famiglia (peer
+      # dependency incrociate) - un bump isolato rompe la build (vedi PR
+      # #4/#7/#8 chiuse per questo motivo). Una sola PR per l'intero set.
+      angular:
+        patterns:
+          - "@angular/*"
+          - "@angular-devkit/*"
 
   - package-ecosystem: github-actions
     directory: /
