@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as childProcess from 'child_process';
+import { spawn } from 'child_process';
 import { promisify } from 'util';
 
 const execFile = promisify(childProcess.execFile);
@@ -93,5 +94,41 @@ export class BackupService {
   async deleteBackup(filename: string): Promise<void> {
     const filePath = this.getBackupPath(filename);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  }
+
+  async restoreFromFile(filePath: string): Promise<void> {
+    const sqlContent = fs.readFileSync(filePath);
+
+    const args = [
+      `--host=${process.env.MYSQL_HOST}`,
+      `--port=${process.env.MYSQL_PORT}`,
+      `--user=${process.env.MYSQL_USER}`,
+      process.env.MYSQL_DB as string,
+    ];
+
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn('mysql', args, {
+        env: { ...process.env, MYSQL_PWD: process.env.MYSQL_PASSWORD },
+      });
+
+      let stderr = '';
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+      child.on('error', reject);
+      child.on('close', (code) => {
+        if (code === 0) {
+          this.logger.log(`Restore completato da: ${filePath}`);
+          resolve();
+        } else {
+          const message = stderr.trim() || `mysql terminato con codice ${code}`;
+          this.logger.error(`Restore fallito: ${message}`);
+          reject(new Error(message));
+        }
+      });
+
+      child.stdin.write(sqlContent);
+      child.stdin.end();
+    });
   }
 }

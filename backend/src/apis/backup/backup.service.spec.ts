@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as childProcess from 'child_process';
+import { EventEmitter } from 'events';
 import { BackupService } from './backup.service';
 
 jest.mock('child_process');
@@ -84,5 +85,54 @@ describe('BackupService', () => {
   it('getBackupPath rifiuta filename non conformi (path traversal)', () => {
     expect(() => service.getBackupPath('../../etc/passwd')).toThrow('Nome file non valido');
     expect(() => service.getBackupPath('utenzepa_20260101_000000.sql')).not.toThrow();
+  });
+
+  it('restoreFromFile esegue mysql via spawn e scrive il contenuto del file su stdin', async () => {
+    const sqlFile = path.join(backupDir, 'restore-input.sql');
+    fs.writeFileSync(sqlFile, 'INSERT INTO x VALUES (1);');
+
+    const stdinChunks: Buffer[] = [];
+    const fakeChild: any = new EventEmitter();
+    fakeChild.stdin = {
+      write: (chunk: Buffer) => {
+        stdinChunks.push(chunk);
+        return true;
+      },
+      end: jest.fn(),
+    };
+    fakeChild.stderr = new EventEmitter();
+    (childProcess.spawn as unknown as jest.Mock).mockImplementation(() => {
+      // il close arriva async, dopo che il chiamante ha già collegato gli handler
+      setImmediate(() => fakeChild.emit('close', 0));
+      return fakeChild;
+    });
+
+    await service.restoreFromFile(sqlFile);
+
+    expect(childProcess.spawn).toHaveBeenCalledWith(
+      'mysql',
+      expect.arrayContaining(['--host=localhost', '--port=3306', '--user=root', 'mydatabase']),
+      expect.objectContaining({ env: expect.objectContaining({ MYSQL_PWD: 'secret' }) }),
+    );
+    expect(Buffer.concat(stdinChunks).toString()).toBe('INSERT INTO x VALUES (1);');
+    expect(fakeChild.stdin.end).toHaveBeenCalled();
+  });
+
+  it('restoreFromFile propaga l\'errore (stderr) se mysql termina con codice diverso da 0', async () => {
+    const sqlFile = path.join(backupDir, 'restore-input.sql');
+    fs.writeFileSync(sqlFile, 'INSERT INTO x VALUES (1);');
+
+    const fakeChild: any = new EventEmitter();
+    fakeChild.stdin = { write: jest.fn(), end: jest.fn() };
+    fakeChild.stderr = new EventEmitter();
+    (childProcess.spawn as unknown as jest.Mock).mockImplementation(() => {
+      setImmediate(() => {
+        fakeChild.stderr.emit('data', Buffer.from('ERROR 1064: syntax error'));
+        fakeChild.emit('close', 1);
+      });
+      return fakeChild;
+    });
+
+    await expect(service.restoreFromFile(sqlFile)).rejects.toThrow('ERROR 1064: syntax error');
   });
 });
