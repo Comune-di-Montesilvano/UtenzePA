@@ -35,6 +35,13 @@ export class BackupService {
     return `utenzepa_${y}${mo}${d}_${h}${mi}${s}.sql`;
   }
 
+  private parseFilenameDate(filename: string): Date {
+    const match = filename.match(/^utenzepa_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.sql$/);
+    if (!match) return new Date(0);
+    const [, y, mo, d, h, mi, s] = match;
+    return new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s));
+  }
+
   getBackupPath(filename: string): string {
     if (!FILENAME_PATTERN.test(filename)) {
       throw new Error('Nome file non valido');
@@ -68,7 +75,7 @@ export class BackupService {
 
     const stat = fs.statSync(finalPath);
     this.logger.log(`Backup creato: ${filename} (${stat.size} byte)`);
-    return { filename, size: stat.size, createdAt: stat.birthtime };
+    return { filename, size: stat.size, createdAt: this.parseFilenameDate(filename) };
   }
 
   async listBackups(): Promise<BackupInfo[]> {
@@ -77,10 +84,10 @@ export class BackupService {
       .filter((f) => FILENAME_PATTERN.test(f))
       .map((filename) => {
         const stat = fs.statSync(path.join(this.backupDir, filename));
-        return { filename, size: stat.size, createdAt: stat.birthtime };
+        return { filename, size: stat.size, createdAt: this.parseFilenameDate(filename) };
       });
 
-    return files.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return files.sort((a, b) => (a.filename < b.filename ? 1 : a.filename > b.filename ? -1 : 0));
   }
 
   async deleteBackup(filename: string): Promise<void> {

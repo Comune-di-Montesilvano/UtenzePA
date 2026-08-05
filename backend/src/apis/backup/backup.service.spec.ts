@@ -30,9 +30,10 @@ describe('BackupService', () => {
   it('createBackup esegue mysqldump con execFile e argomenti array', async () => {
     (childProcess.execFile as unknown as jest.Mock).mockImplementation(
       (_cmd, args: string[], _opts, cb) => {
-        const outPath = args[args.length - 1];
+        const resultFileArg = args.find((a) => a.startsWith('--result-file='));
+        const outPath = resultFileArg!.replace(/^--result-file=/, '');
         // simula mysqldump: scrive un file di output non vuoto
-        fs.writeFileSync(outPath.replace(/^--result-file=/, ''), 'SQL DUMP CONTENT');
+        fs.writeFileSync(outPath, 'SQL DUMP CONTENT');
         cb(null, '', '');
       },
     );
