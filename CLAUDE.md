@@ -16,6 +16,10 @@ Monorepo semplice (nessun workspace tool): `backend/` (NestJS) + `frontend/` (An
 
 **Versioni tool**: usare sempre Docker per lanciare comandi che richiedono versioni software specifiche (`npm install`, build, ecc.) — l'host locale può avere Node/npm diversi da quelli richiesti dal progetto (`backend/package.json` richiede Node ≥24, potrebbe non corrispondere alla versione installata sulla macchina). `docker exec` sul container `api` (avviato con l'override di sviluppo) garantisce la versione corretta.
 
+Query MySQL dirette (debug/pulizia dati test): `docker exec utenzepa-mysql-1 mysql -uroot -p'<MYSQL_PASSWORD da .env>' mydatabase -e "SELECT ..."`.
+
+Porte locali override in `.env` (non i default di `.env.example`): `DOCKER_API_PORT=3010`, mailpit su `1026`/`8026` — conflitto con altri progetti locali sulla stessa macchina (es. comunicaPA usa 3000/1025/8025).
+
 ## Comandi
 
 ### Avvio con Docker (root)
@@ -99,6 +103,9 @@ Primo giro (soft, da PR dedicata) per adeguare il repo alle convenzioni usate ne
 
 **Note aperte, non risolte** (da valutare con la ditta terza):
 - `backend/.env.example` non riflette le variabili realmente lette dal codice (elenca `MONGODB_URI`, `SMTP_HOST` ecc. non usati, non elenca `MYSQL_*`) — da riscrivere in un giro dedicato.
+- `@nestjs-modules/mailer` in `backend/package.json` è dipendenza morta (mai importata) — un bump dependabot (PR #13) ha rotto la CI per conflitto peer con `nodemailer`. Da rimuovere, non aggiornare.
+
+Dependabot: `@angular/*` raggruppato in un'unica PR (`.github/dependabot.yml`) — i pacchetti Angular vanno aggiornati insieme, un bump isolato rompe il peer dependency resolution (visto su PR #4/#7/#8, chiuse per questo).
 
 **Migration DB (sezione 2 della roadmap, completata)**: aggiunta `src/database/migrations/` + `data-source.ts`, `migrationsRun: true` in `mysql.module.ts` (sempre, dev e prod). Generata `InitialSchema` come baseline dallo schema esistente. `SYNCHRONIZE`/`DROPSCHEMA` restano solo come escape hatch dev, mai in produzione. Testato: due riavvii consecutivi del container `api` puliti, migration idempotente.
 
