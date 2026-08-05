@@ -96,6 +96,9 @@ ENV NODE_ENV=production \
 # Create a non-root user
 RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001 -G nodejs
 
+# Install mysql-client (mysqldump/mysql CLI, usati dal modulo backup)
+RUN apk add --no-cache mysql-client
+
 # Set working directory
 WORKDIR /usr/src/app
 
@@ -138,6 +141,9 @@ COPY --chown=nestjs:nodejs . .
 
 # Install curl for healthcheck
 RUN apk add --no-cache curl
+
+# Install mysql-client (mysqldump/mysql CLI, usati dal modulo backup)
+RUN apk add --no-cache mysql-client
 
 # Switch to non-root user
 USER nestjs
