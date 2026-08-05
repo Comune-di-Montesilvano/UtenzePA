@@ -425,9 +425,10 @@ describe('BackupService', () => {
   it('createBackup esegue mysqldump con execFile e argomenti array', async () => {
     (childProcess.execFile as unknown as jest.Mock).mockImplementation(
       (_cmd, args: string[], _opts, cb) => {
-        const outPath = args[args.length - 1];
+        const resultFileArg = args.find((a) => a.startsWith('--result-file='));
+        const outPath = resultFileArg!.replace(/^--result-file=/, '');
         // simula mysqldump: scrive un file di output non vuoto
-        fs.writeFileSync(outPath.replace(/^--result-file=/, ''), 'SQL DUMP CONTENT');
+        fs.writeFileSync(outPath, 'SQL DUMP CONTENT');
         cb(null, '', '');
       },
     );
@@ -528,6 +529,18 @@ export class BackupService {
     return `utenzepa_${y}${mo}${d}_${h}${mi}${s}.sql`;
   }
 
+  // Il timestamp si ricava dal filename (che lo incorpora), non da
+  // stat.birthtime: birthtime non è garantito su ogni filesystem (es.
+  // overlay2 usato dai container Linux può non supportarlo o riportarlo
+  // identico per file scritti a distanza di pochi millisecondi) — usarlo
+  // per la retention (Task 7) rischierebbe di cancellare backup validi.
+  private parseFilenameDate(filename: string): Date {
+    const match = filename.match(/^utenzepa_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.sql$/);
+    if (!match) return new Date(0);
+    const [, y, mo, d, h, mi, s] = match;
+    return new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s));
+  }
+
   getBackupPath(filename: string): string {
     if (!FILENAME_PATTERN.test(filename)) {
       throw new Error('Nome file non valido');
@@ -561,7 +574,7 @@ export class BackupService {
 
     const stat = fs.statSync(finalPath);
     this.logger.log(`Backup creato: ${filename} (${stat.size} byte)`);
-    return { filename, size: stat.size, createdAt: stat.birthtime };
+    return { filename, size: stat.size, createdAt: this.parseFilenameDate(filename) };
   }
 
   async listBackups(): Promise<BackupInfo[]> {
@@ -570,10 +583,17 @@ export class BackupService {
       .filter((f) => FILENAME_PATTERN.test(f))
       .map((filename) => {
         const stat = fs.statSync(path.join(this.backupDir, filename));
-        return { filename, size: stat.size, createdAt: stat.birthtime };
+        return { filename, size: stat.size, createdAt: this.parseFilenameDate(filename) };
       });
 
-    return files.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    // Ordina per nome file (non per stat.birthtime): il filename incorpora
+    // il timestamp in formato YYYYMMDD_HHMMSS, quindi l'ordine lessicografico
+    // decrescente sul filename coincide con l'ordine cronologico decrescente
+    // ed è affidabile su qualunque filesystem — birthtime non è garantito
+    // ovunque (es. overlay2/tmpfs su alcuni container Linux lo riportano
+    // uguale per file scritti a distanza di pochi millisecondi, rompendo
+    // l'ordinamento).
+    return files.sort((a, b) => (a.filename < b.filename ? 1 : a.filename > b.filename ? -1 : 0));
   }
 
   async deleteBackup(filename: string): Promise<void> {
@@ -1225,7 +1245,7 @@ Aggiungi dentro la classe `BackupService`, dopo `restoreFromFile`:
   }
 ```
 
-Nota: `createdAt` in `listBackups()` usa `stat.birthtime` — su alcuni filesystem Linux `birthtime` può non essere supportato e ricadere su `ctime`; per il caso d'uso (retention su backup creati da questo stesso servizio, mai modificati dopo la creazione) è equivalente e sufficiente.
+Nota: `createdAt` in `listBackups()`/`createBackup()` è derivato dal filename (`parseFilenameDate`, Task 4), non da `stat.birthtime` — `birthtime` non è garantito su ogni filesystem (verificato empiricamente: su overlay2/tmpfs in container Linux due file scritti a pochi millisecondi di distanza possono risultare con lo stesso `birthtime`, rompendo l'ordinamento e potenzialmente la retention). Il filename incorpora già il timestamp con precisione al secondo, quindi è la fonte affidabile.
 
 - [ ] **Step 4: Esegui i test per verificare che passino**
 
