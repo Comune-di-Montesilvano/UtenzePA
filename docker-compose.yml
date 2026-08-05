@@ -48,6 +48,11 @@ services:
       - SMTP_SECURE_PROTOCOL=${SMTP_SECURE_PROTOCOL:-true}
       # Swagger — mai true in produzione pubblica
       - SWAGGER=${SWAGGER:-false}
+      # Backup DB — schedulazione cron, retention, dimensioni massime
+      - BACKUP_CRON_SCHEDULE=${BACKUP_CRON_SCHEDULE:-0 0 * * *}
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
+      - BACKUP_MAX_SIZE_MB=${BACKUP_MAX_SIZE_MB:-500}
+      - IMPORT_MAX_SIZE_MB=${IMPORT_MAX_SIZE_MB:-50}
     volumes:
       - backups_data:/usr/src/app/backups
     ports:

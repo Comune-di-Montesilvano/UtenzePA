@@ -37,6 +37,11 @@ services:
       - HOST_EMAIL=mailpit
       - PORT_EMAIL=1025
       - SMTP_SECURE_PROTOCOL=false
+      # Backup DB — schedulazione cron, retention, dimensioni massime
+      - BACKUP_CRON_SCHEDULE=${BACKUP_CRON_SCHEDULE:-0 0 * * *}
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
+      - BACKUP_MAX_SIZE_MB=${BACKUP_MAX_SIZE_MB:-500}
+      - IMPORT_MAX_SIZE_MB=${IMPORT_MAX_SIZE_MB:-50}
     user: "1000:1000"
     volumes:
       - ./backend:/usr/src/app
