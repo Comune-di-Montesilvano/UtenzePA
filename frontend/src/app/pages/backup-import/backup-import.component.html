@@ -28,7 +28,7 @@
           <td>{{ backup.size }}</td>
           <td>{{ backup.createdAt | date: 'dd/MM/yyyy HH:mm' }}</td>
           <td>
-            <a [href]="downloadUrl(backup.filename)" target="_blank">Scarica</a>
+            <p-button label="Scarica" [text]="true" (onClick)="downloadBackup(backup.filename)"></p-button>
             <p-button label="Elimina" severity="danger" [text]="true" (onClick)="deleteBackup(backup.filename)"></p-button>
           </td>
         </tr>

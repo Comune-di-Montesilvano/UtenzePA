@@ -76,4 +76,23 @@ describe('ChunkedUploadService', () => {
       'uploadId non valido',
     );
   });
+
+  it('rifiuta un upload che supera maxSizeBytes e pulisce i chunk già salvati', () => {
+    const uploadId = 'test-upload-7';
+    service.saveChunk(uploadId, 0, 3, Buffer.from('AAAA'), destDir, 10);
+
+    expect(() => service.saveChunk(uploadId, 1, 3, Buffer.from('BBBBBBBB'), destDir, 10)).toThrow(
+      /supera il limite consentito/,
+    );
+
+    const remaining = fs.readdirSync(destDir).filter((f) => f.includes(uploadId));
+    expect(remaining).toEqual([]);
+  });
+
+  it('accetta un upload entro maxSizeBytes', () => {
+    const uploadId = 'test-upload-8';
+    expect(() => service.saveChunk(uploadId, 0, 1, Buffer.from('AAA'), destDir, 100)).not.toThrow();
+
+    expect(service.isComplete(uploadId, 1, destDir)).toBe(true);
+  });
 });

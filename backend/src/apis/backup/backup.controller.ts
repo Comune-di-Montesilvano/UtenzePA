@@ -72,12 +72,14 @@ export class BackupController {
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadChunkDto,
   ): Promise<{ received: boolean }> {
+    const maxSizeBytes = (parseInt(process.env.BACKUP_MAX_SIZE_MB ?? '500', 10)) * 1024 * 1024;
     this.chunkedUpload.saveChunk(
       dto.uploadId,
       dto.chunkIndex,
       dto.totalChunks,
       file.buffer,
       this.tmpDir,
+      maxSizeBytes,
     );
     return { received: true };
   }

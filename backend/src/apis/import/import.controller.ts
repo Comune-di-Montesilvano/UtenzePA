@@ -9,6 +9,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import * as fs from 'fs';
 import * as path from 'path';
 import { ImportService } from './import.service';
 import { ChunkedUploadService } from '@common/chunked-upload/chunked-upload.service';
@@ -46,7 +47,15 @@ export class ImportController {
     @Body() dto: UploadChunkDto,
   ): Promise<{ received: boolean }> {
     this.resolveEntityType(entityType);
-    this.chunkedUpload.saveChunk(dto.uploadId, dto.chunkIndex, dto.totalChunks, file.buffer, this.tmpDir);
+    const maxSizeBytes = (parseInt(process.env.IMPORT_MAX_SIZE_MB ?? '50', 10)) * 1024 * 1024;
+    this.chunkedUpload.saveChunk(
+      dto.uploadId,
+      dto.chunkIndex,
+      dto.totalChunks,
+      file.buffer,
+      this.tmpDir,
+      maxSizeBytes,
+    );
     return { received: true };
   }
 
@@ -57,6 +66,10 @@ export class ImportController {
   ): Promise<Record<string, unknown>> {
     const type = this.resolveEntityType(entityType);
     const filePath = this.chunkedUpload.assemble(dto.uploadId, dto.totalChunks, this.tmpDir, `${dto.uploadId}.csv`);
-    return this.importService.importFromFile(type, filePath);
+    try {
+      return await this.importService.importFromFile(type, filePath);
+    } finally {
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
   }
 }

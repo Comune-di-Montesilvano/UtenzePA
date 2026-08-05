@@ -79,7 +79,7 @@ export class BackupImportComponent {
       },
       error: () => {
         this.loadingBackups = false;
-        this.messageService.add({ severity: 'error', summary: 'Errore nel caricamento dei backup' });
+        this.messageService.add({ severity: 'error', summary: 'Errore nel caricamento dei backup', key: 'global' });
       },
     });
   }
@@ -89,12 +89,12 @@ export class BackupImportComponent {
     this.backupService.create().subscribe({
       next: () => {
         this.creatingBackup = false;
-        this.messageService.add({ severity: 'success', summary: 'Backup creato' });
+        this.messageService.add({ severity: 'success', summary: 'Backup creato', key: 'global' });
         this.loadBackups();
       },
       error: () => {
         this.creatingBackup = false;
-        this.messageService.add({ severity: 'error', summary: 'Errore nella creazione del backup' });
+        this.messageService.add({ severity: 'error', summary: 'Errore nella creazione del backup', key: 'global' });
       },
     });
   }
@@ -102,17 +102,29 @@ export class BackupImportComponent {
   deleteBackup(filename: string) {
     this.backupService.remove(filename).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Backup eliminato' });
+        this.messageService.add({ severity: 'success', summary: 'Backup eliminato', key: 'global' });
         this.loadBackups();
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Errore nella cancellazione del backup' });
+        this.messageService.add({ severity: 'error', summary: 'Errore nella cancellazione del backup', key: 'global' });
       },
     });
   }
 
-  downloadUrl(filename: string): string {
-    return this.backupService.downloadUrl(filename);
+  downloadBackup(filename: string) {
+    this.backupService.download(filename).subscribe({
+      next: (blob: Blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.messageService.add({ severity: 'error', summary: 'Errore nel download del backup', key: 'global' });
+      },
+    });
   }
 
   onRestoreFileSelected(event: Event) {
@@ -133,13 +145,13 @@ export class BackupImportComponent {
         this.restoreDialogVisible = false;
         this.restorePassword = '';
         this.restoreFile = null;
-        this.messageService.add({ severity: 'success', summary: 'Ripristino completato' });
+        this.messageService.add({ severity: 'success', summary: 'Ripristino completato', key: 'global' });
         this.loadBackups();
       },
       error: (err: any) => {
         this.restoring = false;
         const detail = err?.error?.message ?? 'Errore nel ripristino';
-        this.messageService.add({ severity: 'error', summary: 'Errore', detail });
+        this.messageService.add({ severity: 'error', summary: 'Errore', detail, key: 'global' });
       },
     });
   }
@@ -164,12 +176,12 @@ export class BackupImportComponent {
       next: (result) => {
         this.importing = false;
         this.importResult = result;
-        this.messageService.add({ severity: 'success', summary: 'Import completato' });
+        this.messageService.add({ severity: 'success', summary: 'Import completato', key: 'global' });
       },
       error: (err: any) => {
         this.importing = false;
         const detail = err?.error?.message ?? 'Errore nell\'import';
-        this.messageService.add({ severity: 'error', summary: 'Errore', detail });
+        this.messageService.add({ severity: 'error', summary: 'Errore', detail, key: 'global' });
       },
     });
   }

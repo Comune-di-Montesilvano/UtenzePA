@@ -39,6 +39,13 @@ export class BackupService {
     return `${this.BASE_URL}/${filename}/download`;
   }
 
+  download(filename: string): Observable<Blob> {
+    return this.http.get(this.downloadUrl(filename), {
+      headers: this.getAuthHeaders(),
+      responseType: 'blob',
+    });
+  }
+
   restore(file: File, password: string): Observable<any> {
     return this.chunkedUpload.uploadFile(
       file,

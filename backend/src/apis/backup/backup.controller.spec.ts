@@ -76,6 +76,7 @@ describe('BackupController', () => {
       2,
       file.buffer,
       expect.stringContaining('tmp'),
+      expect.any(Number),
     );
   });
 

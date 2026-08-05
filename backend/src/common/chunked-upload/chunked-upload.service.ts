@@ -20,6 +20,7 @@ export class ChunkedUploadService {
     totalChunks: number,
     buffer: Buffer,
     destDir: string,
+    maxSizeBytes?: number,
   ): void {
     this.validateUploadId(uploadId);
     if (chunkIndex < 0 || chunkIndex >= totalChunks) {
@@ -28,6 +29,34 @@ export class ChunkedUploadService {
     fs.mkdirSync(destDir, { recursive: true });
     const chunkPath = path.join(destDir, this.chunkFileName(uploadId, chunkIndex));
     fs.writeFileSync(chunkPath, buffer);
+
+    if (maxSizeBytes !== undefined) {
+      const totalSize = this.uploadedSize(uploadId, destDir);
+      if (totalSize > maxSizeBytes) {
+        this.cleanup(uploadId, totalChunks, destDir);
+        throw new Error(
+          `Dimensione totale upload (${totalSize} byte) supera il limite consentito (${maxSizeBytes} byte)`,
+        );
+      }
+    }
+  }
+
+  private uploadedSize(uploadId: string, destDir: string): number {
+    const prefix = `${uploadId}.chunk`;
+    let total = 0;
+    let entries: string[] = [];
+    try {
+      entries = fs.readdirSync(destDir);
+    } catch {
+      return 0;
+    }
+    for (const entry of entries) {
+      if (entry.startsWith(prefix)) {
+        const stat = fs.statSync(path.join(destDir, entry));
+        total += stat.size;
+      }
+    }
+    return total;
   }
 
   isComplete(uploadId: string, totalChunks: number, destDir: string): boolean {
