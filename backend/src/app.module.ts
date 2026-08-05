@@ -28,6 +28,7 @@ import { ConsipAgreementModule } from '@apis/consip-agreement/consip-agreement.m
 import { PurposeModule } from '@apis/purpose/purpose.module';
 import { UtilizerModule } from '@apis/utilizer/utilizer.module';
 import { DataImporterModule } from '@/data-importer/data-importer.module';
+import { BackupModule } from '@apis/backup/backup.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { DataImporterModule } from '@/data-importer/data-importer.module';
     PurposeModule,
     UtilizerModule,
     DataImporterModule,
+    BackupModule,
   ],
   controllers: [AppController],
   providers: [
