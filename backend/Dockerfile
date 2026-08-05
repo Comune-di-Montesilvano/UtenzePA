@@ -108,9 +108,6 @@ COPY --chown=nestjs:nodejs --from=prod-deps /usr/src/app/node_modules ./node_mod
 # Copy the built application from the build stage
 COPY --chown=nestjs:nodejs --from=build /usr/src/app/dist ./dist
 
-# Copy data folder for database import
-COPY --chown=nestjs:nodejs data ./data
-
 # Switch to non-root user
 USER nestjs
 
