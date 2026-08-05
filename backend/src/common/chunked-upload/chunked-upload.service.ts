@@ -8,6 +8,12 @@ export class ChunkedUploadService {
     return `${uploadId}.chunk${chunkIndex}`;
   }
 
+  private validateUploadId(uploadId: string): void {
+    if (!/^[a-zA-Z0-9_-]+$/.test(uploadId)) {
+      throw new Error('uploadId non valido');
+    }
+  }
+
   saveChunk(
     uploadId: string,
     chunkIndex: number,
@@ -15,6 +21,7 @@ export class ChunkedUploadService {
     buffer: Buffer,
     destDir: string,
   ): void {
+    this.validateUploadId(uploadId);
     if (chunkIndex < 0 || chunkIndex >= totalChunks) {
       throw new Error(`chunkIndex ${chunkIndex} fuori range (totalChunks=${totalChunks})`);
     }
@@ -32,6 +39,7 @@ export class ChunkedUploadService {
   }
 
   assemble(uploadId: string, totalChunks: number, destDir: string, finalFileName: string): string {
+    this.validateUploadId(uploadId);
     if (!this.isComplete(uploadId, totalChunks, destDir)) {
       throw new Error(`Chunk mancanti per upload ${uploadId}`);
     }

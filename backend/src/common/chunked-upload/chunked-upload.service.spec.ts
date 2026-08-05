@@ -70,4 +70,10 @@ describe('ChunkedUploadService', () => {
     const remaining = fs.readdirSync(destDir).filter((f) => f.includes(uploadId));
     expect(remaining).toEqual([]);
   });
+
+  it('rifiuta uploadId con path traversal', () => {
+    expect(() => service.saveChunk('../../etc/passwd', 0, 1, Buffer.from('x'), destDir)).toThrow(
+      'uploadId non valido',
+    );
+  });
 });

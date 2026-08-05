@@ -98,8 +98,11 @@ export class BackupController {
       this.tmpDir,
       `${dto.uploadId}.sql`,
     );
-    await this.service.restoreFromFile(filePath);
-    fs.unlinkSync(filePath);
+    try {
+      await this.service.restoreFromFile(filePath);
+    } finally {
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
 
     return { restored: true };
   }

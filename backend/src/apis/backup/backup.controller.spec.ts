@@ -110,4 +110,20 @@ describe('BackupController', () => {
     expect(service.restoreFromFile).toHaveBeenCalledWith('/tmp/restore.sql');
     expect(result).toEqual({ restored: true });
   });
+
+  it('restoreFinalize elimina il file assemblato anche se il restore fallisce', async () => {
+    fs.writeFileSync('/tmp/restore-fail.sql', 'dummy');
+    authService.validateUser.mockResolvedValue({ id: 1 } as any);
+    chunkedUpload.assemble.mockReturnValue('/tmp/restore-fail.sql');
+    service.restoreFromFile.mockRejectedValue(new Error('mysql error'));
+
+    await expect(
+      controller.restoreFinalize(
+        { uploadId: 'u1', totalChunks: 2, password: 'correct' },
+        { id: 1, email: 'admin@example.com', role: 'Admin' },
+      ),
+    ).rejects.toThrow('mysql error');
+
+    expect(fs.existsSync('/tmp/restore-fail.sql')).toBe(false);
+  });
 });
