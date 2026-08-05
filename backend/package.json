@@ -102,7 +102,7 @@
     "fast-csv": "^5.0.5",
     "helmet": "^8.1.0",
     "js-yaml": "^4.1.0",
-    "mysql2": "^3.15.3",
+    "mysql2": "^3.23.2",
     "nodemailer": "^7.0.10",
     "papaparse": "^5.5.3",
     "passport": "^0.7.0",
