@@ -34,6 +34,16 @@ html {
 .mat-action-danger {
   --mdc-icon-button-icon-color: #e7000b;
   color: #e7000b;
+
+  // .mat-action-success/.mat-action-danger sopra colorano solo i mat-icon-button
+  // (--mdc-icon-button-icon-color). Il bottone "Elimina" di ConfirmDialogComponent
+  // è invece un mat-flat-button (classe CSS .mat-mdc-unelevated-button), che usa
+  // le variabili --mdc-filled-button-* e restava quindi non colorato (finding I2
+  // review finale).
+  &.mat-mdc-unelevated-button {
+    --mdc-filled-button-container-color: #e7000b;
+    --mdc-filled-button-label-text-color: #ffffff;
+  }
 }
 
 .toast-success {
