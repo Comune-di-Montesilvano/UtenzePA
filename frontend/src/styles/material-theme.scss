@@ -35,3 +35,23 @@ html {
   --mdc-icon-button-icon-color: #e7000b;
   color: #e7000b;
 }
+
+.toast-success {
+  --mdc-snackbar-container-color: #00c10d;
+  --mdc-snackbar-supporting-text-color: #ffffff;
+}
+
+.toast-error {
+  --mdc-snackbar-container-color: #e7000b;
+  --mdc-snackbar-supporting-text-color: #ffffff;
+}
+
+.toast-warn {
+  --mdc-snackbar-container-color: #f59e0b;
+  --mdc-snackbar-supporting-text-color: #030213;
+}
+
+.toast-info {
+  --mdc-snackbar-container-color: #030213;
+  --mdc-snackbar-supporting-text-color: #ffffff;
+}
