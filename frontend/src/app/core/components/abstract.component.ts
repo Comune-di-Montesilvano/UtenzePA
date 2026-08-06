@@ -129,7 +129,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
           this.messageService.add(
             {
               severity: 'success',
-              summary: 'Elemento creato',
+              summary: `${this.entityLabel()} creato`,
               detail: this.getEntityIdentifier(item),
               key: 'global'
             });
@@ -142,6 +142,11 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   }
 
   protected abstract getEntityIdentifier(entity: T): string;
+
+  /** Etichetta dell'entità usata nel summary del toast di creazione (es. "Gestore creato"). */
+  protected entityLabel(): string {
+    return 'Elemento';
+  }
 
   protected entityToPayload(entity: T): Partial<T> {
     return {

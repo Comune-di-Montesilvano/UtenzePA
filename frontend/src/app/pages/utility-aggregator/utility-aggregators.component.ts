@@ -1,5 +1,4 @@
 import {Component} from '@angular/core';
-import {CommonModule} from '@angular/common';
 import {UtilityAggregatorsService} from './utility-aggregator.service';
 import {DataTableUtilityAggregatorsComponent} from './data-table-utility-aggregator.component';
 import {SearchUtilityAggregators} from './search-utility-aggregator.component';
@@ -10,7 +9,6 @@ import {AbstractComponent} from '../../core/components/abstract.component';
   selector: 'app-utility-aggregators',
   standalone: true,
   imports: [
-    CommonModule,
     DataTableUtilityAggregatorsComponent,
     SearchUtilityAggregators
   ],
@@ -24,5 +22,9 @@ export class UtilityAggregatorsComponent extends AbstractComponent<UtilityAggreg
 
   protected override getEntityIdentifier(entity: UtilityAggregator): string {
     return entity.code;
+  }
+
+  protected override entityLabel(): string {
+    return 'Aggregato Utenza';
   }
 }

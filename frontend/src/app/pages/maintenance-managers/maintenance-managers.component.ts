@@ -1,5 +1,4 @@
 import {Component} from '@angular/core';
-import {CommonModule} from '@angular/common';
 import {MaintenanceManagersService} from './maintenance-managers.service';
 import {DataTableMaintenanceManagersComponent} from './data-table-maintenance-managers.component';
 import {SearchFormMaintenanceManagers} from './search-maintenance-managers.component';
@@ -10,7 +9,6 @@ import {MaintenanceManager} from './entity/maintenance-manager.entity';
   selector: 'app-maintenance-managers',
   standalone: true,
   imports: [
-    CommonModule,
     DataTableMaintenanceManagersComponent,
     SearchFormMaintenanceManagers
   ],
@@ -24,6 +22,10 @@ export class MaintenanceManagersComponent extends AbstractComponent<MaintenanceM
 
   protected override getEntityIdentifier(entity: MaintenanceManager): string {
     return entity.code;
+  }
+
+  protected override entityLabel(): string {
+    return 'Gestore';
   }
 
   protected override entityToPayload(entity: MaintenanceManager): Partial<MaintenanceManager> {

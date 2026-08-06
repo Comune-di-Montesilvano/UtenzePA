@@ -1,5 +1,4 @@
 import {Component} from '@angular/core';
-import {CommonModule} from '@angular/common';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {Utilizer} from './entity/utilizer.entity';
 import {UtilizerService} from './utilizer.service';
@@ -10,7 +9,6 @@ import {SearchUtilizerComponent} from './search-utilizer.component';
   selector: 'app-utilizer',
   standalone: true,
   imports: [
-    CommonModule,
     DataTableUtilizerComponent,
     SearchUtilizerComponent,
   ],
@@ -25,5 +23,9 @@ export class UtilizerComponent extends AbstractComponent<Utilizer> {
 
   protected override getEntityIdentifier(entity: Utilizer): string {
     return entity.name ?? '';
+  }
+
+  protected override entityLabel(): string {
+    return 'Utilizzatore';
   }
 }
