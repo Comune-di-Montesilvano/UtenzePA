@@ -1,5 +1,4 @@
 import {Component, Type} from '@angular/core';
-import {CommonModule} from '@angular/common';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
 import {MatPaginatorModule} from '@angular/material/paginator';
@@ -8,7 +7,6 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
-import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {MaintenanceManager} from './entity/maintenance-manager.entity';
@@ -19,7 +17,6 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
   selector: 'app-data-table-maintenance-managers',
   standalone: true,
   imports: [
-    CommonModule,
     MatTableModule,
     MatSortModule,
     MatPaginatorModule,
@@ -27,8 +24,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
     MatIconModule,
     MatTooltipModule,
     MatProgressBarModule,
-    HasRoleDirective,
-    ReadOnlyDirective
+    HasRoleDirective
   ],
   templateUrl: './data-table-maintenance-managers.component.html'
 })

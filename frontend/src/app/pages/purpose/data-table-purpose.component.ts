@@ -7,7 +7,6 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
-import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {Purpose} from './entity/purpose.entity';
 import {UseType, UseTypeDescription} from './enum/use-type.enum';
@@ -25,8 +24,7 @@ import {PurposeEditDialogComponent} from './purpose-edit-dialog.component';
     MatIconModule,
     MatTooltipModule,
     MatProgressBarModule,
-    HasRoleDirective,
-    ReadOnlyDirective
+    HasRoleDirective
   ],
   templateUrl: './data-table-purpose.component.html'
 })

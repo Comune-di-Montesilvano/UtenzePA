@@ -7,7 +7,6 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
-import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {AssetAggregator} from './entity/asset-aggregator.entity';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
@@ -25,8 +24,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
     MatIconModule,
     MatTooltipModule,
     MatProgressBarModule,
-    HasRoleDirective,
-    ReadOnlyDirective
+    HasRoleDirective
   ],
   templateUrl: './data-table-asset-aggregator.component.html'
 })

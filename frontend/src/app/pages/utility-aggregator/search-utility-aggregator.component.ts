@@ -1,5 +1,4 @@
 import {Component, Type} from '@angular/core';
-import {CommonModule} from '@angular/common';
 import {FormBuilder, ReactiveFormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
@@ -11,7 +10,7 @@ import {UtilityAggregatorFilterDialogComponent} from './utility-aggregator-filte
 @Component({
   selector: 'app-search-utility-aggregators',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule],
+  imports: [ReactiveFormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule],
   templateUrl: './search-utility-aggregator.component.html',
 })
 export class SearchUtilityAggregators extends AbstractSearchComponent {
