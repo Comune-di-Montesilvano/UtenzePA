@@ -1,7 +1,6 @@
-import {Component, inject, OnInit, ViewChild} from '@angular/core';
-import {MessageService} from 'primeng/api';
+import {Component, inject, OnInit} from '@angular/core';
+import {ToastService} from '../services/toast.service';
 import {AuthService} from '../../services/auth.service';
-import {Table} from 'primeng/table';
 import {AbstractService} from '../services/abstract.service';
 import {AbstractEntity} from '../entities/abstract.entity';
 
@@ -16,10 +15,8 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   qsearchFields: (keyof T)[] = [];
   loading = false;
 
-  @ViewChild('dt') table?: Table;
-
   protected authService = inject(AuthService);
-  protected messageService = inject(MessageService);
+  protected messageService = inject(ToastService);
   protected abstract service: AbstractService<T>;
 
   constructor() {
