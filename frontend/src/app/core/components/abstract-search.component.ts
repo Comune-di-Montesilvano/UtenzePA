@@ -1,6 +1,11 @@
-import {Component, EventEmitter, OnInit, Output} from '@angular/core';
+import {Component, EventEmitter, inject, OnInit, Output, Type} from '@angular/core';
 import {FormGroup} from '@angular/forms';
+import {MatDialog} from '@angular/material/dialog';
 import {debounceTime, map, Observable} from 'rxjs';
+
+export interface FilterDialogData<V> {
+  values: V;
+}
 
 @Component(
   {
@@ -10,7 +15,8 @@ export abstract class AbstractSearchComponent implements OnInit {
 
   qSearch!: FormGroup;
   @Output() search = new EventEmitter<any>();
-  filterDialogVisible = false;
+
+  protected dialog = inject(MatDialog);
 
   ngOnInit() {
     this.qSearch.get('qsearch')?.valueChanges
@@ -28,10 +34,21 @@ export abstract class AbstractSearchComponent implements OnInit {
     this.parseSearchForm();
   }
 
-  protected onClear() {
-    this.filterDialogVisible = false;
-    this.qSearch.reset();
-    this.search.emit(this.qSearch.value);
+  abstract filterDialogComponent(): Type<unknown>;
+
+  openFilterDialog(): void {
+    this.dialog.open<unknown, FilterDialogData<unknown>, unknown>(this.filterDialogComponent(), {
+      width: '450px',
+      data: {values: this.qSearch.value}
+    }).afterClosed().subscribe(result => {
+      if (result === 'clear') {
+        this.qSearch.reset();
+        this.onSearch();
+      } else if (result) {
+        this.qSearch.patchValue(result as object);
+        this.onSearch();
+      }
+    });
   }
 
   protected loadOptions(
@@ -91,7 +108,6 @@ export abstract class AbstractSearchComponent implements OnInit {
     });
 
     this.search.emit(raw);
-    this.filterDialogVisible = false;
   }
 
 }
