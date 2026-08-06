@@ -75,9 +75,20 @@ Nuovo contratto in `AbstractSearchComponent`:
   originale), chiude con `dialogRef.close(this.form.getRawValue())` su "Applica",
   `dialogRef.close('clear')` su "Pulisci Filtri", nessuna chiamata a `close()` su
   ESC/backdrop (comportamento di default di `MatDialog`, ok).
-- `filterDialogVisible` (booleano oggi inutilizzato dalle pagine migrate) resta
-  nella classe per compatibilità con le pagine non ancora migrate, va rimosso
-  solo a fine Fase 2 quando tutte le pagine sono passate al nuovo pattern.
+- `filterDialogVisible` viene **rimosso subito** da `AbstractSearchComponent`
+  (stessa scelta già fatta in Fase 1 Task 5 per `editDialogVisible`/
+  `deleteDialogVisible`/`restoreDialogVisible` su `AbstractDataTableComponent`:
+  rottura intenzionale e immediata delle pagine non ancora migrate, invece di
+  tenere in vita un campo morto fino a fine Fase 2). Da questo refactor in poi,
+  anche i `search-*.component.html` non ancora migrati (13, tutti tranne
+  `purpose`) smettono di compilare — si aggiunge alla rottura già presente sui
+  `data-table-*.component.ts` da Fase 1, stessa condizione accettata.
+
+**Convenzione dialog (decisione presa ora, fissa per il resto della Fase 2):**
+dialog di edit/create → `templateUrl` esterno (form potenzialmente lunghi,
+leggibilità); dialog di filtro e conferma → template inline nel `.ts` (sempre
+brevi). Coerente con quanto già fatto in Fase 1 (`PurposeEditDialogComponent`
+esterno, `ConfirmDialogComponent`/`PurposeFilterDialogComponent` inline).
 
 ## Pattern aggiuntivi necessari da Gruppo B in poi (non nel Gruppo A)
 
