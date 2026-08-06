@@ -70,7 +70,7 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
       data: {
         title: `Ripristina ${this.entityLabel()}`,
         message: `Riattiva ${this.entityLabel()} ${entity.name ?? ''}?`,
-        confirmLabel: 'Riattiva'
+        confirmLabel: 'Ripristina'
       }
     }).afterClosed().subscribe(confirmed => {
       if (confirmed) this.onRestore.emit(entity);
