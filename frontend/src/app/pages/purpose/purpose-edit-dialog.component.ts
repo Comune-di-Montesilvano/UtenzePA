@@ -9,6 +9,9 @@ import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {Purpose} from './entity/purpose.entity';
 import {UseTypeOptions} from './enum/use-type.enum';
+import {AuthService} from '../../services/auth.service';
+import {HasRoleDirective} from '../../core/directives/has-role.directive';
+import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 
 @Component({
   selector: 'app-purpose-edit-dialog',
@@ -19,13 +22,16 @@ import {UseTypeOptions} from './enum/use-type.enum';
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    MatButtonModule
+    MatButtonModule,
+    HasRoleDirective,
+    ReadOnlyDirective
   ],
   templateUrl: './purpose-edit-dialog.component.html'
 })
 export class PurposeEditDialogComponent {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<PurposeEditDialogComponent, Purpose | undefined>);
+  private authService = inject(AuthService);
   protected data = inject<EditDialogData<Purpose>>(MAT_DIALOG_DATA);
 
   useTypeOptions = UseTypeOptions;
@@ -35,6 +41,19 @@ export class PurposeEditDialogComponent {
     name: [this.data.item.name ?? '', Validators.required],
     use_type: [this.data.item.use_type ?? null, Validators.required],
   });
+
+  constructor() {
+    // ReadOnlyDirective sul <form> nel template imposta solo pointer-events:none,
+    // bypassabile da tastiera/screen reader. Qui disabilitiamo esplicitamente il
+    // FormGroup per il ruolo Lettore, cosi' i controlli sono anche
+    // programmaticamente non modificabili e save() non puo' inviare dati
+    // (finding C1 review finale: regressione autorizzazione, Lettore poteva
+    // modificare/salvare).
+    const role = this.authService.getCurrentUser()?.role;
+    if (!role || role === 'Lettore') {
+      this.form.disable();
+    }
+  }
 
   save(): void {
     if (!this.form.valid) return;
