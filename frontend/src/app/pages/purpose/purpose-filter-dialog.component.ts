@@ -1,14 +1,16 @@
 import {Component, inject} from '@angular/core';
-import {FormGroup, ReactiveFormsModule} from '@angular/forms';
+import {FormBuilder, ReactiveFormsModule} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatSelectModule} from '@angular/material/select';
 import {MatButtonModule} from '@angular/material/button';
+import {FilterDialogData} from '../../core/components/abstract-search.component';
+import {UseTypeOptions} from './enum/use-type.enum';
 
-export interface PurposeFilterDialogData {
-  form: FormGroup;
-  useTypeOptions: { label: string; value: unknown }[];
+export interface PurposeFilterValues {
+  name: string | null;
+  use_type: unknown;
 }
 
 @Component({
@@ -18,7 +20,7 @@ export interface PurposeFilterDialogData {
   template: `
     <h2 mat-dialog-title>Filtri di ricerca</h2>
     <mat-dialog-content>
-      <form [formGroup]="data.form" id="filter-form" (ngSubmit)="apply()" style="display: flex; gap: 1rem;">
+      <form [formGroup]="form" id="filter-form" (ngSubmit)="apply()" style="display: flex; gap: 1rem;">
         <mat-form-field style="flex: 1 1 50%;">
           <mat-label>Nome</mat-label>
           <input matInput formControlName="name">
@@ -26,7 +28,7 @@ export interface PurposeFilterDialogData {
         <mat-form-field style="flex: 1 1 50%;">
           <mat-label>Tipo uso</mat-label>
           <mat-select formControlName="use_type">
-            @for (opt of data.useTypeOptions; track opt.value) {
+            @for (opt of useTypeOptions; track opt.value) {
               <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
             }
           </mat-select>
@@ -40,15 +42,25 @@ export interface PurposeFilterDialogData {
   `
 })
 export class PurposeFilterDialogComponent {
-  protected data = inject<PurposeFilterDialogData>(MAT_DIALOG_DATA);
-  private dialogRef = inject(MatDialogRef<PurposeFilterDialogComponent, boolean>);
+  private fb = inject(FormBuilder);
+  private dialogRef = inject(MatDialogRef<PurposeFilterDialogComponent, PurposeFilterValues | 'clear'>);
+  protected data = inject<FilterDialogData<PurposeFilterValues>>(MAT_DIALOG_DATA);
+
+  useTypeOptions = [
+    {label: 'Tutti', value: null},
+    ...UseTypeOptions
+  ];
+
+  form = this.fb.group({
+    name: [this.data.values.name ?? ''],
+    use_type: [this.data.values.use_type ?? null],
+  });
 
   apply(): void {
-    this.dialogRef.close(true);
+    this.dialogRef.close(this.form.getRawValue());
   }
 
   clear(): void {
-    this.data.form.reset();
-    this.dialogRef.close(true);
+    this.dialogRef.close('clear');
   }
 }
