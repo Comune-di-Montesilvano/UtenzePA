@@ -1,0 +1,25 @@
+<h2 mat-dialog-title>
+  {{ isNew ? 'Aggiungi Utilizzatore' : 'Modifica Utilizzatore: ' + data.item.name }}
+</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-direction: column; gap: 1rem;">
+    <mat-form-field>
+      <mat-label>Utilizzatore *</mat-label>
+      <input matInput formControlName="name" placeholder="Nome dell'utilizzatore">
+      @if (form.controls.name.invalid && form.controls.name.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Descrizione</mat-label>
+      <textarea matInput formControlName="description" rows="4" placeholder="Descrizione"></textarea>
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button (click)="cancel()">Annulla</button>
+  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">Salva Utilizzatore</button>
+</mat-dialog-actions>
