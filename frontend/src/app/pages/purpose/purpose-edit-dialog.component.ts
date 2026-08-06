@@ -47,8 +47,7 @@ export class PurposeEditDialogComponent {
     // bypassabile da tastiera/screen reader. Qui disabilitiamo esplicitamente il
     // FormGroup per il ruolo Lettore, cosi' i controlli sono anche
     // programmaticamente non modificabili e save() non puo' inviare dati
-    // (finding C1 review finale: regressione autorizzazione, Lettore poteva
-    // modificare/salvare).
+    // (gate di autorizzazione lato client per il ruolo Lettore).
     const role = this.authService.getCurrentUser()?.role;
     if (!role || role === 'Lettore') {
       this.form.disable();

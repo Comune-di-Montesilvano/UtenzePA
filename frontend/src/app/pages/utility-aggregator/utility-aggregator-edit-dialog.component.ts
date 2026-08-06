@@ -32,9 +32,10 @@ export class UtilityAggregatorEditDialogComponent {
 
   constructor() {
     // ReadOnlyDirective sul <form> nel template imposta solo pointer-events:none,
-    // bypassabile da tastiera. Disabilitiamo esplicitamente il FormGroup per il
-    // ruolo Lettore (finding C1 review finale Fase 1, ripetuto una volta nel
-    // Task 2 di questo piano — vedi ledger).
+    // bypassabile da tastiera/screen reader. Qui disabilitiamo esplicitamente il
+    // FormGroup per il ruolo Lettore, cosi' i controlli sono anche
+    // programmaticamente non modificabili e save() non puo' inviare dati
+    // (gate di autorizzazione lato client per il ruolo Lettore).
     const role = this.authService.getCurrentUser()?.role;
     if (!role || role === 'Lettore') {
       this.form.disable();
