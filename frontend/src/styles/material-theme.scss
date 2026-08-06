@@ -1,4 +1,13 @@
 @use '@angular/material' as mat;
+// Palette M3 completa generata da 'ng generate @angular/material:m3-theme
+// --primary-color=#030213' (material-color-utilities, algoritmo HCT ufficiale
+// Google). Sostituisce mat.$violet-palette: prima venivano sovrascritte a mano
+// solo 5 variabili CSS di primo livello, lasciando i ruoli derivati
+// (--mat-sys-primary-container, --mat-sys-secondary-container,
+// --mat-sys-inverse-primary, ecc.) sulla tonalità viola di default. Con la
+// palette generata dal colore primario reale, tutti i ruoli derivati sono
+// coerenti con neri/grigi invece che viola (finding I3 review finale).
+@use 'theme-colors';
 
 html {
   color-scheme: light;
@@ -6,7 +15,7 @@ html {
   @include mat.theme((
     color: (
       theme-type: light,
-      primary: mat.$violet-palette,
+      primary: theme-colors.$primary-palette,
       tertiary: mat.$blue-palette,
     ),
     typography: (
@@ -16,9 +25,11 @@ html {
     density: 0,
   ));
 
-  // Override puntuali per allinearsi alla palette esistente (vedi
-  // docs/superpowers/specs/2026-08-06-primeng-to-material-migration-design.md,
-  // sezione "Theming").
+  // Override puntuali residui: la palette M3 generata è tonale (nessuno stop
+  // corrisponde esattamente a #030213/#ffffff), quindi per i ruoli principali
+  // manteniamo i colori esatti del design esistente. I ruoli derivati (container,
+  // inverse-*, ecc.) restano invece quelli generati dalla palette sopra, non
+  // più patchati a mano (vedi commento sezione "Theming" più sopra).
   --mat-sys-primary: #030213;
   --mat-sys-on-primary: #ffffff;
   --mat-sys-secondary: #ffffff;
