@@ -1,26 +1,20 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { DialogModule } from 'primeng/dialog';
-import { SelectModule } from 'primeng/select';
-import { AbstractSearchComponent } from '../../core/components/abstract-search.component';
+import {Component, Type} from '@angular/core';
+import {CommonModule} from '@angular/common';
+import {FormBuilder, ReactiveFormsModule} from '@angular/forms';
+import {MatButtonModule} from '@angular/material/button';
+import {MatIconModule} from '@angular/material/icon';
+import {MatFormFieldModule} from '@angular/material/form-field';
+import {MatInputModule} from '@angular/material/input';
+import {AbstractSearchComponent} from '../../core/components/abstract-search.component';
+import {UtilityAggregatorFilterDialogComponent} from './utility-aggregator-filter-dialog.component';
 
 @Component({
   selector: 'app-search-utility-aggregators',
   standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    ButtonModule,
-    InputTextModule,
-    DialogModule,
-    SelectModule
-  ],
+  imports: [CommonModule, ReactiveFormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule],
   templateUrl: './search-utility-aggregator.component.html',
 })
-export class SearchUtilityAggregators extends AbstractSearchComponent implements OnInit {
+export class SearchUtilityAggregators extends AbstractSearchComponent {
 
   constructor(private fb: FormBuilder) {
     super();
@@ -28,7 +22,10 @@ export class SearchUtilityAggregators extends AbstractSearchComponent implements
       qsearch: [''],
       code: [''],
       description: [''],
-      deleted: [null]
     });
+  }
+
+  override filterDialogComponent(): Type<unknown> {
+    return UtilityAggregatorFilterDialogComponent;
   }
 }
