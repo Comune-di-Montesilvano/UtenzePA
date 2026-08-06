@@ -6,6 +6,12 @@ export interface ToastMessage {
   summary: string;
   detail?: string;
   key?: string;
+  /**
+   * Compatibilità con l'interfaccia `Message` di PrimeNG (usata dalle pagine
+   * non ancora migrate a Material). Ignorato dall'implementazione corrente
+   * di `add()`, che chiude sempre lo snackbar dopo `duration`.
+   */
+  sticky?: boolean;
 }
 
 @Injectable({providedIn: 'root'})
