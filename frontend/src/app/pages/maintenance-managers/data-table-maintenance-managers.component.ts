@@ -1,41 +1,40 @@
-import {Component} from '@angular/core';
+import {Component, Type} from '@angular/core';
 import {CommonModule} from '@angular/common';
-import {TableModule} from 'primeng/table';
-import {DialogModule} from 'primeng/dialog';
-import {ButtonModule} from 'primeng/button';
-import {ReactiveFormsModule, Validators} from '@angular/forms';
-import {SelectModule} from 'primeng/select';
+import {MatTableModule} from '@angular/material/table';
+import {MatSortModule} from '@angular/material/sort';
+import {MatPaginatorModule} from '@angular/material/paginator';
+import {MatButtonModule} from '@angular/material/button';
+import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
+import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
-import {InputTextModule} from 'primeng/inputtext';
 import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {MaintenanceManager} from './entity/maintenance-manager.entity';
-import {Textarea} from 'primeng/textarea';
-import {Skeleton} from 'primeng/skeleton';
+import {MaintenanceManagerEditDialogComponent} from './maintenance-manager-edit-dialog.component';
+import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 
 @Component({
-             selector: 'app-data-table-maintenance-managers',
-             standalone: true,
-             imports: [
-               ReactiveFormsModule,
-               CommonModule,
-               TableModule,
-               DialogModule,
-               ButtonModule,
-               SelectModule,
-               HasRoleDirective,
-               InputTextModule,
-               ReadOnlyDirective,
-               Textarea,
-               Skeleton
-             ],
-             templateUrl: './data-table-maintenance-managers.component.html'
-           })
+  selector: 'app-data-table-maintenance-managers',
+  standalone: true,
+  imports: [
+    CommonModule,
+    MatTableModule,
+    MatSortModule,
+    MatPaginatorModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatProgressBarModule,
+    HasRoleDirective,
+    ReadOnlyDirective
+  ],
+  templateUrl: './data-table-maintenance-managers.component.html'
+})
 export class DataTableMaintenanceManagersComponent extends AbstractDataTableComponent<MaintenanceManager> {
 
-  readonly skeletonRows = Array(4).fill({});
-  readonly skeletonCols = Array.from({length: 4}, (_, i) => i);
+  displayedColumns = ['actions', 'id', 'code', 'description'];
 
   constructor(screen: ScreenSizeService) {
     super(screen);
@@ -45,15 +44,38 @@ export class DataTableMaintenanceManagersComponent extends AbstractDataTableComp
     return MaintenanceManager.create();
   }
 
-  protected override buildForm(data?: Partial<MaintenanceManager>): void {
-    this.form = this.fb.group(
-      {
-        code: [data?.code ?? '', Validators.required],
-        description: [data?.description ?? ''],
-      });
+  override editDialogComponent(): Type<unknown> {
+    return MaintenanceManagerEditDialogComponent;
   }
 
-  override isFormValid(): boolean {
-    return this.form?.valid ?? false;
+  protected override entityLabel(): string {
+    return 'gestore manutenzione';
+  }
+
+  override openDeleteDialog(entity: MaintenanceManager): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: 'Elimina Gestore',
+        message: `Sei sicuro di voler eliminare l'anagrafica ${entity.code}?`,
+        confirmLabel: 'Elimina',
+        danger: true
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onDelete.emit(entity);
+    });
+  }
+
+  override restoreItem(entity: MaintenanceManager): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: 'Ripristina Gestore',
+        message: `Riattiva Gestore ${entity.code}?`,
+        confirmLabel: 'Ripristina'
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onRestore.emit(entity);
+    });
   }
 }
