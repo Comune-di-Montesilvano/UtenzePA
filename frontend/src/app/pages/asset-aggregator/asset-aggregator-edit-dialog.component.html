@@ -1,0 +1,28 @@
+<h2 mat-dialog-title>
+  {{ isNew ? 'Nuovo aggregato immobile' : 'Modifica aggregato immobile: ' + data.item.description }}
+</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Codice *</mat-label>
+      <input matInput formControlName="code">
+      @if (form.controls.code.invalid && form.controls.code.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 100%;">
+      <mat-label>Descrizione *</mat-label>
+      <textarea matInput formControlName="description" rows="3"></textarea>
+      @if (form.controls.description.invalid && form.controls.description.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button (click)="cancel()">Annulla</button>
+  <button mat-flat-button (click)="save()" [disabled]="!form.valid">Salva</button>
+</mat-dialog-actions>
