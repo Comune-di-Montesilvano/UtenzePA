@@ -711,16 +711,20 @@ import {MatButtonModule} from '@angular/material/button';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {MaintenanceManager} from './entity/maintenance-manager.entity';
+import {AuthService} from '../../services/auth.service';
+import {HasRoleDirective} from '../../core/directives/has-role.directive';
+import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 
 @Component({
   selector: 'app-maintenance-manager-edit-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule],
+  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, HasRoleDirective, ReadOnlyDirective],
   templateUrl: './maintenance-manager-edit-dialog.component.html'
 })
 export class MaintenanceManagerEditDialogComponent {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<MaintenanceManagerEditDialogComponent, MaintenanceManager | undefined>);
+  private authService = inject(AuthService);
   protected data = inject<EditDialogData<MaintenanceManager>>(MAT_DIALOG_DATA);
 
   isNew = this.data.mode === 'create';
@@ -729,6 +733,17 @@ export class MaintenanceManagerEditDialogComponent {
     code: [this.data.item.code ?? '', Validators.required],
     description: [this.data.item.description ?? ''],
   });
+
+  constructor() {
+    // ReadOnlyDirective sul <form> nel template imposta solo pointer-events:none,
+    // bypassabile da tastiera. Disabilitiamo esplicitamente il FormGroup per il
+    // ruolo Lettore (finding C1 review finale Fase 1, ripetuto una volta nel
+    // Task 2 di questo piano — vedi ledger).
+    const role = this.authService.getCurrentUser()?.role;
+    if (!role || role === 'Lettore') {
+      this.form.disable();
+    }
+  }
 
   save(): void {
     if (!this.form.valid) return;
@@ -755,7 +770,7 @@ export class MaintenanceManagerEditDialogComponent {
 </h2>
 
 <mat-dialog-content>
-  <form [formGroup]="form" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
     <mat-form-field style="flex: 1 1 45%;">
       <mat-label>Codice Gestore *</mat-label>
       <input matInput formControlName="code">
@@ -773,7 +788,7 @@ export class MaintenanceManagerEditDialogComponent {
 
 <mat-dialog-actions align="end">
   <button mat-stroked-button (click)="cancel()">Annulla</button>
-  <button mat-flat-button (click)="save()" [disabled]="!form.valid">
+  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">
     {{ isNew ? 'Aggiungi Gestore Manutenzione' : 'Salva Gestore' }}
   </button>
 </mat-dialog-actions>
@@ -1189,16 +1204,20 @@ import {MatButtonModule} from '@angular/material/button';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {UtilityAggregator} from './entity/utility-aggregator.entity';
+import {AuthService} from '../../services/auth.service';
+import {HasRoleDirective} from '../../core/directives/has-role.directive';
+import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 
 @Component({
   selector: 'app-utility-aggregator-edit-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule],
+  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, HasRoleDirective, ReadOnlyDirective],
   templateUrl: './utility-aggregator-edit-dialog.component.html'
 })
 export class UtilityAggregatorEditDialogComponent {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<UtilityAggregatorEditDialogComponent, UtilityAggregator | undefined>);
+  private authService = inject(AuthService);
   protected data = inject<EditDialogData<UtilityAggregator>>(MAT_DIALOG_DATA);
 
   isNew = this.data.mode === 'create';
@@ -1207,6 +1226,17 @@ export class UtilityAggregatorEditDialogComponent {
     code: [this.data.item.code ?? '', Validators.required],
     description: [this.data.item.description ?? ''],
   });
+
+  constructor() {
+    // ReadOnlyDirective sul <form> nel template imposta solo pointer-events:none,
+    // bypassabile da tastiera. Disabilitiamo esplicitamente il FormGroup per il
+    // ruolo Lettore (finding C1 review finale Fase 1, ripetuto una volta nel
+    // Task 2 di questo piano — vedi ledger).
+    const role = this.authService.getCurrentUser()?.role;
+    if (!role || role === 'Lettore') {
+      this.form.disable();
+    }
+  }
 
   save(): void {
     if (!this.form.valid) return;
@@ -1233,7 +1263,7 @@ export class UtilityAggregatorEditDialogComponent {
 </h2>
 
 <mat-dialog-content>
-  <form [formGroup]="form" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
     <mat-form-field style="flex: 1 1 45%;">
       <mat-label>Codice *</mat-label>
       <input matInput formControlName="code">
@@ -1251,7 +1281,7 @@ export class UtilityAggregatorEditDialogComponent {
 
 <mat-dialog-actions align="end">
   <button mat-stroked-button (click)="cancel()">Annulla</button>
-  <button mat-flat-button (click)="save()" [disabled]="!form.valid">Salva</button>
+  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">Salva</button>
 </mat-dialog-actions>
 ```
 
@@ -1637,16 +1667,20 @@ import {MatButtonModule} from '@angular/material/button';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {Utilizer} from './entity/utilizer.entity';
+import {AuthService} from '../../services/auth.service';
+import {HasRoleDirective} from '../../core/directives/has-role.directive';
+import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 
 @Component({
   selector: 'app-utilizer-edit-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule],
+  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, HasRoleDirective, ReadOnlyDirective],
   templateUrl: './utilizer-edit-dialog.component.html'
 })
 export class UtilizerEditDialogComponent {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<UtilizerEditDialogComponent, Utilizer | undefined>);
+  private authService = inject(AuthService);
   protected data = inject<EditDialogData<Utilizer>>(MAT_DIALOG_DATA);
 
   isNew = this.data.mode === 'create';
@@ -1655,6 +1689,17 @@ export class UtilizerEditDialogComponent {
     name: [this.data.item.name ?? '', Validators.required],
     description: [this.data.item.description ?? null],
   });
+
+  constructor() {
+    // ReadOnlyDirective sul <form> nel template imposta solo pointer-events:none,
+    // bypassabile da tastiera. Disabilitiamo esplicitamente il FormGroup per il
+    // ruolo Lettore (finding C1 review finale Fase 1, ripetuto una volta nel
+    // Task 2 di questo piano — vedi ledger).
+    const role = this.authService.getCurrentUser()?.role;
+    if (!role || role === 'Lettore') {
+      this.form.disable();
+    }
+  }
 
   save(): void {
     if (!this.form.valid) return;
@@ -1681,7 +1726,7 @@ export class UtilizerEditDialogComponent {
 </h2>
 
 <mat-dialog-content>
-  <form [formGroup]="form" style="display: flex; flex-direction: column; gap: 1rem;">
+  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-direction: column; gap: 1rem;">
     <mat-form-field>
       <mat-label>Utilizzatore *</mat-label>
       <input matInput formControlName="name" placeholder="Nome dell'utilizzatore">
@@ -1699,7 +1744,7 @@ export class UtilizerEditDialogComponent {
 
 <mat-dialog-actions align="end">
   <button mat-stroked-button (click)="cancel()">Annulla</button>
-  <button mat-flat-button (click)="save()" [disabled]="!form.valid">Salva Utilizzatore</button>
+  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">Salva Utilizzatore</button>
 </mat-dialog-actions>
 ```
 
