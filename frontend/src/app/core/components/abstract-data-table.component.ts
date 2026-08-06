@@ -1,16 +1,20 @@
-import {Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, ViewChild} from '@angular/core';
-import {FormBuilder, FormGroup} from '@angular/forms';
-import {Table} from 'primeng/table';
+import {AfterViewInit, Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, Type, ViewChild} from '@angular/core';
+import {MatTableDataSource} from '@angular/material/table';
+import {MatSort} from '@angular/material/sort';
+import {MatPaginator} from '@angular/material/paginator';
+import {MatDialog} from '@angular/material/dialog';
+import {ConfirmDialogComponent, ConfirmDialogData} from './confirm-dialog.component';
 import {ScreenSizeService} from '../../services/screen-size.service';
-import {plainToInstance} from 'class-transformer';
+
+export interface EditDialogData<T> {
+  mode: 'create' | 'edit';
+  item: T;
+}
 
 @Component({
-             template: ''
-           })
-export abstract class AbstractDataTableComponent<T extends { id: any; name?: string }> implements OnInit, OnChanges {
-
-  protected fb: FormBuilder = inject(FormBuilder);
-  form!: FormGroup;
+  template: ''
+})
+export abstract class AbstractDataTableComponent<T extends { id: any; name?: string }> implements OnInit, OnChanges, AfterViewInit {
 
   @Input() data: T[] = [];
   @Input() loading: boolean = false;
@@ -21,15 +25,14 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
   @Output() onCreate = new EventEmitter<T>();
   @Output() onRestore = new EventEmitter<T>();
 
-  @ViewChild('myTable') pTable: Table | undefined;
+  @ViewChild(MatSort) sort?: MatSort;
+  @ViewChild(MatPaginator) paginator?: MatPaginator;
+
+  protected dialog = inject(MatDialog);
+  dataSource = new MatTableDataSource<T>([]);
 
   height: number = 0;
   rowHeight: number = 0;
-  isNew = false;
-  selectedItem: T | null = null;
-  editDialogVisible = false;
-  deleteDialogVisible = false;
-  restoreDialogVisible = false;
 
   private _resetPagingTrigger: number = 0;
 
@@ -38,8 +41,8 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
   @Input()
   set resetPagingTrigger(value: number) {
     this._resetPagingTrigger = value;
-    if (this.pTable && this._resetPagingTrigger > 0) {
-      this.pTable.reset();
+    if (this.paginator && this._resetPagingTrigger > 0) {
+      this.paginator.firstPage();
     }
   }
 
@@ -54,83 +57,65 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
   }
 
   ngOnChanges() {
-    if (this.creationResult?.success) {
-      this.editDialogVisible = false;
-    }
+    this.dataSource.data = this.data;
   }
 
-  restoreItem(entity: T) {
-    this.selectedItem = entity;
-    this.restoreDialogVisible = true;
+  ngAfterViewInit() {
+    if (this.sort) this.dataSource.sort = this.sort;
+    if (this.paginator) this.dataSource.paginator = this.paginator;
   }
 
-  confirmRestore() {
-    if (!this.selectedItem) return;
-    this.onRestore.emit(this.selectedItem);
-    this.restoreDialogVisible = false;
-  }
-
-  openDeleteDialog(entity: T) {
-    this.selectedItem = entity;
-    this.deleteDialogVisible = true;
-  }
-
-  confirmDelete() {
-    if (!this.selectedItem) return;
-    this.onDelete.emit(this.selectedItem);
-    this.deleteDialogVisible = false;
-  }
-
-  saveItem() {
-    if (!this.selectedItem || !this.isFormValid()) return;
-
-    const EntityClass = this.itemInstance().constructor as any;
-    this.selectedItem = plainToInstance(EntityClass, {
-      id: this.selectedItem.id,
-      ...this.prepareFormValue()
-    }) as T;
-    this.enrichItem();
-
-    if (this.isNew) {
-      this.onCreate.emit(this.selectedItem);
-      this.editDialogVisible = false;
-    } else {
-      const index = this.data.findIndex(u => (u as any).id === this.selectedItem!.id);
-      if (index !== -1) {
-        this.data[index] = {...this.selectedItem} as T;
+  restoreItem(entity: T): void {
+    this.dialog.open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: `Ripristina ${this.entityLabel()}`,
+        message: `Riattiva ${this.entityLabel()} ${entity.name ?? ''}?`,
+        confirmLabel: 'Riattiva'
       }
-      this.editDialogVisible = false;
-      this.onSave.emit(this.selectedItem);
-    }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onRestore.emit(entity);
+    });
   }
 
-  protected prepareFormValue(): Record<string, any> {
-    return this.form.getRawValue();
+  openDeleteDialog(entity: T): void {
+    this.dialog.open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: `Elimina ${this.entityLabel()}`,
+        message: `Elimina ${this.entityLabel()} ${entity.name ?? ''}?`,
+        confirmLabel: 'Elimina',
+        danger: true
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onDelete.emit(entity);
+    });
   }
 
-  protected enrichItem(): void {
+  openCreateDialog(): void {
+    this.dialog.open<unknown, EditDialogData<T>, T | undefined>(this.editDialogComponent(), {
+      width: '600px',
+      data: {mode: 'create', item: this.itemInstance()}
+    }).afterClosed().subscribe(result => {
+      if (result) this.onCreate.emit(result);
+    });
+  }
+
+  openEditDialog(item: T): void {
+    this.dialog.open<unknown, EditDialogData<T>, T | undefined>(this.editDialogComponent(), {
+      width: '600px',
+      data: {mode: 'edit', item: {...item}}
+    }).afterClosed().subscribe(result => {
+      if (result) this.onSave.emit(result);
+    });
   }
 
   abstract itemInstance(): T;
 
-  protected buildForm(data?: Partial<T>): void {
-  }
+  abstract editDialogComponent(): Type<unknown>;
 
-  openCreateDialog(): void {
-    this.selectedItem = this.itemInstance();
-    this.isNew = true;
-    this.buildForm(this.selectedItem ?? undefined);
-    this.editDialogVisible = true;
-  }
-
-  openEditDialog(item: T): void {
-    this.selectedItem = {...item} as T;
-    this.isNew = false;
-    this.buildForm(this.selectedItem ?? undefined);
-    this.editDialogVisible = true;
-  }
-
-  abstract isFormValid(): boolean;
+  /** Etichetta minuscola dell'entità usata nei messaggi dei dialog generici (es. "finalità d'uso"). */
+  protected abstract entityLabel(): string;
 
   // Override in subclass to provide cell values for CSV export.
   protected exportCellValue(_item: T, _field: string): string {
@@ -143,7 +128,7 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
   }
 
   exportToCSV(columns: IColumnDef[], filename: string): void {
-    const BOM = '\uFEFF';
+    const BOM = '﻿';
     const sep = ';';
     const headers = columns.map(c => `"${c.header}"`).join(sep);
     const rows = this.data.map(item =>
