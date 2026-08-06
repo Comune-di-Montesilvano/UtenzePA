@@ -33,4 +33,8 @@ export class SearchPurposeComponent extends AbstractSearchComponent {
   override filterDialogComponent(): Type<unknown> {
     return PurposeFilterDialogComponent;
   }
+
+  override filterDialogWidth(): string {
+    return '31vw';
+  }
 }

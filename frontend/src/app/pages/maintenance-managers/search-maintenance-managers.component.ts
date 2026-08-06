@@ -1,5 +1,4 @@
 import {Component, Type} from '@angular/core';
-import {CommonModule} from '@angular/common';
 import {FormBuilder, ReactiveFormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
@@ -11,7 +10,7 @@ import {MaintenanceManagerFilterDialogComponent} from './maintenance-manager-fil
 @Component({
   selector: 'app-search-maintenance-managers',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule],
+  imports: [ReactiveFormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule],
   templateUrl: './search-maintenance-managers.component.html',
 })
 export class SearchFormMaintenanceManagers extends AbstractSearchComponent {
@@ -27,5 +26,9 @@ export class SearchFormMaintenanceManagers extends AbstractSearchComponent {
 
   override filterDialogComponent(): Type<unknown> {
     return MaintenanceManagerFilterDialogComponent;
+  }
+
+  override filterDialogWidth(): string {
+    return '500px';
   }
 }

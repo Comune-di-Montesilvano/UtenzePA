@@ -36,10 +36,14 @@ export abstract class AbstractSearchComponent implements OnInit {
 
   abstract filterDialogComponent(): Type<unknown>;
 
+  protected filterDialogWidth(): string {
+    return '450px';
+  }
+
   openFilterDialog(): void {
     this.dialog.open<unknown, FilterDialogData<unknown>, unknown>(this.filterDialogComponent(), {
-      width: '450px',
-      data: {values: this.qSearch.value}
+      width: this.filterDialogWidth(),
+      data: {values: {...this.qSearch.getRawValue()}}
     }).afterClosed().subscribe(result => {
       if (result === 'clear') {
         this.qSearch.reset();
