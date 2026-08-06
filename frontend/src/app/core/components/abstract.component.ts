@@ -48,7 +48,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   onSearch(filters: any) {
     // QUICK SEARCH
     if (Object.keys(filters).length === 1 && filters.hasOwnProperty('qsearch')) {
-      if (filters.qsearch !== '') {
+      if (filters.qsearch !== '' && filters.qsearch != null) {
         const qsTerms: string = (filters.qsearch || '').toLowerCase();
         this.list = [...this.allItems].filter(i =>
                                                 this.flatValues(i).some(v => String(v).toLowerCase().includes(qsTerms))

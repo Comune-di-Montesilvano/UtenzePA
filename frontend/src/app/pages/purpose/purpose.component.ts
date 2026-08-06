@@ -34,7 +34,7 @@ export class PurposeComponent extends AbstractComponent<Purpose> {
   }
 
   override onSearch(filters: any) {
-    if (Object.keys(filters).length === 1 && filters.hasOwnProperty('qsearch') && filters.qsearch !== '') {
+    if (Object.keys(filters).length === 1 && filters.hasOwnProperty('qsearch') && filters.qsearch !== '' && filters.qsearch != null) {
       const term = (filters.qsearch as string).toLowerCase();
       this.list = [...this.allItems].filter(item => {
         const nameMatch = item.name?.toLowerCase().includes(term);
