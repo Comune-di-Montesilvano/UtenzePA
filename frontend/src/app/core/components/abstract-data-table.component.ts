@@ -128,7 +128,7 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
   }
 
   exportToCSV(columns: IColumnDef[], filename: string): void {
-    const BOM = '﻿';
+    const BOM = '\uFEFF';
     const sep = ';';
     const headers = columns.map(c => `"${c.header}"`).join(sep);
     const rows = this.data.map(item =>
