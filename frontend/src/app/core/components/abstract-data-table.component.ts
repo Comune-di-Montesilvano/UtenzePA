@@ -18,7 +18,6 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
 
   @Input() data: T[] = [];
   @Input() loading: boolean = false;
-  @Input() creationResult?: { success: boolean, message?: string };
 
   @Output() onSave = new EventEmitter<T>();
   @Output() onDelete = new EventEmitter<T>();

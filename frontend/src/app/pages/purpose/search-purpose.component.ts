@@ -1,12 +1,10 @@
 import {Component, inject, OnInit} from '@angular/core';
-import {CommonModule} from '@angular/common';
 import {FormBuilder, ReactiveFormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
-import {MatDialog, MatDialogModule} from '@angular/material/dialog';
+import {MatDialog} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
-import {MatSelectModule} from '@angular/material/select';
 import {UseTypeOptions} from './enum/use-type.enum';
 import {AbstractSearchComponent} from '../../core/components/abstract-search.component';
 import {PurposeFilterDialogComponent} from './purpose-filter-dialog.component';
@@ -15,14 +13,11 @@ import {PurposeFilterDialogComponent} from './purpose-filter-dialog.component';
   selector: 'app-search-purpose',
   standalone: true,
   imports: [
-    CommonModule,
     ReactiveFormsModule,
     MatButtonModule,
     MatIconModule,
-    MatDialogModule,
     MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule
+    MatInputModule
   ],
   templateUrl: './search-purpose.component.html',
 })

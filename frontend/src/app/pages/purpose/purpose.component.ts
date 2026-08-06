@@ -1,9 +1,4 @@
 import {Component} from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {FormsModule} from '@angular/forms';
-import {MatFormFieldModule} from '@angular/material/form-field';
-import {MatInputModule} from '@angular/material/input';
-import {MatButtonModule} from '@angular/material/button';
 import {DataTablePurposeComponent} from './data-table-purpose.component';
 import {SearchPurposeComponent} from './search-purpose.component';
 import {PurposeService} from './purpose.service';
@@ -15,18 +10,12 @@ import {UseTypeDescription} from './enum/use-type.enum';
   selector: 'app-purpose',
   standalone: true,
   imports: [
-    CommonModule,
-    FormsModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatButtonModule,
     DataTablePurposeComponent,
     SearchPurposeComponent
   ],
   templateUrl: './purpose.component.html'
 })
 export class PurposeComponent extends AbstractComponent<Purpose> {
-  creationResult?: { success: boolean, message?: string };
 
   constructor(protected override service: PurposeService) {
     super();
@@ -72,10 +61,6 @@ export class PurposeComponent extends AbstractComponent<Purpose> {
               summary: 'Elemento creato',
               detail: this.getEntityIdentifier(item)
             });
-          this.creationResult = {
-            success: true,
-            message: 'Elemento creato con successo'
-          };
           this.loadAll();
         },
         error: (err: any) => {

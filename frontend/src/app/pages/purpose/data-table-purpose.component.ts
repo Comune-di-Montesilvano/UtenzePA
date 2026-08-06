@@ -1,5 +1,4 @@
 import {Component, Type} from '@angular/core';
-import {CommonModule} from '@angular/common';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
 import {MatPaginatorModule} from '@angular/material/paginator';
@@ -19,7 +18,6 @@ import {PurposeEditDialogComponent} from './purpose-edit-dialog.component';
   selector: 'app-data-table-purpose',
   standalone: true,
   imports: [
-    CommonModule,
     MatTableModule,
     MatSortModule,
     MatPaginatorModule,
