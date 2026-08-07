@@ -1,0 +1,127 @@
+<h2 mat-dialog-title>Filtri di ricerca Immobili</h2>
+<mat-dialog-content>
+  <form [formGroup]="form" id="filter-form" (ngSubmit)="apply()" style="display: flex; flex-direction: column; gap: 1rem;">
+
+    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>Codice univoco</mat-label>
+        <input matInput formControlName="asset_name">
+      </mat-form-field>
+
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>Tipo immobile</mat-label>
+        <input matInput [formControl]="assetTypeFilterCtrl" [matAutocomplete]="autoAssetType" placeholder="Cerca...">
+        <mat-autocomplete #autoAssetType="matAutocomplete" [displayWith]="displayAssetType">
+          @for (opt of filteredAssetAggregatorOptions; track opt.value) {
+            <mat-option [value]="opt.value" (onSelectionChange)="onAssetTypeSelected(opt.value)">{{ opt.label }}</mat-option>
+          }
+        </mat-autocomplete>
+      </mat-form-field>
+
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>Categoria</mat-label>
+        <mat-select formControlName="category">
+          @for (opt of categoryOptions; track opt.value) {
+            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <label>Proprietà</label>
+        <mat-radio-group formControlName="ownership" style="display: flex; gap: 1rem; padding-top: 0.4rem;">
+          <mat-radio-button [value]="null">Tutti</mat-radio-button>
+          <mat-radio-button [value]="1">Sì</mat-radio-button>
+          <mat-radio-button [value]="0">No</mat-radio-button>
+        </mat-radio-group>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>Toponimo</mat-label>
+        <mat-select formControlName="toponym">
+          @for (opt of toponomyOptions; track opt.value) {
+            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>Indirizzo</mat-label>
+        <input matInput formControlName="address">
+      </mat-form-field>
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>Civico</mat-label>
+        <input matInput formControlName="civic_number">
+      </mat-form-field>
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>Comune</mat-label>
+        <input matInput formControlName="municipality">
+      </mat-form-field>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>CAP</mat-label>
+        <input matInput formControlName="zip_code">
+      </mat-form-field>
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>Servizi/Manufatti</mat-label>
+        <input matInput formControlName="services_and_artifacts">
+      </mat-form-field>
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>Latitudine</mat-label>
+        <input matInput formControlName="latitude" placeholder="Es. 41.1158">
+      </mat-form-field>
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>Longitudine</mat-label>
+        <input matInput formControlName="longitude" placeholder="Es. 16.8776">
+      </mat-form-field>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>Valore catastale</mat-label>
+        <input matInput type="number" step="0.01" formControlName="cadastral_value">
+      </mat-form-field>
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>Superficie (mq)</mat-label>
+        <input matInput type="number" step="0.01" formControlName="area_sqm">
+      </mat-form-field>
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>Foglio</mat-label>
+        <input matInput formControlName="sheet">
+      </mat-form-field>
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>Particella (Mappale)</mat-label>
+        <input matInput formControlName="parcel">
+      </mat-form-field>
+    </div>
+
+    <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+      <mat-label>Subalterno</mat-label>
+      <input matInput formControlName="subordinate">
+    </mat-form-field>
+
+    <div style="display: flex; flex-direction: row; gap: 1rem;">
+      <mat-form-field style="flex: 1 1 0;">
+        <mat-label>Descrizione fabbricato</mat-label>
+        <textarea matInput formControlName="associated_building" rows="4"></textarea>
+      </mat-form-field>
+      <mat-form-field style="flex: 1 1 0;">
+        <mat-label>Specifiche</mat-label>
+        <textarea matInput formControlName="specific_details" rows="4"></textarea>
+      </mat-form-field>
+    </div>
+
+    <mat-form-field>
+      <mat-label>Promemoria</mat-label>
+      <textarea matInput formControlName="memo" rows="4"></textarea>
+    </mat-form-field>
+
+  </form>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-stroked-button (click)="clear()">Pulisci Filtri</button>
+  <button mat-flat-button type="submit" form="filter-form">Applica Filtri</button>
+</mat-dialog-actions>
