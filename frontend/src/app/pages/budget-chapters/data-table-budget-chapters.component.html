@@ -1,242 +1,74 @@
 <div style="display: flex; justify-content: space-between; align-items: center;">
   <h3>Elenco ({{data.length}})</h3>
-  <button
-    pButton
-    (click)="openCreateDialog()"
-    [appHasRole]="['Admin', 'Operatore']"
-  >
-    <i pButtonIcon class="pi pi-plus"></i>
-    <span pButtonLabel>Aggiungi Capitolo Di Spesa</span>
+  <button mat-flat-button (click)="openCreateDialog()" [appHasRole]="['Admin', 'Operatore']">
+    <mat-icon>add</mat-icon>
+    Aggiungi Capitolo Di Spesa
   </button>
 </div>
 
-<p-table
-  [value]="loading ? skeletonRows : data"
-  [paginator]="true"
-  [rows]="10"
-  paginatorPosition="bottom"
-  [scrollable]="true"
-  [scrollHeight]="(height - 500) + 'px'"
-  #myTable
-  [style]="{ '--row-height': rowHeight + 'px' }"
-  class="dynamic-rows"
-  [size]="'small'"
-  [rowsPerPageOptions]=rowsPerPageOptions
->
-  <ng-template pTemplate="header">
-    <tr>
-      <th style="min-width: 100px;">Azioni</th>
-      <th style="width: 5%;" pSortableColumn="id">
-        ID
-        <p-sortIcon field="id"></p-sortIcon>
-      </th>
-      <th style="width: 15%;" pSortableColumn="chapter_code">
-        Cod. Capitolo
-        <p-sortIcon field="chapter_code"></p-sortIcon>
-      </th>
-      <th style="width: 15%;" pSortableColumn="article">
-        Articolo
-        <p-sortIcon field="article"></p-sortIcon>
-      </th>
-      <th style="width: 15%;" pSortableColumn="pdc">
-        PDC
-        <p-sortIcon field="pdc"></p-sortIcon>
-      </th>
-      <th style="width: 35%;" pSortableColumn="description">
-        Descrizione
-        <p-sortIcon field="description"></p-sortIcon>
-      </th>
-      <th style="width: 35%;" pSortableColumn="supply_type">
-        Tipo Fornitura
-        <p-sortIcon field="supply_type"></p-sortIcon>
-      </th>
-    </tr>
-  </ng-template>
+@if (loading) {
+  <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+}
 
-  <ng-template pTemplate="body" let-item>
-    @if (loading) {
-      <tr>
-        @for (col of skeletonCols; track col) {
-          <td><p-skeleton height="1.5rem"/></td>
-        }
-      </tr>
-    } @else {
-      <tr [ngClass]="{ 'row-deleted': item.deleted }">
-        <td>
-          @if (!item.deleted) {
-            <button pButton class="p-button-text p-button-sm action-button"
-                    (click)="openEditDialog(item)" [appHasRole]="['Admin', 'Operatore', 'Lettore']">
-              <i pButtonIcon class="pi pi-pencil"></i>
-            </button>
-          }
-          <button
-            pButton
-            class="p-button-text p-button-sm action-button"
-            [ngClass]="item.deleted ? 'p-button-success' : 'p-button-danger'"
-            (click)="item.deleted ? restoreItem(item) : openDeleteDialog(item)"
-            [appHasRole]="['Admin', 'Operatore']">
-            @if (item.deleted) {
-              <i pButtonIcon class="pi pi-undo"></i>
-            } @else {
-              <i pButtonIcon class="pi pi-trash"></i>
-            }
-          </button>
-        </td>
-        <td>{{ item.id }}</td>
-        <td>{{ item.chapter_code }}</td>
-        <td>{{ item.article }}</td>
-        <td>{{ item.pdc }}</td>
-        <td>{{ item.description }}</td>
-        <td>{{ getSupplyTypeDescription(item.supply_type) }}</td>
-      </tr>
-    }
-  </ng-template>
-  <ng-template pTemplate="emptymessage">
-    <tr>
-      <td colspan="7" class="text-center">Nessun capitolo di spesa trovato.</td>
-    </tr>
-  </ng-template>
-</p-table>
+<table mat-table [dataSource]="dataSource" matSort #sort="matSort" class="mat-elevation-z1">
 
-<p-dialog
-  [header]="isNew ? 'Nuovo Capitolo di Spesa' : 'Modifica Capitolo Di Spesa: ' + selectedItem?.chapter_code"
-  [(visible)]="editDialogVisible"
-  [modal]="true"
-  [style]="{width: '600px'}"
->
+  <ng-container matColumnDef="actions">
+    <th mat-header-cell *matHeaderCellDef>Azioni</th>
+    <td mat-cell *matCellDef="let item">
+      @if (!item.deleted) {
+        <button mat-icon-button (click)="openEditDialog(item)" [appHasRole]="['Admin', 'Operatore', 'Lettore']"
+                matTooltip="Modifica" aria-label="Modifica">
+          <mat-icon>edit</mat-icon>
+        </button>
+      }
+      <button mat-icon-button
+              [class.mat-action-success]="item.deleted"
+              [class.mat-action-danger]="!item.deleted"
+              (click)="item.deleted ? restoreItem(item) : openDeleteDialog(item)"
+              [appHasRole]="['Admin', 'Operatore']"
+              [matTooltip]="item.deleted ? 'Ripristina' : 'Elimina'"
+              [attr.aria-label]="item.deleted ? 'Ripristina' : 'Elimina'">
+        <mat-icon>{{ item.deleted ? 'restore' : 'delete' }}</mat-icon>
+      </button>
+    </td>
+  </ng-container>
 
-  @if (form) {
-    <form [formGroup]="form" [readOnly]="['Lettore']" class="edit-form"
-          style="display: flex; flex-wrap: wrap; gap: 1rem;">
+  <ng-container matColumnDef="id">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>ID</th>
+    <td mat-cell *matCellDef="let item">{{ item.id }}</td>
+  </ng-container>
 
-      <div style="flex: 1 1 45%;">
-        <label for="chapter_code">Codice Capitolo *</label>
-        <input
-          id="chapter_code"
-          type="text"
-          pInputText
-          formControlName="chapter_code"
-          class="p-inputtext p-component"
-          style="width: 100%;"
-          [class.ng-invalid]="form.controls['chapter_code'].invalid && form.controls['chapter_code'].touched"
-          [class.ng-dirty]="form.controls['chapter_code'].dirty"
-        >
-        @if (form.controls['chapter_code'].invalid && form.controls['chapter_code'].touched) {
-          <small class="p-error">Obbligatorio</small>
-        }
-      </div>
+  <ng-container matColumnDef="chapter_code">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Cod. Capitolo</th>
+    <td mat-cell *matCellDef="let item">{{ item.chapter_code }}</td>
+  </ng-container>
 
-      <div style="flex: 1 1 45%;">
-        <label for="article">Articolo *</label>
-        <input
-          id="article"
-          type="text"
-          pInputText
-          onlyNumbers
-          formControlName="article"
-          class="p-inputtext p-component"
-          style="width: 100%;"
-          [class.ng-invalid]="form.controls['article'].invalid && form.controls['article'].touched"
-          [class.ng-dirty]="form.controls['article'].dirty"
-        >
-        @if (form.controls['article'].invalid && form.controls['article'].touched) {
-          <small class="p-error">Obbligatorio</small>
-        }
-      </div>
+  <ng-container matColumnDef="article">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Articolo</th>
+    <td mat-cell *matCellDef="let item">{{ item.article }}</td>
+  </ng-container>
 
-      <div style="flex: 1 1 45%;">
-        <label for="pdc">PDC</label>
-        <input
-          id="pdc"
-          type="text"
-          pInputText
-          formControlName="pdc"
-          class="p-inputtext p-component"
-          style="width: 100%;"
-        >
-      </div>
+  <ng-container matColumnDef="pdc">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>PDC</th>
+    <td mat-cell *matCellDef="let item">{{ item.pdc }}</td>
+  </ng-container>
 
-      <div style="flex: 1 1 45%; overflow: hidden;">
-        <label for="supply_type">Tipo Fornitura *</label>
-        <p-select
-          id="supply_type"
-          [options]="supplyTypeOptions"
-          optionLabel="label"
-          optionValue="value"
-          formControlName="supply_type"
-          placeholder="Seleziona tipo fornitura"
-          [showClear]="true"
-          style="width: 100%;"
-          [appendTo]="'body'"
-          class="p-select-wide-wrap"
-          [class.ng-invalid]="form.controls['supply_type'].invalid && form.controls['supply_type'].touched"
-        />
-        @if (form.controls['supply_type'].invalid && form.controls['supply_type'].touched) {
-          <small class="p-error">Obbligatorio</small>
-        }
-      </div>
+  <ng-container matColumnDef="description">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Descrizione</th>
+    <td mat-cell *matCellDef="let item">{{ item.description }}</td>
+  </ng-container>
 
-      <div style="flex: 1 1 100%;">
-        <label for="description">Descrizione</label>
-        <textarea
-          id="description"
-          pInputTextarea
-          formControlName="description"
-          rows="3"
-          style="width: 100%;"
-        ></textarea>
-      </div>
+  <ng-container matColumnDef="supply_type">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Tipo Fornitura</th>
+    <td mat-cell *matCellDef="let item">{{ getSupplyTypeDescription(item.supply_type) }}</td>
+  </ng-container>
 
-    </form>
-  }
+  <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+  <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.row-deleted]="row.deleted"></tr>
 
-  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-    <button pButton class="p-button-secondary p-component" (click)="editDialogVisible=false">
-      <span pButtonLabel>Annulla</span>
-    </button>
-    <button pButton class="p-button p-component" (click)="saveItem()"
-            [disabled]="!isFormValid()"
-            [appHasRole]="['Admin', 'Operatore']">
-      <span pButtonLabel>Salva</span>
-    </button>
-  </div>
+  <tr class="mat-row" *matNoDataRow>
+    <td class="mat-cell" [attr.colspan]="displayedColumns.length">Nessun capitolo di spesa trovato.</td>
+  </tr>
+</table>
 
-</p-dialog>
-
-<p-dialog header="Elimina Capitolo" [(visible)]="deleteDialogVisible" [modal]="true" [style]="{width: '350px'}">
-  <p>Sei sicuro di voler eliminare l'anagrafica <b>{{ selectedItem?.chapter_code }}</b>?</p>
-  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-    <button pButton class="p-button-secondary" (click)="deleteDialogVisible=false">
-      <span pButtonLabel>Annulla</span>
-    </button>
-    <button pButton (click)="confirmDelete()" severity="danger">
-      <span pButtonLabel>Elimina</span>
-    </button>
-  </div>
-</p-dialog>
-
-<p-dialog header="Ripristina Capitolo" [(visible)]="restoreDialogVisible" [modal]="true" [style]="{width: '350px'}">
-  <p>Riattiva Capitolo <b>{{ selectedItem?.chapter_code }}</b>?</p>
-  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-    <button pButton class="p-button-secondary" (click)="restoreDialogVisible=false">
-      <span pButtonLabel>Annulla</span>
-    </button>
-    <button pButton class="p-button-success" (click)="confirmRestore()">
-      <span pButtonLabel>Ripristina</span>
-    </button>
-  </div>
-</p-dialog>
-
-<style>
-  .row-deleted {
-    background-color: #fcebeb;
-    opacity: 0.7;
-    text-decoration: line-through;
-  }
-
-  .action-button {
-    padding: 0.2rem !important;
-    margin: 0 0.1rem;
-    height: auto;
-  }
-</style>
+<mat-paginator #paginator [pageSizeOptions]="rowsPerPageOptions" [pageSize]="10"></mat-paginator>

@@ -1,47 +1,38 @@
-import {Component} from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {TableModule} from 'primeng/table';
-import {DialogModule} from 'primeng/dialog';
-import {ButtonModule} from 'primeng/button';
-import {ReactiveFormsModule, Validators} from '@angular/forms';
-import {SelectModule} from 'primeng/select';
+import {Component, Type} from '@angular/core';
+import {MatTableModule} from '@angular/material/table';
+import {MatSortModule} from '@angular/material/sort';
+import {MatPaginatorModule} from '@angular/material/paginator';
+import {MatButtonModule} from '@angular/material/button';
+import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
+import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
-import {InputTextModule} from 'primeng/inputtext';
-import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
-import {OnlyNumbersDirective} from '../../core/directives/only-numbers.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
-import {Textarea} from 'primeng/textarea';
 import {BudgetChapter} from './entity/budget-chapter.entity';
+import {SupplyType, SupplyTypeDescription} from './enum/supply-type.enum';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
-import {SupplyType, SupplyTypeDescription, SupplyTypeOptions} from './enum/supply-type.enum';
-import {SkeletonModule} from 'primeng/skeleton';
+import {BudgetChapterEditDialogComponent} from './budget-chapter-edit-dialog.component';
+import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 
 @Component({
-             selector: 'app-data-table-budget-chapters',
-             standalone: true,
-             imports: [
-               ReactiveFormsModule,
-               CommonModule,
-               TableModule,
-               DialogModule,
-               ButtonModule,
-               SelectModule,
-               HasRoleDirective,
-               InputTextModule,
-               ReadOnlyDirective,
-               OnlyNumbersDirective,
-               Textarea,
-               SkeletonModule
-             ],
-             templateUrl: './data-table-budget-chapters.component.html'
-           })
+  selector: 'app-data-table-budget-chapters',
+  standalone: true,
+  imports: [
+    MatTableModule,
+    MatSortModule,
+    MatPaginatorModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatProgressBarModule,
+    HasRoleDirective
+  ],
+  templateUrl: './data-table-budget-chapters.component.html'
+})
 export class DataTableBudgetChaptersComponent extends AbstractDataTableComponent<BudgetChapter> {
 
-  readonly skeletonRows = Array(10).fill({});
-  readonly skeletonCols = Array.from({length: 7}, (_, i) => i);
-
+  displayedColumns = ['actions', 'id', 'chapter_code', 'article', 'pdc', 'description', 'supply_type'];
   supplyTypeDescription = SupplyTypeDescription;
-  supplyTypeOptions = SupplyTypeOptions;
 
   constructor(screen: ScreenSizeService) {
     super(screen);
@@ -51,21 +42,42 @@ export class DataTableBudgetChaptersComponent extends AbstractDataTableComponent
     return BudgetChapter.create();
   }
 
-  protected override buildForm(data?: Partial<BudgetChapter>): void {
-    this.form = this.fb.group({
-      chapter_code: [{value: data?.chapter_code ?? '', disabled: !this.isNew}, Validators.required],
-      article:      [data?.article      ?? '', Validators.required],
-      pdc:          [data?.pdc          ?? ''],
-      supply_type:  [data?.supply_type  ?? null, Validators.required],
-      description:  [data?.description  ?? ''],
-    });
+  override editDialogComponent(): Type<unknown> {
+    return BudgetChapterEditDialogComponent;
+  }
+
+  protected override entityLabel(): string {
+    return 'capitolo';
   }
 
   getSupplyTypeDescription(value: any): string {
     return this.supplyTypeDescription[value as SupplyType] || value;
   }
 
-  override isFormValid(): boolean {
-    return this.form?.valid ?? false;
+  override openDeleteDialog(entity: BudgetChapter): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: 'Elimina Capitolo',
+        message: `Sei sicuro di voler eliminare l'anagrafica ${entity.chapter_code}?`,
+        confirmLabel: 'Elimina',
+        danger: true
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onDelete.emit(entity);
+    });
+  }
+
+  override restoreItem(entity: BudgetChapter): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: 'Ripristina Capitolo',
+        message: `Riattiva Capitolo ${entity.chapter_code}?`,
+        confirmLabel: 'Ripristina'
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onRestore.emit(entity);
+    });
   }
 }

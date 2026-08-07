@@ -1,0 +1,50 @@
+<h2 mat-dialog-title>
+  {{ isNew ? 'Nuovo Capitolo di Spesa' : 'Modifica Capitolo Di Spesa: ' + data.item.chapter_code }}
+</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Codice Capitolo *</mat-label>
+      <input matInput formControlName="chapter_code">
+      @if (form.controls.chapter_code.invalid && form.controls.chapter_code.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Articolo *</mat-label>
+      <input matInput formControlName="article" onlyNumbers>
+      @if (form.controls.article.invalid && form.controls.article.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>PDC</mat-label>
+      <input matInput formControlName="pdc">
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Tipo Fornitura *</mat-label>
+      <mat-select formControlName="supply_type">
+        @for (opt of supplyTypeOptions; track opt.value) {
+          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+        }
+      </mat-select>
+      @if (form.controls.supply_type.invalid && form.controls.supply_type.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 100%;">
+      <mat-label>Descrizione</mat-label>
+      <textarea matInput formControlName="description" rows="3"></textarea>
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button (click)="cancel()">Annulla</button>
+  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">Salva</button>
+</mat-dialog-actions>
