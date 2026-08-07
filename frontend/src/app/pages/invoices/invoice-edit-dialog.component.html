@@ -1,0 +1,91 @@
+<h2 mat-dialog-title>
+  {{ isNew ? 'Aggiungi Fattura' : 'Modifica Fattura: ' + data.item.invoice_id }}
+</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>ID Fattura *</mat-label>
+      <input matInput formControlName="invoice_id">
+      @if (form.controls.invoice_id.invalid && form.controls.invoice_id.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Numero Protocollo *</mat-label>
+      <input matInput formControlName="protocol_number">
+      @if (form.controls.protocol_number.invalid && form.controls.protocol_number.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Data Fattura *</mat-label>
+      <input matInput [matDatepicker]="invoiceDatePicker" formControlName="invoice_date" placeholder="GG/MM/AAAA">
+      <mat-datepicker-toggle matIconSuffix [for]="invoiceDatePicker"></mat-datepicker-toggle>
+      <mat-datepicker #invoiceDatePicker></mat-datepicker>
+      @if (form.controls.invoice_date.invalid && form.controls.invoice_date.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Importo Netto (IVA Esclusa) * (€)</mat-label>
+      <input matInput type="number" step="0.01" formControlName="net_amount_excl_vat">
+      @if (form.controls.net_amount_excl_vat.invalid && form.controls.net_amount_excl_vat.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <div style="flex: 1 1 45%;">
+      <app-filterable-select
+        label="Utenza Associata *"
+        placeholder="Cerca utenza..."
+        [options]="utilityOptions"
+        formControlName="utility_id_fk"
+        [errorMessage]="form.controls.utility_id_fk.invalid && form.controls.utility_id_fk.touched ? 'Obbligatorio' : null">
+      </app-filterable-select>
+    </div>
+
+    <div style="flex: 1 1 45%;">
+      <app-filterable-select
+        label="Fornitore"
+        placeholder="Cerca fornitore..."
+        [options]="supplierOptions"
+        formControlName="supplier_id_fk">
+      </app-filterable-select>
+    </div>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Capitoli di Spesa Associati</mat-label>
+      <mat-select formControlName="budget_chapter_ids" multiple>
+        @for (opt of budgetChapterOptions; track opt.id) {
+          <mat-option [value]="opt.id">{{ opt.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Morosità Ultima Fattura * (€)</mat-label>
+      <input matInput type="number" step="0.01" formControlName="last_invoice_arrears">
+      @if (form.controls.last_invoice_arrears.invalid && form.controls.last_invoice_arrears.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 100%;">
+      <mat-label>Note</mat-label>
+      <textarea matInput formControlName="notes_on_invoices" rows="3"></textarea>
+    </mat-form-field>
+
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button (click)="cancel()">Annulla</button>
+  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">
+    {{ isNew ? 'Crea Fattura' : 'Salva Fattura' }}
+  </button>
+</mat-dialog-actions>

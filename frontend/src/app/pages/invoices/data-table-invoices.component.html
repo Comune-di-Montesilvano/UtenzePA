@@ -1,348 +1,132 @@
 <div style="display: flex; justify-content: space-between; align-items: center;">
   <h3>Elenco ({{ data.length }})</h3>
-  <button
-    pButton
-    class="p-button p-sm"
-    (click)="openCreateDialog()"
-    [appHasRole]="['Admin', 'Operatore']">
-    <i pButtonIcon class="pi pi-plus"></i>
-    <span pButtonLabel class="p-button-label">Aggiungi Fattura</span>
+  <button mat-flat-button (click)="openCreateDialog()" [appHasRole]="['Admin', 'Operatore']">
+    <mat-icon>add</mat-icon>
+    Aggiungi Fattura
   </button>
 </div>
 
-<p-table
-  [value]="loading ? skeletonRows : data"
-  [paginator]="true"
-  [rows]="10"
-  paginatorPosition="bottom"
-  [scrollable]="true"
-  [scrollHeight]="(height - 500) + 'px'"
-  #myTable
-  [style]="{ '--row-height': rowHeight + 'px' }"
-  class="dynamic-rows"
-  [customSort]="true"
-  (sortFunction)="customSort($event)"
-  [size]="'small'"
-  [rowsPerPageOptions]=rowsPerPageOptions
->
-  <ng-template pTemplate="caption">
-    <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem;">
-      <p-multiSelect
-        [options]="allColumns"
-        [(ngModel)]="selectedColumns"
-        optionLabel="header"
-        placeholder="Colonne visibili"
-        selectedItemsLabel="{0} colonne selezionate"
-        [maxSelectedLabels]="0"
-        [showToggleAll]="true"
-        [appendTo]="'body'"
-        class="column-toggle"
-        (onChange)="onColumnsChange()"
-      >
-        <ng-template pTemplate="dropdownicon">
-          <i class="pi pi-table"></i>
-        </ng-template>
-      </p-multiSelect>
-      <p-button icon="pi pi-external-link" label="Esporta CSV" (click)="exportToCSV()" severity="secondary"/>
-    </div>
-  </ng-template>
+@if (loading) {
+  <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+}
 
-  <ng-template pTemplate="header">
-    <tr>
-      <th style="min-width: 100px;">Azioni</th>
-      @for (col of selectedColumns; track col.field) {
-        <th [style.min-width]="col.minWidth" [pSortableColumn]="col.field">
-          {{ col.header }}
-          <p-sortIcon [field]="col.field"/>
-        </th>
+<div style="display: flex; justify-content: space-between; margin: 0.75rem 0;">
+  <mat-form-field subscriptSizing="dynamic" style="min-width: 220px;">
+    <mat-label>Colonne visibili</mat-label>
+    <mat-select multiple [(ngModel)]="selectedColumns" [compareWith]="compareColumns" (selectionChange)="onColumnsChange()">
+      @for (col of allColumns; track col.field) {
+        <mat-option [value]="col">{{ col.header }}</mat-option>
       }
+    </mat-select>
+  </mat-form-field>
+  <button mat-stroked-button (click)="exportToCSV()">
+    <mat-icon>ios_share</mat-icon>
+    Esporta CSV
+  </button>
+</div>
+
+<table mat-table [dataSource]="dataSource" matSort matSortActive="invoice_id" matSortDirection="asc" #sort="matSort" class="mat-elevation-z1">
+
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef>Azioni</th>
+      <td mat-cell *matCellDef="let item">
+        @if (!item.deleted) {
+          <button mat-icon-button (click)="openEditDialog(item)" [appHasRole]="['Admin', 'Operatore', 'Lettore']"
+                  matTooltip="Modifica">
+            <mat-icon>edit</mat-icon>
+          </button>
+        }
+        <button mat-icon-button
+                [class.mat-action-success]="item.deleted"
+                [class.mat-action-danger]="!item.deleted"
+                (click)="item.deleted ? restoreItem(item) : openDeleteDialog(item)"
+                [appHasRole]="['Admin', 'Operatore']"
+                [matTooltip]="item.deleted ? 'Ripristina' : 'Elimina'">
+          <mat-icon>{{ item.deleted ? 'restore' : 'delete' }}</mat-icon>
+        </button>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="invoice_id">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>ID Fattura</th>
+      <td mat-cell *matCellDef="let item">{{ item.invoice_id }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="protocol_number">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>N. Protocollo</th>
+      <td mat-cell *matCellDef="let item">{{ item.protocol_number }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="invoice_date">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Data Fattura</th>
+      <td mat-cell *matCellDef="let item">{{ item.invoice_date | date: 'dd/MM/yyyy' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="net_amount_excl_vat">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Importo Netto</th>
+      <td mat-cell *matCellDef="let item">{{ item.net_amount_excl_vat | formatAmount }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="last_invoice_arrears">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Morosità</th>
+      <td mat-cell *matCellDef="let item">{{ item.last_invoice_arrears | formatAmount }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="utility.utility_id">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Utenza (POD/PDR)</th>
+      <td mat-cell *matCellDef="let item">{{ item.utility?.utility_id || 'N/D' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="supplier.supplier_id">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Fornitore</th>
+      <td mat-cell *matCellDef="let item">{{ item.supplier?.supplier_id || 'N/D' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="budget_chapters">
+      <th mat-header-cell *matHeaderCellDef>Capitoli Associati</th>
+      <td mat-cell *matCellDef="let item">
+        @for (bc of item.budget_chapters; track bc.id) {
+          <div>{{ bc.label | truncate: 40 }}</div>
+        }
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="is_paid">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Stato Pagamento</th>
+      <td mat-cell *matCellDef="let item" style="text-align: center;">
+        @if (item.is_paid === true) {
+          <mat-icon style="color: #00c10d;">check_circle</mat-icon>
+        } @else if (item.is_paid === false) {
+          <mat-icon style="color: #f59e0b;">warning</mat-icon>
+        } @else {
+          N/D
+        }
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="notes_on_invoices">
+      <th mat-header-cell *matHeaderCellDef>Note</th>
+      <td mat-cell *matCellDef="let item">
+        @if (item.notes_on_invoices) {
+          <span [matTooltip]="item.notes_on_invoices">{{ item.notes_on_invoices | truncate: maxDescLength }}</span>
+        }
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.row-deleted]="row.deleted"></tr>
+
+    <tr class="mat-row" *matNoDataRow>
+      <td class="mat-cell" [attr.colspan]="displayedColumns.length">Nessuna fattura trovata.</td>
     </tr>
-  </ng-template>
+  </table>
 
-  <ng-template pTemplate="body" let-item>
-    @if (loading) {
-      <tr>
-        @for (col of skeletonCols; track col) {
-          <td><p-skeleton height="1.5rem"/></td>
-        }
-      </tr>
-    } @else {
-      <tr [ngClass]="{ 'row-deleted': item.deleted }">
-        <td>
-          @if (!item.deleted) {
-            <button pButton class="p-button-text p-button-sm action-button"
-                    (click)="openEditDialog(item)" [appHasRole]="['Admin', 'Operatore', 'Lettore']">
-              <i pButtonIcon class="pi pi-pencil"></i>
-            </button>
-            <button pButton class="p-button-text p-button-sm p-button-danger action-button"
-                    (click)="openDeleteDialog(item)" [appHasRole]="['Admin', 'Operatore']">
-              <i pButtonIcon class="pi pi-trash"></i>
-            </button>
-          } @else {
-            <button pButton class="p-button-text p-button-sm p-button-success action-button"
-                    (click)="restoreItem(item)" [appHasRole]="['Admin', 'Operatore']">
-              <i pButtonIcon class="pi pi-undo"></i>
-            </button>
-          }
-        </td>
-
-        @for (col of selectedColumns; track col.field) {
-          @switch (col.field) {
-            @case ('invoice_date') {
-              <td>{{ item.invoice_date | date: 'dd/MM/yyyy' }}</td>
-            }
-            @case ('net_amount_excl_vat') {
-              <td>{{ item.net_amount_excl_vat | formatAmount }}</td>
-            }
-            @case ('last_invoice_arrears') {
-              <td>{{ item.last_invoice_arrears | formatAmount }}</td>
-            }
-            @case ('utility.utility_id') {
-              <td>{{ item.utility?.utility_id || 'N/D' }}</td>
-            }
-            @case ('supplier.supplier_id') {
-              <td>{{ item.supplier?.supplier_id || 'N/D' }}</td>
-            }
-            @case ('budget_chapters') {
-              <td>
-                @for (bc of item.budget_chapters; track bc) {
-                  <div><span>{{ bc.label | truncate: 40 }}</span></div>
-                }
-              </td>
-            }
-            @case ('is_paid') {
-              <td style="text-align: center;">
-                @if (item.is_paid === true) {
-                  <i class="pi pi-check-circle text-green-500" [ngStyle]="{'font-size': '1.2rem'}"></i>
-                } @else if (item.is_paid === false) {
-                  <i class="pi pi-exclamation-triangle text-orange-500" [ngStyle]="{'font-size': '1.2rem'}"></i>
-                } @else {
-                  <span>N/D</span>
-                }
-              </td>
-            }
-            @case ('notes_on_invoices') {
-              <td>
-                @if (item.notes_on_invoices) {
-                  <span [pTooltip]="item.notes_on_invoices" tooltipPosition="top">
-                    {{ item.notes_on_invoices | truncate: 50 }}
-                  </span>
-                }
-              </td>
-            }
-            @default {
-              <td>{{ getNestedValue(item, col.field) }}</td>
-            }
-          }
-        }
-      </tr>
-    }
-  </ng-template>
-
-  <ng-template pTemplate="emptymessage">
-    <tr>
-      <td colspan="10" class="text-center">Nessuna fattura trovata.</td>
-    </tr>
-  </ng-template>
-</p-table>
-
-<p-dialog
-  [header]="isNew ? 'Aggiungi Fattura' : 'Modifica Fattura: ' + selectedItem?.invoice_id"
-  [(visible)]="editDialogVisible"
-  [modal]="true"
-  [style]="{width: '60vw'}"
-  styleClass="max-w-screen-md"
-  (onHide)="selectedItem = null; isNew = false">
-
-  @if (form) {
-    <form [formGroup]="form" [readOnly]="['Lettore']" class="edit-form"
-          style="display: flex; flex-wrap: wrap; gap: 1rem;">
-
-      <div style="flex: 1 1 calc(50% - 0.5rem);">
-        <label for="invoice_id">ID Fattura *</label>
-        <input id="invoice_id" type="text" pInputText formControlName="invoice_id"
-               style="width: 100%;"
-               [class.ng-invalid]="form.controls['invoice_id'].invalid && form.controls['invoice_id'].touched"
-               [class.ng-dirty]="form.controls['invoice_id'].dirty">
-        @if (form.controls['invoice_id'].invalid && form.controls['invoice_id'].touched) {
-          <small class="p-error">Obbligatorio</small>
-        }
-      </div>
-
-      <div style="flex: 1 1 calc(50% - 0.5rem);">
-        <label for="protocol_number">Numero Protocollo *</label>
-        <input id="protocol_number" type="text" pInputText formControlName="protocol_number"
-               style="width: 100%;">
-      </div>
-
-      <div style="flex: 1 1 calc(50% - 0.5rem); display: flex; flex-direction: column;">
-        <label for="invoice_date">Data Fattura *</label>
-        <p-datePicker
-          id="invoice_date"
-          formControlName="invoice_date"
-          dateFormat="dd/mm/yy"
-          placeholder="GG/MM/AAAA"
-          [showIcon]="true"
-          style="width: 100%;"
-          [appendTo]="'body'"
-          [class.ng-invalid]="form.controls['invoice_date'].invalid && form.controls['invoice_date'].touched" fluid
-        />
-        @if (form.controls['invoice_date'].invalid && form.controls['invoice_date'].touched) {
-          <small class="p-error">Obbligatorio</small>
-        }
-      </div>
-
-      <div style="flex: 1 1 calc(50% - 0.5rem);">
-        <label for="net_amount_excl_vat">Importo Netto (IVA Esclusa) *</label>
-        <p-inputNumber
-          inputId="net_amount_excl_vat"
-          formControlName="net_amount_excl_vat"
-          mode="currency"
-          currency="EUR"
-          locale="it-IT"
-          [minFractionDigits]="2"
-          fluid
-          [class.ng-invalid]="form.controls['net_amount_excl_vat'].invalid && form.controls['net_amount_excl_vat'].touched"
-        ></p-inputNumber>
-        @if (form.controls['net_amount_excl_vat'].invalid && form.controls['net_amount_excl_vat'].touched) {
-          <small class="p-error">Obbligatorio</small>
-        }
-      </div>
-
-      <div style="flex: 1 1 calc(50% - 0.5rem); overflow: hidden;">
-        <label for="utility_id_fk">Utenza Associata *</label>
-        <p-select
-          id="utility_id_fk"
-          [options]="utilityOptions"
-          formControlName="utility_id_fk"
-          optionLabel="utility_id"
-          optionValue="id"
-          placeholder="Seleziona Utenza (POD/PDR)"
-          [showClear]="true"
-          [filter]="true"
-          filterBy="utility_id"
-          style="width: 100%;"
-          [appendTo]="'body'"
-          class="p-select-wide-wrap"
-          [class.ng-invalid]="form.controls['utility_id_fk'].invalid && form.controls['utility_id_fk'].touched"
-        />
-        @if (form.controls['utility_id_fk'].invalid && form.controls['utility_id_fk'].touched) {
-          <small class="p-error">Obbligatorio</small>
-        }
-      </div>
-
-      <div style="flex: 1 1 calc(50% - 0.5rem); overflow: hidden;">
-        <label for="supplier_id_fk">Fornitore</label>
-        <p-select
-          id="supplier_id_fk"
-          [options]="supplierOptions"
-          formControlName="supplier_id_fk"
-          optionLabel="supplier_id"
-          optionValue="id"
-          placeholder="Seleziona"
-          [showClear]="true"
-          [filter]="true"
-          filterBy="supplier_id"
-          style="width: 100%;"
-          [appendTo]="'body'"
-        />
-      </div>
-
-      <div style="flex: 1 1 calc(50% - 0.5rem);">
-        <label for="budget_chapter_ids">Capitoli di Spesa Associati</label>
-        <p-multiSelect
-          id="budget_chapter_ids"
-          [options]="budgetChapterOptions"
-          formControlName="budget_chapter_ids"
-          optionLabel="label"
-          optionValue="id"
-          placeholder="Seleziona"
-          selectedItemsLabel="{0} capitoli selezionati"
-          [maxSelectedLabels]="1"
-          [showClear]="true"
-          [appendTo]="'body'"
-          fluid
-        />
-      </div>
-
-      <div style="flex: 1 1 calc(50% - 0.5rem);">
-        <label for="last_invoice_arrears">Morosità Ultima Fattura *</label>
-        <p-inputNumber
-          inputId="last_invoice_arrears"
-          formControlName="last_invoice_arrears"
-          mode="currency"
-          currency="EUR"
-          locale="it-IT"
-          [minFractionDigits]="2"
-          fluid
-        ></p-inputNumber>
-      </div>
-
-      <div style="flex: 1 1 100%;">
-        <label for="notes_on_invoices">Note</label>
-        <textarea id="notes_on_invoices" pInputTextarea formControlName="notes_on_invoices"
-                  [rows]="3" style="width: 100%;"></textarea>
-      </div>
-
-    </form>
-  }
-
-  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-    <button pButton class="p-button-secondary p-component" (click)="editDialogVisible=false">
-      <span pButtonLabel>Annulla</span>
-    </button>
-    <button pButton class="p-button p-component" (click)="saveItem()"
-            [appHasRole]="['Admin', 'Operatore']"
-            [disabled]="!isFormValid()">
-      <span pButtonLabel>{{ isNew ? 'Crea Fattura' : 'Salva Fattura' }}</span>
-    </button>
-  </div>
-
-</p-dialog>
-
-<p-dialog header="Elimina Fattura" [(visible)]="deleteDialogVisible" [modal]="true" [style]="{width: '350px'}">
-  <p>Sei sicuro di voler eliminare la Fattura <b>{{ selectedItem?.invoice_id }}</b>?</p>
-  <ng-template pTemplate="footer">
-    <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem;">
-      <button pButton class="p-button-secondary"
-              (click)="deleteDialogVisible=false">
-        <i pButtonIcon class="pi pi-times"></i>
-        <span pButtonLabel>Annulla</span>
-      </button>
-      <button pButton (click)="confirmDelete()" severity="danger">
-        <span pButtonLabel>Elimina</span>
-      </button>
-    </div>
-  </ng-template>
-</p-dialog>
-
-<p-dialog header="Ripristina Fattura" [(visible)]="restoreDialogVisible" [modal]="true" [style]="{width: '350px'}">
-  <p>Riattiva Fattura <b>{{ selectedItem?.invoice_id }}</b>?</p>
-  <ng-template pTemplate="footer">
-    <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem;">
-      <button pButton class="p-button-secondary"
-              (click)="restoreDialogVisible=false">
-        <i pButtonIcon class="pi pi-times"></i>
-        <span pButtonLabel>Annulla</span>
-      </button>
-      <button pButton class="p-button-success" (click)="confirmRestore()">
-        <i pButtonIcon class="pi pi-check"></i>
-        <span pButtonLabel>Ripristina</span>
-      </button>
-    </div>
-  </ng-template>
-</p-dialog>
+<mat-paginator #paginator [pageSizeOptions]="rowsPerPageOptions" [pageSize]="10"></mat-paginator>
 
 <style>
   .row-deleted {
     background-color: #fcebeb;
     opacity: 0.7;
     text-decoration: line-through;
-  }
-
-  .action-button {
-    padding: 0.2rem !important;
-    margin: 0 0.1rem;
-    height: auto;
   }
 </style>
