@@ -1,4 +1,4 @@
-import {Exclude, plainToInstance, Type} from 'class-transformer';
+import {Exclude, plainToInstance, Transform, Type} from 'class-transformer';
 import {AbstractEntity} from '../../../core/entities/abstract.entity';
 import {IInvoice} from './invoice.interface';
 import {Utility} from '../../utilities/entity/utility.entity';
@@ -31,6 +31,10 @@ export class Invoice extends AbstractEntity implements IInvoice {
   supplier?: Supplier;
 
   @Type(() => BudgetChapter)
+  @Transform(({value}) => {
+    if (!Array.isArray(value)) return value;
+    return value.map((bc: BudgetChapter) => bc.id);
+  }, {toPlainOnly: true})
   budget_chapters?: BudgetChapter[];
 
   @Exclude({toPlainOnly: true})
