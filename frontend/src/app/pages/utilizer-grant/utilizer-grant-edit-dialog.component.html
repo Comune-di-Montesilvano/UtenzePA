@@ -1,0 +1,60 @@
+<h2 mat-dialog-title>
+  {{ isNew ? 'Aggiungi Concessione' : 'Modifica Concessione: ' + data.item.id }}
+</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+    <div style="flex: 1 1 100%;">
+      <app-filterable-select
+        label="Utilizzatore *"
+        placeholder="Cerca utilizzatore..."
+        [options]="utilizerOptions"
+        formControlName="utilizer_id_fk"
+        [errorMessage]="form.controls.utilizer_id_fk.invalid && form.controls.utilizer_id_fk.touched ? 'Obbligatorio' : null">
+      </app-filterable-select>
+    </div>
+
+    <div style="flex: 1 1 45%;">
+      <app-filterable-select
+        label="Immobile Associato *"
+        placeholder="Cerca immobile..."
+        [options]="assetOptions"
+        formControlName="asset_id_fk"
+        [errorMessage]="form.controls.asset_id_fk.invalid && form.controls.asset_id_fk.touched ? 'Obbligatorio' : null">
+      </app-filterable-select>
+    </div>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Tipo Utilizzo</mat-label>
+      <input matInput formControlName="usage_type" placeholder="Inserisci il tipo di utilizzo">
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Data Concessione Contratto</mat-label>
+      <input matInput [matDatepicker]="grantPicker" formControlName="grant_date">
+      <mat-datepicker-toggle matSuffix [for]="grantPicker"></mat-datepicker-toggle>
+      <mat-datepicker #grantPicker></mat-datepicker>
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Data Scadenza Contratto</mat-label>
+      <input matInput [matDatepicker]="expirePicker" formControlName="expire_date">
+      <mat-datepicker-toggle matSuffix [for]="expirePicker"></mat-datepicker-toggle>
+      <mat-datepicker #expirePicker></mat-datepicker>
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 100%;">
+      <mat-label>Atto concessione immobile</mat-label>
+      <textarea matInput formControlName="concession_act" rows="4" placeholder="Note sull'atto di concessione"></textarea>
+    </mat-form-field>
+
+    <div style="flex: 1 1 100%; display: flex; align-items: center;">
+      <mat-checkbox formControlName="utilities_to_be_taken_over">Utenza da volturare?</mat-checkbox>
+    </div>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button (click)="cancel()">Annulla</button>
+  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">Salva Concessione</button>
+</mat-dialog-actions>
