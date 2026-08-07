@@ -81,3 +81,7 @@ dump-*.sql
 schema_db.sql
 
 src/data-importer/source/*.csv
+
+# Backup/import working directories (may contain real DB dumps / uploaded CSVs)
+/backups/
+/import-tmp/

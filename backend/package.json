@@ -125,6 +125,7 @@
     "@types/compression": "^1.8.1",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
+    "@types/multer": "^2.2.0",
     "@types/node": "^20.19.24",
     "@types/nodemailer": "^7.0.2",
     "@types/passport-local": "^1.0.38",

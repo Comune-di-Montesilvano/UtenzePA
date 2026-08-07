@@ -47,6 +47,7 @@ export class SidebarComponent {
         {label: 'Convenzioni CONSIP', icon: 'fa fa-handshake-o', route: '/consip-agreement'},
         {label: 'Finalità d\'uso', icon: 'fa fa-dot-circle-o', route: '/purpose'},
         {label: 'Utilizzatori', icon: 'pi pi-user-plus', route: '/utilizer'},
+        {label: 'Backup e Importazione', icon: 'pi pi-database', route: '/backup-import'},
       ]},
     {label: 'Utenti e ruoli', icon: 'pi pi-users', route: '/system-users'},
   ];
