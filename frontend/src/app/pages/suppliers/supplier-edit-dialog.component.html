@@ -1,0 +1,72 @@
+<h2 mat-dialog-title>
+  {{ isNew ? 'Crea nuovo fornitore' : 'Modifica fornitore: ' + data.item.company_name }}
+</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>ID Fornitore *</mat-label>
+      <input matInput formControlName="supplier_id">
+      @if (form.controls.supplier_id.invalid && form.controls.supplier_id.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Ragione Sociale *</mat-label>
+      <input matInput formControlName="company_name">
+      @if (form.controls.company_name.invalid && form.controls.company_name.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Partita IVA</mat-label>
+      <input matInput formControlName="vat_number">
+      @if (form.controls.vat_number.hasError('italianVatNumber') && form.controls.vat_number.touched) {
+        <mat-error>Partita IVA non valida</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Codice Fiscale</mat-label>
+      <input matInput formControlName="tax_code">
+      @if (form.controls.tax_code.hasError('italianTaxCode') && form.controls.tax_code.touched) {
+        <mat-error>Codice fiscale non valido</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Indirizzo</mat-label>
+      <input matInput formControlName="address">
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Città</mat-label>
+      <input matInput formControlName="city">
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>CAP</mat-label>
+      <input matInput formControlName="postal_code">
+      @if (form.controls.postal_code.hasError('italianPostalCode') && form.controls.postal_code.touched) {
+        <mat-error>CAP non valido</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Email</mat-label>
+      <input matInput formControlName="email">
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>PEC</mat-label>
+      <input matInput formControlName="pec">
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button (click)="cancel()">Annulla</button>
+  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">Salva</button>
+</mat-dialog-actions>
