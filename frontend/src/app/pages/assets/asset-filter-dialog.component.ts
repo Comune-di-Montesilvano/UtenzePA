@@ -102,8 +102,8 @@ export class AssetFilterDialogComponent implements OnInit {
   displayAssetType = (value: number | null): string =>
     this.assetAggregatorOptions.find(o => o.value === value)?.label ?? '';
 
-  onAssetTypeSelected(value: number): void {
-    this.form.patchValue({asset_type_id: value});
+  onAssetTypeSelected(value: number | string | boolean): void {
+    this.form.patchValue({asset_type_id: Number(value)});
   }
 
   apply(): void {
