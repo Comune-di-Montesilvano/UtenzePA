@@ -2,13 +2,25 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as childProcess from 'child_process';
-import { spawn } from 'child_process';
-import { promisify } from 'util';
-
-const execFile = promisify(childProcess.execFile);
+import { createConnection, RowDataPacket } from 'mysql2/promise';
 
 const FILENAME_PATTERN = /^utenzepa_\d{8}_\d{6}\.sql$/;
+
+function escapeValue(v: unknown): string {
+  if (v === null || v === undefined) return 'NULL';
+  if (typeof v === 'number' || typeof v === 'bigint') return String(v);
+  if (typeof v === 'boolean') return v ? '1' : '0';
+  if (v instanceof Date) {
+    return `'${v.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '')}'`;
+  }
+  if (Buffer.isBuffer(v)) return `0x${v.toString('hex')}`;
+  return `'${String(v)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\0/g, '\\0')}'`;
+}
 
 export interface BackupInfo {
   filename: string;
@@ -24,6 +36,16 @@ export class BackupService {
   constructor() {
     this.backupDir = process.env.BACKUP_DIR ?? path.join(process.cwd(), 'backups');
     fs.mkdirSync(this.backupDir, { recursive: true });
+  }
+
+  private dbConfig() {
+    return {
+      host: process.env.MYSQL_HOST ?? 'localhost',
+      port: Number(process.env.MYSQL_PORT) || 3306,
+      user: process.env.MYSQL_USER ?? 'root',
+      password: process.env.MYSQL_PASSWORD ?? '',
+      database: process.env.MYSQL_DB ?? 'mydatabase',
+    };
   }
 
   private buildFilename(date: Date): string {
@@ -56,23 +78,49 @@ export class BackupService {
     const finalPath = path.join(this.backupDir, filename);
     const tmpPath = `${finalPath}.tmp`;
 
-    const args = [
-      `--host=${process.env.MYSQL_HOST}`,
-      `--port=${process.env.MYSQL_PORT}`,
-      `--user=${process.env.MYSQL_USER}`,
-      `--result-file=${tmpPath}`,
-      process.env.MYSQL_DB as string,
-    ];
+    const conn = await createConnection(this.dbConfig());
+    const writeStream = fs.createWriteStream(tmpPath);
+    const write = (s: string): Promise<void> =>
+      new Promise((res, rej) => writeStream.write(s, (err) => (err ? rej(err) : res())));
 
     try {
-      await execFile('mysqldump', args, {
-        env: { ...process.env, MYSQL_PWD: process.env.MYSQL_PASSWORD },
-      });
+      await write('-- UtenzePA backup\n');
+      await write(`-- Created: ${new Date().toISOString()}\n\n`);
+      await write('SET FOREIGN_KEY_CHECKS=0;\n');
+      await write('SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";\n\n');
+
+      const [tables] = await conn.query<RowDataPacket[]>('SHOW TABLES');
+      for (const tableRow of tables) {
+        const table = Object.values(tableRow)[0] as string;
+        const [[createRow]] = await conn.query<RowDataPacket[]>(
+          `SHOW CREATE TABLE \`${table}\``,
+        );
+        await write(`DROP TABLE IF EXISTS \`${table}\`;\n`);
+        await write(`${createRow['Create Table'] as string};\n\n`);
+
+        const [rows] = await conn.query<RowDataPacket[]>(`SELECT * FROM \`${table}\``);
+        if (rows.length > 0) {
+          const cols = Object.keys(rows[0]);
+          const colList = cols.map((c) => `\`${c}\``).join(', ');
+          for (const row of rows) {
+            const vals = cols.map((c) => escapeValue(row[c])).join(', ');
+            await write(`INSERT INTO \`${table}\` (${colList}) VALUES (${vals});\n`);
+          }
+          await write('\n');
+        }
+      }
+
+      await write('SET FOREIGN_KEY_CHECKS=1;\n');
+      await new Promise<void>((res, rej) => writeStream.end((err: Error | null) => (err ? rej(err) : res())));
+
       fs.renameSync(tmpPath, finalPath);
     } catch (err) {
+      writeStream.destroy();
       if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
       this.logger.error(`Backup fallito: ${(err as Error).message}`);
       throw err;
+    } finally {
+      await conn.end().catch(() => {});
     }
 
     const stat = fs.statSync(finalPath);
@@ -98,39 +146,17 @@ export class BackupService {
   }
 
   async restoreFromFile(filePath: string): Promise<void> {
-    const sqlContent = fs.readFileSync(filePath);
-
-    const args = [
-      `--host=${process.env.MYSQL_HOST}`,
-      `--port=${process.env.MYSQL_PORT}`,
-      `--user=${process.env.MYSQL_USER}`,
-      process.env.MYSQL_DB as string,
-    ];
-
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn('mysql', args, {
-        env: { ...process.env, MYSQL_PWD: process.env.MYSQL_PASSWORD },
-      });
-
-      let stderr = '';
-      child.stderr.on('data', (chunk: Buffer) => {
-        stderr += chunk.toString();
-      });
-      child.on('error', reject);
-      child.on('close', (code) => {
-        if (code === 0) {
-          this.logger.log(`Restore completato da: ${filePath}`);
-          resolve();
-        } else {
-          const message = stderr.trim() || `mysql terminato con codice ${code}`;
-          this.logger.error(`Restore fallito: ${message}`);
-          reject(new Error(message));
-        }
-      });
-
-      child.stdin.write(sqlContent);
-      child.stdin.end();
-    });
+    const sqlContent = fs.readFileSync(filePath, 'utf8');
+    const conn = await createConnection({ ...this.dbConfig(), multipleStatements: true });
+    try {
+      await conn.query(sqlContent);
+      this.logger.log(`Restore completato da: ${filePath}`);
+    } catch (err) {
+      this.logger.error(`Restore fallito: ${(err as Error).message}`);
+      throw err;
+    } finally {
+      await conn.end().catch(() => {});
+    }
   }
 
   async applyRetention(retentionDays: number): Promise<{ deleted: string[] }> {
