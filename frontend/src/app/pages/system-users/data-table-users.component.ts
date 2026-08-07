@@ -1,48 +1,38 @@
-import {Component} from '@angular/core';
-import {CommonModule, DatePipe} from '@angular/common';
-import {TableModule} from 'primeng/table';
-import {DialogModule} from 'primeng/dialog';
-import {ButtonModule} from 'primeng/button';
-import {ReactiveFormsModule, Validators} from '@angular/forms';
-import {SelectModule} from 'primeng/select';
+import {Component, Type} from '@angular/core';
+import {DatePipe} from '@angular/common';
+import {MatTableModule} from '@angular/material/table';
+import {MatSortModule} from '@angular/material/sort';
+import {MatPaginatorModule} from '@angular/material/paginator';
+import {MatButtonModule} from '@angular/material/button';
+import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
+import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
-import {TooltipModule} from 'primeng/tooltip';
-import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
-import {InputText} from 'primeng/inputtext';
 import {SystemUser} from './entity/system-user.entity';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
+import {SystemUserEditDialogComponent} from './system-user-edit-dialog.component';
+import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 
 @Component({
   selector: 'app-data-table-users',
   standalone: true,
   imports: [
-    ReactiveFormsModule,
-    CommonModule,
-    TableModule,
     DatePipe,
-    DialogModule,
-    ButtonModule,
-    SelectModule,
-    HasRoleDirective,
-    TooltipModule,
-    ReadOnlyDirective,
-    InputText,
+    MatTableModule,
+    MatSortModule,
+    MatPaginatorModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatProgressBarModule,
+    HasRoleDirective
   ],
   templateUrl: './data-table-users.component.html'
 })
 export class DataTableUsersComponent extends AbstractDataTableComponent<SystemUser> {
 
-  statuses = [
-    {label: 'Attivo',    value: 'Attivo'},
-    {label: 'Disattivo', value: 'Disattivo'},
-  ];
-
-  roles = [
-    {label: 'Admin',     value: 'Admin'},
-    {label: 'Operatore', value: 'Operatore'},
-    {label: 'Lettore',   value: 'Lettore'},
-  ];
+  displayedColumns = ['actions', 'id', 'firstName', 'lastName', 'email', 'role', 'status', 'create_date'];
 
   constructor(screen: ScreenSizeService) {
     super(screen);
@@ -52,23 +42,25 @@ export class DataTableUsersComponent extends AbstractDataTableComponent<SystemUs
     return SystemUser.create({role: 'Operatore', status: 'Attivo'});
   }
 
-  protected override buildForm(data?: Partial<SystemUser>): void {
-    this.form = this.fb.group({
-      firstName: [data?.firstName ?? '', Validators.required],
-      lastName:  [data?.lastName  ?? '', Validators.required],
-      email:     [data?.email     ?? '', [Validators.required, Validators.email]],
-      role:      [data?.role      ?? 'Operatore', Validators.required],
-      status:    [data?.status    ?? 'Attivo',    Validators.required],
+  override editDialogComponent(): Type<unknown> {
+    return SystemUserEditDialogComponent;
+  }
+
+  protected override entityLabel(): string {
+    return 'utente';
+  }
+
+  override openDeleteDialog(entity: SystemUser): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: 'Elimina utente',
+        message: `Vuoi eliminare ${entity.firstName} ${entity.lastName}?`,
+        confirmLabel: 'Elimina',
+        danger: true
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onDelete.emit(entity);
     });
-  }
-
-  override saveItem() {
-    if (!this.form.valid || !this.selectedItem) return;
-    Object.assign(this.selectedItem, this.form.value);
-    super.saveItem();
-  }
-
-  override isFormValid(): boolean {
-    return this.form?.valid ?? false;
   }
 }

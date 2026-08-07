@@ -1,20 +1,18 @@
-<p-toast position="top-right" key="global"></p-toast>
-<div class="p-grid" style="padding: 1rem;">
+<div style="padding: 1rem;">
   <div>
     <h1>Utenti e ruoli</h1>
     <p style="color: #6A7282;">Gestisci gli utenti del sistema e i loro ruoli</p>
   </div>
-  <div class="p-col-12" style="margin-top: 1rem;">
+  <div style="margin-top: 1rem;">
     <app-search-users (search)="onSearch($event)"></app-search-users>
   </div>
-  <div class="p-col-12" style="margin-top: 1.5rem;">
+  <div style="margin-top: 1.5rem;">
     <app-data-table-users
       [data]="list"
       [loading]="loading"
       (onSave)="onSave($event)"
       (onDelete)="onDelete($event)"
       (onCreate)="onCreate($event)"
-      [creationResult]="creationResult"
       [resetPagingTrigger]="resetPagingCount"
     ></app-data-table-users>
   </div>

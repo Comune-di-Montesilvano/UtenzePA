@@ -1,37 +1,19 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { DialogModule } from 'primeng/dialog';
-import { SelectModule } from 'primeng/select';
-import { AbstractSearchComponent } from '../../core/components/abstract-search.component';
+import {Component, Type} from '@angular/core';
+import {FormBuilder, ReactiveFormsModule} from '@angular/forms';
+import {MatButtonModule} from '@angular/material/button';
+import {MatIconModule} from '@angular/material/icon';
+import {MatFormFieldModule} from '@angular/material/form-field';
+import {MatInputModule} from '@angular/material/input';
+import {AbstractSearchComponent} from '../../core/components/abstract-search.component';
+import {SystemUserFilterDialogComponent} from './system-user-filter-dialog.component';
 
 @Component({
   selector: 'app-search-users',
   standalone: true,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    ButtonModule,
-    InputTextModule,
-    DialogModule,
-    SelectModule,
-  ],
+  imports: [ReactiveFormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule],
   templateUrl: './search-users.component.html',
 })
-export class SearchUsersComponent extends AbstractSearchComponent implements OnInit {
-
-  roles = [
-    { label: 'Admin', value: 'Admin' },
-    { label: 'Operatore', value: 'Operatore' },
-    { label: 'Lettore', value: 'Lettore' }
-  ];
-
-  statuses = [
-    { label: 'Attivo', value: 'Attivo' },
-    { label: 'Disattivo', value: 'Disattivo' }
-  ];
+export class SearchUsersComponent extends AbstractSearchComponent {
 
   constructor(private fb: FormBuilder) {
     super();
@@ -43,5 +25,9 @@ export class SearchUsersComponent extends AbstractSearchComponent implements OnI
       role: [null],
       status: [null],
     });
+  }
+
+  override filterDialogComponent(): Type<unknown> {
+    return SystemUserFilterDialogComponent;
   }
 }
