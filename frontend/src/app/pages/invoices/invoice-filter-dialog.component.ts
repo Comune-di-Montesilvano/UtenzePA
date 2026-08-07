@@ -21,8 +21,12 @@ export interface InvoiceFilterValues {
   utility_id_fk: number | null;
   supplier_id_fk: number | null;
   budget_chapter_ids: number[] | null;
-  invoice_date_from: Date | null;
-  invoice_date_to: Date | null;
+  // In input (data.values) puo' arrivare un Date (prima apertura, dal form)
+  // o una stringa locale YYYY-MM-DD (riapertura dopo una ricerca gia' applicata,
+  // vedi apply()). In output (dialogRef.close()) e' sempre una stringa locale,
+  // per evitare lo shift di un giorno dato dalla conversione UTC di Date.toISOString().
+  invoice_date_from: Date | string | null;
+  invoice_date_to: Date | string | null;
   notes_on_invoices: string | null;
 }
 
@@ -81,8 +85,18 @@ export class InvoiceFilterDialogComponent implements OnInit {
     });
   }
 
+  private toLocalDateString(value: Date | string | null): string | null {
+    if (!value) return null;
+    return value instanceof Date ? value.toLocaleDateString('en-CA') : value;
+  }
+
   apply(): void {
-    this.dialogRef.close(this.form.getRawValue() as InvoiceFilterValues);
+    const raw = this.form.getRawValue();
+    this.dialogRef.close({
+      ...raw,
+      invoice_date_from: this.toLocalDateString(raw.invoice_date_from),
+      invoice_date_to: this.toLocalDateString(raw.invoice_date_to),
+    } as InvoiceFilterValues);
   }
 
   clear(): void {

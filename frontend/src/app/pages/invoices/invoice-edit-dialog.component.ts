@@ -68,7 +68,7 @@ export class InvoiceEditDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.utilityService.search().subscribe({
+    this.utilityService.search({deleted: false}).subscribe({
       next: data => {
         this.utilityOptions = data
           .map(u => ({label: u.utility_id, value: u.id}))

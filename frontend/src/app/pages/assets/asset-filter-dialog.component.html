@@ -8,15 +8,14 @@
         <input matInput formControlName="asset_name">
       </mat-form-field>
 
-      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
-        <mat-label>Tipo immobile</mat-label>
-        <input matInput [formControl]="assetTypeFilterCtrl" [matAutocomplete]="autoAssetType" placeholder="Cerca...">
-        <mat-autocomplete #autoAssetType="matAutocomplete" [displayWith]="displayAssetType">
-          @for (opt of filteredAssetAggregatorOptions; track opt.value) {
-            <mat-option [value]="opt.value" (onSelectionChange)="onAssetTypeSelected(opt.value)">{{ opt.label }}</mat-option>
-          }
-        </mat-autocomplete>
-      </mat-form-field>
+      <div style="flex: 1 1 45%;">
+        <app-filterable-select
+          label="Tipo immobile"
+          placeholder="Cerca..."
+          [options]="assetAggregatorOptions"
+          formControlName="asset_type_id">
+        </app-filterable-select>
+      </div>
 
       <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
         <mat-label>Categoria</mat-label>

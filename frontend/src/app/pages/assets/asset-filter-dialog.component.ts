@@ -1,13 +1,13 @@
 import {Component, inject, OnInit} from '@angular/core';
-import {FormBuilder, FormControl, ReactiveFormsModule} from '@angular/forms';
+import {FormBuilder, ReactiveFormsModule} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatSelectModule} from '@angular/material/select';
-import {MatAutocompleteModule} from '@angular/material/autocomplete';
 import {MatRadioModule} from '@angular/material/radio';
 import {MatButtonModule} from '@angular/material/button';
 import {FilterDialogData} from '../../core/components/abstract-search.component';
+import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {AssetAggregatorsService} from '../asset-aggregator/asset-aggregator.service';
 import {AssetService} from './asset.service';
 import {TOption} from '../../core/types/option.interface';
@@ -40,7 +40,7 @@ export interface AssetFilterValues {
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatAutocompleteModule, MatRadioModule, MatButtonModule
+    MatSelectModule, MatRadioModule, MatButtonModule, FilterableSelectComponent
   ],
   templateUrl: './asset-filter-dialog.component.html'
 })
@@ -55,8 +55,6 @@ export class AssetFilterDialogComponent implements OnInit {
   toponomyOptions: TOption[] = this.assetService.toponymOptions();
 
   assetAggregatorOptions: TOption[] = [];
-  filteredAssetAggregatorOptions: TOption[] = [];
-  assetTypeFilterCtrl = new FormControl<string>('');
 
   form = this.fb.group({
     asset_name: [this.data.values.asset_name ?? ''],
@@ -87,23 +85,9 @@ export class AssetFilterDialogComponent implements OnInit {
         this.assetAggregatorOptions = data
           .map(a => ({label: a.description ?? '', value: a.id}))
           .sort((a, b) => a.label.localeCompare(b.label));
-        this.filteredAssetAggregatorOptions = this.assetAggregatorOptions;
-        this.assetTypeFilterCtrl.setValue(this.displayAssetType(this.form.value.asset_type_id ?? null), {emitEvent: false});
       },
       error: err => console.error('Errore nel caricamento degli Asset Aggregator:', err)
     });
-
-    this.assetTypeFilterCtrl.valueChanges.subscribe(term => {
-      const t = (typeof term === 'string' ? term : '').toLowerCase();
-      this.filteredAssetAggregatorOptions = this.assetAggregatorOptions.filter(o => o.label.toLowerCase().includes(t));
-    });
-  }
-
-  displayAssetType = (value: number | null): string =>
-    this.assetAggregatorOptions.find(o => o.value === value)?.label ?? '';
-
-  onAssetTypeSelected(value: number | string | boolean): void {
-    this.form.patchValue({asset_type_id: Number(value)});
   }
 
   apply(): void {
