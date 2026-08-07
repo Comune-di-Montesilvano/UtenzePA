@@ -1,54 +1,44 @@
-import {Component, OnInit} from '@angular/core';
-import {CommonModule} from '@angular/common';
+import {Component, Type} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule} from '@angular/forms';
-import {ButtonModule} from 'primeng/button';
-import {InputTextModule} from 'primeng/inputtext';
-import {DialogModule} from 'primeng/dialog';
-import {SelectModule} from 'primeng/select';
-import {RadioButtonModule} from 'primeng/radiobutton';
-import {SuppliersService} from '../suppliers/suppliers.service';
-import {DatePicker} from 'primeng/datepicker';
+import {MatButtonModule} from '@angular/material/button';
+import {MatIconModule} from '@angular/material/icon';
+import {MatFormFieldModule} from '@angular/material/form-field';
+import {MatInputModule} from '@angular/material/input';
 import {AbstractSearchComponent} from '../../core/components/abstract-search.component';
-import {TOption} from '../../core/types/option.interface';
+import {ConsipAgreementFilterDialogComponent} from './consip-agreement-filter-dialog.component';
 
 @Component({
-             selector: 'app-search-consip-agreement',
-             standalone: true,
-             imports: [
-               CommonModule,
-               ReactiveFormsModule,
-               ButtonModule,
-               InputTextModule,
-               DialogModule,
-               SelectModule,
-               RadioButtonModule,
-               DatePicker
-             ],
-             templateUrl: './search-consip-agreement.component.html',
-           })
-export class SearchConsipAgreement extends AbstractSearchComponent implements OnInit {
+  selector: 'app-search-consip-agreement',
+  standalone: true,
+  imports: [
+    ReactiveFormsModule,
+    MatButtonModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule
+  ],
+  templateUrl: './search-consip-agreement.component.html',
+})
+export class SearchConsipAgreementComponent extends AbstractSearchComponent {
 
-  supplierOptions: TOption[] = [];
-  minEndDate: Date | null = null;
-
-  constructor(private fb: FormBuilder, private readonly supplierService: SuppliersService) {
+  constructor(private fb: FormBuilder) {
     super();
-    this.qSearch = this.fb.group(
-      {
-        qsearch: [''],
-        name: [''],
-        supplier_id: [null],
-        description: [''],
-        cig_master: [''],
-        expiration_date_range: [''],
-        safeguard: [null],
-        deleted: [false],
-      });
+    this.qSearch = this.fb.group({
+      qsearch: [''],
+      name: [''],
+      supplier_id: [null],
+      description: [''],
+      cig_master: [''],
+      expiration_date_range: [[null, null]],
+      safeguard: [null],
+    });
   }
 
-  override ngOnInit() {
-    super.ngOnInit();
-    this.loadOptions(this.supplierService, 'id', 'supplier_id', {deleted: false})
-        .subscribe({next: options => this.supplierOptions = options});
+  override filterDialogComponent(): Type<unknown> {
+    return ConsipAgreementFilterDialogComponent;
+  }
+
+  override filterDialogWidth(): string {
+    return '31vw';
   }
 }
