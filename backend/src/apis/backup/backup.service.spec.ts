@@ -1,15 +1,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import * as childProcess from 'child_process';
-import { EventEmitter } from 'events';
+import * as mysql2Promise from 'mysql2/promise';
 import { BackupService } from './backup.service';
 
-jest.mock('child_process');
+jest.mock('mysql2/promise');
 
 describe('BackupService', () => {
   let service: BackupService;
   let backupDir: string;
+  let mockConn: { query: jest.Mock; end: jest.Mock };
 
   beforeEach(() => {
     backupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-service-test-'));
@@ -19,8 +19,14 @@ describe('BackupService', () => {
     process.env.MYSQL_USER = 'root';
     process.env.MYSQL_PASSWORD = 'secret';
     process.env.MYSQL_DB = 'mydatabase';
+
+    mockConn = {
+      query: jest.fn(),
+      end: jest.fn().mockResolvedValue(undefined),
+    };
+    (mysql2Promise.createConnection as jest.Mock).mockResolvedValue(mockConn);
+
     service = new BackupService();
-    jest.clearAllMocks();
   });
 
   afterEach(() => {
@@ -28,33 +34,24 @@ describe('BackupService', () => {
     delete process.env.BACKUP_DIR;
   });
 
-  it('createBackup esegue mysqldump con execFile e argomenti array', async () => {
-    (childProcess.execFile as unknown as jest.Mock).mockImplementation(
-      (_cmd, args: string[], _opts, cb) => {
-        const resultFileArg = args.find((a) => a.startsWith('--result-file='));
-        const outPath = resultFileArg!.replace(/^--result-file=/, '');
-        // simula mysqldump: scrive un file di output non vuoto
-        fs.writeFileSync(outPath, 'SQL DUMP CONTENT');
-        cb(null, '', '');
-      },
-    );
+  it('createBackup si connette al DB con la config corretta e produce un file .sql', async () => {
+    mockConn.query
+      .mockResolvedValueOnce([[{ Tables_in_mydatabase: 'users' }], []])
+      .mockResolvedValueOnce([[{ Table: 'users', 'Create Table': 'CREATE TABLE `users` (`id` INT)' }], []])
+      .mockResolvedValueOnce([[], []]);
 
     const result = await service.createBackup();
 
+    expect(mysql2Promise.createConnection).toHaveBeenCalledWith(
+      expect.objectContaining({ host: 'localhost', port: 3306, user: 'root', password: 'secret', database: 'mydatabase' }),
+    );
     expect(result.filename).toMatch(/^utenzepa_\d{8}_\d{6}\.sql$/);
     expect(fs.existsSync(path.join(backupDir, result.filename))).toBe(true);
-    expect(childProcess.execFile).toHaveBeenCalledWith(
-      'mysqldump',
-      expect.arrayContaining(['--host=localhost', '--port=3306', '--user=root', 'mydatabase']),
-      expect.any(Object),
-      expect.any(Function),
-    );
+    expect(mockConn.end).toHaveBeenCalled();
   });
 
-  it('createBackup non lascia file parziali se mysqldump fallisce', async () => {
-    (childProcess.execFile as unknown as jest.Mock).mockImplementation((_cmd, _args, _opts, cb) => {
-      cb(new Error('mysqldump: connection refused'), '', 'error');
-    });
+  it('createBackup non lascia file parziali se la connessione fallisce', async () => {
+    (mysql2Promise.createConnection as jest.Mock).mockRejectedValue(new Error('connection refused'));
 
     await expect(service.createBackup()).rejects.toThrow('connection refused');
     expect(fs.readdirSync(backupDir)).toEqual([]);
@@ -87,60 +84,30 @@ describe('BackupService', () => {
     expect(() => service.getBackupPath('utenzepa_20260101_000000.sql')).not.toThrow();
   });
 
-  it('restoreFromFile esegue mysql via spawn e scrive il contenuto del file su stdin', async () => {
+  it('restoreFromFile si connette con multipleStatements ed esegue il contenuto SQL', async () => {
     const sqlFile = path.join(backupDir, 'restore-input.sql');
     fs.writeFileSync(sqlFile, 'INSERT INTO x VALUES (1);');
-
-    const stdinChunks: Buffer[] = [];
-    const fakeChild: any = new EventEmitter();
-    fakeChild.stdin = {
-      write: (chunk: Buffer) => {
-        stdinChunks.push(chunk);
-        return true;
-      },
-      end: jest.fn(),
-    };
-    fakeChild.stderr = new EventEmitter();
-    (childProcess.spawn as unknown as jest.Mock).mockImplementation(() => {
-      // il close arriva async, dopo che il chiamante ha già collegato gli handler
-      setImmediate(() => fakeChild.emit('close', 0));
-      return fakeChild;
-    });
+    mockConn.query.mockResolvedValue([[], []]);
 
     await service.restoreFromFile(sqlFile);
 
-    expect(childProcess.spawn).toHaveBeenCalledWith(
-      'mysql',
-      expect.arrayContaining(['--host=localhost', '--port=3306', '--user=root', 'mydatabase']),
-      expect.objectContaining({ env: expect.objectContaining({ MYSQL_PWD: 'secret' }) }),
+    expect(mysql2Promise.createConnection).toHaveBeenCalledWith(
+      expect.objectContaining({ multipleStatements: true }),
     );
-    expect(Buffer.concat(stdinChunks).toString()).toBe('INSERT INTO x VALUES (1);');
-    expect(fakeChild.stdin.end).toHaveBeenCalled();
+    expect(mockConn.query).toHaveBeenCalledWith('INSERT INTO x VALUES (1);');
+    expect(mockConn.end).toHaveBeenCalled();
   });
 
-  it('restoreFromFile propaga l\'errore (stderr) se mysql termina con codice diverso da 0', async () => {
+  it("restoreFromFile propaga l'errore se la query fallisce", async () => {
     const sqlFile = path.join(backupDir, 'restore-input.sql');
-    fs.writeFileSync(sqlFile, 'INSERT INTO x VALUES (1);');
-
-    const fakeChild: any = new EventEmitter();
-    fakeChild.stdin = { write: jest.fn(), end: jest.fn() };
-    fakeChild.stderr = new EventEmitter();
-    (childProcess.spawn as unknown as jest.Mock).mockImplementation(() => {
-      setImmediate(() => {
-        fakeChild.stderr.emit('data', Buffer.from('ERROR 1064: syntax error'));
-        fakeChild.emit('close', 1);
-      });
-      return fakeChild;
-    });
+    fs.writeFileSync(sqlFile, 'INVALID SQL;');
+    mockConn.query.mockRejectedValue(new Error('ERROR 1064: syntax error'));
 
     await expect(service.restoreFromFile(sqlFile)).rejects.toThrow('ERROR 1064: syntax error');
+    expect(mockConn.end).toHaveBeenCalled();
   });
 
   it('applyRetention cancella solo i backup più vecchi della retention', async () => {
-    // createdAt è derivato dal nome file (parseFilenameDate), non da stat.birthtime/mtime
-    // (vedi nota Task 4/7: birthtime non è affidabile su ogni filesystem). Il nome del
-    // file "recente" va quindi calcolato rispetto alla data reale del test, non
-    // hardcodato, altrimenti col passare del tempo diventa "vecchio" e il test rompe.
     const pad = (n: number) => n.toString().padStart(2, '0');
     const buildName = (date: Date) => {
       const y = date.getFullYear();
@@ -158,8 +125,6 @@ describe('BackupService', () => {
     const recentFile = path.join(backupDir, recentName);
     fs.writeFileSync(oldFile, 'old');
     fs.writeFileSync(recentFile, 'recent');
-    fs.utimesSync(oldFile, new Date('2020-01-01'), new Date('2020-01-01'));
-    fs.utimesSync(recentFile, new Date(), new Date());
 
     const result = await service.applyRetention(30);
 
