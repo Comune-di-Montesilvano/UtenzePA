@@ -1,646 +1,318 @@
 <div style="display: flex; justify-content: space-between; align-items: center;">
   <h3>Elenco ({{ data.length }})</h3>
-  <button
-    pButton
-    class="p-button p-sm"
-    (click)="openCreateDialog()"
-    [appHasRole]="['Admin', 'Operatore']"
-  >
-    <i pButtonIcon class="pi pi-plus"></i>
-    <span pButtonLabel>Aggiungi Utenza</span>
+  <button mat-flat-button (click)="openCreateDialog()" [appHasRole]="['Admin', 'Operatore']">
+    <mat-icon>add</mat-icon>
+    Aggiungi Utenza
   </button>
 </div>
 
-<p-table
-  [value]="loading ? skeletonRows : data"
-  [paginator]="true"
-  [rows]="10"
-  paginatorPosition="bottom"
-  [scrollable]="true"
-  [scrollHeight]="(height - 500) + 'px'"
-  #myTable
-  [style]="{ '--row-height': rowHeight + 'px' }"
-  class="dynamic-rows"
-  [customSort]="true"
-  (sortFunction)="customSort($event)"
-  [size]="'small'"
-  [rowsPerPageOptions]=rowsPerPageOptions
->
+@if (loading) {
+  <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+}
 
-  <ng-template pTemplate="caption">
-    <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem;">
-      <p-multiSelect
-        [options]="allColumns"
-        [(ngModel)]="selectedColumns"
-        optionLabel="header"
-        placeholder="Colonne visibili"
-        selectedItemsLabel="{0} colonne selezionate"
-        [maxSelectedLabels]="0"
-        [showToggleAll]="true"
-        [appendTo]="'body'"
-        class="column-toggle"
-        (onChange)="onColumnsChange()"
-      >
-        <ng-template pTemplate="dropdownicon">
-          <i class="pi pi-table"></i>
-        </ng-template>
-      </p-multiSelect>
-      <p-button icon="pi pi-external-link" label="Esporta CSV" (click)="exportToCSV()" severity="secondary"/>
-    </div>
-  </ng-template>
-
-  <ng-template pTemplate="header">
-    <tr>
-      <th style="min-width: 100px;">Azioni</th>
-      <th style="min-width: 100px;"></th>
-      @for (col of selectedColumns; track col.field) {
-        <th [style.min-width]="col.minWidth" [pSortableColumn]="col.field">
-          {{ col.header }}
-          <p-sortIcon [field]="col.field"/>
-        </th>
+<div style="display: flex; justify-content: space-between; margin: 0.75rem 0;">
+  <mat-form-field subscriptSizing="dynamic" style="min-width: 220px;">
+    <mat-label>Colonne visibili</mat-label>
+    <mat-select multiple [(ngModel)]="selectedColumns" [compareWith]="compareColumns" (selectionChange)="onColumnsChange()">
+      @for (col of allColumns; track col.field) {
+        <mat-option [value]="col">{{ col.header }}</mat-option>
       }
-    </tr>
-  </ng-template>
+    </mat-select>
+  </mat-form-field>
+  <button mat-stroked-button (click)="exportToCSV()">
+    <mat-icon>ios_share</mat-icon>
+    Esporta CSV
+  </button>
+</div>
 
-  <ng-template pTemplate="body" let-utility>
-    @if (loading) {
-      <tr>
-        @for (col of skeletonCols; track col) {
-          <td>
-            <p-skeleton height="1.5rem"/>
-          </td>
-        }
-      </tr>
-    } @else {
-      <tr [ngClass]="{ 'row-deleted': utility.deleted }">
+<div style="overflow-x: auto;">
+<table mat-table [dataSource]="dataSource" matSort #sort="matSort" class="mat-elevation-z1">
 
-        <td>
-          <button pButton class="p-button-text p-button-sm action-button"
-                  (click)="openEditDialog(utility)" [appHasRole]="['Admin', 'Operatore', 'Lettore']">
-            <i pButtonIcon class="pi pi-pencil"></i>
-          </button>
+  <ng-container matColumnDef="actions">
+    <th mat-header-cell *matHeaderCellDef>Azioni</th>
+    <td mat-cell *matCellDef="let item">
+      <button mat-icon-button (click)="openEditDialog(item)" [appHasRole]="['Admin', 'Operatore', 'Lettore']"
+              matTooltip="Modifica" aria-label="Modifica">
+        <mat-icon>edit</mat-icon>
+      </button>
+      <button mat-icon-button
+              [class.mat-action-success]="item.deleted"
+              [class.mat-action-danger]="!item.deleted"
+              (click)="item.deleted ? restoreItem(item) : openDeleteDialog(item)"
+              [appHasRole]="['Admin', 'Operatore']"
+              [matTooltip]="item.deleted ? 'Ripristina' : 'Elimina'"
+              [attr.aria-label]="item.deleted ? 'Ripristina' : 'Elimina'">
+        <mat-icon>{{ item.deleted ? 'restore' : 'delete' }}</mat-icon>
+      </button>
+    </td>
+  </ng-container>
 
-          @if (!utility.deleted) {
-            <button pButton class="p-button-text p-button-sm p-button-danger action-button"
-                    (click)="openDeleteDialog(utility)" [appHasRole]="['Admin', 'Operatore']">
-              <i pButtonIcon class="pi pi-trash"></i>
-            </button>
-          } @else {
-            <button pButton class="p-button-text p-button-sm p-button-success action-button"
-                    (click)="restoreItem(utility)" [appHasRole]="['Admin', 'Operatore']">
-              <i pButtonIcon class="pi pi-undo"></i>
-            </button>
-          }
-        </td>
-        <td>
-          @if (utility.supply_active) {
-            <p-badge [value]="'attiva'" severity="success"/>
-          } @else {
-            <p-badge [value]="'non attiva'" severity="secondary"/>
-          }
-        </td>
-
-        @for (col of selectedColumns; track col.field) {
-          @switch (col.field) {
-            @case ('costsBorneBy.name') {
-              <td>
-                @if (utility.isHighlighted) {
-                  <p-badge [value]="utility.costsBorneBy?.name || 'N/D'" severity="warn" badgeSize="large"/>
-                } @else {
-                  {{ utility.costsBorneBy?.name || 'N/D' }}
-                }
-              </td>
-            }
-            @case ('aggregator.description') {
-              <td>{{ utilityAggregatorMap[utility.aggregator_id_fk] ? (utilityAggregatorMap[utility.aggregator_id_fk].description | truncate: maxDescLength) : 'N/D' }}</td>
-            }
-            @case ('security_deposit') {
-              <td>{{ formatAmount(utility.security_deposit) || '0,00 €' }}</td>
-            }
-            @case ('supply_active') {
-              <td>
-                <i [ngClass]="utility.supply_active ? 'pi pi-check-circle text-green-500' : 'pi pi-times-circle text-red-500'"
-                   [ngStyle]="{'font-size': '1.2rem'}"></i>
-              </td>
-            }
-            @case ('meter_removed') {
-              <td>
-                <i [ngClass]="utility.meter_removed ? 'pi pi-check-circle text-green-500' : 'pi pi-times-circle text-red-500'"
-                   [ngStyle]="{'font-size': '1.2rem'}"></i>
-              </td>
-            }
-            @case ('meter_verified') {
-              <td>
-                <i [ngClass]="utility.meter_verified ? 'pi pi-check-circle text-green-500' : 'pi pi-times-circle text-red-500'"
-                   [ngStyle]="{'font-size': '1.2rem'}"></i>
-              </td>
-            }
-            @case ('water_concession') {
-              <td>{{ utility.water_concession | date: 'dd/MM/yyyy' }}</td>
-            }
-            @case ('supply_start_date') {
-              <td>{{ utility.supply_start_date | date: 'dd/MM/yyyy' }}</td>
-            }
-            @case ('supply_expiry_date') {
-              <td>{{ utility.supply_expiry_date | date: 'dd/MM/yyyy' }}</td>
-            }
-            @case ('management_expiry_date') {
-              <td>{{ utility.management_expiry_date | date: 'dd/MM/yyyy' }}</td>
-            }
-            @case ('takeover_termination_date') {
-              <td>{{ utility.takeover_termination_date | date: 'dd/MM/yyyy' }}</td>
-            }
-            @case ('budgetChapter.description') {
-              <td>
-                @if (utility.budgetChapter?.label) {
-                  <span [pTooltip]="utility.budgetChapter!.label" tooltipPosition="top">
-                    {{ utility.budgetChapter?.label | truncate: maxDescLength }}
-                  </span>
-                }
-              </td>
-            }
-            @case ('asset.utilizer') {
-              <td>
-                @if (utility.asset?.utilizerGrants?.length) {
-                  <span [pTooltip]="getUtilizersNames(utility)" tooltipPosition="top">
-                    {{ getUtilizersNames(utility) | truncate: maxDescLength }}
-                  </span>
-                }
-              </td>
-            }
-            @case ('specifications') {
-              <td>
-                @if (utility.specifications) {
-                  <span [pTooltip]="utility.specifications" tooltipPosition="top">
-                    {{ utility.specifications | truncate: maxDescLength }}
-                  </span>
-                }
-              </td>
-            }
-            @case ('notes') {
-              <td>
-                @if (utility.notes) {
-                  <span [pTooltip]="utility.notes" tooltipPosition="top">
-                    {{ utility.notes | truncate: maxDescLength }}
-                  </span>
-                }
-              </td>
-            }
-            @case ('additional_notes') {
-              <td>
-                @if (utility.additional_notes) {
-                  <span [pTooltip]="utility.additional_notes" tooltipPosition="top">
-                    {{ utility.additional_notes | truncate: maxDescLength }}
-                  </span>
-                }
-              </td>
-            }
-            @case ('expiryStatus') {
-              <td>{{ getLabel(utility.expiryStatus) }}</td>
-            }
-            @default {
-              <td>{{ getNestedValue(utility, col.field) }}</td>
-            }
-          }
-        }
-
-      </tr>
-    }
-  </ng-template>
-
-  <ng-template pTemplate="emptymessage">
-    <tr>
-      <td colspan="11" class="text-center">Nessuna utenza trovata.</td>
-    </tr>
-  </ng-template>
-</p-table>
-
-<p-dialog
-  [(visible)]="editDialogVisible"
-  [modal]="true"
-  [style]="{width: '70vw'}"
-  styleClass="max-w-screen-xl"
-  (onHide)="selectedItem = null; isNew = false"
->
-  <ng-template #header>
-    <div class="inline-flex items-center justify-center gap-2">
-      <div style="display: flex; flex-direction: row; align-items: center; gap: 1rem;">
-        <span class="p-dialog-title">{{isNew ? 'Aggiungi Utenza' : 'Modifica Utenza: ' + selectedItem?.utility_id}}</span>
-        @if (!isNew && selectedItem?.supply_active) {
-          <p-badge [value]="'Attiva'" severity="success" badgeSize="large"/>
-        } @else {
-          <p-badge [value]="'Non attiva'" severity="secondary" badgeSize="large"/>
-        }
-        @if (!isNew && selectedItem?.costs_borne_by_id_fk === 1) {
-          <p-badge [value]="selectedItem?.costsBorneBy?.name || 'N/D'" severity="warn" badgeSize="large"/>
-        }
-      </div>
-    </div>
-  </ng-template>
-  @if (form) {
-    <form [formGroup]="form" [readOnly]="['Lettore']" class="edit-form">
-
-      <div style="display: flex; gap: 1rem; flex-direction: column;">
-
-        <p-fieldset legend="Identificazione">
-          <div style="display: flex; flex-wrap: wrap; gap: 1rem; width: 100%;">
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="utility_id">Codice Utenza (POD/PDR) *</label>
-              <input id="utility_id" type="text" pInputText formControlName="utility_id" style="width: 100%;"
-                     [class.ng-invalid]="form.controls['utility_id'].invalid && form.controls['utility_id'].touched">
-              @if (form.controls['utility_id'].invalid && form.controls['utility_id'].touched) {
-                <small class="p-error">Obbligatorio</small>
-              }
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="meter_number">Numero Contatore</label>
-              <input id="meter_number" type="text" pInputText formControlName="meter_number" style="width: 100%;">
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="utility_type_id_fk">Tipo Uso Contatore *</label>
-              <p-select id="utility_type_id_fk" [options]="utilityTypeOptions" formControlName="utility_type_id_fk"
-                        optionLabel="name" optionValue="id" placeholder="Seleziona Tipo"
-                        [showClear]="true" style="width: 100%;" [appendTo]="'body'"
-                        [class.ng-invalid]="form.controls['utility_type_id_fk'].invalid && form.controls['utility_type_id_fk'].touched"
-                        (onChange)="onUtilityTypeChange($event)"/>
-              @if (form.controls['utility_type_id_fk'].invalid && form.controls['utility_type_id_fk'].touched) {
-                <small class="p-error">Obbligatorio</small>
-              }
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="utility_code">Codice Utenza o Cliente</label>
-              <input id="utility_code" type="text" pInputText formControlName="utility_code" style="width: 100%;">
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="asset_id_fk">Immobile Associato *</label>
-              <p-inputgroup>
-                <p-select id="asset_id_fk" [options]="assetOptions" formControlName="asset_id_fk"
-                          optionLabel="asset_name" optionValue="id" placeholder="Seleziona Immobile"
-                          [showClear]="true" style="flex: 1;" [appendTo]="'body'"
-                          [class.ng-invalid]="form.controls['asset_id_fk'].invalid && form.controls['asset_id_fk'].touched"
-                          [filter]="true"/>
-                <p-inputgroup-addon>
-                  <p-button variant="text" icon="pi pi-building"
-                            [disabled]="!form.controls['asset_id_fk'].value"
-                            (click)="navigateToAsset(form.controls['asset_id_fk'].value)"
-                            styleClass="border-none p-button-secondary"
-                            pTooltip="Vai al dettaglio immobile" tooltipPosition="top"/>
-                  <p-button variant="text"
-                            [icon]="'pi pi-map-marker'"
-                            [disabled]="!resolveMapCoordsFromForm()"
-                            (click)="navigateToMaps(resolveMapCoordsFromForm()?.lat, resolveMapCoordsFromForm()?.lon)"
-                            [styleClass]="'border-none ' + (isMapCoordsFromAsset() ? 'p-button-info' : 'p-button-secondary')"
-                            [style]="isMapCoordsFromAsset() ? {'color': '#3b82f6'} : {}"
-                            [pTooltip]="resolveMapCoordsFromForm() ? (isMapCoordsFromAsset() ? 'Coordinate relative all\'immobile. Mostra su mappa.' : 'Mostra su mappa.') : 'Funzionalità non disponibile: mancano le coordinate.'"
-                            tooltipPosition="top"/>
-                </p-inputgroup-addon>
-              </p-inputgroup>
-              @if (form.controls['asset_id_fk'].invalid && form.controls['asset_id_fk'].touched) {
-                <small class="p-error">Obbligatorio</small>
-              }
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="aggregator_id_fk">ID Aggregato</label>
-              <p-select id="aggregator_id_fk" [options]="aggregatorOptions" formControlName="aggregator_id_fk"
-                        optionLabel="description" optionValue="id" placeholder="Seleziona Aggregato Utenza"
-                        [showClear]="true" style="width: 100%;" [appendTo]="'body'" [filter]="true" emptyFilterMessage="nessuna opzione"/>
-            </div>
-
-            <div style="flex: 2 1 calc(50% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="supplier_address">Indirizzo Fornitura</label>
-              <input id="supplier_address" type="text" pInputText formControlName="supplier_address"
-                     style="width: 100%;">
-            </div>
-
-            <div style="display: flex; flex: 2 1 calc(50% - 1rem); gap: 1rem;">
-              <div style="flex: 1 1 50%; display: flex; flex-direction: column; overflow: hidden;">
-                <label for="latitude">Latitudine</label>
-                <input id="latitude" type="text" pInputText formControlName="latitude" style="width: 100%;">
-              </div>
-              <div style="flex: 1 1 50%; display: flex; flex-direction: column; overflow: hidden;">
-                <label for="longitude">Longitudine</label>
-                <input id="longitude" type="text" pInputText formControlName="longitude" style="width: 100%;">
-              </div>
-            </div>
-          </div>
-        </p-fieldset>
-
-        <p-fieldset legend="Caratteristiche tecniche">
-          <div style="display: flex; flex-wrap: wrap; gap: 1rem; width: 100%;">
-
-            @if (showLightFields) {
-              <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-                <label for="power_kw_electric">Potenza (kW)</label>
-                <p-inputNumber inputId="power_kw_electric" formControlName="power_kw_electric"
-                               mode="decimal" [minFractionDigits]="2" [maxFractionDigits]="2" fluid>
-                </p-inputNumber>
-              </div>
-            }
-
-            @if (showLightFields) {
-              <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-                <label for="voltage_kw_electric">Tensione (V / kV)</label>
-                <input id="voltage_kw_electric" type="text" pInputText formControlName="voltage_kw_electric"
-                       style="width: 100%;">
-              </div>
-            }
-
-            @if (showLightFields) {
-              <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-                <label for="phase_type_electric">Tipo Fase</label>
-                <p-select id="phase_type_electric" [options]="phaseTypeOptions" formControlName="phase_type_electric"
-                          optionLabel="label" optionValue="value" placeholder="Seleziona Fase"
-                          [showClear]="true" style="width: 100%;" [appendTo]="'body'"/>
-              </div>
-            }
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="disconnection_ability">Disalimentabilità utenza</label>
-              <input id="disconnection_ability" type="text" pInputText formControlName="disconnection_ability"
-                     style="width: 100%;">
-            </div>
-
-            @if (showGasFields) {
-              <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-                <label for="wbs_gas_element">Elemento WBS Gas</label>
-                <input id="wbs_gas_element" type="text" pInputText formControlName="wbs_gas_element" style="width: 100%;">
-              </div>
-            }
-
-          </div>
-        </p-fieldset>
-
-        <p-fieldset legend="Stato utenza">
-          <div style="display: flex; flex-wrap: wrap; gap: 1rem; width: 100%;">
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="supply_active">Fornitura Attiva</label>
-              <p-select id="supply_active" [options]="booleanOptions" optionLabel="label" optionValue="value"
-                        formControlName="supply_active" placeholder="Seleziona"
-                        [showClear]="true" style="width: 100%;" [appendTo]="'body'"/>
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="meter_removed">Contatore Rimosso</label>
-              <p-select id="meter_removed" [options]="booleanOptions" optionLabel="label" optionValue="value"
-                        formControlName="meter_removed" placeholder="Seleziona"
-                        [showClear]="true" style="width: 100%;" [appendTo]="'body'"/>
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="meter_verified">Contatore Verificato</label>
-              <p-select id="meter_verified" [options]="booleanOptions" optionLabel="label" optionValue="value"
-                        formControlName="meter_verified" placeholder="Seleziona"
-                        [showClear]="true" style="width: 100%;" [appendTo]="'body'"/>
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column;">
-              <label for="takeover_termination_date">Data Voltura o Cessazione Contatore</label>
-              <p-datePicker id="takeover_termination_date" formControlName="takeover_termination_date"
-                            dateFormat="dd/mm/yy" placeholder="GG/MM/AAAA" [showIcon]="true"
-                            style="width: 100%;" [appendTo]="'body'"/>
-            </div>
-          </div>
-        </p-fieldset>
-
-        <p-fieldset legend="Dati contrattuali">
-          <div style="display: flex; flex-wrap: wrap; gap: 1rem; width: 100%;">
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="consip_agreement_id">Convenzione CONSIP</label>
-              <p-select id="consip_agreement_id" [options]="consipAgreementOptions"
-                        formControlName="consip_agreement_id"
-                        (onChange)="onConsipAgreementChange($event)"
-                        optionLabel="name" optionValue="id" placeholder="Seleziona Convenzione"
-                        [showClear]="true" style="width: 100%;" [appendTo]="'body'"/>
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="consip_order">Ordine CONSIP</label>
-              <input id="consip_order" type="text" pInputText formControlName="consip_order" style="width: 100%;">
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="supplier_id_fk">Fornitore</label>
-              <p-select id="supplier_id_fk" [options]="supplierOptions" formControlName="supplier_id_fk"
-                        optionLabel="company_name" optionValue="id" placeholder="Seleziona Fornitore"
-                        [showClear]="true" style="width: 100%;" [appendTo]="'body'"/>
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column;">
-              <label for="supply_start_date">Data Inizio Fornitura</label>
-              <p-datePicker id="supply_start_date" formControlName="supply_start_date"
-                            dateFormat="dd/mm/yy" placeholder="GG/MM/AAAA" [showIcon]="true"
-                            style="width: 100%;" [appendTo]="'body'"/>
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column;">
-              <label for="supply_expiry_date">Scadenza Affidamento Fornitura</label>
-              <p-datePicker id="supply_expiry_date" formControlName="supply_expiry_date"
-                            dateFormat="dd/mm/yy" placeholder="GG/MM/AAAA" [showIcon]="true"
-                            style="width: 100%;" [appendTo]="'body'"/>
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="maintenance_management_id_fk">Fornitore Manutenzione</label>
-              <p-select id="maintenance_management_id_fk" [options]="maintenanceOptions"
-                        formControlName="maintenance_management_id_fk"
-                        optionLabel="code" optionValue="id" placeholder="Seleziona Fornitore Manutenzione"
-                        [showClear]="true" style="width: 100%;" [appendTo]="'body'"/>
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column;">
-              <label for="management_expiry_date">Scadenza Affidamento Manutenzione</label>
-              <p-datePicker id="management_expiry_date" formControlName="management_expiry_date"
-                            dateFormat="dd/mm/yy" placeholder="GG/MM/AAAA" [showIcon]="true"
-                            style="width: 100%;" [appendTo]="'body'"/>
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column;">
-              <label for="water_concession">Concessione acqua</label>
-              <p-datePicker id="water_concession" formControlName="water_concession"
-                            dateFormat="dd/mm/yy" placeholder="GG/MM/AAAA" [showIcon]="true"
-                            style="width: 100%;" [appendTo]="'body'"/>
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="costs_borne_by_id_fk">Costi a Carico di *</label>
-              <p-select id="costs_borne_by_id_fk" [options]="costsBorneByOptions" formControlName="costs_borne_by_id_fk"
-                        optionLabel="name" optionValue="id" placeholder="Seleziona Ente"
-                        [showClear]="true" style="width: 100%;" [appendTo]="'body'"
-                        [class.ng-invalid]="form.controls['costs_borne_by_id_fk'].invalid && form.controls['costs_borne_by_id_fk'].touched"/>
-              @if (form.controls['costs_borne_by_id_fk'].invalid && form.controls['costs_borne_by_id_fk'].touched) {
-                <small class="p-error">Obbligatorio</small>
-              }
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="cig_contract">CIG Contratto</label>
-              <input id="cig_contract" type="text" pInputText formControlName="cig_contract" style="width: 100%;">
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="order_number">Numero ordine</label>
-              <input id="order_number" type="text" pInputText formControlName="order_number" style="width: 100%;">
-            </div>
-
-          </div>
-
-        </p-fieldset>
-
-        <p-fieldset legend="Consumi">
-          <div style="display: flex; flex-wrap: wrap; gap: 1rem; width: 100%;">
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="budget_chapter_code_fk">Capitolo di Spesa *</label>
-              <p-select id="budget_chapter_code_fk" [options]="budgetChapterOptions"
-                        formControlName="budget_chapter_code_fk"
-                        optionLabel="description" optionValue="id" placeholder="Seleziona Capitolo"
-                        [showClear]="true" style="width: 100%;" [appendTo]="'body'"
-                        [class.ng-invalid]="form.controls['budget_chapter_code_fk'].invalid && form.controls['budget_chapter_code_fk'].touched"/>
-              @if (form.controls['budget_chapter_code_fk'].invalid && form.controls['budget_chapter_code_fk'].touched) {
-                <small class="p-error">Obbligatorio</small>
-              }
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="estimated_annual_consumption">Consumo annuo presunto</label>
-              <p-inputNumber inputId="estimated_annual_consumption" formControlName="estimated_annual_consumption"
-                             mode="decimal" fluid></p-inputNumber>
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="actual_consumption">Consumo Annuo da Fatturazione</label>
-              <p-inputNumber inputId="actual_consumption" formControlName="actual_consumption"
-                             mode="decimal" fluid></p-inputNumber>
-            </div>
-
-            <div style="flex: 1 1 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="security_deposit">Deposito Cauzionale</label>
-              <p-inputNumber inputId="security_deposit" formControlName="security_deposit"
-                             mode="currency" currency="EUR" locale="it-IT" fluid></p-inputNumber>
-            </div>
-
-            <!-- Consumo annuo comunicato Consip
-            <div style="flex: 0 0 calc(25% - 1rem); display: flex; flex-direction: column; overflow: hidden;">
-              <label for="reported_consumption_year">Consumo annuo comunicato Consip</label>
-              <p-inputNumber inputId="reported_consumption_year" formControlName="reported_consumption_year"
-                             mode="decimal" fluid></p-inputNumber>
-            </div>
-            -->
-
-          </div>
-        </p-fieldset>
-
-        @if (!isNew) {
-          <p-fieldset legend="Finalità d'uso">
-            <div style="flex: 1 1 100%; display: flex; flex-direction: column; overflow: hidden;">
-              <div style="padding: 0.5rem; background-color: #f9f9f9; min-height: 40px;">
-                @if (selectedItem?.utilityType?.purposes?.length) {
-                  <ul style="margin: 0; padding-left: 1.5rem; list-style-type: disc;">
-                    @for (purpose of selectedItem!.utilityType!.purposes; track purpose.id) {
-                      <li>{{ purpose.name }} ({{ useTypeDescription[purpose.use_type] }})</li>
-                    }
-                  </ul>
-                } @else {
-                  <span style="color: #666; font-style: italic;">Nessuna Finalità d'uso associata.</span>
-                }
-              </div>
-            </div>
-          </p-fieldset>
-
-          <p-fieldset legend="Utilizzatori">
-            <div style="flex: 1 1 100%; display: flex; flex-direction: column; overflow: hidden;">
-              <div style="padding: 0.5rem; background-color: #f9f9f9; min-height: 40px;">
-                @if (selectedItem?.asset?.utilizerGrants?.length) {
-                  <ul style="margin: 0; padding-left: 1.5rem; list-style-type: disc;">
-                    @for (item of selectedItem!.asset!.utilizerGrants; track item.id) {
-                      <li>{{ item.utilizer!.name }}</li>
-                    }
-                  </ul>
-                } @else {
-                  <span style="color: #666; font-style: italic;">Nessuna concessione trovata.</span>
-                }
-              </div>
-            </div>
-          </p-fieldset>
-        }
-
-        <div style="flex: 1 1 100%;">
-          <label for="specifications">Specifiche</label>
-          <textarea id="specifications" pInputTextarea formControlName="specifications" [rows]="3"
-                    style="width: 100%;"></textarea>
-        </div>
-
-        <div style="flex: 1 1 100%;">
-          <label for="notes">Note</label>
-          <textarea id="notes" pInputTextarea formControlName="notes" [rows]="3" style="width: 100%;"></textarea>
-        </div>
-
-        <div style="flex: 1 1 100%;">
-          <label for="additional_notes">Note Aggiuntive</label>
-          <textarea id="additional_notes" pInputTextarea formControlName="additional_notes" [rows]="3"
-                    style="width: 100%;"></textarea>
-        </div>
-
-      </div>
-
-    </form>
-  }
-
-  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-    <button pButton class="p-button-secondary" (click)="editDialogVisible=false">
-      <i pButtonIcon class="pi pi-times"></i>
-      <span pButtonLabel>Annulla</span>
-    </button>
-    <button pButton [appHasRole]="['Admin', 'Operatore']" (click)="saveItem()" [disabled]="!isFormValid()">
-      <i pButtonIcon class="pi pi-check"></i>
-      @if (isNew) {
-        <span pButtonLabel>Crea Utenza</span>
+  <ng-container matColumnDef="statusBadge">
+    <th mat-header-cell *matHeaderCellDef></th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.supply_active) {
+        <span class="status-badge status-badge-success">attiva</span>
       } @else {
-        <span pButtonLabel>Salva Utenza</span>
+        <span class="status-badge status-badge-secondary">non attiva</span>
       }
-    </button>
-  </div>
+    </td>
+  </ng-container>
 
-</p-dialog>
+  <ng-container matColumnDef="id">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>ID</th>
+    <td mat-cell *matCellDef="let item">{{ item.id }}</td>
+  </ng-container>
 
-<p-dialog header="Elimina Utenza" [(visible)]="deleteDialogVisible" [modal]="true" [style]="{width: '350px'}">
-  <p>Sei sicuro di voler eliminare l’Utenza <b>{{ selectedItem?.utility_id }}</b>?</p>
-  <ng-template pTemplate="footer">
-    <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem;">
-      <button pButton class="p-button-secondary"
-              (click)="deleteDialogVisible=false">
-        <i pButtonIcon class="pi pi-times"></i>
-        <span pButtonLabel>Annulla</span>
-      </button>
-      <button pButton (click)="confirmDelete()" severity="danger">
-        <span pButtonLabel>Elimina</span>
-      </button>
-    </div>
-  </ng-template>
-</p-dialog>
+  <ng-container matColumnDef="utility_id">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Codice (POD/PDR/Matricola)</th>
+    <td mat-cell *matCellDef="let item">{{ item.utility_id }}</td>
+  </ng-container>
 
-<p-dialog header="Ripristina Utenza" [(visible)]="restoreDialogVisible" [modal]="true" [style]="{width: '350px'}">
-  <p>Riattiva Utenza <b>{{ selectedItem?.utility_id }}</b>?</p>
-  <ng-template pTemplate="footer">
-    <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem;">
-      <button pButton class="p-button-secondary"
-              (click)="restoreDialogVisible=false">
-        <i pButtonIcon class="pi pi-times"></i>
-        <span pButtonLabel>Annulla</span>
-      </button>
-      <button pButton class="p-button-success" (click)="confirmRestore()">
-        <i pButtonIcon class="pi pi-check"></i>
-        <span pButtonLabel>Riattiva</span>
-      </button>
-    </div>
-  </ng-template>
-</p-dialog>
+  <ng-container matColumnDef="utilityType.name">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Tipo Utenza</th>
+    <td mat-cell *matCellDef="let item">{{ item.utilityType?.name }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="supplier.company_name">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Fornitore</th>
+    <td mat-cell *matCellDef="let item">{{ item.supplier?.company_name }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="asset.asset_name">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Fabbricato Associato</th>
+    <td mat-cell *matCellDef="let item">{{ item.asset?.asset_name }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="costsBorneBy.name">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Costi a Carico di</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.isHighlighted) {
+        <span class="status-badge status-badge-warn">{{ item.costsBorneBy?.name || 'N/D' }}</span>
+      } @else {
+        {{ item.costsBorneBy?.name || 'N/D' }}
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="aggregator.description">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>ID Aggregato</th>
+    <td mat-cell *matCellDef="let item">
+      {{ (item.aggregator_id_fk != null && utilityAggregatorMap[item.aggregator_id_fk]) ? (utilityAggregatorMap[item.aggregator_id_fk].description | truncate: maxDescLength) : 'N/D' }}
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="meter_number">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Numero Contatore</th>
+    <td mat-cell *matCellDef="let item">{{ item.meter_number }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="utility_code">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Codice Utenza o Cliente</th>
+    <td mat-cell *matCellDef="let item">{{ item.utility_code }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="supplier_address">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Indirizzo Fornitura</th>
+    <td mat-cell *matCellDef="let item">{{ item.supplier_address }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="utilityType.description">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Tipo Uso Contatore</th>
+    <td mat-cell *matCellDef="let item">{{ item.utilityType?.description }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="consipAgreement.name">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Convenzione CONSIP</th>
+    <td mat-cell *matCellDef="let item">{{ item.consipAgreement?.name }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="consip_order">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Ordine CONSIP</th>
+    <td mat-cell *matCellDef="let item">{{ item.consip_order }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="cig_contract">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>CIG Contratto</th>
+    <td mat-cell *matCellDef="let item">{{ item.cig_contract }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="order_number">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Numero ordine</th>
+    <td mat-cell *matCellDef="let item">{{ item.order_number }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="wbs_gas_element">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Elemento WBS Gas</th>
+    <td mat-cell *matCellDef="let item">{{ item.wbs_gas_element }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="power_kw_electric">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Potenza (kW)</th>
+    <td mat-cell *matCellDef="let item">{{ item.power_kw_electric }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="voltage_kw_electric">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Tensione (V / kV)</th>
+    <td mat-cell *matCellDef="let item">{{ item.voltage_kw_electric }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="phase_type_electric">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Tipo Fase</th>
+    <td mat-cell *matCellDef="let item">{{ item.phase_type_electric }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="estimated_annual_consumption">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Consumo annuo presunto</th>
+    <td mat-cell *matCellDef="let item">{{ item.estimated_annual_consumption }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="reported_consumption_year">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Consumo annuo comunicato</th>
+    <td mat-cell *matCellDef="let item">{{ item.reported_consumption_year }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="actual_consumption">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Consumo effettivo</th>
+    <td mat-cell *matCellDef="let item">{{ item.actual_consumption }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="security_deposit">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Deposito Cauzionale</th>
+    <td mat-cell *matCellDef="let item">{{ item.security_deposit | formatAmount }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="supply_active">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Fornitura Attiva</th>
+    <td mat-cell *matCellDef="let item">
+      <mat-icon [style.color]="item.supply_active ? '#22c55e' : '#ef4444'">
+        {{ item.supply_active ? 'check_circle' : 'cancel' }}
+      </mat-icon>
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="meter_removed">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Contatore Rimosso</th>
+    <td mat-cell *matCellDef="let item">
+      <mat-icon [style.color]="item.meter_removed ? '#22c55e' : '#ef4444'">
+        {{ item.meter_removed ? 'check_circle' : 'cancel' }}
+      </mat-icon>
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="meter_verified">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Contatore Verificato</th>
+    <td mat-cell *matCellDef="let item">
+      <mat-icon [style.color]="item.meter_verified ? '#22c55e' : '#ef4444'">
+        {{ item.meter_verified ? 'check_circle' : 'cancel' }}
+      </mat-icon>
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="water_concession">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Concessione acqua</th>
+    <td mat-cell *matCellDef="let item">{{ item.water_concession | date: 'dd/MM/yyyy' }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="supply_start_date">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Decorrenza fornitura</th>
+    <td mat-cell *matCellDef="let item">{{ item.supply_start_date | date: 'dd/MM/yyyy' }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="supply_expiry_date">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Scadenza affidamento</th>
+    <td mat-cell *matCellDef="let item">{{ item.supply_expiry_date | date: 'dd/MM/yyyy' }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="management_expiry_date">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Scadenza Gestione</th>
+    <td mat-cell *matCellDef="let item">{{ item.management_expiry_date | date: 'dd/MM/yyyy' }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="takeover_termination_date">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Data voltura/cessazione</th>
+    <td mat-cell *matCellDef="let item">{{ item.takeover_termination_date | date: 'dd/MM/yyyy' }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="disconnection_ability">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Disalimentabilità</th>
+    <td mat-cell *matCellDef="let item">{{ item.disconnection_ability }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="maintenanceManager.code">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Gestione Manutenzione</th>
+    <td mat-cell *matCellDef="let item">{{ item.maintenanceManager?.code }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="budgetChapter.description">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Capitolo di Spesa</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.budgetChapter?.label) {
+        <span [matTooltip]="item.budgetChapter!.label">{{ item.budgetChapter?.label | truncate: maxDescLength }}</span>
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="latitude">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Latitudine</th>
+    <td mat-cell *matCellDef="let item">{{ item.latitude }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="longitude">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Longitudine</th>
+    <td mat-cell *matCellDef="let item">{{ item.longitude }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="asset.utilizer">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Utilizzatori</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.asset?.utilizerGrants?.length) {
+        <span [matTooltip]="getUtilizersNames(item)">{{ getUtilizersNames(item) | truncate: maxDescLength }}</span>
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="specifications">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Specifiche</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.specifications) {
+        <span [matTooltip]="item.specifications">{{ item.specifications | truncate: maxDescLength }}</span>
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="notes">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Note</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.notes) {
+        <span [matTooltip]="item.notes">{{ item.notes | truncate: maxDescLength }}</span>
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="additional_notes">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Note Aggiuntive</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.additional_notes) {
+        <span [matTooltip]="item.additional_notes">{{ item.additional_notes | truncate: maxDescLength }}</span>
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="expiryStatus">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Stato</th>
+    <td mat-cell *matCellDef="let item">{{ getLabel(item.expiryStatus) }}</td>
+  </ng-container>
+
+  <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+  <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.row-deleted]="row.deleted"></tr>
+
+  <tr class="mat-row" *matNoDataRow>
+    <td class="mat-cell" [attr.colspan]="displayedColumns.length">Nessuna utenza trovata.</td>
+  </tr>
+</table>
+</div>
+
+<mat-paginator #paginator [pageSizeOptions]="rowsPerPageOptions" [pageSize]="10"></mat-paginator>
 
 <style>
   .row-deleted {
@@ -649,13 +321,27 @@
     text-decoration: line-through;
   }
 
-  .action-button {
-    padding: 0.2rem !important;
-    margin: 0 0.1rem;
-    height: auto;
+  .status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
   }
 
-  .p-date-input-wide .p-inputtext {
-    width: 100%;
+  .status-badge-success {
+    background-color: #dcfce7;
+    color: #166534;
+  }
+
+  .status-badge-secondary {
+    background-color: #e5e7eb;
+    color: #374151;
+  }
+
+  .status-badge-warn {
+    background-color: #fef3c7;
+    color: #92400e;
   }
 </style>
