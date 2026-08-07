@@ -39,4 +39,23 @@ export class BudgetChaptersComponent extends AbstractComponent<BudgetChapter> {
   protected override entityLabel(): string {
     return 'Capitolo';
   }
+
+  override onCreate(entity: BudgetChapter) {
+    const payload = this.entityToPayload(entity);
+    this.service.create(payload).subscribe({
+      next: (item: BudgetChapter) => {
+        this.list.push(item);
+        this.messageService.add({
+          severity: 'success',
+          summary: `${this.entityLabel()} creato`,
+          detail: this.getEntityIdentifier(item),
+          key: 'global'
+        });
+        this.loadAll();
+      },
+      error: (err: any) => {
+        this.handleError(err, 'Errore generico nella creazione capitolo');
+      }
+    });
+  }
 }
