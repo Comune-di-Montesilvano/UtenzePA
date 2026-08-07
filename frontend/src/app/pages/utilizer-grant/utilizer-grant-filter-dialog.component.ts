@@ -66,16 +66,22 @@ export interface UtilizerGrantFilterValues {
 
         <mat-form-field>
           <mat-label>Data Concessione</mat-label>
-          <input matInput [matDatepicker]="grantPicker" formControlName="grant_date">
+          <input matInput [matDatepicker]="grantPicker" formControlName="grant_date" placeholder="GG/MM/AAAA">
           <mat-datepicker-toggle matSuffix [for]="grantPicker"></mat-datepicker-toggle>
           <mat-datepicker #grantPicker></mat-datepicker>
+          @if (form.controls.grant_date.hasError('matDatepickerParse')) {
+            <mat-error>Data non valida (GG/MM/AAAA)</mat-error>
+          }
         </mat-form-field>
 
         <mat-form-field>
           <mat-label>Data Scadenza</mat-label>
-          <input matInput [matDatepicker]="expirePicker" formControlName="expire_date">
+          <input matInput [matDatepicker]="expirePicker" formControlName="expire_date" placeholder="GG/MM/AAAA">
           <mat-datepicker-toggle matSuffix [for]="expirePicker"></mat-datepicker-toggle>
           <mat-datepicker #expirePicker></mat-datepicker>
+          @if (form.controls.expire_date.hasError('matDatepickerParse')) {
+            <mat-error>Data non valida (GG/MM/AAAA)</mat-error>
+          }
         </mat-form-field>
 
         <mat-form-field>

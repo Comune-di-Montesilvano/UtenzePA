@@ -22,11 +22,13 @@
 
     <mat-form-field style="flex: 1 1 45%;">
       <mat-label>Data scadenza *</mat-label>
-      <input matInput [matDatepicker]="expirationPicker" formControlName="expiration_date">
+      <input matInput [matDatepicker]="expirationPicker" formControlName="expiration_date" placeholder="GG/MM/AAAA">
       <mat-datepicker-toggle matSuffix [for]="expirationPicker"></mat-datepicker-toggle>
       <mat-datepicker #expirationPicker></mat-datepicker>
-      @if (form.controls.expiration_date.invalid && form.controls.expiration_date.touched) {
+      @if (form.controls.expiration_date.hasError('required') && form.controls.expiration_date.touched) {
         <mat-error>Obbligatorio</mat-error>
+      } @else if (form.controls.expiration_date.hasError('matDatepickerParse') && form.controls.expiration_date.touched) {
+        <mat-error>Data non valida (GG/MM/AAAA)</mat-error>
       }
     </mat-form-field>
 

@@ -31,16 +31,22 @@
 
     <mat-form-field style="flex: 1 1 45%;">
       <mat-label>Data Concessione Contratto</mat-label>
-      <input matInput [matDatepicker]="grantPicker" formControlName="grant_date">
+      <input matInput [matDatepicker]="grantPicker" formControlName="grant_date" placeholder="GG/MM/AAAA">
       <mat-datepicker-toggle matSuffix [for]="grantPicker"></mat-datepicker-toggle>
       <mat-datepicker #grantPicker></mat-datepicker>
+      @if (form.controls.grant_date.hasError('matDatepickerParse') && form.controls.grant_date.touched) {
+        <mat-error>Data non valida (GG/MM/AAAA)</mat-error>
+      }
     </mat-form-field>
 
     <mat-form-field style="flex: 1 1 45%;">
       <mat-label>Data Scadenza Contratto</mat-label>
-      <input matInput [matDatepicker]="expirePicker" formControlName="expire_date">
+      <input matInput [matDatepicker]="expirePicker" formControlName="expire_date" placeholder="GG/MM/AAAA">
       <mat-datepicker-toggle matSuffix [for]="expirePicker"></mat-datepicker-toggle>
       <mat-datepicker #expirePicker></mat-datepicker>
+      @if (form.controls.expire_date.hasError('matDatepickerParse') && form.controls.expire_date.touched) {
+        <mat-error>Data non valida (GG/MM/AAAA)</mat-error>
+      }
     </mat-form-field>
 
     <mat-form-field style="flex: 1 1 100%;">

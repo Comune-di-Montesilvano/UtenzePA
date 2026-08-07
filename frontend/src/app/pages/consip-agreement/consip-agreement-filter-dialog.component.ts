@@ -55,11 +55,14 @@ export interface ConsipAgreementFilterValues {
         <mat-form-field style="flex: 1 1 100%;">
           <mat-label>Data scadenza</mat-label>
           <mat-date-range-input [formGroup]="dateRangeGroup" [rangePicker]="expirationRangePicker">
-            <input matStartDate formControlName="start" placeholder="Data inizio">
-            <input matEndDate formControlName="end" placeholder="Data fine">
+            <input matStartDate formControlName="start" placeholder="Data inizio (GG/MM/AAAA)">
+            <input matEndDate formControlName="end" placeholder="Data fine (GG/MM/AAAA)">
           </mat-date-range-input>
           <mat-datepicker-toggle matSuffix [for]="expirationRangePicker"></mat-datepicker-toggle>
           <mat-date-range-picker #expirationRangePicker></mat-date-range-picker>
+          @if (dateRangeGroup.controls.start.hasError('matDatepickerParse') || dateRangeGroup.controls.end.hasError('matDatepickerParse')) {
+            <mat-error>Data non valida (GG/MM/AAAA)</mat-error>
+          }
         </mat-form-field>
 
         <div style="flex: 1 1 100%;">

@@ -4,6 +4,7 @@ import {ControlValueAccessor, FormControl, NG_VALUE_ACCESSOR, ReactiveFormsModul
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatAutocompleteModule, MatAutocompleteSelectedEvent} from '@angular/material/autocomplete';
+import {ErrorStateMatcher} from '@angular/material/core';
 import {TOption} from '../types/option.interface';
 
 /**
@@ -24,6 +25,7 @@ import {TOption} from '../types/option.interface';
              [formControl]="searchControl"
              [matAutocomplete]="auto"
              [placeholder]="placeholder"
+             [errorStateMatcher]="errorMatcher"
              (blur)="markTouched()">
       <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayFn" (optionSelected)="onOptionSelected($event)">
         @for (opt of filteredOptions; track opt.value) {
@@ -47,6 +49,10 @@ export class FilterableSelectComponent implements ControlValueAccessor {
   @Input() label = '';
   @Input() placeholder = 'Cerca...';
   @Input() errorMessage: string | null = null;
+
+  errorMatcher: ErrorStateMatcher = {
+    isErrorState: (): boolean => !!this.errorMessage,
+  };
 
   @Input()
   set options(value: TOption[]) {
