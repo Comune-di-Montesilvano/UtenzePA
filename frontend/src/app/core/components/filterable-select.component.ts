@@ -30,19 +30,11 @@ import {TOption} from '../types/option.interface';
           <mat-option [value]="opt">{{ opt.label }}</mat-option>
         }
       </mat-autocomplete>
+      @if (errorMessage) {
+        <mat-error>{{ errorMessage }}</mat-error>
+      }
     </mat-form-field>
-    @if (errorMessage) {
-      <div class="filterable-select-error">{{ errorMessage }}</div>
-    }
   `,
-  styles: [`
-    .filterable-select-error {
-      color: #b3261e;
-      font-size: 0.75rem;
-      margin-top: -0.75rem;
-      margin-bottom: 0.5rem;
-    }
-  `],
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
@@ -86,7 +78,12 @@ export class FilterableSelectComponent implements ControlValueAccessor {
       // più valido, va azzerato invece di lasciare il vecchio id "fantasma".
       if (typeof v === 'string') {
         const exact = this._options.find(o => o.label === v);
-        if (!exact && this.value !== null) {
+        if (exact) {
+          if (this.value !== exact.value) {
+            this.value = exact.value;
+            this.onChangeFn(this.value);
+          }
+        } else if (this.value !== null) {
           this.value = null;
           this.onChangeFn(null);
         }
