@@ -58,6 +58,12 @@ docker exec -u root utenzepa-api-1 node -r ts-node/register -r tsconfig-paths/re
 `SYNCHRONIZE=true`/`DROPSCHEMA=true` restano disponibili come escape hatch per iterazione rapida in dev, ma bypassano le migration — mai in produzione.
 Nota: gli script `docker:dev*` in `backend/package.json` referenziano `docker-compose-development.yml`, che non esiste nel repo — non funzionanti allo stato attuale, usare il `docker-compose.yml` di root o `npm run start:dev` in locale.
 
+**Worktree/dev su Windows**: `npm install` con bind-mount diretto della cartella `backend`/`frontend` su Docker Desktop Windows può corrompere `node_modules` (file `package.json` mancanti nei pacchetti, symlink `.bin` non creati — silenzioso, npm riporta successo). Workaround: container con `node_modules` su volume Docker named (non bind-mount) + solo il codice sorgente bind-mountato, es. `docker run -d -v "$(pwd -W)":/usr/src/app -v <nome>-node-modules:/usr/src/app/node_modules -w /usr/src/app node:24-alpine tail -f /dev/null`, poi `npm install` dentro il container. In git-bash su Windows serve `MSYS_NO_PATHCONV=1` + `$(pwd -W)` per i path nei comandi `docker run`.
+
+`child_process.execFile`/`exec` **asincroni** non supportano l'opzione `input` per lo stdin (solo le varianti `*Sync` la supportano) — per pipare dati a un processo figlio (es. `mysql < dump.sql`) serve `spawn` con scrittura esplicita su `child.stdin`. Scoperto implementando il restore backup (PR #36).
+
+`stat.birthtime` non affidabile su alcuni filesystem Linux nei container (overlay2/tmpfs) — può risultare identico per file scritti a pochi millisecondi di distanza. Se serve un timestamp di creazione affidabile, meglio incorporarlo nel nome file (o in un campo DB) invece di fidarsi di `birthtime`.
+
 ### Frontend (`frontend/`)
 ```
 npm run start        # ng serve, porta 4300
@@ -65,6 +71,8 @@ npm run build         # ng build --configuration production
 ng test               # Karma/Jasmine (non presente come script npm)
 ```
 Nessun ESLint configurato sul frontend.
+
+PrimeNG 20 installata usa la nuova Tabs API (`TabsModule` da `primeng/tabs`, markup `<p-tabs><p-tablist><p-tab>...<p-tabpanels><p-tabpanel>`) — non `TabViewModule`/`p-tabView` (API precedente, non presente in questa versione). Pattern di riferimento in repo: `pages/assets/data-table-assets.component.html`.
 
 ## Architettura
 

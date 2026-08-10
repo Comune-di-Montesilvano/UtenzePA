@@ -129,9 +129,9 @@ export class DataImporterService {
     return results;
   }
 
-  async importAssets(): Promise<{ imported: number; skipped: number }> {
-    const filePath = path.join(process.cwd(), 'src', 'data-importer', 'source', 'immobili.csv');
-
+  async importAssets(
+    filePath: string = path.join(process.cwd(), 'src', 'data-importer', 'source', 'immobili.csv'),
+  ): Promise<{ imported: number; skipped: number }> {
     if (!fs.existsSync(filePath)) {
       throw new Error(`File non trovato: ${filePath}`);
     }
@@ -201,15 +201,15 @@ export class DataImporterService {
     return { imported, skipped };
   }
 
-  async importAssetAggregators(): Promise<{ imported: number; skipped: number }> {
-    const filePath = path.join(
+  async importAssetAggregators(
+    filePath: string = path.join(
       process.cwd(),
       'src',
       'data-importer',
       'source',
       'aggregati_immobili.csv',
-    );
-
+    ),
+  ): Promise<{ imported: number; skipped: number }> {
     if (!fs.existsSync(filePath)) {
       throw new Error(`File non trovato: ${filePath}`);
     }
@@ -250,15 +250,15 @@ export class DataImporterService {
     return { imported, skipped };
   }
 
-  async importUtilityAggregators(): Promise<{ imported: number; skipped: number }> {
-    const filePath = path.join(
+  async importUtilityAggregators(
+    filePath: string = path.join(
       process.cwd(),
       'src',
       'data-importer',
       'source',
       'aggregati_utenze.csv',
-    );
-
+    ),
+  ): Promise<{ imported: number; skipped: number }> {
     if (!fs.existsSync(filePath)) {
       throw new Error(`File non trovato: ${filePath}`);
     }
@@ -301,15 +301,15 @@ export class DataImporterService {
     return { imported, skipped };
   }
 
-  async importBudgetChapters(): Promise<{ imported: number; skipped: number }> {
-    const filePath = path.join(
+  async importBudgetChapters(
+    filePath: string = path.join(
       process.cwd(),
       'src',
       'data-importer',
       'source',
       'capitoli_di_spesa.csv',
-    );
-
+    ),
+  ): Promise<{ imported: number; skipped: number }> {
     if (!fs.existsSync(filePath)) {
       throw new Error(`File non trovato: ${filePath}`);
     }
@@ -358,9 +358,9 @@ export class DataImporterService {
     return { imported, skipped };
   }
 
-  async importSuppliers(): Promise<{ imported: number; skipped: number }> {
-    const filePath = path.join(process.cwd(), 'src', 'data-importer', 'source', 'fornitori.csv');
-
+  async importSuppliers(
+    filePath: string = path.join(process.cwd(), 'src', 'data-importer', 'source', 'fornitori.csv'),
+  ): Promise<{ imported: number; skipped: number }> {
     if (!fs.existsSync(filePath)) {
       throw new Error(`File non trovato: ${filePath}`);
     }
@@ -413,13 +413,13 @@ export class DataImporterService {
     return { imported, skipped };
   }
 
-  async importUtilities(): Promise<{
+  async importUtilities(
+    filePath: string = path.join(process.cwd(), 'src', 'data-importer', 'source', 'utenze.csv'),
+  ): Promise<{
     imported: number;
     skipped: number;
     skippedRows: { utility_id: string; reason: string }[];
   }> {
-    const filePath = path.join(process.cwd(), 'src', 'data-importer', 'source', 'utenze.csv');
-
     if (!fs.existsSync(filePath)) {
       throw new Error(`File non trovato: ${filePath}`);
     }
@@ -601,13 +601,19 @@ export class DataImporterService {
     return { imported, skipped, skippedRows };
   }
 
-  async importUtilizerGrants(): Promise<{
+  async importUtilizerGrants(
+    filePath: string = path.join(
+      process.cwd(),
+      'src',
+      'data-importer',
+      'source',
+      'utilizzatori.csv',
+    ),
+  ): Promise<{
     imported: number;
     skipped: number;
     skippedRows: { row: string; reason: string }[];
   }> {
-    const filePath = path.join(process.cwd(), 'src', 'data-importer', 'source', 'utilizzatori.csv');
-
     if (!fs.existsSync(filePath)) {
       throw new Error(`File non trovato: ${filePath}`);
     }
@@ -699,13 +705,13 @@ export class DataImporterService {
     return { imported, skipped, skippedRows };
   }
 
-  async importInvoices(): Promise<{
+  async importInvoices(
+    filePath: string = path.join(process.cwd(), 'src', 'data-importer', 'source', 'fatture.csv'),
+  ): Promise<{
     imported: number;
     skipped: number;
     skippedRows: { invoice_id: string; reason: string }[];
   }> {
-    const filePath = path.join(process.cwd(), 'src', 'data-importer', 'source', 'fatture.csv');
-
     if (!fs.existsSync(filePath)) {
       throw new Error(`File non trovato: ${filePath}`);
     }
@@ -792,9 +798,15 @@ export class DataImporterService {
     return { imported, skipped, skippedRows };
   }
 
-  async importUtilizers(): Promise<{ imported: number; skipped: number }> {
-    const filePath = path.join(process.cwd(), 'src', 'data-importer', 'source', 'utilizzatori.csv');
-
+  async importUtilizers(
+    filePath: string = path.join(
+      process.cwd(),
+      'src',
+      'data-importer',
+      'source',
+      'utilizzatori.csv',
+    ),
+  ): Promise<{ imported: number; skipped: number }> {
     if (!fs.existsSync(filePath)) {
       throw new Error(`File non trovato: ${filePath}`);
     }
