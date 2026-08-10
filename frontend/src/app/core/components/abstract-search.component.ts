@@ -1,4 +1,4 @@
-import {Component, EventEmitter, inject, OnInit, Output, Type} from '@angular/core';
+import {Component, EventEmitter, inject, OnInit, Output, Type, ChangeDetectionStrategy} from '@angular/core';
 import {FormGroup} from '@angular/forms';
 import {MatDialog} from '@angular/material/dialog';
 import {debounceTime, map, Observable} from 'rxjs';
@@ -9,6 +9,7 @@ export interface FilterDialogData<V> {
 
 @Component(
   {
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: ''
   })
 export abstract class AbstractSearchComponent implements OnInit {

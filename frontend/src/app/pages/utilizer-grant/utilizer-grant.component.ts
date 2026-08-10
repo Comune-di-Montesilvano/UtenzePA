@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {DataTableUtilizerGrantComponent} from './data-table-utilizer-grant.component';
 import {SearchUtilizerGrantComponent} from './search-utilizer-grant.component';
 import {UtilizerGrantService} from './utilizer-grant.service';
@@ -12,6 +12,7 @@ import {UtilizerGrant} from './entity/utilizer-grant.entity';
     DataTableUtilizerGrantComponent,
     SearchUtilizerGrantComponent
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utilizer-grant.component.html',
 })
 export class UtilizerGrantComponent extends AbstractComponent<UtilizerGrant> {

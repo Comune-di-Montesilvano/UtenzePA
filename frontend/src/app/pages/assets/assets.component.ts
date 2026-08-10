@@ -1,4 +1,4 @@
-import {Component, ViewChild} from '@angular/core';
+import {Component, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
 import {Asset} from './entity/asset.entity';
 import {AssetService} from './asset.service';
@@ -10,6 +10,7 @@ import {AbstractComponent} from '../../core/components/abstract.component';
   selector: 'app-assets',
   standalone: true,
   imports: [DataTableAssetsComponent, SearchAssetsComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './assets.component.html'
 })
 export class AssetsComponent extends AbstractComponent<Asset> {

@@ -1,10 +1,11 @@
-import {Component, inject, OnInit} from '@angular/core';
+import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import {ToastService} from '../services/toast.service';
 import {AuthService} from '../../services/auth.service';
 import {AbstractService} from '../services/abstract.service';
 import {AbstractEntity} from '../entities/abstract.entity';
 
 @Component({
+             changeDetection: ChangeDetectionStrategy.Eager,
              template: ''
            })
 export abstract class AbstractComponent<T extends AbstractEntity> implements OnInit {

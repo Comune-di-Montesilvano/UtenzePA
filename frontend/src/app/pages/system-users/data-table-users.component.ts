@@ -1,4 +1,4 @@
-import {Component, Type} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
 import {DatePipe} from '@angular/common';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
@@ -28,6 +28,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
     MatProgressBarModule,
     HasRoleDirective
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-users.component.html'
 })
 export class DataTableUsersComponent extends AbstractDataTableComponent<SystemUser> {

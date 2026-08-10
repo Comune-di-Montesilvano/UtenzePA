@@ -1,4 +1,4 @@
-import {Component, Type} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
@@ -17,6 +17,7 @@ import {UtilizerGrantFilterDialogComponent} from './utilizer-grant-filter-dialog
     MatFormFieldModule,
     MatInputModule
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './search-utilizer-grant.component.html',
 })
 export class SearchUtilizerGrantComponent extends AbstractSearchComponent {

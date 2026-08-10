@@ -6,52 +6,56 @@
   <div class="login-right">
     <h2 style="font-size: 30px;">Gestione Utenze Comunali</h2>
     <p>Comune di Montesilvano</p>
-    <form [formGroup]="form" (ngSubmit)="submit()" *ngIf="!showReset && !showOtp">
-
+    @if (!showReset && !showOtp) {
+      <form [formGroup]="form" (ngSubmit)="submit()">
         <div>
-            <p style="text-align: left; padding-bottom: 0px; font-size: 16px;"><b>Accesso al Sistema</b></p>
-            <p style="text-align: left;color: #717182;">Inserisci le tue credenziali per accedere</p>
+          <p style="text-align: left; padding-bottom: 0px; font-size: 16px;"><b>Accesso al Sistema</b></p>
+          <p style="text-align: left;color: #717182;">Inserisci le tue credenziali per accedere</p>
         </div>
+        <div>
+          <label for="username">Username</label>
+          <input id="username" formControlName="username" type="text">
+        </div>
+        <div>
+          <label for="password">Password</label>
+          <input id="password" formControlName="password" type="password">
+        </div>
+        @if (error) {
+          <div class="error">{{ error }}</div>
+        }
+        <div style="text-align: right;">
+          <p
+            style="display: inline-block; cursor: pointer; color: black;"
+            (click)="showResetForm()"
+            >
+            Password dimenticata?
+          </p>
+        </div>
+        <button type="submit">Accedi</button>
+      </form>
+    }
 
-      <div>
-        <label for="username">Username</label>
-        <input id="username" formControlName="username" type="text">
-      </div>
+    @if (showReset) {
+      <form [formGroup]="resetForm" (ngSubmit)="sendOtp()">
+        <p>Inserisci la tua email per ricevere il codice OTP:</p>
+        <input formControlName="email" type="email" placeholder="Email">
+        <button type="submit" style="margin-bottom: 20px;">Invia OTP</button>
+        <button type="button" (click)="showReset = false" class="second-button">Torna al login</button>
+      </form>
+    }
 
-      <div>
-        <label for="password">Password</label>
-        <input id="password" formControlName="password" type="password">
-      </div>
-
-      <div *ngIf="error" class="error">{{ error }}</div>
-
-      <div style="text-align: right;">
-        <p 
-          style="display: inline-block; cursor: pointer; color: black;" 
-          (click)="showResetForm()"
-        >
-          Password dimenticata?
-        </p>
-      </div>
-
-      <button type="submit">Accedi</button>
-    </form>
-
-    <form [formGroup]="resetForm" (ngSubmit)="sendOtp()" *ngIf="showReset">
-      <p>Inserisci la tua email per ricevere il codice OTP:</p>
-      <input formControlName="email" type="email" placeholder="Email">
-      <button type="submit" style="margin-bottom: 20px;">Invia OTP</button>
-      <button type="button" (click)="showReset = false" class="second-button">Torna al login</button>
-    </form>
-
-    <form [formGroup]="otpForm" (ngSubmit)="resetPassword()" *ngIf="showOtp">
-      <p>Inserisci OTP e nuova password:</p>
-      <input formControlName="otp" type="text" placeholder="OTP">
-       <div *ngIf="otpError" class="error">{{ otpError }}</div>
-      <input formControlName="newPassword" type="password" placeholder="Nuova Password">
-      <button type="submit" style="margin-bottom: 20px;">Aggiorna Password</button>
-      <button type="button" (click)="showLoginForm()" class="second-button">Torna al login</button>
-    </form>
+    @if (showOtp) {
+      <form [formGroup]="otpForm" (ngSubmit)="resetPassword()">
+        <p>Inserisci OTP e nuova password:</p>
+        <input formControlName="otp" type="text" placeholder="OTP">
+        @if (otpError) {
+          <div class="error">{{ otpError }}</div>
+        }
+        <input formControlName="newPassword" type="password" placeholder="Nuova Password">
+        <button type="submit" style="margin-bottom: 20px;">Aggiorna Password</button>
+        <button type="button" (click)="showLoginForm()" class="second-button">Torna al login</button>
+      </form>
+    }
 
   </div>
 </div>

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { SidebarComponent } from '../comp/sidebar/sidebar.component';
 import { AuthService } from '../services/auth.service';
@@ -8,6 +8,7 @@ import { AuthService } from '../services/auth.service';
   standalone: true,
   imports: [RouterModule, SidebarComponent],
   templateUrl: './main-layout.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./main-layout.component.scss']
 })
 export class MainLayoutComponent {

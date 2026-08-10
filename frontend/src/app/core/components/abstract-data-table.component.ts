@@ -1,4 +1,4 @@
-import {AfterViewInit, Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, Type, ViewChild} from '@angular/core';
+import {AfterViewInit, Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, Type, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {MatTableDataSource} from '@angular/material/table';
 import {MatSort} from '@angular/material/sort';
 import {MatPaginator} from '@angular/material/paginator';
@@ -12,6 +12,7 @@ export interface EditDialogData<T> {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: ''
 })
 export abstract class AbstractDataTableComponent<T extends { id: any; name?: string }> implements OnInit, OnChanges, AfterViewInit {

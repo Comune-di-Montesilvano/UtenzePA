@@ -1,4 +1,4 @@
-import {Component, Type} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
 import {MatPaginatorModule} from '@angular/material/paginator';
@@ -27,6 +27,7 @@ import {HardType, HardTypeDescription} from './enum/hard-type.enum';
     MatProgressBarModule,
     HasRoleDirective
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-utility-types.component.html'
 })
 export class DataTableUtilityTypesComponent extends AbstractDataTableComponent<UtilityType> {

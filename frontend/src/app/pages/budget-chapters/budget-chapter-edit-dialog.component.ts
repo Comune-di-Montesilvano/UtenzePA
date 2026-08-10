@@ -1,4 +1,4 @@
-import {Component, inject} from '@angular/core';
+import {Component, inject, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -28,6 +28,7 @@ import {OnlyNumbersDirective} from '../../core/directives/only-numbers.directive
     ReadOnlyDirective,
     OnlyNumbersDirective
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './budget-chapter-edit-dialog.component.html'
 })
 export class BudgetChapterEditDialogComponent {

@@ -1,5 +1,5 @@
-import {Component} from '@angular/core';
-import {CommonModule} from '@angular/common';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
+
 import {Router, RouterModule} from '@angular/router';
 import {MatIconModule} from '@angular/material/icon';
 import {AuthService} from '../../services/auth.service';
@@ -15,8 +15,9 @@ interface MenuItem {
 @Component({
              selector: 'app-sidebar',
              standalone: true,
-             imports: [CommonModule, RouterModule, MatIconModule],
+             imports: [RouterModule, MatIconModule],
              templateUrl: './sidebar.component.html',
+             changeDetection: ChangeDetectionStrategy.Eager,
              styleUrls: ['./sidebar.components.scss']
            })
 export class SidebarComponent {

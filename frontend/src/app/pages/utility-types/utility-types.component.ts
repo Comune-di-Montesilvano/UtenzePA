@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {UtilityTypesService} from './utility-types.service';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {UtilityType} from './entity/utility-type.entity';
@@ -12,6 +12,7 @@ import {SearchFormUtilityTypes} from './search-utility-types.component';
     DataTableUtilityTypesComponent,
     SearchFormUtilityTypes
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-types.component.html'
 })
 export class UtilityTypesComponent extends AbstractComponent<UtilityType> {

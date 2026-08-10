@@ -56,7 +56,7 @@
           </button>
           <button mat-icon-button type="button" [disabled]="!resolveMapCoordsFromForm()"
                   [style.color]="isMapCoordsFromAsset() ? '#3b82f6' : null"
-                  (click)="navigateToMaps(resolveMapCoordsFromForm()?.lat, resolveMapCoordsFromForm()?.lon)"
+                  (click)="navigateToMaps($safeNavigationMigration(resolveMapCoordsFromForm()?.lat), $safeNavigationMigration(resolveMapCoordsFromForm()?.lon))"
                   [matTooltip]="resolveMapCoordsFromForm() ? 'Mostra su mappa' : 'Funzionalità non disponibile: mancano le coordinate.'"
                   style="margin-top: 8px;">
             <mat-icon>location_on</mat-icon>

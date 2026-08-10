@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {DataTableAggregatorsComponent} from './data-table-asset-aggregator.component';
 import {SearchAggregators} from './search-asset-aggregator.component';
 import {AssetAggregatorsService} from './asset-aggregator.service';
@@ -12,6 +12,7 @@ import {AssetAggregator} from './entity/asset-aggregator.entity';
     DataTableAggregatorsComponent,
     SearchAggregators
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './asset-aggregator.component.html'
 })
 export class AssetAggregatorsComponent extends AbstractComponent<AssetAggregator> {

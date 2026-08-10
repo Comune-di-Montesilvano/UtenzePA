@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {DataTableConsipAgreementComponent} from './data-table-consip-agreement.component';
 import {SearchConsipAgreementComponent} from './search-consip-agreement.component';
 import {ConsipAgreementService} from './consip-agreement.service';
@@ -12,6 +12,7 @@ import {ConsipAgreement} from './entity/consip-agreement.entity';
     DataTableConsipAgreementComponent,
     SearchConsipAgreementComponent
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './consip-agreement.component.html'
 })
 export class ConsipAgreementComponent extends AbstractComponent<ConsipAgreement> {

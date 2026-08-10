@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {SystemUsersService} from './system-users.service';
 import {DataTableUsersComponent} from './data-table-users.component';
 import {SearchUsersComponent} from './search-users.component';
@@ -12,6 +12,7 @@ import {AbstractComponent} from '../../core/components/abstract.component';
     DataTableUsersComponent,
     SearchUsersComponent,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './system-users.component.html'
 })
 export class SystemUsersComponent extends AbstractComponent<SystemUser> {

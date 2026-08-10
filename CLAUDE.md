@@ -11,7 +11,7 @@ Monorepo semplice (nessun workspace tool): `backend/` (NestJS) + `frontend/` (An
 | Servizio | Stack | Porta default |
 |---|---|---|
 | Backend API | NestJS 11 (Node ≥24) | 3000 (debug 9229) |
-| Frontend | Angular 20 + Angular Material 20 | 4300 |
+| Frontend | Angular 22 + Angular Material 22 | 4300 |
 | Database | MySQL 8 | 3307 |
 
 **Versioni tool**: usare sempre Docker per lanciare comandi che richiedono versioni software specifiche (`npm install`, build, ecc.) — l'host locale può avere Node/npm diversi da quelli richiesti dal progetto (`backend/package.json` richiede Node ≥24, potrebbe non corrispondere alla versione installata sulla macchina). `docker exec` sul container `api` (avviato con l'override di sviluppo) garantisce la versione corretta.
@@ -121,7 +121,7 @@ Primo giro (soft, da PR dedicata) per adeguare il repo alle convenzioni usate ne
 
 Dependabot: `@angular/*` e `@sentry/*` raggruppati in un'unica PR ciascuno (`.github/dependabot.yml`) — i pacchetti di una stessa famiglia vanno aggiornati insieme, un bump isolato rompe il peer dependency resolution (visto su PR #4/#7/#8 Angular, PR #11/#16 Sentry). `@angular/animations` era transitiva (mai dichiarata diretta) finché dipendeva da `primeng`; con la rimozione di PrimeNG è stata dichiarata esplicita in `package.json` (serve direttamente a `provideAnimationsAsync()`) — va comunque tenuta nel gruppo dependabot `@angular/*` andando avanti, altrimenti un bump isolato rompe di nuovo il peer dependency resolution (visto: `@angular/animations` richiede match esatto della versione di `@angular/core`, non solo compatibile in semver).
 
-**Blocco Angular 22 risolto**: la migrazione Angular 20→22 (PR #29) era bloccata da PrimeNG 22 diventato a pagamento. PrimeNG è stato rimosso interamente dal frontend (vedi sopra) — il blocco non sussiste più, il bump Angular 22 resta solo da pianificare/eseguire.
+**Migrazione Angular 20→22 completata**: bloccata in precedenza da PrimeNG 22 diventato a pagamento (PR #29); con PrimeNG rimosso interamente dal frontend, il blocco non sussisteva più. Eseguito `ng update` in 4 passi sequenziali dentro il container `frontend` (Node 24, necessario: Angular 22 richiede Node `^22.22.3 || ^24.15.0 || >=26.0.0`, l'host locale è su Node 20): `@angular/cli@21 @angular/core@21` → `@angular/material@21 @angular/cdk@21` → `@angular/cli@22 @angular/core@22` → `@angular/material@22 @angular/cdk@22`, ognuno con `--allow-dirty` (worktree non pulito tra i passaggi) seguito da `chown -R 1000:1000 node_modules package.json package-lock.json` (il comando gira come root nel container, altrimenti l'utente 1000:1000 con cui gira normalmente l'app non può più scrivere/leggere `node_modules`). Migrazioni automatiche di rilievo: conversione a `@if`/`@for` control-flow (fatta già in un passaggio precedente per le pagine migrate a Material, ma ha toccato anche `login`/`setup`), `ChangeDetectionStrategy.Eager` aggiunto esplicitamente a tutti i componenti (comportamento pre-v22 preservato, non testata la nuova change detection di default), `TypeScript` bumpato a 6.0.3, `withXhr()` aggiunto a `provideHttpClient()`. Bundle iniziale sceso a 1.86MB. Verificato end-to-end con dati reali (604 utenze) via browser: dashboard, tabelle, dialog di modifica con `FilterableSelectComponent` tutti funzionanti.
 
 `tests.yml` esegue `npm run build` sia su backend sia su frontend (non solo lint+test) — un errore di tipo non preso da `ts-jest` (isolatedModules) può comunque rompere `nest build`/Docker, come successo con Sentry.
 

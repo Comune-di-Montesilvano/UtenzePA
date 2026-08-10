@@ -1,4 +1,4 @@
-import {Component, Type} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
 import {MatPaginatorModule} from '@angular/material/paginator';
@@ -26,6 +26,7 @@ import {UtilityAggregatorEditDialogComponent} from './utility-aggregator-edit-di
     MatProgressBarModule,
     HasRoleDirective
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-utility-aggregator.component.html'
 })
 export class DataTableUtilityAggregatorsComponent extends AbstractDataTableComponent<UtilityAggregator> {

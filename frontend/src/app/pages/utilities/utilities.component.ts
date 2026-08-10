@@ -1,4 +1,4 @@
-import {Component, ViewChild} from '@angular/core';
+import {Component, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
 import {plainToInstance} from 'class-transformer';
 import {UtilityService} from './utility.service';
@@ -11,6 +11,7 @@ import {Utility} from './entity/utility.entity';
   selector: 'app-utilities',
   standalone: true,
   imports: [DataTableUtilitiesComponent, SearchUtilitiesComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utilities.component.html'
 })
 export class UtilitiesComponent extends AbstractComponent<Utility> {

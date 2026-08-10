@@ -1,4 +1,4 @@
-import {Component, inject, OnInit} from '@angular/core';
+import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -42,6 +42,7 @@ export interface AssetFilterValues {
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
     MatSelectModule, MatRadioModule, MatButtonModule, FilterableSelectComponent
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './asset-filter-dialog.component.html'
 })
 export class AssetFilterDialogComponent implements OnInit {

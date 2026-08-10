@@ -1,4 +1,4 @@
-import {Component, inject, OnInit} from '@angular/core';
+import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -20,6 +20,7 @@ import {UseType} from '../purpose/enum/use-type.enum';
   selector: 'app-utility-type-edit-dialog',
   standalone: true,
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, HasRoleDirective, ReadOnlyDirective],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-type-edit-dialog.component.html'
 })
 export class UtilityTypeEditDialogComponent implements OnInit {

@@ -152,7 +152,7 @@
                     <td style="padding: 0.5rem;">{{ item.utility_id }}</td>
                     <td style="padding: 0.5rem;">{{ item.utilityType?.name }}</td>
                     <td style="padding: 0.5rem;">{{ item.consipAgreement?.name }}</td>
-                    <td style="padding: 0.5rem;">{{ item.consipAgreement?.expiration_date | date: 'dd/MM/yyyy' }}</td>
+                    <td style="padding: 0.5rem;">{{ $safeNavigationMigration(item.consipAgreement?.expiration_date) | date: 'dd/MM/yyyy' }}</td>
                   </tr>
                 } @empty {
                   <tr>

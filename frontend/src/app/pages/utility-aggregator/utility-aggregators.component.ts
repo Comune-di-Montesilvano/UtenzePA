@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {UtilityAggregatorsService} from './utility-aggregator.service';
 import {DataTableUtilityAggregatorsComponent} from './data-table-utility-aggregator.component';
 import {SearchUtilityAggregators} from './search-utility-aggregator.component';
@@ -12,6 +12,7 @@ import {AbstractComponent} from '../../core/components/abstract.component';
     DataTableUtilityAggregatorsComponent,
     SearchUtilityAggregators
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-aggregator.component.html'
 })
 export class UtilityAggregatorsComponent extends AbstractComponent<UtilityAggregator> {

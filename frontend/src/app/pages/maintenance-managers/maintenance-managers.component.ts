@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {MaintenanceManagersService} from './maintenance-managers.service';
 import {DataTableMaintenanceManagersComponent} from './data-table-maintenance-managers.component';
 import {SearchFormMaintenanceManagers} from './search-maintenance-managers.component';
@@ -12,6 +12,7 @@ import {MaintenanceManager} from './entity/maintenance-manager.entity';
     DataTableMaintenanceManagersComponent,
     SearchFormMaintenanceManagers
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './maintenance-managers.component.html'
 })
 export class MaintenanceManagersComponent extends AbstractComponent<MaintenanceManager> {

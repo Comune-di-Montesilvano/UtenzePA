@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -31,6 +31,7 @@ interface EntityTypeOption {
     MatSelectModule,
     MatProgressSpinnerModule,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './backup-import.component.html',
 })
 export class BackupImportComponent {

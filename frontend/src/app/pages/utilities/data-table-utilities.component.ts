@@ -1,4 +1,4 @@
-import {Component, Type} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
 import {Router} from '@angular/router';
 import {DatePipe} from '@angular/common';
 import {MatTableModule} from '@angular/material/table';
@@ -32,6 +32,7 @@ import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
     MatTooltipModule, MatProgressBarModule, MatSelectModule, MatFormFieldModule, FormsModule,
     HasRoleDirective, TruncatePipe, FormatAmountPipe, DatePipe
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-utilities.component.html'
 })
 export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Utility> {

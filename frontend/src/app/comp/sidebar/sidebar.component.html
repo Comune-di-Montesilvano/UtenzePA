@@ -1,41 +1,47 @@
 <aside class="sidebar">
   <ul class="sidebar-menu">
-    
-    <li *ngFor="let item of menu">
 
-      <a *ngIf="!item.submenu"
-         class="menu-item"
-         [routerLink]="item.route"
-         routerLinkActive="active-link"
-         [routerLinkActiveOptions]="{ exact: true }"
-         (click)="onMainItemClick()"
-         >
-        <mat-icon>{{ item.icon }}</mat-icon>
-        {{ item.label }}
-      </a>
-
-      <div *ngIf="item.submenu"
-           class="menu-item has-submenu"
-           (click)="toggleSubmenu(item)">
-        <mat-icon>{{ item.icon }}</mat-icon>
-        {{ item.label }}
-        <span class="arrow" [class.open]="item.open">></span>
-      </div>
-
-      <ul *ngIf="item.submenu && item.open" class="submenu">
-        <li *ngFor="let sub of item.submenu">
-          <a class="submenu-item"
-             [routerLink]="sub.route"
-             (click)="onSubmenuItemClick(item)"
-             routerLinkActive="active-link"
-             [routerLinkActiveOptions]="{ exact: true }">
-            <mat-icon>{{ sub.icon }}</mat-icon>
-            {{ sub.label }}
+    @for (item of menu; track item) {
+      <li>
+        @if (!item.submenu) {
+          <a
+            class="menu-item"
+            [routerLink]="item.route"
+            routerLinkActive="active-link"
+            [routerLinkActiveOptions]="{ exact: true }"
+            (click)="onMainItemClick()"
+            >
+            <mat-icon>{{ item.icon }}</mat-icon>
+            {{ item.label }}
           </a>
-        </li>
-      </ul>
-
-    </li>
+        }
+        @if (item.submenu) {
+          <div
+            class="menu-item has-submenu"
+            (click)="toggleSubmenu(item)">
+            <mat-icon>{{ item.icon }}</mat-icon>
+            {{ item.label }}
+            <span class="arrow" [class.open]="item.open">></span>
+          </div>
+        }
+        @if (item.submenu && item.open) {
+          <ul class="submenu">
+            @for (sub of item.submenu; track sub) {
+              <li>
+                <a class="submenu-item"
+                  [routerLink]="sub.route"
+                  (click)="onSubmenuItemClick(item)"
+                  routerLinkActive="active-link"
+                  [routerLinkActiveOptions]="{ exact: true }">
+                  <mat-icon>{{ sub.icon }}</mat-icon>
+                  {{ sub.label }}
+                </a>
+              </li>
+            }
+          </ul>
+        }
+      </li>
+    }
   </ul>
 
   <div class="sidebar-footer" (click)="logout()">

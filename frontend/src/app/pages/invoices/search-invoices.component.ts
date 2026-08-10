@@ -1,4 +1,4 @@
-import {Component, Type} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
@@ -11,6 +11,7 @@ import {InvoiceFilterDialogComponent} from './invoice-filter-dialog.component';
   selector: 'app-search-invoices',
   standalone: true,
   imports: [ReactiveFormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './search-invoices.component.html',
 })
 export class SearchInvoicesComponent extends AbstractSearchComponent {

@@ -10,7 +10,7 @@ import {
 import {provideRouter, Router} from '@angular/router';
 import {routes} from './app.routes';
 import {NgIdleKeepaliveModule} from '@ng-idle/keepalive';
-import {provideHttpClient, withInterceptors} from '@angular/common/http';
+import {provideHttpClient, withInterceptors, withXhr} from '@angular/common/http';
 import {provideAnimationsAsync} from '@angular/platform-browser/animations/async';
 import {MatPaginatorIntl} from '@angular/material/paginator';
 import {DateAdapter, MAT_DATE_LOCALE, provideNativeDateAdapter} from '@angular/material/core';
@@ -24,7 +24,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideZoneChangeDetection({eventCoalescing: true}),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authErrorInterceptor])),
+    provideHttpClient(withXhr(), withInterceptors([authErrorInterceptor])),
     provideAnimationsAsync(),
     importProvidersFrom(NgIdleKeepaliveModule.forRoot()),
     provideNativeDateAdapter(),

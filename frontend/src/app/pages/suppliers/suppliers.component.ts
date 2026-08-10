@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {DataTableSuppliersComponent} from './data-table-suppliers.component';
 import {SearchSuppliersComponent} from './search-suppliers.component';
 import {SuppliersService} from './suppliers.service';
@@ -12,6 +12,7 @@ import {Supplier} from './entity/supplier.entity';
     DataTableSuppliersComponent,
     SearchSuppliersComponent
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './suppliers.component.html'
 })
 export class SuppliersComponent extends AbstractComponent<Supplier> {

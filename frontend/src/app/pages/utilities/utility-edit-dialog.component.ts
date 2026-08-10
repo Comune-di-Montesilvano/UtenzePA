@@ -1,4 +1,4 @@
-import {Component, inject, OnInit} from '@angular/core';
+import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {Router} from '@angular/router';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
@@ -41,6 +41,7 @@ import {UtilityTypesService} from '../utility-types/utility-types.service';
     MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule,
     HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-edit-dialog.component.html'
 })
 export class UtilityEditDialogComponent implements OnInit {

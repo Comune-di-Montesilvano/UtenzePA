@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {InvoicesService} from './invoices.service';
 import {DataTableInvoicesComponent} from './data-table-invoices.component';
 import {SearchInvoicesComponent} from './search-invoices.component';
@@ -9,6 +9,7 @@ import {Invoice} from './entity/invoice.entity';
   selector: 'app-invoices',
   standalone: true,
   imports: [DataTableInvoicesComponent, SearchInvoicesComponent],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './invoices.component.html'
 })
 export class InvoicesComponent extends AbstractComponent<Invoice> {

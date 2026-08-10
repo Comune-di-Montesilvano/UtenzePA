@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {Utilizer} from './entity/utilizer.entity';
 import {UtilizerService} from './utilizer.service';
@@ -12,6 +12,7 @@ import {SearchUtilizerComponent} from './search-utilizer.component';
     DataTableUtilizerComponent,
     SearchUtilizerComponent,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utilizer.component.html',
 })
 export class UtilizerComponent extends AbstractComponent<Utilizer> {

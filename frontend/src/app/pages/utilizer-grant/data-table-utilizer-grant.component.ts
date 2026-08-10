@@ -1,4 +1,4 @@
-import {Component, Type} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
 import {DatePipe} from '@angular/common';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
@@ -29,6 +29,7 @@ import {StringHelper} from '../../core/helpers/string.helper';
     MatProgressBarModule,
     HasRoleDirective
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-utilizer-grant.component.html'
 })
 export class DataTableUtilizerGrantComponent extends AbstractDataTableComponent<UtilizerGrant> {

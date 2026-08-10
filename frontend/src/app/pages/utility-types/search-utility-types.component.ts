@@ -1,4 +1,4 @@
-import {Component, Type} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
@@ -11,6 +11,7 @@ import {UtilityTypeFilterDialogComponent} from './utility-type-filter-dialog.com
   selector: 'app-search-utility-type',
   standalone: true,
   imports: [ReactiveFormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './search-utility-types.component.html',
 })
 export class SearchFormUtilityTypes extends AbstractSearchComponent {

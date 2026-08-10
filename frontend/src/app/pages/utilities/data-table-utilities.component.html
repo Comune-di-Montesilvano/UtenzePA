@@ -247,7 +247,7 @@
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Capitolo di Spesa</th>
     <td mat-cell *matCellDef="let item">
       @if (item.budgetChapter?.label) {
-        <span [matTooltip]="item.budgetChapter!.label">{{ item.budgetChapter?.label | truncate: maxDescLength }}</span>
+        <span [matTooltip]="item.budgetChapter!.label">{{ $safeNavigationMigration(item.budgetChapter?.label) | truncate: maxDescLength }}</span>
       }
     </td>
   </ng-container>

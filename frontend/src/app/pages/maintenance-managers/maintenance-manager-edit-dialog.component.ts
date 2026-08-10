@@ -1,4 +1,4 @@
-import {Component, inject} from '@angular/core';
+import {Component, inject, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -15,6 +15,7 @@ import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
   selector: 'app-maintenance-manager-edit-dialog',
   standalone: true,
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, HasRoleDirective, ReadOnlyDirective],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './maintenance-manager-edit-dialog.component.html'
 })
 export class MaintenanceManagerEditDialogComponent {

@@ -1,4 +1,4 @@
-import {Component, Type} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
 import {DatePipe} from '@angular/common';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
@@ -30,6 +30,7 @@ import {BooleanYesNoPipe} from '../../core/pipes/boolean-yes-no-pipe';
     HasRoleDirective,
     BooleanYesNoPipe
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-consip-agreement.component.html'
 })
 export class DataTableConsipAgreementComponent extends AbstractDataTableComponent<ConsipAgreement> {

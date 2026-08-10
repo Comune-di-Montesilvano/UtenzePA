@@ -1,4 +1,4 @@
-import {Component, Type} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
@@ -17,6 +17,7 @@ import {PurposeFilterDialogComponent} from './purpose-filter-dialog.component';
     MatFormFieldModule,
     MatInputModule
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './search-purpose.component.html',
 })
 export class SearchPurposeComponent extends AbstractSearchComponent {

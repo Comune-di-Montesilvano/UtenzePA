@@ -1,4 +1,4 @@
-import {Component, inject, OnInit} from '@angular/core';
+import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder, FormsModule, ReactiveFormsModule} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -71,6 +71,7 @@ export interface UtilityFilterValues {
     MatSelectModule, MatDatepickerModule, MatExpansionModule, MatButtonModule,
     FilterableSelectComponent
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-filter-dialog.component.html'
 })
 export class UtilityFilterDialogComponent implements OnInit {

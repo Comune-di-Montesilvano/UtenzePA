@@ -1,4 +1,4 @@
-import {Component, Type} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
 import {MatPaginatorModule} from '@angular/material/paginator';
@@ -27,6 +27,7 @@ import {TruncatePipe} from '../../core/pipes/truncate.pipe';
     MatTooltipModule, MatProgressBarModule, MatSelectModule, MatFormFieldModule, FormsModule,
     HasRoleDirective, FormatAmountPipe, TruncatePipe
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-assets.component.html'
 })
 export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> {

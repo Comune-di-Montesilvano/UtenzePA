@@ -1,4 +1,4 @@
-import {Component, inject, OnInit} from '@angular/core';
+import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -49,6 +49,7 @@ import {DatePipe} from '@angular/common';
     FormatAmountPipe,
     DatePipe,
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './asset-edit-dialog.component.html'
 })
 export class AssetEditDialogComponent implements OnInit {

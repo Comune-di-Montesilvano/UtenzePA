@@ -1,4 +1,4 @@
-import {Component, inject, OnInit} from '@angular/core';
+import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -37,6 +37,7 @@ export interface InvoiceFilterValues {
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatDatepickerModule, MatButtonModule, FilterableSelectComponent
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './invoice-filter-dialog.component.html'
 })
 export class InvoiceFilterDialogComponent implements OnInit {

@@ -1,4 +1,4 @@
-import {Component, Type} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
 import {MatPaginatorModule} from '@angular/material/paginator';
@@ -27,6 +27,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
     MatProgressBarModule,
     HasRoleDirective
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-budget-chapters.component.html'
 })
 export class DataTableBudgetChaptersComponent extends AbstractDataTableComponent<BudgetChapter> {

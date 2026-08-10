@@ -1,5 +1,5 @@
-import {Component, forwardRef, Input} from '@angular/core';
-import {CommonModule} from '@angular/common';
+import {Component, forwardRef, Input, ChangeDetectionStrategy} from '@angular/core';
+
 import {ControlValueAccessor, FormControl, NG_VALUE_ACCESSOR, ReactiveFormsModule} from '@angular/forms';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
@@ -17,7 +17,7 @@ import {TOption} from '../types/option.interface';
 @Component({
   selector: 'app-filterable-select',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatAutocompleteModule],
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatAutocompleteModule],
   template: `
     <mat-form-field style="width: 100%;">
       <mat-label>{{ label }}</mat-label>
@@ -39,6 +39,7 @@ import {TOption} from '../types/option.interface';
       }
     </mat-form-field>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,

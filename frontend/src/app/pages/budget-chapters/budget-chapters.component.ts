@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {DataTableBudgetChaptersComponent} from './data-table-budget-chapters.component';
 import {SearchBudgetChapters} from './search-budget-chapters.component';
 import {BudgetChaptersService} from './budget-chapters.service';
@@ -12,6 +12,7 @@ import {BudgetChapter} from './entity/budget-chapter.entity';
     DataTableBudgetChaptersComponent,
     SearchBudgetChapters
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './budget-chapters.component.html'
 })
 export class BudgetChaptersComponent extends AbstractComponent<BudgetChapter> {

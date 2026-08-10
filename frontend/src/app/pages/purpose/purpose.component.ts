@@ -1,4 +1,4 @@
-import {Component} from '@angular/core';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {DataTablePurposeComponent} from './data-table-purpose.component';
 import {SearchPurposeComponent} from './search-purpose.component';
 import {PurposeService} from './purpose.service';
@@ -13,6 +13,7 @@ import {UseTypeDescription} from './enum/use-type.enum';
     DataTablePurposeComponent,
     SearchPurposeComponent
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './purpose.component.html'
 })
 export class PurposeComponent extends AbstractComponent<Purpose> {

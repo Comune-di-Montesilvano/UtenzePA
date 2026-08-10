@@ -1,4 +1,4 @@
-import {Component, Type} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
 import {MatTableModule} from '@angular/material/table';
 import {MatSort, MatSortModule} from '@angular/material/sort';
 import {MatPaginatorModule} from '@angular/material/paginator';
@@ -28,6 +28,7 @@ import {ExportHelper} from '../../core/helpers/export.helper';
     MatTooltipModule, MatProgressBarModule, MatSelectModule, MatFormFieldModule, FormsModule,
     DatePipe, HasRoleDirective, FormatAmountPipe, TruncatePipe
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-invoices.component.html'
 })
 export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoice> {

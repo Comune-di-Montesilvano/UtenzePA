@@ -1,4 +1,4 @@
-import {Component, Inject, OnInit} from '@angular/core';
+import {Component, Inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {MatCardModule} from '@angular/material/card';
 import {MatButtonModule} from '@angular/material/button';
@@ -21,6 +21,7 @@ type Severity = 'info' | 'success' | 'warn' | 'danger' | 'secondary' | 'contrast
              standalone: true,
              imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule],
              templateUrl: './dashboard.component.html',
+             changeDetection: ChangeDetectionStrategy.Eager,
              styleUrls: ['./dashboard.component.css']
            })
 export class DashboardComponent implements OnInit {
