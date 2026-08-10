@@ -9,9 +9,9 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatDatepickerModule} from '@angular/material/datepicker';
-import {MatNativeDateModule} from '@angular/material/core';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
+import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {AuthService} from '../../services/auth.service';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
@@ -38,8 +38,8 @@ import {UtilityTypesService} from '../utility-types/utility-types.service';
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatNativeDateModule,
-    HasRoleDirective, ReadOnlyDirective
+    MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule,
+    HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent
   ],
   templateUrl: './utility-edit-dialog.component.html'
 })
@@ -64,6 +64,7 @@ export class UtilityEditDialogComponent implements OnInit {
 
   utilityTypeOptions: UtilityType[] = [];
   assetOptions: Asset[] = [];
+  assetSelectOptions: TOption[] = [];
   supplierOptions: Supplier[] = [];
   consipAgreementOptions: ConsipAgreement[] = [];
   budgetChapterOptions: TOption[] = [];
@@ -152,7 +153,10 @@ export class UtilityEditDialogComponent implements OnInit {
 
   ngOnInit(): void {
     this.assetsService.search({deleted: false}).subscribe({
-      next: data => this.assetOptions = data.sort((a, b) => (a.asset_name ?? '').localeCompare(b.asset_name ?? '')),
+      next: data => {
+        this.assetOptions = data.sort((a, b) => (a.asset_name ?? '').localeCompare(b.asset_name ?? ''));
+        this.assetSelectOptions = this.assetOptions.map(a => ({label: a.asset_name ?? '', value: a.id}));
+      },
       error: err => console.error('Errore nel caricamento dei Fabbricati:', err)
     });
     this.suppliersService.search({deleted: false}).subscribe({

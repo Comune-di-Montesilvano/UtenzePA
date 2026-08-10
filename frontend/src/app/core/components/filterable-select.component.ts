@@ -26,6 +26,8 @@ import {TOption} from '../types/option.interface';
              [matAutocomplete]="auto"
              [placeholder]="placeholder"
              [errorStateMatcher]="errorMatcher"
+             (keydown)="onUserInteraction()"
+             (paste)="onUserInteraction()"
              (blur)="markTouched()">
       <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayFn" (optionSelected)="onOptionSelected($event)">
         @for (opt of filteredOptions; track opt.value) {
@@ -74,10 +76,22 @@ export class FilterableSelectComponent implements ControlValueAccessor {
   private onChangeFn: (value: TOption['value'] | null) => void = () => {};
   private onTouchedFn: () => void = () => {};
 
+  // Angular/Material emettono almeno una valueChanges programmatica su searchControl durante il
+  // wiring iniziale del form-control (indipendente dalle nostre chiamate a setValue, verificato
+  // empiricamente: si presenta anche quando syncDisplayFromValue() non tocca affatto il
+  // controllo). Se la interpretassimo come "l'utente ha cancellato il campo" azzereremmo
+  // silenziosamente e in modo permanente un valore iniziale valido (es. FK già impostata in un
+  // dialog di modifica) prima ancora che le opzioni async siano arrivate. Per questo la logica di
+  // "testo libero senza corrispondenza -> azzera" si attiva solo dopo un'interazione reale da
+  // tastiera/incolla, mai per emissioni di origine framework.
+  private userInteracted = false;
+
   constructor() {
     this.searchControl.valueChanges.subscribe(v => {
       const term = typeof v === 'string' ? v.toLowerCase() : (v?.label ?? '').toLowerCase();
       this.filteredOptions = this._options.filter(o => o.label.toLowerCase().includes(term));
+
+      if (!this.userInteracted) return;
 
       // L'utente ha digitato del testo libero senza selezionare un'opzione
       // dalla lista (o ha svuotato il campo): il valore selezionato non è
@@ -95,6 +109,10 @@ export class FilterableSelectComponent implements ControlValueAccessor {
         }
       }
     });
+  }
+
+  onUserInteraction(): void {
+    this.userInteracted = true;
   }
 
   displayFn = (opt: TOption | string): string => {
@@ -132,6 +150,12 @@ export class FilterableSelectComponent implements ControlValueAccessor {
 
   private syncDisplayFromValue(): void {
     const found = this._options.find(o => o.value === this.value);
+    if (this.value !== null && !found) {
+      // Valore selezionato ma opzione non ancora tra quelle caricate (caricamento asincrono in
+      // corso): non toccare il display, si aggiornerà alla prossima invocazione quando le opzioni
+      // saranno disponibili.
+      return;
+    }
     this.searchControl.setValue(found ?? '', {emitEvent: false});
   }
 }

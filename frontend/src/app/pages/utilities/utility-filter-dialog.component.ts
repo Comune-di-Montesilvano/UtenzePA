@@ -5,7 +5,6 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatSelectModule} from '@angular/material/select';
 import {MatDatepickerModule} from '@angular/material/datepicker';
-import {MatNativeDateModule} from '@angular/material/core';
 import {MatExpansionModule} from '@angular/material/expansion';
 import {MatButtonModule} from '@angular/material/button';
 import {FilterDialogData} from '../../core/components/abstract-search.component';
@@ -69,7 +68,7 @@ export interface UtilityFilterValues {
   standalone: true,
   imports: [
     ReactiveFormsModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatDatepickerModule, MatNativeDateModule, MatExpansionModule, MatButtonModule,
+    MatSelectModule, MatDatepickerModule, MatExpansionModule, MatButtonModule,
     FilterableSelectComponent
   ],
   templateUrl: './utility-filter-dialog.component.html'
