@@ -10,14 +10,14 @@
          [routerLinkActiveOptions]="{ exact: true }"
          (click)="onMainItemClick()"
          >
-        <i [class]="item.icon"></i>
+        <mat-icon>{{ item.icon }}</mat-icon>
         {{ item.label }}
       </a>
 
       <div *ngIf="item.submenu"
            class="menu-item has-submenu"
            (click)="toggleSubmenu(item)">
-        <i [class]="item.icon"></i>
+        <mat-icon>{{ item.icon }}</mat-icon>
         {{ item.label }}
         <span class="arrow" [class.open]="item.open">></span>
       </div>
@@ -29,7 +29,7 @@
              (click)="onSubmenuItemClick(item)"
              routerLinkActive="active-link"
              [routerLinkActiveOptions]="{ exact: true }">
-            <i [class]="sub.icon"></i>
+            <mat-icon>{{ sub.icon }}</mat-icon>
             {{ sub.label }}
           </a>
         </li>
@@ -39,7 +39,7 @@
   </ul>
 
   <div class="sidebar-footer" (click)="logout()">
-    <i class="pi pi-sign-out"></i>
+    <mat-icon>logout</mat-icon>
     <span>Esci</span>
   </div>
 </aside>

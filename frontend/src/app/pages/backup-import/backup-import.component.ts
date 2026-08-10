@@ -1,17 +1,17 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TabsModule } from 'primeng/tabs';
-import { TableModule } from 'primeng/table';
-import { ButtonModule } from 'primeng/button';
-import { InputTextModule } from 'primeng/inputtext';
-import { PasswordModule } from 'primeng/password';
-import { SelectModule } from 'primeng/select';
-import { DialogModule } from 'primeng/dialog';
-import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatTableModule } from '@angular/material/table';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatDialog } from '@angular/material/dialog';
+import { ToastService } from '../../core/services/toast.service';
 import { BackupService, BackupInfo } from './backup.service';
 import { ImportService } from './import.service';
+import { RestoreConfirmDialogComponent, RestoreConfirmDialogData } from './restore-confirm-dialog.component';
 
 interface EntityTypeOption {
   label: string;
@@ -21,33 +21,30 @@ interface EntityTypeOption {
 @Component({
   selector: 'app-backup-import',
   standalone: true,
-  providers: [MessageService],
   imports: [
     CommonModule,
     FormsModule,
-    TabsModule,
-    TableModule,
-    ButtonModule,
-    InputTextModule,
-    PasswordModule,
-    SelectModule,
-    DialogModule,
-    ToastModule,
+    MatTabsModule,
+    MatTableModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatProgressSpinnerModule,
   ],
   templateUrl: './backup-import.component.html',
 })
 export class BackupImportComponent {
   private backupService = inject(BackupService);
   private importService = inject(ImportService);
-  private messageService = inject(MessageService);
+  private toastService = inject(ToastService);
+  private dialog = inject(MatDialog);
 
   backups: BackupInfo[] = [];
+  backupColumns = ['filename', 'size', 'createdAt', 'actions'];
   loadingBackups = false;
   creatingBackup = false;
 
   restoreFile: File | null = null;
-  restoreDialogVisible = false;
-  restorePassword = '';
   restoring = false;
 
   entityTypes: EntityTypeOption[] = [
@@ -79,7 +76,7 @@ export class BackupImportComponent {
       },
       error: () => {
         this.loadingBackups = false;
-        this.messageService.add({ severity: 'error', summary: 'Errore nel caricamento dei backup', key: 'global' });
+        this.toastService.add({ severity: 'error', summary: 'Errore nel caricamento dei backup' });
       },
     });
   }
@@ -89,12 +86,12 @@ export class BackupImportComponent {
     this.backupService.create().subscribe({
       next: () => {
         this.creatingBackup = false;
-        this.messageService.add({ severity: 'success', summary: 'Backup creato', key: 'global' });
+        this.toastService.add({ severity: 'success', summary: 'Backup creato' });
         this.loadBackups();
       },
       error: () => {
         this.creatingBackup = false;
-        this.messageService.add({ severity: 'error', summary: 'Errore nella creazione del backup', key: 'global' });
+        this.toastService.add({ severity: 'error', summary: 'Errore nella creazione del backup' });
       },
     });
   }
@@ -102,11 +99,11 @@ export class BackupImportComponent {
   deleteBackup(filename: string) {
     this.backupService.remove(filename).subscribe({
       next: () => {
-        this.messageService.add({ severity: 'success', summary: 'Backup eliminato', key: 'global' });
+        this.toastService.add({ severity: 'success', summary: 'Backup eliminato' });
         this.loadBackups();
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Errore nella cancellazione del backup', key: 'global' });
+        this.toastService.add({ severity: 'error', summary: 'Errore nella cancellazione del backup' });
       },
     });
   }
@@ -122,7 +119,7 @@ export class BackupImportComponent {
         window.URL.revokeObjectURL(url);
       },
       error: () => {
-        this.messageService.add({ severity: 'error', summary: 'Errore nel download del backup', key: 'global' });
+        this.toastService.add({ severity: 'error', summary: 'Errore nel download del backup' });
       },
     });
   }
@@ -130,36 +127,39 @@ export class BackupImportComponent {
   onRestoreFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     this.restoreFile = input.files?.[0] ?? null;
-    if (this.restoreFile) {
-      this.restoreDialogVisible = true;
-    }
+    if (!this.restoreFile) return;
+
+    this.dialog.open<RestoreConfirmDialogComponent, RestoreConfirmDialogData, string | undefined>(
+      RestoreConfirmDialogComponent,
+      { width: '450px', data: { fileName: this.restoreFile.name } }
+    ).afterClosed().subscribe(password => {
+      if (password) {
+        this.confirmRestore(password);
+      } else {
+        this.restoreFile = null;
+      }
+      input.value = '';
+    });
   }
 
-  confirmRestore() {
-    if (!this.restoreFile || !this.restorePassword) return;
+  private confirmRestore(password: string) {
+    if (!this.restoreFile) return;
 
     this.restoring = true;
-    this.backupService.restore(this.restoreFile, this.restorePassword).subscribe({
+    this.backupService.restore(this.restoreFile, password).subscribe({
       next: () => {
         this.restoring = false;
-        this.restoreDialogVisible = false;
-        this.restorePassword = '';
         this.restoreFile = null;
-        this.messageService.add({ severity: 'success', summary: 'Ripristino completato', key: 'global' });
+        this.toastService.add({ severity: 'success', summary: 'Ripristino completato' });
         this.loadBackups();
       },
       error: (err: any) => {
         this.restoring = false;
+        this.restoreFile = null;
         const detail = err?.error?.message ?? 'Errore nel ripristino';
-        this.messageService.add({ severity: 'error', summary: 'Errore', detail, key: 'global' });
+        this.toastService.add({ severity: 'error', summary: 'Errore', detail });
       },
     });
-  }
-
-  cancelRestore() {
-    this.restoreDialogVisible = false;
-    this.restorePassword = '';
-    this.restoreFile = null;
   }
 
   onImportFileSelected(event: Event) {
@@ -176,12 +176,12 @@ export class BackupImportComponent {
       next: (result) => {
         this.importing = false;
         this.importResult = result;
-        this.messageService.add({ severity: 'success', summary: 'Import completato', key: 'global' });
+        this.toastService.add({ severity: 'success', summary: 'Import completato' });
       },
       error: (err: any) => {
         this.importing = false;
         const detail = err?.error?.message ?? 'Errore nell\'import';
-        this.messageService.add({ severity: 'error', summary: 'Errore', detail, key: 'global' });
+        this.toastService.add({ severity: 'error', summary: 'Errore', detail });
       },
     });
   }

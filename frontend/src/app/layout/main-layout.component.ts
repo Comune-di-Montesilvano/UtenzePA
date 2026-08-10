@@ -2,12 +2,11 @@ import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { SidebarComponent } from '../comp/sidebar/sidebar.component';
 import { AuthService } from '../services/auth.service';
-import { DrawerModule } from 'primeng/drawer';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterModule, SidebarComponent, DrawerModule  ],
+  imports: [RouterModule, SidebarComponent],
   templateUrl: './main-layout.component.html',
   styleUrls: ['./main-layout.component.scss']
 })

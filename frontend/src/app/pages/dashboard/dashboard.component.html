@@ -1,4 +1,4 @@
-<div class="p-grid" style="padding: 1rem;">
+<div style="padding: 1rem;">
   <div>
     <h1>Dashboard</h1>
     <p style="color: #6A7282;">Panoramica generale del sistema di gestione utenze</p>
@@ -9,68 +9,52 @@
       <div style="display:flex; flex-direction: row; align-self: flex-start; gap: 1rem; width: 100%;">
         <!-- COUNTERS -->
         <div style="flex: 1">
-          <p-card>
-            <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
-              <i class="pi pi-truck" style="font-size: 2rem; color: #6A7282;"></i>
+          <mat-card>
+            <mat-card-content style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+              <mat-icon style="font-size: 2rem; width: 2rem; height: 2rem; color: #6A7282;">local_shipping</mat-icon>
               <div>
                 <p style="margin: 0; font-size: 0.85rem; color: #6A7282;">Fornitori</p>
                 <p style="margin: 0; font-size: 1.75rem; font-weight: 700; color: #1E293B;">{{ suppliersCount }}</p>
               </div>
-            </div>
-          </p-card>
+            </mat-card-content>
+          </mat-card>
         </div>
 
         <div style="flex: 1">
-          <p-card>
-            <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
-              <i class="pi pi-users" style="font-size: 2rem; color: #6A7282;"></i>
+          <mat-card>
+            <mat-card-content style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+              <mat-icon style="font-size: 2rem; width: 2rem; height: 2rem; color: #6A7282;">bolt</mat-icon>
               <div>
                 <p style="margin: 0; font-size: 0.85rem; color: #6A7282;">Utenze</p>
                 <p style="margin: 0; font-size: 1.75rem; font-weight: 700; color: #1E293B;">{{ utilitiesCount }}</p>
               </div>
-            </div>
-          </p-card>
+            </mat-card-content>
+          </mat-card>
         </div>
 
         <div style="flex: 1">
-          <p-card>
-            <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
-              <i class="pi pi-building" style="font-size: 2rem; color: #6A7282;"></i>
+          <mat-card>
+            <mat-card-content style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+              <mat-icon style="font-size: 2rem; width: 2rem; height: 2rem; color: #6A7282;">apartment</mat-icon>
               <div>
                 <p style="margin: 0; font-size: 0.85rem; color: #6A7282;">Immobili</p>
                 <p style="margin: 0; font-size: 1.75rem; font-weight: 700; color: #1E293B;">{{ assetsCount }}</p>
               </div>
-            </div>
-          </p-card>
+            </mat-card-content>
+          </mat-card>
         </div>
 
         <div style="flex: 1">
-          <p-card (click)="scroll(consip)" class="cursor-pointer linker">
-            <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
-              <i class="fa fa-handshake-o" style="font-size: 2rem; color: #6A7282;"></i>
+          <mat-card (click)="scroll(consip)" style="cursor: pointer;">
+            <mat-card-content style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+              <mat-icon style="font-size: 2rem; width: 2rem; height: 2rem; color: #6A7282;">handshake</mat-icon>
               <div>
                 <p style="margin: 0; font-size: 0.85rem; color: #6A7282;">Salvaguardia</p>
                 <p style="margin: 0; font-size: 1.75rem; font-weight: 700; color: #1E293B;">{{ safeGuardedUtilitiesList.length }}</p>
               </div>
-            </div>
-          </p-card>
+            </mat-card-content>
+          </mat-card>
         </div>
-
-        <!-- UNCOMMENT IF INVOICE COSTS ARE TO BE SHOWN ON DASHBOARD
-        <p-card>
-          <div style="display: flex; align-items: center; gap: 1rem;">
-            <div
-              style="background: #f5f5f5; border-radius: 50%; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
-              <i class="pi pi-receipt" style="font-size: 1.5rem; color: #6A7282;"></i>
-            </div>
-            <div>
-              <p style="margin: 0; font-size: 0.85rem; color: #6A7282;">Fatture {{ today|date: 'MM/yyyy' }}</p>
-              <p
-                style="margin: 0; font-size: 1.75rem; font-weight: 700; color: #1E293B;">{{ invoiceCosts | formatAmount }}</p>
-            </div>
-          </div>
-        </p-card>
-        -->
 
       </div>
     </div>
@@ -79,62 +63,56 @@
   <div
     style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; align-items: flex-start; width: 100%;">
     <div style="width: 100%;">
-      <p-card class="card-widget">
-        <ng-template #header>
-          <div style="display: flex; flex-direction: row; padding: 1.25rem 1.25rem;">
-            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-              <div class="p-card-title ng-star-inserted">Utenze in scadenza</div>
-              <div class="p-card-subtitle ng-star-inserted">Contratti in scadenza nei prossimi {{ expireDays }} giorni.
-              </div>
-            </div>
-            <div style="display: flex; flex-direction: row; gap: 1rem; align-items: center; margin-left: auto;">
-              <button pButton class="p-button p-button-sm"
-                      (click)="navigateToExpiringUtilities()">
-                <span pButtonLabel>Vedi tutte le utenze in scadenza</span>
-              </button>
-            </div>
+      <mat-card>
+        <mat-card-header style="display: flex; flex-direction: row; padding: 1.25rem 1.25rem;">
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <mat-card-title style="font-size: 1.1rem;">Utenze in scadenza</mat-card-title>
+            <mat-card-subtitle>Contratti in scadenza nei prossimi {{ expireDays }} giorni.</mat-card-subtitle>
           </div>
-        </ng-template>
+          <div style="display: flex; flex-direction: row; gap: 1rem; align-items: center; margin-left: auto;">
+            <button mat-stroked-button (click)="navigateToExpiringUtilities()">
+              Vedi tutte le utenze in scadenza
+            </button>
+          </div>
+        </mat-card-header>
 
-        <p-table
-          [value]="expiringItems"
-          [tableStyle]="{'min-width': '50rem'}"
-          [scrollable]="true"
-          scrollHeight="50vh"
-          class="dashboard-table"
-        >
-          <ng-template pTemplate="header">
-            <tr>
-              <th>Codice</th>
-              <th>Tipo</th>
-              <th>Data Scadenza</th>
-              <th>Giorni Rimanenti</th>
-            </tr>
-          </ng-template>
-
-          <ng-template pTemplate="body" let-item>
-            <tr>
-              <td>{{ item.utility_id }}</td>
-              <td>
-                <p-badge [value]="item.utilityType.name" [severity]="getUtenzaSeverity(item.utilityType)"></p-badge>
-              </td>
-              <td>
-                {{ item.supply_expiry_date | date: 'dd/MM/yyyy' }}
-              </td>
-              <td>
-                <p-tag [value]="item.remainingDays + ' giorni'"
-                       [severity]="getSeverity(item.remainingDays)"></p-tag>
-              </td>
-            </tr>
-          </ng-template>
-
-          <ng-template pTemplate="emptymessage">
-            <tr>
-              <td [attr.colspan]="4" class="text-center">Nessuna scadenza contrattuale imminente.</td>
-            </tr>
-          </ng-template>
-        </p-table>
-      </p-card>
+        <mat-card-content>
+          <div style="overflow-x: auto; max-height: 50vh; overflow-y: auto;">
+            <table style="width: 100%; min-width: 50rem; border-collapse: collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align: left; padding: 0.5rem;">Codice</th>
+                  <th style="text-align: left; padding: 0.5rem;">Tipo</th>
+                  <th style="text-align: left; padding: 0.5rem;">Data Scadenza</th>
+                  <th style="text-align: left; padding: 0.5rem;">Giorni Rimanenti</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of expiringItems; track item.utility_id) {
+                  <tr>
+                    <td style="padding: 0.5rem;">{{ item.utility_id }}</td>
+                    <td style="padding: 0.5rem;">
+                      @if (item.utilityType) {
+                        <span class="badge" [class]="'severity-' + getUtenzaSeverity(item.utilityType)">{{ item.utilityType.name }}</span>
+                      }
+                    </td>
+                    <td style="padding: 0.5rem;">
+                      {{ item.supply_expiry_date | date: 'dd/MM/yyyy' }}
+                    </td>
+                    <td style="padding: 0.5rem;">
+                      <span class="badge" [class]="'severity-' + getSeverity(item.remainingDays)">{{ item.remainingDays }} giorni</span>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="4" style="text-align: center; padding: 1rem;">Nessuna scadenza contrattuale imminente.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </mat-card-content>
+      </mat-card>
     </div>
   </div>
 
@@ -145,55 +123,47 @@
     style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; align-items: flex-start; width: 100%;"
     #consip>
     <div style="width: 100%;">
-      <p-card class="card-widget">
-        <ng-template #header>
-          <div style="display: flex; flex-direction: row; padding: 1.25rem 1.25rem;">
-            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-              <div class="p-card-title ng-star-inserted">Convenzioni CONSIP</div>
-              <div class="p-card-subtitle ng-star-inserted">Utenze in salvaguardia</div>
-            </div>
-            <div style="display: flex; flex-direction: row; gap: 1rem; align-items: center; margin-left: auto;">
-              <button pButton class="p-button p-button-sm"
-                      (click)="navigateToSafeguard()">
-                <span pButtonLabel>Vedi tutte le utenze in salvaguardia</span>
-              </button>
-            </div>
+      <mat-card>
+        <mat-card-header style="display: flex; flex-direction: row; padding: 1.25rem 1.25rem;">
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <mat-card-title style="font-size: 1.1rem;">Convenzioni CONSIP</mat-card-title>
+            <mat-card-subtitle>Utenze in salvaguardia</mat-card-subtitle>
           </div>
-        </ng-template>
-        <p-table
-          [value]="safeGuardedUtilitiesList"
-          [tableStyle]="{'min-width': '50rem'}"
-          [scrollable]="true"
-          scrollHeight="50vh"
-          class="dashboard-table p-selectable-row"
-          selectionMode="single"
-          [size]="'small'"
-          style="margin-top: 0;">
-          <ng-template pTemplate="header">
-            <tr>
-              <th>Codice</th>
-              <th>Tipo Utenza</th>
-              <th>Convezione CONSIP</th>
-              <th>Scadenza</th>
-            </tr>
-          </ng-template>
-
-          <ng-template pTemplate="body" let-item>
-            <tr>
-              <td>{{ item.utility_id }}</td>
-              <td> {{ item.utilityType?.name }}</td>
-              <td> {{ item.consipAgreement?.name }}</td>
-              <td>{{ item.consipAgreement?.expiration_date | date: 'dd/MM/yyyy' }}</td>
-            </tr>
-          </ng-template>
-
-          <ng-template pTemplate="emptymessage">
-            <tr>
-              <td [attr.colspan]="4" class="text-center">Nessuna utenza.</td>
-            </tr>
-          </ng-template>
-        </p-table>
-      </p-card>
+          <div style="display: flex; flex-direction: row; gap: 1rem; align-items: center; margin-left: auto;">
+            <button mat-stroked-button (click)="navigateToSafeguard()">
+              Vedi tutte le utenze in salvaguardia
+            </button>
+          </div>
+        </mat-card-header>
+        <mat-card-content>
+          <div style="overflow-x: auto; max-height: 50vh; overflow-y: auto;">
+            <table style="width: 100%; min-width: 50rem; border-collapse: collapse;">
+              <thead>
+                <tr>
+                  <th style="text-align: left; padding: 0.5rem;">Codice</th>
+                  <th style="text-align: left; padding: 0.5rem;">Tipo Utenza</th>
+                  <th style="text-align: left; padding: 0.5rem;">Convezione CONSIP</th>
+                  <th style="text-align: left; padding: 0.5rem;">Scadenza</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of safeGuardedUtilitiesList; track item.utility_id) {
+                  <tr>
+                    <td style="padding: 0.5rem;">{{ item.utility_id }}</td>
+                    <td style="padding: 0.5rem;">{{ item.utilityType?.name }}</td>
+                    <td style="padding: 0.5rem;">{{ item.consipAgreement?.name }}</td>
+                    <td style="padding: 0.5rem;">{{ item.consipAgreement?.expiration_date | date: 'dd/MM/yyyy' }}</td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="4" style="text-align: center; padding: 1rem;">Nessuna utenza.</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </mat-card-content>
+      </mat-card>
     </div>
   </div>
 
