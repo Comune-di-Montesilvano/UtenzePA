@@ -11,7 +11,7 @@ Monorepo semplice (nessun workspace tool): `backend/` (NestJS) + `frontend/` (An
 | Servizio | Stack | Porta default |
 |---|---|---|
 | Backend API | NestJS 11 (Node ≥24) | 3000 (debug 9229) |
-| Frontend | Angular 20 + PrimeNG 20 | 4300 |
+| Frontend | Angular 20 + Angular Material 20 | 4300 |
 | Database | MySQL 8 | 3307 |
 
 **Versioni tool**: usare sempre Docker per lanciare comandi che richiedono versioni software specifiche (`npm install`, build, ecc.) — l'host locale può avere Node/npm diversi da quelli richiesti dal progetto (`backend/package.json` richiede Node ≥24, potrebbe non corrispondere alla versione installata sulla macchina). `docker exec` sul container `api` (avviato con l'override di sviluppo) garantisce la versione corretta.
@@ -72,7 +72,7 @@ ng test               # Karma/Jasmine (non presente come script npm)
 ```
 Nessun ESLint configurato sul frontend.
 
-PrimeNG 20 installata usa la nuova Tabs API (`TabsModule` da `primeng/tabs`, markup `<p-tabs><p-tablist><p-tab>...<p-tabpanels><p-tabpanel>`) — non `TabViewModule`/`p-tabView` (API precedente, non presente in questa versione). Pattern di riferimento in repo: `pages/assets/data-table-assets.component.html`.
+PrimeNG rimosso interamente dal frontend (migrazione completa a Angular Material — `primeng`/`@primeuix/themes`/`primeicons` non più in `package.json`). Icone: Material Icons (font caricato in `index.html`), font-awesome resta per pochi usi residui (es. `hard-type.enum.ts`).
 
 ## Architettura
 
@@ -88,7 +88,7 @@ PrimeNG 20 installata usa la nuova Tabs API (`TabsModule` da `primeng/tabs`, mar
 - Conventional Commits imposti via commitlint + husky/lint-staged (pre-commit).
 
 ### Frontend
-- Angular standalone components (no NgModule-based feature modules), tema PrimeNG "Aura".
+- Angular standalone components (no NgModule-based feature modules), Angular Material.
 - `src/app/pages/` (viste), `src/app/core/` (components/directives/entities/helpers/interfaces/pipes/services/types/validators), `src/app/services/` (es. `auth.service.ts`), `src/app/guards/`.
 - Nessuno state manager dedicato (no NgRx/Akita): stato gestito via Angular services + RxJS.
 - Config ambiente in `src/environments/environment*.ts` (dev/stage/prod) — contiene `apiUrl` del backend e DSN Sentry. `apiUrl` legge prima `window.__UTENZEPA_CONFIG__` (iniettata a runtime da `nginx/20-runtime-config.sh` via `API_URL` env, vedi `runtime-config.ts`), fallback al valore statico compilato se assente (es. `ng serve`, nessun nginx). Nessun proxy CLI: le chiamate HTTP vanno dirette all'`apiUrl` risolto (frontend e backend sono origin diverse, non stesso dominio via reverse-proxy) — CORS è ristretto via `CORS_ORIGIN` (`main.ts` legge la variabile, non più `cors: true` hardcoded).
@@ -119,7 +119,9 @@ Primo giro (soft, da PR dedicata) per adeguare il repo alle convenzioni usate ne
 
 **Debug "il wizard/login non risponde" su un deploy**: quasi sempre `CORS_ORIGIN`/`API_URL` non allineati all'origine reale del browser (`SetupService.getStatus()` in errore di rete ritorna `false` di default, indistinguibile da "admin già esiste" senza controllare la Network tab), oppure c'è già un admin in `system_users`. Controllare prima quei due prima di sospettare un bug applicativo.
 
-Dependabot: `@angular/*` e `@sentry/*` raggruppati in un'unica PR ciascuno (`.github/dependabot.yml`) — i pacchetti di una stessa famiglia vanno aggiornati insieme, un bump isolato rompe il peer dependency resolution (visto su PR #4/#7/#8 Angular, PR #11/#16 Sentry). `@angular/animations` resta fuori dal gruppo perché non è dichiarata come dipendenza diretta in `package.json` (solo transitiva) — dependabot non la vede, va aggiunta esplicitamente prima di riprovare la migrazione Angular 20→22 (PR #29).
+Dependabot: `@angular/*` e `@sentry/*` raggruppati in un'unica PR ciascuno (`.github/dependabot.yml`) — i pacchetti di una stessa famiglia vanno aggiornati insieme, un bump isolato rompe il peer dependency resolution (visto su PR #4/#7/#8 Angular, PR #11/#16 Sentry). `@angular/animations` era transitiva (mai dichiarata diretta) finché dipendeva da `primeng`; con la rimozione di PrimeNG è stata dichiarata esplicita in `package.json` (serve direttamente a `provideAnimationsAsync()`) — va comunque tenuta nel gruppo dependabot `@angular/*` andando avanti, altrimenti un bump isolato rompe di nuovo il peer dependency resolution (visto: `@angular/animations` richiede match esatto della versione di `@angular/core`, non solo compatibile in semver).
+
+**Blocco Angular 22 risolto**: la migrazione Angular 20→22 (PR #29) era bloccata da PrimeNG 22 diventato a pagamento. PrimeNG è stato rimosso interamente dal frontend (vedi sopra) — il blocco non sussiste più, il bump Angular 22 resta solo da pianificare/eseguire.
 
 `tests.yml` esegue `npm run build` sia su backend sia su frontend (non solo lint+test) — un errore di tipo non preso da `ts-jest` (isolatedModules) può comunque rompere `nest build`/Docker, come successo con Sentry.
 
