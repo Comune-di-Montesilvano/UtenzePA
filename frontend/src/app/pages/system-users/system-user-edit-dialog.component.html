@@ -4,7 +4,7 @@
 
 <mat-dialog-content>
   <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Nome *</mat-label>
       <input matInput formControlName="firstName">
       @if (form.controls.firstName.invalid && form.controls.firstName.touched) {
@@ -12,7 +12,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Cognome *</mat-label>
       <input matInput formControlName="lastName">
       @if (form.controls.lastName.invalid && form.controls.lastName.touched) {
@@ -20,7 +20,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Email *</mat-label>
       <input matInput type="email" formControlName="email">
       @if (form.controls.email.errors?.['required'] && form.controls.email.touched) {
@@ -30,7 +30,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Ruolo *</mat-label>
       <mat-select formControlName="role">
         @for (opt of roleOptions; track opt.value) {
@@ -42,7 +42,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Status *</mat-label>
       <mat-select formControlName="status">
         @for (opt of statusOptions; track opt.value) {

@@ -5,7 +5,7 @@
 <mat-dialog-content>
   <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>ID Fattura *</mat-label>
       <input matInput formControlName="invoice_id">
       @if (form.controls.invoice_id.invalid && form.controls.invoice_id.touched) {
@@ -13,7 +13,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Numero Protocollo *</mat-label>
       <input matInput formControlName="protocol_number">
       @if (form.controls.protocol_number.invalid && form.controls.protocol_number.touched) {
@@ -21,7 +21,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Data Fattura *</mat-label>
       <input matInput [matDatepicker]="invoiceDatePicker" formControlName="invoice_date" placeholder="GG/MM/AAAA">
       <mat-datepicker-toggle matIconSuffix [for]="invoiceDatePicker"></mat-datepicker-toggle>
@@ -31,7 +31,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Importo Netto (IVA Esclusa) * (€)</mat-label>
       <input matInput type="number" step="0.01" formControlName="net_amount_excl_vat">
       @if (form.controls.net_amount_excl_vat.invalid && form.controls.net_amount_excl_vat.touched) {
@@ -39,7 +39,7 @@
       }
     </mat-form-field>
 
-    <div style="flex: 1 1 45%;">
+    <div style="flex: 1 1 21%;">
       <app-filterable-select
         label="Utenza Associata *"
         placeholder="Cerca utenza..."
@@ -49,7 +49,7 @@
       </app-filterable-select>
     </div>
 
-    <div style="flex: 1 1 45%;">
+    <div style="flex: 1 1 21%;">
       <app-filterable-select
         label="Fornitore"
         placeholder="Cerca fornitore..."
@@ -58,7 +58,7 @@
       </app-filterable-select>
     </div>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Capitoli di Spesa Associati</mat-label>
       <mat-select formControlName="budget_chapter_ids" multiple>
         @for (opt of budgetChapterOptions; track opt.id) {
@@ -67,7 +67,7 @@
       </mat-select>
     </mat-form-field>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Morosità Ultima Fattura * (€)</mat-label>
       <input matInput type="number" step="0.01" formControlName="last_invoice_arrears">
       @if (form.controls.last_invoice_arrears.invalid && form.controls.last_invoice_arrears.touched) {

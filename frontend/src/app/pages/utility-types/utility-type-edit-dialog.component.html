@@ -4,7 +4,7 @@
 
 <mat-dialog-content>
   <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Nome *</mat-label>
       <input matInput formControlName="name">
       @if (form.controls.name.invalid && form.controls.name.touched) {
@@ -29,7 +29,7 @@
       <input matInput formControlName="description">
     </mat-form-field>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Finalità Generiche</mat-label>
       <mat-select formControlName="generic_purpose_ids" multiple>
         @for (p of genericPurposes; track p.id) {
@@ -38,7 +38,7 @@
       </mat-select>
     </mat-form-field>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Finalità Specifiche</mat-label>
       <mat-select formControlName="specific_purpose_ids" multiple>
         @for (p of specificPurposes; track p.id) {

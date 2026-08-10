@@ -4,7 +4,7 @@
 
 <mat-dialog-content>
   <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Codice *</mat-label>
       <input matInput formControlName="code">
       @if (form.controls.code.invalid && form.controls.code.touched) {

@@ -4,7 +4,7 @@
 
 <mat-dialog-content>
   <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Nome *</mat-label>
       <input matInput formControlName="name">
       @if (form.controls.name.invalid && form.controls.name.touched) {
@@ -12,7 +12,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>CIG Master *</mat-label>
       <input matInput formControlName="cig_master" maxlength="10">
       @if (form.controls.cig_master.invalid && form.controls.cig_master.touched) {
@@ -20,7 +20,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Data scadenza *</mat-label>
       <input matInput [matDatepicker]="expirationPicker" formControlName="expiration_date" placeholder="GG/MM/AAAA">
       <mat-datepicker-toggle matSuffix [for]="expirationPicker"></mat-datepicker-toggle>
@@ -32,7 +32,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Salvaguardia</mat-label>
       <mat-select formControlName="safeguard">
         <mat-option [value]="null">Non specificato</mat-option>

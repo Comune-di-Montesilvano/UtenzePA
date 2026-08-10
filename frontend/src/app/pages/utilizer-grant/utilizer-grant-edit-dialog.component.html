@@ -14,7 +14,7 @@
       </app-filterable-select>
     </div>
 
-    <div style="flex: 1 1 45%;">
+    <div style="flex: 1 1 21%;">
       <app-filterable-select
         label="Immobile Associato *"
         placeholder="Cerca immobile..."
@@ -24,12 +24,12 @@
       </app-filterable-select>
     </div>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Tipo Utilizzo</mat-label>
       <input matInput formControlName="usage_type" placeholder="Inserisci il tipo di utilizzo">
     </mat-form-field>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Data Concessione Contratto</mat-label>
       <input matInput [matDatepicker]="grantPicker" formControlName="grant_date" placeholder="GG/MM/AAAA">
       <mat-datepicker-toggle matSuffix [for]="grantPicker"></mat-datepicker-toggle>
@@ -39,7 +39,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field style="flex: 1 1 45%;">
+    <mat-form-field style="flex: 1 1 21%;">
       <mat-label>Data Scadenza Contratto</mat-label>
       <input matInput [matDatepicker]="expirePicker" formControlName="expire_date" placeholder="GG/MM/AAAA">
       <mat-datepicker-toggle matSuffix [for]="expirePicker"></mat-datepicker-toggle>

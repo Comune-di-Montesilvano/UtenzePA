@@ -93,7 +93,8 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
 
   openCreateDialog(): void {
     this.dialog.open<unknown, EditDialogData<T>, T | undefined>(this.editDialogComponent(), {
-      width: '600px',
+      width: this.editDialogWidth(),
+      maxWidth: this.editDialogWidth(),
       data: {mode: 'create', item: this.itemInstance()}
     }).afterClosed().subscribe(result => {
       if (result) this.onCreate.emit(result);
@@ -102,7 +103,8 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
 
   openEditDialog(item: T): void {
     this.dialog.open<unknown, EditDialogData<T>, T | undefined>(this.editDialogComponent(), {
-      width: '600px',
+      width: this.editDialogWidth(),
+      maxWidth: this.editDialogWidth(),
       data: {mode: 'edit', item: {...item}}
     }).afterClosed().subscribe(result => {
       if (result) this.onSave.emit(result);
@@ -112,6 +114,12 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
   abstract itemInstance(): T;
 
   abstract editDialogComponent(): Type<unknown>;
+
+  // MatDialog di default applica max-width: 560px (MDC) indipendentemente da `width` — va
+  // sovrascritto esplicitamente, altrimenti un `width` più largo viene clampato silenziosamente.
+  protected editDialogWidth(): string {
+    return '1150px';
+  }
 
   /** Etichetta minuscola dell'entità usata nei messaggi dei dialog generici (es. "finalità d'uso"). */
   protected abstract entityLabel(): string;
