@@ -47,7 +47,7 @@ export class ImportController {
     @Body() dto: UploadChunkDto,
   ): Promise<{ received: boolean }> {
     this.resolveEntityType(entityType);
-    const maxSizeBytes = (parseInt(process.env.IMPORT_MAX_SIZE_MB ?? '50', 10)) * 1024 * 1024;
+    const maxSizeBytes = parseInt(process.env.IMPORT_MAX_SIZE_MB ?? '50', 10) * 1024 * 1024;
     this.chunkedUpload.saveChunk(
       dto.uploadId,
       dto.chunkIndex,
@@ -65,7 +65,12 @@ export class ImportController {
     @Body() dto: ImportFinalizeDto,
   ): Promise<Record<string, unknown>> {
     const type = this.resolveEntityType(entityType);
-    const filePath = this.chunkedUpload.assemble(dto.uploadId, dto.totalChunks, this.tmpDir, `${dto.uploadId}.csv`);
+    const filePath = this.chunkedUpload.assemble(
+      dto.uploadId,
+      dto.totalChunks,
+      this.tmpDir,
+      `${dto.uploadId}.csv`,
+    );
     try {
       return await this.importService.importFromFile(type, filePath);
     } finally {

@@ -6,7 +6,10 @@ import { ImportEntityType } from './entity-type.enum';
 export class ImportService {
   constructor(private readonly dataImporter: DataImporterService) {}
 
-  async importFromFile(entityType: ImportEntityType, filePath: string): Promise<Record<string, unknown>> {
+  async importFromFile(
+    entityType: ImportEntityType,
+    filePath: string,
+  ): Promise<Record<string, unknown>> {
     switch (entityType) {
       case ImportEntityType.ASSETS:
         return this.dataImporter.importAssets(filePath);

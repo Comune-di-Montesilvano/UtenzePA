@@ -44,7 +44,7 @@ export class ChunkedUploadService {
   private uploadedSize(uploadId: string, destDir: string): number {
     const prefix = `${uploadId}.chunk`;
     let total = 0;
-    let entries: string[] = [];
+    let entries: string[];
     try {
       entries = fs.readdirSync(destDir);
     } catch {

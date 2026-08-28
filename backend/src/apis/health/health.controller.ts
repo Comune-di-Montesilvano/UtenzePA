@@ -37,7 +37,10 @@ export class HealthController {
   @Public()
   @ApiOperation({ summary: 'Readiness probe for Kubernetes' })
   @ApiResponse({ status: 200, description: 'Application is ready' })
-  @ApiResponse({ status: 503, description: 'Application is not ready (es. database irraggiungibile)' })
+  @ApiResponse({
+    status: 503,
+    description: 'Application is not ready (es. database irraggiungibile)',
+  })
   async readiness() {
     const result = await this.healthService.isReady();
     if (result.status !== 'ready') {

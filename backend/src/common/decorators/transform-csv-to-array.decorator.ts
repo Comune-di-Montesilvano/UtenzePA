@@ -1,4 +1,3 @@
-
 import { Transform } from 'class-transformer';
 
 export function TransformCsvToArray(): PropertyDecorator {
@@ -8,17 +7,18 @@ export function TransformCsvToArray(): PropertyDecorator {
     }
 
     if (Array.isArray(value)) {
-      return value.map(item => Number(item));
+      return value.map((item) => Number(item));
     }
 
     if (typeof value === 'string') {
-      return value.split(',')
-        .map(item => Number(item.trim()))
-        .filter(num => !isNaN(num));
+      return value
+        .split(',')
+        .map((item) => Number(item.trim()))
+        .filter((num) => !isNaN(num));
     }
 
     if (typeof value === 'number') {
-        return [value];
+      return [value];
     }
 
     return value;
