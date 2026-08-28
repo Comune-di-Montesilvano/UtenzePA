@@ -5,10 +5,12 @@ FROM node:24 AS base
 
 WORKDIR /app
 
-# Copia package.json e package-lock.json
-COPY package*.json ./
+RUN corepack enable
 
-RUN npm install
+# Copia package.json, pnpm-lock.yaml e pnpm-workspace.yaml
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+RUN pnpm install
 
 # Copia tutto il resto del progetto
 COPY . .
@@ -19,7 +21,7 @@ COPY . .
 FROM base AS dev
 
 # Installazione globale di Angular CLI
-RUN npm install -g @angular/cli
+RUN pnpm install -g @angular/cli
 
 EXPOSE 4300
 
@@ -32,7 +34,7 @@ CMD ["ng", "serve", "--host", "0.0.0.0", "--port", "4300", "--poll", "2000"]
 FROM base AS build
 
 # Costruisci l'app in produzione
-RUN npm run build --configuration=production
+RUN pnpm run build -- --configuration=production
 
 # -------------------
 # Stage 4: produzione con nginx
