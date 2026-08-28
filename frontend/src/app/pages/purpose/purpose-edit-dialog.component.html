@@ -1,0 +1,32 @@
+<h2 mat-dialog-title>
+  {{ isNew ? 'Crea nuova finalità d\'uso' : 'Modifica finalità d\'uso: ' + data.item.name }}
+</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+    <mat-form-field style="flex: 1 1 21%;">
+      <mat-label>Nome *</mat-label>
+      <input matInput formControlName="name">
+      @if (form.controls.name.invalid && form.controls.name.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 50%;">
+      <mat-label>Tipo uso *</mat-label>
+      <mat-select formControlName="use_type">
+        @for (opt of useTypeOptions; track opt.value) {
+          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+        }
+      </mat-select>
+      @if (form.controls.use_type.invalid && form.controls.use_type.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button (click)="cancel()">Annulla</button>
+  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">Salva</button>
+</mat-dialog-actions>

@@ -1,199 +1,62 @@
 <div style="display: flex; justify-content: space-between; align-items: center;">
   <h3>Elenco ({{data.length}})</h3>
-  <button
-    pButton
-    class="p-button p-component"
-    (click)="openCreateDialog()"
-    [appHasRole]="['Admin', 'Operatore']"
-  >
-    <i pButtonIcon class="pi pi-plus"></i>
-    <span pButtonLabel>Aggiungi tipologia</span>
+  <button mat-flat-button (click)="openCreateDialog()" [appHasRole]="['Admin', 'Operatore']">
+    <mat-icon>add</mat-icon>
+    Aggiungi tipologia
   </button>
 </div>
-<p-table
-  [value]="loading ? skeletonRows : data"
-  [paginator]="true"
-  [rows]="10"
-  paginatorPosition="bottom"
-  [scrollable]="true"
-  [scrollHeight]="(height - 500) + 'px'"
-  #myTable
-  [style]="{ '--row-height': rowHeight + 'px' }"
-  class="dynamic-rows"
-  [size]="'small'"
-  [rowsPerPageOptions]=rowsPerPageOptions
->
-  <ng-template pTemplate="header">
-    <tr>
-      <th style="min-width: 100px;">Azioni</th>
-      <th style="min-width: 50px;" pSortableColumn="id">ID
-        <p-sortIcon field="id"></p-sortIcon>
-      </th>
-      <th style="min-width: 120px;" pSortableColumn="name">Nome Tipologia Uso
-        <p-sortIcon field="name"></p-sortIcon>
-      </th>
-      <th style="min-width: 120px;" pSortableColumn="hard_type">Tipo Contatore
-        <p-sortIcon field="hard_type"></p-sortIcon>
-      </th>
-      <th style="min-width: 120px;" pSortableColumn="description">Descrizione
-        <p-sortIcon field="description"></p-sortIcon>
-      </th>
-    </tr>
-  </ng-template>
 
-  <ng-template pTemplate="body" let-item>
-    @if (loading) {
-      <tr>
-        @for (col of skeletonCols; track col) {
-          <td><p-skeleton height="1.5rem"/></td>
-        }
-      </tr>
-    } @else {
-      <tr [ngClass]="{ 'row-deleted': item.deleted }">
-        <td>
-          <button pButton icon="pi pi-pencil" class="p-button-text p-button-sm action-button"
-                  (click)="openEditDialog(item)" [appHasRole]="['Admin', 'Operatore', 'Lettore']"></button>
-          <button
-            pButton
-            class="p-button-text p-button-sm action-button"
-            [icon]="item.deleted ? 'pi pi-undo' : 'pi pi-trash'"
-            [ngClass]="item.deleted ? 'p-button-success' : 'p-button-danger'"
-            (click)="item.deleted ? restoreItem(item) : openDeleteDialog(item)"
-            [appHasRole]="['Admin', 'Operatore']">
-          </button>
-        </td>
-        <td>{{ item.id }}</td>
-        <td>{{ item.name }}</td>
-        <td>{{ getHardTypeDescription(item.hard_type) }}</td>
-        <td>{{ item.description }}</td>
-      </tr>
-    }
-  </ng-template>
+@if (loading) {
+  <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+}
 
-  <ng-template pTemplate="emptymessage">
-    <tr>
-      <td colspan="5" class="text-center">Nessuna tipologia contatore trovata.</td>
-    </tr>
-  </ng-template>
-</p-table>
+<table mat-table [dataSource]="dataSource" matSort #sort="matSort" class="mat-elevation-z1">
 
-<p-dialog
-  [header]="isNew ? `Crea nuova tipologia` : `Modifica tipologia: ` + selectedItem?.name"
-  [(visible)]="editDialogVisible"
-  [modal]="true"
-  [style]="{width: '600px'}">
+  <ng-container matColumnDef="actions">
+    <th mat-header-cell *matHeaderCellDef>Azioni</th>
+    <td mat-cell *matCellDef="let item">
+      <button mat-icon-button (click)="openEditDialog(item)" [appHasRole]="['Admin', 'Operatore', 'Lettore']"
+              matTooltip="Modifica" aria-label="Modifica">
+        <mat-icon>edit</mat-icon>
+      </button>
+      <button mat-icon-button
+              [class.mat-action-success]="item.deleted"
+              [class.mat-action-danger]="!item.deleted"
+              (click)="item.deleted ? restoreItem(item) : openDeleteDialog(item)"
+              [appHasRole]="['Admin', 'Operatore']"
+              [matTooltip]="item.deleted ? 'Ripristina' : 'Elimina'"
+              [attr.aria-label]="item.deleted ? 'Ripristina' : 'Elimina'">
+        <mat-icon>{{ item.deleted ? 'restore' : 'delete' }}</mat-icon>
+      </button>
+    </td>
+  </ng-container>
 
-  @if (form) {
-    <form [formGroup]="form" [readOnly]="['Lettore']" class="edit-form"
-          style="display: flex; flex-wrap: wrap; gap: 1rem;">
+  <ng-container matColumnDef="id">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>ID</th>
+    <td mat-cell *matCellDef="let item">{{ item.id }}</td>
+  </ng-container>
 
-      <div style="flex: 1 1 45%;">
-        <label for="name">Nome *</label>
-        <input id="name" type="text" pInputText formControlName="name"
-               class="p-inputtext p-component" style="width: 100%;"
-               [class.ng-invalid]="form.controls['name'].invalid && form.controls['name'].touched"
-               [class.ng-dirty]="form.controls['name'].dirty">
-        @if (form.controls['name'].invalid && form.controls['name'].touched) {
-          <small class="p-error">Il nome è Obbligatorio</small>
-        }
-      </div>
+  <ng-container matColumnDef="name">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Nome Tipologia Uso</th>
+    <td mat-cell *matCellDef="let item">{{ item.name }}</td>
+  </ng-container>
 
-      <div style="flex: 1 1 50%; overflow: hidden;">
-        <label for="hard_type">Tipo Contatore *</label>
-        <p-select
-          id="hard_type"
-          [options]="hardTypeOptions"
-          formControlName="hard_type"
-          optionLabel="label"
-          optionValue="value"
-          placeholder="Seleziona tipo contatore"
-          [showClear]="true"
-          style="width: 100%;"
-          class="p-select-wide-wrap"
-          [appendTo]="'body'"
-          [class.ng-invalid]="form.controls['hard_type'].invalid && form.controls['hard_type'].touched"
-        />
-        @if (form.controls['hard_type'].invalid && form.controls['hard_type'].touched) {
-          <small class="p-error">Il tipo contatore è Obbligatorio</small>
-        }
-      </div>
+  <ng-container matColumnDef="hard_type">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Tipo Contatore</th>
+    <td mat-cell *matCellDef="let item">{{ getHardTypeDescription(item.hard_type) }}</td>
+  </ng-container>
 
-      <div style="flex: 1 1 100%;">
-        <label for="description">Descrizione</label>
-        <input id="description" type="text" pInputText formControlName="description"
-               class="p-inputtext p-component" style="width: 100%;">
-      </div>
+  <ng-container matColumnDef="description">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Descrizione</th>
+    <td mat-cell *matCellDef="let item">{{ item.description }}</td>
+  </ng-container>
 
-      <div style="display: flex; gap: 1rem; width: 100%;">
-        <div style="flex: 1; min-width: 0;">
-          <label>Finalità Generiche</label>
-          <p-multiSelect
-            [options]="genericPurposes"
-            formControlName="generic_purpose_ids"
-            optionLabel="name"
-            optionValue="id"
-            placeholder="Seleziona finalità generiche"
-            [appendTo]="'body'"
-            [maxSelectedLabels]="1"
-            selectedItemsLabel="{0} finalità selezionate"
-            style="width: 100%;">
-          </p-multiSelect>
-        </div>
+  <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+  <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.row-deleted]="row.deleted"></tr>
 
-        <div style="flex: 1; min-width: 0;">
-          <label>Finalità Specifiche</label>
-          <p-multiSelect
-            [options]="specificPurposes"
-            formControlName="specific_purpose_ids"
-            optionLabel="name"
-            optionValue="id"
-            placeholder="Seleziona finalità specifiche"
-            [appendTo]="'body'"
-            [maxSelectedLabels]="1"
-            selectedItemsLabel="{0} finalità selezionate"
-            style="width: 100%;"
-          />
-        </div>
-      </div>
+  <tr class="mat-row" *matNoDataRow>
+    <td class="mat-cell" [attr.colspan]="displayedColumns.length">Nessuna tipologia contatore trovata.</td>
+  </tr>
+</table>
 
-    </form>
-  }
-
-  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-    <button pButton class="p-button-secondary p-component" (click)="editDialogVisible=false">
-      <span pButtonLabel>Annulla</span>
-    </button>
-    <button pButton class="p-button p-component" (click)="saveItem()"
-            [appHasRole]="['Admin', 'Operatore']"
-            [disabled]="!isFormValid()">
-      <span pButtonLabel>Salva</span>
-    </button>
-  </div>
-
-</p-dialog>
-
-<p-dialog header="Elimina tipologia" [(visible)]="deleteDialogVisible" [modal]="true" [style]="{width: '350px'}">
-  <p style="margin-bottom: 50px;">Elimina tipologia <b>{{ selectedItem?.name }}</b>?</p>
-  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-    <button pButton class="p-button-secondary p-component" (click)="deleteDialogVisible=false">
-      <span pButtonLabel>Annulla</span>
-    </button>
-    <button pButton (click)="confirmDelete()" severity="danger">
-      <span pButtonLabel>Elimina</span>
-    </button>
-  </div>
-</p-dialog>
-
-<p-dialog header="Ripristina tipologia" [(visible)]="restoreDialogVisible" [modal]="true"
-          [style]="{width: '350px'}">
-  <p style="margin-bottom: 50px;">Riattiva tipologia <b>{{ selectedItem?.name }}</b>?</p>
-  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-    <button pButton class="p-button-secondary p-component"
-            (click)="restoreDialogVisible=false">
-      <span pButtonLabel>Annulla</span>
-    </button>
-    <button pButton class="p-button p-component" (click)="confirmRestore()">
-      <span pButtonLabel>Riattiva</span>
-    </button>
-  </div>
-</p-dialog>
+<mat-paginator #paginator [pageSizeOptions]="rowsPerPageOptions" [pageSize]="10"></mat-paginator>

@@ -1,13 +1,6 @@
-import {Component} from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {FormsModule} from '@angular/forms';
-import {InputTextModule} from 'primeng/inputtext';
-import {ButtonModule} from 'primeng/button';
-import {TableModule} from 'primeng/table';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {DataTableSuppliersComponent} from './data-table-suppliers.component';
 import {SearchSuppliersComponent} from './search-suppliers.component';
-import {MessageService} from 'primeng/api';
-import {ToastModule} from 'primeng/toast';
 import {SuppliersService} from './suppliers.service';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {Supplier} from './entity/supplier.entity';
@@ -15,26 +8,14 @@ import {Supplier} from './entity/supplier.entity';
 @Component({
   selector: 'app-suppliers',
   standalone: true,
-  providers: [MessageService],
   imports: [
-    CommonModule,
-    FormsModule,
-    InputTextModule,
-    ButtonModule,
-    TableModule,
     DataTableSuppliersComponent,
-    SearchSuppliersComponent,
-    ToastModule
+    SearchSuppliersComponent
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './suppliers.component.html'
 })
 export class SuppliersComponent extends AbstractComponent<Supplier> {
-
-  creationResult?: { success: boolean; message?: string };
-
-  get suppliers(): Supplier[] {
-    return this.list;
-  }
 
   constructor(protected override service: SuppliersService) {
     super();
@@ -65,12 +46,15 @@ export class SuppliersComponent extends AbstractComponent<Supplier> {
     this.service.create(payload).subscribe({
       next: (item: Supplier) => {
         this.list.push(item);
-        this.messageService.add({severity: 'success', summary: 'Anagrafica Fornitore creata', detail: this.getEntityIdentifier(item), key: 'global'});
-        this.creationResult = {success: true, message: 'Anagrafica Fornitore creata con successo'};
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Anagrafica Fornitore creata',
+          detail: this.getEntityIdentifier(item),
+          key: 'global'
+        });
         this.loadAll();
       },
       error: (err: any) => {
-        this.creationResult = {success: false};
         this.handleError(err, 'Errore generico nella creazione anagrafica');
       }
     });

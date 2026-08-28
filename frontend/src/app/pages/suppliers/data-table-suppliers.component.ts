@@ -1,47 +1,37 @@
-import {Component} from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {TableModule} from 'primeng/table';
-import {DialogModule} from 'primeng/dialog';
-import {ButtonModule} from 'primeng/button';
-import {ReactiveFormsModule, Validators} from '@angular/forms';
-import {SelectModule} from 'primeng/select';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
+import {MatTableModule} from '@angular/material/table';
+import {MatSortModule} from '@angular/material/sort';
+import {MatPaginatorModule} from '@angular/material/paginator';
+import {MatButtonModule} from '@angular/material/button';
+import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
+import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
-import {TooltipModule} from 'primeng/tooltip';
-import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
-import {InputTextModule} from 'primeng/inputtext';
 import {Supplier} from './entity/supplier.entity';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
-import {SkeletonModule} from 'primeng/skeleton';
-import {
-  italianPostalCodeValidator,
-  italianTaxCodeValidator,
-  italianVatNumberValidator,
-  taxCodeMatchesVatNumberValidator
-} from '../../core/validators/italian.validators';
+import {SupplierEditDialogComponent} from './supplier-edit-dialog.component';
+import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 
 @Component({
-             selector: 'app-data-table-suppliers',
-             standalone: true,
-             imports: [
-               ReactiveFormsModule,
-               CommonModule,
-               TableModule,
-               DialogModule,
-               ButtonModule,
-               SelectModule,
-               HasRoleDirective,
-               TooltipModule,
-               ReadOnlyDirective,
-               InputTextModule,
-               SkeletonModule
-             ],
-             templateUrl: './data-table-suppliers.component.html'
-           })
+  selector: 'app-data-table-suppliers',
+  standalone: true,
+  imports: [
+    MatTableModule,
+    MatSortModule,
+    MatPaginatorModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatProgressBarModule,
+    HasRoleDirective
+  ],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  templateUrl: './data-table-suppliers.component.html'
+})
 export class DataTableSuppliersComponent extends AbstractDataTableComponent<Supplier> {
 
-  readonly skeletonRows = Array(10).fill({});
-  readonly skeletonCols = Array.from({length: 11}, (_, i) => i);
+  displayedColumns = ['actions', 'id', 'supplier_id', 'company_name', 'vat_number', 'tax_code', 'address', 'city', 'postal_code', 'email', 'pec'];
 
   constructor(screen: ScreenSizeService) {
     super(screen);
@@ -51,24 +41,38 @@ export class DataTableSuppliersComponent extends AbstractDataTableComponent<Supp
     return Supplier.create();
   }
 
-  protected override buildForm(data?: Partial<Supplier>): void {
-    this.form = this.fb.group({
-                                supplier_id: [{
-                                  value: data?.supplier_id ?? '',
-                                  disabled: !this.isNew
-                                }, Validators.required],
-                                company_name: [data?.company_name ?? '', Validators.required],
-                                vat_number: [data?.vat_number, [italianVatNumberValidator()]],
-                                tax_code: [data?.tax_code, [italianTaxCodeValidator()]],
-                                address: [data?.address],
-                                city: [data?.city],
-                                postal_code: [data?.postal_code, [italianPostalCodeValidator()]],
-                                email: [data?.email],
-                                pec: [data?.pec],
-                              }, {validators: taxCodeMatchesVatNumberValidator()});
+  override editDialogComponent(): Type<unknown> {
+    return SupplierEditDialogComponent;
   }
 
-  override isFormValid(): boolean {
-    return this.form?.valid ?? false;
+  protected override entityLabel(): string {
+    return 'fornitore';
+  }
+
+  override openDeleteDialog(entity: Supplier): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: 'Elimina anagrafica',
+        message: `Disattiva fornitore ${entity.supplier_id}?`,
+        confirmLabel: 'Elimina',
+        danger: true
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onDelete.emit(entity);
+    });
+  }
+
+  override restoreItem(entity: Supplier): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: 'Ripristina anagrafica',
+        message: `Riattiva fornitore ${entity.supplier_id}?`,
+        confirmLabel: 'Ripristina'
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onRestore.emit(entity);
+    });
   }
 }

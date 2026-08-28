@@ -1,41 +1,37 @@
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { TableModule } from 'primeng/table';
-import { DialogModule } from 'primeng/dialog';
-import { ButtonModule } from 'primeng/button';
-import { ReactiveFormsModule, Validators } from '@angular/forms';
-import { SelectModule } from 'primeng/select';
-import { HasRoleDirective } from '../../core/directives/has-role.directive';
-import { ReadOnlyDirective } from '../../core/directives/read-only.directive';
-import { AssetAggregator } from './entity/asset-aggregator.entity';
-import { ScreenSizeService } from '../../services/screen-size.service';
-import { AbstractDataTableComponent } from '../../core/components/abstract-data-table.component';
-import { InputText } from 'primeng/inputtext';
-import { Textarea } from 'primeng/textarea';
-import { SkeletonModule } from 'primeng/skeleton';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
+import {MatTableModule} from '@angular/material/table';
+import {MatSortModule} from '@angular/material/sort';
+import {MatPaginatorModule} from '@angular/material/paginator';
+import {MatButtonModule} from '@angular/material/button';
+import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
+import {MatProgressBarModule} from '@angular/material/progress-bar';
+import {HasRoleDirective} from '../../core/directives/has-role.directive';
+import {AssetAggregator} from './entity/asset-aggregator.entity';
+import {ScreenSizeService} from '../../services/screen-size.service';
+import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
+import {AssetAggregatorEditDialogComponent} from './asset-aggregator-edit-dialog.component';
+import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 
 @Component({
   selector: 'app-data-table-aggregators',
   standalone: true,
   imports: [
-    ReactiveFormsModule,
-    CommonModule,
-    TableModule,
-    DialogModule,
-    ButtonModule,
-    SelectModule,
-    HasRoleDirective,
-    ReadOnlyDirective,
-    InputText,
-    Textarea,
-    SkeletonModule,
+    MatTableModule,
+    MatSortModule,
+    MatPaginatorModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatProgressBarModule,
+    HasRoleDirective
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-asset-aggregator.component.html'
 })
 export class DataTableAggregatorsComponent extends AbstractDataTableComponent<AssetAggregator> {
 
-  readonly skeletonRows = Array(10).fill({});
-  readonly skeletonCols = Array.from({length: 4}, (_, i) => i);
+  displayedColumns = ['actions', 'id', 'code', 'description'];
 
   constructor(screen: ScreenSizeService) {
     super(screen);
@@ -45,20 +41,38 @@ export class DataTableAggregatorsComponent extends AbstractDataTableComponent<As
     return AssetAggregator.create();
   }
 
-  protected override buildForm(data?: Partial<AssetAggregator>): void {
-    this.form = this.fb.group({
-      code:        [data?.code        ?? '', Validators.required],
-      description: [data?.description ?? '', Validators.required],
+  override editDialogComponent(): Type<unknown> {
+    return AssetAggregatorEditDialogComponent;
+  }
+
+  protected override entityLabel(): string {
+    return 'aggregato immobile';
+  }
+
+  override openDeleteDialog(entity: AssetAggregator): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: 'Elimina aggregato',
+        message: `Sei sicuro di voler eliminare l'anagrafica dell'aggregato immobili ${entity.code}?`,
+        confirmLabel: 'Elimina',
+        danger: true
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onDelete.emit(entity);
     });
   }
 
-  override saveItem() {
-    if (!this.form.valid || !this.selectedItem) return;
-    Object.assign(this.selectedItem, this.form.value);
-    super.saveItem();
-  }
-
-  override isFormValid(): boolean {
-    return this.form?.valid ?? false;
+  override restoreItem(entity: AssetAggregator): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: 'Ripristina aggregato',
+        message: `Riattiva aggregato ${entity.description}?`,
+        confirmLabel: 'Ripristina'
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onRestore.emit(entity);
+    });
   }
 }

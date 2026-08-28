@@ -20,4 +20,5 @@ export interface IInvoice {
   utility?: IUtility | null;
   supplier?: ISupplier | null;
   budget_chapters?: IBudgetChapter[];
+  is_paid?: boolean;
 }

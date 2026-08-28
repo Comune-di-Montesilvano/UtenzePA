@@ -1,0 +1,15 @@
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.severity-info { background-color: #3b82f6; }
+.severity-success { background-color: #22c55e; }
+.severity-warn { background-color: #f59e0b; }
+.severity-danger { background-color: #ef4444; }
+.severity-secondary { background-color: #6b7280; }
+.severity-contrast { background-color: #111827; }

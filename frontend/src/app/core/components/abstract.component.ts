@@ -1,11 +1,11 @@
-import {Component, inject, OnInit, ViewChild} from '@angular/core';
-import {MessageService} from 'primeng/api';
+import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import {ToastService} from '../services/toast.service';
 import {AuthService} from '../../services/auth.service';
-import {Table} from 'primeng/table';
 import {AbstractService} from '../services/abstract.service';
 import {AbstractEntity} from '../entities/abstract.entity';
 
 @Component({
+             changeDetection: ChangeDetectionStrategy.Eager,
              template: ''
            })
 export abstract class AbstractComponent<T extends AbstractEntity> implements OnInit {
@@ -16,10 +16,8 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   qsearchFields: (keyof T)[] = [];
   loading = false;
 
-  @ViewChild('dt') table?: Table;
-
   protected authService = inject(AuthService);
-  protected messageService = inject(MessageService);
+  protected messageService = inject(ToastService);
   protected abstract service: AbstractService<T>;
 
   constructor() {
@@ -51,7 +49,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   onSearch(filters: any) {
     // QUICK SEARCH
     if (Object.keys(filters).length === 1 && filters.hasOwnProperty('qsearch')) {
-      if (filters.qsearch !== '') {
+      if (filters.qsearch !== '' && filters.qsearch != null) {
         const qsTerms: string = (filters.qsearch || '').toLowerCase();
         this.list = [...this.allItems].filter(i =>
                                                 this.flatValues(i).some(v => String(v).toLowerCase().includes(qsTerms))
@@ -132,7 +130,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
           this.messageService.add(
             {
               severity: 'success',
-              summary: 'Elemento creato',
+              summary: `${this.entityLabel()} creato`,
               detail: this.getEntityIdentifier(item),
               key: 'global'
             });
@@ -145,6 +143,11 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   }
 
   protected abstract getEntityIdentifier(entity: T): string;
+
+  /** Etichetta dell'entità usata nel summary del toast di creazione (es. "Gestore creato"). */
+  protected entityLabel(): string {
+    return 'Elemento';
+  }
 
   protected entityToPayload(entity: T): Partial<T> {
     return {
