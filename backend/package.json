@@ -130,7 +130,7 @@
     "@types/nodemailer": "^7.0.2",
     "@types/passport-local": "^1.0.38",
     "@types/supertest": "^7.2.1",
-    "@typescript-eslint/eslint-plugin": "^8.46.1",
+    "@typescript-eslint/eslint-plugin": "^8.68.0",
     "@typescript-eslint/parser": "^8.65.0",
     "artillery": "^2.0.26",
     "cross-env": "^10.1.0",
