@@ -1,26 +1,23 @@
-<p-toast position="top-right" key="global"></p-toast>
+<div style="padding: 1rem;">
+  <div>
+    <h1>Gestione Immobili</h1>
+    <p style="color: #6A7282;">Gestisci le anagrafiche degli immobili comunali</p>
+  </div>
 
-<div class="p-grid" style="padding: 1rem;">
-    <div>
-        <h1>Gestione Immobili</h1>
-        <p style="color: #6A7282;">Gestisci le anagrafiche degli immobili comunali</p>
-    </div>
+  <div style="margin-top: 1rem;">
+    <app-search-assets (search)="onSearch($event)"></app-search-assets>
+  </div>
 
-    <div class="p-col-12" style="margin-top: 1rem;">
-        <app-search-assets (search)="onSearch($event)"></app-search-assets>
-    </div>
-
-    <div class="p-col-12" style="margin-top: 1.5rem;">
-        <app-data-table-assets
-            #dataTable
-            [data]="assets"
-            [loading]="loading"
-            (onSave)="onSave($event)"
-            (onDelete)="onDelete($event)"
-            (onCreate)="onCreate($event)"
-            (onRestore)="onRestore($event)"
-            [creationResult]="creationResult"
-            [resetPagingTrigger]="resetPagingCount"
-        ></app-data-table-assets>
-    </div>
+  <div style="margin-top: 1.5rem;">
+    <app-data-table-assets
+      #dataTable
+      [data]="list"
+      [loading]="loading"
+      (onSave)="onSave($event)"
+      (onDelete)="onDelete($event)"
+      (onCreate)="onCreate($event)"
+      (onRestore)="onRestore($event)"
+      [resetPagingTrigger]="resetPagingCount"
+    ></app-data-table-assets>
+  </div>
 </div>

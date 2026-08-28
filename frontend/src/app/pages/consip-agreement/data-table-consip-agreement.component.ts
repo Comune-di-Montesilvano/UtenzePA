@@ -1,95 +1,82 @@
-import {Component} from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {TableModule} from 'primeng/table';
-import {DialogModule} from 'primeng/dialog';
-import {ButtonModule} from 'primeng/button';
-import {ReactiveFormsModule, Validators} from '@angular/forms';
-import {SelectModule} from 'primeng/select';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
+import {DatePipe} from '@angular/common';
+import {MatTableModule} from '@angular/material/table';
+import {MatSortModule} from '@angular/material/sort';
+import {MatPaginatorModule} from '@angular/material/paginator';
+import {MatButtonModule} from '@angular/material/button';
+import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
+import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
-import {SuppliersService} from '../suppliers/suppliers.service';
-import {TooltipModule} from 'primeng/tooltip';
-import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
-import {DatePicker} from 'primeng/datepicker';
-import {InputText} from 'primeng/inputtext';
 import {ConsipAgreement} from './entity/consip-agreement.entity';
-import {BooleanYesNoPipe} from '../../core/pipes/boolean-yes-no-pipe';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
-import {Supplier} from '../suppliers/entity/supplier.entity';
-import {DateHelper} from '../../core/helpers/date.helper';
-import {SkeletonModule} from 'primeng/skeleton';
+import {ConsipAgreementEditDialogComponent} from './consip-agreement-edit-dialog.component';
+import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
+import {BooleanYesNoPipe} from '../../core/pipes/boolean-yes-no-pipe';
 
 @Component({
-             selector: 'app-data-table-consip-agreement',
-             standalone: true,
-             imports: [
-               ReactiveFormsModule,
-               CommonModule,
-               TableModule,
-               DialogModule,
-               ButtonModule,
-               SelectModule,
-               HasRoleDirective,
-               TooltipModule,
-               ReadOnlyDirective,
-               DatePicker,
-               InputText,
-               BooleanYesNoPipe,
-               SkeletonModule
-             ],
-             templateUrl: './data-table-consip-agreement.component.html'
-           })
+  selector: 'app-data-table-consip-agreement',
+  standalone: true,
+  imports: [
+    DatePipe,
+    MatTableModule,
+    MatSortModule,
+    MatPaginatorModule,
+    MatButtonModule,
+    MatIconModule,
+    MatTooltipModule,
+    MatProgressBarModule,
+    HasRoleDirective,
+    BooleanYesNoPipe
+  ],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  templateUrl: './data-table-consip-agreement.component.html'
+})
 export class DataTableConsipAgreementComponent extends AbstractDataTableComponent<ConsipAgreement> {
 
-  readonly skeletonRows = Array(10).fill({});
-  readonly skeletonCols = Array.from({length: 7}, (_, i) => i);
+  displayedColumns = ['actions', 'id', 'name', 'supplier', 'cig_master', 'expiration_date', 'safeguard'];
 
-  supplierOptions: Supplier[] = [];
-
-  safeguardOptions = [
-    {label: 'Sì', value: 1},
-    {label: 'No', value: 0}
-  ];
-
-  override ngOnInit() {
-    super.ngOnInit();
-    this.loadSuppliers();
-  }
-
-  constructor(screen: ScreenSizeService, private readonly supplierService: SuppliersService) {
+  constructor(screen: ScreenSizeService) {
     super(screen);
-  }
-
-  loadSuppliers() {
-    this.supplierService.search({deleted: false}).subscribe({
-      next: (data) => { this.supplierOptions = data; },
-      error: (err) => { console.error('Errore nel caricamento dei fornitori:', err); }
-    });
   }
 
   override itemInstance(): ConsipAgreement {
     return ConsipAgreement.create();
   }
 
-  protected override buildForm(data?: Partial<ConsipAgreement>): void {
-    this.form = this.fb.group({
-      name:            [data?.name            ?? '', Validators.required],
-      cig_master:      [data?.cig_master      ?? '', Validators.required],
-      expiration_date: [data?.expiration_date ? DateHelper.isoToLocalDate(data.expiration_date as any) : null, Validators.required],
-      safeguard:       [data?.safeguard       ?? null],
-      description:     [data?.description     ?? ''],
-      supplier_id:     [data?.supplier_id     ?? null, Validators.required],
+  override editDialogComponent(): Type<unknown> {
+    return ConsipAgreementEditDialogComponent;
+  }
+
+  protected override entityLabel(): string {
+    return 'convenzione CONSIP';
+  }
+
+  override openDeleteDialog(entity: ConsipAgreement): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: 'Elimina convenzione',
+        message: `Eliminare convenzione ${entity.name}?`,
+        confirmLabel: 'Elimina',
+        danger: true
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onDelete.emit(entity);
     });
   }
 
-  protected override prepareFormValue(): Record<string, any> {
-    const values = { ...this.form.value };
-    values.expiration_date = DateHelper.toLocalIsoString(values.expiration_date);
-    return values;
+  override restoreItem(entity: ConsipAgreement): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: 'Ripristina convenzione',
+        message: `Riattiva convenzione ${entity.name}?`,
+        confirmLabel: 'Ripristina'
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onRestore.emit(entity);
+    });
   }
-
-  override isFormValid(): boolean {
-    return this.form?.valid ?? false;
-  }
-
 }

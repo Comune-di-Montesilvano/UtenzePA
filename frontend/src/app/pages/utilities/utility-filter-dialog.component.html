@@ -1,0 +1,328 @@
+<h2 mat-dialog-title>Filtri di ricerca Utenze</h2>
+
+<mat-dialog-content>
+  <form id="filter-form" [formGroup]="form" (ngSubmit)="apply()" style="display: flex; flex-direction: column; gap: 0.5rem;">
+
+    <mat-accordion multi>
+
+      <mat-expansion-panel [expanded]="true">
+        <mat-expansion-panel-header><mat-panel-title>Identificazione</mat-panel-title></mat-expansion-panel-header>
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Codice (POD/PDR/Matricola)</mat-label>
+            <input matInput formControlName="utility_id" placeholder="Es. IT001P...">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Numero Contatore</mat-label>
+            <input matInput formControlName="meter_number">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Codice Utenza/Cliente</mat-label>
+            <input matInput formControlName="utility_code">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Tipo Utenza</mat-label>
+            <mat-select formControlName="utility_type_id_fk">
+              <mat-option [value]="null">Tutti</mat-option>
+              @for (opt of utilityTypeOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <div style="flex: 1 1 calc(25% - 0.75rem);">
+            <app-filterable-select
+              label="Fabbricato Associato"
+              placeholder="Cerca fabbricato..."
+              [options]="assetOptions"
+              formControlName="asset_id_fk">
+            </app-filterable-select>
+          </div>
+          <div style="flex: 1 1 calc(25% - 0.75rem);">
+            <app-filterable-select
+              label="Aggregato"
+              placeholder="Cerca aggregato..."
+              [options]="aggregatorOptions"
+              formControlName="aggregator_id_fk">
+            </app-filterable-select>
+          </div>
+          <mat-form-field style="flex: 2 1 calc(50% - 0.75rem);">
+            <mat-label>Indirizzo Fornitura</mat-label>
+            <input matInput formControlName="supplier_address">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Latitudine</mat-label>
+            <input matInput formControlName="latitude" placeholder="Es. 45.123">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Longitudine</mat-label>
+            <input matInput formControlName="longitude" placeholder="Es. 9.123">
+          </mat-form-field>
+        </div>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel [expanded]="true">
+        <mat-expansion-panel-header><mat-panel-title>Caratteristiche Tecniche</mat-panel-title></mat-expansion-panel-header>
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Potenza (kW)</mat-label>
+            <input matInput formControlName="power_kw_electric">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Tensione (V / kV)</mat-label>
+            <input matInput formControlName="voltage_kw_electric">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Tipo Fase</mat-label>
+            <mat-select formControlName="phase_type_electric">
+              <mat-option [value]="null">Tutti</mat-option>
+              @for (opt of phaseTypeOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Disalimentabilità</mat-label>
+            <input matInput formControlName="disconnection_ability">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>WBS Gas</mat-label>
+            <input matInput formControlName="wbs_gas_element">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Tipo uso contatore</mat-label>
+            <input matInput formControlName="meter_usage_type">
+          </mat-form-field>
+        </div>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel [expanded]="true">
+        <mat-expansion-panel-header><mat-panel-title>Stato Utenza</mat-panel-title></mat-expansion-panel-header>
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Fornitura Attiva</mat-label>
+            <mat-select formControlName="supply_active">
+              <mat-option [value]="null">Tutti</mat-option>
+              @for (opt of booleanOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Contatore Rimosso</mat-label>
+            <mat-select formControlName="meter_removed">
+              <mat-option [value]="null">Tutti</mat-option>
+              @for (opt of booleanOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Contatore Verificato</mat-label>
+            <mat-select formControlName="meter_verified">
+              <mat-option [value]="null">Tutti</mat-option>
+              @for (opt of booleanOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Stato Utenza</mat-label>
+            <mat-select formControlName="utilityState">
+              <mat-option [value]="null">Tutti</mat-option>
+              @for (opt of statusOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <div style="display: flex; flex: 1 1 calc(50% - 0.75rem); gap: 0.5rem;">
+            <mat-form-field style="flex: 1;">
+              <mat-label>Voltura/Cessazione da</mat-label>
+              <input matInput [matDatepicker]="takeoverFromPicker" [(ngModel)]="takeoverFrom" [ngModelOptions]="{standalone: true}">
+              <mat-datepicker-toggle matSuffix [for]="takeoverFromPicker"></mat-datepicker-toggle>
+              <mat-datepicker #takeoverFromPicker></mat-datepicker>
+            </mat-form-field>
+            <mat-form-field style="flex: 1;">
+              <mat-label>a</mat-label>
+              <input matInput [matDatepicker]="takeoverToPicker" [(ngModel)]="takeoverTo" [ngModelOptions]="{standalone: true}">
+              <mat-datepicker-toggle matSuffix [for]="takeoverToPicker"></mat-datepicker-toggle>
+              <mat-datepicker #takeoverToPicker></mat-datepicker>
+            </mat-form-field>
+          </div>
+        </div>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel [expanded]="true">
+        <mat-expansion-panel-header><mat-panel-title>Dati Contrattuali</mat-panel-title></mat-expansion-panel-header>
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Convenzione CONSIP - Salvaguardia</mat-label>
+            <mat-select formControlName="safeguard">
+              <mat-option [value]="null">Tutti</mat-option>
+              @for (opt of safeguardOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Ordine CONSIP</mat-label>
+            <input matInput formControlName="consip_order">
+          </mat-form-field>
+          <div style="flex: 1 1 calc(25% - 0.75rem);">
+            <app-filterable-select
+              label="Fornitore"
+              placeholder="Cerca fornitore..."
+              [options]="supplierOptions"
+              formControlName="supplier_id_fk">
+            </app-filterable-select>
+          </div>
+          <div style="display: flex; flex: 1 1 calc(50% - 0.75rem); gap: 0.5rem;">
+            <mat-form-field style="flex: 1;">
+              <mat-label>Decorrenza da</mat-label>
+              <input matInput [matDatepicker]="supplyStartFromPicker" [(ngModel)]="supplyStartFrom" [ngModelOptions]="{standalone: true}">
+              <mat-datepicker-toggle matSuffix [for]="supplyStartFromPicker"></mat-datepicker-toggle>
+              <mat-datepicker #supplyStartFromPicker></mat-datepicker>
+            </mat-form-field>
+            <mat-form-field style="flex: 1;">
+              <mat-label>a</mat-label>
+              <input matInput [matDatepicker]="supplyStartToPicker" [(ngModel)]="supplyStartTo" [ngModelOptions]="{standalone: true}">
+              <mat-datepicker-toggle matSuffix [for]="supplyStartToPicker"></mat-datepicker-toggle>
+              <mat-datepicker #supplyStartToPicker></mat-datepicker>
+            </mat-form-field>
+          </div>
+          <div style="display: flex; flex: 1 1 calc(50% - 0.75rem); gap: 0.5rem;">
+            <mat-form-field style="flex: 1;">
+              <mat-label>Scadenza Affid. da</mat-label>
+              <input matInput [matDatepicker]="supplyExpiryFromPicker" [(ngModel)]="supplyExpiryFrom" [ngModelOptions]="{standalone: true}">
+              <mat-datepicker-toggle matSuffix [for]="supplyExpiryFromPicker"></mat-datepicker-toggle>
+              <mat-datepicker #supplyExpiryFromPicker></mat-datepicker>
+            </mat-form-field>
+            <mat-form-field style="flex: 1;">
+              <mat-label>a</mat-label>
+              <input matInput [matDatepicker]="supplyExpiryToPicker" [(ngModel)]="supplyExpiryTo" [ngModelOptions]="{standalone: true}">
+              <mat-datepicker-toggle matSuffix [for]="supplyExpiryToPicker"></mat-datepicker-toggle>
+              <mat-datepicker #supplyExpiryToPicker></mat-datepicker>
+            </mat-form-field>
+          </div>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Gestione Manutenzione</mat-label>
+            <mat-select formControlName="maintenance_management_id_fk">
+              <mat-option [value]="null">Tutti</mat-option>
+              @for (opt of managementOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <div style="display: flex; flex: 1 1 calc(50% - 0.75rem); gap: 0.5rem;">
+            <mat-form-field style="flex: 1;">
+              <mat-label>Scadenza Gest. da</mat-label>
+              <input matInput [matDatepicker]="managementExpiryFromPicker" [(ngModel)]="managementExpiryFrom" [ngModelOptions]="{standalone: true}">
+              <mat-datepicker-toggle matSuffix [for]="managementExpiryFromPicker"></mat-datepicker-toggle>
+              <mat-datepicker #managementExpiryFromPicker></mat-datepicker>
+            </mat-form-field>
+            <mat-form-field style="flex: 1;">
+              <mat-label>a</mat-label>
+              <input matInput [matDatepicker]="managementExpiryToPicker" [(ngModel)]="managementExpiryTo" [ngModelOptions]="{standalone: true}">
+              <mat-datepicker-toggle matSuffix [for]="managementExpiryToPicker"></mat-datepicker-toggle>
+              <mat-datepicker #managementExpiryToPicker></mat-datepicker>
+            </mat-form-field>
+          </div>
+          <div style="display: flex; flex: 1 1 calc(50% - 0.75rem); gap: 0.5rem;">
+            <mat-form-field style="flex: 1;">
+              <mat-label>Concessione Acqua da</mat-label>
+              <input matInput [matDatepicker]="waterConcessionFromPicker" [(ngModel)]="waterConcessionFrom" [ngModelOptions]="{standalone: true}">
+              <mat-datepicker-toggle matSuffix [for]="waterConcessionFromPicker"></mat-datepicker-toggle>
+              <mat-datepicker #waterConcessionFromPicker></mat-datepicker>
+            </mat-form-field>
+            <mat-form-field style="flex: 1;">
+              <mat-label>a</mat-label>
+              <input matInput [matDatepicker]="waterConcessionToPicker" [(ngModel)]="waterConcessionTo" [ngModelOptions]="{standalone: true}">
+              <mat-datepicker-toggle matSuffix [for]="waterConcessionToPicker"></mat-datepicker-toggle>
+              <mat-datepicker #waterConcessionToPicker></mat-datepicker>
+            </mat-form-field>
+          </div>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Costi a Carico di</mat-label>
+            <mat-select formControlName="costs_borne_by_id_fk">
+              <mat-option [value]="null">Tutti</mat-option>
+              @for (opt of costsBorneByOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>CIG Contratto</mat-label>
+            <input matInput formControlName="cig_contract">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Numero Ordine</mat-label>
+            <input matInput formControlName="order_number">
+          </mat-form-field>
+        </div>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel [expanded]="true">
+        <mat-expansion-panel-header><mat-panel-title>Consumi</mat-panel-title></mat-expansion-panel-header>
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+          <div style="flex: 1 1 calc(25% - 0.75rem);">
+            <app-filterable-select
+              label="Capitolo di Spesa"
+              placeholder="Cerca capitolo..."
+              [options]="budgetChapterOptions"
+              formControlName="budget_chapter_code_fk">
+            </app-filterable-select>
+          </div>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Consumo Annuo Presunto</mat-label>
+            <input matInput formControlName="estimated_annual_consumption">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Consumo Annuo Comunicato Consip</mat-label>
+            <input matInput formControlName="reported_consumption_year">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Deposito Cauzionale</mat-label>
+            <input matInput type="number" step="0.01" formControlName="security_deposit">
+          </mat-form-field>
+        </div>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel [expanded]="true">
+        <mat-expansion-panel-header><mat-panel-title>Utilizzatori</mat-panel-title></mat-expansion-panel-header>
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+          <div style="flex: 1 1 calc(25% - 0.75rem);">
+            <app-filterable-select
+              label="Utilizzatore"
+              placeholder="Cerca utilizzatore..."
+              [options]="utilizerOptions"
+              formControlName="user_id_fk">
+            </app-filterable-select>
+          </div>
+        </div>
+      </mat-expansion-panel>
+
+      <mat-expansion-panel [expanded]="false">
+        <mat-expansion-panel-header><mat-panel-title>Ricerca Testuale Avanzata</mat-panel-title></mat-expansion-panel-header>
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+          <mat-form-field style="flex: 1 1 calc(33% - 0.75rem);">
+            <mat-label>Specifiche</mat-label>
+            <input matInput formControlName="specifications">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(33% - 0.75rem);">
+            <mat-label>Note</mat-label>
+            <input matInput formControlName="notes">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(33% - 0.75rem);">
+            <mat-label>Note Aggiuntive</mat-label>
+            <input matInput formControlName="additional_notes">
+          </mat-form-field>
+        </div>
+      </mat-expansion-panel>
+
+    </mat-accordion>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button (click)="clear()">Pulisci Filtri</button>
+  <button mat-flat-button type="submit" form="filter-form">Applica Filtri</button>
+</mat-dialog-actions>

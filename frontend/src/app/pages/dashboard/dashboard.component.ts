@@ -1,13 +1,10 @@
-import {Component, Inject, OnInit} from '@angular/core';
+import {Component, Inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import {CommonModule} from '@angular/common';
-import {CardModule} from 'primeng/card';
-import {TableModule} from 'primeng/table';
-import {BadgeModule} from 'primeng/badge';
-import {TagModule} from 'primeng/tag';
+import {MatCardModule} from '@angular/material/card';
+import {MatButtonModule} from '@angular/material/button';
+import {MatIconModule} from '@angular/material/icon';
 import {UtilityService} from '../utilities/utility.service';
-import {ButtonModule} from 'primeng/button';
 import {Router} from '@angular/router';
-import {TooltipModule} from 'primeng/tooltip';
 import {AssetService} from '../assets/asset.service';
 import {Utility} from '../utilities/entity/utility.entity';
 import {SuppliersService} from '../suppliers/suppliers.service';
@@ -16,13 +13,15 @@ import {plainToInstance} from 'class-transformer';
 import {UtilityType} from '../utility-types/entity/utility-type.entity';
 import {HardType} from '../utility-types/enum/hard-type.enum';
 
-type PrimeSeverity = 'info' | 'success' | 'warn' | 'danger' | 'secondary' | 'contrast' | null | undefined;
+/** Colore badge/tag: mappato su classi CSS locali (vedi dashboard.component.css), non più sulle severity PrimeNG. */
+type Severity = 'info' | 'success' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
 @Component({
              selector: 'app-dashboard',
              standalone: true,
-             imports: [CommonModule, CardModule, TableModule, BadgeModule, TagModule, ButtonModule, TooltipModule],
+             imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule],
              templateUrl: './dashboard.component.html',
+             changeDetection: ChangeDetectionStrategy.Eager,
              styleUrls: ['./dashboard.component.css']
            })
 export class DashboardComponent implements OnInit {
@@ -99,7 +98,7 @@ export class DashboardComponent implements OnInit {
     ];
   }
 
-  getSeverity(giorni: number): PrimeSeverity {
+  getSeverity(giorni: number): Severity {
     if (giorni <= 20) return 'danger';
     if (giorni <= 40) return 'warn';
     return 'success';
@@ -121,7 +120,7 @@ export class DashboardComponent implements OnInit {
     this.router.navigate(['/utilities'], {queryParams: queryParams});
   }
 
-  getUtenzaSeverity(type: UtilityType): PrimeSeverity {
+  getUtenzaSeverity(type: UtilityType): Severity {
     switch (type.hard_type) {
       case HardType.GAS:
         return 'info';

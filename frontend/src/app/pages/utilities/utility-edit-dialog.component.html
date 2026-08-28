@@ -1,0 +1,357 @@
+<h2 mat-dialog-title>
+  {{ isNew ? 'Aggiungi Utenza' : 'Modifica Utenza: ' + data.item.utility_id }}
+</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-direction: column; gap: 1.5rem;">
+
+    <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
+      <legend style="padding: 0 0.5rem; font-weight: 600;">Identificazione</legend>
+      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Codice Utenza (POD/PDR) *</mat-label>
+          <input matInput formControlName="utility_id">
+          @if (form.controls.utility_id.invalid && form.controls.utility_id.touched) {
+            <mat-error>Obbligatorio</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Numero Contatore</mat-label>
+          <input matInput formControlName="meter_number">
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Tipo Uso Contatore *</mat-label>
+          <mat-select formControlName="utility_type_id_fk" (selectionChange)="onUtilityTypeChange($event)">
+            @for (opt of utilityTypeOptions; track opt.id) {
+              <mat-option [value]="opt.id">{{ opt.name }}</mat-option>
+            }
+          </mat-select>
+          @if (form.controls.utility_type_id_fk.invalid && form.controls.utility_type_id_fk.touched) {
+            <mat-error>Obbligatorio</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Codice Utenza o Cliente</mat-label>
+          <input matInput formControlName="utility_code">
+        </mat-form-field>
+
+        <div style="flex: 1 1 21%; display: flex; align-items: flex-start; gap: 0.25rem;">
+          <div style="flex: 1 1 auto;">
+            <app-filterable-select
+              label="Immobile Associato *"
+              placeholder="Cerca immobile..."
+              [options]="assetSelectOptions"
+              formControlName="asset_id_fk"
+              [errorMessage]="form.controls.asset_id_fk.invalid && form.controls.asset_id_fk.touched ? 'Obbligatorio' : null">
+            </app-filterable-select>
+          </div>
+
+          <button mat-icon-button type="button" [disabled]="!form.controls.asset_id_fk.value"
+                  (click)="navigateToAsset(form.controls.asset_id_fk.value)"
+                  matTooltip="Vai al dettaglio immobile" style="margin-top: 8px;">
+            <mat-icon>apartment</mat-icon>
+          </button>
+          <button mat-icon-button type="button" [disabled]="!resolveMapCoordsFromForm()"
+                  [style.color]="isMapCoordsFromAsset() ? '#3b82f6' : null"
+                  (click)="navigateToMaps($safeNavigationMigration(resolveMapCoordsFromForm()?.lat), $safeNavigationMigration(resolveMapCoordsFromForm()?.lon))"
+                  [matTooltip]="resolveMapCoordsFromForm() ? 'Mostra su mappa' : 'Funzionalità non disponibile: mancano le coordinate.'"
+                  style="margin-top: 8px;">
+            <mat-icon>location_on</mat-icon>
+          </button>
+        </div>
+
+        <div style="flex: 1 1 21%;">
+          <app-filterable-select
+            label="ID Aggregato"
+            placeholder="Cerca aggregato..."
+            [options]="aggregatorOptions"
+            formControlName="aggregator_id_fk">
+          </app-filterable-select>
+        </div>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Indirizzo Fornitura</mat-label>
+          <input matInput formControlName="supplier_address">
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Latitudine</mat-label>
+          <input matInput formControlName="latitude">
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Longitudine</mat-label>
+          <input matInput formControlName="longitude">
+        </mat-form-field>
+      </div>
+    </fieldset>
+
+    <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
+      <legend style="padding: 0 0.5rem; font-weight: 600;">Caratteristiche tecniche</legend>
+      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+        @if (showLightFields) {
+          <mat-form-field style="flex: 1 1 21%;">
+            <mat-label>Potenza (kW)</mat-label>
+            <input matInput type="number" step="0.01" formControlName="power_kw_electric">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 21%;">
+            <mat-label>Tensione (V / kV)</mat-label>
+            <input matInput formControlName="voltage_kw_electric">
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 21%;">
+            <mat-label>Tipo Fase</mat-label>
+            <mat-select formControlName="phase_type_electric">
+              @for (opt of phaseTypeOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        }
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Disalimentabilità utenza</mat-label>
+          <input matInput formControlName="disconnection_ability">
+        </mat-form-field>
+
+        @if (showGasFields) {
+          <mat-form-field style="flex: 1 1 21%;">
+            <mat-label>Elemento WBS Gas</mat-label>
+            <input matInput formControlName="wbs_gas_element">
+          </mat-form-field>
+        }
+      </div>
+    </fieldset>
+
+    <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
+      <legend style="padding: 0 0.5rem; font-weight: 600;">Stato utenza</legend>
+      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Fornitura Attiva</mat-label>
+          <mat-select formControlName="supply_active">
+            @for (opt of booleanOptions; track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Contatore Rimosso</mat-label>
+          <mat-select formControlName="meter_removed">
+            @for (opt of booleanOptions; track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Contatore Verificato</mat-label>
+          <mat-select formControlName="meter_verified">
+            @for (opt of booleanOptions; track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Data Voltura o Cessazione Contatore</mat-label>
+          <input matInput [matDatepicker]="takeoverPicker" formControlName="takeover_termination_date">
+          <mat-datepicker-toggle matSuffix [for]="takeoverPicker"></mat-datepicker-toggle>
+          <mat-datepicker #takeoverPicker></mat-datepicker>
+        </mat-form-field>
+      </div>
+    </fieldset>
+
+    <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
+      <legend style="padding: 0 0.5rem; font-weight: 600;">Dati contrattuali</legend>
+      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Convenzione CONSIP</mat-label>
+          <mat-select formControlName="consip_agreement_id" (selectionChange)="onConsipAgreementChange($event)">
+            <mat-option [value]="null">Nessuna</mat-option>
+            @for (opt of consipAgreementOptions; track opt.id) {
+              <mat-option [value]="opt.id">{{ opt.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Ordine CONSIP</mat-label>
+          <input matInput formControlName="consip_order">
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Fornitore</mat-label>
+          <mat-select formControlName="supplier_id_fk">
+            <mat-option [value]="null">Nessuno</mat-option>
+            @for (opt of supplierOptions; track opt.id) {
+              <mat-option [value]="opt.id">{{ opt.company_name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Data Inizio Fornitura</mat-label>
+          <input matInput [matDatepicker]="supplyStartPicker" formControlName="supply_start_date">
+          <mat-datepicker-toggle matSuffix [for]="supplyStartPicker"></mat-datepicker-toggle>
+          <mat-datepicker #supplyStartPicker></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Scadenza Affidamento Fornitura</mat-label>
+          <input matInput [matDatepicker]="supplyExpiryPicker" formControlName="supply_expiry_date">
+          <mat-datepicker-toggle matSuffix [for]="supplyExpiryPicker"></mat-datepicker-toggle>
+          <mat-datepicker #supplyExpiryPicker></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Fornitore Manutenzione</mat-label>
+          <mat-select formControlName="maintenance_management_id_fk">
+            <mat-option [value]="null">Nessuno</mat-option>
+            @for (opt of maintenanceOptions; track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Scadenza Affidamento Manutenzione</mat-label>
+          <input matInput [matDatepicker]="managementExpiryPicker" formControlName="management_expiry_date">
+          <mat-datepicker-toggle matSuffix [for]="managementExpiryPicker"></mat-datepicker-toggle>
+          <mat-datepicker #managementExpiryPicker></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Concessione acqua</mat-label>
+          <input matInput [matDatepicker]="waterConcessionPicker" formControlName="water_concession">
+          <mat-datepicker-toggle matSuffix [for]="waterConcessionPicker"></mat-datepicker-toggle>
+          <mat-datepicker #waterConcessionPicker></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Costi a Carico di *</mat-label>
+          <mat-select formControlName="costs_borne_by_id_fk">
+            @for (opt of costsBorneByOptions; track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            }
+          </mat-select>
+          @if (form.controls.costs_borne_by_id_fk.invalid && form.controls.costs_borne_by_id_fk.touched) {
+            <mat-error>Obbligatorio</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>CIG Contratto</mat-label>
+          <input matInput formControlName="cig_contract">
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Numero ordine</mat-label>
+          <input matInput formControlName="order_number">
+        </mat-form-field>
+      </div>
+    </fieldset>
+
+    <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
+      <legend style="padding: 0 0.5rem; font-weight: 600;">Consumi</legend>
+      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Capitolo di Spesa *</mat-label>
+          <mat-select formControlName="budget_chapter_code_fk">
+            @for (opt of budgetChapterOptions; track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            }
+          </mat-select>
+          @if (form.controls.budget_chapter_code_fk.invalid && form.controls.budget_chapter_code_fk.touched) {
+            <mat-error>Obbligatorio</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Consumo annuo presunto</mat-label>
+          <input matInput type="number" formControlName="estimated_annual_consumption">
+          @if (form.controls.estimated_annual_consumption.invalid && form.controls.estimated_annual_consumption.touched) {
+            <mat-error>Obbligatorio</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Consumo annuo comunicato Consip</mat-label>
+          <input matInput type="number" formControlName="reported_consumption_year">
+          @if (form.controls.reported_consumption_year.invalid && form.controls.reported_consumption_year.touched) {
+            <mat-error>Obbligatorio</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Consumo Annuo da Fatturazione</mat-label>
+          <input matInput type="number" formControlName="actual_consumption">
+          @if (form.controls.actual_consumption.invalid && form.controls.actual_consumption.touched) {
+            <mat-error>Obbligatorio</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Deposito Cauzionale (€)</mat-label>
+          <input matInput type="number" step="0.01" formControlName="security_deposit">
+          @if (form.controls.security_deposit.invalid && form.controls.security_deposit.touched) {
+            <mat-error>Obbligatorio</mat-error>
+          }
+        </mat-form-field>
+      </div>
+    </fieldset>
+
+    @if (!isNew) {
+      <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
+        <legend style="padding: 0 0.5rem; font-weight: 600;">Finalità d'uso</legend>
+        @if (data.item.utilityType?.purposes?.length) {
+          <ul style="margin: 0; padding-left: 1.5rem; list-style-type: disc;">
+            @for (purpose of data.item.utilityType!.purposes; track purpose.id) {
+              <li>{{ purpose.name }} ({{ useTypeDescription[purpose.use_type] }})</li>
+            }
+          </ul>
+        } @else {
+          <span style="color: #666; font-style: italic;">Nessuna Finalità d'uso associata.</span>
+        }
+      </fieldset>
+
+      <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
+        <legend style="padding: 0 0.5rem; font-weight: 600;">Utilizzatori</legend>
+        @if (data.item.asset?.utilizerGrants?.length) {
+          <ul style="margin: 0; padding-left: 1.5rem; list-style-type: disc;">
+            @for (item of data.item.asset!.utilizerGrants!; track item.id) {
+              <li>{{ item.utilizer!.name }}</li>
+            }
+          </ul>
+        } @else {
+          <span style="color: #666; font-style: italic;">Nessuna concessione trovata.</span>
+        }
+      </fieldset>
+    }
+
+    <mat-form-field>
+      <mat-label>Specifiche</mat-label>
+      <textarea matInput formControlName="specifications" rows="3"></textarea>
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Note</mat-label>
+      <textarea matInput formControlName="notes" rows="3"></textarea>
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Note Aggiuntive</mat-label>
+      <textarea matInput formControlName="additional_notes" rows="3"></textarea>
+    </mat-form-field>
+
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button (click)="cancel()">Annulla</button>
+  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">
+    {{ isNew ? 'Crea Utenza' : 'Salva Utenza' }}
+  </button>
+</mat-dialog-actions>

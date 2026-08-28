@@ -1,21 +1,19 @@
-<p-toast position="top-right" key="global"></p-toast>
-<div class="p-grid" style="padding: 1rem;">
+<div style="padding: 1rem;">
   <div>
     <h1>Convenzioni CONSIP</h1>
-    <p style="color: #6A7282;">Gestisci le anagrafiche delle convezioni CONSIP</p>
+    <p style="color: #6A7282;">Gestisci le anagrafiche delle convenzioni CONSIP</p>
   </div>
-  <div class="p-col-12" style="margin-top: 1rem;">
+  <div style="margin-top: 1rem;">
     <app-search-consip-agreement (search)="onSearch($event)"></app-search-consip-agreement>
   </div>
-  <div class="p-col-12" style="margin-top: 1.5rem;">
+  <div style="margin-top: 1.5rem;">
     <app-data-table-consip-agreement [data]="list"
-                                     [loading]="loading"
-                                     (onSave)="onSave($event)"
-                                     (onDelete)="onDelete($event)"
-                                     (onCreate)="onCreate($event)"
-                                     (onRestore)="onRestore($event)"
-                                     [creationResult]="creationResult"
-                                     [resetPagingTrigger]="resetPagingCount"
+      [loading]="loading"
+      (onSave)="onSave($event)"
+      (onDelete)="onDelete($event)"
+      (onCreate)="onCreate($event)"
+      (onRestore)="onRestore($event)"
+      [resetPagingTrigger]="resetPagingCount"
     ></app-data-table-consip-agreement>
   </div>
 </div>

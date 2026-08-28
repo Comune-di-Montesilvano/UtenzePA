@@ -1,251 +1,96 @@
 <div style="display: flex; justify-content: space-between; align-items: center;">
-  <h3>Elenco ({{ data.length }})</h3>
-  <button
-    pButton
-    class="p-button p-component"
-    (click)="openCreateDialog()"
-    [appHasRole]="['Admin', 'Operatore']"
-  >
-    <i pButtonIcon class="pi pi-plus"></i>
-    <span pButtonLabel>Aggiungi Concessione</span>
+  <h3>Elenco ({{data.length}})</h3>
+  <button mat-flat-button (click)="openCreateDialog()" [appHasRole]="['Admin', 'Operatore']">
+    <mat-icon>add</mat-icon>
+    Aggiungi Concessione
   </button>
-
 </div>
 
-<p-table
-  [value]="loading ? skeletonRows : data"
-  [paginator]="true"
-  [rows]="10"
-  paginatorPosition="bottom"
-  [scrollable]="true"
-  [scrollHeight]="(height - 500) + 'px'"
-  #myTable
-  [style]="{ '--row-height': rowHeight + 'px' }"
-  class="dynamic-rows"
-  [size]="'small'"
-  [rowsPerPageOptions]=rowsPerPageOptions
->
+@if (loading) {
+  <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+}
 
-  <ng-template pTemplate="header">
-    <tr>
-      <th style="min-width: 100px;">Azioni</th>
-      <th style="min-width: 50px;" pSortableColumn="id">ID
-        <p-sortIcon field="id"></p-sortIcon>
-      </th>
-      <th style="min-width: 200px;" pSortableColumn="asset_id_fk">Immobile
-        <p-sortIcon field="asset_id_fk"></p-sortIcon>
-      </th>
-      <th style="min-width: 250px;" pSortableColumn="utilizer_id_fk">Utilizzatore
-        <p-sortIcon field="utilizer_id_fk"></p-sortIcon>
-      </th>
-      <th style="min-width: 120px;" pSortableColumn="usage_type">Tipo Utilizzo
-        <p-sortIcon field="usage_type"></p-sortIcon>
-      </th>
-      <th style="min-width: 120px;" pSortableColumn="grant_date">Data Concessione
-        <p-sortIcon field="grant_date"></p-sortIcon>
-      </th>
-      <th style="min-width: 120px;" pSortableColumn="expire_date">Data Scadenza
-        <p-sortIcon field="expire_date"></p-sortIcon>
-      </th>
-      <th style="min-width: 250px;" pSortableColumn="concession_act">Atto di Concessione
-        <p-sortIcon field="concession_act"></p-sortIcon>
-      </th>
-      <th style="min-width: 120px;" pSortableColumn="utilities_to_be_taken_over">Utenze da volturare
-        <p-sortIcon field="utilities_to_be_taken_over"></p-sortIcon>
-      </th>
-    </tr>
-  </ng-template>
+<table mat-table [dataSource]="dataSource" matSort #sort="matSort" class="mat-elevation-z1">
 
-  <ng-template pTemplate="body" let-item>
-    @if (loading) {
-      <tr>
-        @for (col of skeletonCols; track col) {
-          <td><p-skeleton height="1.5rem"/></td>
-        }
-      </tr>
-    } @else {
-      <tr [ngClass]="{ 'row-deleted': item.deleted }">
-        <td>
-          <button pButton class="p-button-text p-button-sm action-button"
-                  (click)="openEditDialog(item)" [appHasRole]="['Admin', 'Operatore', 'Lettore']">
-            <i pButtonIcon class="pi pi-pencil"></i>
-          </button>
+  <ng-container matColumnDef="actions">
+    <th mat-header-cell *matHeaderCellDef>Azioni</th>
+    <td mat-cell *matCellDef="let item">
+      <button mat-icon-button (click)="openEditDialog(item)" [appHasRole]="['Admin', 'Operatore', 'Lettore']"
+              matTooltip="Modifica" aria-label="Modifica">
+        <mat-icon>edit</mat-icon>
+      </button>
+      <button mat-icon-button
+              [class.mat-action-success]="item.deleted"
+              [class.mat-action-danger]="!item.deleted"
+              (click)="item.deleted ? restoreItem(item) : openDeleteDialog(item)"
+              [appHasRole]="['Admin', 'Operatore']"
+              [matTooltip]="item.deleted ? 'Ripristina' : 'Elimina'"
+              [attr.aria-label]="item.deleted ? 'Ripristina' : 'Elimina'">
+        <mat-icon>{{ item.deleted ? 'restore' : 'delete' }}</mat-icon>
+      </button>
+    </td>
+  </ng-container>
 
-          @if (!item.deleted) {
-            <button pButton class="p-button-text p-button-sm action-button"
-                    (click)="openDeleteDialog(item)" [appHasRole]="['Admin', 'Operatore']">
-              <i pButtonIcon class="pi pi-trash"></i>
-            </button>
-          } @else {
-            <button pButton class="p-button-text p-button-sm action-button"
-                    (click)="restoreItem(item)" [appHasRole]="['Admin', 'Operatore']">
-              <i pButtonIcon class="pi pi-undo"></i>
-            </button>
-          }
-        </td>
-        <td>{{ item.id }}</td>
-        <td>{{ item.asset.asset_name }}</td>
-        <td>
-          <span [pTooltip]="item.utilizer.name" tooltipPosition="top">
-            {{ item.utilizer.name.length > maxDescLength ? (item.utilizer.name | slice:0:maxDescLength) + '...' : item.utilizer.name }}
-          </span>
-        </td>
-        <td>{{ item.usage_type || 'N/D' }}</td>
-        <td>{{ item.grant_date | date:'dd/MM/yyyy' }}</td>
-        <td>{{ item.expire_date | date:'dd/MM/yyyy' }}</td>
-        <td>
-          @if (item.concession_act) {
-            <span [pTooltip]="item.concession_act" tooltipPosition="top">
-              {{ item.concession_act.length > maxDescLength ? (item.concession_act | slice:0:maxDescLength) + '...' : item.concession_act }}
-            </span>
-          }
-        </td>
-        <td>
-          @if (item.utilities_to_be_taken_over === true) {
-            <i class="pi pi-check-circle text-green-500" [ngStyle]="{'font-size': '1.2rem'}"></i>
-          } @else if (item.utilities_to_be_taken_over === false) {
-            <i class="pi pi-times-circle text-red-500" [ngStyle]="{'font-size': '1.2rem'}"></i>
-          } @else {
-            <span class="p-tag p-tag-secondary">N/D</span>
-          }
-        </td>
-      </tr>
-    }
-  </ng-template>
+  <ng-container matColumnDef="id">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>ID</th>
+    <td mat-cell *matCellDef="let item">{{ item.id }}</td>
+  </ng-container>
 
-  <ng-template pTemplate="emptymessage">
-    <tr>
-      <td colspan="8" class="text-center">Nessuna assegnazione utilizzatore trovata.</td>
-    </tr>
-  </ng-template>
-</p-table>
+  <ng-container matColumnDef="asset">
+    <th mat-header-cell *matHeaderCellDef>Immobile</th>
+    <td mat-cell *matCellDef="let item">{{ item.asset?.asset_name }}</td>
+  </ng-container>
 
-<p-dialog
-  [header]="isNew ? 'Aggiungi Concessione' : 'Modifica Concessione: ' + selectedItem?.id"
-  [(visible)]="editDialogVisible"
-  [modal]="true"
-  [style]="{width: '700px'}"
-  styleClass="max-w-screen-lg">
+  <ng-container matColumnDef="utilizer">
+    <th mat-header-cell *matHeaderCellDef>Utilizzatore</th>
+    <td mat-cell *matCellDef="let item">
+      <span [matTooltip]="item.utilizer?.name ?? ''">{{ truncate($safeNavigationMigration(item.utilizer?.name)) }}</span>
+    </td>
+  </ng-container>
 
-  @if (form) {
-    <form [formGroup]="form" [readOnly]="['Lettore']" class="edit-form p-fluid">
-      <div style="display: flex; gap: 1.5rem; flex-direction: column;">
+  <ng-container matColumnDef="usage_type">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Tipo Utilizzo</th>
+    <td mat-cell *matCellDef="let item">{{ item.usage_type || 'N/D' }}</td>
+  </ng-container>
 
-        <div style="display: flex; flex: 1 1 0; flex-direction: column; gap: 0.25rem;">
-          <label for="utilizer_id_fk">Utilizzatore *</label>
-          <p-select id="utilizer_id_fk" [options]="utilizerOptions" formControlName="utilizer_id_fk"
-                    optionLabel="label" optionValue="value"
-                    placeholder="Seleziona Utilizzatore" [showClear]="true" [filter]="true"
-                    style="width: 100%;" [appendTo]="'body'"
-                    [class.ng-invalid]="form.controls['utilizer_id_fk'].invalid && form.controls['utilizer_id_fk'].touched"/>
-          @if (form.controls['utilizer_id_fk'].invalid && form.controls['utilizer_id_fk'].touched) {
-            <small class="p-error">Obbligatorio</small>
-          }
-        </div>
+  <ng-container matColumnDef="grant_date">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Data Concessione</th>
+    <td mat-cell *matCellDef="let item">{{ item.grant_date | date: 'dd/MM/yyyy' }}</td>
+  </ng-container>
 
-        <div style="display: flex; flex-direction: row; gap: 1rem;">
-          <div style="display: flex; flex: 1 1 0; flex-direction: column; gap: 0.25rem;">
-            <label for="asset_id_fk">Immobile Associato *</label>
-            <p-select id="asset_id_fk" [options]="assetOptions" formControlName="asset_id_fk"
-                      optionLabel="label" optionValue="value"
-                      placeholder="Seleziona Immobile" [showClear]="true" [filter]="true"
-                      style="width: 100%;" [appendTo]="'body'"
-                      [class.ng-invalid]="form.controls['asset_id_fk'].invalid && form.controls['asset_id_fk'].touched"/>
-            @if (form.controls['asset_id_fk'].invalid && form.controls['asset_id_fk'].touched) {
-              <small class="p-error">Obbligatorio</small>
-            }
-          </div>
+  <ng-container matColumnDef="expire_date">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Data Scadenza</th>
+    <td mat-cell *matCellDef="let item">{{ item.expire_date | date: 'dd/MM/yyyy' }}</td>
+  </ng-container>
 
-          <div style="display: flex; flex: 1 1 0; flex-direction: column; gap: 0.25rem;">
-            <label for="usage_type">Tipo Utilizzo</label>
-            <input id="usage_type" type="text" pInputText formControlName="usage_type"
-                   placeholder="Inserisci il tipo di utilizzo" style="padding: 0.6rem 0.75rem;"/>
-          </div>
-        </div>
+  <ng-container matColumnDef="concession_act">
+    <th mat-header-cell *matHeaderCellDef>Atto di Concessione</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.concession_act) {
+        <span [matTooltip]="item.concession_act">{{ truncate(item.concession_act) }}</span>
+      }
+    </td>
+  </ng-container>
 
-        <div style="display: flex; flex-direction: row; gap: 1rem;">
+  <ng-container matColumnDef="utilities_to_be_taken_over">
+    <th mat-header-cell *matHeaderCellDef>Utenze da volturare</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.utilities_to_be_taken_over === true) {
+        <mat-icon class="mat-action-success">check_circle</mat-icon>
+      } @else if (item.utilities_to_be_taken_over === false) {
+        <mat-icon class="mat-action-danger">cancel</mat-icon>
+      } @else {
+        <span>N/D</span>
+      }
+    </td>
+  </ng-container>
 
-          <div style="display: flex; flex: 1 1 0; flex-direction: column; gap: 0.25rem;">
-            <label for="grant_date">Data Concessione Contratto</label>
-            <p-datePicker id="grant_date" formControlName="grant_date"
-                          dateFormat="dd/mm/yy" [showIcon]="true" [showButtonBar]="true"
-                          style="width: 100%;" [appendTo]="'body'"
-                          placeholder="Seleziona la data" fluid/>
-          </div>
+  <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+  <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.row-deleted]="row.deleted"></tr>
 
-          <div style="display: flex; flex: 1 1 0; flex-direction: column; gap: 0.25rem;">
-            <label for="expire_date">Data Scadenza Contratto</label>
-            <p-datePicker id="expire_date" formControlName="expire_date"
-                          dateFormat="dd/mm/yy" [showIcon]="true" [showButtonBar]="true"
-                          style="width: 100%;" [appendTo]="'body'"
-                          placeholder="Seleziona la data" fluid/>
-          </div>
+  <tr class="mat-row" *matNoDataRow>
+    <td class="mat-cell" [attr.colspan]="displayedColumns.length">Nessuna assegnazione utilizzatore trovata.</td>
+  </tr>
+</table>
 
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 0.25rem; flex-grow: 1;">
-          <label for="concession_act">Atto concessione immobile</label>
-          <textarea id="concession_act" pInputTextarea formControlName="concession_act"
-                    rows="4" placeholder="Note sull'atto di concessione"
-                    style="width: 100%; flex-grow: 1;"></textarea>
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
-          <p-checkbox [binary]="true" inputId="utilities_to_be_taken_over"
-                      formControlName="utilities_to_be_taken_over"/>
-          <label for="utilities_to_be_taken_over">Utenza da volturare?</label>
-        </div>
-      </div>
-    </form>
-  }
-
-  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-    <button pButton class="p-button-secondary p-component" (click)="editDialogVisible=false">
-      <span pButtonLabel>Annulla</span>
-    </button>
-    <button pButton class="p-button p-component" (click)="saveItem()"
-            [disabled]="!isFormValid()"
-            [appHasRole]="['Admin', 'Operatore']">
-      <span pButtonLabel>Salva Concessione</span>
-    </button>
-  </div>
-
-</p-dialog>
-
-<p-dialog header="Elimina Concessione" [(visible)]="deleteDialogVisible" [modal]="true" [style]="{width: '350px'}">
-  <p>Sei sicuro di voler eliminare la Concessione <b>{{ selectedItem?.id }}</b>?</p>
-  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-    <button pButton class="p-button-secondary" (click)="deleteDialogVisible=false">
-      <span pButtonLabel>Annulla</span>
-    </button>
-    <button pButton (click)="confirmDelete()" severity="danger">
-      <span pButtonLabel>Elimina</span>
-    </button>
-  </div>
-</p-dialog>
-
-<p-dialog header="Ripristina Concessione" [(visible)]="restoreDialogVisible" [modal]="true" [style]="{width: '350px'}">
-  <p>Riattiva Concessione <b>{{ selectedItem?.id }}</b>?</p>
-  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-    <button pButton class="p-button-secondary" (click)="restoreDialogVisible=false">
-      <span pButtonLabel>Annulla</span>
-    </button>
-    <button pButton class="p-button-success" (click)="confirmRestore()">
-      <span pButtonLabel>Ripristina</span>
-    </button>
-  </div>
-</p-dialog>
-
-<style>
-  .row-deleted {
-    background-color: #fcebeb;
-    opacity: 0.7;
-    text-decoration: line-through;
-  }
-
-  .action-button {
-    padding: 0.2rem !important;
-    margin: 0 0.1rem;
-    height: auto;
-  }
-</style>
+<mat-paginator #paginator [pageSizeOptions]="rowsPerPageOptions" [pageSize]="10"></mat-paginator>
