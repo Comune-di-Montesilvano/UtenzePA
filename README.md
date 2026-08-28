@@ -9,7 +9,7 @@ Il progetto è composto da tre servizi principali orchestrati con Docker Compose
 | Servizio | Tecnologia | Porta Default |
 |----------|-----------|---------------|
 | **Backend API** | NestJS 11 (Node.js) | 3000 |
-| **Frontend** | Angular 20 + PrimeNG | 4300 |
+| **Frontend** | Angular 22 + Angular Material | 4300 |
 | **Database** | MySQL 8 | 3307 |
 
 ## Prerequisiti
@@ -116,7 +116,7 @@ Non esiste un modo per creare un utente amministratore da riga di comando: la cr
 
 ## Frontend
 
-L'interfaccia utente è sviluppata con **Angular 20** e utilizza **PrimeNG** come libreria di componenti UI. Le principali sezioni sono:
+L'interfaccia utente è sviluppata con **Angular 22** e utilizza **Angular Material** come libreria di componenti UI. Le principali sezioni sono:
 
 - **Dashboard** — Panoramica generale
 - **Asset** — Gestione patrimonio immobiliare
