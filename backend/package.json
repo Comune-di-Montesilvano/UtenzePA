@@ -6,13 +6,11 @@
   "private": true,
   "license": "EUPL-1.2",
   "engines": {
-    "node": ">=24.0.0 <25.0.0",
-    "npm": ">=11.0.0"
+    "node": ">=24.0.0 <25.0.0"
   },
   "packageManager": "pnpm@11.24.0",
   "volta": {
-    "node": "24.8.0",
-    "npm": "11.6.2"
+    "node": "24.8.0"
   },
   "scripts": {
     "//== BUILD & START ==": "",
@@ -32,7 +30,7 @@
     "test:integration": "cross-env NODE_ENV=test jest --config jest.integration.config.js",
     "test:integration:watch": "cross-env NODE_ENV=test jest --config jest.integration.config.js --watch",
     "test:integration:cov": "cross-env NODE_ENV=test jest --config jest.integration.config.js --coverage",
-    "test:all": "npm run test:unit && npm run test:integration",
+    "test:all": "pnpm run test:unit && pnpm run test:integration",
     "test:ci": "jest --bail --passWithNoTests",
     "//== CODE QUALITY ==": "",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
@@ -44,7 +42,7 @@
     "prettier:check": "prettier --check .",
     "type-check": "tsc --noEmit",
     "//== SECURITY ==": "",
-    "audit:check": "npm audit --audit-level=high",
+    "audit:check": "pnpm audit --audit-level=high",
     "//== INFISICAL ==": "",
     "infisical:test": "node scripts/test-infisical.js",
     "//== GIT HOOKS ==": "",
@@ -53,7 +51,7 @@
     "//== DOCKER ==": "",
     "docker:dev": "docker compose -f docker-compose-development.yml --env-file .env up",
     "docker:dev:refresh": "docker compose -f docker-compose-development.yml --env-file .env up --build --force-recreate --remove-orphans",
-    "docker:dev:debug": "docker compose -f docker-compose-development.yml --env-file .env run --rm --service-ports api npm run start:debug",
+    "docker:dev:debug": "docker compose -f docker-compose-development.yml --env-file .env run --rm --service-ports api pnpm run start:debug",
     "docker:dev:stop": "docker compose -f docker-compose-development.yml down",
     "docker:prod": "docker compose --env-file .env up --build --force-recreate --remove-orphans -d",
     "docker:prod:stop": "docker compose down",
@@ -63,7 +61,7 @@
     "artillery:medium": "artillery run artillery/load-test-medium.yml",
     "artillery:high": "artillery run artillery/load-test-high.yml",
     "artillery:massive": "artillery run artillery/load-test-massive.yml",
-    "artillery:all": "npm run artillery:low && npm run artillery:medium && npm run artillery:high && npm run artillery:massive",
+    "artillery:all": "pnpm run artillery:low && pnpm run artillery:medium && pnpm run artillery:high && pnpm run artillery:massive",
     "artillery:run": "./scripts/run-load-test.sh"
   },
   "dependencies": {
@@ -151,19 +149,6 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.68.0"
-  },
-  "overrides": {
-    "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/core": "^2.1.0",
-    "@opentelemetry/sdk-trace-base": "^2.1.0",
-    "@opentelemetry/sdk-metrics": "^2.1.0",
-    "@opentelemetry/sdk-logs": "^0.204.0",
-    "@opentelemetry/resources": "^2.1.0",
-    "@opentelemetry/otlp-transformer": "^0.204.0",
-    "playwright": "^1.56.1",
-    "serialize-javascript": "^7.0.2",
-    "tar": "^7.5.0",
-    "undici": "^7.19.0"
   },
   "jest": {
     "moduleFileExtensions": [
