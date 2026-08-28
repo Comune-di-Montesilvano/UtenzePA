@@ -14,7 +14,7 @@ Monorepo semplice (nessun workspace tool): `backend/` (NestJS) + `frontend/` (An
 | Frontend | Angular 22 + Angular Material 22 | 4300 |
 | Database | MySQL 8 | 3307 |
 
-**Versioni tool**: usare sempre Docker per lanciare comandi che richiedono versioni software specifiche (`npm install`, build, ecc.) — l'host locale può avere Node/npm diversi da quelli richiesti dal progetto (`backend/package.json` richiede Node ≥24, potrebbe non corrispondere alla versione installata sulla macchina). `docker exec` sul container `api` (avviato con l'override di sviluppo) garantisce la versione corretta. Se i container dev non sono su (es. altro progetto in esecuzione sulla stessa macchina), per un `npm install` una tantum in un worktree separato: `MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd):/app" -w //app node:24 npm install ...` (su Windows/Git Bash serve `MSYS_NO_PATHCONV=1` + `-w //app` con doppio slash, altrimenti il path `/app` viene riscritto e il mount fallisce).
+**Versioni tool**: usare sempre Docker per lanciare comandi che richiedono versioni software specifiche (`pnpm install`, build, ecc.) — l'host locale può avere Node/pnpm diversi da quelli richiesti dal progetto (`backend/package.json` richiede Node ≥24, potrebbe non corrispondere alla versione installata sulla macchina). `docker exec` sul container `api` (avviato con l'override di sviluppo) garantisce la versione corretta. Se i container dev non sono su (es. altro progetto in esecuzione sulla stessa macchina), per un `pnpm install` una tantum in un worktree separato: `MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd):/app" -w //app node:24 sh -c "corepack enable && pnpm install ..."` (su Windows/Git Bash serve `MSYS_NO_PATHCONV=1` + `-w //app` con doppio slash, altrimenti il path `/app` viene riscritto e il mount fallisce).
 
 Query MySQL dirette (debug/pulizia dati test): `docker exec utenzepa-mysql-1 mysql -uroot -p'<MYSQL_PASSWORD da .env>' mydatabase -e "SELECT ..."`.
 
@@ -33,21 +33,21 @@ Frontend: http://localhost:4300 — API: http://localhost:3000 — Swagger: http
 
 ### Backend (`backend/`)
 ```
-npm run start:dev          # watch mode
-npm run start:debug        # watch + debugger su 0.0.0.0:9229
-npm run build && npm run start:prod
+pnpm run start:dev          # watch mode
+pnpm run start:debug        # watch + debugger su 0.0.0.0:9229
+pnpm run build && pnpm run start:prod
 
-npm run test -- --maxWorkers=2               # tutti gli unit test (jest)
-npm run test:unit -- --maxWorkers=2          # solo src/**/*.spec.ts
-npm run test:e2e -- --maxWorkers=2           # test/jest-e2e.json
-npm run test:integration -- --maxWorkers=2   # jest.integration.config.js, usa mongodb-memory-server
-npm run test:cov -- --maxWorkers=2           # con coverage
-npx jest path/al/file.spec.ts --maxWorkers=2          # singolo file
-npx jest -t "nome del test" --maxWorkers=2            # singolo test per nome
+pnpm run test -- --maxWorkers=2               # tutti gli unit test (jest)
+pnpm run test:unit -- --maxWorkers=2          # solo src/**/*.spec.ts
+pnpm run test:e2e -- --maxWorkers=2           # test/jest-e2e.json
+pnpm run test:integration -- --maxWorkers=2   # jest.integration.config.js, usa mongodb-memory-server
+pnpm run test:cov -- --maxWorkers=2           # con coverage
+pnpm exec jest path/al/file.spec.ts --maxWorkers=2          # singolo file
+pnpm exec jest -t "nome del test" --maxWorkers=2            # singolo test per nome
 
-npm run lint                # eslint --fix
-npm run format               # prettier --write
-npm run type-check           # tsc --noEmit
+pnpm run lint                # eslint --fix
+pnpm run format               # prettier --write
+pnpm run type-check           # tsc --noEmit
 ```
 Sempre con `--maxWorkers=2` sui comandi jest (container/runner con poche CPU disponibili — jest di default ne spawna quanti core rileva ed è facile saturare la macchina).
 
@@ -56,7 +56,7 @@ Sempre con `--maxWorkers=2` sui comandi jest (container/runner con poche CPU dis
 docker exec -u root utenzepa-api-1 node -r ts-node/register -r tsconfig-paths/register node_modules/typeorm/cli.js migration:generate src/database/migrations/NomeMigration -d src/database/data-source.ts
 ```
 `SYNCHRONIZE=true`/`DROPSCHEMA=true` restano disponibili come escape hatch per iterazione rapida in dev, ma bypassano le migration — mai in produzione.
-Nota: gli script `docker:dev*` in `backend/package.json` referenziano `docker-compose-development.yml`, che non esiste nel repo — non funzionanti allo stato attuale, usare il `docker-compose.yml` di root o `npm run start:dev` in locale.
+Nota: gli script `docker:dev*` in `backend/package.json` referenziano `docker-compose-development.yml`, che non esiste nel repo — non funzionanti allo stato attuale, usare il `docker-compose.yml` di root o `pnpm run start:dev` in locale.
 
 **Worktree/dev su Windows**: `npm install` con bind-mount diretto della cartella `backend`/`frontend` su Docker Desktop Windows può corrompere `node_modules` (file `package.json` mancanti nei pacchetti, symlink `.bin` non creati — silenzioso, npm riporta successo). Workaround: container con `node_modules` su volume Docker named (non bind-mount) + solo il codice sorgente bind-mountato, es. `docker run -d -v "$(pwd -W)":/usr/src/app -v <nome>-node-modules:/usr/src/app/node_modules -w /usr/src/app node:24-alpine tail -f /dev/null`, poi `npm install` dentro il container. In git-bash su Windows serve `MSYS_NO_PATHCONV=1` + `$(pwd -W)` per i path nei comandi `docker run`.
 
@@ -66,8 +66,8 @@ Nota: gli script `docker:dev*` in `backend/package.json` referenziano `docker-co
 
 ### Frontend (`frontend/`)
 ```
-npm run start        # ng serve, porta 4300
-npm run build         # ng build --configuration production
+pnpm run start        # ng serve, porta 4300
+pnpm run build         # ng build --configuration production
 ng test               # Karma/Jasmine (non presente come script npm)
 ```
 Nessun ESLint configurato sul frontend.
@@ -136,6 +136,8 @@ Dependabot PR: se il branch è stato toccato da altro (es. `gh api .../update-br
 `main` è protetta (branch protection API): PR obbligatoria, check `backend`+`frontend` richiesti (branch aggiornata), no force-push/delete, 0 approvazioni umane richieste (CI come unico gate). Push diretti a `main` vengono rifiutati.
 
 **Migration DB (sezione 2 della roadmap, completata)**: aggiunta `src/database/migrations/` + `data-source.ts`, `migrationsRun: true` in `mysql.module.ts` (sempre, dev e prod). Generata `InitialSchema` come baseline dallo schema esistente. `SYNCHRONIZE`/`DROPSCHEMA` restano solo come escape hatch dev, mai in produzione. Testato: due riavvii consecutivi del container `api` puliti, migration idempotente.
+
+**Migrazione npm → pnpm**: pnpm pinnato via `packageManager` in `package.json` (backend e frontend), niente pnpm workspace multi-progetto (backend/frontend restano indipendenti). Script di build nativi (bcrypt, esbuild, ecc.) allowlisted esplicitamente in `pnpm-workspace.yaml` (per progetto) tramite la mappa `allowBuilds: {pkgName: true|false}` — **non** nel campo `"pnpm"` di `package.json` come in altri package manager/versioni pnpm più vecchie: pnpm@11 non legge più quel campo (rimosso, genera solo un warning silenzioso se presente). pnpm blocca gli script non allowlisted per default (gate di sicurezza supply-chain), critico per `bcrypt` (hashing password) che richiede binding nativi compilati. `playwright` (solo pin di sicurezza transitivo in `overrides` del backend, mai importato) escluso esplicitamente (`false` in `allowBuilds`) per evitare il download di ~300MB di Chromium ad ogni install. `ENV CI=true` aggiunto al Dockerfile backend (stage `base`) — necessario perché `pnpm run build` in ambienti non interattivi (Docker/CI) altrimenti abortisce con `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`. Trovato e corretto un bug di build reale durante la migrazione: `backend/src/utils/compression/compressionConfig.ts` richiedeva un'annotazione di tipo di ritorno esplicita, altrimenti TypeScript non riusciva a inferire un nome di tipo portabile per il path annidato nello store pnpm. Bind-mount diretto di `node_modules`/pnpm store su Docker Desktop Windows è catastroficamente lento (10+ minuti vs ~50s) — usare volumi Docker named, stesso pattern già documentato sopra per npm.
 
 ## Roadmap allineamento agli standard interni
 

@@ -16,7 +16,9 @@ export interface CompressionConfig {
  * @param infisicalConfig - InfisicalConfigService instance
  * @returns Compression middleware or null if disabled
  */
-export const configureCompression = (infisicalConfig: InfisicalConfigService) => {
+export const configureCompression = (
+  infisicalConfig: InfisicalConfigService,
+): ReturnType<typeof compression> | null => {
   const config = getCompressionConfig(infisicalConfig);
 
   if (!config.enabled) {
