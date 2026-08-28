@@ -1,189 +1,464 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class InitialSchema1785746114643 implements MigrationInterface {
-    name = 'InitialSchema1785746114643'
+  name = 'InitialSchema1785746114643';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`CREATE TABLE \`system_users\` (\`id\` int NOT NULL AUTO_INCREMENT, \`first_name\` varchar(50) NULL, \`last_name\` varchar(50) NOT NULL, \`email\` varchar(255) NOT NULL, \`password_hash\` varchar(255) NOT NULL, \`role\` enum ('Admin', 'Operatore', 'Lettore') NOT NULL DEFAULT 'Operatore', \`status\` enum ('Attivo', 'Disattivo') NOT NULL DEFAULT 'Attivo', \`otp\` varchar(6) NULL, \`otp_expiry\` timestamp NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_52f2e5671ada53f91efaf9203c\` (\`created_by_user_id\`), UNIQUE INDEX \`UK_email\` (\`email\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`utility_aggregators\` (\`id\` int NOT NULL AUTO_INCREMENT, \`description\` varchar(255) NULL, \`code\` varchar(255) NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_6add3a6a97364646ac3ac95afb\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_fd45c271920bc9a24a05904b5c\` (\`code\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`suppliers\` (\`id\` int NOT NULL AUTO_INCREMENT, \`supplier_id\` varchar(50) NOT NULL, \`vat_number\` varchar(20) NULL, \`tax_code\` varchar(20) NULL, \`company_name\` varchar(255) NOT NULL, \`address\` varchar(255) NULL, \`city\` varchar(100) NULL, \`postal_code\` varchar(10) NULL, \`email\` varchar(100) NULL, \`pec\` varchar(100) NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_5fa7dd93144dd478fc3606eda1\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_a2692f796d16e0a30040860112\` (\`supplier_id\`), UNIQUE INDEX \`IDX_aee7c8464d179ea66636906349\` (\`company_name\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`budget_chapters\` (\`id\` int NOT NULL AUTO_INCREMENT, \`chapter_code\` varchar(50) NOT NULL, \`article\` int NOT NULL DEFAULT '0', \`description\` varchar(255) NULL, \`pdc\` varchar(100) NULL, \`supply_type\` enum ('ELECTRICITY', 'THERMAL_MANAGEMENT', 'GAS_SUPPLY_ONLY', 'WATER', 'SPRAR_UTILITIES') NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_0bd389211ac79818af3904d176\` (\`created_by_user_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`invoice_budget_chapter\` (\`invoice_id\` int NOT NULL, \`budget_chapter_id\` int NOT NULL, PRIMARY KEY (\`invoice_id\`, \`budget_chapter_id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`invoices\` (\`id\` int NOT NULL AUTO_INCREMENT, \`invoice_id\` varchar(255) NOT NULL, \`invoice_date\` date NOT NULL, \`protocol_number\` varchar(100) NULL, \`net_amount_excl_vat\` decimal(18,2) NOT NULL DEFAULT '0.00', \`last_invoice_arrears\` decimal(18,2) NOT NULL DEFAULT '0.00', \`notes_on_invoices\` text NULL, \`utility_id_fk\` int NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, \`supplier_id_fk\` int NULL, INDEX \`IDX_b62e289be9ae465de0b33e466c\` (\`created_by_user_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`purpose\` (\`id\` int NOT NULL AUTO_INCREMENT, \`name\` varchar(255) NOT NULL, \`use_type\` enum ('GENERIC', 'SPECIFIC') NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT '0', INDEX \`IDX_0e4e689e26b6b3fdb47a4a8de0\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_4a272e999eb7c51548b0249e29\` (\`name\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`utility_type_purpose\` (\`utility_type_id\` int NOT NULL, \`purpose_id\` int NOT NULL, PRIMARY KEY (\`utility_type_id\`, \`purpose_id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`utility_types\` (\`id\` int NOT NULL AUTO_INCREMENT, \`name\` varchar(50) NOT NULL, \`description\` varchar(300) NULL, \`hard_type\` enum ('WATER', 'LIGHT', 'GAS', 'INTERNET') NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_c7265475e407f83642b317632c\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_1e7bf8e2f361071d22b4989154\` (\`name\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`costs_borne_by\` (\`id\` int NOT NULL AUTO_INCREMENT, \`name\` varchar(100) NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_a1b3689b160116241e4de0ee34\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_028a7f4037aa13be201677526e\` (\`name\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`maintenance_managers\` (\`id\` int NOT NULL AUTO_INCREMENT, \`code\` varchar(100) NOT NULL, \`description\` text NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NULL, \`updated_by_user_id\` int NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_91641df4170a721a4f9e696071\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_896871741dba2db44c2d08ae8a\` (\`code\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`consip_agreement\` (\`id\` int NOT NULL AUTO_INCREMENT, \`name\` varchar(255) NOT NULL, \`description\` text NULL, \`cig_master\` varchar(10) NOT NULL, \`expiration_date\` date NULL, \`safeguard\` tinyint NOT NULL DEFAULT '0', \`supplier_id\` int NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT '0', INDEX \`IDX_4865ffe2d0c44ceb3728328eeb\` (\`supplier_id\`), INDEX \`IDX_3103fb42e85e20b668f093d287\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_1886014cda1db340533ed45adf\` (\`name\`), UNIQUE INDEX \`REL_4865ffe2d0c44ceb3728328eeb\` (\`supplier_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`utilities\` (\`id\` int NOT NULL AUTO_INCREMENT, \`utility_type_id_fk\` int NOT NULL, \`utility_id\` varchar(20) NOT NULL, \`utility_code\` varchar(255) NULL, \`meter_number\` varchar(255) NULL, \`supplier_address\` varchar(255) NULL, \`costs_borne_by_id_fk\` int NOT NULL, \`supplier_id_fk\` int NULL, \`consip_order\` varchar(100) NULL, \`supply_start_date\` date NULL, \`supply_expiry_date\` date NULL, \`consip_agreement_id\` int NULL, \`management_expiry_date\` date NULL, \`takeover_termination_date\` date NULL, \`supply_active\` tinyint NULL DEFAULT 0, \`meter_removed\` tinyint NULL DEFAULT 0, \`security_deposit\` decimal(10,2) NOT NULL DEFAULT '0.00', \`reported_consumption_year\` decimal(10,2) NOT NULL DEFAULT '0.00', \`actual_consumption\` decimal(10,2) NOT NULL DEFAULT '0.00', \`estimated_annual_consumption\` decimal(10,2) NOT NULL DEFAULT '0.00', \`power_kw_electric\` decimal(12,2) NULL, \`voltage_kw_electric\` varchar(100) NULL, \`phase_type_electric\` enum ('1F', '3F', 'N/A') NULL, \`latitude\` varchar(20) NULL, \`longitude\` varchar(20) NULL, \`notes\` text NULL, \`additional_notes\` text NULL, \`wbs_gas_element\` varchar(255) NULL, \`water_concession\` date NULL, \`meter_verified\` tinyint NULL DEFAULT 0, \`disconnection_ability\` varchar(255) NULL, \`specifications\` text NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NULL DEFAULT 0, \`asset_id_fk\` int NOT NULL, \`maintenance_management_id_fk\` int NULL, \`aggregator_id_fk\` int NULL, \`budget_chapter_code_fk\` int NOT NULL, \`order_number\` text NULL, \`cig_contract\` text NULL, INDEX \`IDX_f6aeb7bed0280acc17e9bc0dba\` (\`created_by_user_id\`), UNIQUE INDEX \`REL_c253dcc8855e9edb534ef10d71\` (\`consip_agreement_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`asset_aggregators\` (\`id\` int NOT NULL AUTO_INCREMENT, \`description\` varchar(255) NULL, \`code\` varchar(255) NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_d727f360f8244e6d2fff287536\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_1dd8ee2f6760bd4c6cb5bf958b\` (\`code\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`assets\` (\`id\` int NOT NULL AUTO_INCREMENT, \`asset_name\` varchar(255) NOT NULL, \`associated_building\` varchar(255) NULL, \`toponym\` varchar(255) NULL, \`address\` varchar(255) NULL, \`civic_number\` varchar(50) NULL, \`zip_code\` varchar(10) NULL, \`municipality\` varchar(100) NULL, \`ownership\` int NOT NULL, \`specific_details\` varchar(1000) NULL, \`memo\` varchar(1000) NULL, \`services_and_artifacts\` text NULL, \`latitude\` varchar(20) NULL, \`longitude\` varchar(20) NULL, \`sheet\` varchar(50) NULL, \`parcel\` varchar(50) NULL, \`subordinate\` varchar(50) NULL, \`area_sqm\` decimal(10,2) NULL, \`cadastral_value\` decimal(15,2) NULL, \`category\` varchar(100) NULL, \`asset_type_id\` int NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_a6ffabc579ece9d227957638b4\` (\`created_by_user_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`utilizer\` (\`id\` int NOT NULL AUTO_INCREMENT, \`name\` varchar(255) NOT NULL, \`description\` varchar(255) NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_39aef6540c695311ad02bece34\` (\`created_by_user_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`utilizer_grant\` (\`id\` int NOT NULL AUTO_INCREMENT, \`concession_act\` varchar(255) NULL, \`utilities_to_be_taken_over\` tinyint NOT NULL DEFAULT 0, \`usage_type\` varchar(100) NULL, \`grant_date\` timestamp(6) NULL DEFAULT CURRENT_TIMESTAMP(6), \`expire_date\` timestamp(6) NULL DEFAULT CURRENT_TIMESTAMP(6), \`asset_id_fk\` int NOT NULL, \`utilizer_id_fk\` int NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_70588a011fa3b6b15e49092251\` (\`created_by_user_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE TABLE \`aca_keys\` (\`id\` int NOT NULL AUTO_INCREMENT, \`username\` varchar(100) NOT NULL, \`password\` varchar(255) NOT NULL, \`utility_id\` int NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_a23304180e4457edc6e985c8a7\` (\`utility_id\`), INDEX \`IDX_8a11ef487d5449dc70defd8bf1\` (\`created_by_user_id\`), UNIQUE INDEX \`REL_a23304180e4457edc6e985c8a7\` (\`utility_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`);
-        await queryRunner.query(`CREATE INDEX \`IDX_891310b3d845fe3f7d00346e65\` ON \`invoice_budget_chapter\` (\`invoice_id\`)`);
-        await queryRunner.query(`CREATE INDEX \`IDX_9cffdf1bcf101d43271ac87c53\` ON \`invoice_budget_chapter\` (\`budget_chapter_id\`)`);
-        await queryRunner.query(`CREATE INDEX \`IDX_ef80be3fc01d5e693454b854ce\` ON \`utility_type_purpose\` (\`utility_type_id\`)`);
-        await queryRunner.query(`CREATE INDEX \`IDX_1e8787cfd9a351ca1bc81f882e\` ON \`utility_type_purpose\` (\`purpose_id\`)`);
-        await queryRunner.query(`ALTER TABLE \`system_users\` ADD CONSTRAINT \`FK_52f2e5671ada53f91efaf9203cf\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`system_users\` ADD CONSTRAINT \`FK_e31e461577292b43259213839f7\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utility_aggregators\` ADD CONSTRAINT \`FK_6add3a6a97364646ac3ac95afb8\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utility_aggregators\` ADD CONSTRAINT \`FK_8a237573bbd76c2beaee579d5a2\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`suppliers\` ADD CONSTRAINT \`FK_5fa7dd93144dd478fc3606eda1d\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`suppliers\` ADD CONSTRAINT \`FK_772718e7d80332bdde12cd6f52a\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`budget_chapters\` ADD CONSTRAINT \`FK_0bd389211ac79818af3904d176d\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`budget_chapters\` ADD CONSTRAINT \`FK_6751d5b2ccc97e8937760876ce9\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`invoice_budget_chapter\` ADD CONSTRAINT \`FK_891310b3d845fe3f7d00346e65b\` FOREIGN KEY (\`invoice_id\`) REFERENCES \`invoices\`(\`id\`) ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`invoice_budget_chapter\` ADD CONSTRAINT \`FK_9cffdf1bcf101d43271ac87c53d\` FOREIGN KEY (\`budget_chapter_id\`) REFERENCES \`budget_chapters\`(\`id\`) ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`invoices\` ADD CONSTRAINT \`FK_a73380d59b8490982f145c9d8fe\` FOREIGN KEY (\`supplier_id_fk\`) REFERENCES \`suppliers\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`invoices\` ADD CONSTRAINT \`FK_b62e289be9ae465de0b33e466c1\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`invoices\` ADD CONSTRAINT \`FK_7e065c5d942ddbe5ea3202c0d51\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`invoices\` ADD CONSTRAINT \`FK_98dbfe5bcca4d0b27fc699be892\` FOREIGN KEY (\`utility_id_fk\`) REFERENCES \`utilities\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`purpose\` ADD CONSTRAINT \`FK_0e4e689e26b6b3fdb47a4a8de00\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`purpose\` ADD CONSTRAINT \`FK_77dc5d21ae1e69bceaf481001bf\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utility_type_purpose\` ADD CONSTRAINT \`FK_ef80be3fc01d5e693454b854ce3\` FOREIGN KEY (\`utility_type_id\`) REFERENCES \`utility_types\`(\`id\`) ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utility_type_purpose\` ADD CONSTRAINT \`FK_1e8787cfd9a351ca1bc81f882e9\` FOREIGN KEY (\`purpose_id\`) REFERENCES \`purpose\`(\`id\`) ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utility_types\` ADD CONSTRAINT \`FK_c7265475e407f83642b317632c7\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utility_types\` ADD CONSTRAINT \`FK_5e1005cbc5c71fc2639c6e8f914\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`costs_borne_by\` ADD CONSTRAINT \`FK_a1b3689b160116241e4de0ee341\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`costs_borne_by\` ADD CONSTRAINT \`FK_e17b17ff1598741dfab09add67a\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`maintenance_managers\` ADD CONSTRAINT \`FK_91641df4170a721a4f9e696071d\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`maintenance_managers\` ADD CONSTRAINT \`FK_f19fa975d5bb5c3a90a03289401\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`consip_agreement\` ADD CONSTRAINT \`FK_3103fb42e85e20b668f093d2876\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`consip_agreement\` ADD CONSTRAINT \`FK_1ad2499bed957df009583f938d0\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`consip_agreement\` ADD CONSTRAINT \`FK_4865ffe2d0c44ceb3728328eeb0\` FOREIGN KEY (\`supplier_id\`) REFERENCES \`suppliers\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_f6aeb7bed0280acc17e9bc0dba6\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_a0e6d9d34cdbb9bc6695ec28893\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_ac19dbfc5a05c425d326d14548e\` FOREIGN KEY (\`costs_borne_by_id_fk\`) REFERENCES \`costs_borne_by\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_cbed90367b9d7a0ca03485dafda\` FOREIGN KEY (\`utility_type_id_fk\`) REFERENCES \`utility_types\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_38725bd397adb97762016779410\` FOREIGN KEY (\`asset_id_fk\`) REFERENCES \`assets\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_dba61ce41b0c75fe41d95eb23e5\` FOREIGN KEY (\`aggregator_id_fk\`) REFERENCES \`utility_aggregators\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_42f396edfa8f09d9dc694e4ddc9\` FOREIGN KEY (\`maintenance_management_id_fk\`) REFERENCES \`maintenance_managers\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_89015a22b217ff8c7ac2283ca18\` FOREIGN KEY (\`budget_chapter_code_fk\`) REFERENCES \`budget_chapters\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_8b0d8040435b79d5bd3a32c9801\` FOREIGN KEY (\`supplier_id_fk\`) REFERENCES \`suppliers\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_c253dcc8855e9edb534ef10d716\` FOREIGN KEY (\`consip_agreement_id\`) REFERENCES \`consip_agreement\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`asset_aggregators\` ADD CONSTRAINT \`FK_d727f360f8244e6d2fff287536b\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`asset_aggregators\` ADD CONSTRAINT \`FK_b35a2cc9fb0a9df4af08e5173a5\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`assets\` ADD CONSTRAINT \`FK_a6ffabc579ece9d227957638b49\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`assets\` ADD CONSTRAINT \`FK_7c39768571391fa85f0f40bab3f\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`assets\` ADD CONSTRAINT \`FK_d43ed9e838f74bcc07b1266a8d6\` FOREIGN KEY (\`asset_type_id\`) REFERENCES \`asset_aggregators\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilizer\` ADD CONSTRAINT \`FK_0fe9848068c236c4b459fe92ba8\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilizer\` ADD CONSTRAINT \`FK_39aef6540c695311ad02bece349\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilizer_grant\` ADD CONSTRAINT \`FK_0f326fdf53d2b0dda78222764d4\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilizer_grant\` ADD CONSTRAINT \`FK_70588a011fa3b6b15e49092251a\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilizer_grant\` ADD CONSTRAINT \`FK_7723bcfbd50a510a388749ff301\` FOREIGN KEY (\`asset_id_fk\`) REFERENCES \`assets\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`utilizer_grant\` ADD CONSTRAINT \`FK_c16dc640cb80a97265d763c9079\` FOREIGN KEY (\`utilizer_id_fk\`) REFERENCES \`utilizer\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`aca_keys\` ADD CONSTRAINT \`FK_a23304180e4457edc6e985c8a73\` FOREIGN KEY (\`utility_id\`) REFERENCES \`utilities\`(\`id\`) ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`aca_keys\` ADD CONSTRAINT \`FK_8a11ef487d5449dc70defd8bf17\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE \`aca_keys\` ADD CONSTRAINT \`FK_d3445744fbdb002ec5d9abaf3ab\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`);
-    }
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `CREATE TABLE \`system_users\` (\`id\` int NOT NULL AUTO_INCREMENT, \`first_name\` varchar(50) NULL, \`last_name\` varchar(50) NOT NULL, \`email\` varchar(255) NOT NULL, \`password_hash\` varchar(255) NOT NULL, \`role\` enum ('Admin', 'Operatore', 'Lettore') NOT NULL DEFAULT 'Operatore', \`status\` enum ('Attivo', 'Disattivo') NOT NULL DEFAULT 'Attivo', \`otp\` varchar(6) NULL, \`otp_expiry\` timestamp NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_52f2e5671ada53f91efaf9203c\` (\`created_by_user_id\`), UNIQUE INDEX \`UK_email\` (\`email\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`utility_aggregators\` (\`id\` int NOT NULL AUTO_INCREMENT, \`description\` varchar(255) NULL, \`code\` varchar(255) NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_6add3a6a97364646ac3ac95afb\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_fd45c271920bc9a24a05904b5c\` (\`code\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`suppliers\` (\`id\` int NOT NULL AUTO_INCREMENT, \`supplier_id\` varchar(50) NOT NULL, \`vat_number\` varchar(20) NULL, \`tax_code\` varchar(20) NULL, \`company_name\` varchar(255) NOT NULL, \`address\` varchar(255) NULL, \`city\` varchar(100) NULL, \`postal_code\` varchar(10) NULL, \`email\` varchar(100) NULL, \`pec\` varchar(100) NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_5fa7dd93144dd478fc3606eda1\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_a2692f796d16e0a30040860112\` (\`supplier_id\`), UNIQUE INDEX \`IDX_aee7c8464d179ea66636906349\` (\`company_name\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`budget_chapters\` (\`id\` int NOT NULL AUTO_INCREMENT, \`chapter_code\` varchar(50) NOT NULL, \`article\` int NOT NULL DEFAULT '0', \`description\` varchar(255) NULL, \`pdc\` varchar(100) NULL, \`supply_type\` enum ('ELECTRICITY', 'THERMAL_MANAGEMENT', 'GAS_SUPPLY_ONLY', 'WATER', 'SPRAR_UTILITIES') NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_0bd389211ac79818af3904d176\` (\`created_by_user_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`invoice_budget_chapter\` (\`invoice_id\` int NOT NULL, \`budget_chapter_id\` int NOT NULL, PRIMARY KEY (\`invoice_id\`, \`budget_chapter_id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`invoices\` (\`id\` int NOT NULL AUTO_INCREMENT, \`invoice_id\` varchar(255) NOT NULL, \`invoice_date\` date NOT NULL, \`protocol_number\` varchar(100) NULL, \`net_amount_excl_vat\` decimal(18,2) NOT NULL DEFAULT '0.00', \`last_invoice_arrears\` decimal(18,2) NOT NULL DEFAULT '0.00', \`notes_on_invoices\` text NULL, \`utility_id_fk\` int NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, \`supplier_id_fk\` int NULL, INDEX \`IDX_b62e289be9ae465de0b33e466c\` (\`created_by_user_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`purpose\` (\`id\` int NOT NULL AUTO_INCREMENT, \`name\` varchar(255) NOT NULL, \`use_type\` enum ('GENERIC', 'SPECIFIC') NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT '0', INDEX \`IDX_0e4e689e26b6b3fdb47a4a8de0\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_4a272e999eb7c51548b0249e29\` (\`name\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`utility_type_purpose\` (\`utility_type_id\` int NOT NULL, \`purpose_id\` int NOT NULL, PRIMARY KEY (\`utility_type_id\`, \`purpose_id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`utility_types\` (\`id\` int NOT NULL AUTO_INCREMENT, \`name\` varchar(50) NOT NULL, \`description\` varchar(300) NULL, \`hard_type\` enum ('WATER', 'LIGHT', 'GAS', 'INTERNET') NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_c7265475e407f83642b317632c\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_1e7bf8e2f361071d22b4989154\` (\`name\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`costs_borne_by\` (\`id\` int NOT NULL AUTO_INCREMENT, \`name\` varchar(100) NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_a1b3689b160116241e4de0ee34\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_028a7f4037aa13be201677526e\` (\`name\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`maintenance_managers\` (\`id\` int NOT NULL AUTO_INCREMENT, \`code\` varchar(100) NOT NULL, \`description\` text NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NULL, \`updated_by_user_id\` int NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_91641df4170a721a4f9e696071\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_896871741dba2db44c2d08ae8a\` (\`code\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`consip_agreement\` (\`id\` int NOT NULL AUTO_INCREMENT, \`name\` varchar(255) NOT NULL, \`description\` text NULL, \`cig_master\` varchar(10) NOT NULL, \`expiration_date\` date NULL, \`safeguard\` tinyint NOT NULL DEFAULT '0', \`supplier_id\` int NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT '0', INDEX \`IDX_4865ffe2d0c44ceb3728328eeb\` (\`supplier_id\`), INDEX \`IDX_3103fb42e85e20b668f093d287\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_1886014cda1db340533ed45adf\` (\`name\`), UNIQUE INDEX \`REL_4865ffe2d0c44ceb3728328eeb\` (\`supplier_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`utilities\` (\`id\` int NOT NULL AUTO_INCREMENT, \`utility_type_id_fk\` int NOT NULL, \`utility_id\` varchar(20) NOT NULL, \`utility_code\` varchar(255) NULL, \`meter_number\` varchar(255) NULL, \`supplier_address\` varchar(255) NULL, \`costs_borne_by_id_fk\` int NOT NULL, \`supplier_id_fk\` int NULL, \`consip_order\` varchar(100) NULL, \`supply_start_date\` date NULL, \`supply_expiry_date\` date NULL, \`consip_agreement_id\` int NULL, \`management_expiry_date\` date NULL, \`takeover_termination_date\` date NULL, \`supply_active\` tinyint NULL DEFAULT 0, \`meter_removed\` tinyint NULL DEFAULT 0, \`security_deposit\` decimal(10,2) NOT NULL DEFAULT '0.00', \`reported_consumption_year\` decimal(10,2) NOT NULL DEFAULT '0.00', \`actual_consumption\` decimal(10,2) NOT NULL DEFAULT '0.00', \`estimated_annual_consumption\` decimal(10,2) NOT NULL DEFAULT '0.00', \`power_kw_electric\` decimal(12,2) NULL, \`voltage_kw_electric\` varchar(100) NULL, \`phase_type_electric\` enum ('1F', '3F', 'N/A') NULL, \`latitude\` varchar(20) NULL, \`longitude\` varchar(20) NULL, \`notes\` text NULL, \`additional_notes\` text NULL, \`wbs_gas_element\` varchar(255) NULL, \`water_concession\` date NULL, \`meter_verified\` tinyint NULL DEFAULT 0, \`disconnection_ability\` varchar(255) NULL, \`specifications\` text NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NULL DEFAULT 0, \`asset_id_fk\` int NOT NULL, \`maintenance_management_id_fk\` int NULL, \`aggregator_id_fk\` int NULL, \`budget_chapter_code_fk\` int NOT NULL, \`order_number\` text NULL, \`cig_contract\` text NULL, INDEX \`IDX_f6aeb7bed0280acc17e9bc0dba\` (\`created_by_user_id\`), UNIQUE INDEX \`REL_c253dcc8855e9edb534ef10d71\` (\`consip_agreement_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`asset_aggregators\` (\`id\` int NOT NULL AUTO_INCREMENT, \`description\` varchar(255) NULL, \`code\` varchar(255) NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_d727f360f8244e6d2fff287536\` (\`created_by_user_id\`), UNIQUE INDEX \`IDX_1dd8ee2f6760bd4c6cb5bf958b\` (\`code\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`assets\` (\`id\` int NOT NULL AUTO_INCREMENT, \`asset_name\` varchar(255) NOT NULL, \`associated_building\` varchar(255) NULL, \`toponym\` varchar(255) NULL, \`address\` varchar(255) NULL, \`civic_number\` varchar(50) NULL, \`zip_code\` varchar(10) NULL, \`municipality\` varchar(100) NULL, \`ownership\` int NOT NULL, \`specific_details\` varchar(1000) NULL, \`memo\` varchar(1000) NULL, \`services_and_artifacts\` text NULL, \`latitude\` varchar(20) NULL, \`longitude\` varchar(20) NULL, \`sheet\` varchar(50) NULL, \`parcel\` varchar(50) NULL, \`subordinate\` varchar(50) NULL, \`area_sqm\` decimal(10,2) NULL, \`cadastral_value\` decimal(15,2) NULL, \`category\` varchar(100) NULL, \`asset_type_id\` int NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_a6ffabc579ece9d227957638b4\` (\`created_by_user_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`utilizer\` (\`id\` int NOT NULL AUTO_INCREMENT, \`name\` varchar(255) NOT NULL, \`description\` varchar(255) NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_39aef6540c695311ad02bece34\` (\`created_by_user_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`utilizer_grant\` (\`id\` int NOT NULL AUTO_INCREMENT, \`concession_act\` varchar(255) NULL, \`utilities_to_be_taken_over\` tinyint NOT NULL DEFAULT 0, \`usage_type\` varchar(100) NULL, \`grant_date\` timestamp(6) NULL DEFAULT CURRENT_TIMESTAMP(6), \`expire_date\` timestamp(6) NULL DEFAULT CURRENT_TIMESTAMP(6), \`asset_id_fk\` int NOT NULL, \`utilizer_id_fk\` int NOT NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_70588a011fa3b6b15e49092251\` (\`created_by_user_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE \`aca_keys\` (\`id\` int NOT NULL AUTO_INCREMENT, \`username\` varchar(100) NOT NULL, \`password\` varchar(255) NOT NULL, \`utility_id\` int NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, INDEX \`IDX_a23304180e4457edc6e985c8a7\` (\`utility_id\`), INDEX \`IDX_8a11ef487d5449dc70defd8bf1\` (\`created_by_user_id\`), UNIQUE INDEX \`REL_a23304180e4457edc6e985c8a7\` (\`utility_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX \`IDX_891310b3d845fe3f7d00346e65\` ON \`invoice_budget_chapter\` (\`invoice_id\`)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX \`IDX_9cffdf1bcf101d43271ac87c53\` ON \`invoice_budget_chapter\` (\`budget_chapter_id\`)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX \`IDX_ef80be3fc01d5e693454b854ce\` ON \`utility_type_purpose\` (\`utility_type_id\`)`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX \`IDX_1e8787cfd9a351ca1bc81f882e\` ON \`utility_type_purpose\` (\`purpose_id\`)`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`system_users\` ADD CONSTRAINT \`FK_52f2e5671ada53f91efaf9203cf\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`system_users\` ADD CONSTRAINT \`FK_e31e461577292b43259213839f7\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utility_aggregators\` ADD CONSTRAINT \`FK_6add3a6a97364646ac3ac95afb8\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utility_aggregators\` ADD CONSTRAINT \`FK_8a237573bbd76c2beaee579d5a2\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`suppliers\` ADD CONSTRAINT \`FK_5fa7dd93144dd478fc3606eda1d\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`suppliers\` ADD CONSTRAINT \`FK_772718e7d80332bdde12cd6f52a\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`budget_chapters\` ADD CONSTRAINT \`FK_0bd389211ac79818af3904d176d\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`budget_chapters\` ADD CONSTRAINT \`FK_6751d5b2ccc97e8937760876ce9\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`invoice_budget_chapter\` ADD CONSTRAINT \`FK_891310b3d845fe3f7d00346e65b\` FOREIGN KEY (\`invoice_id\`) REFERENCES \`invoices\`(\`id\`) ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`invoice_budget_chapter\` ADD CONSTRAINT \`FK_9cffdf1bcf101d43271ac87c53d\` FOREIGN KEY (\`budget_chapter_id\`) REFERENCES \`budget_chapters\`(\`id\`) ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`invoices\` ADD CONSTRAINT \`FK_a73380d59b8490982f145c9d8fe\` FOREIGN KEY (\`supplier_id_fk\`) REFERENCES \`suppliers\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`invoices\` ADD CONSTRAINT \`FK_b62e289be9ae465de0b33e466c1\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`invoices\` ADD CONSTRAINT \`FK_7e065c5d942ddbe5ea3202c0d51\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`invoices\` ADD CONSTRAINT \`FK_98dbfe5bcca4d0b27fc699be892\` FOREIGN KEY (\`utility_id_fk\`) REFERENCES \`utilities\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`purpose\` ADD CONSTRAINT \`FK_0e4e689e26b6b3fdb47a4a8de00\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`purpose\` ADD CONSTRAINT \`FK_77dc5d21ae1e69bceaf481001bf\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utility_type_purpose\` ADD CONSTRAINT \`FK_ef80be3fc01d5e693454b854ce3\` FOREIGN KEY (\`utility_type_id\`) REFERENCES \`utility_types\`(\`id\`) ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utility_type_purpose\` ADD CONSTRAINT \`FK_1e8787cfd9a351ca1bc81f882e9\` FOREIGN KEY (\`purpose_id\`) REFERENCES \`purpose\`(\`id\`) ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utility_types\` ADD CONSTRAINT \`FK_c7265475e407f83642b317632c7\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utility_types\` ADD CONSTRAINT \`FK_5e1005cbc5c71fc2639c6e8f914\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`costs_borne_by\` ADD CONSTRAINT \`FK_a1b3689b160116241e4de0ee341\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`costs_borne_by\` ADD CONSTRAINT \`FK_e17b17ff1598741dfab09add67a\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`maintenance_managers\` ADD CONSTRAINT \`FK_91641df4170a721a4f9e696071d\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`maintenance_managers\` ADD CONSTRAINT \`FK_f19fa975d5bb5c3a90a03289401\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`consip_agreement\` ADD CONSTRAINT \`FK_3103fb42e85e20b668f093d2876\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`consip_agreement\` ADD CONSTRAINT \`FK_1ad2499bed957df009583f938d0\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`consip_agreement\` ADD CONSTRAINT \`FK_4865ffe2d0c44ceb3728328eeb0\` FOREIGN KEY (\`supplier_id\`) REFERENCES \`suppliers\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_f6aeb7bed0280acc17e9bc0dba6\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_a0e6d9d34cdbb9bc6695ec28893\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_ac19dbfc5a05c425d326d14548e\` FOREIGN KEY (\`costs_borne_by_id_fk\`) REFERENCES \`costs_borne_by\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_cbed90367b9d7a0ca03485dafda\` FOREIGN KEY (\`utility_type_id_fk\`) REFERENCES \`utility_types\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_38725bd397adb97762016779410\` FOREIGN KEY (\`asset_id_fk\`) REFERENCES \`assets\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_dba61ce41b0c75fe41d95eb23e5\` FOREIGN KEY (\`aggregator_id_fk\`) REFERENCES \`utility_aggregators\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_42f396edfa8f09d9dc694e4ddc9\` FOREIGN KEY (\`maintenance_management_id_fk\`) REFERENCES \`maintenance_managers\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_89015a22b217ff8c7ac2283ca18\` FOREIGN KEY (\`budget_chapter_code_fk\`) REFERENCES \`budget_chapters\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_8b0d8040435b79d5bd3a32c9801\` FOREIGN KEY (\`supplier_id_fk\`) REFERENCES \`suppliers\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` ADD CONSTRAINT \`FK_c253dcc8855e9edb534ef10d716\` FOREIGN KEY (\`consip_agreement_id\`) REFERENCES \`consip_agreement\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`asset_aggregators\` ADD CONSTRAINT \`FK_d727f360f8244e6d2fff287536b\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`asset_aggregators\` ADD CONSTRAINT \`FK_b35a2cc9fb0a9df4af08e5173a5\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`assets\` ADD CONSTRAINT \`FK_a6ffabc579ece9d227957638b49\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`assets\` ADD CONSTRAINT \`FK_7c39768571391fa85f0f40bab3f\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`assets\` ADD CONSTRAINT \`FK_d43ed9e838f74bcc07b1266a8d6\` FOREIGN KEY (\`asset_type_id\`) REFERENCES \`asset_aggregators\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilizer\` ADD CONSTRAINT \`FK_0fe9848068c236c4b459fe92ba8\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilizer\` ADD CONSTRAINT \`FK_39aef6540c695311ad02bece349\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilizer_grant\` ADD CONSTRAINT \`FK_0f326fdf53d2b0dda78222764d4\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilizer_grant\` ADD CONSTRAINT \`FK_70588a011fa3b6b15e49092251a\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilizer_grant\` ADD CONSTRAINT \`FK_7723bcfbd50a510a388749ff301\` FOREIGN KEY (\`asset_id_fk\`) REFERENCES \`assets\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilizer_grant\` ADD CONSTRAINT \`FK_c16dc640cb80a97265d763c9079\` FOREIGN KEY (\`utilizer_id_fk\`) REFERENCES \`utilizer\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`aca_keys\` ADD CONSTRAINT \`FK_a23304180e4457edc6e985c8a73\` FOREIGN KEY (\`utility_id\`) REFERENCES \`utilities\`(\`id\`) ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`aca_keys\` ADD CONSTRAINT \`FK_8a11ef487d5449dc70defd8bf17\` FOREIGN KEY (\`created_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`aca_keys\` ADD CONSTRAINT \`FK_d3445744fbdb002ec5d9abaf3ab\` FOREIGN KEY (\`updated_by_user_id\`) REFERENCES \`system_users\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`ALTER TABLE \`aca_keys\` DROP FOREIGN KEY \`FK_d3445744fbdb002ec5d9abaf3ab\``);
-        await queryRunner.query(`ALTER TABLE \`aca_keys\` DROP FOREIGN KEY \`FK_8a11ef487d5449dc70defd8bf17\``);
-        await queryRunner.query(`ALTER TABLE \`aca_keys\` DROP FOREIGN KEY \`FK_a23304180e4457edc6e985c8a73\``);
-        await queryRunner.query(`ALTER TABLE \`utilizer_grant\` DROP FOREIGN KEY \`FK_c16dc640cb80a97265d763c9079\``);
-        await queryRunner.query(`ALTER TABLE \`utilizer_grant\` DROP FOREIGN KEY \`FK_7723bcfbd50a510a388749ff301\``);
-        await queryRunner.query(`ALTER TABLE \`utilizer_grant\` DROP FOREIGN KEY \`FK_70588a011fa3b6b15e49092251a\``);
-        await queryRunner.query(`ALTER TABLE \`utilizer_grant\` DROP FOREIGN KEY \`FK_0f326fdf53d2b0dda78222764d4\``);
-        await queryRunner.query(`ALTER TABLE \`utilizer\` DROP FOREIGN KEY \`FK_39aef6540c695311ad02bece349\``);
-        await queryRunner.query(`ALTER TABLE \`utilizer\` DROP FOREIGN KEY \`FK_0fe9848068c236c4b459fe92ba8\``);
-        await queryRunner.query(`ALTER TABLE \`assets\` DROP FOREIGN KEY \`FK_d43ed9e838f74bcc07b1266a8d6\``);
-        await queryRunner.query(`ALTER TABLE \`assets\` DROP FOREIGN KEY \`FK_7c39768571391fa85f0f40bab3f\``);
-        await queryRunner.query(`ALTER TABLE \`assets\` DROP FOREIGN KEY \`FK_a6ffabc579ece9d227957638b49\``);
-        await queryRunner.query(`ALTER TABLE \`asset_aggregators\` DROP FOREIGN KEY \`FK_b35a2cc9fb0a9df4af08e5173a5\``);
-        await queryRunner.query(`ALTER TABLE \`asset_aggregators\` DROP FOREIGN KEY \`FK_d727f360f8244e6d2fff287536b\``);
-        await queryRunner.query(`ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_c253dcc8855e9edb534ef10d716\``);
-        await queryRunner.query(`ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_8b0d8040435b79d5bd3a32c9801\``);
-        await queryRunner.query(`ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_89015a22b217ff8c7ac2283ca18\``);
-        await queryRunner.query(`ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_42f396edfa8f09d9dc694e4ddc9\``);
-        await queryRunner.query(`ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_dba61ce41b0c75fe41d95eb23e5\``);
-        await queryRunner.query(`ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_38725bd397adb97762016779410\``);
-        await queryRunner.query(`ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_cbed90367b9d7a0ca03485dafda\``);
-        await queryRunner.query(`ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_ac19dbfc5a05c425d326d14548e\``);
-        await queryRunner.query(`ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_a0e6d9d34cdbb9bc6695ec28893\``);
-        await queryRunner.query(`ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_f6aeb7bed0280acc17e9bc0dba6\``);
-        await queryRunner.query(`ALTER TABLE \`consip_agreement\` DROP FOREIGN KEY \`FK_4865ffe2d0c44ceb3728328eeb0\``);
-        await queryRunner.query(`ALTER TABLE \`consip_agreement\` DROP FOREIGN KEY \`FK_1ad2499bed957df009583f938d0\``);
-        await queryRunner.query(`ALTER TABLE \`consip_agreement\` DROP FOREIGN KEY \`FK_3103fb42e85e20b668f093d2876\``);
-        await queryRunner.query(`ALTER TABLE \`maintenance_managers\` DROP FOREIGN KEY \`FK_f19fa975d5bb5c3a90a03289401\``);
-        await queryRunner.query(`ALTER TABLE \`maintenance_managers\` DROP FOREIGN KEY \`FK_91641df4170a721a4f9e696071d\``);
-        await queryRunner.query(`ALTER TABLE \`costs_borne_by\` DROP FOREIGN KEY \`FK_e17b17ff1598741dfab09add67a\``);
-        await queryRunner.query(`ALTER TABLE \`costs_borne_by\` DROP FOREIGN KEY \`FK_a1b3689b160116241e4de0ee341\``);
-        await queryRunner.query(`ALTER TABLE \`utility_types\` DROP FOREIGN KEY \`FK_5e1005cbc5c71fc2639c6e8f914\``);
-        await queryRunner.query(`ALTER TABLE \`utility_types\` DROP FOREIGN KEY \`FK_c7265475e407f83642b317632c7\``);
-        await queryRunner.query(`ALTER TABLE \`utility_type_purpose\` DROP FOREIGN KEY \`FK_1e8787cfd9a351ca1bc81f882e9\``);
-        await queryRunner.query(`ALTER TABLE \`utility_type_purpose\` DROP FOREIGN KEY \`FK_ef80be3fc01d5e693454b854ce3\``);
-        await queryRunner.query(`ALTER TABLE \`purpose\` DROP FOREIGN KEY \`FK_77dc5d21ae1e69bceaf481001bf\``);
-        await queryRunner.query(`ALTER TABLE \`purpose\` DROP FOREIGN KEY \`FK_0e4e689e26b6b3fdb47a4a8de00\``);
-        await queryRunner.query(`ALTER TABLE \`invoices\` DROP FOREIGN KEY \`FK_98dbfe5bcca4d0b27fc699be892\``);
-        await queryRunner.query(`ALTER TABLE \`invoices\` DROP FOREIGN KEY \`FK_7e065c5d942ddbe5ea3202c0d51\``);
-        await queryRunner.query(`ALTER TABLE \`invoices\` DROP FOREIGN KEY \`FK_b62e289be9ae465de0b33e466c1\``);
-        await queryRunner.query(`ALTER TABLE \`invoices\` DROP FOREIGN KEY \`FK_a73380d59b8490982f145c9d8fe\``);
-        await queryRunner.query(`ALTER TABLE \`invoice_budget_chapter\` DROP FOREIGN KEY \`FK_9cffdf1bcf101d43271ac87c53d\``);
-        await queryRunner.query(`ALTER TABLE \`invoice_budget_chapter\` DROP FOREIGN KEY \`FK_891310b3d845fe3f7d00346e65b\``);
-        await queryRunner.query(`ALTER TABLE \`budget_chapters\` DROP FOREIGN KEY \`FK_6751d5b2ccc97e8937760876ce9\``);
-        await queryRunner.query(`ALTER TABLE \`budget_chapters\` DROP FOREIGN KEY \`FK_0bd389211ac79818af3904d176d\``);
-        await queryRunner.query(`ALTER TABLE \`suppliers\` DROP FOREIGN KEY \`FK_772718e7d80332bdde12cd6f52a\``);
-        await queryRunner.query(`ALTER TABLE \`suppliers\` DROP FOREIGN KEY \`FK_5fa7dd93144dd478fc3606eda1d\``);
-        await queryRunner.query(`ALTER TABLE \`utility_aggregators\` DROP FOREIGN KEY \`FK_8a237573bbd76c2beaee579d5a2\``);
-        await queryRunner.query(`ALTER TABLE \`utility_aggregators\` DROP FOREIGN KEY \`FK_6add3a6a97364646ac3ac95afb8\``);
-        await queryRunner.query(`ALTER TABLE \`system_users\` DROP FOREIGN KEY \`FK_e31e461577292b43259213839f7\``);
-        await queryRunner.query(`ALTER TABLE \`system_users\` DROP FOREIGN KEY \`FK_52f2e5671ada53f91efaf9203cf\``);
-        await queryRunner.query(`DROP INDEX \`IDX_1e8787cfd9a351ca1bc81f882e\` ON \`utility_type_purpose\``);
-        await queryRunner.query(`DROP INDEX \`IDX_ef80be3fc01d5e693454b854ce\` ON \`utility_type_purpose\``);
-        await queryRunner.query(`DROP INDEX \`IDX_9cffdf1bcf101d43271ac87c53\` ON \`invoice_budget_chapter\``);
-        await queryRunner.query(`DROP INDEX \`IDX_891310b3d845fe3f7d00346e65\` ON \`invoice_budget_chapter\``);
-        await queryRunner.query(`DROP INDEX \`REL_a23304180e4457edc6e985c8a7\` ON \`aca_keys\``);
-        await queryRunner.query(`DROP INDEX \`IDX_8a11ef487d5449dc70defd8bf1\` ON \`aca_keys\``);
-        await queryRunner.query(`DROP INDEX \`IDX_a23304180e4457edc6e985c8a7\` ON \`aca_keys\``);
-        await queryRunner.query(`DROP TABLE \`aca_keys\``);
-        await queryRunner.query(`DROP INDEX \`IDX_70588a011fa3b6b15e49092251\` ON \`utilizer_grant\``);
-        await queryRunner.query(`DROP TABLE \`utilizer_grant\``);
-        await queryRunner.query(`DROP INDEX \`IDX_39aef6540c695311ad02bece34\` ON \`utilizer\``);
-        await queryRunner.query(`DROP TABLE \`utilizer\``);
-        await queryRunner.query(`DROP INDEX \`IDX_a6ffabc579ece9d227957638b4\` ON \`assets\``);
-        await queryRunner.query(`DROP TABLE \`assets\``);
-        await queryRunner.query(`DROP INDEX \`IDX_1dd8ee2f6760bd4c6cb5bf958b\` ON \`asset_aggregators\``);
-        await queryRunner.query(`DROP INDEX \`IDX_d727f360f8244e6d2fff287536\` ON \`asset_aggregators\``);
-        await queryRunner.query(`DROP TABLE \`asset_aggregators\``);
-        await queryRunner.query(`DROP INDEX \`REL_c253dcc8855e9edb534ef10d71\` ON \`utilities\``);
-        await queryRunner.query(`DROP INDEX \`IDX_f6aeb7bed0280acc17e9bc0dba\` ON \`utilities\``);
-        await queryRunner.query(`DROP TABLE \`utilities\``);
-        await queryRunner.query(`DROP INDEX \`REL_4865ffe2d0c44ceb3728328eeb\` ON \`consip_agreement\``);
-        await queryRunner.query(`DROP INDEX \`IDX_1886014cda1db340533ed45adf\` ON \`consip_agreement\``);
-        await queryRunner.query(`DROP INDEX \`IDX_3103fb42e85e20b668f093d287\` ON \`consip_agreement\``);
-        await queryRunner.query(`DROP INDEX \`IDX_4865ffe2d0c44ceb3728328eeb\` ON \`consip_agreement\``);
-        await queryRunner.query(`DROP TABLE \`consip_agreement\``);
-        await queryRunner.query(`DROP INDEX \`IDX_896871741dba2db44c2d08ae8a\` ON \`maintenance_managers\``);
-        await queryRunner.query(`DROP INDEX \`IDX_91641df4170a721a4f9e696071\` ON \`maintenance_managers\``);
-        await queryRunner.query(`DROP TABLE \`maintenance_managers\``);
-        await queryRunner.query(`DROP INDEX \`IDX_028a7f4037aa13be201677526e\` ON \`costs_borne_by\``);
-        await queryRunner.query(`DROP INDEX \`IDX_a1b3689b160116241e4de0ee34\` ON \`costs_borne_by\``);
-        await queryRunner.query(`DROP TABLE \`costs_borne_by\``);
-        await queryRunner.query(`DROP INDEX \`IDX_1e7bf8e2f361071d22b4989154\` ON \`utility_types\``);
-        await queryRunner.query(`DROP INDEX \`IDX_c7265475e407f83642b317632c\` ON \`utility_types\``);
-        await queryRunner.query(`DROP TABLE \`utility_types\``);
-        await queryRunner.query(`DROP TABLE \`utility_type_purpose\``);
-        await queryRunner.query(`DROP INDEX \`IDX_4a272e999eb7c51548b0249e29\` ON \`purpose\``);
-        await queryRunner.query(`DROP INDEX \`IDX_0e4e689e26b6b3fdb47a4a8de0\` ON \`purpose\``);
-        await queryRunner.query(`DROP TABLE \`purpose\``);
-        await queryRunner.query(`DROP INDEX \`IDX_b62e289be9ae465de0b33e466c\` ON \`invoices\``);
-        await queryRunner.query(`DROP TABLE \`invoices\``);
-        await queryRunner.query(`DROP TABLE \`invoice_budget_chapter\``);
-        await queryRunner.query(`DROP INDEX \`IDX_0bd389211ac79818af3904d176\` ON \`budget_chapters\``);
-        await queryRunner.query(`DROP TABLE \`budget_chapters\``);
-        await queryRunner.query(`DROP INDEX \`IDX_aee7c8464d179ea66636906349\` ON \`suppliers\``);
-        await queryRunner.query(`DROP INDEX \`IDX_a2692f796d16e0a30040860112\` ON \`suppliers\``);
-        await queryRunner.query(`DROP INDEX \`IDX_5fa7dd93144dd478fc3606eda1\` ON \`suppliers\``);
-        await queryRunner.query(`DROP TABLE \`suppliers\``);
-        await queryRunner.query(`DROP INDEX \`IDX_fd45c271920bc9a24a05904b5c\` ON \`utility_aggregators\``);
-        await queryRunner.query(`DROP INDEX \`IDX_6add3a6a97364646ac3ac95afb\` ON \`utility_aggregators\``);
-        await queryRunner.query(`DROP TABLE \`utility_aggregators\``);
-        await queryRunner.query(`DROP INDEX \`UK_email\` ON \`system_users\``);
-        await queryRunner.query(`DROP INDEX \`IDX_52f2e5671ada53f91efaf9203c\` ON \`system_users\``);
-        await queryRunner.query(`DROP TABLE \`system_users\``);
-    }
-
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `ALTER TABLE \`aca_keys\` DROP FOREIGN KEY \`FK_d3445744fbdb002ec5d9abaf3ab\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`aca_keys\` DROP FOREIGN KEY \`FK_8a11ef487d5449dc70defd8bf17\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`aca_keys\` DROP FOREIGN KEY \`FK_a23304180e4457edc6e985c8a73\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilizer_grant\` DROP FOREIGN KEY \`FK_c16dc640cb80a97265d763c9079\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilizer_grant\` DROP FOREIGN KEY \`FK_7723bcfbd50a510a388749ff301\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilizer_grant\` DROP FOREIGN KEY \`FK_70588a011fa3b6b15e49092251a\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilizer_grant\` DROP FOREIGN KEY \`FK_0f326fdf53d2b0dda78222764d4\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilizer\` DROP FOREIGN KEY \`FK_39aef6540c695311ad02bece349\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilizer\` DROP FOREIGN KEY \`FK_0fe9848068c236c4b459fe92ba8\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`assets\` DROP FOREIGN KEY \`FK_d43ed9e838f74bcc07b1266a8d6\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`assets\` DROP FOREIGN KEY \`FK_7c39768571391fa85f0f40bab3f\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`assets\` DROP FOREIGN KEY \`FK_a6ffabc579ece9d227957638b49\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`asset_aggregators\` DROP FOREIGN KEY \`FK_b35a2cc9fb0a9df4af08e5173a5\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`asset_aggregators\` DROP FOREIGN KEY \`FK_d727f360f8244e6d2fff287536b\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_c253dcc8855e9edb534ef10d716\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_8b0d8040435b79d5bd3a32c9801\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_89015a22b217ff8c7ac2283ca18\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_42f396edfa8f09d9dc694e4ddc9\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_dba61ce41b0c75fe41d95eb23e5\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_38725bd397adb97762016779410\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_cbed90367b9d7a0ca03485dafda\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_ac19dbfc5a05c425d326d14548e\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_a0e6d9d34cdbb9bc6695ec28893\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` DROP FOREIGN KEY \`FK_f6aeb7bed0280acc17e9bc0dba6\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`consip_agreement\` DROP FOREIGN KEY \`FK_4865ffe2d0c44ceb3728328eeb0\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`consip_agreement\` DROP FOREIGN KEY \`FK_1ad2499bed957df009583f938d0\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`consip_agreement\` DROP FOREIGN KEY \`FK_3103fb42e85e20b668f093d2876\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`maintenance_managers\` DROP FOREIGN KEY \`FK_f19fa975d5bb5c3a90a03289401\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`maintenance_managers\` DROP FOREIGN KEY \`FK_91641df4170a721a4f9e696071d\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`costs_borne_by\` DROP FOREIGN KEY \`FK_e17b17ff1598741dfab09add67a\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`costs_borne_by\` DROP FOREIGN KEY \`FK_a1b3689b160116241e4de0ee341\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utility_types\` DROP FOREIGN KEY \`FK_5e1005cbc5c71fc2639c6e8f914\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utility_types\` DROP FOREIGN KEY \`FK_c7265475e407f83642b317632c7\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utility_type_purpose\` DROP FOREIGN KEY \`FK_1e8787cfd9a351ca1bc81f882e9\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utility_type_purpose\` DROP FOREIGN KEY \`FK_ef80be3fc01d5e693454b854ce3\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`purpose\` DROP FOREIGN KEY \`FK_77dc5d21ae1e69bceaf481001bf\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`purpose\` DROP FOREIGN KEY \`FK_0e4e689e26b6b3fdb47a4a8de00\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`invoices\` DROP FOREIGN KEY \`FK_98dbfe5bcca4d0b27fc699be892\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`invoices\` DROP FOREIGN KEY \`FK_7e065c5d942ddbe5ea3202c0d51\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`invoices\` DROP FOREIGN KEY \`FK_b62e289be9ae465de0b33e466c1\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`invoices\` DROP FOREIGN KEY \`FK_a73380d59b8490982f145c9d8fe\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`invoice_budget_chapter\` DROP FOREIGN KEY \`FK_9cffdf1bcf101d43271ac87c53d\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`invoice_budget_chapter\` DROP FOREIGN KEY \`FK_891310b3d845fe3f7d00346e65b\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`budget_chapters\` DROP FOREIGN KEY \`FK_6751d5b2ccc97e8937760876ce9\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`budget_chapters\` DROP FOREIGN KEY \`FK_0bd389211ac79818af3904d176d\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`suppliers\` DROP FOREIGN KEY \`FK_772718e7d80332bdde12cd6f52a\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`suppliers\` DROP FOREIGN KEY \`FK_5fa7dd93144dd478fc3606eda1d\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utility_aggregators\` DROP FOREIGN KEY \`FK_8a237573bbd76c2beaee579d5a2\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utility_aggregators\` DROP FOREIGN KEY \`FK_6add3a6a97364646ac3ac95afb8\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`system_users\` DROP FOREIGN KEY \`FK_e31e461577292b43259213839f7\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`system_users\` DROP FOREIGN KEY \`FK_52f2e5671ada53f91efaf9203cf\``,
+    );
+    await queryRunner.query(
+      `DROP INDEX \`IDX_1e8787cfd9a351ca1bc81f882e\` ON \`utility_type_purpose\``,
+    );
+    await queryRunner.query(
+      `DROP INDEX \`IDX_ef80be3fc01d5e693454b854ce\` ON \`utility_type_purpose\``,
+    );
+    await queryRunner.query(
+      `DROP INDEX \`IDX_9cffdf1bcf101d43271ac87c53\` ON \`invoice_budget_chapter\``,
+    );
+    await queryRunner.query(
+      `DROP INDEX \`IDX_891310b3d845fe3f7d00346e65\` ON \`invoice_budget_chapter\``,
+    );
+    await queryRunner.query(`DROP INDEX \`REL_a23304180e4457edc6e985c8a7\` ON \`aca_keys\``);
+    await queryRunner.query(`DROP INDEX \`IDX_8a11ef487d5449dc70defd8bf1\` ON \`aca_keys\``);
+    await queryRunner.query(`DROP INDEX \`IDX_a23304180e4457edc6e985c8a7\` ON \`aca_keys\``);
+    await queryRunner.query(`DROP TABLE \`aca_keys\``);
+    await queryRunner.query(`DROP INDEX \`IDX_70588a011fa3b6b15e49092251\` ON \`utilizer_grant\``);
+    await queryRunner.query(`DROP TABLE \`utilizer_grant\``);
+    await queryRunner.query(`DROP INDEX \`IDX_39aef6540c695311ad02bece34\` ON \`utilizer\``);
+    await queryRunner.query(`DROP TABLE \`utilizer\``);
+    await queryRunner.query(`DROP INDEX \`IDX_a6ffabc579ece9d227957638b4\` ON \`assets\``);
+    await queryRunner.query(`DROP TABLE \`assets\``);
+    await queryRunner.query(
+      `DROP INDEX \`IDX_1dd8ee2f6760bd4c6cb5bf958b\` ON \`asset_aggregators\``,
+    );
+    await queryRunner.query(
+      `DROP INDEX \`IDX_d727f360f8244e6d2fff287536\` ON \`asset_aggregators\``,
+    );
+    await queryRunner.query(`DROP TABLE \`asset_aggregators\``);
+    await queryRunner.query(`DROP INDEX \`REL_c253dcc8855e9edb534ef10d71\` ON \`utilities\``);
+    await queryRunner.query(`DROP INDEX \`IDX_f6aeb7bed0280acc17e9bc0dba\` ON \`utilities\``);
+    await queryRunner.query(`DROP TABLE \`utilities\``);
+    await queryRunner.query(
+      `DROP INDEX \`REL_4865ffe2d0c44ceb3728328eeb\` ON \`consip_agreement\``,
+    );
+    await queryRunner.query(
+      `DROP INDEX \`IDX_1886014cda1db340533ed45adf\` ON \`consip_agreement\``,
+    );
+    await queryRunner.query(
+      `DROP INDEX \`IDX_3103fb42e85e20b668f093d287\` ON \`consip_agreement\``,
+    );
+    await queryRunner.query(
+      `DROP INDEX \`IDX_4865ffe2d0c44ceb3728328eeb\` ON \`consip_agreement\``,
+    );
+    await queryRunner.query(`DROP TABLE \`consip_agreement\``);
+    await queryRunner.query(
+      `DROP INDEX \`IDX_896871741dba2db44c2d08ae8a\` ON \`maintenance_managers\``,
+    );
+    await queryRunner.query(
+      `DROP INDEX \`IDX_91641df4170a721a4f9e696071\` ON \`maintenance_managers\``,
+    );
+    await queryRunner.query(`DROP TABLE \`maintenance_managers\``);
+    await queryRunner.query(`DROP INDEX \`IDX_028a7f4037aa13be201677526e\` ON \`costs_borne_by\``);
+    await queryRunner.query(`DROP INDEX \`IDX_a1b3689b160116241e4de0ee34\` ON \`costs_borne_by\``);
+    await queryRunner.query(`DROP TABLE \`costs_borne_by\``);
+    await queryRunner.query(`DROP INDEX \`IDX_1e7bf8e2f361071d22b4989154\` ON \`utility_types\``);
+    await queryRunner.query(`DROP INDEX \`IDX_c7265475e407f83642b317632c\` ON \`utility_types\``);
+    await queryRunner.query(`DROP TABLE \`utility_types\``);
+    await queryRunner.query(`DROP TABLE \`utility_type_purpose\``);
+    await queryRunner.query(`DROP INDEX \`IDX_4a272e999eb7c51548b0249e29\` ON \`purpose\``);
+    await queryRunner.query(`DROP INDEX \`IDX_0e4e689e26b6b3fdb47a4a8de0\` ON \`purpose\``);
+    await queryRunner.query(`DROP TABLE \`purpose\``);
+    await queryRunner.query(`DROP INDEX \`IDX_b62e289be9ae465de0b33e466c\` ON \`invoices\``);
+    await queryRunner.query(`DROP TABLE \`invoices\``);
+    await queryRunner.query(`DROP TABLE \`invoice_budget_chapter\``);
+    await queryRunner.query(`DROP INDEX \`IDX_0bd389211ac79818af3904d176\` ON \`budget_chapters\``);
+    await queryRunner.query(`DROP TABLE \`budget_chapters\``);
+    await queryRunner.query(`DROP INDEX \`IDX_aee7c8464d179ea66636906349\` ON \`suppliers\``);
+    await queryRunner.query(`DROP INDEX \`IDX_a2692f796d16e0a30040860112\` ON \`suppliers\``);
+    await queryRunner.query(`DROP INDEX \`IDX_5fa7dd93144dd478fc3606eda1\` ON \`suppliers\``);
+    await queryRunner.query(`DROP TABLE \`suppliers\``);
+    await queryRunner.query(
+      `DROP INDEX \`IDX_fd45c271920bc9a24a05904b5c\` ON \`utility_aggregators\``,
+    );
+    await queryRunner.query(
+      `DROP INDEX \`IDX_6add3a6a97364646ac3ac95afb\` ON \`utility_aggregators\``,
+    );
+    await queryRunner.query(`DROP TABLE \`utility_aggregators\``);
+    await queryRunner.query(`DROP INDEX \`UK_email\` ON \`system_users\``);
+    await queryRunner.query(`DROP INDEX \`IDX_52f2e5671ada53f91efaf9203c\` ON \`system_users\``);
+    await queryRunner.query(`DROP TABLE \`system_users\``);
+  }
 }
