@@ -1,0 +1,10 @@
+allowBuilds:
+  bcrypt: true
+  protobufjs: true
+  '@sentry/node-cpu-profiler': true
+  unrs-resolver: true
+  '@scarf/scarf': true
+  '@playwright/browser-chromium': false
+  unix-dgram: false
+minimumReleaseAgeExclude:
+  - nodemailer@9.0.6

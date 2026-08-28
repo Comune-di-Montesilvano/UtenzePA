@@ -10,7 +10,6 @@
 #   - development: Development image with hot-reload support
 
 ARG NODE_VERSION=24.8.0
-ARG NPM_VERSION=11.6.2
 
 # Limite memoria per Node.js (utile per macchine con poca RAM)
 
@@ -19,9 +18,14 @@ ARG NPM_VERSION=11.6.2
 FROM node:${NODE_VERSION}-alpine AS base
 
 
-# Update npm to match host version for consistency
-# This prevents package-lock.json discrepancies between dev and Docker
-RUN npm install -g npm@${NPM_VERSION}
+# Enable corepack per gestire pnpm (versione pinnata in package.json → "packageManager")
+RUN corepack enable
+
+# pnpm esegue un controllo di coerenza lockfile/node_modules prima di run script
+# (es. "pnpm run build"): se rileva un disallineamento prova a reinstallare e,
+# senza TTY, abortisce con ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY. CI=true
+# lo rende non interattivo, comportamento sicuro in un build Docker.
+ENV CI=true
 
 # Set working directory for all build stages.
 WORKDIR /usr/src/app
@@ -32,13 +36,13 @@ WORKDIR /usr/src/app
 FROM base AS deps
 
 # Copy only package files first for better layer caching
-COPY --chown=node:node package*.json ./
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install ALL dependencies (needed for building)
-# Using npm install instead of npm ci to handle lock file sync issues
-# Docker's layer caching still provides fast builds when dependencies don't change
-# Skip scripts to avoid Husky installation in Docker (not needed in container)
-RUN npm install --ignore-scripts
+# --ignore-scripts salta husky (non serve in container); gli script di build
+# nativi richiesti (bcrypt, ecc.) sono nell'allowlist "allowBuilds" in
+# pnpm-workspace.yaml e vengono comunque eseguiti da pnpm
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 ################################################################################
 # Create a stage for building the application.
@@ -48,26 +52,24 @@ FROM base AS build
 COPY --chown=node:node --from=deps /usr/src/app/node_modules ./node_modules
 
 # Copy source files
-COPY --chown=node:node package*.json ./
+COPY --chown=node:node package.json pnpm-lock.yaml ./
 COPY --chown=node:node tsconfig*.json ./
 COPY --chown=node:node nest-cli.json ./
 COPY --chown=node:node src ./src
 
 # Build the application
-RUN npm run build
+RUN pnpm run build
 
 ################################################################################
 # Create a stage for production dependencies only
 FROM base AS prod-deps
 
 # Copy package files
-COPY --chown=node:node package*.json ./
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install ONLY production dependencies
-# Install normalmente, il prepare script fallirà ma npm continuerà
-RUN npm install --omit=dev || true && \
-    npm cache clean --force && \
-    rm -rf node_modules/.cache && \
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts=false && \
+    rm -rf node_modules/.pnpm-store $HOME/.local/share/pnpm/store && \
     find node_modules -name '*.md' -delete && \
     find node_modules -name '*.ts' -not -name '*.d.ts' -delete && \
     find node_modules -name '*.map' -delete
@@ -135,11 +137,10 @@ RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001 -G nodejs
 WORKDIR /usr/src/app
 
 # Copy package files first for better caching
-COPY --chown=nestjs:nodejs package*.json ./
+COPY --chown=nestjs:nodejs package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install all dependencies (including dev)
-# Using npm install to handle lock file sync issues in development
-RUN npm install
+RUN corepack enable && pnpm install
 
 # Copy source files
 COPY --chown=nestjs:nodejs . .
@@ -156,4 +157,4 @@ USER nestjs
 # Healthcheck for development stage
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 CMD curl -f http://localhost:3000/api/v1/health/liveness || exit 1
 
-CMD ["npm", "run", "start:dev"]
+CMD ["pnpm", "run", "start:dev"]
