@@ -56,7 +56,7 @@ Sempre con `--maxWorkers=2` sui comandi jest (container/runner con poche CPU dis
 docker exec -u root utenzepa-api-1 node -r ts-node/register -r tsconfig-paths/register node_modules/typeorm/cli.js migration:generate src/database/migrations/NomeMigration -d src/database/data-source.ts
 ```
 `SYNCHRONIZE=true`/`DROPSCHEMA=true` restano disponibili come escape hatch per iterazione rapida in dev, ma bypassano le migration — mai in produzione.
-Nota: gli script `docker:dev*` in `backend/package.json` referenziano `docker-compose-development.yml`, che non esiste nel repo — non funzionanti allo stato attuale, usare il `docker-compose.yml` di root o `npm run start:dev` in locale.
+Nota: gli script `docker:dev*` in `backend/package.json` referenziano `docker-compose-development.yml`, che non esiste nel repo — non funzionanti allo stato attuale, usare il `docker-compose.yml` di root o `pnpm run start:dev` in locale.
 
 **Worktree/dev su Windows**: `npm install` con bind-mount diretto della cartella `backend`/`frontend` su Docker Desktop Windows può corrompere `node_modules` (file `package.json` mancanti nei pacchetti, symlink `.bin` non creati — silenzioso, npm riporta successo). Workaround: container con `node_modules` su volume Docker named (non bind-mount) + solo il codice sorgente bind-mountato, es. `docker run -d -v "$(pwd -W)":/usr/src/app -v <nome>-node-modules:/usr/src/app/node_modules -w /usr/src/app node:24-alpine tail -f /dev/null`, poi `npm install` dentro il container. In git-bash su Windows serve `MSYS_NO_PATHCONV=1` + `$(pwd -W)` per i path nei comandi `docker run`.
 
