@@ -1,14 +1,15 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { CommonModule } from '@angular/common';
+
 import { SetupService } from '../../services/setup.service';
 
 @Component({
   selector: 'app-setup',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, RouterModule],
+  imports: [ReactiveFormsModule, RouterModule],
   templateUrl: './setup.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./setup.component.scss']
 })
 export class SetupComponent {

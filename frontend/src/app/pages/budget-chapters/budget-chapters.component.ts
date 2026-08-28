@@ -1,36 +1,21 @@
-import {Component} from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {FormsModule} from '@angular/forms';
-import {InputTextModule} from 'primeng/inputtext';
-import {ButtonModule} from 'primeng/button';
-import {TableModule} from 'primeng/table';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {DataTableBudgetChaptersComponent} from './data-table-budget-chapters.component';
-import {MessageService} from 'primeng/api';
-import {ToastModule} from 'primeng/toast';
+import {SearchBudgetChapters} from './search-budget-chapters.component';
 import {BudgetChaptersService} from './budget-chapters.service';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {BudgetChapter} from './entity/budget-chapter.entity';
-import {SearchBudgetChapters} from './search-budget-chapters.component';
 
 @Component({
-             selector: 'app-budget-chapters',
-             standalone: true,
-             providers: [MessageService],
-             imports: [
-               CommonModule,
-               FormsModule,
-               InputTextModule,
-               ButtonModule,
-               TableModule,
-               DataTableBudgetChaptersComponent,
-               SearchBudgetChapters,
-               ToastModule
-             ],
-             templateUrl: './budget-chapters.component.html'
-           })
+  selector: 'app-budget-chapters',
+  standalone: true,
+  imports: [
+    DataTableBudgetChaptersComponent,
+    SearchBudgetChapters
+  ],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  templateUrl: './budget-chapters.component.html'
+})
 export class BudgetChaptersComponent extends AbstractComponent<BudgetChapter> {
-
-  creationResult?: { success: boolean; message?: string };
 
   constructor(protected override service: BudgetChaptersService) {
     super();
@@ -52,27 +37,26 @@ export class BudgetChaptersComponent extends AbstractComponent<BudgetChapter> {
     };
   }
 
+  protected override entityLabel(): string {
+    return 'Capitolo';
+  }
+
   override onCreate(entity: BudgetChapter) {
     const payload = this.entityToPayload(entity);
     this.service.create(payload).subscribe({
-                                             next: (item: BudgetChapter) => {
-                                               this.list.push(item);
-                                               this.messageService.add({
-                                                                         severity: 'success',
-                                                                         summary: 'Capitolo creato',
-                                                                         detail: this.getEntityIdentifier(item),
-                                                                         key: 'global'
-                                                                       });
-                                               this.creationResult = {
-                                                 success: true,
-                                                 message: 'Capitolo creato con successo'
-                                               };
-                                               this.loadAll();
-                                             },
-                                             error: (err: any) => {
-                                               this.creationResult = {success: false};
-                                               this.handleError(err, 'Errore generico nella creazione capitolo');
-                                             }
-                                           });
+      next: (item: BudgetChapter) => {
+        this.list.push(item);
+        this.messageService.add({
+          severity: 'success',
+          summary: `${this.entityLabel()} creato`,
+          detail: this.getEntityIdentifier(item),
+          key: 'global'
+        });
+        this.loadAll();
+      },
+      error: (err: any) => {
+        this.handleError(err, 'Errore generico nella creazione capitolo');
+      }
+    });
   }
 }

@@ -1,0 +1,65 @@
+<h2 mat-dialog-title>
+  {{ isNew ? 'Crea nuova convenzione CONSIP' : 'Modifica convenzione CONSIP: ' + data.item.name }}
+</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+    <mat-form-field style="flex: 1 1 21%;">
+      <mat-label>Nome *</mat-label>
+      <input matInput formControlName="name">
+      @if (form.controls.name.invalid && form.controls.name.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 21%;">
+      <mat-label>CIG Master *</mat-label>
+      <input matInput formControlName="cig_master" maxlength="10">
+      @if (form.controls.cig_master.invalid && form.controls.cig_master.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 21%;">
+      <mat-label>Data scadenza *</mat-label>
+      <input matInput [matDatepicker]="expirationPicker" formControlName="expiration_date" placeholder="GG/MM/AAAA">
+      <mat-datepicker-toggle matSuffix [for]="expirationPicker"></mat-datepicker-toggle>
+      <mat-datepicker #expirationPicker></mat-datepicker>
+      @if (form.controls.expiration_date.hasError('required') && form.controls.expiration_date.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      } @else if (form.controls.expiration_date.hasError('matDatepickerParse') && form.controls.expiration_date.touched) {
+        <mat-error>Data non valida (GG/MM/AAAA)</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 21%;">
+      <mat-label>Salvaguardia</mat-label>
+      <mat-select formControlName="safeguard">
+        <mat-option [value]="null">Non specificato</mat-option>
+        @for (opt of safeguardOptions; track opt.value) {
+          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 100%;">
+      <mat-label>Descrizione</mat-label>
+      <input matInput formControlName="description">
+    </mat-form-field>
+
+    <div style="flex: 1 1 100%;">
+      <app-filterable-select
+        label="Fornitore *"
+        placeholder="Cerca fornitore..."
+        [options]="supplierOptions"
+        formControlName="supplier_id"
+        [errorMessage]="form.controls.supplier_id.invalid && form.controls.supplier_id.touched ? 'Obbligatorio' : null">
+      </app-filterable-select>
+    </div>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button (click)="cancel()">Annulla</button>
+  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">Salva</button>
+</mat-dialog-actions>

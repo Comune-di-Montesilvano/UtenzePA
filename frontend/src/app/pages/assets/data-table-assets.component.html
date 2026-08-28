@@ -1,474 +1,200 @@
 <div style="display: flex; justify-content: space-between; align-items: center;">
   <h3>Elenco ({{ data.length }})</h3>
-  <button
-    pButton
-    class="p-button p-sm"
-    (click)="openCreateDialog()"
-    [appHasRole]="['Admin', 'Operatore']"
-  >
-    <i pButtonIcon class="pi pi-plus"></i>
-    <span pButtonLabel>Aggiungi Immobile</span>
+  <button mat-flat-button (click)="openCreateDialog()" [appHasRole]="['Admin', 'Operatore']">
+    <mat-icon>add</mat-icon>
+    Aggiungi Immobile
   </button>
 </div>
 
-<p-table
-  [value]="loading ? skeletonRows : data"
-  [paginator]="true"
-  [rows]="10"
-  paginatorPosition="bottom"
-  [scrollable]="true"
-  [scrollHeight]="(height - 500) + 'px'"
-  #myTable
-  [style]="{ '--row-height': rowHeight + 'px' }"
-  class="dynamic-rows"
-  [size]="'small'"
-  [rowsPerPageOptions]=rowsPerPageOptions>
+@if (loading) {
+  <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+}
 
-  <ng-template pTemplate="caption">
-    <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem;">
-      <p-multiSelect
-        [options]="allColumns"
-        [(ngModel)]="selectedColumns"
-        optionLabel="header"
-        placeholder="Colonne visibili"
-        selectedItemsLabel="{0} colonne selezionate"
-        [maxSelectedLabels]="0"
-        [showToggleAll]="true"
-        [appendTo]="'body'"
-        class="column-toggle"
-        (onChange)="onColumnsChange()"
-      >
-        <ng-template pTemplate="dropdownicon">
-          <i class="pi pi-table"></i>
-        </ng-template>
-      </p-multiSelect>
-      <p-button icon="pi pi-external-link" label="Esporta CSV" (click)="exportToCSV()" severity="secondary"/>
-    </div>
-  </ng-template>
-
-  <ng-template pTemplate="header">
-    <tr>
-      <th style="min-width: 100px;">Azioni</th>
-      <th style="min-width: 130px;">Utenze</th>
-      @for (col of selectedColumns; track col.field) {
-        <th [style.min-width]="col.minWidth" [pSortableColumn]="col.field">
-          {{ col.header }}
-          <p-sortIcon [field]="col.field"/>
-        </th>
+<div style="display: flex; justify-content: space-between; margin: 0.75rem 0;">
+  <mat-form-field subscriptSizing="dynamic" style="min-width: 220px;">
+    <mat-label>Colonne visibili</mat-label>
+    <mat-select multiple [(ngModel)]="selectedColumns" [compareWith]="compareColumns" (selectionChange)="onColumnsChange()">
+      @for (col of allColumns; track col.field) {
+        <mat-option [value]="col">{{ col.header }}</mat-option>
       }
-    </tr>
-  </ng-template>
+    </mat-select>
+  </mat-form-field>
+  <button mat-stroked-button (click)="exportToCSV()">
+    <mat-icon>ios_share</mat-icon>
+    Esporta CSV
+  </button>
+</div>
 
-  <ng-template pTemplate="body" let-item>
-    @if (loading) {
-      <tr>
-        @for (col of skeletonCols; track col) {
-          <td><p-skeleton height="1.5rem"/></td>
-        }
-      </tr>
-    } @else {
-      <tr [ngClass]="{ 'row-deleted': item.deleted }">
+<table mat-table [dataSource]="dataSource" matSort #sort="matSort" class="mat-elevation-z1">
 
-        <td>
-          @if (!item.deleted) {
-            <button pButton class="p-button-text p-button-sm action-button"
-                    (click)="openEditDialog(item)" [appHasRole]="['Admin', 'Operatore', 'Lettore']">
-              <i pButtonIcon class="pi pi-pencil"></i>
-            </button>
-          }
-
-          <button
-            pButton
-            class="p-button-text p-button-sm action-button"
-            [ngClass]="item.deleted ? 'p-button-success' : 'p-button-danger'"
-            (click)="item.deleted ? restoreItem(item) : openDeleteDialog(item)"
-            [appHasRole]="['Admin', 'Operatore']">
-            @if (item.deleted) {
-              <i pButtonIcon class="pi pi-undo"></i>
-            } @else {
-              <i pButtonIcon class="pi pi-trash"></i>
-            }
-          </button>
-        </td>
-
-        <td>
-          @for (tab of tabs; track tab.value) {
-            @let count = getUtilityCountByType(item, tab.value);
-            @if (count > 0) {
-              <span [pTooltip]="tab.label + ': ' + count" tooltipPosition="top"
-                    style="margin-right: 6px; white-space: nowrap; display: inline-flex; align-items: center; gap: 2px;">
-                <i [class]="tab.icon" [style.color]="tab.color"></i>
-                <small>{{ count }}</small>
-              </span>
-            }
-          }
-        </td>
-
-        @for (col of selectedColumns; track col.field) {
-          @switch (col.field) {
-            @case ('assetAggregator.description') {
-              <td>
-                @if (item.assetAggregator?.description) {
-                  <span [pTooltip]="item.assetAggregator.description" tooltipPosition="top">
-                    {{ item.assetAggregator.description.length > maxDescLength ? (item.assetAggregator.description | slice:0:maxDescLength) + '...' : item.assetAggregator.description }}
-                  </span>
-                }
-              </td>
-            }
-            @case ('ownership') {
-              <td>{{ item.ownership ? 'Sí' : 'No' }}</td>
-            }
-            @case ('cadastral_value') {
-              <td>{{ item.cadastral_value | formatAmount }}</td>
-            }
-            @case ('services_and_artifacts') {
-              <td>
-                @if (item.services_and_artifacts) {
-                  <span [pTooltip]="item.services_and_artifacts" tooltipPosition="top">
-                    {{ item.services_and_artifacts.length > maxDescLength ? (item.services_and_artifacts | slice:0:maxDescLength) + '...' : item.services_and_artifacts }}
-                  </span>
-                }
-              </td>
-            }
-            @case ('associated_building') {
-              <td>
-                @if (item.associated_building) {
-                  <span [pTooltip]="item.associated_building" tooltipPosition="top">
-                    {{ item.associated_building.length > maxDescLength ? (item.associated_building | slice:0:maxDescLength) + '...' : item.associated_building }}
-                  </span>
-                }
-              </td>
-            }
-            @case ('specific_details') {
-              <td>
-                @if (item.specific_details) {
-                  <span [pTooltip]="item.specific_details" tooltipPosition="top">
-                    {{ item.specific_details.length > maxDescLength ? (item.specific_details | slice:0:maxDescLength) + '...' : item.specific_details }}
-                  </span>
-                }
-              </td>
-            }
-            @case ('memo') {
-              <td>
-                @if (item.memo) {
-                  <span [pTooltip]="item.memo" tooltipPosition="top">
-                    {{ item.memo.length > maxDescLength ? (item.memo | slice:0:maxDescLength) + '...' : item.memo }}
-                  </span>
-                }
-              </td>
-            }
-            @default {
-              <td>{{ getFieldValue(item, col.field) }}</td>
-            }
-          }
-        }
-      </tr>
-    }
-  </ng-template>
-
-  <ng-template pTemplate="emptymessage">
-    <tr>
-      <td colspan="23" class="text-center">Nessun immobile trovato.</td>
-    </tr>
-  </ng-template>
-
-</p-table>
-
-<p-dialog
-  [header]="isNew ? 'Aggiungi immobile' : 'Modifica immobile: ' + selectedItem?.asset_name"
-  [(visible)]="editDialogVisible"
-  [modal]="true"
-  [style]="{width: '1000px'}"
-  styleClass="max-w-screen-xl"
->
-  @if (form) {
-    <form [formGroup]="form" [readOnly]="['Lettore']" class="edit-form"
-          style="display: flex; flex-direction: column; gap: 1rem;">
-
-      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-        <div style="flex: 1 1 calc(25% - 0.75rem); overflow: hidden;">
-          <label for="asset_name">Codice*</label>
-          <input id="asset_name" type="text" pInputText formControlName="asset_name" style="width: 100%;"
-                 [class.ng-invalid]="form.controls['asset_name'].invalid && form.controls['asset_name'].touched"
-                 [class.ng-dirty]="form.controls['asset_name'].dirty">
-          @if (form.controls['asset_name'].invalid && form.controls['asset_name'].touched) {
-            <small class="p-error">Obbligatorio</small>
-          }
-        </div>
-
-        <div style="flex: 1 1 calc(25% - 0.75rem); overflow: hidden;">
-          <label for="asset_type_id">Tipo immobile *</label>
-          <p-select id="asset_type_id" [options]="assetAggregatorOptions" formControlName="asset_type_id"
-                    optionLabel="code" optionValue="id" placeholder="Seleziona Tipo"
-                    [showClear]="true" style="width: 100%;" class="p-select-wide-wrap" [appendTo]="'body'"
-                    [class.ng-invalid]="form.controls['asset_type_id'].invalid && form.controls['asset_type_id'].touched"/>
-          @if (form.controls['asset_type_id'].invalid && form.controls['asset_type_id'].touched) {
-            <small class="p-error">Obbligatorio</small>
-          }
-        </div>
-
-        <div style="flex: 1 1 calc(25% - 0.75rem); overflow: hidden;">
-          <label for="category">Categoria (destinazione d'uso)</label>
-          <p-select id="category" [options]="categoryOptions" optionLabel="label" optionValue="value"
-                    formControlName="category" placeholder="Seleziona Categoria"
-                    [showClear]="true" style="width: 100%;" [appendTo]="'body'"/>
-        </div>
-
-        <div style="flex: 1 1 calc(25% - 0.75rem); overflow: hidden;">
-          <label for="ownership">Proprietà</label>
-          <p-select id="ownership" [options]="ownershipOptions" optionLabel="label" optionValue="value"
-                    formControlName="ownership" placeholder="Seleziona Tipo"
-                    [showClear]="true" style="width: 100%;" [appendTo]="'body'"/>
-        </div>
-      </div>
-
-      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-        <div style="flex: 1 1 calc(25% - 0.75rem); overflow: hidden;">
-          <label for="toponym">Toponimo</label>
-          <p-select id="toponym" [options]="toponomyOptions" formControlName="toponym"
-                    optionLabel="label" optionValue="value" placeholder="Seleziona Toponimo"
-                    [showClear]="true" style="width: 100%;" class="p-select-wide-wrap" [appendTo]="'body'"/>
-        </div>
-
-        <div style="flex: 1 1 calc(25% - 0.75rem); overflow: hidden;">
-          <label for="address">Indirizzo</label>
-          <input id="address" type="text" pInputText formControlName="address" style="width: 100%;">
-        </div>
-        <div style="flex: 1 1 calc(25% - 0.75rem); overflow: hidden;">
-          <label for="civic_number">Civico</label>
-          <input id="civic_number" type="text" pInputText formControlName="civic_number" style="width: 100%;">
-        </div>
-        <div style="flex: 1 1 calc(25% - 0.75rem); overflow: hidden;">
-          <label for="municipality">Comune</label>
-          <input id="municipality" type="text" pInputText formControlName="municipality" style="width: 100%;">
-        </div>
-      </div>
-
-      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-        <div style="flex: 1 1 calc(25% - 0.75rem); overflow: hidden;">
-          <label for="zip_code">CAP</label>
-          <input id="zip_code" type="text" pInputText formControlName="zip_code"
-                 style="width: 100%;" maxlength="5" inputmode="numeric" onlyNumbers>
-        </div>
-        <div style="flex: 1 1 calc(25% - 0.75rem); overflow: hidden;">
-          <label for="services_and_artifacts">Servizi/Manufatti</label>
-          <input id="services_and_artifacts" type="text" pInputText
-                 formControlName="services_and_artifacts" style="width: 100%;">
-        </div>
-        <div style="flex: 1 1 calc(50% - 0.75rem); display: flex; gap: 0.75rem;">
-          <div style="flex: 1; overflow: hidden;">
-            <label for="latitude">Latitudine</label>
-            <input id="latitude" type="text" pInputText formControlName="latitude"
-                   placeholder="Es. 41.1158" style="width: 100%;" geoLatitude>
-          </div>
-          <div style="flex: 1; overflow: hidden;">
-            <label for="longitude">Longitudine</label>
-            <input id="longitude" type="text" pInputText formControlName="longitude"
-                   placeholder="Es. 16.8776" style="width: 100%;" geoLongitude>
-          </div>
-        </div>
-      </div>
-
-      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-        <div style="flex: 1 1 calc(25% - 0.75rem); overflow: hidden;">
-          <label for="cadastral_value">Valore catastale</label>
-          <p-inputNumber inputId="cadastral_value" formControlName="cadastral_value"
-                         mode="currency" currency="EUR" locale="it-IT"
-                         [minFractionDigits]="2" [maxFractionDigits]="2" fluid></p-inputNumber>
-        </div>
-        <div style="flex: 1 1 calc(25% - 0.75rem); overflow: hidden;">
-          <label for="sheet">Foglio</label>
-          <input id="sheet" type="text" pInputText formControlName="sheet" style="width: 100%;">
-        </div>
-        <div style="flex: 1 1 calc(25% - 0.75rem); overflow: hidden;">
-          <label for="parcel">Particella (Mappale)</label>
-          <input id="parcel" type="text" pInputText formControlName="parcel" style="width: 100%;">
-        </div>
-        <div style="flex: 1 1 calc(25% - 0.75rem); overflow: hidden;">
-          <label for="subordinate">Subalterno</label>
-          <input id="subordinate" type="text" pInputText formControlName="subordinate" style="width: 100%;">
-        </div>
-      </div>
-
-      <div style="display: flex; flex-wrap: wrap; flex-direction: column;">
-        <label for="area_sqm">Superficie (mq)</label>
-        <div style="flex: 1 1 calc(25% - 0.75rem); overflow: hidden;">
-          <p-inputNumber inputId="area_sqm" formControlName="area_sqm" mode="decimal" [minFractionDigits]="2"
-                         [maxFractionDigits]="2"></p-inputNumber>
-        </div>
-      </div>
-
-      <div style="display: flex; flex-direction: row; gap: 1rem;">
-        <div style="flex: 1 1 0;">
-          <label for="associated_building">Descrizione fabbricato</label>
-          <textarea id="associated_building" pInputTextarea formControlName="associated_building"
-                    rows="3" style="width: 100%;" [maxlength]="255"></textarea>
-        </div>
-
-        <div style="flex: 1 1 0;">
-          <label for="specific_details">Specifiche</label>
-          <textarea id="specific_details" pInputTextarea formControlName="specific_details"
-                    rows="3" style="width: 100%;"></textarea>
-        </div>
-      </div>
-
-      <div>
-        <label for="memo">Promemoria</label>
-        <textarea id="memo" pInputTextarea formControlName="memo" rows="3" style="width: 100%;"></textarea>
-      </div>
-
-      @if (!isNew) {
-
-        <p-fieldset legend="Utilizzatori" [collapsed]="false" styleClass="p-mt-4">
-          @if (selectedItem?.utilizerGrants && selectedItem!.utilizerGrants!.length > 0) {
-            <p-table [value]="selectedItem!.utilizerGrants!" [scrollable]="true" class="p-datatable-sm"
-                     style="margin-top: 0; padding: 0; border: 0;">
-              <ng-template pTemplate="header">
-                <tr>
-                  <th>ID</th>
-                  <th>Utilizzatore</th>
-                  <th>Atto di Concessione</th>
-                  <th>Concesso</th>
-                  <th>Scadenza</th>
-                </tr>
-              </ng-template>
-              <ng-template pTemplate="body" let-u>
-                @if (u.utilizer && !u.deleted) {
-                  <tr [ngClass]="{'row-deleted': u.deleted}">
-                    <td>{{ u.id }}</td>
-                    <td>
-                    <span [pTooltip]="u.utilizer.name" tooltipPosition="top">
-                      {{ u.utilizer.name.length > maxDescLength ? (u.utilizer.name | slice:0:maxDescLength) + '...' : u.utilizer.name }}
-                    </span>
-                    </td>
-                    <td>
-                      @if (u.concession_act) {
-                        <span [pTooltip]="u.concession_act" tooltipPosition="top">
-                        {{ u.concession_act.length > maxDescLength ? (u.concession_act | slice:0:maxDescLength) + '...' : u.concession_act }}
-                      </span>
-                      } @else {
-                        <span>N/D</span>
-                      }
-                    </td>
-                    <td>{{ u.grant_date | date:'dd/MM/yyyy' }}</td>
-                    <td>{{ u.expire_date | date:'dd/MM/yyyy' }}</td>
-                  </tr>
-                }
-              </ng-template>
-            </p-table>
-          } @else {
-            <p style="color: #6A7282; margin: 0.5rem 0;">Nessun utilizzatore associato a questo immobile.</p>
-          }
-        </p-fieldset>
-
-        <p-fieldset legend="Utenze" [collapsed]="false" styleClass="p-mt-4">
-          <p-tabs value="0">
-            <p-tablist>
-              @for (tab of tabs; track tab) {
-                <p-tab value="{{tab.idx}}">
-                  <i [class]="tab.icon" [style.color]="tab.color" style="margin-right: 5px;"></i>
-                  <span>{{ tab.label }} ({{ getUtilitiesByHardType(tab.value).length }})</span>
-                </p-tab>
-              }
-            </p-tablist>
-            <p-tabpanels style="padding: 1rem 0 0;">
-              @for (tab of tabs; track tab) {
-                <p-tabpanel value="{{tab.idx}}">
-                  @let utilities = getUtilitiesByHardType(tab.value);
-                  @if (utilities.length > 0) {
-                    <p-table [value]="utilities" [scrollable]="true" class="p-datatable-sm"
-                             style="margin-top: 0; padding: 0; border: 0;">
-                      <ng-template pTemplate="header">
-                        <tr>
-                          <th>ID Utenza</th>
-                          <th>Codice</th>
-                          <th>N° Contatore</th>
-                          <th>Fornitore</th>
-                          <th>Attiva</th>
-                          <th>Inizio Fornitura</th>
-                          <th>Scadenza Fornitura</th>
-                          <th style="width: 60px;"></th>
-                        </tr>
-                      </ng-template>
-                      <ng-template pTemplate="body" let-u>
-                        <tr>
-                          <td>{{ u.utility_id }}</td>
-                          <td>{{ u.utility_code }}</td>
-                          <td>{{ u.meter_number }}</td>
-                          <td>{{ u.supplier?.company_name }}</td>
-                          <td>{{ u.supply_active ? 'Sì' : 'No' }}</td>
-                          <td>{{ u.supply_start_date | date:'dd/MM/yyyy' }}</td>
-                          <td>{{ u.supply_expiry_date | date:'dd/MM/yyyy' }}</td>
-                          <td>
-                            <button pButton class="p-button-text p-button-sm"
-                                    pTooltip="Apri dettaglio utenza" tooltipPosition="left"
-                                    (click)="openUtilityDetail(u)">
-                              <i class="pi pi-file"></i>
-                            </button>
-                          </td>
-                        </tr>
-                      </ng-template>
-                    </p-table>
-                  } @else {
-                    <p style="color: #6A7282; margin: 1rem 0;">
-                      Nessuna utenza di tipo <strong>{{ tab.label }}</strong> associata a questo immobile.
-                    </p>
-                  }
-                </p-tabpanel>
-              }
-            </p-tabpanels>
-          </p-tabs>
-        </p-fieldset>
+  <ng-container matColumnDef="actions">
+    <th mat-header-cell *matHeaderCellDef>Azioni</th>
+    <td mat-cell *matCellDef="let item">
+      @if (!item.deleted) {
+        <button mat-icon-button (click)="openEditDialog(item)" [appHasRole]="['Admin', 'Operatore', 'Lettore']"
+                matTooltip="Modifica">
+          <mat-icon>edit</mat-icon>
+        </button>
       }
+      <button mat-icon-button
+              [class.mat-action-success]="item.deleted"
+              [class.mat-action-danger]="!item.deleted"
+              (click)="item.deleted ? restoreItem(item) : openDeleteDialog(item)"
+              [appHasRole]="['Admin', 'Operatore']"
+              [matTooltip]="item.deleted ? 'Ripristina' : 'Elimina'">
+        <mat-icon>{{ item.deleted ? 'restore' : 'delete' }}</mat-icon>
+      </button>
+    </td>
+  </ng-container>
 
-    </form>
-  }
-  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-    <button pButton class="p-button-secondary" (click)="editDialogVisible=false">
-      <span pButtonLabel>Annulla</span>
-    </button>
-    <button pButton (click)="saveItem()"
-            [disabled]="!isFormValid()"
-            [appHasRole]="['Admin', 'Operatore']">
-      <span pButtonLabel>Salva Immobile</span>
-    </button>
-  </div>
-</p-dialog>
+  <ng-container matColumnDef="utilities">
+    <th mat-header-cell *matHeaderCellDef>Utenze</th>
+    <td mat-cell *matCellDef="let item">
+      @for (tab of tabs; track tab.value) {
+        @let count = getUtilityCountByType(item, tab.value);
+        @if (count > 0) {
+          <span [matTooltip]="tab.label + ': ' + count" style="margin-right: 6px; display: inline-flex; align-items: center; gap: 2px;">
+            <i [class]="tab.icon" [style.color]="tab.color"></i>
+            <small>{{ count }}</small>
+          </span>
+        }
+      }
+    </td>
+  </ng-container>
 
-<p-dialog header="Elimina Immobile" [(visible)]="deleteDialogVisible" [modal]="true" [style]="{width: '350px'}">
-  <p>Sei sicuro di voler eliminare l’Immobile <b>{{ selectedItem?.asset_name }}</b>?</p>
-  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-    <button pButton class="p-button-secondary" (click)="deleteDialogVisible=false">
-      <span pButtonLabel>Annulla</span>
-    </button>
-    <button pButton (click)="confirmDelete()" severity="danger">
-      <span pButtonLabel>Elimina</span>
-    </button>
-  </div>
-</p-dialog>
+  <ng-container matColumnDef="id">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>ID</th>
+    <td mat-cell *matCellDef="let item">{{ item.id }}</td>
+  </ng-container>
 
-<p-dialog header="Ripristina Asset" [(visible)]="restoreDialogVisible" [modal]="true" [style]="{width: '350px'}">
-  <p>Riattiva Asset <b>{{ selectedItem?.asset_name }}</b>?</p>
-  <div class="dialog-buttons" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-    <button pButton class="p-button-secondary" (click)="restoreDialogVisible=false">
-      <span pButtonLabel>Annulla</span>
-    </button>
-    <button pButton class="p-button-success" (click)="confirmRestore()">
-      <span pButtonLabel>Riattiva</span>
-    </button>
-  </div>
-</p-dialog>
+  <ng-container matColumnDef="asset_name">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Codice univoco</th>
+    <td mat-cell *matCellDef="let item">{{ item.asset_name }}</td>
+  </ng-container>
 
-<style>
-  .row-deleted {
-    background-color: #fcebeb;
-    opacity: 0.7;
-    text-decoration: line-through;
-  }
+  <ng-container matColumnDef="assetAggregator.description">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Tipo immobile</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.assetAggregator?.description) {
+        <span [matTooltip]="item.assetAggregator.description">
+          {{ item.assetAggregator.description | truncate: maxDescLength }}
+        </span>
+      }
+    </td>
+  </ng-container>
 
-  .action-button {
-    padding: 0.2rem !important;
-    margin: 0 0.1rem;
-    height: auto;
-  }
-</style>
+  <ng-container matColumnDef="category">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Categoria</th>
+    <td mat-cell *matCellDef="let item">{{ item.category }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="ownership">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Proprietà</th>
+    <td mat-cell *matCellDef="let item">{{ item.ownership ? 'Sì' : 'No' }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="toponym">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Toponimo</th>
+    <td mat-cell *matCellDef="let item">{{ item.toponym }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="address">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Indirizzo</th>
+    <td mat-cell *matCellDef="let item">{{ item.address }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="civic_number">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Civico</th>
+    <td mat-cell *matCellDef="let item">{{ item.civic_number }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="municipality">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Comune</th>
+    <td mat-cell *matCellDef="let item">{{ item.municipality }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="zip_code">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>CAP</th>
+    <td mat-cell *matCellDef="let item">{{ item.zip_code }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="services_and_artifacts">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Servizi/Manufatti</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.services_and_artifacts) {
+        <span [matTooltip]="item.services_and_artifacts">{{ item.services_and_artifacts | truncate: maxDescLength }}</span>
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="cadastral_value">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Valore catastale</th>
+    <td mat-cell *matCellDef="let item">{{ item.cadastral_value | formatAmount }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="latitude">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Latitudine</th>
+    <td mat-cell *matCellDef="let item">{{ item.latitude }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="longitude">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Longitudine</th>
+    <td mat-cell *matCellDef="let item">{{ item.longitude }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="sheet">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Foglio</th>
+    <td mat-cell *matCellDef="let item">{{ item.sheet }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="parcel">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Particella (Mappale)</th>
+    <td mat-cell *matCellDef="let item">{{ item.parcel }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="subordinate">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Subalterno</th>
+    <td mat-cell *matCellDef="let item">{{ item.subordinate }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="area_sqm">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Superficie (mq)</th>
+    <td mat-cell *matCellDef="let item">{{ item.area_sqm }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="associated_building">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Descrizione fabbricato</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.associated_building) {
+        <span [matTooltip]="item.associated_building">{{ item.associated_building | truncate: maxDescLength }}</span>
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="specific_details">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Specifiche</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.specific_details) {
+        <span [matTooltip]="item.specific_details">{{ item.specific_details | truncate: maxDescLength }}</span>
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="memo">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Promemoria</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.memo) {
+        <span [matTooltip]="item.memo">{{ item.memo | truncate: maxDescLength }}</span>
+      }
+    </td>
+  </ng-container>
+
+  <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+  <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.row-deleted]="row.deleted"></tr>
+
+  <tr class="mat-row" *matNoDataRow>
+    <td class="mat-cell" [attr.colspan]="displayedColumns.length">Nessun immobile trovato.</td>
+  </tr>
+</table>
+
+<mat-paginator #paginator [pageSizeOptions]="rowsPerPageOptions" [pageSize]="10"></mat-paginator>

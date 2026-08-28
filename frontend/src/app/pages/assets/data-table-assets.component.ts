@@ -1,62 +1,35 @@
-import {Component} from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {TableModule} from 'primeng/table';
-import {DialogModule} from 'primeng/dialog';
-import {ButtonModule} from 'primeng/button';
-import {FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
-import {SelectModule} from 'primeng/select';
-import {Asset} from './entity/asset.entity';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
+import {MatTableModule} from '@angular/material/table';
+import {MatSortModule} from '@angular/material/sort';
+import {MatPaginatorModule} from '@angular/material/paginator';
+import {MatButtonModule} from '@angular/material/button';
+import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
+import {MatProgressBarModule} from '@angular/material/progress-bar';
+import {MatSelectModule} from '@angular/material/select';
+import {MatFormFieldModule} from '@angular/material/form-field';
+import {FormsModule} from '@angular/forms';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
-import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
-import {InputTextModule} from 'primeng/inputtext';
-import {InputNumberModule} from 'primeng/inputnumber';
-import {AssetAggregatorsService} from '../asset-aggregator/asset-aggregator.service';
-import {AssetAggregator} from '../asset-aggregator/entity/asset-aggregator.entity';
-import {AssetService} from './asset.service';
-import {TooltipModule} from 'primeng/tooltip';
 import {ScreenSizeService} from '../../services/screen-size.service';
+import {Asset} from './entity/asset.entity';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
-import {TOption} from '../../core/types/option.interface';
-import {OnlyNumbersDirective} from '../../core/directives/only-numbers.directive';
-import {LatitudeInputDirective} from '../../core/directives/latitude-input.directive';
-import {LongitudeInputDirective} from '../../core/directives/longitude-input.directive';
-import {Textarea} from 'primeng/textarea';
-import {TabsModule} from 'primeng/tabs';
+import {AssetEditDialogComponent} from './asset-edit-dialog.component';
+import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 import {HardType} from '../utility-types/enum/hard-type.enum';
-import {Utility} from '../utilities/entity/utility.entity';
 import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
-import {Fieldset} from 'primeng/fieldset';
-import {SkeletonModule} from 'primeng/skeleton';
-import {MultiSelectModule} from 'primeng/multiselect';
+import {TruncatePipe} from '../../core/pipes/truncate.pipe';
 
 @Component({
-             selector: 'app-data-table-assets',
-             standalone: true,
-             imports: [
-             ReactiveFormsModule,
-             FormsModule,
-             CommonModule,
-               TableModule,
-               DialogModule,
-               ButtonModule,
-               SelectModule,
-               HasRoleDirective,
-               InputTextModule,
-               InputNumberModule,
-               TooltipModule,
-               ReadOnlyDirective,
-               OnlyNumbersDirective,
-               LatitudeInputDirective,
-               LongitudeInputDirective,
-               Textarea,
-               TabsModule,
-               Fieldset,
-               FormatAmountPipe,
-               SkeletonModule,
-               MultiSelectModule,
-             ],
-             templateUrl: './data-table-assets.component.html'
-           })
+  selector: 'app-data-table-assets',
+  standalone: true,
+  imports: [
+    MatTableModule, MatSortModule, MatPaginatorModule, MatButtonModule, MatIconModule,
+    MatTooltipModule, MatProgressBarModule, MatSelectModule, MatFormFieldModule, FormsModule,
+    HasRoleDirective, FormatAmountPipe, TruncatePipe
+  ],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  templateUrl: './data-table-assets.component.html'
+})
 export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> {
 
   readonly allColumns: IColumnDef[] = [
@@ -93,12 +66,29 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
     DataTableAssetsComponent.STORAGE_KEY, this.allColumns, this.defaultVisibleFields
   );
 
+  maxDescLength = 50;
+  tabs = HardType.items();
+
+  get displayedColumns(): string[] {
+    return ['actions', 'utilities', ...this.selectedColumns.map(c => c.field)];
+  }
+
+  compareColumns = (a: IColumnDef, b: IColumnDef): boolean => a?.field === b?.field;
+
   onColumnsChange(): void {
     this.saveColumnSelection(DataTableAssetsComponent.STORAGE_KEY, this.selectedColumns);
   }
 
-  getFieldValue(item: Asset, field: string): unknown {
-    return item[field as keyof Asset];
+  constructor(screen: ScreenSizeService) {
+    super(screen);
+    this.dataSource.sortingDataAccessor = (item: Asset, property: string) => {
+      const value = this.getNestedValue(item, property);
+      return (value ?? '') as string | number;
+    };
+  }
+
+  getUtilityCountByType(item: Asset, hardType: HardType): number {
+    return item.utilities?.filter(u => u.utilityType?.hard_type === hardType).length ?? 0;
   }
 
   protected override exportCellValue(item: Asset, field: string): string {
@@ -120,106 +110,42 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
     super.exportToCSV(this.allColumns, 'immobili');
   }
 
-  readonly skeletonRows = Array(10).fill({});
-  get skeletonCols(): number[] {
-    return Array.from({length: this.selectedColumns.length + 2}, (_, i) => i);
-  }
-  assetAggregatorOptions: AssetAggregator[] = [];
-  assetAggregatorMap: { [key: number]: AssetAggregator } = {};
-
-  ownershipOptions: TOption[] = [
-    {label: 'Sì', value: 1},
-    {label: 'No', value: 0}
-  ];
-  maxDescLength: number = 50;
-  categoryOptions: TOption[] = [];
-  toponomyOptions: TOption[] = [];
-  tabs: { idx: number; label: string; icon: string; color: string; value: HardType }[] = [];
-
-  constructor(
-    screen: ScreenSizeService,
-    private readonly assetAggregatorsService: AssetAggregatorsService,
-    private readonly assetsService: AssetService) {
-    super(screen);
-  }
-
-  override ngOnInit() {
-    super.ngOnInit();
-    this.loadAssetAggregators();
-    this.categoryOptions = this.assetsService.categoryOptions();
-    this.toponomyOptions = this.assetsService.toponymOptions();
-    this.tabs = HardType.items();
-  }
-
-  loadAssetAggregators() {
-    this.assetAggregatorsService.search({deleted: false}).subscribe(
-      {
-        next: (data) => {
-          this.assetAggregatorOptions = data;
-          this.createAssetAggregatorMap(data);
-        },
-        error: (err) => console.error('Errore nel caricamento degli Asset Aggregator:', err)
-      });
-  }
-
-  createAssetAggregatorMap(options: AssetAggregator[]) {
-    this.assetAggregatorMap = options.reduce((map, item) => {
-      map[item.id] = item;
-      return map;
-    }, {} as { [key: number]: AssetAggregator });
-  }
-
   override itemInstance(): Asset {
     return Asset.create();
   }
 
-  protected override buildForm(data?: Partial<Asset>): void {
-    this.form = this.fb.group(
-      {
-        asset_name: [data?.asset_name ?? '', Validators.required],
-        asset_type_id: [this.resolveOnRelation('assetAggregator', 'asset_type_id', data), Validators.required],
-        category: [data?.category ?? null],
-        ownership: [data?.ownership ?? 0],
-        toponym: [data?.toponym ?? null],
-        address: [data?.address ?? null],
-        civic_number: [data?.civic_number ?? null],
-        municipality: [data?.municipality ?? null],
-        zip_code: [data?.zip_code ?? null],
-        services_and_artifacts: [data?.services_and_artifacts ?? null],
-        latitude: [data?.latitude ?? null],
-        longitude: [data?.longitude ?? null],
-        cadastral_value: [data?.cadastral_value ?? null],
-        sheet: [data?.sheet ?? null],
-        parcel: [data?.parcel ?? null],
-        subordinate: [data?.subordinate ?? null],
-        area_sqm: [data?.area_sqm ?? null],
-        associated_building: [data?.associated_building ?? null],
-        specific_details: [data?.specific_details ?? null],
-        memo: [data?.memo ?? null],
-      });
+  override editDialogComponent(): Type<unknown> {
+    return AssetEditDialogComponent;
   }
 
-  override saveItem() {
-    if (!this.form.valid || !this.selectedItem) return;
-    Object.assign(this.selectedItem, this.form.value);
-    super.saveItem();
+  protected override entityLabel(): string {
+    return 'Immobile';
   }
 
-  override isFormValid(): boolean {
-    return this.form?.valid ?? false;
+  override openDeleteDialog(entity: Asset): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: 'Elimina Immobile',
+        message: `Sei sicuro di voler eliminare l'Immobile ${entity.asset_name}?`,
+        confirmLabel: 'Elimina',
+        danger: true
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onDelete.emit(entity);
+    });
   }
 
-  getUtilitiesByHardType(hardType: HardType): Utility[] {
-    return this.selectedItem?.utilities?.filter(
-      u => u.utilityType?.hard_type === hardType
-    ) ?? [];
-  }
-
-  getUtilityCountByType(asset: Asset, hardType: HardType): number {
-    return asset.utilities?.filter(u => u.utilityType?.hard_type === hardType).length ?? 0;
-  }
-
-  openUtilityDetail(utility: Utility): void {
-    window.open(`/utilities?selectedId=${utility.id}`, '_blank');
+  override restoreItem(entity: Asset): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: 'Ripristina Immobile',
+        message: `Riattiva Immobile ${entity.asset_name}?`,
+        confirmLabel: 'Ripristina'
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onRestore.emit(entity);
+    });
   }
 }

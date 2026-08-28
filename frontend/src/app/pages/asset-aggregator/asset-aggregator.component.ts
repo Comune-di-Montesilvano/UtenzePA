@@ -1,13 +1,6 @@
-import {Component} from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {FormsModule} from '@angular/forms';
-import {InputTextModule} from 'primeng/inputtext';
-import {ButtonModule} from 'primeng/button';
-import {TableModule} from 'primeng/table';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {DataTableAggregatorsComponent} from './data-table-asset-aggregator.component';
 import {SearchAggregators} from './search-asset-aggregator.component';
-import {MessageService} from 'primeng/api';
-import {ToastModule} from 'primeng/toast';
 import {AssetAggregatorsService} from './asset-aggregator.service';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {AssetAggregator} from './entity/asset-aggregator.entity';
@@ -15,17 +8,11 @@ import {AssetAggregator} from './entity/asset-aggregator.entity';
 @Component({
   selector: 'app-asset-aggregators',
   standalone: true,
-  providers: [MessageService],
   imports: [
-    CommonModule,
-    FormsModule,
-    InputTextModule,
-    ButtonModule,
-    TableModule,
     DataTableAggregatorsComponent,
-    ToastModule,
     SearchAggregators
   ],
+  changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './asset-aggregator.component.html'
 })
 export class AssetAggregatorsComponent extends AbstractComponent<AssetAggregator> {

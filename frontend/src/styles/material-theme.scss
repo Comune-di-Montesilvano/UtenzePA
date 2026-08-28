@@ -1,0 +1,78 @@
+@use '@angular/material' as mat;
+// Palette M3 completa generata da 'ng generate @angular/material:m3-theme
+// --primary-color=#030213' (material-color-utilities, algoritmo HCT ufficiale
+// Google). Sostituisce mat.$violet-palette: prima venivano sovrascritte a mano
+// solo 5 variabili CSS di primo livello, lasciando i ruoli derivati
+// (--mat-sys-primary-container, --mat-sys-secondary-container,
+// --mat-sys-inverse-primary, ecc.) sulla tonalità viola di default. Con la
+// palette generata dal colore primario reale, tutti i ruoli derivati sono
+// coerenti con neri/grigi invece che viola (finding I3 review finale).
+@use 'theme-colors';
+
+html {
+  color-scheme: light;
+
+  @include mat.theme((
+    color: (
+      theme-type: light,
+      primary: theme-colors.$primary-palette,
+      tertiary: mat.$blue-palette,
+    ),
+    typography: (
+      brand-family: 'Inter, sans-serif',
+      plain-family: 'Inter, sans-serif',
+    ),
+    density: 0,
+  ));
+
+  // Override puntuali residui: la palette M3 generata è tonale (nessuno stop
+  // corrisponde esattamente a #030213/#ffffff), quindi per i ruoli principali
+  // manteniamo i colori esatti del design esistente. I ruoli derivati (container,
+  // inverse-*, ecc.) restano invece quelli generati dalla palette sopra, non
+  // più patchati a mano (vedi commento sezione "Theming" più sopra).
+  --mat-sys-primary: #030213;
+  --mat-sys-on-primary: #ffffff;
+  --mat-sys-secondary: #ffffff;
+  --mat-sys-on-secondary: #030213;
+  --mat-sys-outline: #d4d4d4;
+}
+
+.mat-action-success {
+  --mdc-icon-button-icon-color: #00c10d;
+  color: #00c10d;
+}
+
+.mat-action-danger {
+  --mdc-icon-button-icon-color: #e7000b;
+  color: #e7000b;
+
+  // .mat-action-success/.mat-action-danger sopra colorano solo i mat-icon-button
+  // (--mdc-icon-button-icon-color). Il bottone "Elimina" di ConfirmDialogComponent
+  // è invece un mat-flat-button (classe CSS .mat-mdc-unelevated-button), che usa
+  // le variabili --mdc-filled-button-* e restava quindi non colorato (finding I2
+  // review finale).
+  &.mat-mdc-unelevated-button {
+    --mdc-filled-button-container-color: #e7000b;
+    --mdc-filled-button-label-text-color: #ffffff;
+  }
+}
+
+.toast-success {
+  --mdc-snackbar-container-color: #00c10d;
+  --mdc-snackbar-supporting-text-color: #ffffff;
+}
+
+.toast-error {
+  --mdc-snackbar-container-color: #e7000b;
+  --mdc-snackbar-supporting-text-color: #ffffff;
+}
+
+.toast-warn {
+  --mdc-snackbar-container-color: #f59e0b;
+  --mdc-snackbar-supporting-text-color: #030213;
+}
+
+.toast-info {
+  --mdc-snackbar-container-color: #030213;
+  --mdc-snackbar-supporting-text-color: #ffffff;
+}

@@ -1,0 +1,62 @@
+<h2 mat-dialog-title>
+  {{ isNew ? 'Crea nuovo utente' : 'Modifica utente: ' + data.item.firstName + ' ' + data.item.lastName }}
+</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+    <mat-form-field style="flex: 1 1 21%;">
+      <mat-label>Nome *</mat-label>
+      <input matInput formControlName="firstName">
+      @if (form.controls.firstName.invalid && form.controls.firstName.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 21%;">
+      <mat-label>Cognome *</mat-label>
+      <input matInput formControlName="lastName">
+      @if (form.controls.lastName.invalid && form.controls.lastName.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 21%;">
+      <mat-label>Email *</mat-label>
+      <input matInput type="email" formControlName="email">
+      @if (form.controls.email.errors?.['required'] && form.controls.email.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      } @else if (form.controls.email.errors?.['email'] && form.controls.email.touched) {
+        <mat-error>Email non valida</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 21%;">
+      <mat-label>Ruolo *</mat-label>
+      <mat-select formControlName="role">
+        @for (opt of roleOptions; track opt.value) {
+          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+        }
+      </mat-select>
+      @if (form.controls.role.invalid && form.controls.role.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 21%;">
+      <mat-label>Status *</mat-label>
+      <mat-select formControlName="status">
+        @for (opt of statusOptions; track opt.value) {
+          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+        }
+      </mat-select>
+      @if (form.controls.status.invalid && form.controls.status.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button (click)="cancel()">Annulla</button>
+  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">Salva</button>
+</mat-dialog-actions>

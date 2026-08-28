@@ -1,36 +1,22 @@
-import {Component} from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {FormsModule} from '@angular/forms';
-import {InputTextModule} from 'primeng/inputtext';
-import {ButtonModule} from 'primeng/button';
-import {TableModule} from 'primeng/table';
+import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {DataTablePurposeComponent} from './data-table-purpose.component';
-import {SearchPurposeComponent} from "./search-purpose.component";
-import {MessageService} from 'primeng/api';
-import {ToastModule} from 'primeng/toast';
+import {SearchPurposeComponent} from './search-purpose.component';
 import {PurposeService} from './purpose.service';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {Purpose} from './entity/purpose.entity';
 import {UseTypeDescription} from './enum/use-type.enum';
 
 @Component({
-             selector: 'app-purpose',
-             standalone: true,
-             providers: [MessageService],
-             imports: [
-               CommonModule,
-               FormsModule,
-               InputTextModule,
-               ButtonModule,
-               TableModule,
-               DataTablePurposeComponent,
-               SearchPurposeComponent,
-               ToastModule
-             ],
-             templateUrl: './purpose.component.html'
-           })
+  selector: 'app-purpose',
+  standalone: true,
+  imports: [
+    DataTablePurposeComponent,
+    SearchPurposeComponent
+  ],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  templateUrl: './purpose.component.html'
+})
 export class PurposeComponent extends AbstractComponent<Purpose> {
-  creationResult?: { success: boolean, message?: string };
 
   constructor(protected override service: PurposeService) {
     super();
@@ -38,7 +24,7 @@ export class PurposeComponent extends AbstractComponent<Purpose> {
   }
 
   override onSearch(filters: any) {
-    if (Object.keys(filters).length === 1 && filters.hasOwnProperty('qsearch') && filters.qsearch !== '') {
+    if (Object.keys(filters).length === 1 && filters.hasOwnProperty('qsearch') && filters.qsearch !== '' && filters.qsearch != null) {
       const term = (filters.qsearch as string).toLowerCase();
       this.list = [...this.allItems].filter(item => {
         const nameMatch = item.name?.toLowerCase().includes(term);
@@ -74,13 +60,8 @@ export class PurposeComponent extends AbstractComponent<Purpose> {
             {
               severity: 'success',
               summary: 'Elemento creato',
-              detail: this.getEntityIdentifier(item),
-              key: 'global'
+              detail: this.getEntityIdentifier(item)
             });
-          this.creationResult = {
-            success: true,
-            message: 'Elemento creato con successo'
-          };
           this.loadAll();
         },
         error: (err: any) => {

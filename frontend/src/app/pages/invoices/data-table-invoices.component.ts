@@ -1,64 +1,37 @@
-import {Component, OnInit} from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {TableModule} from 'primeng/table';
-import {DialogModule} from 'primeng/dialog';
-import {ButtonModule} from 'primeng/button';
-import {FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
-import {SelectModule} from 'primeng/select';
-import {InputTextModule} from 'primeng/inputtext';
-import {InputNumberModule} from 'primeng/inputnumber';
-import {CheckboxModule} from 'primeng/checkbox';
-import {DatePickerModule} from 'primeng/datepicker';
-import {MultiSelectModule} from 'primeng/multiselect';
-import {Invoice} from './entity/invoice.entity';
+import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
+import {MatTableModule} from '@angular/material/table';
+import {MatSort, MatSortModule} from '@angular/material/sort';
+import {MatPaginatorModule} from '@angular/material/paginator';
+import {MatButtonModule} from '@angular/material/button';
+import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
+import {MatProgressBarModule} from '@angular/material/progress-bar';
+import {MatSelectModule} from '@angular/material/select';
+import {MatFormFieldModule} from '@angular/material/form-field';
+import {FormsModule} from '@angular/forms';
+import {DatePipe} from '@angular/common';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
-import {UtilityService} from '../utilities/utility.service';
-import {SuppliersService} from '../suppliers/suppliers.service';
-import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
-import {TooltipModule} from 'primeng/tooltip';
-import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
-import {Supplier} from '../suppliers/entity/supplier.entity';
+import {Invoice} from './entity/invoice.entity';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
+import {InvoiceEditDialogComponent} from './invoice-edit-dialog.component';
+import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
 import {TruncatePipe} from '../../core/pipes/truncate.pipe';
-import {SkeletonModule} from 'primeng/skeleton';
-import {Textarea} from 'primeng/textarea';
-import {BudgetChapter} from '../budget-chapters/entity/budget-chapter.entity';
-import {Utility} from '../utilities/entity/utility.entity';
 import {ExportHelper} from '../../core/helpers/export.helper';
 
 @Component({
-             selector: 'app-data-table-invoices',
-             standalone: true,
-             imports: [
-               ReactiveFormsModule,
-               FormsModule,
-               CommonModule,
-               TableModule,
-               DialogModule,
-               ButtonModule,
-               SelectModule,
-               MultiSelectModule,
-               HasRoleDirective,
-               InputTextModule,
-               InputNumberModule,
-               CheckboxModule,
-               DatePickerModule,
-               TooltipModule,
-               ReadOnlyDirective,
-               Textarea,
-               FormatAmountPipe,
-               TruncatePipe,
-               SkeletonModule,
-             ],
-             templateUrl: './data-table-invoices.component.html'
-           })
-export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoice> implements OnInit {
-
-  utilityOptions: Utility[] = [];
-  supplierOptions: Supplier[] = [];
-  budgetChapterOptions: BudgetChapter[] = [];
+  selector: 'app-data-table-invoices',
+  standalone: true,
+  imports: [
+    MatTableModule, MatSortModule, MatPaginatorModule, MatButtonModule, MatIconModule,
+    MatTooltipModule, MatProgressBarModule, MatSelectModule, MatFormFieldModule, FormsModule,
+    DatePipe, HasRoleDirective, FormatAmountPipe, TruncatePipe
+  ],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  templateUrl: './data-table-invoices.component.html'
+})
+export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoice> {
 
   readonly allColumns: IColumnDef[] = [
     {field: 'invoice_id', header: 'ID Fattura', minWidth: '120px'},
@@ -85,73 +58,51 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
     DataTableInvoicesComponent.STORAGE_KEY, this.allColumns, this.defaultVisibleFields
   );
 
+  maxDescLength = 50;
+
+  get displayedColumns(): string[] {
+    return ['actions', ...this.selectedColumns.map(c => c.field)];
+  }
+
+  compareColumns = (a: IColumnDef, b: IColumnDef): boolean => a?.field === b?.field;
+
   onColumnsChange(): void {
     this.saveColumnSelection(DataTableInvoicesComponent.STORAGE_KEY, this.selectedColumns);
   }
 
-  readonly skeletonRows = Array(10).fill({});
-  get skeletonCols(): number[] {
-    return Array.from({length: this.selectedColumns.length + 1}, (_, i) => i);
-  }
-
-  constructor(
-    screen: ScreenSizeService,
-    private utilitiesService: UtilityService,
-    private suppliersService: SuppliersService,
-    private budgetChapterService: BudgetChaptersService
-  ) {
+  constructor(screen: ScreenSizeService) {
     super(screen);
-  }
-
-  override ngOnInit(): void {
-    super.ngOnInit();
-    this.loadDependencies();
-  }
-
-  loadDependencies() {
-    this.utilitiesService.search().subscribe({
-      next: (data: any[]) => {
-        this.utilityOptions = data.sort((a, b) => (a.utility_id ?? '').localeCompare(b.utility_id ?? ''));
-      },
-      error: (err) => console.error('Errore nel caricamento delle Utenze:', err)
-    });
-
-    this.suppliersService.search({deleted: false}).subscribe({
-      next: (data) => {
-        this.supplierOptions = data.sort((a, b) => (a.supplier_id ?? '').localeCompare(b.supplier_id ?? ''));
-      },
-      error: (err) => console.error('Errore nel caricamento dei fornitori:', err)
-    });
-
-    this.budgetChapterService.search({deleted: false}).subscribe({
-      next: (data: any[]) => {
-        this.budgetChapterOptions = data.sort((a, b) => (a.budget_chapter_id ?? '').localeCompare(b.budget_chapter_id ?? ''));
-      },
-      error: (err) => console.error('Errore nel caricamento dei Capitoli di Spesa:', err)
-    });
-  }
-
-  customSort(event: any) {
-    const getVal = (obj: any, path: string): any =>
-      path.split('.').reduce((acc: any, key: string) => acc?.[key], obj);
-
-    event.data.sort((a: any, b: any) => {
-      const v1 = getVal(a, event.field);
-      const v2 = getVal(b, event.field);
-      if (v1 == null && v2 == null) return 0;
-      if (v1 == null) return event.order;
-      if (v2 == null) return -event.order;
-      if (typeof v1 === 'string' && typeof v2 === 'string') {
-        return event.order * v1.localeCompare(v2, 'it');
-      }
-      const n1 = Number(v1), n2 = Number(v2);
-      if (!isNaN(n1) && !isNaN(n2)) return event.order * (n1 - n2);
-      return event.order * String(v1).localeCompare(String(v2), 'it');
-    });
+    // Custom sort fedele all'originale PrimeNG customSort(event): path annidati
+    // (es. "utility.utility_id") + confronto stringhe con localeCompare('it') + fallback
+    // numerico. MatTableDataSource.sortingDataAccessor restituisce un solo valore comparabile
+    // per colonna e usa un ordinamento lessicografico non locale-aware: per riprodurre
+    // fedelmente il comparator originale (che riceveva sia v1 sia v2) è necessario sovrascrivere
+    // sortData, l'unico hook di MatTableDataSource che riceve l'intero array e può applicare un
+    // Array.prototype.sort con comparator a due argomenti.
+    this.dataSource.sortData = (data: Invoice[], sort: MatSort): Invoice[] => {
+      const active = sort.active;
+      const direction = sort.direction;
+      if (!active || direction === '') return data;
+      const order = direction === 'asc' ? 1 : -1;
+      const getVal = (obj: any, path: string): any =>
+        path.split('.').reduce((acc: any, key: string) => acc?.[key], obj);
+      return [...data].sort((a, b) => {
+        const v1 = getVal(a, active);
+        const v2 = getVal(b, active);
+        if (v1 == null && v2 == null) return 0;
+        if (v1 == null) return order;
+        if (v2 == null) return -order;
+        if (typeof v1 === 'string' && typeof v2 === 'string') {
+          return order * v1.localeCompare(v2, 'it');
+        }
+        const n1 = Number(v1), n2 = Number(v2);
+        if (!isNaN(n1) && !isNaN(n2)) return order * (n1 - n2);
+        return order * String(v1).localeCompare(String(v2), 'it');
+      });
+    };
   }
 
   protected override exportCellValue(item: Invoice, field: string): string {
-    const inv = item as any;
     switch (field) {
       case 'invoice_date':
         return ExportHelper.formatDate(item.invoice_date);
@@ -166,7 +117,7 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
       case 'budget_chapters':
         return item.budget_chapters?.map(bc => bc.label).join(', ') ?? '';
       case 'is_paid':
-        return ExportHelper.boolData(inv.is_paid);
+        return ExportHelper.boolData(item.is_paid);
       default:
         return String(this.getNestedValue(item, field) ?? '');
     }
@@ -180,41 +131,38 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
     return Invoice.create();
   }
 
-  protected override buildForm(data?: Partial<Invoice>): void {
-    this.form = this.fb.group({
-      invoice_id: [data?.invoice_id ?? '', Validators.required],
-      protocol_number: [data?.protocol_number ?? '', Validators.required],
-      invoice_date: [data?.invoice_date ? new Date(data.invoice_date) : null, Validators.required],
-      net_amount_excl_vat: [data?.net_amount_excl_vat != null ? Number(data.net_amount_excl_vat) : null, Validators.required],
-      last_invoice_arrears: [data?.last_invoice_arrears != null ? Number(data.last_invoice_arrears) : 0],
-      utility_id_fk: [data?.utility_id_fk ?? null, Validators.required],
-      supplier_id_fk: [this.resolveOnRelation('supplier', 'supplier_id_fk', data) ?? null],
-      notes_on_invoices: [data?.notes_on_invoices ?? ''],
-      budget_chapter_ids: [(data?.budget_chapters ?? []).map(bc => bc.id)],
+  override editDialogComponent(): Type<unknown> {
+    return InvoiceEditDialogComponent;
+  }
+
+  protected override entityLabel(): string {
+    return 'Fattura';
+  }
+
+  override openDeleteDialog(entity: Invoice): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: 'Elimina Fattura',
+        message: `Sei sicuro di voler eliminare la Fattura ${entity.invoice_id}?`,
+        confirmLabel: 'Elimina',
+        danger: true
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onDelete.emit(entity);
     });
   }
 
-  override openCreateDialog() {
-    super.openCreateDialog();
-  }
-
-  override openEditDialog(invoice: Invoice) {
-    super.openEditDialog(invoice);
-  }
-
-  protected override prepareFormValue(): Record<string, any> {
-    const {budget_chapter_ids, ...rest} = this.form.value;
-    return rest;
-  }
-
-  protected override enrichItem(): void {
-    const {budget_chapter_ids} = this.form.value;
-    this.selectedItem!.budget_chapters = (budget_chapter_ids ?? []).map((id: number) =>
-      this.budgetChapterOptions.find(p => p.id === id) as BudgetChapter
-    );
-  }
-
-  override isFormValid(): boolean {
-    return this.form?.valid ?? false;
+  override restoreItem(entity: Invoice): void {
+    this.dialog.open(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        title: 'Ripristina Fattura',
+        message: `Riattiva Fattura ${entity.invoice_id}?`,
+        confirmLabel: 'Ripristina'
+      }
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.onRestore.emit(entity);
+    });
   }
 }
