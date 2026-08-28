@@ -7,10 +7,12 @@ WORKDIR /app
 
 RUN corepack enable
 
+ENV CI=true
+
 # Copia package.json, pnpm-lock.yaml e pnpm-workspace.yaml
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-RUN pnpm install
+RUN pnpm install --frozen-lockfile
 
 # Copia tutto il resto del progetto
 COPY . .
@@ -20,13 +22,10 @@ COPY . .
 # -------------------
 FROM base AS dev
 
-# Installazione globale di Angular CLI
-RUN pnpm install -g @angular/cli
-
 EXPOSE 4300
 
 # Comando per ng serve con live reload
-CMD ["ng", "serve", "--host", "0.0.0.0", "--port", "4300", "--poll", "2000"]
+CMD ["pnpm", "exec", "ng", "serve", "--host", "0.0.0.0", "--port", "4300", "--poll", "2000"]
 
 # -------------------
 # Stage 3: build produzione

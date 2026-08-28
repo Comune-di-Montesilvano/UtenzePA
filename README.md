@@ -130,16 +130,16 @@ L'interfaccia utente è sviluppata con **Angular 22** e utilizza **Angular Mater
 
 ```bash
 cd backend
-npm install
-npm run start:dev
+pnpm install
+pnpm run start:dev
 ```
 
 ### Frontend
 
 ```bash
 cd frontend
-npm install
-npm run start
+pnpm install
+pnpm run start
 ```
 
 ### Test
@@ -147,13 +147,13 @@ npm run start
 ```bash
 # Unit test backend
 cd backend
-npm run test
+pnpm run test
 
 # Test e2e backend
-npm run test:e2e
+pnpm run test:e2e
 
 # Test con copertura
-npm run test:cov
+pnpm run test:cov
 ```
 
 ### Load Testing
@@ -162,9 +162,9 @@ Il backend include configurazioni [Artillery](https://www.artillery.io/) per tes
 
 ```bash
 cd backend
-npm run load-test:low    # Carico basso
-npm run load-test:medium # Carico medio
-npm run load-test:high   # Carico alto
+pnpm run load-test:low    # Carico basso
+pnpm run load-test:medium # Carico medio
+pnpm run load-test:high   # Carico alto
 ```
 
 ## Sicurezza
@@ -212,8 +212,8 @@ UtenzePA/
 ## Contribuire
 
 Prima di aprire una PR:
-- `npm run lint` e `npm run test` puliti nel backend che tocchi
-- `npm run build` verde nel frontend se tocchi codice Angular
+- `pnpm run lint` e `pnpm run test` puliti nel backend che tocchi
+- `pnpm run build` verde nel frontend se tocchi codice Angular
 - leggi `CLAUDE.md` per le convenzioni del repo
 
 ## Licenza

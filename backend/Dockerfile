@@ -52,7 +52,7 @@ FROM base AS build
 COPY --chown=node:node --from=deps /usr/src/app/node_modules ./node_modules
 
 # Copy source files
-COPY --chown=node:node package.json pnpm-lock.yaml ./
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY --chown=node:node tsconfig*.json ./
 COPY --chown=node:node nest-cli.json ./
 COPY --chown=node:node src ./src
@@ -130,6 +130,11 @@ CMD ["node", "dist/main.js"]
 ################################################################################
 # DEVELOPMENT STAGE
 FROM node:${NODE_VERSION}-alpine AS development
+
+# pnpm esegue un controllo di coerenza lockfile/node_modules prima di run script
+# (es. "pnpm run start:dev"): senza TTY, un disallineamento abortirebbe con
+# ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY. CI=true lo rende non interattivo.
+ENV CI=true
 
 # Create a non-root user for running the application
 RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001 -G nodejs
