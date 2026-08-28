@@ -11,7 +11,10 @@ function escapeValue(v: unknown): string {
   if (typeof v === 'number' || typeof v === 'bigint') return String(v);
   if (typeof v === 'boolean') return v ? '1' : '0';
   if (v instanceof Date) {
-    return `'${v.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '')}'`;
+    return `'${v
+      .toISOString()
+      .replace('T', ' ')
+      .replace(/\.\d{3}Z$/, '')}'`;
   }
   if (Buffer.isBuffer(v)) return `0x${v.toString('hex')}`;
   return `'${String(v)
@@ -92,9 +95,7 @@ export class BackupService {
       const [tables] = await conn.query<RowDataPacket[]>('SHOW TABLES');
       for (const tableRow of tables) {
         const table = Object.values(tableRow)[0] as string;
-        const [[createRow]] = await conn.query<RowDataPacket[]>(
-          `SHOW CREATE TABLE \`${table}\``,
-        );
+        const [[createRow]] = await conn.query<RowDataPacket[]>(`SHOW CREATE TABLE \`${table}\``);
         await write(`DROP TABLE IF EXISTS \`${table}\`;\n`);
         await write(`${createRow['Create Table'] as string};\n\n`);
 
@@ -111,7 +112,9 @@ export class BackupService {
       }
 
       await write('SET FOREIGN_KEY_CHECKS=1;\n');
-      await new Promise<void>((res, rej) => writeStream.end((err: Error | null) => (err ? rej(err) : res())));
+      await new Promise<void>((res, rej) =>
+        writeStream.end((err: Error | null) => (err ? rej(err) : res())),
+      );
 
       fs.renameSync(tmpPath, finalPath);
     } catch (err) {
@@ -172,7 +175,9 @@ export class BackupService {
     }
 
     if (deleted.length > 0) {
-      this.logger.log(`Retention: cancellati ${deleted.length} backup oltre ${retentionDays} giorni`);
+      this.logger.log(
+        `Retention: cancellati ${deleted.length} backup oltre ${retentionDays} giorni`,
+      );
     }
     return { deleted };
   }
