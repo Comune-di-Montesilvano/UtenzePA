@@ -1,9 +1,9 @@
 import { IsEmail, IsNotEmpty } from 'class-validator';
 
-export class LoginDto {
+export class VerifyOtpDto {
   @IsEmail({}, { message: 'Email non valida' })
   email: string;
 
-  @IsNotEmpty({ message: 'Password obbligatoria' })
-  password: string;
+  @IsNotEmpty({ message: 'OTP obbligatorio' })
+  otp: string;
 }
