@@ -26,6 +26,15 @@ import { InfisicalConfigService } from '../../infisical/infisical-config.service
           // Escape hatch per iterazione rapida in dev (mai in produzione: bypassa le migration).
           synchronize: process.env.SYNCHRONIZE === 'true' || process.env.IMPORT_DATA === 'true',
           dropSchema: process.env.DROPSCHEMA === 'true' || process.env.IMPORT_DATA === 'true',
+          // TypeORM 1.0 di default lancia un errore se null/undefined finiscono
+          // in una condizione where (prima venivano ignorati silenziosamente).
+          // Manteniamo il comportamento 0.3.x come rete di sicurezza: il codice
+          // esistente non è stato scritto assumendo il nuovo comportamento, e un
+          // caso limite non coperto dai test non deve causare un crash in prod.
+          invalidWhereValuesBehavior: {
+            null: 'ignore',
+            undefined: 'ignore',
+          },
         };
       },
 

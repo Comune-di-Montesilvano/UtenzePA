@@ -6,7 +6,7 @@ import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { SearchInvoiceDto } from './dto/search-invoice.dto';
 import { BudgetChapter } from '../budget-chapters/entity/budgetChapter.entity';
-import { BaseService } from '@apis/shared/base.service';
+import { BaseService, toFindOptionsRelations } from '@apis/shared/base.service';
 import { InvoiceBudgetChapter } from '@apis/invoices/entity/invoice_budget_chapter.entity';
 
 @Injectable()
@@ -130,7 +130,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
 
       return manager.findOne(Invoice, {
         where: { id: saved.id },
-        relations: this.relations,
+        relations: toFindOptionsRelations<Invoice>(this.relations),
       });
     });
   }
@@ -160,7 +160,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
 
       return manager.findOne(Invoice, {
         where: { id },
-        relations: this.relations,
+        relations: toFindOptionsRelations<Invoice>(this.relations),
       });
     });
   }
