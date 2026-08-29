@@ -68,7 +68,13 @@ FROM base AS prod-deps
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install ONLY production dependencies
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts=false && \
+# --ignore-scripts (script disabilitati, come nello stage "deps"): bcrypt
+# ha binding nativi precompilati caricati via node-gyp-build a require-time,
+# non serve il suo install script (verificato: require('bcrypt') funziona
+# identico con o senza --ignore-scripts). Con --ignore-scripts=false invece
+# gira anche il "prepare" di root (husky) e fallisce ("husky: not found",
+# perché husky è una devDependency esclusa da --prod).
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts && \
     rm -rf node_modules/.pnpm-store $HOME/.local/share/pnpm/store && \
     find node_modules -name '*.md' -delete && \
     find node_modules -name '*.ts' -not -name '*.d.ts' -delete && \

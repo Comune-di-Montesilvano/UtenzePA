@@ -33,7 +33,7 @@ CMD ["pnpm", "exec", "ng", "serve", "--host", "0.0.0.0", "--port", "4300", "--po
 FROM base AS build
 
 # Costruisci l'app in produzione
-RUN pnpm run build -- --configuration=production
+RUN pnpm run build
 
 # -------------------
 # Stage 4: produzione con nginx
