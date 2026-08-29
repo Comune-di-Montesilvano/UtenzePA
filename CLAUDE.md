@@ -82,7 +82,7 @@ PrimeNG rimosso interamente dal frontend (migrazione completa a Angular Material
 - `src/common/`, `src/helpers/`, `src/utils/`, `src/data-importer/`.
 - `src/database/` — migration TypeORM (`migrations/`) e `data-source.ts` dedicato per la CLI. Entity individuate via glob (`src/apis/**/*.entity.ts`), niente elenco esplicito da tenere sincronizzato a mano.
 - Persistenza: TypeORM su MySQL. Mongoose/Redis/cache-manager (dipendenze morte ereditate dal template NestJS di partenza) sono stati rimossi.
-- Auth: JWT (access+refresh) con 2FA/TOTP (speakeasy, qrcode), bcrypt 12 rounds, blocco account dopo 5 tentativi falliti.
+- Auth: JWT (access+refresh), bcrypt 12 rounds, blocco account dopo 5 tentativi falliti. OTP email-based (numero random via `crypto.randomInt`, `backend/src/apis/shared/otp.helper.ts`) per il flusso `/setup` e login — non è TOTP/2FA con app authenticator (nessun uso di `speakeasy`/`qrcode` nel codice attuale, rimossi come dead dependency in PR di pulizia dedicata).
 - Docs API: Swagger, gestione secrets opzionale via Infisical, error tracking opzionale via Sentry.
 - Path alias Jest/TS: `@core`, `@apis`, `@common`, `@config`, `@modules`, `@utils` → rispettive cartelle in `src/`.
 - Conventional Commits imposti via commitlint + husky/lint-staged (pre-commit).
