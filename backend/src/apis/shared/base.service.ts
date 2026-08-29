@@ -5,13 +5,28 @@ import {
   HttpStatus,
   RequestTimeoutException,
 } from '@nestjs/common';
-import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
+import { FindOptionsRelations, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { DateHelper } from '@/helpers/date.helpers';
 
 export interface BaseEntity extends ObjectLiteral {
   id: number;
   deleted: boolean;
   updated_by_user_id: number;
+}
+
+// TypeORM 1.0 non accetta più un array di stringhe per `relations` (solo
+// l'oggetto FindOptionsRelations). Le sottoclassi di BaseService continuano a
+// dichiarare `relations` come string[] (nessuna modifica richiesta lì): questo
+// helper converte al confine con la query, negli unici punti che passano
+// `this.relations` a TypeORM (qui e in InvoicesService, che ha un findOne
+// custom).
+export function toFindOptionsRelations<T extends ObjectLiteral>(
+  relations: string[],
+): FindOptionsRelations<T> {
+  return relations.reduce(
+    (acc, relation) => ({ ...acc, [relation]: true }),
+    {} as FindOptionsRelations<T>,
+  );
 }
 
 export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdateDto> {
@@ -29,7 +44,7 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
   findOne(id: number): Promise<TEntity | null> {
     return this.repo.findOne({
       where: { id } as never,
-      relations: this.relations,
+      relations: toFindOptionsRelations<TEntity>(this.relations),
     });
   }
 

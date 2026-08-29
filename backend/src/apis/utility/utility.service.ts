@@ -201,17 +201,17 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
   findOne(id: number): Promise<Utility | null> {
     return this.repo.findOne({
       where: { id: id },
-      relations: [
-        'asset',
-        'utilityType',
-        'costsBorneBy',
-        'maintenanceManager',
-        'supplier',
-        'utilityAggregator',
-        'budgetChapter',
-        'created_by',
-        'updated_by',
-      ],
+      relations: {
+        asset: true,
+        utilityType: true,
+        costsBorneBy: true,
+        maintenanceManager: true,
+        supplier: true,
+        utilityAggregator: true,
+        budgetChapter: true,
+        created_by: true,
+        updated_by: true,
+      },
     });
   }
 

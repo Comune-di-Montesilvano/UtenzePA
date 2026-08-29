@@ -9,7 +9,7 @@
 #   - production: Final production image (minimal size)
 #   - development: Development image with hot-reload support
 
-ARG NODE_VERSION=24.8.0
+ARG NODE_VERSION=24.20.0
 
 # Limite memoria per Node.js (utile per macchine con poca RAM)
 
