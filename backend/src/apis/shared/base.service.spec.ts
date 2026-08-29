@@ -1,6 +1,6 @@
 import { ConflictException, HttpException, RequestTimeoutException } from '@nestjs/common';
 import { Repository, SelectQueryBuilder } from 'typeorm';
-import { BaseService, BaseEntity } from './base.service';
+import { BaseService, BaseEntity, toFindOptionsRelations } from './base.service';
 
 interface TestEntity extends BaseEntity {
   name?: string;
@@ -137,5 +137,18 @@ describe('BaseService', () => {
         expect((error as HttpException).getStatus()).toBe(400);
       }
     });
+  });
+});
+
+describe('toFindOptionsRelations', () => {
+  it('converte un array di relation name nella forma oggetto attesa da TypeORM 1.0', () => {
+    expect(toFindOptionsRelations(['asset', 'utilityType'])).toEqual({
+      asset: true,
+      utilityType: true,
+    });
+  });
+
+  it('converte un array vuoto in un oggetto vuoto', () => {
+    expect(toFindOptionsRelations([])).toEqual({});
   });
 });

@@ -66,7 +66,6 @@
   },
   "dependencies": {
     "@infisical/sdk": "^5.0.2",
-    "@nestjs/axios": "^4.0.1",
     "@nestjs/common": "^11.1.6",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.6",
