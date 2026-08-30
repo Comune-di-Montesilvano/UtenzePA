@@ -130,6 +130,10 @@ Fallimento CI su PR dependabot non sempre è lockfile drift risolvibile con `@de
 
 `tests.yml` esegue `npm run build` sia su backend sia su frontend (non solo lint+test) — un errore di tipo non preso da `ts-jest` (isolatedModules) può comunque rompere `nest build`/Docker, come successo con Sentry.
 
+`tests.yml` non builda mai immagini Docker (solo `npm/pnpm ci`+lint+test+`nest build`/`ng build` su bare runner) — un `docker build --target production`/`--target prod` rotto viene scoperto solo al primo tag push (`release.yml`). Dopo modifiche ai Dockerfile, testare la build reale (`docker build --target <stage> .`) prima di taggare una release, non fidarsi del solo verde CI. Due bug reali trovati così al primo build produzione mai eseguito (tag v1.0.1 rotto, poi fixato):
+- backend Dockerfile stage `prod-deps`: usare `--ignore-scripts` semplice, non `--ignore-scripts=false` — quest'ultimo fa girare anche il `prepare` di root (husky) che fallisce ("husky: not found", devDependency esclusa da `--prod`). bcrypt non ha bisogno di script (binario precompilato via node-gyp-build, funziona identico con o senza `--ignore-scripts`).
+- frontend Dockerfile: `pnpm run build` da solo (senza `-- --configuration=production`) — lo script `build` è già `ng build --configuration production`, passare di nuovo il flag lo duplica ("Schema validation failed: Data path must NOT have additional properties").
+
 Spostare un tag dopo un fix (es. release rotta): `git tag -d vX`, `git push origin :refs/tags/vX`, ricreare (`git tag -a vX -m "..."`) e ripushare — rifà partire `release.yml` sul nuovo commit. Sicuro solo se il tag non ha consumer esterni noti.
 
 Dependabot PR: se il branch è stato toccato da altro (es. `gh api .../update-branch`), commentare `@dependabot rebase` fallisce ("edited by someone other than Dependabot") — usare `@dependabot recreate`. Merge sequenziale di più PR dependabot sullo stesso lockfile causa conflitti a cascata sulle successive: ri-aggiornarle (`update-branch` o recreate) una alla volta dopo ogni merge.
