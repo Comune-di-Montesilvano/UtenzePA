@@ -87,18 +87,25 @@ FROM node:${NODE_VERSION}-alpine AS production
 
 # Build metadata arguments (set during build time)
 ARG BUILD_DATE
+# APP_VERSION: tag git (es. "v1.0.1"), valorizzato da release.yml solo per
+# build da tag — default 'dev' per build non taggate (locali/CI non-release).
+# VCS_REF: hash commit breve, sempre valorizzato da release.yml — usato dal
+# backend (health.service.ts) come fallback quando APP_VERSION è 'dev', per
+# distinguere in UI un commit non ancora rilasciato da un vero "dev" locale.
+ARG APP_VERSION=dev
 ARG VCS_REF
-
 
 # Labels for image metadata (helps identify build version)
 LABEL org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.version="${APP_VERSION}" \
       org.opencontainers.image.title="NestJS Application" \
       org.opencontainers.image.description="Production-ready NestJS application"
 
 # Use production node environment by default.
 ENV NODE_ENV=production \
     BUILD_DATE=${BUILD_DATE} \
+    APP_VERSION=${APP_VERSION} \
     VCS_REF=${VCS_REF}
 
 # Create a non-root user
@@ -136,6 +143,13 @@ CMD ["node", "dist/main.js"]
 ################################################################################
 # DEVELOPMENT STAGE
 FROM node:${NODE_VERSION}-alpine AS development
+
+# VCS_REF opzionale: non passata di default da docker-compose.override.yml,
+# valorizzabile a mano (es. build.args in override o
+# `VCS_REF=$(git rev-parse --short HEAD) docker compose up --build`) per
+# vedere l'hash commit in sidebar anche in sviluppo, invece del fallback 'dev'.
+ARG VCS_REF
+ENV VCS_REF=${VCS_REF}
 
 # pnpm esegue un controllo di coerenza lockfile/node_modules prima di run script
 # (es. "pnpm run start:dev"): senza TTY, un disallineamento abortirebbe con

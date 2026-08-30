@@ -48,4 +48,15 @@ export class HealthController {
     }
     return result;
   }
+
+  /**
+   * Versione applicativa (tag di release o hash commit) per il footer/sidebar frontend
+   */
+  @Get('version')
+  @Public()
+  @ApiOperation({ summary: 'Versione applicativa corrente (tag release o hash commit)' })
+  @ApiResponse({ status: 200, description: 'Versione corrente' })
+  version() {
+    return this.healthService.getVersion();
+  }
 }

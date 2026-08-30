@@ -1,8 +1,9 @@
-import {Component, ChangeDetectionStrategy} from '@angular/core';
+import {Component, ChangeDetectionStrategy, OnInit} from '@angular/core';
 
 import {Router, RouterModule} from '@angular/router';
 import {MatIconModule} from '@angular/material/icon';
 import {AuthService} from '../../services/auth.service';
+import {VersionService} from '../../services/version.service';
 
 interface MenuItem {
   label: string;
@@ -20,7 +21,9 @@ interface MenuItem {
              changeDetection: ChangeDetectionStrategy.Eager,
              styleUrls: ['./sidebar.components.scss']
            })
-export class SidebarComponent {
+export class SidebarComponent implements OnInit {
+  appVersion = '';
+
   menu: MenuItem[] = [
     {label: 'Dashboard', icon: 'home', route: '/dashboard'},
     {
@@ -69,7 +72,15 @@ export class SidebarComponent {
     parent.open = true;
   }
 
-  constructor(private router: Router, private authService: AuthService) {
+  // rif. publiccode.yml "url" — non letto a runtime dal frontend (file
+  // servito solo per compliance AGID), duplicato qui come costante.
+  repoUrl = 'https://github.com/Comune-di-Montesilvano/UtenzePA';
+
+  constructor(private router: Router, private authService: AuthService, private versionService: VersionService) {
+  }
+
+  ngOnInit() {
+    this.versionService.getVersion().then(v => this.appVersion = v);
   }
 
   logout() {

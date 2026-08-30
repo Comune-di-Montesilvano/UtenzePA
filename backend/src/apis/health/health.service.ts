@@ -36,4 +36,21 @@ export class HealthService {
       timestamp: new Date().toISOString(),
     };
   }
+
+  /**
+   * Versione software da mostrare in UI (footer/sidebar). APP_VERSION è
+   * valorizzata dalla CI solo per build da tag git (release.yml, es. "v1.0.1")
+   * — vedi build-arg nel Dockerfile. VCS_REF è l'hash commit breve, passato
+   * come build-arg separato per le build non taggate (es. verifica manuale
+   * `docker build --target production` prima di taggare una release, vedi
+   * CLAUDE.md): distingue "release" da "commit non ancora rilasciato" invece
+   * di mostrare 'dev' in entrambi i casi.
+   */
+  getVersion() {
+    const version = process.env['APP_VERSION'];
+    if (version && version !== 'dev') return { version };
+    const commit = process.env['VCS_REF'];
+    if (commit) return { version: commit };
+    return { version: 'dev' };
+  }
 }
