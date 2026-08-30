@@ -18,5 +18,8 @@ allowBuilds:
   '@scarf/scarf': true
   '@playwright/browser-chromium': false
   unix-dgram: false
+  # Watcher nativo di jest-haste-map per `jest --watch` — mai usato negli
+  # script test:*/test:ci (nessuno passa --watch), sicuro da disabilitare.
+  '@parcel/watcher': false
 minimumReleaseAgeExclude:
   - nodemailer@9.0.6
