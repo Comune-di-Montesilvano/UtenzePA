@@ -119,6 +119,18 @@ describe('AssetsService', () => {
       expect(geocodingService.geocode).not.toHaveBeenCalled();
     });
 
+    it("non rilancia il geocoding se il valore di indirizzo inviato è uguale a quello già persistito (payload full-form invariato)", async () => {
+      await service.update(1, { address: 'Via Roma 1' } as never);
+
+      expect(geocodingService.geocode).not.toHaveBeenCalled();
+    });
+
+    it("rilancia il geocoding se il valore di indirizzo inviato differisce da quello persistito", async () => {
+      await service.update(1, { address: 'Via Roma 1', civic_number: '10' } as never);
+
+      expect(geocodingService.geocode).toHaveBeenCalledWith('Via Roma 1, Montesilvano');
+    });
+
     it('non fa fallire il save se il geocoding va in errore', async () => {
       geocodingService.geocode.mockRejectedValue(new Error('nominatim down'));
 

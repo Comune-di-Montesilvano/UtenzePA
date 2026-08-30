@@ -63,7 +63,10 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
   }
 
   async update(id: number, updateDto: UpdateAssetDto, userId?: number): Promise<Asset> {
-    const addressChanged = ADDRESS_FIELDS.some((field) => field in updateDto);
+    const existing = await this.repo.findOne({ where: { id } as never });
+    const addressChanged = ADDRESS_FIELDS.some(
+      (field) => field in updateDto && updateDto[field] !== existing?.[field],
+    );
     const manualCoordsProvided =
       updateDto.latitude !== undefined || updateDto.longitude !== undefined;
     const shouldRegeocode = addressChanged && !manualCoordsProvided;
