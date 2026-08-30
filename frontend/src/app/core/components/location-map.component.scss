@@ -14,3 +14,13 @@
   font-size: 0.8rem;
   color: #757575;
 }
+
+.location-map-pin {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #1565c0;
+  border: 2px solid #fff;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+}
