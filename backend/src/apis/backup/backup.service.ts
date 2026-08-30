@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createConnection, RowDataPacket } from 'mysql2/promise';
@@ -182,7 +181,6 @@ export class BackupService {
     return { deleted };
   }
 
-  @Cron(process.env.BACKUP_CRON_SCHEDULE ?? CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleScheduledBackup(): Promise<void> {
     try {
       await this.createBackup();
