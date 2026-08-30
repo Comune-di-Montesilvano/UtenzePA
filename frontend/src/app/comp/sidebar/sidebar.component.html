@@ -48,4 +48,14 @@
     <mat-icon>logout</mat-icon>
     <span>Esci</span>
   </div>
+
+  <div class="sidebar-meta">
+    <a class="sidebar-repo-link" [href]="repoUrl" target="_blank" rel="noopener noreferrer" title="Repository su GitHub">
+      <mat-icon>code</mat-icon>
+      <span>Repository</span>
+    </a>
+    @if (appVersion) {
+      <span class="sidebar-version" title="Versione applicazione">{{ appVersion }}</span>
+    }
+  </div>
 </aside>
