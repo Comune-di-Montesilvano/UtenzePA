@@ -1,0 +1,16 @@
+.location-map-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.location-map-canvas {
+  height: 220px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.location-map-hint {
+  font-size: 0.8rem;
+  color: #757575;
+}

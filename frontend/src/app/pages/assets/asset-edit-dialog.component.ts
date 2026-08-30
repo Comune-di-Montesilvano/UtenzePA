@@ -26,6 +26,7 @@ import {Utility} from '../utilities/entity/utility.entity';
 import {TruncatePipe} from '../../core/pipes/truncate.pipe';
 import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
 import {DatePipe} from '@angular/common';
+import {LocationMapComponent} from '../../core/components/location-map.component';
 
 @Component({
   selector: 'app-asset-edit-dialog',
@@ -48,6 +49,7 @@ import {DatePipe} from '@angular/common';
     TruncatePipe,
     FormatAmountPipe,
     DatePipe,
+    LocationMapComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './asset-edit-dialog.component.html'
@@ -135,5 +137,13 @@ export class AssetEditDialogComponent implements OnInit {
 
   cancel(): void {
     this.dialogRef.close(undefined);
+  }
+
+  onPositionSelected(coords: { lat: string; lng: string }): void {
+    this.form.patchValue({ latitude: coords.lat, longitude: coords.lng });
+  }
+
+  onPositionCleared(): void {
+    this.form.patchValue({ latitude: null, longitude: null });
   }
 }

@@ -32,6 +32,7 @@ import {CostsBorneByService} from '../costs-borne-by/costs-borne-by.service';
 import {MaintenanceManagersService} from '../maintenance-managers/maintenance-managers.service';
 import {ConsipAgreementService} from '../consip-agreement/consip-agreement.service';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
+import {LocationMapComponent} from '../../core/components/location-map.component';
 
 @Component({
   selector: 'app-utility-edit-dialog',
@@ -39,7 +40,7 @@ import {UtilityTypesService} from '../utility-types/utility-types.service';
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule,
-    HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent
+    HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent, LocationMapComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-edit-dialog.component.html'
@@ -245,6 +246,14 @@ export class UtilityEditDialogComponent implements OnInit {
     const lon = this.form.controls.longitude.value;
     if (isValid(lat) && isValid(lon)) return false;
     return isValid(this.data.item.asset?.latitude) && isValid(this.data.item.asset?.longitude);
+  }
+
+  onPositionSelected(coords: { lat: string; lng: string }): void {
+    this.form.patchValue({ latitude: coords.lat, longitude: coords.lng });
+  }
+
+  onPositionCleared(): void {
+    this.form.patchValue({ latitude: null, longitude: null });
   }
 
   save(): void {

@@ -1,0 +1,81 @@
+import { Component, Input, Output, EventEmitter, AfterViewInit, OnChanges, OnDestroy, SimpleChanges, ChangeDetectionStrategy } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { MatButtonModule } from '@angular/material/button';
+import * as L from 'leaflet';
+
+let instanceCounter = 0;
+
+@Component({
+  selector: 'app-location-map',
+  standalone: true,
+  imports: [CommonModule, MatButtonModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
+  templateUrl: './location-map.component.html',
+  styleUrls: ['./location-map.component.scss'],
+})
+export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy {
+  @Input() latitude: string | null = null;
+  @Input() longitude: string | null = null;
+  @Input() previewOnly = false;
+  @Output() positionSelected = new EventEmitter<{ lat: string; lng: string }>();
+  @Output() positionCleared = new EventEmitter<void>();
+
+  readonly canvasId = `location-map-${instanceCounter++}`;
+  private map: L.Map | null = null;
+  private marker: L.Marker | null = null;
+
+  private readonly DEFAULT_CENTER: L.LatLngExpression = [42.5083, 14.15]; // Montesilvano
+
+  ngAfterViewInit(): void {
+    this.map = L.map(this.canvasId).setView(this.currentLatLng() ?? this.DEFAULT_CENTER, this.currentLatLng() ? 16 : 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19,
+    }).addTo(this.map);
+
+    this.renderMarker();
+
+    if (!this.previewOnly) {
+      this.map.on('click', (event: L.LeafletMouseEvent) => {
+        this.positionSelected.emit({
+          lat: event.latlng.lat.toFixed(6),
+          lng: event.latlng.lng.toFixed(6),
+        });
+      });
+    }
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!this.map) return;
+    if (changes['latitude'] || changes['longitude']) {
+      this.renderMarker();
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.map?.remove();
+  }
+
+  clearPosition(): void {
+    this.positionCleared.emit();
+  }
+
+  private currentLatLng(): L.LatLngExpression | null {
+    const lat = parseFloat(this.latitude ?? '');
+    const lng = parseFloat(this.longitude ?? '');
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+    return [lat, lng];
+  }
+
+  private renderMarker(): void {
+    if (!this.map) return;
+    if (this.marker) {
+      this.map.removeLayer(this.marker);
+      this.marker = null;
+    }
+    const latLng = this.currentLatLng();
+    if (!latLng) return;
+    this.marker = L.marker(latLng).addTo(this.map);
+    this.map.setView(latLng, 16);
+  }
+}
