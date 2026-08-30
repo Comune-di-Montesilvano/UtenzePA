@@ -1,0 +1,8 @@
+# Script shell sempre con line-ending LF, indipendentemente da core.autocrlf
+# locale — un checkout Windows con autocrlf=true altrimenti li converte in
+# CRLF, rompendo lo shebang ("#!/bin/sh\r": interprete non trovato) quando
+# vengono copiati in un'immagine Docker costruita in locale da quel checkout
+# (es. nginx/20-runtime-config.sh). Il contenuto committato in git è sempre
+# stato LF (i checkout CI/Linux non sono mai stati affetti); questo evita il
+# problema anche per build Docker locali su Windows.
+*.sh text eol=lf
