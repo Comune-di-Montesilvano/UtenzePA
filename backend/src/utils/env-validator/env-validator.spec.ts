@@ -16,28 +16,20 @@ describe('EnvValidator', () => {
   describe('validate', () => {
     it('should validate successfully with all required variables set', () => {
       process.env.NODE_ENV = 'development';
-      process.env.PROJECT_NAME = 'test-project';
-      process.env.TYPE = 'api';
 
       expect(() => EnvValidator.validate()).not.toThrow();
     });
 
     it('should set default values for missing required variables', () => {
       delete process.env.NODE_ENV;
-      delete process.env.PROJECT_NAME;
-      delete process.env.TYPE;
 
       EnvValidator.validate();
 
       expect(process.env.NODE_ENV).toBe('development');
-      expect(process.env.PROJECT_NAME).toBe('nestjs-template');
-      expect(process.env.TYPE).toBe('api');
     });
 
     it('should throw error for invalid NODE_ENV', () => {
       process.env.NODE_ENV = 'invalid';
-      process.env.PROJECT_NAME = 'test';
-      process.env.TYPE = 'api';
 
       expect(() => EnvValidator.validate()).toThrow('Environment validation failed');
     });
@@ -47,8 +39,6 @@ describe('EnvValidator', () => {
 
       validEnvs.forEach((env) => {
         process.env.NODE_ENV = env;
-        process.env.PROJECT_NAME = 'test';
-        process.env.TYPE = 'api';
 
         expect(() => EnvValidator.validate()).not.toThrow();
       });
@@ -56,19 +46,16 @@ describe('EnvValidator', () => {
 
     it('should validate optional variables', () => {
       process.env.NODE_ENV = 'development';
-      process.env.PROJECT_NAME = 'test';
-      process.env.TYPE = 'api';
-      process.env.DOCKER_MONGO_PORT = '27017';
       process.env.DOCKER_API_PORT = '3000';
+      process.env.SENTRY_DSN = 'https://example.glitchtip.com/1';
+      process.env.SENTRY_ENVIRONMENT = 'production';
 
       expect(() => EnvValidator.validate()).not.toThrow();
     });
 
     it('should reject invalid port numbers', () => {
       process.env.NODE_ENV = 'development';
-      process.env.PROJECT_NAME = 'test';
-      process.env.TYPE = 'api';
-      process.env.DOCKER_MONGO_PORT = 'invalid';
+      process.env.DOCKER_API_PORT = 'invalid';
 
       // Should not throw but should warn
       expect(() => EnvValidator.validate()).not.toThrow();
@@ -76,15 +63,11 @@ describe('EnvValidator', () => {
 
     it('should set default values for optional variables', () => {
       process.env.NODE_ENV = 'development';
-      process.env.PROJECT_NAME = 'test';
-      process.env.TYPE = 'api';
-      delete process.env.DOCKER_MONGO_PORT;
-      delete process.env.VERSION;
+      delete process.env.DOCKER_API_PORT;
 
       EnvValidator.validate();
 
-      expect(process.env.DOCKER_MONGO_PORT).toBe('27017');
-      expect(process.env.VERSION).toBe('1.0.0');
+      expect(process.env.DOCKER_API_PORT).toBe('3000');
     });
   });
 
@@ -251,8 +234,6 @@ describe('EnvValidator', () => {
   describe('logConfiguration', () => {
     it('should log configuration without errors', () => {
       process.env.NODE_ENV = 'development';
-      process.env.PROJECT_NAME = 'test-project';
-      process.env.TYPE = 'api';
       process.env.PORT = '3000';
 
       expect(() => EnvValidator.logConfiguration()).not.toThrow();
@@ -260,8 +241,6 @@ describe('EnvValidator', () => {
 
     it('should mask sensitive values in logs', () => {
       process.env.NODE_ENV = 'development';
-      process.env.PROJECT_NAME = 'test';
-      process.env.TYPE = 'api';
       process.env.JWT_SECRET = 'supersecret123';
 
       // This would mask JWT_SECRET in actual logs
