@@ -20,6 +20,7 @@ import { UtilityAggregatorsModule } from '@apis/utility-aggregators/utility-aggr
 import { BudgetChaptersModule } from '@apis/budget-chapters/budget-chapters.module';
 import { AssetsModule } from '@apis/asset/assets.module';
 import { GeocodingModule } from '@apis/geocoding/geocoding.module';
+import { MapModule } from '@apis/map/map.module';
 import { UtilizerGrantModule } from '@apis/utilizer-grant/utilizer-grant.module';
 import { UtilitiesModule } from '@apis/utility/utility.module';
 import { CostsBorneByModule } from '@apis/costs-borne-by/cost-borne-by.module';
@@ -52,6 +53,7 @@ import { ImportModule } from '@apis/import/import.module';
     BudgetChaptersModule,
     AssetsModule,
     GeocodingModule,
+    MapModule,
     UtilizerGrantModule,
     UtilitiesModule,
     CostsBorneByModule,
