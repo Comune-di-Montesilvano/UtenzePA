@@ -66,7 +66,7 @@ jobs:
       # nella tab Security del repo. Scansiona l'immagine appena pushata,
       # taggata con il tag git corrente (sempre presente, trigger solo su tag).
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:${{ github.ref_name }}
           format: sarif
