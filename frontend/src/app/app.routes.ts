@@ -14,6 +14,7 @@ import {UtilitiesComponent} from "./pages/utilities/utilities.component";
 import {MaintenanceManagersComponent} from "./pages/maintenance-managers/maintenance-managers.component";
 import {InvoicesComponent} from "./pages/invoices/invoices.component";
 import {DashboardComponent} from "./pages/dashboard/dashboard.component";
+import {MapComponent} from "./pages/map/map.component";
 import {ConsipAgreementComponent} from './pages/consip-agreement/consip-agreement.component';
 import {PurposeComponent} from './pages/purpose/purpose.component';
 import {UtilizerComponent} from './pages/utilizer/utilizer.component';
@@ -47,6 +48,7 @@ export const routes: Routes = [
       {path: 'utilizer', component: UtilizerComponent},
       {path: 'utilizer-grant', component: UtilizerGrantComponent},
       {path: 'dashboard', component: DashboardComponent},
+      {path: 'map', component: MapComponent},
 
     ]
   },

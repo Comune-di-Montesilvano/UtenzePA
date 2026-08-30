@@ -1,0 +1,59 @@
+.map-page {
+  display: flex;
+  height: calc(100vh - 64px);
+}
+
+.map-sidebar {
+  width: 280px;
+  padding: 1rem;
+  overflow-y: auto;
+  border-right: 1px solid #e5e7eb;
+}
+
+.map-canvas {
+  flex: 1;
+}
+
+.map-pin {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+}
+
+.map-pin--utility {
+  border-radius: 3px;
+}
+
+.map-legend {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.map-ungeolocated-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.85rem;
+
+  li {
+    cursor: pointer;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #f0f0f0;
+
+    &:hover {
+      background: #f7f7f7;
+    }
+  }
+
+  .map-reason {
+    display: block;
+    color: #9e9e9e;
+    font-size: 0.75rem;
+  }
+}
