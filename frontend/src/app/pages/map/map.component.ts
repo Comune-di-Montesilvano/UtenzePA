@@ -4,7 +4,6 @@ import { ReactiveFormsModule, FormControl } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog } from '@angular/material/dialog';
 import * as L from 'leaflet';
-import 'leaflet.markercluster';
 import { MapService } from './map.service';
 import { MapPoint, UngeolocatedItem, UNGEOLOCATED_REASON_LABELS } from './map-point.entity';
 import { FilterableSelectComponent } from '../../core/components/filterable-select.component';
@@ -45,6 +44,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private map: L.Map | null = null;
   private clusterGroup: L.MarkerClusterGroup | null = null;
+  private resizeObserver: ResizeObserver | null = null;
 
   showAssets = new FormControl(true, { nonNullable: true });
   showUtilities = new FormControl(true, { nonNullable: true });
@@ -70,7 +70,18 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     this.utilityTypeId.valueChanges.subscribe(() => this.reload());
   }
 
-  ngAfterViewInit(): void {
+  async ngAfterViewInit(): Promise<void> {
+    // leaflet.markercluster è UMD e cerca `L` su `window` per estendersi con
+    // `markerClusterGroup` — un import statico ("import 'leaflet.markercluster'")
+    // viene hoistato dal motore JS prima di qualunque altra istruzione del
+    // modulo (comportamento standard ESM, non un bug del bundler), quindi
+    // gira PRIMA che si possa assegnare `window.L = L`, e l'estensione fallisce
+    // silenziosamente ("L.markerClusterGroup is not a function"). L'import
+    // dinamico qui sotto è una chiamata a runtime, non hoistata: l'ordine è
+    // garantito.
+    (window as unknown as { L: typeof L }).L = L;
+    await import('leaflet.markercluster');
+
     this.map = L.map('map-canvas').setView([42.5083, 14.15], 13); // Montesilvano
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
@@ -79,9 +90,32 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     this.clusterGroup = L.markerClusterGroup();
     this.map.addLayer(this.clusterGroup);
     this.reload();
+
+    // .map-canvas è flex:1 dentro .map-page — al momento di L.map() il layout
+    // flex non ha ancora assegnato la posizione/dimensione finale al
+    // container (qui: sidebar filtri + FilterableSelect che si popolano via
+    // HTTP e possono ancora spostare il layout dopo il primo paint). Un
+    // singolo invalidateSize() differito con setTimeout(0) NON basta — gira
+    // comunque prima che il layout sia assestato, lasciando l'origine interna
+    // dei tile disallineata rispetto alla vera posizione del container (tile
+    // caricati correttamente ma "scomposti": verificato via
+    // getBoundingClientRect() nel browser, offset dei tile pari al vecchio
+    // rect). ResizeObserver ricalcola ad ogni cambio reale di dimensione (e
+    // quindi anche ai resize finestra successivi), niente timeout indovinato.
+    const canvasEl = document.getElementById('map-canvas');
+    if (canvasEl) {
+      this.resizeObserver = new ResizeObserver(() => this.map?.invalidateSize());
+      this.resizeObserver.observe(canvasEl);
+    }
+
+    // Copre anche il caso "posizione cambiata, dimensione no" (ResizeObserver
+    // non lo intercetta): doppio requestAnimationFrame per essere certi che
+    // il primo layout/paint del browser sia già avvenuto.
+    requestAnimationFrame(() => requestAnimationFrame(() => this.map?.invalidateSize()));
   }
 
   ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
     this.map?.remove();
   }
 
