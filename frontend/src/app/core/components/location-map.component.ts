@@ -5,6 +5,19 @@ import * as L from 'leaflet';
 
 let instanceCounter = 0;
 
+// Icona di default di Leaflet (L.marker senza [icon]) referenzia
+// marker-icon.png/marker-icon-2x.png/marker-shadow.png con URL relativo
+// calcolato dal CSS — esbuild (build Angular) non li ricopia/risolve, quindi
+// il marker prova a caricarli dall'origin dell'app e fallisce con 404. Stesso
+// divIcon "a pallino" già usato in map.component.ts: nessuna immagine da
+// bundlare, coerente visivamente con la pagina Mappa.
+const LOCATION_PIN_ICON = L.divIcon({
+  className: '',
+  html: '<span class="location-map-pin"></span>',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+});
+
 @Component({
   selector: 'app-location-map',
   standalone: true,
@@ -75,7 +88,7 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
     }
     const latLng = this.currentLatLng();
     if (!latLng) return;
-    this.marker = L.marker(latLng).addTo(this.map);
+    this.marker = L.marker(latLng, { icon: LOCATION_PIN_ICON }).addTo(this.map);
     this.map.setView(latLng, 16);
   }
 }
