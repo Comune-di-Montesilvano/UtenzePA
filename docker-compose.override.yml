@@ -41,6 +41,10 @@ services:
       - HOST_EMAIL=mailpit
       - PORT_EMAIL=1025
       - SMTP_SECURE_PROTOCOL=false
+      # Error tracking (Sentry/GlitchTip) — vuoto = disabilitato, valorizzabile
+      # per testare l'invio eventi verso un'istanza locale/reale
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-development}
       # Backup DB — schedulazione cron, retention, dimensioni massime
       - BACKUP_CRON_SCHEDULE=${BACKUP_CRON_SCHEDULE:-0 0 * * *}
       - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}

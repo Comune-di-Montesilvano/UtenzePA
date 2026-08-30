@@ -7,7 +7,11 @@ import {environment} from './environments/environment';
 
 Sentry.init({
               dsn: environment.sentryDsn,
-              enabled: environment.production,
+              // Attivo solo se una DSN è configurata (runtime config, vedi
+              // environment.prod.ts) — non più legato a "production".
+              enabled: Boolean(environment.sentryDsn),
+              environment: environment.sentryEnvironment,
+              release: environment.appVersion,
 
               tracesSampleRate: 0.1,
               tracePropagationTargets: [environment.apiUrl],
@@ -22,7 +26,6 @@ Sentry.init({
               ],
 
               sendDefaultPii: false,
-              environment: environment.production ? 'production' : 'development',
             });
 
 bootstrapApplication(App, appConfig)

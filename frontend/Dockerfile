@@ -40,6 +40,12 @@ RUN pnpm run build
 # -------------------
 FROM nginx:1.28-alpine AS prod
 
+# APP_VERSION: tag git (release.yml, build da tag) o hash commit per build non
+# taggate — baked a build time, letto a runtime da 20-runtime-config.sh e
+# esposto al bundle come release Sentry (vedi runtime-config.ts, main.ts).
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION}
+
 # Con Angular 18+ il path di default è dist/<project-name>/browser
 COPY --from=build /app/dist/montesilvano-fe/browser /usr/share/nginx/html
 
