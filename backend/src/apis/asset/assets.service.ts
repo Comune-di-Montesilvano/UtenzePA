@@ -6,6 +6,9 @@ import { CreateAssetDto } from './dto/create-asset.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
 import { SearchAssetDto } from './dto/search-asset.dto';
 import { BaseService } from '../shared/base.service';
+import { GeocodingService } from '@apis/geocoding/geocoding.service';
+
+const ADDRESS_FIELDS = ['toponym', 'address', 'civic_number', 'zip_code', 'municipality'] as const;
 
 @Injectable()
 export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAssetDto> {
@@ -15,6 +18,7 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
   constructor(
     @InjectRepository(Asset)
     protected readonly repo: Repository<Asset>,
+    private readonly geocodingService: GeocodingService,
   ) {
     super();
   }
@@ -56,6 +60,50 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
       .leftJoinAndSelect('utilizerGrants.utilizer', 'utilizer', 'utilizer.deleted = 0')
       .where('assets.id = :id', { id })
       .getOne();
+  }
+
+  async update(id: number, updateDto: UpdateAssetDto, userId?: number): Promise<Asset> {
+    const existing = await this.repo.findOne({ where: { id } as never });
+    const addressChanged = ADDRESS_FIELDS.some(
+      (field) => field in updateDto && updateDto[field] !== existing?.[field],
+    );
+    const manualCoordsProvided =
+      updateDto.latitude !== undefined || updateDto.longitude !== undefined;
+    const shouldRegeocode = addressChanged && !manualCoordsProvided;
+
+    const payload: UpdateAssetDto & {
+      geocoded_latitude?: string | null;
+      geocoded_longitude?: string | null;
+      geocoded_at?: Date | null;
+    } = { ...updateDto };
+
+    if (shouldRegeocode) {
+      payload.geocoded_latitude = null;
+      payload.geocoded_longitude = null;
+      payload.geocoded_at = null;
+    }
+
+    const result = await super.update(id, payload as UpdateAssetDto, userId);
+
+    if (shouldRegeocode) {
+      await this.regeocode(result).catch(() => undefined);
+    }
+
+    return result;
+  }
+
+  private async regeocode(asset: Asset): Promise<void> {
+    const query = this.geocodingService.buildQuery(asset);
+    if (!query) return;
+
+    const geocoded = await this.geocodingService.geocode(query);
+    if (!geocoded) return;
+
+    await this.repo.update(asset.id, {
+      geocoded_latitude: geocoded.lat,
+      geocoded_longitude: geocoded.lon,
+      geocoded_at: new Date(),
+    } as never);
   }
 
   // async create(dto: CreateAssetDto, userId?: number): Promise<Asset> {

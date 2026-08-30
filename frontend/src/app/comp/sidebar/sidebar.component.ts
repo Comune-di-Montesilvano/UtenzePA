@@ -26,6 +26,7 @@ export class SidebarComponent implements OnInit {
 
   menu: MenuItem[] = [
     {label: 'Dashboard', icon: 'home', route: '/dashboard'},
+    {label: 'Mappa', icon: 'map', route: '/map'},
     {
       label: 'Immobili',
       icon: 'apartment',

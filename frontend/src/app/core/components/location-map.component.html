@@ -1,0 +1,11 @@
+<div class="location-map-wrapper">
+  <div [id]="canvasId" class="location-map-canvas"></div>
+  @if (!previewOnly && latitude && longitude) {
+    <button mat-stroked-button type="button" class="location-map-clear" (click)="clearPosition()">
+      Cancella posizione manuale
+    </button>
+  }
+  @if (previewOnly && latitude && longitude) {
+    <div class="location-map-hint">Posizione ereditata dall'immobile collegato</div>
+  }
+</div>

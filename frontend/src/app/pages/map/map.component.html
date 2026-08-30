@@ -1,0 +1,40 @@
+<div class="map-page">
+  <aside class="map-sidebar">
+    <h3>Filtri</h3>
+    <mat-checkbox [formControl]="showAssets">Immobili</mat-checkbox>
+    <mat-checkbox [formControl]="showUtilities">Contatori</mat-checkbox>
+
+    <app-filterable-select
+      label="Aggregato immobile"
+      [options]="assetAggregatorOptions"
+      [formControl]="assetAggregatorId">
+    </app-filterable-select>
+
+    <app-filterable-select
+      label="Tipo utenza"
+      [options]="utilityTypeOptions"
+      [formControl]="utilityTypeId">
+    </app-filterable-select>
+
+    <div class="map-legend">
+      <div><span class="map-pin map-pin--asset" style="background:#1565c0"></span> Immobile — GPS reale</div>
+      <div><span class="map-pin map-pin--asset" style="background:#ef6c00"></span> Immobile — stimato</div>
+      <div><span class="map-pin map-pin--utility" style="background:#1565c0"></span> Contatore — GPS reale</div>
+      <div><span class="map-pin map-pin--utility" style="background:#ef6c00"></span> Contatore — stimato</div>
+    </div>
+
+    @if (ungeolocated.length > 0) {
+      <h3>Non geolocalizzabili ({{ ungeolocated.length }})</h3>
+      <ul class="map-ungeolocated-list">
+        @for (item of ungeolocated; track item.id + item.type) {
+          <li (click)="openDetail(item)">
+            {{ item.name }}
+            <span class="map-reason">{{ reasonLabels[item.reason] }}</span>
+          </li>
+        }
+      </ul>
+    }
+  </aside>
+
+  <div id="map-canvas" class="map-canvas"></div>
+</div>

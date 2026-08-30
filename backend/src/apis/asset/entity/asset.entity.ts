@@ -59,6 +59,15 @@ export class Asset {
   @Column({ type: 'varchar', length: 20, nullable: true })
   longitude: string;
 
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  geocoded_latitude: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  geocoded_longitude: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  geocoded_at: Date;
+
   @Column({ length: 50, nullable: true })
   sheet: string;
 

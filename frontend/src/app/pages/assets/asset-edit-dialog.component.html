@@ -91,6 +91,15 @@
         <mat-label>Longitudine</mat-label>
         <input matInput formControlName="longitude" placeholder="Es. 16.8776" geoLongitude>
       </mat-form-field>
+
+      <div style="flex: 1 1 100%;">
+        <app-location-map
+          [latitude]="form.controls.latitude.value"
+          [longitude]="form.controls.longitude.value"
+          (positionSelected)="onPositionSelected($event)"
+          (positionCleared)="onPositionCleared()">
+        </app-location-map>
+      </div>
     </div>
 
     <div style="display: flex; flex-wrap: wrap; gap: 1rem;">

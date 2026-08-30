@@ -3,7 +3,7 @@ import { Asset } from './entity/asset.entity';
 
 describe('AssetsService', () => {
   let service: AssetsService;
-  let repo: { createQueryBuilder: jest.Mock };
+  let repo: { createQueryBuilder: jest.Mock; findOne?: jest.Mock; save?: jest.Mock; update?: jest.Mock };
   let qb: {
     leftJoinAndSelect: jest.Mock;
     where: jest.Mock;
@@ -23,7 +23,10 @@ describe('AssetsService', () => {
       getOne: jest.fn().mockResolvedValue(null),
     };
     repo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
-    service = new AssetsService(repo as never);
+    service = new AssetsService(repo as never, {
+      buildQuery: jest.fn(),
+      geocode: jest.fn(),
+    } as never);
   });
 
   describe('findAll', () => {
@@ -74,6 +77,64 @@ describe('AssetsService', () => {
       const result = await service.findOne(999);
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('update', () => {
+    let geocodingService: { buildQuery: jest.Mock; geocode: jest.Mock };
+
+    beforeEach(() => {
+      geocodingService = {
+        buildQuery: jest.fn().mockReturnValue('Via Roma 1, Montesilvano'),
+        geocode: jest.fn().mockResolvedValue({ lat: '42.5', lon: '14.1' }),
+      };
+      (repo as any).findOne = jest.fn().mockResolvedValue({ id: 1, address: 'Via Roma 1' } as Asset);
+      (repo as any).save = jest.fn().mockResolvedValue(undefined);
+      (repo as any).update = jest.fn().mockResolvedValue(undefined);
+      qb.getOne.mockResolvedValue({ id: 1, address: 'Via Vecchia 2' } as Asset);
+      service = new AssetsService(repo as never, geocodingService as never);
+    });
+
+    it("azzera i campi geocoded e rilancia il geocoding se cambia l'indirizzo senza gps manuale", async () => {
+      await service.update(1, { address: 'Via Nuova 5' } as never);
+
+      const savedEntity = (repo.save as jest.Mock).mock.calls[0][0];
+      expect(savedEntity.geocoded_latitude).toBeNull();
+      expect(savedEntity.geocoded_longitude).toBeNull();
+      expect(savedEntity.geocoded_at).toBeNull();
+      expect(geocodingService.geocode).toHaveBeenCalledWith('Via Roma 1, Montesilvano');
+    });
+
+    it('non tocca i campi geocoded se viene fornito un gps manuale insieme al nuovo indirizzo', async () => {
+      await service.update(1, { address: 'Via Nuova 5', latitude: '42.1', longitude: '14.2' } as never);
+
+      const savedEntity = (repo.save as jest.Mock).mock.calls[0][0];
+      expect(savedEntity.geocoded_latitude).toBeUndefined();
+      expect(geocodingService.geocode).not.toHaveBeenCalled();
+    });
+
+    it("non rilancia il geocoding se l'indirizzo non cambia", async () => {
+      await service.update(1, { ownership: 1 } as never);
+
+      expect(geocodingService.geocode).not.toHaveBeenCalled();
+    });
+
+    it("non rilancia il geocoding se il valore di indirizzo inviato è uguale a quello già persistito (payload full-form invariato)", async () => {
+      await service.update(1, { address: 'Via Roma 1' } as never);
+
+      expect(geocodingService.geocode).not.toHaveBeenCalled();
+    });
+
+    it("rilancia il geocoding se il valore di indirizzo inviato differisce da quello persistito", async () => {
+      await service.update(1, { address: 'Via Roma 1', civic_number: '10' } as never);
+
+      expect(geocodingService.geocode).toHaveBeenCalledWith('Via Roma 1, Montesilvano');
+    });
+
+    it('non fa fallire il save se il geocoding va in errore', async () => {
+      geocodingService.geocode.mockRejectedValue(new Error('nominatim down'));
+
+      await expect(service.update(1, { address: 'Via Nuova 5' } as never)).resolves.toBeDefined();
     });
   });
 });
