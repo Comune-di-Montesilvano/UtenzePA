@@ -5,10 +5,10 @@ updates:
     schedule:
       interval: weekly
     groups:
-      # @sentry/nestjs, @sentry/node e @sentry/profiling-node vanno tenuti
-      # allineati - un bump isolato di uno solo rompe il build (@sentry/core
-      # annidato diverge tra i pacchetti, tipi Integration incompatibili,
-      # vedi fix del tag v1.0.0-beta).
+      # @sentry/nestjs e @sentry/node vanno tenuti allineati - un bump isolato
+      # di uno solo rompe il build (@sentry/core annidato diverge tra i
+      # pacchetti, tipi Integration incompatibili, vedi fix del tag
+      # v1.0.0-beta).
       sentry:
         patterns:
           - "@sentry/*"

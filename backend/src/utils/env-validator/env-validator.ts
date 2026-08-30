@@ -12,7 +12,7 @@ export class EnvValidator {
   private static readonly logger = new Logger('EnvValidator');
 
   /**
-   * Core required environment variables for Docker and Sentry
+   * Core required environment variables
    * Application secrets are managed in src/config/*.yml files
    */
   private static readonly REQUIRED_VARIABLES: EnvironmentVariable[] = [
@@ -23,31 +23,12 @@ export class EnvValidator {
       validator: (value) => ['development', 'staging', 'production', 'test'].includes(value),
       description: 'Application environment (determines which config/*.yml to load)',
     },
-    {
-      name: 'PROJECT_NAME',
-      required: true,
-      defaultValue: 'nestjs-template',
-      description: 'Project name for Sentry monitoring',
-    },
-    {
-      name: 'TYPE',
-      required: true,
-      defaultValue: 'api',
-      description: 'Application type for Sentry (api, worker, cron)',
-    },
   ];
 
   /**
    * Optional Docker and infrastructure variables
    */
   private static readonly OPTIONAL_VARIABLES: EnvironmentVariable[] = [
-    {
-      name: 'DOCKER_MONGO_PORT',
-      required: false,
-      defaultValue: '27017',
-      validator: (value) => !isNaN(parseInt(value)) && parseInt(value) > 0,
-      description: 'Docker MongoDB port mapping',
-    },
     {
       name: 'DOCKER_API_PORT',
       required: false,
@@ -56,44 +37,14 @@ export class EnvValidator {
       description: 'Docker API port mapping',
     },
     {
-      name: 'SENTRY_DNS',
+      name: 'SENTRY_DSN',
       required: false,
-      description: 'Sentry DSN for error tracking',
+      description: 'DSN Sentry/GlitchTip per error tracking (assente = tracking disabilitato)',
     },
     {
-      name: 'VERSION',
+      name: 'SENTRY_ENVIRONMENT',
       required: false,
-      defaultValue: '1.0.0',
-      description: 'Application version for Sentry',
-    },
-    {
-      name: 'IMAGE_NAME',
-      required: false,
-      description: 'Docker image name',
-    },
-    {
-      name: 'TAG',
-      required: false,
-      defaultValue: 'latest',
-      description: 'Docker image tag',
-    },
-    {
-      name: 'DEPLOYMENT_METHOD',
-      required: false,
-      defaultValue: 'manual',
-      description: 'Deployment method for Sentry context',
-    },
-    {
-      name: 'DEPLOYED_BY',
-      required: false,
-      defaultValue: 'developer',
-      description: 'Who deployed the application',
-    },
-    {
-      name: 'AWS_REGION',
-      required: false,
-      defaultValue: 'eu-west-1',
-      description: 'AWS region for Sentry context',
+      description: 'Tag ambiente per Sentry/GlitchTip (es. production, staging)',
     },
   ];
 
@@ -244,8 +195,6 @@ export class EnvValidator {
 
     this.logger.log('=== Environment Configuration ===');
     this.logger.log(`Environment: ${process.env.NODE_ENV}`);
-    this.logger.log(`Project: ${process.env.PROJECT_NAME}`);
-    this.logger.log(`Type: ${process.env.TYPE}`);
     this.logger.log(`Port: ${process.env.PORT || 3000}`);
 
     // Log other variables with masking

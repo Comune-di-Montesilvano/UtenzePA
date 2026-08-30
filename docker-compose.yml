@@ -48,6 +48,9 @@ services:
       - SMTP_SECURE_PROTOCOL=${SMTP_SECURE_PROTOCOL:-true}
       # Swagger — mai true in produzione pubblica
       - SWAGGER=${SWAGGER:-false}
+      # Error tracking (Sentry/GlitchTip) — vuoto = disabilitato
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-}
       # Backup DB — schedulazione cron, retention, dimensioni massime
       - BACKUP_CRON_SCHEDULE=${BACKUP_CRON_SCHEDULE:-0 0 * * *}
       - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
@@ -70,6 +73,9 @@ services:
       # URL pubblico del backend raggiungibile dal browser (non dalla rete
       # Docker interna). Vuoto: il frontend usa il valore statico compilato.
       - API_URL=${API_URL:-}
+      # Error tracking (Sentry/GlitchTip) — vuoto = disabilitato
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-}
     ports:
       - '${DOCKER_FRONTEND_PORT:-4300}:80'
     depends_on:
