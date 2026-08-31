@@ -18,6 +18,8 @@ import * as Sentry from '@sentry/angular';
 import {authErrorInterceptor} from './core/interceptors/auth-error.interceptor';
 import {getItalianPaginatorIntl} from './core/services/it-paginator-intl';
 import {ItDateAdapter} from './core/adapters/it-date-adapter';
+import { BrandingService } from './services/branding.service';
+import { firstValueFrom } from 'rxjs';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -46,6 +48,16 @@ export const appConfig: ApplicationConfig = {
     },
     provideAppInitializer(() => {
       inject(Sentry.TraceService);
+    }),
+    provideAppInitializer(async () => {
+      const branding = await firstValueFrom(inject(BrandingService).load());
+      document.title = `${branding.entity_name} · UtenzePA`;
+      if (branding.favicon) {
+        const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+        if (link) link.href = branding.favicon;
+      }
+      // favicon null -> resta il favicon.ico statico di index.html, nessun
+      // fallback aggiuntivo necessario qui.
     }),
     {
       provide: MatPaginatorIntl,
