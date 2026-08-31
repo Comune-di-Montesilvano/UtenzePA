@@ -15,6 +15,7 @@ import { AssetEditDialogComponent } from '../assets/asset-edit-dialog.component'
 import { UtilityEditDialogComponent } from '../utilities/utility-edit-dialog.component';
 import { TOption } from '../../core/types/option.interface';
 import { HardType, HardTypeIcon, HardTypeColor } from '../utility-types/enum/hard-type.enum';
+import { BrandingService } from '../../services/branding.service';
 
 // Icona/colore fissi per gli immobili (edificio) — le utenze usano invece
 // HardTypeIcon/HardTypeColor (stessa mappa acqua/luce/gas/internet già usata
@@ -46,6 +47,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   private utilityTypesService = inject(UtilityTypesService);
   private assetService = inject(AssetService);
   private utilityService = inject(UtilityService);
+  private brandingService = inject(BrandingService);
 
   private map: L.Map | null = null;
   private clusterGroup: L.MarkerClusterGroup | null = null;
@@ -88,7 +90,12 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     (window as unknown as { L: typeof L }).L = L;
     await import('leaflet.markercluster');
 
-    this.map = L.map('map-canvas').setView([42.5083, 14.15], 13); // Montesilvano
+    const branding = this.brandingService.current();
+    const defaultCenter: L.LatLngExpression = [
+      parseFloat(branding.default_latitude),
+      parseFloat(branding.default_longitude),
+    ];
+    this.map = L.map('map-canvas').setView(defaultCenter, 13);
 
     const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
