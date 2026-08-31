@@ -1,8 +1,9 @@
-import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
- 
+
 import { AuthService } from '../../services/auth.service';
+import { BrandingService } from '../../services/branding.service';
 
 @Component({
   selector: 'app-login',
@@ -21,6 +22,7 @@ export class LoginComponent {
   showOtp = false;
   userEmail = '';
   otpError = '';
+  entityName = inject(BrandingService).current().entity_name;
 
   constructor(private fb: FormBuilder, private router: Router, private auth: AuthService) {
     this.form = this.fb.group({

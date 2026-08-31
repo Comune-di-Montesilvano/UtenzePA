@@ -4,8 +4,8 @@
   </div>
 
   <div class="login-right">
-    <h2 style="font-size: 30px;">Gestione Utenze Comunali</h2>
-    <p>Comune di Montesilvano</p>
+    <h2 style="font-size: 30px;">UtenzePA</h2>
+    <p>{{ entityName }}</p>
     @if (!showReset && !showOtp) {
       <form [formGroup]="form" (ngSubmit)="submit()">
         <div>
