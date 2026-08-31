@@ -17,10 +17,11 @@
     </app-filterable-select>
 
     <div class="map-legend">
-      <div><span class="map-pin map-pin--asset" style="background:#1565c0"></span> Immobile — GPS reale</div>
-      <div><span class="map-pin map-pin--asset" style="background:#ef6c00"></span> Immobile — stimato</div>
-      <div><span class="map-pin map-pin--utility" style="background:#1565c0"></span> Contatore — GPS reale</div>
-      <div><span class="map-pin map-pin--utility" style="background:#ef6c00"></span> Contatore — stimato</div>
+      <div><span class="map-pin" style="background:#37474f"><i class="fa fa-building"></i></span> Immobile</div>
+      @for (t of hardTypeLegend; track t.value) {
+        <div><span class="map-pin" [style.background]="t.color"><i [class]="t.icon"></i></span> {{ t.label }}</div>
+      }
+      <div class="map-legend-note">Bordo pieno = posizione GPS reale, tratteggiato = stimata da indirizzo</div>
     </div>
 
     @if (ungeolocated.length > 0) {

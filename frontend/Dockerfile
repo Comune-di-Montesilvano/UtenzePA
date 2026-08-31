@@ -24,8 +24,10 @@ FROM base AS dev
 
 EXPOSE 4300
 
-# Comando per ng serve con live reload
-CMD ["pnpm", "exec", "ng", "serve", "--host", "0.0.0.0", "--port", "4300", "--poll", "2000"]
+# Comando per ng serve con live reload — genera prima public/config.js dalle
+# env runtime (vedi docker/dev-runtime-config.sh), stesso meccanismo usato da
+# nginx in produzione.
+CMD ["sh", "-c", "sh docker/dev-runtime-config.sh && pnpm exec ng serve --host 0.0.0.0 --port 4300 --poll 2000"]
 
 # -------------------
 # Stage 3: build produzione

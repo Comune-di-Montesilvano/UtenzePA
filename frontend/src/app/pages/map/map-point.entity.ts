@@ -1,3 +1,5 @@
+import { HardType } from '../utility-types/enum/hard-type.enum';
+
 export type MapPointType = 'asset' | 'utility';
 export type MapPointSource = 'gps' | 'geocoded';
 export type UngeolocatedReason = 'no_address' | 'geocode_failed';
@@ -10,6 +12,8 @@ export interface MapPoint {
   lat: string;
   lng: string;
   source: MapPointSource;
+  // Solo per type 'utility' — pilota l'icona per tipologia sulla mappa.
+  hardType?: HardType;
 }
 
 export interface UngeolocatedItem {

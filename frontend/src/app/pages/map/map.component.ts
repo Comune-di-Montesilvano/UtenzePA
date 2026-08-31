@@ -14,11 +14,16 @@ import { UtilityService } from '../utilities/utility.service';
 import { AssetEditDialogComponent } from '../assets/asset-edit-dialog.component';
 import { UtilityEditDialogComponent } from '../utilities/utility-edit-dialog.component';
 import { TOption } from '../../core/types/option.interface';
+import { HardType, HardTypeIcon, HardTypeColor } from '../utility-types/enum/hard-type.enum';
 
-const ICON_COLORS: Record<MapPoint['source'], string> = {
-  gps: '#1565c0',
-  geocoded: '#ef6c00',
-};
+// Icona/colore fissi per gli immobili (edificio) — le utenze usano invece
+// HardTypeIcon/HardTypeColor (stessa mappa acqua/luce/gas/internet già usata
+// nelle altre pagine, coerenza visiva con il resto dell'app).
+const ASSET_ICON = 'fa fa-building';
+const ASSET_COLOR = '#37474f';
+// Contatore senza tipologia associata (dato mancante) — icona neutra.
+const UNKNOWN_UTILITY_ICON = 'fa fa-question';
+const UNKNOWN_UTILITY_COLOR = '#757575';
 
 // Width dialog edit: la mappa apre gli stessi AssetEditDialogComponent/
 // UtilityEditDialogComponent usati dalle tabelle — stesso valore del default
@@ -55,6 +60,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   utilityTypeOptions: TOption[] = [];
   ungeolocated: UngeolocatedItem[] = [];
   reasonLabels = UNGEOLOCATED_REASON_LABELS;
+  hardTypeLegend = HardType.items();
 
   ngOnInit(): void {
     this.assetAggregatorsService.search({ deleted: false }).subscribe({
@@ -83,10 +89,22 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     await import('leaflet.markercluster');
 
     this.map = L.map('map-canvas').setView([42.5083, 14.15], 13); // Montesilvano
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+
+    const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 19,
     }).addTo(this.map);
+    // Esri World Imagery: satellite gratuito senza API key (stesso pattern OSM,
+    // nessun secret da configurare). maxZoom 19 come lo strato stradale.
+    const satelliteLayer = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {
+        attribution: 'Tiles &copy; Esri',
+        maxZoom: 19,
+      },
+    );
+    L.control.layers({ Stradale: streetLayer, Satellite: satelliteLayer }).addTo(this.map);
+
     this.clusterGroup = L.markerClusterGroup();
     this.map.addLayer(this.clusterGroup);
     this.reload();
@@ -145,10 +163,19 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       const lng = parseFloat(point.lng);
       if (Number.isNaN(lat) || Number.isNaN(lng)) continue;
 
+      const isAsset = point.type === 'asset';
+      const faIcon = isAsset ? ASSET_ICON : (point.hardType ? HardTypeIcon[point.hardType] : UNKNOWN_UTILITY_ICON);
+      const color = isAsset ? ASSET_COLOR : (point.hardType ? HardTypeColor[point.hardType] : UNKNOWN_UTILITY_COLOR);
+      // Bordo tratteggiato per posizione stimata (geocodifica da indirizzo)
+      // vs bordo pieno per GPS reale — stessa distinzione di prima, non più
+      // affidata al colore (ora usato per la tipologia).
+      const borderStyle = point.source === 'gps' ? 'solid' : 'dashed';
+
       const icon = L.divIcon({
         className: '',
-        html: `<span class="map-pin map-pin--${point.type}" style="background:${ICON_COLORS[point.source]}"></span>`,
-        iconSize: [24, 24],
+        html: `<span class="map-pin" style="background:${color};border-style:${borderStyle}"><i class="${faIcon}"></i></span>`,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
       });
 
       const marker = L.marker([lat, lng], { icon });
@@ -160,19 +187,35 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   openDetail(point: MapPoint | UngeolocatedItem): void {
     if (point.type === 'asset') {
       this.assetService.getById(point.id).subscribe((asset) => {
-        this.dialog.open(AssetEditDialogComponent, {
-          width: EDIT_DIALOG_WIDTH,
-          maxWidth: EDIT_DIALOG_WIDTH,
-          data: { mode: 'edit', item: asset },
-        });
+        this.dialog
+          .open(AssetEditDialogComponent, {
+            width: EDIT_DIALOG_WIDTH,
+            maxWidth: EDIT_DIALOG_WIDTH,
+            data: { mode: 'edit', item: asset },
+          })
+          // Il dialog si limita a chiudersi col form compilato (result) — il
+          // salvataggio va fatto qui, stesso pattern di AbstractComponent.onSave()
+          // usato dalle tabelle. Mancava: "Salva" nel dialog aggiornava solo lo
+          // stato locale del form, mai persistito lato server.
+          .afterClosed()
+          .subscribe((result) => {
+            if (!result) return;
+            this.assetService.update(result.id, result).subscribe(() => this.reload());
+          });
       });
     } else {
       this.utilityService.getById(point.id).subscribe((utility) => {
-        this.dialog.open(UtilityEditDialogComponent, {
-          width: EDIT_DIALOG_WIDTH,
-          maxWidth: EDIT_DIALOG_WIDTH,
-          data: { mode: 'edit', item: utility },
-        });
+        this.dialog
+          .open(UtilityEditDialogComponent, {
+            width: EDIT_DIALOG_WIDTH,
+            maxWidth: EDIT_DIALOG_WIDTH,
+            data: { mode: 'edit', item: utility },
+          })
+          .afterClosed()
+          .subscribe((result) => {
+            if (!result) return;
+            this.utilityService.update(result.id, result).subscribe(() => this.reload());
+          });
       });
     }
   }

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Asset } from '@apis/asset/entity/asset.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
+import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { MapQueryDto } from './dto/map-query.dto';
 
 export interface MapPoint {
@@ -13,6 +14,9 @@ export interface MapPoint {
   lat: string;
   lng: string;
   source: 'gps' | 'geocoded';
+  // Solo per type 'utility' — pilota l'icona per tipologia (acqua/luce/gas/
+  // internet) nella mappa frontend, vedi HardTypeIcon/HardTypeColor.
+  hardType?: HardTypeEnum;
 }
 
 export interface UngeolocatedItem {
@@ -78,7 +82,7 @@ export class MapService {
           deleted: false,
           ...(filters.utilityTypeId ? { utility_type_id_fk: filters.utilityTypeId } : {}),
         },
-        relations: { asset: true },
+        relations: { asset: true, utilityType: true },
       });
 
       for (const utility of utilities) {
@@ -92,6 +96,7 @@ export class MapService {
             lat: position.lat,
             lng: position.lng,
             source: position.source,
+            hardType: utility.utilityType?.hard_type,
           });
         } else {
           ungeolocated.push({
