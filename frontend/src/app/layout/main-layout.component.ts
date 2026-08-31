@@ -16,6 +16,7 @@ export class MainLayoutComponent {
 
   userInitials: string = '';
   entityName = inject(BrandingService).current().entity_name;
+  logo = inject(BrandingService).current().logo;
 
   constructor(private authService: AuthService) {}
 

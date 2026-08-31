@@ -4,6 +4,9 @@
   </div>
 
   <div class="login-right">
+    @if (logo) {
+      <img [src]="logo" alt="" class="brand-logo">
+    }
     <h2 style="font-size: 30px;">UtenzePA</h2>
     <p>{{ entityName }}</p>
     @if (!showReset && !showOtp) {

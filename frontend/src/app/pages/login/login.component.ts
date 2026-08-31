@@ -23,6 +23,7 @@ export class LoginComponent {
   userEmail = '';
   otpError = '';
   entityName = inject(BrandingService).current().entity_name;
+  logo = inject(BrandingService).current().logo;
 
   constructor(private fb: FormBuilder, private router: Router, private auth: AuthService) {
     this.form = this.fb.group({

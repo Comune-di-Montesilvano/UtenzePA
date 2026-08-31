@@ -20,6 +20,22 @@
     background-color: #D9D9D9;
     border-bottom: 1px solid #ddd;
 
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+
+      .brand-logo {
+        max-height: 40px;
+        max-width: 120px;
+      }
+
+      .header-left-text {
+        display: flex;
+        flex-direction: column;
+      }
+    }
+
     .header-left h1 {
       margin: 0;
       font-size: 1.5rem;
