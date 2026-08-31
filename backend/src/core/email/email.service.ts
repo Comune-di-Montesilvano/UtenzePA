@@ -26,10 +26,10 @@ export class EMailerService {
     });
   }
 
-  async sendMail(to: string, subject: string, text: string, html?: string) {
+  async sendMail(to: string, subject: string, text: string, html?: string, fromName = 'UtenzePA') {
     try {
       const info = await this.transporter.sendMail({
-        from: `Comune di Montesilvano <${USERNAME_EMAIL}>`,
+        from: `${fromName} <${USERNAME_EMAIL}>`,
         to,
         subject,
         text,

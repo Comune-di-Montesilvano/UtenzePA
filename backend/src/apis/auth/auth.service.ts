@@ -6,6 +6,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { EMailerService } from '@/core/email/email.service';
 import { generateOtp } from '../shared/otp.helper';
+import { SettingsService } from '@apis/settings/settings.service';
 
 @Injectable()
 export class AuthService {
@@ -14,6 +15,7 @@ export class AuthService {
     private readonly userRepository: Repository<SystemUser>,
     private readonly jwtService: JwtService,
     private mailer: EMailerService,
+    private settings: SettingsService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<SystemUser | null> {
@@ -47,11 +49,14 @@ export class AuthService {
   }
 
   async sendOtpEmail(user: SystemUser, otp: string) {
-    const subject = 'Reset password OTP Gestione Utenze Comunali - Comune di Montesilvano';
+    const { entity_name } = await this.settings.getBrandingSummary();
+    const subject = `Reset password OTP UtenzePA - ${entity_name}`;
     const text = `Il tuo codice OTP per il reset della password è: ${otp}`;
     const html = `<p>Il tuo codice OTP per il reset della password è: <b>${otp}</b></p>`;
 
-    return this.mailer.sendMail(user.email, subject, text, html);
+    // fromName: mittente email = nome ente (non "UtenzePA", quello resta
+    // solo nell'oggetto) — vedi spec, riga email.service.ts.
+    return this.mailer.sendMail(user.email, subject, text, html, entity_name);
   }
 
   async generateOtp(email: string): Promise<boolean> {

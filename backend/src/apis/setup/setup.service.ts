@@ -6,6 +6,7 @@ import { EMailerService } from '@/core/email/email.service';
 import * as bcrypt from 'bcrypt';
 import { UserRole, UserStatus } from '../shared/enum/user.enums';
 import { generateOtp } from '../shared/otp.helper';
+import { SettingsService } from '@apis/settings/settings.service';
 
 const MAX_OTP_ATTEMPTS = 5;
 
@@ -28,6 +29,7 @@ export class SetupService {
     private readonly userRepository: Repository<SystemUser>,
     private readonly mailer: EMailerService,
     private readonly dataSource: DataSource,
+    private readonly settings: SettingsService,
   ) {}
 
   async isAvailable(): Promise<boolean> {
@@ -61,11 +63,13 @@ export class SetupService {
       attempts: 0,
     };
 
+    const { entity_name } = await this.settings.getBrandingSummary();
     await this.mailer.sendMail(
       dto.email,
-      'Attivazione account amministratore - Gestione Utenze Comunali',
+      `Attivazione account amministratore - UtenzePA (${entity_name})`,
       `Il tuo codice di verifica per completare la configurazione iniziale è: ${otp}`,
       `<p>Il tuo codice di verifica per completare la configurazione iniziale è: <b>${otp}</b></p>`,
+      entity_name,
     );
 
     return true;

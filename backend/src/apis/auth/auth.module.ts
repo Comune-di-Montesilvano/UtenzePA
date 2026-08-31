@@ -7,6 +7,7 @@ import { SystemUser } from '../system-users/entity/system-user.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { EMailerModule } from '@/core/email/mailer.module';
 import { JwtStrategyMySql } from '@/core/auth/guards/jwt.strategy';
+import { SettingsModule } from '@apis/settings/settings.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { JwtStrategyMySql } from '@/core/auth/guards/jwt.strategy';
       secret: process.env.JWT_ACCESS_SECRET || 'defaultSecret',
     }),
     EMailerModule,
+    SettingsModule,
   ],
   providers: [AuthService, JwtStrategyMySql],
   controllers: [AuthController],

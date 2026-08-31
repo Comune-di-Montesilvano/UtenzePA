@@ -1,21 +1,27 @@
 import { SetupService } from './setup.service';
 import { SystemUser } from '../system-users/entity/system-user.entity';
+import { SettingsService } from '@apis/settings/settings.service';
 
 describe('SetupService', () => {
   let service: SetupService;
   let userRepository: { count: jest.Mock; findOne: jest.Mock };
   let mailer: { sendMail: jest.Mock };
   let dataSource: { transaction: jest.Mock };
+  let settings: { getBrandingSummary: jest.Mock };
 
   beforeEach(() => {
     userRepository = { count: jest.fn(), findOne: jest.fn() };
     mailer = { sendMail: jest.fn().mockResolvedValue(true) };
     dataSource = { transaction: jest.fn() };
+    settings = {
+      getBrandingSummary: jest.fn().mockResolvedValue({ entity_name: 'Comune di Montesilvano' }),
+    };
 
     service = new SetupService(
       userRepository as never,
       mailer as never,
       dataSource as never,
+      settings as never as SettingsService,
     );
   });
 

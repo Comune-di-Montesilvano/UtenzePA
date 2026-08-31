@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { SystemUser } from '../system-users/entity/system-user.entity';
 import { EMailerService } from '@/core/email/email.service';
 import { UserRole, UserStatus } from '../shared/enum/user.enums';
+import { SettingsService } from '@apis/settings/settings.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -43,6 +44,10 @@ describe('AuthService', () => {
         { provide: getRepositoryToken(SystemUser), useValue: userRepository },
         { provide: JwtService, useValue: jwtService },
         { provide: EMailerService, useValue: mailer },
+        {
+          provide: SettingsService,
+          useValue: { getBrandingSummary: jest.fn().mockResolvedValue({ entity_name: 'Comune di Montesilvano' }) },
+        },
       ],
     }).compile();
 
