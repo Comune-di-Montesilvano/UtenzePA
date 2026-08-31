@@ -63,6 +63,13 @@ services:
     build:
       context: ./frontend
       target: dev
+    environment:
+      # `ng serve` non passa da nginx (niente 20-runtime-config.sh) — genera
+      # public/config.js in dev con lo stesso meccanismo (vedi
+      # frontend/docker/dev-runtime-config.sh), altrimenti il fallback statico
+      # in environment.ts (porta 3000) non segue DOCKER_API_PORT se cambiato
+      # per conflitti locali con altri progetti.
+      - API_URL=http://localhost:${DOCKER_API_PORT:-3000}/api/v1
     ports: !override
       - '${DOCKER_FRONTEND_PORT:-4300}:4300'
     volumes:

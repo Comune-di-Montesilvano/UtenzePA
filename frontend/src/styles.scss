@@ -193,3 +193,31 @@ p-paginator.p-component.p-paginator {
 .card-widget .p-card-content p-table {
   margin-top: 0!important;
 }
+
+// Icone marker Leaflet (mappa geolocalizzazione + mini-mappa dialog): iniettate
+// via L.divIcon({html: '...'}), cioè innerHTML raw dentro il container Leaflet,
+// non dal template Angular — l'encapsulation Emulated dei componenti (attributo
+// _ngcontent-* aggiunto solo a markup renderizzato da Angular) non le matcha,
+// quindi vanno globali qui, non nello scss scoped del componente.
+.map-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 12px;
+}
+
+.location-map-pin {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #1565c0;
+  border: 2px solid #fff;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+}

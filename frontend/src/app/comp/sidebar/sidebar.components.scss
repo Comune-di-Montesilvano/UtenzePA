@@ -54,7 +54,6 @@
   }
 
   .sidebar-footer {
-    margin-top: auto;
     padding: 15px 19px;
     display: flex;
     align-items: center;
@@ -70,6 +69,7 @@
   }
 
   .sidebar-meta {
+    margin-top: auto;
     padding: 10px 19px 15px;
     display: flex;
     align-items: center;
@@ -83,11 +83,9 @@
       color: #888;
       text-decoration: none;
 
-      mat-icon {
+      .fa-github {
         font-size: 16px;
-        width: 16px;
-        height: 16px;
-        margin-right: 4px;
+        margin-right: 5px;
       }
 
       &:hover {

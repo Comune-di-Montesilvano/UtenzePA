@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -32,6 +33,11 @@ export class AssetsController {
   @Get('counter')
   counter(): Promise<number> {
     return this.service.count();
+  }
+
+  @Get(':id')
+  getOne(@Param('id', ParseIntPipe) id: number): Promise<Asset | null> {
+    return this.service.findOne(id);
   }
 
   @Roles('Admin', 'Operatore')
