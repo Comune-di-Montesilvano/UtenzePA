@@ -112,6 +112,12 @@ describe('AuthService', () => {
       expect(savedUser.otp).toMatch(/^\d{6}$/);
       expect(savedUser.otp_expiry).toBeInstanceOf(Date);
       expect(mailer.sendMail).toHaveBeenCalledTimes(1);
+      // Verify email subject and fromName arguments
+      const [to, subject, , , fromName] = mailer.sendMail.mock.calls[0];
+      expect(to).toBe(baseUser.email);
+      expect(subject).toContain('UtenzePA');
+      expect(subject).toContain('Comune di Montesilvano');
+      expect(fromName).toBe('Comune di Montesilvano');
     });
 
     it('restituisce false se l\'utente non esiste, senza inviare email', async () => {

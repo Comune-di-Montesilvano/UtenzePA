@@ -67,9 +67,12 @@ describe('SetupService', () => {
 
       expect(result).toBe(true);
       expect(mailer.sendMail).toHaveBeenCalledTimes(1);
-      const [to, , text] = mailer.sendMail.mock.calls[0];
+      const [to, subject, text, , fromName] = mailer.sendMail.mock.calls[0];
       expect(to).toBe('admin@comune.it');
+      expect(subject).toContain('UtenzePA');
+      expect(subject).toContain('Comune di Montesilvano');
       expect(text).toMatch(/\d{6}/);
+      expect(fromName).toBe('Comune di Montesilvano');
     });
 
     it('rifiuta la richiesta se esiste già un utente', async () => {
