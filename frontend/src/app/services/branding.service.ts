@@ -47,6 +47,14 @@ export class BrandingService {
     return this.value;
   }
 
+  // Applica dei valori di branding senza chiamata HTTP — usato dall'APP_INITIALIZER
+  // come fallback quando load() fallisce (backend down/CORS), per evitare che
+  // current() lanci e blocchi il bootstrap dell'app (vedi app.config.ts).
+  applyFallback(branding: Branding): void {
+    this.value = branding;
+    this.subject.next(branding);
+  }
+
   update(payload: UpdateBrandingPayload): Observable<Branding> {
     return this.http.patch<Branding>(this.BASE_URL, payload).pipe(
       tap((branding) => {
