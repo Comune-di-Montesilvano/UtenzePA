@@ -1,4 +1,6 @@
-import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+
+const COORDINATE_REGEX = /^-?\d{1,3}(\.\d+)?$/;
 
 const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/x-icon'];
 // 2MB binari ~= 2.8MB di testo base64 (inflazione ~4/3 + margine per l'header "data:...;base64,").
@@ -18,11 +20,13 @@ export class UpdateBrandingDto {
   @IsOptional()
   @IsString()
   @MaxLength(20)
+  @Matches(COORDINATE_REGEX, { message: 'Coordinata non valida' })
   default_latitude?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(20)
+  @Matches(COORDINATE_REGEX, { message: 'Coordinata non valida' })
   default_longitude?: string;
 
   @IsOptional()

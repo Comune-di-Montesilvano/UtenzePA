@@ -26,6 +26,11 @@ const ASSET_COLOR = '#37474f';
 const UNKNOWN_UTILITY_ICON = 'fa fa-question';
 const UNKNOWN_UTILITY_COLOR = '#757575';
 
+// Fallback usato se le coordinate di default salvate in branding sono
+// malformate/non numeriche (es. DTO backend con un vecchio valore invalido) —
+// stesse coordinate del seed di migrazione CreateAppSettings (Montesilvano).
+const SAFE_DEFAULT_CENTER: L.LatLngExpression = [42.5083, 14.15];
+
 // Width dialog edit: la mappa apre gli stessi AssetEditDialogComponent/
 // UtilityEditDialogComponent usati dalle tabelle — stesso valore del default
 // AbstractDataTableComponent.editDialogWidth() (MatDialog clampa a 560px se
@@ -91,10 +96,12 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     await import('leaflet.markercluster');
 
     const branding = this.brandingService.current();
-    const defaultCenter: L.LatLngExpression = [
-      parseFloat(branding.default_latitude),
-      parseFloat(branding.default_longitude),
-    ];
+    const brandingLat = parseFloat(branding.default_latitude);
+    const brandingLng = parseFloat(branding.default_longitude);
+    const defaultCenter: L.LatLngExpression =
+      Number.isFinite(brandingLat) && Number.isFinite(brandingLng)
+        ? [brandingLat, brandingLng]
+        : SAFE_DEFAULT_CENTER;
     this.map = L.map('map-canvas').setView(defaultCenter, 13);
 
     const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

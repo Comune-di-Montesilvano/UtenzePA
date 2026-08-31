@@ -6,6 +6,11 @@ import { BrandingService } from '../../services/branding.service';
 
 let instanceCounter = 0;
 
+// Fallback usato se le coordinate di default salvate in branding sono
+// malformate/non numeriche (es. DTO backend con un vecchio valore invalido) —
+// stesse coordinate del seed di migrazione CreateAppSettings (Montesilvano).
+const SAFE_DEFAULT_CENTER: L.LatLngExpression = [42.5083, 14.15];
+
 // Icona di default di Leaflet (L.marker senza [icon]) referenzia
 // marker-icon.png/marker-icon-2x.png/marker-shadow.png con URL relativo
 // calcolato dal CSS — esbuild (build Angular) non li ricopia/risolve, quindi
@@ -42,7 +47,10 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
 
   private get DEFAULT_CENTER(): L.LatLngExpression {
     const branding = this.brandingService.current();
-    return [parseFloat(branding.default_latitude), parseFloat(branding.default_longitude)];
+    const lat = parseFloat(branding.default_latitude);
+    const lng = parseFloat(branding.default_longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return SAFE_DEFAULT_CENTER;
+    return [lat, lng];
   }
 
   ngAfterViewInit(): void {
