@@ -98,9 +98,13 @@ export class BrandingSettingsComponent {
           this.saving = false;
           this.toastService.add({ severity: 'success', summary: 'Branding aggiornato' });
         },
-        error: () => {
+        error: (err) => {
           this.saving = false;
-          this.toastService.add({ severity: 'error', summary: 'Errore nel salvataggio' });
+          this.toastService.add({
+            severity: 'error',
+            summary: 'Errore nel salvataggio',
+            detail: err?.error?.message,
+          });
         },
       });
   }

@@ -30,7 +30,7 @@
     <img [src]="faviconPreview" alt="Favicon" style="max-height:32px; display:block; margin-bottom:8px;">
     <button mat-stroked-button type="button" (click)="removeFavicon()">Rimuovi favicon</button>
   }
-  <input type="file" accept="image/png,image/x-icon" (change)="onFaviconSelected($event)">
+  <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/x-icon,image/vnd.microsoft.icon" (change)="onFaviconSelected($event)">
 
   <div style="margin-top:16px;">
     <button mat-raised-button color="primary" type="submit" [disabled]="!form.valid || saving">

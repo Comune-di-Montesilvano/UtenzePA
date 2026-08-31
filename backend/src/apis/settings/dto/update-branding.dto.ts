@@ -2,7 +2,7 @@ import { IsBoolean, IsOptional, IsString, Matches, MaxLength } from 'class-valid
 
 const COORDINATE_REGEX = /^-?\d{1,3}(\.\d+)?$/;
 
-const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/x-icon'];
+const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon'];
 // 2MB binari ~= 2.8MB di testo base64 (inflazione ~4/3 + margine per l'header "data:...;base64,").
 export const MAX_DATA_URI_LENGTH = 2_800_000;
 
