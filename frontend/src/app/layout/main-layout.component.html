@@ -2,8 +2,13 @@
 
   <header class="header">
     <div class="header-left">
-      <h1>Gestione Utenze</h1>
-      <p>Comune di Montesilvano</p>
+      @if (logo) {
+        <img [src]="logo" alt="" class="brand-logo">
+      }
+      <div class="header-left-text">
+        <h1>Gestione Utenze</h1>
+        <p>{{ entityName }}</p>
+      </div>
     </div>
     <div class="header-right">
       <span class="user-initials">{{ userInitials }}</span>

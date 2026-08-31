@@ -54,6 +54,7 @@ export class SidebarComponent implements OnInit {
         {label: 'Finalità d\'uso', icon: 'radio_button_checked', route: '/purpose'},
         {label: 'Utilizzatori', icon: 'person_add', route: '/utilizer'},
         {label: 'Backup e Importazione', icon: 'storage', route: '/backup-import'},
+        {label: 'Branding', icon: 'palette', route: '/branding'},
       ]},
     {label: 'Utenti e ruoli', icon: 'group', route: '/system-users'},
   ];

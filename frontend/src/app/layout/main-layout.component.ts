@@ -1,7 +1,8 @@
-import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { SidebarComponent } from '../comp/sidebar/sidebar.component';
 import { AuthService } from '../services/auth.service';
+import { BrandingService } from '../services/branding.service';
 
 @Component({
   selector: 'app-main-layout',
@@ -14,6 +15,8 @@ import { AuthService } from '../services/auth.service';
 export class MainLayoutComponent {
 
   userInitials: string = '';
+  entityName = inject(BrandingService).current().entity_name;
+  logo = inject(BrandingService).current().logo;
 
   constructor(private authService: AuthService) {}
 

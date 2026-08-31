@@ -1,0 +1,40 @@
+<h2>Branding ente</h2>
+
+<form [formGroup]="form" (ngSubmit)="save()">
+  <mat-form-field appearance="outline">
+    <mat-label>Nome ente</mat-label>
+    <input matInput formControlName="entity_name" placeholder="Es. Comune di Montesilvano">
+  </mat-form-field>
+
+  <mat-form-field appearance="outline">
+    <mat-label>Tipo ente</mat-label>
+    <input matInput formControlName="entity_type" placeholder="Es. Comune">
+  </mat-form-field>
+
+  <h3>Coordinate mappa di default</h3>
+  <app-location-map
+    [latitude]="form.controls.default_latitude.value"
+    [longitude]="form.controls.default_longitude.value"
+    (positionSelected)="onPositionSelected($event)">
+  </app-location-map>
+
+  <h3>Logo</h3>
+  @if (logoPreview) {
+    <img [src]="logoPreview" alt="Logo ente" style="max-height:80px; display:block; margin-bottom:8px;">
+    <button mat-stroked-button type="button" (click)="removeLogo()">Rimuovi logo</button>
+  }
+  <input type="file" accept="image/png,image/jpeg,image/svg+xml" (change)="onLogoSelected($event)">
+
+  <h3>Favicon</h3>
+  @if (faviconPreview) {
+    <img [src]="faviconPreview" alt="Favicon" style="max-height:32px; display:block; margin-bottom:8px;">
+    <button mat-stroked-button type="button" (click)="removeFavicon()">Rimuovi favicon</button>
+  }
+  <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/x-icon,image/vnd.microsoft.icon" (change)="onFaviconSelected($event)">
+
+  <div style="margin-top:16px;">
+    <button mat-raised-button color="primary" type="submit" [disabled]="!form.valid || saving">
+      Salva
+    </button>
+  </div>
+</form>

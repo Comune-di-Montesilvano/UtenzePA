@@ -1,9 +1,15 @@
-import { Component, Input, Output, EventEmitter, AfterViewInit, OnChanges, OnDestroy, SimpleChanges, ChangeDetectionStrategy } from '@angular/core';
+import { Component, Input, Output, EventEmitter, AfterViewInit, OnChanges, OnDestroy, SimpleChanges, ChangeDetectionStrategy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import * as L from 'leaflet';
+import { BrandingService } from '../../services/branding.service';
 
 let instanceCounter = 0;
+
+// Fallback usato se le coordinate di default salvate in branding sono
+// malformate/non numeriche (es. DTO backend con un vecchio valore invalido) —
+// stesse coordinate del seed di migrazione CreateAppSettings (Montesilvano).
+const SAFE_DEFAULT_CENTER: L.LatLngExpression = [42.5083, 14.15];
 
 // Icona di default di Leaflet (L.marker senza [icon]) referenzia
 // marker-icon.png/marker-icon-2x.png/marker-shadow.png con URL relativo
@@ -37,7 +43,15 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
   private map: L.Map | null = null;
   private marker: L.Marker | null = null;
 
-  private readonly DEFAULT_CENTER: L.LatLngExpression = [42.5083, 14.15]; // Montesilvano
+  private brandingService = inject(BrandingService);
+
+  private get DEFAULT_CENTER(): L.LatLngExpression {
+    const branding = this.brandingService.current();
+    const lat = parseFloat(branding.default_latitude);
+    const lng = parseFloat(branding.default_longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return SAFE_DEFAULT_CENTER;
+    return [lat, lng];
+  }
 
   ngAfterViewInit(): void {
     this.map = L.map(this.canvasId).setView(this.currentLatLng() ?? this.DEFAULT_CENTER, this.currentLatLng() ? 16 : 13);

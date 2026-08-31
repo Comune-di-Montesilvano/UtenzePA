@@ -27,6 +27,12 @@ button.second-button {
     padding: 0 2rem;
     background-color: #F9FAFB;
 
+    .brand-logo {
+      max-height: 40px;
+      max-width: 200px;
+      margin-bottom: 0.5rem;
+    }
+
     h1 {
       font-family: 'Inter', sans-serif;
       font-weight: 700;
