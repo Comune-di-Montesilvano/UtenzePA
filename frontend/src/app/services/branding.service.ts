@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { AuthService } from './auth.service';
 
 export interface Branding {
   entity_name: string;
@@ -22,7 +23,12 @@ export interface UpdateBrandingPayload extends Partial<Branding> {
 @Injectable({ providedIn: 'root' })
 export class BrandingService {
   private http = inject(HttpClient);
+  private auth = inject(AuthService);
   private readonly BASE_URL = `${environment.apiUrl}/settings/branding`;
+
+  private getAuthHeaders(): HttpHeaders {
+    return new HttpHeaders({ Authorization: `Bearer ${this.auth.getToken() || ''}` });
+  }
 
   private value: Branding | null = null;
   private subject = new BehaviorSubject<Branding | null>(null);
@@ -55,8 +61,10 @@ export class BrandingService {
     this.subject.next(branding);
   }
 
+  // PATCH è Admin-only lato backend (JwtAuthGuard+RolesGuard) — a differenza
+  // di load(), qui il token va allegato esplicitamente.
   update(payload: UpdateBrandingPayload): Observable<Branding> {
-    return this.http.patch<Branding>(this.BASE_URL, payload).pipe(
+    return this.http.patch<Branding>(this.BASE_URL, payload, { headers: this.getAuthHeaders() }).pipe(
       tap((branding) => {
         this.value = branding;
         this.subject.next(branding);
