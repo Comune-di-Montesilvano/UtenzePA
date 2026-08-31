@@ -28,6 +28,7 @@ import { MaintenanceManagersModule } from '@apis/maintenance-managers/maintenanc
 import { InvoicesModule } from '@apis/invoices/invoie.module';
 import { ConsipAgreementModule } from '@apis/consip-agreement/consip-agreement.module';
 import { PurposeModule } from '@apis/purpose/purpose.module';
+import { SettingsModule } from '@apis/settings/settings.module';
 import { UtilizerModule } from '@apis/utilizer/utilizer.module';
 import { DataImporterModule } from '@/data-importer/data-importer.module';
 import { BackupModule } from '@apis/backup/backup.module';
@@ -61,6 +62,7 @@ import { ImportModule } from '@apis/import/import.module';
     InvoicesModule,
     ConsipAgreementModule,
     PurposeModule,
+    SettingsModule,
     UtilizerModule,
     DataImporterModule,
     BackupModule,
