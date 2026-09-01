@@ -1,0 +1,26 @@
+<h2 mat-dialog-title>Cerca icona (catalogo completo)</h2>
+
+<mat-dialog-content>
+  <p>
+    Sfoglia/cerca su <a href="https://fonts.google.com/icons" target="_blank" rel="noopener">fonts.google.com/icons</a>
+    (filtro set "Material Icons", non "Material Symbols" — questo progetto carica solo il primo).
+    Copia il nome dell'icona trovata e incollalo qui sotto per verificarne subito l'anteprima.
+  </p>
+
+  <div style="display: flex; align-items: center; gap: 1rem;">
+    <mat-form-field style="flex: 1;">
+      <mat-label>Nome icona</mat-label>
+      <input matInput [formControl]="iconControl" placeholder="es. cottage">
+    </mat-form-field>
+    <mat-icon style="font-size: 40px; width: 40px; height: 40px;">{{ iconControl.value || 'help_outline' }}</mat-icon>
+  </div>
+
+  @if (iconControl.value) {
+    <p style="color: #9e9e9e; font-size: 0.8rem;">Se il riquadro sopra è vuoto, quel nome non esiste nel set "Material Icons" classico.</p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button (click)="cancel()">Annulla</button>
+  <button mat-flat-button (click)="confirm()" [disabled]="!iconControl.value.trim()">Usa questa icona</button>
+</mat-dialog-actions>

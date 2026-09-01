@@ -14,6 +14,12 @@ export interface MapPoint {
   source: MapPointSource;
   // Solo per type 'utility' — pilota l'icona per tipologia sulla mappa.
   hardType?: HardType;
+  // Solo per type 'asset' — nome ligature Material Icons dell'aggregato
+  // immobile collegato (null/assente = usa il fallback fisso).
+  icon?: string | null;
+  // Solo per type 'utility' — id dell'asset collegato, usato per il badge
+  // "numero contatori" sul marker immobile.
+  assetId?: number | null;
 }
 
 export interface UngeolocatedItem {

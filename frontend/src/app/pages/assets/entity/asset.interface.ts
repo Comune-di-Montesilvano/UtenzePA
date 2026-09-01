@@ -17,6 +17,11 @@ export interface IAsset {
   services_and_artifacts?: string | null;
   latitude?: string | null;
   longitude?: string | null;
+  // Posizione stimata da geocodifica indirizzo (GeocodingModule, backend) —
+  // sola lettura qui: mai inviata in un update, solo per pre-posizionare il
+  // marker su LocationMapComponent quando manca una posizione GPS reale.
+  geocoded_latitude?: string | null;
+  geocoded_longitude?: string | null;
   sheet?: string | null;
   parcel?: string | null;
   subordinate?: string | null;

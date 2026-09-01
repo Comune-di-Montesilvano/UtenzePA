@@ -20,7 +20,7 @@ describe('MapService', () => {
     const { points, ungeolocated } = await service.getPoints({});
 
     expect(points).toEqual([
-      { id: 1, type: 'asset', name: 'Scuola A', address: 'Via Roma 1', lat: '42.5', lng: '14.1', source: 'gps' },
+      { id: 1, type: 'asset', name: 'Scuola A', address: 'Via Roma 1', lat: '42.5', lng: '14.1', source: 'gps', icon: null },
     ]);
     expect(ungeolocated).toEqual([]);
   });
@@ -69,7 +69,7 @@ describe('MapService', () => {
     const { points } = await service.getPoints({});
 
     expect(points).toEqual([
-      { id: 10, type: 'utility', name: 'UT-1', address: null, lat: '42.9', lng: '14.9', source: 'gps' },
+      { id: 10, type: 'utility', name: 'UT-1', address: null, lat: '42.9', lng: '14.9', source: 'gps', assetId: 1 },
     ]);
   });
 
@@ -82,7 +82,7 @@ describe('MapService', () => {
     const { points } = await service.getPoints({});
 
     expect(points).toEqual([
-      { id: 11, type: 'utility', name: 'UT-2', address: 'Via Roma 1', lat: '42.5', lng: '14.1', source: 'gps' },
+      { id: 11, type: 'utility', name: 'UT-2', address: 'Via Roma 1', lat: '42.5', lng: '14.1', source: 'gps', assetId: 1 },
     ]);
   });
 
@@ -96,6 +96,30 @@ describe('MapService', () => {
 
     expect(points).toEqual([]);
     expect(ungeolocated).toEqual([{ id: 12, type: 'utility', name: 'UT-3', reason: 'no_address' }]);
+  });
+
+  it('un asset con aggregato che ha un\'icona custom la espone sul punto', async () => {
+    assetRepo.find.mockResolvedValue([
+      { id: 5, asset_name: 'Scuola E', address: 'Via Torino 3', latitude: '42.5', longitude: '14.1', geocoded_latitude: null, geocoded_longitude: null, asset_type_id: 3, assetAggregator: { id: 3, icon: 'school' } },
+    ]);
+    utilityRepo.find.mockResolvedValue([]);
+
+    const { points } = await service.getPoints({});
+
+    expect(points[0].icon).toBe('school');
+  });
+
+  it('assetAggregatorId filtra anche le utility tramite l\'asset collegato', async () => {
+    assetRepo.find.mockResolvedValue([]);
+    utilityRepo.find.mockResolvedValue([]);
+
+    await service.getPoints({ assetAggregatorId: 3 });
+
+    expect(utilityRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ asset: { asset_type_id: 3 } }),
+      }),
+    );
   });
 
   it('showAssets=false esclude gli asset dai risultati', async () => {

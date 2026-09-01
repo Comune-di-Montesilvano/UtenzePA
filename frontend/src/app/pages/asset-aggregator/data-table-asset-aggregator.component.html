@@ -36,6 +36,11 @@
     <td mat-cell *matCellDef="let item">{{ item.id }}</td>
   </ng-container>
 
+  <ng-container matColumnDef="icon">
+    <th mat-header-cell *matHeaderCellDef>Icona</th>
+    <td mat-cell *matCellDef="let item"><mat-icon>{{ item.icon || iconFallback }}</mat-icon></td>
+  </ng-container>
+
   <ng-container matColumnDef="code">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Codice</th>
     <td mat-cell *matCellDef="let item">{{ item.code }}</td>

@@ -55,17 +55,65 @@
   .body {
     display: flex;
     flex: 1;
+    // Flex item di .main-layout senza min-height:0: il floor di default
+    // (min-height:auto) impone come minimo il content-size dei figli — con
+    // submenu sidebar aperto (tante voci) il contenuto supera 100vh e .body
+    // cresce oltre il cap di flex:1/100vh invece di restare clampato,
+    // bypassando lo scroll interno di .sidebar-menu (verificato con
+    // Playwright: senza questa riga .body arrivava a 1110px+ su un viewport
+    // di 650px). Stesso identico floor da rompere a ogni livello della
+    // catena flex sidebar (vedi min-height:0 anche su .sidebar/:host più
+    // sotto e in sidebar.components.scss).
+    min-height: 0;
     padding-top: 60px;
+    // Senza border-box, l'altezza "usata" da flex:1 (100vh, unico flex item
+    // nella colonna .main-layout dato che .header è fixed/fuori flusso) è
+    // quella del CONTENT box: padding-top:60px si aggiunge SOPRA quel valore
+    // invece di rientrarci, il border-box risulta 100vh+60px — 60px oltre il
+    // fondo del viewport. Con la sidebar (sotto) che si stira (stretch di
+    // default) su questa altezza gonfiata, il footer "Esci" in fondo finiva
+    // tagliato oltre il bordo della finestra, non per overflow del menu
+    // (fix precedente su .sidebar-menu insufficiente perché non era la causa
+    // reale). border-box fa sì che l'altezza calcolata da flex:1 sia quella
+    // TOTALE (border-box, 100vh) e il padding vi rientri, come già assume
+    // il resto del layout (main-layout/header hanno height esplicita e non
+    // ne risentono, ma qui l'altezza è "implicita" via flex-grow).
+    box-sizing: border-box;
 
     .sidebar {
       width: 250px;
       border-right: 1px solid #ddd;
+      // display:flex qui (invece di lasciarlo block e affidarsi allo stretch
+      // di default) evita di dover propagare l'altezza a <app-sidebar> via
+      // height:100% — su Chromium, height:100% incatenato attraverso un flex
+      // item "stretched" (senza altezza esplicita propria) può risolvere
+      // contro un valore intermedio sbagliato invece del rect renderizzato
+      // reale (verificato con Playwright: getComputedStyle riportava 820px,
+      // getBoundingClientRect() lo stesso elemento 840px — 20px di
+      // differenza, footer "Esci" spinto fuori dal viewport). flex:1 su
+      // <app-sidebar> (sidebar.component.ts, :host) si dimensiona invece per
+      // via diretta flex-grow, nessuna risoluzione percentuale in mezzo.
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
 
     .content {
       flex: 1;
+      // Stesso motivo del min-height:0 su .body/.sidebar sopra — senza,
+      // overflow-y:auto qui non scrolla mai davvero: il floor min-height:auto
+      // fa crescere .content oltre lo spazio disponibile invece di clampare
+      // e scrollare, con pagine dal contenuto lungo (tabelle con molte righe).
+      min-height: 0;
       padding: 1rem;
       overflow-y: auto;
+      // Stesso bug di .body (vedi commento sopra): senza border-box, il
+      // padding si aggiunge SOPRA l'altezza calcolata da flex:1 invece di
+      // rientrarci — pagine che usano height:100% di .content (es. Mappa,
+      // .map-page) ereditavano un'altezza 32px (1rem*2) più alta del vero
+      // spazio disponibile, tagliate in fondo dentro un .content che pur
+      // scrollando non basta a mostrarle intere senza scroll indesiderato.
+      box-sizing: border-box;
     }
   }
 }

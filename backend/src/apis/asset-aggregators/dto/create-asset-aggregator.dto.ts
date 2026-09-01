@@ -16,6 +16,10 @@ export class CreateAssetAggregatorDto {
   code: string;
 
   @IsOptional()
+  @IsString()
+  icon?: string;
+
+  @IsOptional()
   @IsNotEmpty({ message: 'Il campo created_by_user_id è obbligatorio' })
   created_by_user_id: number;
 

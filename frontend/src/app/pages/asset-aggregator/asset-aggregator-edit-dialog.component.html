@@ -19,6 +19,28 @@
         <mat-error>Obbligatorio</mat-error>
       }
     </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Icona mappa</mat-label>
+      <mat-icon matPrefix style="margin-right: 0.5rem;">{{ form.controls.icon.value || iconFallback }}</mat-icon>
+      <input matInput formControlName="icon" [matAutocomplete]="iconAuto" placeholder="Cerca o digita un nome icona...">
+      <button mat-icon-button matSuffix type="button" matTooltip="Cerca in tutto il catalogo Material Icons" (click)="openIconPicker()">
+        <mat-icon>search</mat-icon>
+      </button>
+      <mat-autocomplete #iconAuto="matAutocomplete" (optionSelected)="onIconOptionSelected($event.option.value)">
+        @for (opt of filteredIconOptions; track opt.value) {
+          <mat-option [value]="opt.value">
+            <mat-icon style="vertical-align: middle; margin-right: 0.5rem;">{{ opt.value }}</mat-icon>
+            {{ opt.label }}
+          </mat-option>
+        }
+        <mat-option [value]="moreIconsSentinel">
+          <mat-icon style="vertical-align: middle; margin-right: 0.5rem;">search</mat-icon>
+          Altro… cerca in tutto il catalogo
+        </mat-option>
+      </mat-autocomplete>
+      <mat-hint>Nome ligature Material Icons — anche libero, non solo dai suggerimenti</mat-hint>
+    </mat-form-field>
   </form>
 </mat-dialog-content>
 

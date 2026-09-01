@@ -1,9 +1,35 @@
+// <app-sidebar> (l'elemento host) non ha display esplicito: di default un
+// custom element è "inline". flex/flex-direction+min-height:0 lo fa
+// partecipare correttamente allo stretch del genitore (<aside class="sidebar">
+// in main-layout, ora anch'esso display:flex — vedi commento lì) — preferito
+// a height:100% perché su Chromium una catena di height:100% attraverso un
+// flex item "stretched" può risolvere contro un valore intermedio sbagliato
+// invece del rect renderizzato reale (verificato con Playwright:
+// getComputedStyle riportava 820px, getBoundingClientRect() lo stesso
+// elemento 840px — 20px di differenza, footer "Esci" spinto fuori dal
+// viewport). flex-grow si dimensiona per via diretta, nessuna risoluzione
+// percentuale in mezzo.
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .sidebar {
-  position: fixed;
-  top: 60px;
-  left: 0;
-  width: 249px;
-  height: calc(100vh - 60px);
+  // Non più position:fixed con top/height ricalcolati a mano: il layout
+  // (main-layout.component.scss) già posiziona/dimensiona correttamente
+  // l'<aside class="sidebar"> genitore via flexbox — questo elemento (root
+  // di <app-sidebar>, annidato dentro quell'aside) deve solo riempirlo. Il
+  // fixed qui era ridondante rispetto al genitore E la causa reale del
+  // footer "Esci" tagliato: due elementi .sidebar sovrapposti con logiche di
+  // sizing indipendenti che potevano disallinearsi (es. su qualunque
+  // ancestor che introduca un containing block per elementi fixed —
+  // filter/transform/will-change — il fixed smette di ancorarsi al viewport
+  // e si comporta in modo imprevedibile).
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
   background-color: #fff;
   display: flex;
   flex-direction: column;
@@ -13,6 +39,19 @@
     list-style: none;
     padding: 0;
     margin: 0;
+    // Se il menu (voci + eventuale submenu aperto) è più alto dello spazio
+    // disponibile (.sidebar ora dimensionato via flex a cascata dal layout,
+    // non più fixed — vedi commento sopra), il footer "Esci" (sidebar-footer,
+    // sotto) andrebbe spinto sotto il bordo del viewport e sparirebbe, senza
+    // scroll a compensare — qui il menu diventa l'unica zona scrollabile,
+    // footer/meta restano sempre visibili in fondo. min-height:0 necessario
+    // perché un figlio flex non si restringe sotto la sua content-size di
+    // default (stesso motivo di min-height:0 su .body/.content/.sidebar/
+    // :host lungo tutta la catena, vedi main-layout.component.scss),
+    // altrimenti overflow-y:auto non ha mai effetto in un flex column.
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
   }
 
   .menu-item,

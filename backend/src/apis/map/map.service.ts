@@ -17,6 +17,16 @@ export interface MapPoint {
   // Solo per type 'utility' — pilota l'icona per tipologia (acqua/luce/gas/
   // internet) nella mappa frontend, vedi HardTypeIcon/HardTypeColor.
   hardType?: HardTypeEnum;
+  // Solo per type 'asset' — nome ligature Material Icons dell'aggregato
+  // immobile collegato (AssetAggregator.icon), null se l'aggregato non ne ha
+  // una custom (frontend applica un fallback).
+  icon?: string | null;
+  // Solo per type 'utility' — id dell'asset collegato, usato dal frontend per
+  // contare le utenze per edificio e mostrare un badge sul marker immobile
+  // (a zoom alto i marker utenza senza GPS proprio, sovrapposti esattamente
+  // all'asset, coprono/nascondono a vicenda: il conteggio resta visibile
+  // comunque).
+  assetId?: number | null;
 }
 
 export interface UngeolocatedItem {
@@ -41,7 +51,9 @@ export class MapService {
     @InjectRepository(Utility) private readonly utilityRepo: Repository<Utility>,
   ) {}
 
-  async getPoints(filters: MapQueryDto): Promise<{ points: MapPoint[]; ungeolocated: UngeolocatedItem[] }> {
+  async getPoints(
+    filters: MapQueryDto,
+  ): Promise<{ points: MapPoint[]; ungeolocated: UngeolocatedItem[] }> {
     const showAssets = filters.showAssets !== false;
     const showUtilities = filters.showUtilities !== false;
 
@@ -50,7 +62,11 @@ export class MapService {
 
     if (showAssets) {
       const assets = await this.assetRepo.find({
-        where: { deleted: false, ...(filters.assetAggregatorId ? { asset_type_id: filters.assetAggregatorId } : {}) },
+        where: {
+          deleted: false,
+          ...(filters.assetAggregatorId ? { asset_type_id: filters.assetAggregatorId } : {}),
+        },
+        relations: { assetAggregator: true },
       });
 
       for (const asset of assets) {
@@ -64,6 +80,7 @@ export class MapService {
             lat: position.lat,
             lng: position.lng,
             source: position.source,
+            icon: asset.assetAggregator?.icon ?? null,
           });
         } else {
           ungeolocated.push({
@@ -81,6 +98,12 @@ export class MapService {
         where: {
           deleted: false,
           ...(filters.utilityTypeId ? { utility_type_id_fk: filters.utilityTypeId } : {}),
+          // Il filtro aggregato immobile va applicato anche alle utenze (tramite
+          // l'asset collegato) — altrimenti col checkbox "Contatori" attivo i
+          // contatori restano sempre tutti visibili, filtro senza effetto visibile.
+          ...(filters.assetAggregatorId
+            ? { asset: { asset_type_id: filters.assetAggregatorId } }
+            : {}),
         },
         relations: { asset: true, utilityType: true },
       });
@@ -97,6 +120,7 @@ export class MapService {
             lng: position.lng,
             source: position.source,
             hardType: utility.utilityType?.hard_type,
+            assetId: utility.asset?.id ?? null,
           });
         } else {
           ungeolocated.push({

@@ -24,6 +24,17 @@ const LOCATION_PIN_ICON = L.divIcon({
   iconAnchor: [12, 12],
 });
 
+// Marker per la posizione stimata da geocodifica (nessuna posizione GPS reale
+// ancora salvata) — bordo tratteggiato, stessa convenzione della mappa
+// principale (map.component.ts: bordo pieno = GPS reale, tratteggiato =
+// stimata). Un click sulla mappa la sostituisce con una posizione reale.
+const ESTIMATED_PIN_ICON = L.divIcon({
+  className: '',
+  html: '<span class="location-map-pin location-map-pin-estimated"></span>',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+});
+
 @Component({
   selector: 'app-location-map',
   standalone: true,
@@ -35,6 +46,15 @@ const LOCATION_PIN_ICON = L.divIcon({
 export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() latitude: string | null = null;
   @Input() longitude: string | null = null;
+  // Posizione stimata da geocodifica (asset senza GPS reale, vedi
+  // AssetEditDialogComponent) — usata solo per pre-posizionare il marker
+  // quando latitude/longitude sono vuote, mai scritta nei form controls: un
+  // click sulla mappa produce comunque una posizione reale via
+  // positionSelected, questo input è puramente un punto di partenza visivo
+  // così l'utente vede la stessa stima già mostrata sulla mappa principale
+  // invece del centro di default del comune.
+  @Input() estimatedLatitude: string | null = null;
+  @Input() estimatedLongitude: string | null = null;
   @Input() previewOnly = false;
   @Output() positionSelected = new EventEmitter<{ lat: string; lng: string }>();
   @Output() positionCleared = new EventEmitter<void>();
@@ -54,7 +74,8 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
   }
 
   ngAfterViewInit(): void {
-    this.map = L.map(this.canvasId).setView(this.currentLatLng() ?? this.DEFAULT_CENTER, this.currentLatLng() ? 16 : 13);
+    const knownLatLng = this.currentLatLng() ?? this.estimatedLatLng();
+    this.map = L.map(this.canvasId).setView(knownLatLng ?? this.DEFAULT_CENTER, knownLatLng ? 16 : 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 19,
@@ -74,7 +95,7 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
 
   ngOnChanges(changes: SimpleChanges): void {
     if (!this.map) return;
-    if (changes['latitude'] || changes['longitude']) {
+    if (changes['latitude'] || changes['longitude'] || changes['estimatedLatitude'] || changes['estimatedLongitude']) {
       this.renderMarker();
     }
   }
@@ -88,8 +109,16 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
   }
 
   private currentLatLng(): L.LatLngExpression | null {
-    const lat = parseFloat(this.latitude ?? '');
-    const lng = parseFloat(this.longitude ?? '');
+    return this.parseLatLng(this.latitude, this.longitude);
+  }
+
+  private estimatedLatLng(): L.LatLngExpression | null {
+    return this.parseLatLng(this.estimatedLatitude, this.estimatedLongitude);
+  }
+
+  private parseLatLng(latitude: string | null, longitude: string | null): L.LatLngExpression | null {
+    const lat = parseFloat(latitude ?? '');
+    const lng = parseFloat(longitude ?? '');
     if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
     return [lat, lng];
   }
@@ -100,9 +129,20 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
       this.map.removeLayer(this.marker);
       this.marker = null;
     }
-    const latLng = this.currentLatLng();
-    if (!latLng) return;
-    this.marker = L.marker(latLng, { icon: LOCATION_PIN_ICON }).addTo(this.map);
-    this.map.setView(latLng, 16);
+    const realLatLng = this.currentLatLng();
+    if (realLatLng) {
+      this.marker = L.marker(realLatLng, { icon: LOCATION_PIN_ICON }).addTo(this.map);
+      this.map.setView(realLatLng, 16);
+      return;
+    }
+    // Nessuna posizione GPS reale: mostra comunque la stima da geocodifica
+    // (stesso punto già visto sulla mappa principale) invece di lasciare la
+    // mini-mappa vuota sul centro di default del comune — pin tratteggiato,
+    // resta solo visivo finché l'utente non clicca per confermare una
+    // posizione reale.
+    const estimated = this.estimatedLatLng();
+    if (!estimated) return;
+    this.marker = L.marker(estimated, { icon: ESTIMATED_PIN_ICON }).addTo(this.map);
+    this.map.setView(estimated, 16);
   }
 }
