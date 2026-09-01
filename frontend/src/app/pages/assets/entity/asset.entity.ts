@@ -20,6 +20,8 @@ export class Asset extends AbstractEntity implements IAsset {
   services_and_artifacts?: string;
   latitude?: string;
   longitude?: string;
+  geocoded_latitude?: string;
+  geocoded_longitude?: string;
   sheet?: string;
   parcel?: string;
   subordinate?: string;

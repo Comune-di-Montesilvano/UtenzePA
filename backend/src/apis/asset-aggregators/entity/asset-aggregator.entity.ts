@@ -24,6 +24,13 @@ export class AssetAggregator {
   @Column({ length: 255, nullable: false, unique: true })
   code: string;
 
+  // Nome ligature Material Icons (font già caricato in index.html, standard
+  // icone del progetto — vedi CLAUDE.md) usato per i marker mappa di questo
+  // aggregato. Nullable: gli aggregati esistenti pre-feature restano senza
+  // icona custom, il frontend applica un fallback ('apartment').
+  @Column({ length: 50, nullable: true })
+  icon: string;
+
   @CreateDateColumn({ type: 'timestamp' })
   create_date: Date;
 

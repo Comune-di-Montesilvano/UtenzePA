@@ -12,6 +12,7 @@ import {ScreenSizeService} from '../../services/screen-size.service';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {AssetAggregatorEditDialogComponent} from './asset-aggregator-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
+import {ASSET_AGGREGATOR_ICON_FALLBACK} from './enum/asset-aggregator-icon.enum';
 
 @Component({
   selector: 'app-data-table-aggregators',
@@ -31,7 +32,8 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
 })
 export class DataTableAggregatorsComponent extends AbstractDataTableComponent<AssetAggregator> {
 
-  displayedColumns = ['actions', 'id', 'code', 'description'];
+  displayedColumns = ['actions', 'id', 'icon', 'code', 'description'];
+  iconFallback = ASSET_AGGREGATOR_ICON_FALLBACK;
 
   constructor(screen: ScreenSizeService) {
     super(screen);

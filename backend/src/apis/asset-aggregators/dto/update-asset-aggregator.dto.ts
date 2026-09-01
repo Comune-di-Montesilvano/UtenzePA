@@ -13,6 +13,10 @@ export class UpdateAssetAggregatorDto {
   code?: string;
 
   @IsOptional()
+  @IsString()
+  icon?: string;
+
+  @IsOptional()
   updated_by_user_id?: number;
 
   @IsOptional()

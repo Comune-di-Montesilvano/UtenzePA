@@ -42,8 +42,14 @@ export abstract class AbstractSearchComponent implements OnInit {
   }
 
   openFilterDialog(): void {
+    // MatDialog (MDC) clampa silenziosamente qualsiasi `width` oltre 560px se
+    // non si passa anche `maxWidth` esplicito (vedi CLAUDE.md) — mancava qui,
+    // filterDialogWidth() più larghi di 560px (es. '1200px' in
+    // SearchUtilitiesComponent) venivano ignorati, dialog sempre a 560px con
+    // le colonne della grid schiacciate/testo troncato.
     this.dialog.open<unknown, FilterDialogData<unknown>, unknown>(this.filterDialogComponent(), {
       width: this.filterDialogWidth(),
+      maxWidth: this.filterDialogWidth(),
       data: {values: {...this.qSearch.getRawValue()}}
     }).afterClosed().subscribe(result => {
       if (result === 'clear') {

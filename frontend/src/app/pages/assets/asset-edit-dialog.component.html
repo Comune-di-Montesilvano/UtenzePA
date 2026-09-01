@@ -96,9 +96,14 @@
         <app-location-map
           [latitude]="form.controls.latitude.value"
           [longitude]="form.controls.longitude.value"
+          [estimatedLatitude]="data.item.geocoded_latitude ?? null"
+          [estimatedLongitude]="data.item.geocoded_longitude ?? null"
           (positionSelected)="onPositionSelected($event)"
           (positionCleared)="onPositionCleared()">
         </app-location-map>
+        @if (!form.controls.latitude.value && data.item.geocoded_latitude) {
+          <div style="font-size: 0.8rem; color: #757575;">Posizione stimata da indirizzo (geocodifica) — clicca sulla mappa per confermarne una reale.</div>
+        }
       </div>
     </div>
 

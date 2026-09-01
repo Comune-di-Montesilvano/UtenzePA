@@ -1,5 +1,13 @@
 <div class="map-page">
   <aside class="map-sidebar">
+    <h3>Cerca edificio</h3>
+    <app-filterable-select
+      label="Immobile"
+      placeholder="Nome o indirizzo..."
+      [options]="assetSearchOptions"
+      [formControl]="assetSearch">
+    </app-filterable-select>
+
     <h3>Filtri</h3>
     <mat-checkbox [formControl]="showAssets">Immobili</mat-checkbox>
     <mat-checkbox [formControl]="showUtilities">Contatori</mat-checkbox>
@@ -17,7 +25,7 @@
     </app-filterable-select>
 
     <div class="map-legend">
-      <div><span class="map-pin" style="background:#37474f"><i class="fa fa-building"></i></span> Immobile</div>
+      <div><span class="map-pin" style="background:#37474f"><span class="material-icons">apartment</span></span> Immobile (icona varia per aggregato)</div>
       @for (t of hardTypeLegend; track t.value) {
         <div><span class="map-pin" [style.background]="t.color"><i [class]="t.icon"></i></span> {{ t.label }}</div>
       }

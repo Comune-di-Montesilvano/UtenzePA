@@ -12,6 +12,7 @@ import { AppModule } from '@/app.module';
 import { EnvValidator } from '@utils/env-validator/env-validator';
 import { InfisicalConfigService } from '@core/infisical/infisical-config.service';
 import helmet from 'helmet';
+import { json, urlencoded } from 'express';
 import * as cookieParser from 'cookie-parser';
 import { HttpExceptionFilter } from '@core/exceptions/http-exception.filter';
 import { generateHttpOptions } from '@utils/httpOptionsNest/httpOptions';
@@ -53,6 +54,16 @@ async function bootstrap() {
   };
 
   const app = await NestFactory.create(AppModule, options);
+
+  // Default body-parser di Express/NestJS: 100kb. Il branding (logo/favicon,
+  // vedi UpdateBrandingDto) accetta data URI base64 fino a MAX_DATA_URI_LENGTH
+  // (~2.8MB) — senza alzare qui il limite del body JSON, qualsiasi immagine
+  // oltre ~100kb falliva PRIMA della validazione DTO con "PayloadTooLargeError:
+  // request entity too large" (mai raggiunto il controller/service, quindi
+  // invisibile lato business logic). 3mb copre il data URI più il resto del
+  // payload (entity_name, coordinate, ecc., trascurabile).
+  app.use(json({ limit: '3mb' }));
+  app.use(urlencoded({ extended: true, limit: '3mb' }));
 
   const infisicalConfig = app.get(InfisicalConfigService);
 

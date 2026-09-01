@@ -16,11 +16,12 @@ import { UtilityEditDialogComponent } from '../utilities/utility-edit-dialog.com
 import { TOption } from '../../core/types/option.interface';
 import { HardType, HardTypeIcon, HardTypeColor } from '../utility-types/enum/hard-type.enum';
 import { BrandingService } from '../../services/branding.service';
+import { ASSET_AGGREGATOR_ICON_FALLBACK } from '../asset-aggregator/enum/asset-aggregator-icon.enum';
 
-// Icona/colore fissi per gli immobili (edificio) — le utenze usano invece
-// HardTypeIcon/HardTypeColor (stessa mappa acqua/luce/gas/internet già usata
-// nelle altre pagine, coerenza visiva con il resto dell'app).
-const ASSET_ICON = 'fa fa-building';
+// Fallback per gli immobili senza icona custom sull'aggregato collegato (o
+// aggregato non ancora caricato) — Material Icons (vedi
+// AssetAggregatorIconOptions), non più Font Awesome fisso: ogni immobile
+// eredita ora l'icona del proprio AssetAggregator.icon.
 const ASSET_COLOR = '#37474f';
 // Contatore senza tipologia associata (dato mancante) — icona neutra.
 const UNKNOWN_UTILITY_ICON = 'fa fa-question';
@@ -62,12 +63,29 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   showUtilities = new FormControl(true, { nonNullable: true });
   assetAggregatorId = new FormControl<number | null>(null);
   utilityTypeId = new FormControl<number | null>(null);
+  assetSearch = new FormControl<number | null>(null);
 
   assetAggregatorOptions: TOption[] = [];
   utilityTypeOptions: TOption[] = [];
+  assetSearchOptions: TOption[] = [];
   ungeolocated: UngeolocatedItem[] = [];
   reasonLabels = UNGEOLOCATED_REASON_LABELS;
   hardTypeLegend = HardType.items();
+
+  // Popolata a ogni renderPoints() — usata solo per la ricerca "vai a edificio",
+  // per centrare la mappa su un asset anche se raggruppato in un cluster (i
+  // marker di leaflet.markercluster non sono in un layer group ricercabile
+  // direttamente per id).
+  private assetMarkers = new Map<number, L.Marker>();
+
+  // Popolata a ogni renderPoints() — utenze collegate a ciascun asset, usata
+  // dal marker immobile per offrire un selettore quando ha contatori
+  // sovrapposti (vedi openAssetOrPicker): senza, un click sul marker
+  // immobile apriva SEMPRE e SOLO la scheda immobile, i marker utenza
+  // sottostanti (stessa posizione, nessun GPS proprio) restavano
+  // irraggiungibili — un click Leaflet colpisce solo il marker più in alto
+  // nello z-order, non c'è "fan out" automatico fuori dai cluster.
+  private utilitiesByAsset = new Map<number, MapPoint[]>();
 
   ngOnInit(): void {
     this.assetAggregatorsService.search({ deleted: false }).subscribe({
@@ -76,11 +94,37 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     this.utilityTypesService.search({ deleted: false }).subscribe({
       next: (data) => (this.utilityTypeOptions = data.map((t) => ({ label: t.name, value: t.id }))),
     });
+    this.assetService.search({ deleted: false }).subscribe({
+      next: (data) =>
+        (this.assetSearchOptions = data.map((a) => ({
+          label: a.address ? `${a.asset_name} — ${a.address}` : a.asset_name,
+          value: a.id,
+        }))),
+    });
 
     this.showAssets.valueChanges.subscribe(() => this.reload());
     this.showUtilities.valueChanges.subscribe(() => this.reload());
     this.assetAggregatorId.valueChanges.subscribe(() => this.reload());
     this.utilityTypeId.valueChanges.subscribe(() => this.reload());
+    this.assetSearch.valueChanges.subscribe((id) => this.goToAsset(id));
+  }
+
+  private goToAsset(id: number | null): void {
+    if (id == null || !this.map) return;
+
+    const marker = this.assetMarkers.get(id);
+    if (marker && this.clusterGroup) {
+      // zoomToShowLayer scioglie il/i cluster necessari e zooma finché il
+      // marker non è visibile singolarmente, poi il callback centra la vista.
+      this.clusterGroup.zoomToShowLayer(marker, () => {
+        this.map?.setView(marker.getLatLng(), Math.max(this.map.getZoom(), 18));
+      });
+      return;
+    }
+
+    // Asset non presente tra i punti mappati correnti (es. escluso dal filtro
+    // aggregato attivo, o non geolocalizzato) — apri comunque la scheda.
+    this.openDetail({ id, type: 'asset' } as UngeolocatedItem);
   }
 
   async ngAfterViewInit(): Promise<void> {
@@ -119,7 +163,11 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     );
     L.control.layers({ Stradale: streetLayer, Satellite: satelliteLayer }).addTo(this.map);
 
-    this.clusterGroup = L.markerClusterGroup();
+    // Default L.markerClusterGroup() usa maxClusterRadius:80 (px) senza
+    // disableClusteringAtZoom — a zoom alto (edificio per edificio) raggruppava
+    // ancora marker vicini ma distinti. Raggio più stretto + niente cluster
+    // oltre lo zoom 17 (livello "via/edificio").
+    this.clusterGroup = L.markerClusterGroup({ maxClusterRadius: 40, disableClusteringAtZoom: 17 });
     this.map.addLayer(this.clusterGroup);
     this.reload();
 
@@ -171,6 +219,23 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   private renderPoints(points: MapPoint[]): void {
     if (!this.clusterGroup) return;
     this.clusterGroup.clearLayers();
+    this.assetMarkers.clear();
+
+    // Le utenze senza GPS proprio ereditano la posizione esatta dell'asset
+    // (vedi MapService.resolveUtilityPosition) — a zoom alto, oltre
+    // disableClusteringAtZoom, i loro marker finiscono esattamente sovrapposti
+    // al marker immobile e si nascondono a vicenda. Il badge sul marker
+    // immobile resta leggibile indipendentemente dallo zoom/sovrapposizione,
+    // e il click sul marker immobile apre un selettore invece di saltare
+    // dritto alla scheda immobile (vedi utilitiesByAsset/openAssetOrPicker).
+    this.utilitiesByAsset.clear();
+    for (const p of points) {
+      if (p.type === 'utility' && p.assetId != null) {
+        const list = this.utilitiesByAsset.get(p.assetId) ?? [];
+        list.push(p);
+        this.utilitiesByAsset.set(p.assetId, list);
+      }
+    }
 
     for (const point of points) {
       const lat = parseFloat(point.lat);
@@ -178,24 +243,98 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       if (Number.isNaN(lat) || Number.isNaN(lng)) continue;
 
       const isAsset = point.type === 'asset';
-      const faIcon = isAsset ? ASSET_ICON : (point.hardType ? HardTypeIcon[point.hardType] : UNKNOWN_UTILITY_ICON);
-      const color = isAsset ? ASSET_COLOR : (point.hardType ? HardTypeColor[point.hardType] : UNKNOWN_UTILITY_COLOR);
+      const { iconHtml, color } = this.pointIcon(point);
       // Bordo tratteggiato per posizione stimata (geocodifica da indirizzo)
       // vs bordo pieno per GPS reale — stessa distinzione di prima, non più
       // affidata al colore (ora usato per la tipologia).
       const borderStyle = point.source === 'gps' ? 'solid' : 'dashed';
+      const utilityCount = isAsset ? (this.utilitiesByAsset.get(point.id)?.length ?? 0) : 0;
+      const badgeHtml = utilityCount > 0 ? `<span class="map-pin-badge">${utilityCount}</span>` : '';
 
       const icon = L.divIcon({
         className: '',
-        html: `<span class="map-pin" style="background:${color};border-style:${borderStyle}"><i class="${faIcon}"></i></span>`,
+        html: `<span class="map-marker-wrap"><span class="map-pin" style="background:${color};border-style:${borderStyle}">${iconHtml}</span>${badgeHtml}</span>`,
         iconSize: [26, 26],
         iconAnchor: [13, 13],
       });
 
-      const marker = L.marker([lat, lng], { icon });
-      marker.on('click', () => this.openDetail(point));
+      // Le utenze senza GPS proprio condividono lat/lng esatte con l'asset
+      // (vedi utilityCountByAsset sopra) — lo z-index Leaflet di default si
+      // basa sulla latitudine (per un pseudo-3D "più a sud = più avanti"), a
+      // parità di coordinate il risultato non è affidabile: un marker utenza
+      // può finire sopra e coprire per intero l'icona immobile (con badge
+      // "staccato" che sporge dal bordo, visivamente confuso). zIndexOffset
+      // forza l'immobile sempre in primo piano sulle utenze coincidenti.
+      const marker = L.marker([lat, lng], { icon, zIndexOffset: isAsset ? 1000 : 0 });
+      marker.on('click', () => (isAsset ? this.openAssetOrPicker(point) : this.openDetail(point)));
       this.clusterGroup.addLayer(marker);
+      if (isAsset) this.assetMarkers.set(point.id, marker);
     }
+  }
+
+  // Icona+colore di un punto — fattorizzato perché serve sia al marker sulla
+  // mappa (renderPoints) sia alle voci del popup di scelta immobile/contatori
+  // (openAssetOrPicker), stessa resa in entrambi i posti.
+  private pointIcon(point: MapPoint): { iconHtml: string; color: string } {
+    const isAsset = point.type === 'asset';
+    const color = isAsset ? ASSET_COLOR : (point.hardType ? HardTypeColor[point.hardType] : UNKNOWN_UTILITY_COLOR);
+    // Gli immobili usano l'icona Material dell'aggregato collegato
+    // (AssetAggregator.icon, personalizzabile in anagrafica aggregati); le
+    // utenze restano su Font Awesome (HardTypeIcon), invariato.
+    const iconHtml = isAsset
+      ? `<span class="material-icons">${point.icon || ASSET_AGGREGATOR_ICON_FALLBACK}</span>`
+      : `<i class="${point.hardType ? HardTypeIcon[point.hardType] : UNKNOWN_UTILITY_ICON}"></i>`;
+    return { iconHtml, color };
+  }
+
+  // Click su un marker immobile: se ha contatori collegati (badge visibile),
+  // apre un piccolo menu di scelta invece della scheda immobile diretta —
+  // altrimenti i contatori senza GPS proprio (stessa posizione dell'asset,
+  // marker immobile sempre sopra nello z-order) non sarebbero mai
+  // raggiungibili con un click.
+  openAssetOrPicker(point: MapPoint): void {
+    const utilities = this.utilitiesByAsset.get(point.id) ?? [];
+    if (utilities.length === 0 || !this.map) {
+      this.openDetail(point);
+      return;
+    }
+
+    const items: { label: string; point: MapPoint }[] = [
+      { label: `${point.name} (immobile)`, point },
+      ...utilities.map((u) => ({
+        label: `${u.hardType ? this.hardTypeLegend.find((t) => t.value === u.hardType)?.label : 'Utenza'} — ${u.name}`,
+        point: u,
+      })),
+    ];
+
+    // Stessa icona/colore del marker mappa per ogni voce — non solo testo
+    // ("Luce — UT-1"), coerenza visiva col resto della mappa.
+    const listHtml = items
+      .map((it, i) => {
+        const { iconHtml, color } = this.pointIcon(it.point);
+        return `<li data-idx="${i}" class="map-picker-item">
+          <span class="map-pin map-pin-inline" style="background:${color}">${iconHtml}</span>
+          ${it.label}
+        </li>`;
+      })
+      .join('');
+
+    const popup = L.popup({ closeButton: true, autoPan: true })
+      .setLatLng([parseFloat(point.lat), parseFloat(point.lng)])
+      .setContent(`<ul class="map-picker-list">${listHtml}</ul>`)
+      .openOn(this.map);
+
+    // Il contenuto del popup è innerHTML raw (stessa ragione dei marker
+    // divIcon, vedi CLAUDE.md) — bind dei click via delega su querySelectorAll
+    // dopo l'apertura, non tramite (click) del template Angular.
+    const el = popup.getElement();
+    el?.querySelectorAll<HTMLLIElement>('[data-idx]').forEach((li) => {
+      li.addEventListener('click', () => {
+        const idx = Number(li.dataset['idx']);
+        this.map?.closePopup();
+        this.openDetail(items[idx].point);
+      });
+    });
   }
 
   openDetail(point: MapPoint | UngeolocatedItem): void {

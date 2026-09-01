@@ -1,6 +1,15 @@
 .map-page {
   display: flex;
-  height: calc(100vh - 64px);
+  // height:100% di .content (main-layout.component.scss), non più un calc
+  // hardcoded sul viewport: quel calc(100vh - 64px) non teneva conto del
+  // padding di .content (1rem = 16px top+bottom) né usava l'altezza vera
+  // dell'header (61px con bordo, non 64) — .map-page risultava sempre più
+  // alto dello spazio realmente disponibile, tagliato in fondo. height:100%
+  // funziona perché .content ora ha box-sizing:border-box (vedi
+  // main-layout.component.scss) e un'altezza definita via flex — resta
+  // corretto anche se l'header cambia altezza in futuro, nessun numero
+  // magico da tenere sincronizzato a mano.
+  height: 100%;
 }
 
 .map-sidebar {
