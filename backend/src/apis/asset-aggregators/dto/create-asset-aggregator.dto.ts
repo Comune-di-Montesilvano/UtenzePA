@@ -5,9 +5,15 @@ export class CreateAssetAggregatorDto {
   @IsString()
   description?: string;
 
-  @IsOptional()
+  // Colonna DB `nullable: false, unique: true` (vedi entity) — deve essere
+  // obbligatorio anche nel DTO, altrimenti un POST senza `code` arriva al
+  // service con `dto.code === undefined`, che il controllo duplicati
+  // (`findOne({where:{code: dto.code}})`) può far match su una riga
+  // qualunque invece che restituire "nessun duplicato" (vedi audit
+  // invalidWhereValuesBehavior in CLAUDE.md).
+  @IsNotEmpty({ message: 'Il campo code è obbligatorio' })
   @IsString()
-  code?: string;
+  code: string;
 
   @IsOptional()
   @IsNotEmpty({ message: 'Il campo created_by_user_id è obbligatorio' })
