@@ -26,15 +26,27 @@ import { InfisicalConfigService } from '../../infisical/infisical-config.service
           // Escape hatch per iterazione rapida in dev (mai in produzione: bypassa le migration).
           synchronize: process.env.SYNCHRONIZE === 'true' || process.env.IMPORT_DATA === 'true',
           dropSchema: process.env.DROPSCHEMA === 'true' || process.env.IMPORT_DATA === 'true',
-          // TypeORM 1.0 di default lancia un errore se null/undefined finiscono
-          // in una condizione where (prima venivano ignorati silenziosamente).
-          // Manteniamo il comportamento 0.3.x come rete di sicurezza: il codice
-          // esistente non è stato scritto assumendo il nuovo comportamento, e un
-          // caso limite non coperto dai test non deve causare un crash in prod.
-          invalidWhereValuesBehavior: {
-            null: 'ignore',
-            undefined: 'ignore',
-          },
+          // TypeORM 1.0 di default lancia un errore ('throw') se null/undefined
+          // finiscono in una condizione where object-criteria (find*/update/
+          // delete/query builder .where(objectLiteral) — non tocca le condizioni
+          // stringa con parametri bind, es. qb.where('x = :y', {...})). In
+          // precedenza qui c'era `invalidWhereValuesBehavior: {null: 'ignore',
+          // undefined: 'ignore'}` come escape hatch introdotto al bump — un
+          // audit completo di ogni where/delete/update/findOne su repository in
+          // backend/src/apis/**, src/data-importer/** e src/core/** (nessun uso
+          // lì) ha verificato che ogni valore usato in una where object-criteria
+          // è o una costante, o un id/parametro già validato da un DTO
+          // class-validator (`@IsNotEmpty`) o da un lookup interno con guardia
+          // esplicita `if (!value)`/`if (value)` prima della query — quindi il
+          // comportamento permissivo non serve più. È l'opzione DataSource-level
+          // di TypeORM 1.1.0 (nessun override granulare per singola query
+          // disponibile, verificato in OrmUtils/SelectQueryBuilder), quindi si
+          // applica identica a ogni query dell'app: nessun altro punto emerso
+          // dall'audit dipendeva dal comportamento 'ignore'. Un solo gap reale
+          // trovato e corretto nello stesso giro: CreateAssetAggregatorDto.code
+          // era @IsOptional() nonostante la colonna DB fosse
+          // `nullable: false, unique: true`, ora è obbligatorio nel DTO.
+          // Default TypeORM ('throw' su entrambi) non va quindi più aggirato.
         };
       },
 
