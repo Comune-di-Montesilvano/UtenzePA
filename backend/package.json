@@ -70,7 +70,7 @@
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.6",
     "@nestjs/jwt": "^11.0.2",
-    "@nestjs/passport": "^11.0.5",
+    "@nestjs/passport": "^12.0.0",
     "@nestjs/platform-express": "^11.1.6",
     "@nestjs/schedule": "^12.0.1",
     "@nestjs/swagger": "^11.2.1",
@@ -158,8 +158,19 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
+      "/node_modules/\\.pnpm/@nestjs\\+passport@[^/]+/node_modules/@nestjs/passport/.*\\.js$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "allowJs": true
+          }
+        }
+      ],
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "transformIgnorePatterns": [
+      "/node_modules/\\.pnpm/(?!@nestjs\\+passport@)"
+    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s",
       "!**/*.spec.ts",
