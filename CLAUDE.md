@@ -64,13 +64,17 @@ Nota: gli script `docker:dev*` in `backend/package.json` referenziano `docker-co
 
 `gh api` in Git Bash su Windows: un endpoint con `/` iniziale (es. `/orgs/...`) viene riscritto come path filesystem MSYS e fallisce ("invalid API endpoint") — ometterlo (`gh api orgs/...`). Utile per verificare un rilascio: `gh api orgs/ORG/packages/container/NOME/versions --jq '.[].metadata.container.tags'`.
 
+Prima di usare `gh` su questo repo, verificare owner/nome reali con `gh repo view --json nameWithOwner` (`Comune-di-Montesilvano/UtenzePA`, non l'account personale) — un owner sbagliato in `--repo` non dà errore, restituisce solo liste vuote.
+
+`gh pr checks -N --json statusCheckRollup` restituisce `detailsUrl` con il **job id**, non il run id — `gh run view <id> --log-failed` vuole il run id, altrimenti 404 ("failed to get run"). Estrarre il run id dal segmento `/actions/runs/<RUN_ID>/job/...` dell'URL.
+
 **Worktree/dev su Windows**: `npm install` con bind-mount diretto della cartella `backend`/`frontend` su Docker Desktop Windows può corrompere `node_modules` (file `package.json` mancanti nei pacchetti, symlink `.bin` non creati — silenzioso, npm riporta successo). Workaround: container con `node_modules` su volume Docker named (non bind-mount) + solo il codice sorgente bind-mountato, es. `docker run -d -v "$(pwd -W)":/usr/src/app -v <nome>-node-modules:/usr/src/app/node_modules -w /usr/src/app node:24-alpine tail -f /dev/null`, poi `npm install` dentro il container. In git-bash su Windows serve `MSYS_NO_PATHCONV=1` + `$(pwd -W)` per i path nei comandi `docker run`.
 
 `child_process.execFile`/`exec` **asincroni** non supportano l'opzione `input` per lo stdin (solo le varianti `*Sync` la supportano) — per pipare dati a un processo figlio (es. `mysql < dump.sql`) serve `spawn` con scrittura esplicita su `child.stdin`. Scoperto implementando il restore backup (PR #36).
 
 `stat.birthtime` non affidabile su alcuni filesystem Linux nei container (overlay2/tmpfs) — può risultare identico per file scritti a pochi millisecondi di distanza. Se serve un timestamp di creazione affidabile, meglio incorporarlo nel nome file (o in un campo DB) invece di fidarsi di `birthtime`.
 
-**Docker Desktop/WSL2 instabile sotto carico**: `pnpm run test:unit` (suite intera, non un file singolo) può far crashare il daemon Docker (500 "Internal Server Error" su `docker ps`/`docker exec`, a volte anche subito dopo un riavvio pulito) — osservato ripetutamente, causa risorse WSL2 non il codice. Se capita: non ritentare a raffica la suite intera, girare solo i file jest rilevanti (`pnpm exec jest <path> --maxWorkers=2`) e affidarsi a CI (`gh pr checks <N> --watch`) come gate per la suite completa. Nota: un comando `docker exec` lanciato in background può riportare `exit code 0` anche quando il vero output è un errore 500 del daemon (non output reale del comando) — controllare sempre il contenuto del file di output, non solo l'exit code.
+**Docker Desktop/WSL2 instabile sotto carico**: `pnpm run test:unit` (suite intera, non un file singolo) può far crashare il daemon Docker (500 "Internal Server Error" su `docker ps`/`docker exec`, a volte anche subito dopo un riavvio pulito) — osservato ripetutamente, causa risorse WSL2 non il codice. Se capita: non ritentare a raffica la suite intera, girare solo i file jest rilevanti (`pnpm exec jest <path> --maxWorkers=2`) e affidarsi a CI (`gh pr checks <N> --watch`) come gate per la suite completa. Nota: un comando `docker exec` lanciato in background può riportare `exit code 0` anche quando il vero output è un errore 500 del daemon (non output reale del comando) — controllare sempre il contenuto del file di output, non solo l'exit code. Il 500 può persistere 20+ minuti senza auto-recovery (osservato: anche `docker ps` nudo va in errore, non solo `docker exec`) — dopo 2-3 tentativi a distanza di minuti, smettere di ripollare e segnalare che serve un riavvio manuale di Docker Desktop, invece di continuare a ritentare.
 
 ### Frontend (`frontend/`)
 ```
@@ -162,6 +166,8 @@ Lavorare a lungo in un worktree isolato (feature grossa, sessione interrotta e r
 Spostare un tag dopo un fix (es. release rotta): `git tag -d vX`, `git push origin :refs/tags/vX`, ricreare (`git tag -a vX -m "..."`) e ripushare — rifà partire `release.yml` sul nuovo commit. Sicuro solo se il tag non ha consumer esterni noti.
 
 Dependabot PR: se il branch è stato toccato da altro (es. `gh api .../update-branch`), commentare `@dependabot rebase` fallisce ("edited by someone other than Dependabot") — usare `@dependabot recreate`. Merge sequenziale di più PR dependabot sullo stesso lockfile causa conflitti a cascata sulle successive: ri-aggiornarle (`update-branch` o recreate) una alla volta dopo ogni merge.
+
+Per aggiungere un fix necessario sopra un bump dependabot (es. config jest per un pacchetto ESM-only, vedi nota su `@nestjs/passport@12` più sotto) senza chiudere/ricreare la PR: branch locale da `origin/<branch-dependabot>`, commit del fix, poi `git push origin <branch-locale>:<branch-dependabot>` — aggiunge il commit alla PR esistente, CI riparte da sola.
 
 `main` è protetta (branch protection API): PR obbligatoria, check `backend`+`frontend` richiesti (branch aggiornata), no force-push/delete, 0 approvazioni umane richieste (CI come unico gate). Push diretti a `main` vengono rifiutati.
 
