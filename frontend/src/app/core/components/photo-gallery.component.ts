@@ -9,6 +9,7 @@ import {
   inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { from, concatMap, catchError, of, type Observable } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -61,14 +62,26 @@ export class PhotoGalleryComponent implements OnInit, OnChanges, OnDestroy {
     const files = input.files;
     if (!files || files.length === 0) return;
 
-    for (const file of Array.from(files)) {
-      if (this.photos.length >= this.maxPhotos) {
-        this.toast.add({ severity: 'warn', summary: 'Limite raggiunto', detail: 'Massimo 10 foto per elemento.' });
-        break;
-      }
-      this.upload(file);
-    }
+    const selected = Array.from(files);
     input.value = '';
+
+    const remainingSlots = Math.max(0, this.maxPhotos - this.photos.length);
+    const toUpload = selected.slice(0, remainingSlots);
+
+    if (selected.length > toUpload.length) {
+      this.toast.add({ severity: 'warn', summary: 'Limite raggiunto', detail: 'Massimo 10 foto per elemento.' });
+    }
+    if (toUpload.length === 0) return;
+
+    this.uploading = true;
+    from(toUpload)
+      .pipe(concatMap((file) => this.upload(file)))
+      .subscribe({
+        complete: () => {
+          this.uploading = false;
+          this.load();
+        },
+      });
   }
 
   confirmDelete(photo: Photo): void {
@@ -84,6 +97,7 @@ export class PhotoGalleryComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private load(): void {
+    if (!this.entityId) return;
     this.photosService.list(this.entityType, this.entityId).subscribe({
       next: (photos) => {
         this.photos = photos;
@@ -105,22 +119,17 @@ export class PhotoGalleryComponent implements OnInit, OnChanges, OnDestroy {
     }
   }
 
-  private upload(file: File): void {
-    this.uploading = true;
-    this.photosService.upload(this.entityType, this.entityId, file).subscribe({
-      next: () => {
-        this.uploading = false;
-        this.load();
-      },
-      error: (err) => {
-        this.uploading = false;
+  private upload(file: File): Observable<Photo | null> {
+    return this.photosService.upload(this.entityType, this.entityId, file).pipe(
+      catchError((err) => {
         this.toast.add({
           severity: 'error',
           summary: 'Errore upload',
           detail: err?.error?.message ?? 'Riprova.',
         });
-      },
-    });
+        return of(null);
+      }),
+    );
   }
 
   private delete(photo: Photo): void {

@@ -85,3 +85,7 @@ src/data-importer/source/*.csv
 # Backup/import working directories (may contain real DB dumps / uploaded CSVs)
 /backups/
 /import-tmp/
+
+# Directory upload foto (bind-mount in dev), may contain real photos of municipal
+# assets/property - dati sensibili, non usare in produzione/non committare
+/photos/

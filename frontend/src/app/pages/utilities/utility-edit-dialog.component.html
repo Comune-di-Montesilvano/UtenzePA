@@ -361,9 +361,11 @@
   </form>
     </mat-tab>
     <mat-tab label="Foto" [disabled]="isNew">
-      <div style="padding: 1rem 0;">
-        <app-photo-gallery [entityType]="'utility'" [entityId]="data.item.id"></app-photo-gallery>
-      </div>
+      <ng-template matTabContent>
+        <div style="padding: 1rem 0;">
+          <app-photo-gallery [entityType]="'utility'" [entityId]="data.item.id"></app-photo-gallery>
+        </div>
+      </ng-template>
     </mat-tab>
   </mat-tab-group>
 </mat-dialog-content>

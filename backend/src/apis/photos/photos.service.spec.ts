@@ -91,6 +91,26 @@ describe('PhotosService', () => {
       expect(photoRepo.save).toHaveBeenCalledWith(expect.objectContaining({ mime_type: 'image/jpeg' }));
       jest.dontMock('heic-convert');
     });
+
+    it('lancia BadRequestException (non 500) se la conversione heic fallisce, senza scrivere file', async () => {
+      jest.doMock('heic-convert', () => jest.fn().mockRejectedValue(new Error('formato non riconosciuto')), {
+        virtual: true,
+      });
+      jest.resetModules();
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { PhotosService: FreshPhotosService } = require('./photos.service');
+      const freshService = new FreshPhotosService(photoRepo as never, assetRepo as never, utilityRepo as never);
+
+      const file = { mimetype: 'image/heic', buffer: Buffer.from('heic-bytes'), originalname: 'foto.heic' } as Express.Multer.File;
+
+      await expect(
+        freshService.create({ entityType: PhotoEntityType.ASSET, entityId: 1 }, file, 1),
+      ).rejects.toMatchObject({ status: 400, message: 'Immagine HEIC non valida o non convertibile' });
+
+      expect(fs.writeFileSync).not.toHaveBeenCalled();
+      expect(photoRepo.save).not.toHaveBeenCalled();
+      jest.dontMock('heic-convert');
+    });
   });
 
   describe('findAll', () => {

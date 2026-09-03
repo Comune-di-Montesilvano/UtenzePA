@@ -48,7 +48,12 @@ export class PhotosService {
     let buffer = file.buffer;
     let mimeType = file.mimetype;
     if (HEIC_MIME_TYPES.includes(mimeType)) {
-      buffer = await this.convertHeicToJpeg(buffer);
+      try {
+        buffer = await this.convertHeicToJpeg(buffer);
+      } catch (error) {
+        this.logger.warn(`Conversione HEIC fallita: ${(error as Error)?.message ?? error}`);
+        throw new BadRequestException('Immagine HEIC non valida o non convertibile');
+      }
       mimeType = 'image/jpeg';
     }
 
