@@ -23,7 +23,7 @@ import { JwtAuthGuard } from '@core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@core/auth/guards/roles.guard';
 import { Roles } from '@core/auth/decorators/roles.decorator';
 import { CurrentUser, ICurrentUser } from '@core/auth/decorators/current-user.decorator';
-import { UploadChunkDto } from './dto/upload-chunk.dto';
+import { UploadChunkDto } from '@common/chunked-upload/dto/upload-chunk.dto';
 import { RestoreFinalizeDto } from './dto/restore-finalize.dto';
 
 @Controller('backup')

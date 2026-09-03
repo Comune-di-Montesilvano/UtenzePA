@@ -17,7 +17,7 @@ import { ImportEntityType } from './entity-type.enum';
 import { JwtAuthGuard } from '@core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@core/auth/guards/roles.guard';
 import { Roles } from '@core/auth/decorators/roles.decorator';
-import { UploadChunkDto } from '@apis/backup/dto/upload-chunk.dto';
+import { UploadChunkDto } from '@common/chunked-upload/dto/upload-chunk.dto';
 import { ImportFinalizeDto } from './dto/import-finalize.dto';
 
 @Controller('import')

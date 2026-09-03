@@ -53,7 +53,7 @@ export const appConfig: ApplicationConfig = {
       const brandingService = inject(BrandingService);
       try {
         const branding = await firstValueFrom(brandingService.load());
-        document.title = `${branding.entity_name} · UtenzePA`;
+        document.title = `UtenzePA - ${branding.entity_name}`;
         if (branding.favicon) {
           const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
           if (link) link.href = branding.favicon;
