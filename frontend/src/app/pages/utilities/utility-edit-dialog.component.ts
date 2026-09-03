@@ -1,7 +1,6 @@
 import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
-import {Router} from '@angular/router';
-import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
+import {MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatSelectModule, MatSelectChange} from '@angular/material/select';
@@ -11,7 +10,7 @@ import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatDatepickerModule} from '@angular/material/datepicker';
 import {MatTabsModule} from '@angular/material/tabs';
 import {plainToInstance} from 'class-transformer';
-import {EditDialogData} from '../../core/components/abstract-data-table.component';
+import {EditDialogData, EDIT_DIALOG_POSITION} from '../../core/components/abstract-data-table.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {AuthService} from '../../services/auth.service';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
@@ -35,6 +34,11 @@ import {ConsipAgreementService} from '../consip-agreement/consip-agreement.servi
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {LocationMapComponent} from '../../core/components/location-map.component';
 import {PhotoGalleryComponent} from '../../core/components/photo-gallery.component';
+import {AssetEditDialogComponent} from '../assets/asset-edit-dialog.component';
+
+// Stessa larghezza usata da MapComponent.openDetail per lo stesso dialog —
+// deve poter ospitare i tab (Dati/Foto) e i gruppi affiancati dell'immobile.
+const ASSET_DIALOG_WIDTH = '1150px';
 
 @Component({
   selector: 'app-utility-edit-dialog',
@@ -50,8 +54,8 @@ import {PhotoGalleryComponent} from '../../core/components/photo-gallery.compone
 export class UtilityEditDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<UtilityEditDialogComponent, Utility | undefined>);
+  private dialog = inject(MatDialog);
   private authService = inject(AuthService);
-  private router = inject(Router);
   private assetsService = inject(AssetService);
   private suppliersService = inject(SuppliersService);
   private utilityAggregatorService = inject(UtilityAggregatorsService);
@@ -220,10 +224,18 @@ export class UtilityEditDialogComponent implements OnInit {
 
   navigateToAsset(assetId: number | null | undefined): void {
     if (!assetId) return;
-    const url = this.router.serializeUrl(
-      this.router.createUrlTree(['/building'], {queryParams: {selectedId: assetId}})
-    );
-    window.open(url, '_blank');
+    // Apre il dialog immobile SOPRA questo (stessa finestra, non una tab
+    // nuova, ne' chiude il dialog contatore sottostante) — stesso pattern
+    // di MapComponent.openDetail. MatDialog impila overlay multipli di suo,
+    // chiudendo l'immobile si torna al contatore ancora aperto e compilato.
+    this.assetsService.getById(assetId).subscribe((asset) => {
+      this.dialog.open(AssetEditDialogComponent, {
+        width: ASSET_DIALOG_WIDTH,
+        maxWidth: ASSET_DIALOG_WIDTH,
+        position: EDIT_DIALOG_POSITION,
+        data: {mode: 'edit', item: asset},
+      });
+    });
   }
 
   navigateToMaps(lat: string | null | undefined, lon: string | null | undefined): void {

@@ -1,3 +1,4 @@
+import { In } from 'typeorm';
 import { MapService } from './map.service';
 
 describe('MapService', () => {
@@ -109,15 +110,45 @@ describe('MapService', () => {
     expect(points[0].icon).toBe('school');
   });
 
-  it('assetAggregatorId filtra anche le utility tramite l\'asset collegato', async () => {
+  it('assetAggregatorIds filtra anche le utility tramite l\'asset collegato', async () => {
     assetRepo.find.mockResolvedValue([]);
     utilityRepo.find.mockResolvedValue([]);
 
-    await service.getPoints({ assetAggregatorId: 3 });
+    await service.getPoints({ assetAggregatorIds: [3, 4] });
 
     expect(utilityRepo.find).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ asset: { asset_type_id: 3 } }),
+        where: expect.objectContaining({ asset: { asset_type_id: In([3, 4]) } }),
+      }),
+    );
+  });
+
+  it('utilityTypeIds filtra anche gli IMMOBILI, non solo le utenze — solo asset con almeno una utenza del tipo', async () => {
+    utilityRepo.find
+      // Prima chiamata: query dedicata id-immobili-qualificanti.
+      .mockResolvedValueOnce([{ asset_id_fk: 7 }, { asset_id_fk: 7 }, { asset_id_fk: 9 }])
+      // Seconda chiamata: utenze per i punti mappa (stesso filtro, irrilevante qui).
+      .mockResolvedValueOnce([]);
+    assetRepo.find.mockResolvedValue([]);
+
+    await service.getPoints({ utilityTypeIds: [5] });
+
+    expect(assetRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: In([7, 9]) }),
+      }),
+    );
+  });
+
+  it('utilityTypeIds senza nessuna utenza corrispondente esclude tutti gli immobili (sentinella, non "IN ()")', async () => {
+    utilityRepo.find.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    assetRepo.find.mockResolvedValue([]);
+
+    await service.getPoints({ utilityTypeIds: [999] });
+
+    expect(assetRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: In([-1]) }),
       }),
     );
   });

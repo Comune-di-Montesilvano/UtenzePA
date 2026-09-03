@@ -8,8 +8,8 @@ import { MapPointsResponse } from './map-point.entity';
 export interface MapPointsFilters {
   showAssets?: boolean;
   showUtilities?: boolean;
-  assetAggregatorId?: number | null;
-  utilityTypeId?: number | null;
+  assetAggregatorIds?: number[] | null;
+  utilityTypeIds?: number[] | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -21,7 +21,9 @@ export class MapService {
   getPoints(filters: MapPointsFilters): Observable<MapPointsResponse> {
     let params = new HttpParams();
     Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
+      if (Array.isArray(value)) {
+        if (value.length > 0) params = params.set(key, value.join(','));
+      } else if (value !== undefined && value !== null && value !== '') {
         params = params.set(key, String(value));
       }
     });

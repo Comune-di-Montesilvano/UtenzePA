@@ -11,6 +11,17 @@ export interface EditDialogData<T> {
   item: T;
 }
 
+// MatDialog di default centra verticalmente sul contenuto attuale — con un
+// mat-tab-group dentro (Dati/Foto/Acqua/Luce/Gas/Internet, altezze molto
+// diverse tra loro) ogni cambio tab faceva saltare l'intero dialog su/giù,
+// il top si spostava insieme al centro. Un top fisso invece non si sposta
+// mai: il dialog cresce/si accorcia verso il basso, non serve un'altezza
+// fissa che avrebbe forzato uno scroll interno vuoto sui tab piu' corti
+// (visto: Gas con 11 righe, molto meno alto di Dati, mostrava comunque una
+// scrollbar). Stessa costante riusata da ogni punto che apre questi due
+// dialog (asset-edit-dialog/utility-edit-dialog), non solo qui.
+export const EDIT_DIALOG_POSITION = {top: '5vh'};
+
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   template: ''
@@ -96,6 +107,7 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
     this.dialog.open<unknown, EditDialogData<T>, T | undefined>(this.editDialogComponent(), {
       width: this.editDialogWidth(),
       maxWidth: this.editDialogWidth(),
+      position: EDIT_DIALOG_POSITION,
       data: {mode: 'create', item: this.itemInstance()}
     }).afterClosed().subscribe(result => {
       if (result) this.onCreate.emit(result);
@@ -106,6 +118,7 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
     this.dialog.open<unknown, EditDialogData<T>, T | undefined>(this.editDialogComponent(), {
       width: this.editDialogWidth(),
       maxWidth: this.editDialogWidth(),
+      position: EDIT_DIALOG_POSITION,
       data: {mode: 'edit', item: {...item}}
     }).afterClosed().subscribe(result => {
       if (result) this.onSave.emit(result);

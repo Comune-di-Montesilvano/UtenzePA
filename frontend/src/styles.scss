@@ -210,6 +210,8 @@ p-paginator.p-component.p-paginator {
   box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
   color: #fff;
   font-size: 12px;
+  cursor: pointer;
+  transition: transform 0.1s ease-out;
 
   // Il foglio Material Icons ufficiale forza font-size:24px sulla classe
   // .material-icons (icone aggregati immobili) — troppo grande per il pin
@@ -217,6 +219,14 @@ p-paginator.p-component.p-paginator {
   // globale, vedi commento sopra).
   .material-icons {
     font-size: 16px;
+  }
+
+  // Stesso feedback hover del badge gruppo (vedi .map-pin-badge--group) ma
+  // qui su ogni marker, singolo o di gruppo — coerenza visiva "questo si
+  // clicca" ovunque sulla mappa, non solo sui badge.
+  &:hover {
+    transform: scale(1.15);
+    z-index: 1000 !important;
   }
 }
 
@@ -262,6 +272,69 @@ p-paginator.p-component.p-paginator {
   box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
 }
 
+// Marker "gruppo" (piu' elementi sovrapposti in modo ambiguo, vedi
+// MapComponent.needsCombinedPicker) — pin piu' grande del normale (26px)
+// per ospitare due badge separati leggibili senza accavallarli.
+.map-marker-wrap--group .map-pin {
+  width: 34px;
+  height: 34px;
+
+  .material-icons {
+    font-size: 20px;
+  }
+}
+
+// Due badge distinti sul marker gruppo — edifici (viola/ametista, sinistra)
+// e contatori (blu, destra), colori diversi apposta per non confonderli tra
+// loro ne' con il badge rosso "N contatori collegati" del caso normale. Piu'
+// grandi e piu' staccati dal bordo del pin di quanto sarebbero su un
+// marker piccolo, altrimenti a icona+numero risultano illeggibili.
+.map-pin-badge--group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  top: -10px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  line-height: 22px;
+  font-size: 11px;
+  border-radius: 11px;
+  border-width: 2px;
+  cursor: pointer;
+  transition: transform 0.1s ease-out;
+
+  .material-icons {
+    font-size: 14px;
+  }
+
+  // Feedback visivo che il badge e' cliccabile per conto suo, distinto dal
+  // click sul pin (vedi MapComponent, data-badge-filter) — combinato con
+  // translateX(-50%) qui sotto, non lo sostituisce.
+  &:hover {
+    transform: translateX(-50%) scale(1.15);
+  }
+}
+
+// Sopra/sotto invece che sinistra/destra: centrati orizzontalmente,
+// leggibili anche con marker vicini sui due lati.
+.map-pin-badge--buildings {
+  top: -24px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  background: #f59e0b;
+}
+
+.map-pin-badge--utilities {
+  top: auto;
+  bottom: -24px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  background: #0284c7;
+}
+
 // Popup di scelta immobile/contatore (MapComponent.openAssetOrPicker) —
 // stesso motivo "innerHTML raw" delle altre regole in questo blocco.
 .map-picker-list {
@@ -286,6 +359,39 @@ p-paginator.p-component.p-paginator {
 
   &:hover {
     background: #f7f7f7;
+  }
+}
+
+.map-picker-item-label {
+  flex: 1;
+}
+
+// Contatore elencato sotto un immobile ma con posizione GPS propria diversa
+// (utilitiesByAsset raggruppa per asset_id_fk, non per coordinata reale) —
+// bordo tratteggiato + bottone dedicato per non confonderlo con chi sta
+// davvero in questo punto, vedi MapComponent.openAssetOrPicker.
+.map-picker-item--elsewhere {
+  border-left: 3px dashed #f59e0b;
+  padding-left: calc(0.25rem - 3px);
+}
+
+.map-picker-goto {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0.15rem;
+  border-radius: 50%;
+  color: #f59e0b;
+
+  &:hover {
+    background: rgba(245, 158, 11, 0.15);
+  }
+
+  .material-icons {
+    font-size: 18px;
   }
 }
 

@@ -5,6 +5,7 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatAutocompleteModule, MatAutocompleteSelectedEvent} from '@angular/material/autocomplete';
 import {ErrorStateMatcher} from '@angular/material/core';
+import {MatIconModule} from '@angular/material/icon';
 import {TOption} from '../types/option.interface';
 
 /**
@@ -17,7 +18,7 @@ import {TOption} from '../types/option.interface';
 @Component({
   selector: 'app-filterable-select',
   standalone: true,
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatAutocompleteModule],
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatAutocompleteModule, MatIconModule],
   template: `
     <mat-form-field style="width: 100%;">
       <mat-label>{{ label }}</mat-label>
@@ -31,7 +32,17 @@ import {TOption} from '../types/option.interface';
              (blur)="markTouched()">
       <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayFn" (optionSelected)="onOptionSelected($event)">
         @for (opt of filteredOptions; track opt.value) {
-          <mat-option [value]="opt">{{ opt.label }}</mat-option>
+          <mat-option [value]="opt">
+            <span style="display: inline-flex; align-items: center; gap: 8px;">
+              @if (opt.icon) {
+                <mat-icon style="font-size: 20px; height: 20px; width: 20px; vertical-align: middle;">{{ opt.icon }}</mat-icon>
+              }
+              <span>{{ opt.label }}</span>
+              @if (opt.count != null) {
+                <span style="color: #757575; font-size: 0.85em;">({{ opt.count }})</span>
+              }
+            </span>
+          </mat-option>
         }
       </mat-autocomplete>
       @if (errorMessage) {

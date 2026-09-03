@@ -3,7 +3,7 @@ publiccodeYmlVersion: "0"
 name: UtenzePA
 url: "https://github.com/Comune-di-Montesilvano/UtenzePA.git"
 landingURL: "https://github.com/Comune-di-Montesilvano/UtenzePA"
-softwareVersion: "v1.0.5"
+softwareVersion: "v1.0.7"
 releaseDate: "2026-09-03"
 
 platforms:

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Asset } from '@apis/asset/entity/asset.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
@@ -60,11 +60,30 @@ export class MapService {
     const points: MapPoint[] = [];
     const ungeolocated: UngeolocatedItem[] = [];
 
+    // Id degli immobili con almeno un'utenza del/i tipo/i selezionato/i — il
+    // filtro "Tipo utenza" deve restringere anche gli IMMOBILI (non solo i
+    // contatori sparsi), indipendentemente dal checkbox "Utenze": un immobile
+    // senza nessuna utenza di quel tipo non deve comparire. Query dedicata
+    // (non riusa quella sotto per i punti-utenza, che applica anche il
+    // filtro aggregato — qui serve il solo filtro tipo, sull'intero parco).
+    // In([]) su MySQL/TypeORM genera "IN ()" non valido — [-1] sentinella
+    // forza zero risultati quando nessuna utenza corrisponde, invece di
+    // omettere per errore il filtro (asset_id_fk non è mai negativo).
+    let qualifyingAssetIds: number[] | null = null;
+    if (filters.utilityTypeIds?.length) {
+      const rows = await this.utilityRepo.find({
+        where: { deleted: false, utility_type_id_fk: In(filters.utilityTypeIds) },
+        select: { asset_id_fk: true },
+      });
+      qualifyingAssetIds = [...new Set(rows.map((r) => r.asset_id_fk))];
+    }
+
     if (showAssets) {
       const assets = await this.assetRepo.find({
         where: {
           deleted: false,
-          ...(filters.assetAggregatorId ? { asset_type_id: filters.assetAggregatorId } : {}),
+          ...(filters.assetAggregatorIds?.length ? { asset_type_id: In(filters.assetAggregatorIds) } : {}),
+          ...(qualifyingAssetIds !== null ? { id: In(qualifyingAssetIds.length ? qualifyingAssetIds : [-1]) } : {}),
         },
         relations: { assetAggregator: true },
       });
@@ -97,12 +116,12 @@ export class MapService {
       const utilities = await this.utilityRepo.find({
         where: {
           deleted: false,
-          ...(filters.utilityTypeId ? { utility_type_id_fk: filters.utilityTypeId } : {}),
+          ...(filters.utilityTypeIds?.length ? { utility_type_id_fk: In(filters.utilityTypeIds) } : {}),
           // Il filtro aggregato immobile va applicato anche alle utenze (tramite
           // l'asset collegato) — altrimenti col checkbox "Contatori" attivo i
           // contatori restano sempre tutti visibili, filtro senza effetto visibile.
-          ...(filters.assetAggregatorId
-            ? { asset: { asset_type_id: filters.assetAggregatorId } }
+          ...(filters.assetAggregatorIds?.length
+            ? { asset: { asset_type_id: In(filters.assetAggregatorIds) } }
             : {}),
         },
         relations: { asset: true, utilityType: true },

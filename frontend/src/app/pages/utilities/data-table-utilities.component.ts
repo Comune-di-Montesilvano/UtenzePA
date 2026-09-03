@@ -1,5 +1,4 @@
-import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
-import {Router} from '@angular/router';
+import {Component, Type, ChangeDetectionStrategy, inject} from '@angular/core';
 import {DatePipe} from '@angular/common';
 import {MatTableModule} from '@angular/material/table';
 import {MatSort, MatSortModule} from '@angular/material/sort';
@@ -14,15 +13,21 @@ import {FormsModule} from '@angular/forms';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {Utility} from './entity/utility.entity';
-import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
+import {AbstractDataTableComponent, EDIT_DIALOG_POSITION} from '../../core/components/abstract-data-table.component';
 import {UtilityEditDialogComponent} from './utility-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
+import {AssetEditDialogComponent} from '../assets/asset-edit-dialog.component';
+import {AssetService} from '../assets/asset.service';
 import {UtilityAggregatorsService} from '../utility-aggregator/utility-aggregator.service';
 import {UtilityAggregator} from '../utility-aggregator/entity/utility-aggregator.entity';
 import {ExpireState} from './enum/expire-state.enum';
 import {ExportHelper} from '../../core/helpers/export.helper';
 import {TruncatePipe} from '../../core/pipes/truncate.pipe';
 import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
+
+// Stessa larghezza usata per questo dialog altrove (vedi ASSET_DIALOG_WIDTH
+// in UtilityEditDialogComponent) — tab + gruppi affiancati dell'immobile.
+const ASSET_DIALOG_WIDTH = '1150px';
 
 @Component({
   selector: 'app-data-table-utilities',
@@ -36,6 +41,7 @@ import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
   templateUrl: './data-table-utilities.component.html'
 })
 export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Utility> {
+  private assetService = inject(AssetService);
 
   maxDescLength = 50;
 
@@ -108,7 +114,6 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
 
   constructor(
     screen: ScreenSizeService,
-    private readonly router: Router,
     private readonly utilityAggregatorService: UtilityAggregatorsService
   ) {
     super(screen);
@@ -203,10 +208,17 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
 
   navigateToAsset(assetId: number | null | undefined): void {
     if (!assetId) return;
-    const url = this.router.serializeUrl(
-      this.router.createUrlTree(['/building'], {queryParams: {selectedId: assetId}})
-    );
-    window.open(url, '_blank');
+    // Sopra la pagina tabella (stessa finestra), non una tab nuova — stesso
+    // pattern usato nei dialog di modifica (UtilityEditDialogComponent.
+    // navigateToAsset / AssetEditDialogComponent.openUtilityDetail).
+    this.assetService.getById(assetId).subscribe((asset) => {
+      this.dialog.open(AssetEditDialogComponent, {
+        width: ASSET_DIALOG_WIDTH,
+        maxWidth: ASSET_DIALOG_WIDTH,
+        position: EDIT_DIALOG_POSITION,
+        data: {mode: 'edit', item: asset},
+      });
+    });
   }
 
   protected override exportCellValue(utility: Utility, field: string): string {
