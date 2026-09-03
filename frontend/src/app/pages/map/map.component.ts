@@ -92,6 +92,12 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   // direttamente per id).
   private assetMarkers = new Map<number, L.Marker>();
 
+  // Popolata a ogni renderPoints() — stesso motivo di assetMarkers ma per le
+  // utenze: serve a "Vai al punto reale sulla mappa" nel selettore
+  // (openAssetOrPicker) quando un contatore elencato sotto un immobile ha in
+  // realta' una posizione propria diversa (vedi isElsewhere sotto).
+  private utilityMarkers = new Map<number, L.Marker>();
+
   // Popolata a ogni renderPoints() — utenze collegate a ciascun asset, usata
   // dal marker immobile per offrire un selettore quando ha contatori
   // sovrapposti (vedi openAssetOrPicker): senza, un click sul marker
@@ -139,6 +145,19 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     // Asset non presente tra i punti mappati correnti (es. escluso dal filtro
     // aggregato attivo, o non geolocalizzato) — apri comunque la scheda.
     this.openDetail({ id, type: 'asset' } as UngeolocatedItem);
+  }
+
+  // Usato dal selettore contatori (openAssetOrPicker) per "Vai al punto
+  // reale sulla mappa" — un contatore elencato sotto un immobile puo' avere
+  // una posizione propria diversa (isElsewhere), il suo marker vero e proprio
+  // e' altrove, spesso in un cluster diverso. Stesso pattern di goToAsset.
+  private goToUtility(id: number): void {
+    if (!this.map) return;
+    const marker = this.utilityMarkers.get(id);
+    if (!marker || !this.clusterGroup) return;
+    this.clusterGroup.zoomToShowLayer(marker, () => {
+      this.map?.setView(marker.getLatLng(), Math.max(this.map.getZoom(), 18));
+    });
   }
 
   async ngAfterViewInit(): Promise<void> {
@@ -240,6 +259,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     this.clusterGroup.clearLayers();
     this.linksLayer?.clearLayers();
     this.assetMarkers.clear();
+    this.utilityMarkers.clear();
 
     // Posizione di ogni immobile — serve a confrontarla con quella dei
     // contatori collegati (vedi loop più sotto) per disegnare la linea di
@@ -302,6 +322,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       marker.on('click', () => (isAsset ? this.openAssetOrPicker(point) : this.openDetail(point)));
       this.clusterGroup.addLayer(marker);
       if (isAsset) this.assetMarkers.set(point.id, marker);
+      else this.utilityMarkers.set(point.id, marker);
 
       // Linea tratteggiata verso l'immobile associato — solo per contatori
       // con posizione propria distinta (vedi assetLatLngById sopra).
@@ -347,28 +368,53 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    const items: { label: string; point: MapPoint }[] = [
-      { label: `${point.name} (immobile)`, point },
+    const assetLat = CoordinateHelper.parseCoordinate(point.lat);
+    const assetLng = CoordinateHelper.parseCoordinate(point.lng);
+
+    // utilitiesByAsset raggruppa per asset_id_fk, non per posizione reale: un
+    // contatore con GPS proprio diverso dall'immobile (isElsewhere) compare
+    // comunque in questa lista pur non essendo fisicamente qui — stesso
+    // confronto usato per decidere se disegnare la linea tratteggiata (vedi
+    // sopra, assetLatLngById). Senza distinguerli in UI sono indistinguibili
+    // da quelli davvero in questo punto (bug segnalato: contatore che sembra
+    // "collegato a piu' immobili" — in realta' piu' contatori diversi nello
+    // stesso punto, ciascuno con un solo asset, uno dei quali elencato qui
+    // "di passaggio" pur stando altrove).
+    const items: { label: string; point: MapPoint; elsewhere: boolean }[] = [
+      { label: `${point.name} (immobile)`, point, elsewhere: false },
       ...utilities.map((u) => ({
         label: `${u.hardType ? this.hardTypeLegend.find((t) => t.value === u.hardType)?.label : 'Utenza'} — ${u.name}`,
         point: u,
+        elsewhere:
+          CoordinateHelper.parseCoordinate(u.lat) !== assetLat ||
+          CoordinateHelper.parseCoordinate(u.lng) !== assetLng,
       })),
     ];
 
     // Stessa icona/colore del marker mappa per ogni voce — non solo testo
-    // ("Luce — UT-1"), coerenza visiva col resto della mappa.
+    // ("Luce — UT-1"), coerenza visiva col resto della mappa. Le voci
+    // "altrove" hanno in più un bottone che centra la mappa sulla loro
+    // posizione reale invece di aprire subito la scheda (due target di click
+    // distinti nella stessa riga, vedi bind sotto).
     const listHtml = items
       .map((it, i) => {
         const { iconHtml, color } = this.pointIcon(it.point);
-        return `<li data-idx="${i}" class="map-picker-item">
+        const elsewhereBtn = it.elsewhere
+          ? `<button type="button" data-goto-idx="${i}" class="map-picker-goto"
+               title="Posizione diversa dall'immobile — vai al punto reale sulla mappa">
+               <span class="material-icons">near_me</span>
+             </button>`
+          : '';
+        return `<li data-idx="${i}" class="map-picker-item${it.elsewhere ? ' map-picker-item--elsewhere' : ''}">
           <span class="map-pin map-pin-inline" style="background:${color}">${iconHtml}</span>
-          ${it.label}
+          <span class="map-picker-item-label">${it.label}</span>
+          ${elsewhereBtn}
         </li>`;
       })
       .join('');
 
     const popup = L.popup({ closeButton: true, autoPan: true })
-      .setLatLng([CoordinateHelper.parseCoordinate(point.lat), CoordinateHelper.parseCoordinate(point.lng)])
+      .setLatLng([assetLat, assetLng])
       .setContent(`<ul class="map-picker-list">${listHtml}</ul>`)
       .openOn(this.map);
 
@@ -381,6 +427,17 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         const idx = Number(li.dataset['idx']);
         this.map?.closePopup();
         this.openDetail(items[idx].point);
+      });
+    });
+    // Bottone "vai al punto reale": stopPropagation per non far scattare
+    // anche il click della riga (che aprirebbe la scheda invece di navigare).
+    el?.querySelectorAll<HTMLButtonElement>('[data-goto-idx]').forEach((btn) => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const idx = Number(btn.dataset['gotoIdx']);
+        const target = items[idx].point;
+        this.map?.closePopup();
+        if (target.type === 'utility') this.goToUtility(target.id);
       });
     });
   }

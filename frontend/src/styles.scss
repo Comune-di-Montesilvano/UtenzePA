@@ -289,6 +289,39 @@ p-paginator.p-component.p-paginator {
   }
 }
 
+.map-picker-item-label {
+  flex: 1;
+}
+
+// Contatore elencato sotto un immobile ma con posizione GPS propria diversa
+// (utilitiesByAsset raggruppa per asset_id_fk, non per coordinata reale) —
+// bordo tratteggiato + bottone dedicato per non confonderlo con chi sta
+// davvero in questo punto, vedi MapComponent.openAssetOrPicker.
+.map-picker-item--elsewhere {
+  border-left: 3px dashed #f59e0b;
+  padding-left: calc(0.25rem - 3px);
+}
+
+.map-picker-goto {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0.15rem;
+  border-radius: 50%;
+  color: #f59e0b;
+
+  &:hover {
+    background: rgba(245, 158, 11, 0.15);
+  }
+
+  .material-icons {
+    font-size: 18px;
+  }
+}
+
 .location-map-pin {
   display: inline-block;
   width: 16px;
