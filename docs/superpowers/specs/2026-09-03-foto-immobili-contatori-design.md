@@ -87,10 +87,13 @@ Migrazione generata dentro il container dopo la creazione dell'entity
   `docker-compose.yml` — produzione — sia a `docker-compose.override.yml` —
   bind mount dev, stesso pattern di `backups_data`).
 - `PhotosService.savePhotoFile()`: riceve buffer + mime originale.
-  - Se mime è `heic`/`heif`: conversione a JPEG (`sharp` + `heic-convert` —
-    nuove dipendenze backend, allowlisted in `pnpm-workspace.yaml`
-    `allowBuilds` se richiedono build script nativi, stesso trattamento già
-    riservato a `bcrypt`).
+  - Se mime è `heic`/`heif`: conversione a JPEG via `heic-convert` (pacchetto
+    puro JS/WASM, nessun binario nativo da compilare — `sharp` non serve: i
+    suoi binari precompilati non includono più il supporto HEIC per motivi
+    di licenza, e v1 non richiede altre operazioni immagine oltre alla
+    conversione formato). Se l'install rivela comunque uno script di build
+    per una dipendenza transitiva, va allowlisted in `pnpm-workspace.yaml`
+    `allowBuilds` (stesso trattamento già riservato a `bcrypt`).
   - Altrimenti: scrittura diretta del buffer originale (nessuna
     ricompressione per jpeg/png/webp — evita perdita qualità/costo CPU non
     necessario).
