@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, AfterViewInit, OnChanges, OnDestroy, SimpleChanges, ChangeDetectionStrategy, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, AfterViewInit, OnChanges, OnDestroy, SimpleChanges, ChangeDetectionStrategy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import * as L from 'leaflet';
@@ -43,7 +43,7 @@ const ESTIMATED_PIN_ICON = L.divIcon({
   templateUrl: './location-map.component.html',
   styleUrls: ['./location-map.component.scss'],
 })
-export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy {
+export class LocationMapComponent implements OnInit, AfterViewInit, OnChanges, OnDestroy {
   @Input() latitude: string | null = null;
   @Input() longitude: string | null = null;
   // Posizione stimata da geocodifica (asset senza GPS reale, vedi
@@ -82,6 +82,16 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
     return [lat, lng];
   }
 
+  ngOnInit(): void {
+    // Va impostato qui, non in ngAfterViewInit: gli @Input sono già
+    // popolati a questo punto del lifecycle, ma il template non è ancora
+    // stato controllato per il primo giro — mutarlo dopo (in
+    // ngAfterViewInit, che gira DOPO il primo check) genera
+    // ExpressionChangedAfterItHasBeenCheckedError (NG0100) sotto
+    // ChangeDetectionStrategy.Eager, verificato in browser.
+    this.usingOwnPosition = !this.previewOnly;
+  }
+
   ngAfterViewInit(): void {
     const knownLatLng = this.currentLatLng() ?? this.estimatedLatLng();
     this.map = L.map(this.canvasId).setView(knownLatLng ?? this.DEFAULT_CENTER, knownLatLng ? 16 : 13);
@@ -91,8 +101,6 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
     }).addTo(this.map);
 
     this.renderMarker();
-
-    this.usingOwnPosition = !this.previewOnly;
 
     // Listener attaccato sempre, una volta sola — l'emissione è gated su
     // usingOwnPosition (letto al momento del click, non al bind) invece di
