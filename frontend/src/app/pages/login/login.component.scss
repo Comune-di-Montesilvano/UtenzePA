@@ -27,10 +27,45 @@ button.second-button {
     padding: 0 2rem;
     background-color: #F9FAFB;
 
-    .brand-logo {
-      max-height: 40px;
-      max-width: 200px;
+    .brand-header {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.875rem;
       margin-bottom: 0.5rem;
+
+      // La regola globale "h2, p { text-align: center }" (fondo file)
+      // centra titolo e sottotitolo ciascuno sulla propria riga — con due
+      // testi di larghezza diversa ("UtenzePA" vs "Comune di Montesilvano")
+      // i bordi sinistri non coincidono, effetto sbandierato/sporco.
+      // Allineati a sinistra tra loro, il blocco intero resta centrato
+      // nel pannello grazie a justify-content:center sopra.
+      .brand-text {
+        text-align: left;
+
+        h2 {
+          margin: 0;
+          line-height: 1.15;
+        }
+
+        p {
+          margin: 0.2rem 0 0;
+          padding-bottom: 0;
+        }
+      }
+    }
+
+    .brand-logo {
+      // max-width/max-height da soli, dentro un flex row, vincolerebbero
+      // le due dimensioni indipendentemente invece di preservare le
+      // proporzioni originali del logo (visto: uno stemma quadrato
+      // 824x824 stirato in un rettangolo) — width/height:auto le lega
+      // di nuovo al rapporto reale dell'immagine entro i due massimi.
+      max-height: 56px;
+      max-width: 200px;
+      width: auto;
+      height: auto;
+      flex-shrink: 0;
     }
 
     h1 {
