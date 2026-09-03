@@ -734,8 +734,15 @@ export class DataImporterService {
         disconnection_ability: row['disalimentabilIt\u00e0 UTENZA']?.trim() || null,
         meter_verified,
         budget_chapter_code_fk,
-        latitude: row['latitudine']?.trim() || null,
-        longitude: row['longitudine']?.trim() || null,
+        // Colonna Access in locale italiano (virgola come separatore decimale).
+        // Normalizzata a punto qui: il resto dell'app (validatore input mappa,
+        // parseFloat in map.component.ts/location-map.component.ts) assume
+        // sempre notazione a punto — un valore con virgola passato cosi'
+        // com'e' viene troncato al primo carattere non numerico da parseFloat
+        // (es. "42,514025554127" -> 42), piazzando il marker a decine di km
+        // di distanza senza nessun errore visibile.
+        latitude: row['latitudine']?.trim().replace(',', '.') || null,
+        longitude: row['longitudine']?.trim().replace(',', '.') || null,
         created_by_user_id: SYSTEM_USER_ID,
         updated_by_user_id: SYSTEM_USER_ID,
       });

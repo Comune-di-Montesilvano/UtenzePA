@@ -20,6 +20,7 @@ import { HardType, HardTypeIcon, HardTypeColor } from '../utility-types/enum/har
 import { BrandingService } from '../../services/branding.service';
 import { AuthService } from '../../services/auth.service';
 import { ASSET_AGGREGATOR_ICON_FALLBACK } from '../asset-aggregator/enum/asset-aggregator-icon.enum';
+import { CoordinateHelper } from '../../core/helpers/coordinate.helper';
 
 // Fallback per gli immobili senza icona custom sull'aggregato collegato (o
 // aggregato non ancora caricato) — Material Icons (vedi
@@ -153,8 +154,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     await import('leaflet.markercluster');
 
     const branding = this.brandingService.current();
-    const brandingLat = parseFloat(branding.default_latitude);
-    const brandingLng = parseFloat(branding.default_longitude);
+    const brandingLat = CoordinateHelper.parseCoordinate(branding.default_latitude);
+    const brandingLng = CoordinateHelper.parseCoordinate(branding.default_longitude);
     const defaultCenter: L.LatLngExpression =
       Number.isFinite(brandingLat) && Number.isFinite(brandingLng)
         ? [brandingLat, brandingLng]
@@ -248,8 +249,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     const assetLatLngById = new Map<number, { lat: number; lng: number }>();
     for (const p of points) {
       if (p.type !== 'asset') continue;
-      const lat = parseFloat(p.lat);
-      const lng = parseFloat(p.lng);
+      const lat = CoordinateHelper.parseCoordinate(p.lat);
+      const lng = CoordinateHelper.parseCoordinate(p.lng);
       if (!Number.isNaN(lat) && !Number.isNaN(lng)) assetLatLngById.set(p.id, { lat, lng });
     }
 
@@ -270,8 +271,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     for (const point of points) {
-      const lat = parseFloat(point.lat);
-      const lng = parseFloat(point.lng);
+      const lat = CoordinateHelper.parseCoordinate(point.lat);
+      const lng = CoordinateHelper.parseCoordinate(point.lng);
       if (Number.isNaN(lat) || Number.isNaN(lng)) continue;
 
       const isAsset = point.type === 'asset';
@@ -367,7 +368,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       .join('');
 
     const popup = L.popup({ closeButton: true, autoPan: true })
-      .setLatLng([parseFloat(point.lat), parseFloat(point.lng)])
+      .setLatLng([CoordinateHelper.parseCoordinate(point.lat), CoordinateHelper.parseCoordinate(point.lng)])
       .setContent(`<ul class="map-picker-list">${listHtml}</ul>`)
       .openOn(this.map);
 

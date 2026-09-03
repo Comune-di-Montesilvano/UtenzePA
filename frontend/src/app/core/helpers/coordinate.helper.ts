@@ -1,5 +1,18 @@
 export class CoordinateHelper {
 
+  /**
+   * Converte una stringa coordinata in number, tollerando la virgola come
+   * separatore decimale (dati storici importati da fonte in locale italiano,
+   * es. Access/Excel) oltre al punto standard. `parseFloat` da solo si ferma
+   * al primo carattere non numerico ("42,514025554127" -> 42), piazzando un
+   * marker a decine di km dalla posizione reale senza nessun errore visibile
+   * — vedi coordinate contatori importate da UTENZE.accdb.
+   */
+  static parseCoordinate(value: string | null | undefined): number {
+    if (value == null) return NaN;
+    return parseFloat(value.replace(',', '.'));
+  }
+
   static filterCoordinateInput(event: KeyboardEvent): void {
     if (!event.key) return;
 

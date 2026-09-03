@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import * as L from 'leaflet';
 import { BrandingService } from '../../services/branding.service';
+import { CoordinateHelper } from '../helpers/coordinate.helper';
 
 let instanceCounter = 0;
 
@@ -76,8 +77,8 @@ export class LocationMapComponent implements OnInit, AfterViewInit, OnChanges, O
 
   private get DEFAULT_CENTER(): L.LatLngExpression {
     const branding = this.brandingService.current();
-    const lat = parseFloat(branding.default_latitude);
-    const lng = parseFloat(branding.default_longitude);
+    const lat = CoordinateHelper.parseCoordinate(branding.default_latitude);
+    const lng = CoordinateHelper.parseCoordinate(branding.default_longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return SAFE_DEFAULT_CENTER;
     return [lat, lng];
   }
@@ -155,8 +156,8 @@ export class LocationMapComponent implements OnInit, AfterViewInit, OnChanges, O
   }
 
   private parseLatLng(latitude: string | null, longitude: string | null): L.LatLngExpression | null {
-    const lat = parseFloat(latitude ?? '');
-    const lng = parseFloat(longitude ?? '');
+    const lat = CoordinateHelper.parseCoordinate(latitude);
+    const lng = CoordinateHelper.parseCoordinate(longitude);
     if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
     return [lat, lng];
   }
