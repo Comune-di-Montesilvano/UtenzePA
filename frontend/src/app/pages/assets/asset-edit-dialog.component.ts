@@ -27,6 +27,7 @@ import {TruncatePipe} from '../../core/pipes/truncate.pipe';
 import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
 import {DatePipe} from '@angular/common';
 import {LocationMapComponent} from '../../core/components/location-map.component';
+import {PhotoGalleryComponent} from '../../core/components/photo-gallery.component';
 
 @Component({
   selector: 'app-asset-edit-dialog',
@@ -50,6 +51,7 @@ import {LocationMapComponent} from '../../core/components/location-map.component
     FormatAmountPipe,
     DatePipe,
     LocationMapComponent,
+    PhotoGalleryComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './asset-edit-dialog.component.html'
