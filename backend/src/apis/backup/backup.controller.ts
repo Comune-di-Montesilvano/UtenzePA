@@ -100,8 +100,12 @@ export class BackupController {
       this.tmpDir,
       `${dto.uploadId}.sql`,
     );
+    const excludeTables: string[] = [
+      ...(dto.excludeUsers ? ['system_users'] : []),
+      ...(dto.excludeBranding ? ['app_settings'] : []),
+    ];
     try {
-      await this.service.restoreFromFile(filePath);
+      await this.service.restoreFromFile(filePath, excludeTables);
     } finally {
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }

@@ -13,7 +13,7 @@ import { ToastService } from '../../core/services/toast.service';
 import { BackupService, BackupInfo } from './backup.service';
 import { ImportService } from './import.service';
 import { GeocodeService, RegeocodeAllStatus } from './geocode.service';
-import { RestoreConfirmDialogComponent, RestoreConfirmDialogData } from './restore-confirm-dialog.component';
+import { RestoreConfirmDialogComponent, RestoreConfirmDialogData, RestoreConfirmDialogResult } from './restore-confirm-dialog.component';
 
 // Poll piu' rado di quanto Nominatim possa mai completare una singola
 // geocodifica (throttle 1.1s + eventuali retry su 429) — non ha senso
@@ -198,12 +198,12 @@ export class BackupImportComponent implements OnDestroy {
     this.restoreFile = input.files?.[0] ?? null;
     if (!this.restoreFile) return;
 
-    this.dialog.open<RestoreConfirmDialogComponent, RestoreConfirmDialogData, string | undefined>(
+    this.dialog.open<RestoreConfirmDialogComponent, RestoreConfirmDialogData, RestoreConfirmDialogResult | undefined>(
       RestoreConfirmDialogComponent,
       { width: '450px', data: { fileName: this.restoreFile.name } }
-    ).afterClosed().subscribe(password => {
-      if (password) {
-        this.confirmRestore(password);
+    ).afterClosed().subscribe(result => {
+      if (result) {
+        this.confirmRestore(result);
       } else {
         this.restoreFile = null;
       }
@@ -211,11 +211,14 @@ export class BackupImportComponent implements OnDestroy {
     });
   }
 
-  private confirmRestore(password: string) {
+  private confirmRestore(result: RestoreConfirmDialogResult) {
     if (!this.restoreFile) return;
 
     this.restoring = true;
-    this.backupService.restore(this.restoreFile, password).subscribe({
+    this.backupService.restore(this.restoreFile, result.password, {
+      excludeUsers: result.excludeUsers,
+      excludeBranding: result.excludeBranding,
+    }).subscribe({
       next: () => {
         this.restoring = false;
         this.restoreFile = null;
