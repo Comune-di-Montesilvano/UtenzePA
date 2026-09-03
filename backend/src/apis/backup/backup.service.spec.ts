@@ -32,6 +32,7 @@ describe('BackupService', () => {
   afterEach(() => {
     fs.rmSync(backupDir, { recursive: true, force: true });
     delete process.env.BACKUP_DIR;
+    delete process.env.PHOTOS_DIR;
   });
 
   it('createBackup si connette al DB con la config corretta e produce un file .sql', async () => {
@@ -45,9 +46,20 @@ describe('BackupService', () => {
     expect(mysql2Promise.createConnection).toHaveBeenCalledWith(
       expect.objectContaining({ host: 'localhost', port: 3306, user: 'root', password: 'secret', database: 'mydatabase' }),
     );
-    expect(result.filename).toMatch(/^utenzepa_\d{8}_\d{6}\.sql$/);
+    expect(result.filename).toMatch(/^utenzepa_\d{8}_\d{6}_[A-Za-z0-9._-]+\.sql$/);
     expect(fs.existsSync(path.join(backupDir, result.filename))).toBe(true);
     expect(mockConn.end).toHaveBeenCalled();
+  });
+
+  it('createBackup include APP_VERSION nel nome file quando presente', async () => {
+    process.env.APP_VERSION = 'v1.2.3';
+    mockConn.query
+      .mockResolvedValueOnce([[], []]);
+
+    const result = await service.createBackup();
+
+    expect(result.filename).toContain('_v1.2.3.sql');
+    delete process.env.APP_VERSION;
   });
 
   it('createBackup non lascia file parziali se la connessione fallisce', async () => {
@@ -153,6 +165,55 @@ describe('BackupService', () => {
 
     await expect(service.restoreFromFile(sqlFile)).rejects.toThrow('ERROR 1064: syntax error');
     expect(mockConn.end).toHaveBeenCalled();
+  });
+
+  it('createBackup(true) produce un .tar.gz con dump.sql + foto', async () => {
+    const photosDir = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-service-photos-'));
+    process.env.PHOTOS_DIR = photosDir;
+    fs.mkdirSync(path.join(photosDir, 'asset', '1'), { recursive: true });
+    fs.writeFileSync(path.join(photosDir, 'asset', '1', 'foo.jpg'), 'fake-image-bytes');
+
+    mockConn.query
+      .mockResolvedValueOnce([[{ Tables_in_mydatabase: 'users' }], []])
+      .mockResolvedValueOnce([[{ Table: 'users', 'Create Table': 'CREATE TABLE `users` (`id` INT)' }], []])
+      .mockResolvedValueOnce([[], []]);
+
+    const result = await service.createBackup(true);
+
+    expect(result.filename).toMatch(/^utenzepa_\d{8}_\d{6}_[A-Za-z0-9._-]+\.tar\.gz$/);
+    const archivePath = path.join(backupDir, result.filename);
+    expect(fs.existsSync(archivePath)).toBe(true);
+    // Nessun file di lavoro (staging/tmp) rimasto in giro dopo la creazione.
+    expect(fs.readdirSync(backupDir)).toEqual([result.filename]);
+
+    fs.rmSync(photosDir, { recursive: true, force: true });
+  });
+
+  it('restoreFromFile su un .tar.gz ripristina il DB e copia le foto nella PHOTOS_DIR corrente', async () => {
+    const tar = await import('tar');
+    const sourcePhotosDir = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-restore-src-'));
+    const targetPhotosDir = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-restore-dst-'));
+    process.env.PHOTOS_DIR = targetPhotosDir;
+
+    fs.mkdirSync(path.join(sourcePhotosDir, 'photos', 'asset', '2'), { recursive: true });
+    fs.writeFileSync(path.join(sourcePhotosDir, 'photos', 'asset', '2', 'bar.jpg'), 'restored-bytes');
+    fs.writeFileSync(path.join(sourcePhotosDir, 'dump.sql'), 'INSERT INTO x VALUES (1);');
+
+    const archivePath = path.join(backupDir, 'utenzepa_20260101_000000.tar.gz');
+    await tar.create({ gzip: true, file: archivePath, cwd: sourcePhotosDir }, ['dump.sql', 'photos']);
+    mockConn.query.mockResolvedValue([[], []]);
+
+    await service.restoreFromFile(archivePath);
+
+    expect(mockConn.query).toHaveBeenCalledWith('INSERT INTO x VALUES (1);');
+    const restoredFile = path.join(targetPhotosDir, 'asset', '2', 'bar.jpg');
+    expect(fs.existsSync(restoredFile)).toBe(true);
+    expect(fs.readFileSync(restoredFile, 'utf8')).toBe('restored-bytes');
+    // Nessuna cartella di estrazione temporanea rimasta.
+    expect(fs.readdirSync(backupDir)).toEqual(['utenzepa_20260101_000000.tar.gz']);
+
+    fs.rmSync(sourcePhotosDir, { recursive: true, force: true });
+    fs.rmSync(targetPhotosDir, { recursive: true, force: true });
   });
 
   it('applyRetention cancella solo i backup più vecchi della retention', async () => {

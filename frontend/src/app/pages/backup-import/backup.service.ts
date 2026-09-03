@@ -27,8 +27,12 @@ export class BackupService {
     return this.http.get<BackupInfo[]>(this.BASE_URL, { headers: this.getAuthHeaders() });
   }
 
-  create(): Observable<BackupInfo> {
-    return this.http.post<BackupInfo>(this.BASE_URL, {}, { headers: this.getAuthHeaders() });
+  create(includePhotos = false): Observable<BackupInfo> {
+    return this.http.post<BackupInfo>(
+      this.BASE_URL,
+      { includePhotos },
+      { headers: this.getAuthHeaders() },
+    );
   }
 
   remove(filename: string): Observable<void> {
@@ -59,6 +63,10 @@ export class BackupService {
         password,
         excludeUsers: options?.excludeUsers ?? false,
         excludeBranding: options?.excludeBranding ?? false,
+        // Serve al backend per distinguere un .tar.gz (dump + foto) da un
+        // .sql (solo dump) una volta riassemblato dai chunk — di per sé
+        // sono blob "nudi" senza nome/estensione.
+        originalFilename: file.name,
       },
     );
   }
