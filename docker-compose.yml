@@ -58,6 +58,7 @@ services:
       - IMPORT_MAX_SIZE_MB=${IMPORT_MAX_SIZE_MB:-50}
     volumes:
       - backups_data:/usr/src/app/backups
+      - photos_data:/usr/src/app/photos
     ports:
       - '${DOCKER_API_PORT:-3000}:3000'
     depends_on:
@@ -86,6 +87,7 @@ services:
 volumes:
   mysql_data:
   backups_data:
+  photos_data:
 
 networks:
   utenzepa-network:

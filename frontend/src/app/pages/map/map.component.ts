@@ -13,9 +13,12 @@ import { AssetService } from '../assets/asset.service';
 import { UtilityService } from '../utilities/utility.service';
 import { AssetEditDialogComponent } from '../assets/asset-edit-dialog.component';
 import { UtilityEditDialogComponent } from '../utilities/utility-edit-dialog.component';
+import { Asset } from '../assets/entity/asset.entity';
+import { Utility } from '../utilities/entity/utility.entity';
 import { TOption } from '../../core/types/option.interface';
 import { HardType, HardTypeIcon, HardTypeColor } from '../utility-types/enum/hard-type.enum';
 import { BrandingService } from '../../services/branding.service';
+import { AuthService } from '../../services/auth.service';
 import { ASSET_AGGREGATOR_ICON_FALLBACK } from '../asset-aggregator/enum/asset-aggregator-icon.enum';
 
 // Fallback per gli immobili senza icona custom sull'aggregato collegato (o
@@ -54,10 +57,20 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   private assetService = inject(AssetService);
   private utilityService = inject(UtilityService);
   private brandingService = inject(BrandingService);
+  private authService = inject(AuthService);
 
   private map: L.Map | null = null;
   private clusterGroup: L.MarkerClusterGroup | null = null;
   private resizeObserver: ResizeObserver | null = null;
+
+  // Linee immobile↔contatore quando il contatore ha una posizione propria
+  // diversa da quella dell'immobile associato — layer separato, aggiunto
+  // direttamente alla mappa (non al clusterGroup): le linee vanno restare
+  // visibili anche quando uno dei due marker finisce raggruppato in un
+  // cluster, cosa che non succederebbe se stessero nello stesso layer
+  // clusterizzato (leaflet.markercluster nasconde i marker raggruppati, non
+  // gli oggetti generici come le polyline, ma tenerli fuori evita ambiguità).
+  private linksLayer: L.LayerGroup | null = null;
 
   showAssets = new FormControl(true, { nonNullable: true });
   showUtilities = new FormControl(true, { nonNullable: true });
@@ -169,6 +182,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     // oltre lo zoom 17 (livello "via/edificio").
     this.clusterGroup = L.markerClusterGroup({ maxClusterRadius: 40, disableClusteringAtZoom: 17 });
     this.map.addLayer(this.clusterGroup);
+    this.linksLayer = L.layerGroup().addTo(this.map);
     this.reload();
 
     // .map-canvas è flex:1 dentro .map-page — al momento di L.map() il layout
@@ -192,6 +206,10 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     // non lo intercetta): doppio requestAnimationFrame per essere certi che
     // il primo layout/paint del browser sia già avvenuto.
     requestAnimationFrame(() => requestAnimationFrame(() => this.map?.invalidateSize()));
+
+    // Click destro su un punto vuoto della mappa — menu "Aggiungi immobile
+    // qui / Aggiungi contatore qui" con le coordinate del click.
+    this.map.on('contextmenu', (event: L.LeafletMouseEvent) => this.openAddPicker(event.latlng));
   }
 
   ngOnDestroy(): void {
@@ -219,7 +237,21 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   private renderPoints(points: MapPoint[]): void {
     if (!this.clusterGroup) return;
     this.clusterGroup.clearLayers();
+    this.linksLayer?.clearLayers();
     this.assetMarkers.clear();
+
+    // Posizione di ogni immobile — serve a confrontarla con quella dei
+    // contatori collegati (vedi loop più sotto) per disegnare la linea di
+    // collegamento solo quando le due posizioni sono realmente diverse (un
+    // contatore che eredita le coordinate dall'immobile, il caso più comune,
+    // non deve produrre una linea di lunghezza zero).
+    const assetLatLngById = new Map<number, { lat: number; lng: number }>();
+    for (const p of points) {
+      if (p.type !== 'asset') continue;
+      const lat = parseFloat(p.lat);
+      const lng = parseFloat(p.lng);
+      if (!Number.isNaN(lat) && !Number.isNaN(lng)) assetLatLngById.set(p.id, { lat, lng });
+    }
 
     // Le utenze senza GPS proprio ereditano la posizione esatta dell'asset
     // (vedi MapService.resolveUtilityPosition) — a zoom alto, oltre
@@ -269,6 +301,21 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       marker.on('click', () => (isAsset ? this.openAssetOrPicker(point) : this.openDetail(point)));
       this.clusterGroup.addLayer(marker);
       if (isAsset) this.assetMarkers.set(point.id, marker);
+
+      // Linea tratteggiata verso l'immobile associato — solo per contatori
+      // con posizione propria distinta (vedi assetLatLngById sopra).
+      if (!isAsset && point.assetId != null && this.linksLayer) {
+        const assetLatLng = assetLatLngById.get(point.assetId);
+        if (assetLatLng && (assetLatLng.lat !== lat || assetLatLng.lng !== lng)) {
+          L.polyline(
+            [
+              [assetLatLng.lat, assetLatLng.lng],
+              [lat, lng],
+            ],
+            { dashArray: '4,4', weight: 1, color: '#94a3b8', interactive: false },
+          ).addTo(this.linksLayer);
+        }
+      }
     }
   }
 
@@ -371,5 +418,70 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
           });
       });
     }
+  }
+
+  // Popup "Aggiungi immobile qui / Aggiungi contatore qui" al click destro
+  // su un punto vuoto della mappa — stesso pattern DOM/delega di
+  // openAssetOrPicker (innerHTML raw, bind dei click dopo l'apertura).
+  private openAddPicker(latlng: L.LatLng): void {
+    if (!this.map) return;
+    const lat = latlng.lat.toFixed(6);
+    const lng = latlng.lng.toFixed(6);
+
+    const items = [
+      { label: 'Aggiungi immobile qui', action: () => this.createAssetAt(lat, lng) },
+      { label: 'Aggiungi contatore qui', action: () => this.createUtilityAt(lat, lng) },
+    ];
+    const listHtml = items
+      .map((it, i) => `<li data-idx="${i}" class="map-picker-item">${it.label}</li>`)
+      .join('');
+
+    const popup = L.popup({ closeButton: true, autoPan: true })
+      .setLatLng(latlng)
+      .setContent(`<ul class="map-picker-list">${listHtml}</ul>`)
+      .openOn(this.map);
+
+    const el = popup.getElement();
+    el?.querySelectorAll<HTMLLIElement>('[data-idx]').forEach((li) => {
+      li.addEventListener('click', () => {
+        const idx = Number(li.dataset['idx']);
+        this.map?.closePopup();
+        items[idx].action();
+      });
+    });
+  }
+
+  private createAssetAt(lat: string, lng: string): void {
+    const userId = this.authService.getCurrentUser()?.id;
+    this.dialog
+      .open(AssetEditDialogComponent, {
+        width: EDIT_DIALOG_WIDTH,
+        maxWidth: EDIT_DIALOG_WIDTH,
+        data: { mode: 'create', item: Asset.create({ latitude: lat, longitude: lng }) },
+      })
+      .afterClosed()
+      .subscribe((result) => {
+        if (!result) return;
+        this.assetService
+          .create({ ...result, created_by_user_id: userId, updated_by_user_id: userId })
+          .subscribe(() => this.reload());
+      });
+  }
+
+  private createUtilityAt(lat: string, lng: string): void {
+    const userId = this.authService.getCurrentUser()?.id;
+    this.dialog
+      .open(UtilityEditDialogComponent, {
+        width: EDIT_DIALOG_WIDTH,
+        maxWidth: EDIT_DIALOG_WIDTH,
+        data: { mode: 'create', item: Utility.create({ latitude: lat, longitude: lng }) },
+      })
+      .afterClosed()
+      .subscribe((result) => {
+        if (!result) return;
+        this.utilityService
+          .create({ ...result, created_by_user_id: userId, updated_by_user_id: userId })
+          .subscribe(() => this.reload());
+      });
   }
 }

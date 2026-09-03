@@ -1,0 +1,36 @@
+<div class="photo-gallery">
+  @if (photos.length === 0) {
+    <p class="photo-gallery-empty">Nessuna foto caricata.</p>
+  }
+
+  <div class="photo-gallery-grid">
+    @for (photo of photos; track photo.id) {
+      <div class="photo-gallery-item">
+        @if (thumbnailUrls.get(photo.id); as url) {
+          <img [src]="url" [alt]="photo.original_filename ?? 'Foto'">
+        } @else {
+          <div class="photo-gallery-loading"></div>
+        }
+        <button mat-icon-button class="photo-gallery-delete" matTooltip="Elimina foto"
+                [appHasRole]="['Admin','Operatore']" (click)="confirmDelete(photo)">
+          <mat-icon>delete</mat-icon>
+        </button>
+      </div>
+    }
+  </div>
+
+  <div class="photo-gallery-actions" [appHasRole]="['Admin','Operatore']">
+    <input #fileInput type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+           multiple hidden (change)="onFilesSelected($event)">
+    <button mat-stroked-button type="button" [disabled]="uploading || photos.length >= maxPhotos"
+            (click)="fileInput.click()">
+      <mat-icon>add_photo_alternate</mat-icon>
+      Carica foto
+    </button>
+    <span class="photo-gallery-count">{{ photos.length }}/{{ maxPhotos }}</span>
+  </div>
+
+  @if (uploading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
+</div>
