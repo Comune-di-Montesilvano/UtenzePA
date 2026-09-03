@@ -96,10 +96,21 @@ export class LocationMapComponent implements OnInit, AfterViewInit, OnChanges, O
   ngAfterViewInit(): void {
     const knownLatLng = this.currentLatLng() ?? this.estimatedLatLng();
     this.map = L.map(this.canvasId).setView(knownLatLng ?? this.DEFAULT_CENTER, knownLatLng ? 16 : 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Stessi due layer + controllo della mappa principale (MapComponent) —
+    // utile anche qui per verificare visivamente una posizione (es. satellite
+    // per controllare se il pin cade davvero sull'edificio giusto).
+    const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 19,
     }).addTo(this.map);
+    const satelliteLayer = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {
+        attribution: 'Tiles &copy; Esri',
+        maxZoom: 19,
+      },
+    );
+    L.control.layers({ Stradale: streetLayer, Satellite: satelliteLayer }).addTo(this.map);
 
     this.renderMarker();
 

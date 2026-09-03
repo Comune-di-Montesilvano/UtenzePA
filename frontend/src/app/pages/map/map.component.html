@@ -29,19 +29,32 @@
       @for (t of hardTypeLegend; track t.value) {
         <div><span class="map-pin" [style.background]="t.color"><i [class]="t.icon"></i></span> {{ t.label }}</div>
       }
-      <div class="map-legend-note">Bordo pieno = posizione GPS reale, tratteggiato = stimata da indirizzo</div>
+      <div>
+        <span class="map-pin" style="background:#7c3aed"><span class="material-icons">layers</span></span>
+        Piu' elementi nello stesso punto — badge <span class="material-icons map-legend-inline-icon">holiday_village</span> immobili,
+        <span class="material-icons map-legend-inline-icon">speed</span> utenze
+      </div>
+      <div class="map-legend-note">
+        <span class="map-pin map-pin--legend-sample" style="background:#757575;border-style:solid"></span> posizione GPS reale
+        &nbsp;
+        <span class="map-pin map-pin--legend-sample" style="background:#757575;border-style:dashed"></span> stimata da indirizzo
+      </div>
     </div>
 
     @if (ungeolocated.length > 0) {
-      <h3>Non geolocalizzabili ({{ ungeolocated.length }})</h3>
-      <ul class="map-ungeolocated-list">
-        @for (item of ungeolocated; track item.id + item.type) {
-          <li (click)="openDetail(item)">
-            {{ item.name }}
-            <span class="map-reason">{{ reasonLabels[item.reason] }}</span>
-          </li>
-        }
-      </ul>
+      <mat-expansion-panel class="map-ungeolocated-panel">
+        <mat-expansion-panel-header>
+          <mat-panel-title>Non geolocalizzabili ({{ ungeolocated.length }})</mat-panel-title>
+        </mat-expansion-panel-header>
+        <ul class="map-ungeolocated-list">
+          @for (item of ungeolocated; track item.id + item.type) {
+            <li (click)="openDetail(item)">
+              {{ item.name }}
+              <span class="map-reason">{{ reasonLabels[item.reason] }}</span>
+            </li>
+          }
+        </ul>
+      </mat-expansion-panel>
     }
   </aside>
 

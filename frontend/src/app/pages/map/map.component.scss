@@ -30,11 +30,36 @@
   flex-direction: column;
   gap: 0.35rem;
 
+  // Riga "Bordo pieno/tratteggiato": prima solo testo, ora due pin di
+  // esempio (colore neutro, nessuna icona dentro) cosi' la differenza si
+  // vede davvero invece di doverla immaginare leggendo la frase.
   .map-legend-note {
     margin-top: 0.25rem;
     color: #9e9e9e;
     font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
   }
+
+  .map-pin--legend-sample {
+    width: 14px;
+    height: 14px;
+  }
+
+  // Icona Material inline dentro il testo della legenda (badge immobili/
+  // contatori del marker gruppo) — piu' piccola del default 24px del
+  // foglio Material Icons, altrimenti sballa l'altezza della riga.
+  .map-legend-inline-icon {
+    font-size: 14px;
+    vertical-align: middle;
+    line-height: 1;
+  }
+}
+
+.map-ungeolocated-panel {
+  margin-top: 1rem;
 }
 
 .map-ungeolocated-list {
@@ -42,6 +67,11 @@
   padding: 0;
   margin: 0;
   font-size: 0.85rem;
+  // Puo' arrivare a 100+ voci — dentro un collapse gia' aiuta, ma da
+  // espanso una lista cosi' lunga spingerebbe comunque il resto della
+  // sidebar fuori vista, quindi scroll interno con un tetto ragionevole.
+  max-height: 320px;
+  overflow-y: auto;
 
   li {
     cursor: pointer;

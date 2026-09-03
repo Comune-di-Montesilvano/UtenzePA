@@ -2,6 +2,7 @@ import { Component, OnInit, AfterViewInit, OnDestroy, inject, ChangeDetectionStr
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormControl } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatDialog } from '@angular/material/dialog';
 import * as L from 'leaflet';
 import { MapService } from './map.service';
@@ -30,6 +31,11 @@ const ASSET_COLOR = '#37474f';
 // Contatore senza tipologia associata (dato mancante) — icona neutra.
 const UNKNOWN_UTILITY_ICON = 'fa fa-question';
 const UNKNOWN_UTILITY_COLOR = '#757575';
+// Marker "gruppo" (piu' elementi sovrapposti in modo ambiguo, vedi
+// needsCombinedPicker) — colore neutro, distinto da tutti quelli usati per
+// i singoli tipi (immobile/acqua/luce/gas/internet), cosi' si riconosce a
+// colpo d'occhio come punto speciale prima ancora di leggere i badge.
+const GROUP_COLOR = '#7c3aed';
 
 // Fallback usato se le coordinate di default salvate in branding sono
 // malformate/non numeriche (es. DTO backend con un vecchio valore invalido) —
@@ -45,7 +51,7 @@ const EDIT_DIALOG_WIDTH = '1150px';
 @Component({
   selector: 'app-map',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatCheckboxModule, FilterableSelectComponent],
+  imports: [CommonModule, ReactiveFormsModule, MatCheckboxModule, MatExpansionModule, FilterableSelectComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './map.component.html',
   styleUrls: ['./map.component.scss'],
@@ -276,26 +282,39 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       if (!Number.isNaN(lat) && !Number.isNaN(lng)) assetLatLngById.set(p.id, { lat, lng });
     }
 
-    // Contatori con GPS proprio che condividono esattamente la stessa
-    // coordinata pur essendo collegati ad asset diversi (es. piu' contatori
-    // nello stesso pozzetto/cabina) — i loro marker finiscono sovrapposti
-    // sulla mappa, un click raggiunge solo quello in cima allo z-order, gli
-    // altri restano irraggiungibili. Raggruppati per aprire un selettore
-    // invece del dettaglio diretto quando in un punto ce n'e' piu' di uno
-    // (vedi openUtilityPicker sotto — stesso pattern di openAssetOrPicker,
-    // ma qui i contatori raggruppati sono TUTTI davvero in quel punto,
-    // niente distinzione "altrove" da fare).
-    const utilityGroupsByCoord = new Map<string, MapPoint[]>();
+    // Qualunque combinazione di punti (immobili e/o contatori, di qualunque
+    // asset) che condivide esattamente la stessa coordinata — raggruppati
+    // TUTTI insieme, non per tipo separato: un contatore con GPS proprio puo'
+    // coincidere con un punto dove ci sono anche N immobili sovrapposti pur
+    // NON appartenendo a nessuno di quegli N (assetId diverso/estraneo) — se
+    // si gestissero asset e contatori come due raggruppamenti indipendenti,
+    // un contatore cosi' resterebbe sepolto sotto i marker immobile
+    // (zIndexOffset piu' alto, vedi sotto) e irraggiungibile con un click,
+    // pur non comparendo nella lista di nessuno degli immobili lì sopra
+    // (utilitiesByAsset e' per assetId, non per posizione fisica).
+    const pointsByCoord = new Map<string, MapPoint[]>();
     for (const p of points) {
-      if (p.type !== 'utility') continue;
       const lat = CoordinateHelper.parseCoordinate(p.lat);
       const lng = CoordinateHelper.parseCoordinate(p.lng);
       if (Number.isNaN(lat) || Number.isNaN(lng)) continue;
       const key = `${lat},${lng}`;
-      const list = utilityGroupsByCoord.get(key) ?? [];
+      const list = pointsByCoord.get(key) ?? [];
       list.push(p);
-      utilityGroupsByCoord.set(key, list);
+      pointsByCoord.set(key, list);
     }
+
+    // Il caso "un solo immobile + solo le sue proprie utenze" resta gestito
+    // dal selettore esistente (openAssetOrPicker, invariato) — qui serve
+    // il picker combinato solo per la parte "ambigua": piu' di un immobile
+    // nel punto, o un contatore che non appartiene all'unico immobile lì.
+    const needsCombinedPicker = (group: MapPoint[]): boolean => {
+      if (group.length <= 1) return false;
+      const assetsHere = group.filter((g) => g.type === 'asset');
+      if (assetsHere.length > 1) return true;
+      if (assetsHere.length === 0) return true;
+      const utilitiesHere = group.filter((g) => g.type === 'utility');
+      return utilitiesHere.some((u) => u.assetId !== assetsHere[0].id);
+    };
 
     // Le utenze senza GPS proprio ereditano la posizione esatta dell'asset
     // (vedi MapService.resolveUtilityPosition) — a zoom alto, oltre
@@ -319,28 +338,79 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       if (Number.isNaN(lat) || Number.isNaN(lng)) continue;
 
       const isAsset = point.type === 'asset';
-      const { iconHtml, color } = this.pointIcon(point);
-      // Bordo tratteggiato per posizione stimata (geocodifica da indirizzo)
-      // vs bordo pieno per GPS reale — stessa distinzione di prima, non più
-      // affidata al colore (ora usato per la tipologia).
       const borderStyle = point.source === 'gps' ? 'solid' : 'dashed';
       const utilityCount = isAsset ? (this.utilitiesByAsset.get(point.id)?.length ?? 0) : 0;
-      const utilityGroup = !isAsset ? utilityGroupsByCoord.get(`${lat},${lng}`) : undefined;
-      // Badge diverso (colore ambra, non rosso come quello immobile) per non
-      // confondere "N contatori collegati a questo immobile" con "N contatori
-      // impilati esattamente qui" — due situazioni diverse, vedi commenti sopra.
-      const overlapBadgeHtml =
-        !isAsset && utilityGroup && utilityGroup.length > 1
-          ? `<span class="map-pin-badge map-pin-badge--overlap">${utilityGroup.length}</span>`
-          : '';
-      const badgeHtml =
-        utilityCount > 0 ? `<span class="map-pin-badge">${utilityCount}</span>` : overlapBadgeHtml;
+      const coordGroup = pointsByCoord.get(`${lat},${lng}`) ?? [point];
+      const combined = needsCombinedPicker(coordGroup);
 
+      let iconHtml: string;
+      let color: string;
+      let badgeHtml: string;
+      // Tooltip nativo browser su ogni pin (non solo sui badge gruppo, vedi
+      // sotto) — hover mostra cosa rappresenta il marker prima ancora di
+      // cliccare, utile soprattutto in un cluster fitto dove le icone da
+      // sole non bastano a distinguere i contatori tra loro.
+      const pinTitle = this.escapeAttr(
+        combined
+          ? `${coordGroup.length} elementi in questo punto — clicca per vederli`
+          : isAsset
+            ? `${point.name} (immobile)`
+            : `${point.hardType ? this.hardTypeLegend.find((t) => t.value === point.hardType)?.label : 'Utenza'} — ${point.name}`,
+      );
+
+      if (combined) {
+        // Punto con piu' elementi sovrapposti in modo ambiguo (vedi
+        // needsCombinedPicker) — il marker mostra un'icona "gruppo" dedicata
+        // invece dell'icona del singolo elemento sotto (fuorviante: quale
+        // dei tanti dovrebbe rappresentare l'intero mucchio?), colore neutro
+        // per distinguerlo a colpo d'occhio da un marker normale. Due badge
+        // separati — edifici (sinistra) e contatori (destra) — invece di un
+        // unico numero, cosi' si legge subito la composizione del gruppo
+        // senza dover aprire il popup.
+        const assetsInGroup = coordGroup.filter((g) => g.type === 'asset').length;
+        const utilitiesInGroup = coordGroup.filter((g) => g.type === 'utility').length;
+        color = GROUP_COLOR;
+        // Icona sempre uguale a prescindere dalla composizione — un'icona
+        // che cambia (immobile vs contatore) confonderebbe "questo e' il
+        // tipo del gruppo" con "questo e' un elemento specifico", i due
+        // badge sotto bastano gia' a comunicare la composizione.
+        iconHtml = `<span class="material-icons">layers</span>`;
+        // data-badge-filter: letto nel click handler del marker (sotto) per
+        // aprire il picker gia' filtrato per tipo invece che con tutto il
+        // gruppo — click sul pin stesso (fuori dai badge) resta il menu
+        // completo. title = tooltip nativo browser, stessa spiegazione a
+        // hover prima ancora di cliccare.
+        const buildingsBadge =
+          assetsInGroup > 0
+            ? `<span class="map-pin-badge map-pin-badge--group map-pin-badge--buildings"
+                 data-badge-filter="asset" title="${assetsInGroup} immobili in questo punto — clicca per vederli">
+                 <span class="material-icons">holiday_village</span>${assetsInGroup}
+               </span>`
+            : '';
+        const utilitiesBadge =
+          utilitiesInGroup > 0
+            ? `<span class="map-pin-badge map-pin-badge--group map-pin-badge--utilities"
+                 data-badge-filter="utility" title="${utilitiesInGroup} utenze in questo punto — clicca per vederle">
+                 <span class="material-icons">speed</span>${utilitiesInGroup}
+               </span>`
+            : '';
+        badgeHtml = buildingsBadge + utilitiesBadge;
+      } else {
+        ({ iconHtml, color } = this.pointIcon(point));
+        badgeHtml = utilityCount > 0 ? `<span class="map-pin-badge">${utilityCount}</span>` : '';
+      }
+
+      // Marker gruppo piu' grande del normale — deve ospitare due badge
+      // separati leggibili, 26px (dimensione standard) li farebbe accavallare.
+      const wrapClass = combined ? ' map-marker-wrap--group' : '';
+      const [iconSize, iconAnchor]: [[number, number], [number, number]] = combined
+        ? [[34, 34], [17, 17]]
+        : [[26, 26], [13, 13]];
       const icon = L.divIcon({
         className: '',
-        html: `<span class="map-marker-wrap"><span class="map-pin" style="background:${color};border-style:${borderStyle}">${iconHtml}</span>${badgeHtml}</span>`,
-        iconSize: [26, 26],
-        iconAnchor: [13, 13],
+        html: `<span class="map-marker-wrap${wrapClass}"><span class="map-pin" style="background:${color};border-style:${borderStyle}" title="${pinTitle}">${iconHtml}</span>${badgeHtml}</span>`,
+        iconSize,
+        iconAnchor,
       });
 
       // Le utenze senza GPS proprio condividono lat/lng esatte con l'asset
@@ -351,11 +421,24 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       // "staccato" che sporge dal bordo, visivamente confuso). zIndexOffset
       // forza l'immobile sempre in primo piano sulle utenze coincidenti.
       const marker = L.marker([lat, lng], { icon, zIndexOffset: isAsset ? 1000 : 0 });
-      marker.on('click', () => {
-        if (isAsset) {
+      marker.on('click', (e: L.LeafletMouseEvent) => {
+        if (combined) {
+          // Click su un badge invece che sul pin: apre il picker gia'
+          // filtrato per tipo (data-badge-filter, vedi html sopra). Letto
+          // dal target dell'evento nativo dentro lo stesso handler — niente
+          // listener DOM separati sul badge, che richiederebbero il nodo
+          // gia' renderizzato (i marker in un cluster non chiuso non hanno
+          // DOM reale finche' non diventano visibili singolarmente).
+          const badgeEl = (e.originalEvent?.target as HTMLElement | null)?.closest(
+            '[data-badge-filter]',
+          );
+          const filterType = badgeEl?.getAttribute('data-badge-filter') as
+            | 'asset'
+            | 'utility'
+            | null;
+          this.openCombinedPicker(coordGroup, assetNameById, lat, lng, filterType ?? undefined);
+        } else if (isAsset) {
           this.openAssetOrPicker(point);
-        } else if (utilityGroup && utilityGroup.length > 1) {
-          this.openUtilityPicker(utilityGroup, assetNameById, lat, lng);
         } else {
           this.openDetail(point);
         }
@@ -379,6 +462,14 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       }
     }
+  }
+
+  // Nomi asset/utenza sono editabili da form (non input arbitrario di terzi,
+  // ma comunque testo libero) — usato per i title attribute inseriti come
+  // HTML raw nei marker/badge, non basta interpolare la stringa cosi' com'e'
+  // se contiene virgolette doppie (romperebbe l'attributo, non l'HTML circostante).
+  private escapeAttr(value: string): string {
+    return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
   }
 
   // Icona+colore di un punto — fattorizzato perché serve sia al marker sulla
@@ -482,28 +573,37 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  // Piu' contatori con GPS proprio impilati esattamente nello stesso punto
-  // (visto: stesso pozzetto/cabina, collegati ad asset diversi) — senza
-  // questo selettore un click raggiunge solo il marker in cima allo
-  // z-order, gli altri sono lì ma irraggiungibili. Mostra anche l'immobile
-  // associato a ciascuno (assetNameById), utile perche' qui — a differenza
-  // di openAssetOrPicker — non sono tutti collegati allo stesso edificio.
-  private openUtilityPicker(
+  // Punto con piu' di un elemento sovrapposto in modo "ambiguo" (vedi
+  // needsCombinedPicker in renderPoints): piu' immobili, o un contatore che
+  // non appartiene all'unico immobile qui presente. Un solo popup con tutto
+  // insieme (immobili e contatori mescolati, ordinati con gli immobili
+  // prima) — cliccare un immobile apre comunque il SUO selettore
+  // (openAssetOrPicker, che gestisce le sue proprie utenze come sempre),
+  // cliccare un contatore apre subito il dettaglio. Mostra anche l'immobile
+  // associato a ogni contatore (assetNameById) perche' qui, a differenza del
+  // caso semplice, non e' scontato che sia lo stesso per tutti.
+  private openCombinedPicker(
     group: MapPoint[],
     assetNameById: Map<number, string>,
     lat: number,
     lng: number,
+    filterType?: 'asset' | 'utility',
   ): void {
     if (!this.map) return;
 
-    const listHtml = group
-      .map((u, i) => {
-        const { iconHtml, color } = this.pointIcon(u);
-        const typeLabel = u.hardType ? this.hardTypeLegend.find((t) => t.value === u.hardType)?.label : 'Utenza';
-        const assetName = u.assetId != null ? (assetNameById.get(u.assetId) ?? '?') : '—';
+    const filtered = filterType ? group.filter((p) => p.type === filterType) : group;
+    const sorted = [...filtered].sort((a, b) => (a.type === b.type ? 0 : a.type === 'asset' ? -1 : 1));
+
+    const listHtml = sorted
+      .map((p, i) => {
+        const { iconHtml, color } = this.pointIcon(p);
+        const label =
+          p.type === 'asset'
+            ? `${p.name} (immobile)`
+            : `${p.hardType ? this.hardTypeLegend.find((t) => t.value === p.hardType)?.label : 'Utenza'} — ${p.name} <small>(${p.assetId != null ? (assetNameById.get(p.assetId) ?? '?') : '—'})</small>`;
         return `<li data-idx="${i}" class="map-picker-item">
           <span class="map-pin map-pin-inline" style="background:${color}">${iconHtml}</span>
-          <span class="map-picker-item-label">${typeLabel} — ${u.name} <small>(${assetName})</small></span>
+          <span class="map-picker-item-label">${label}</span>
         </li>`;
       })
       .join('');
@@ -517,8 +617,10 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     el?.querySelectorAll<HTMLLIElement>('[data-idx]').forEach((li) => {
       li.addEventListener('click', () => {
         const idx = Number(li.dataset['idx']);
+        const target = sorted[idx];
         this.map?.closePopup();
-        this.openDetail(group[idx]);
+        if (target.type === 'asset') this.openAssetOrPicker(target);
+        else this.openDetail(target);
       });
     });
   }
