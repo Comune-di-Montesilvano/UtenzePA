@@ -5,6 +5,7 @@ url: "https://github.com/Comune-di-Montesilvano/UtenzePA.git"
 landingURL: "https://github.com/Comune-di-Montesilvano/UtenzePA"
 softwareVersion: "v1.0.7"
 releaseDate: "2026-09-03"
+logo: docs/assets/logo.svg
 
 platforms:
   - web
@@ -38,9 +39,9 @@ description:
       Angular fornisce l'interfaccia operativa per gli utenti di sistema.
 
 
-      L'autenticazione degli operatori è basata su JWT con supporto a
-      due fattori (TOTP), password con hashing bcrypt e blocco account
-      dopo tentativi di accesso falliti ripetuti.
+      L'autenticazione degli operatori è basata su JWT (solo access
+      token) con password con hashing bcrypt; il reset password e il
+      bootstrap del primo Admin usano un OTP inviato via email.
 
 
       Lo stack gira interamente in Docker (backend NestJS, frontend
@@ -50,8 +51,14 @@ description:
       - Gestione utenze, tipologie e aggregatori di utenze
       - Gestione fornitori e fatture collegate
       - Capitoli di bilancio e convenzioni CONSIP
-      - Autenticazione JWT con 2FA (TOTP)
+      - Autenticazione JWT con OTP via email per reset password e bootstrap Admin
       - Documentazione API via Swagger
+    screenshots:
+      - docs/screenshots/01-login.png
+      - docs/screenshots/02-dashboard.png
+      - docs/screenshots/03-mappa.png
+      - docs/screenshots/04-immobili.png
+      - docs/screenshots/05-utenze.png
 
 legal:
   license: EUPL-1.2

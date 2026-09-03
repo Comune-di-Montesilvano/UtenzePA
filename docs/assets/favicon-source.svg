@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%">
+  <!-- STRUTTURA PALAZZO PA -->
+  <!-- Tetto (Timpano) -->
+  <path d="M 32 4 L 4 24 H 60 Z" fill="#0F172A" stroke="#0F172A" stroke-width="2" stroke-linejoin="round" />
+
+  <!-- Architrave -->
+  <rect x="4" y="26" width="56" height="4" fill="#0F172A" rx="1" />
+
+  <!-- Colonne Laterali (spesse per garantire leggibilità a piccole dimensioni) -->
+  <rect x="4" y="32" width="14" height="26" fill="#0F172A" rx="1" />
+  <rect x="46" y="32" width="14" height="26" fill="#0F172A" rx="1" />
+
+  <!-- Basamento -->
+  <rect x="0" y="60" width="64" height="4" fill="#0F172A" rx="1" />
+
+  <!-- TACHIMETRO / CONTATORE CENTRALE -->
+  <g transform="translate(0, -2)">
+    <!-- Arco di sfondo del quadrante -->
+    <path d="M 22 56 A 10 10 0 0 1 42 56" fill="none" stroke="#CBD5E1" stroke-width="4" stroke-linecap="round" />
+
+    <!-- Arco indicatore del consumo (Azzurro) -->
+    <path d="M 22 56 A 10 10 0 0 1 32 46" fill="none" stroke="#3B82F6" stroke-width="4" stroke-linecap="round" />
+
+    <!-- Ago del tachimetro (Arancione) -->
+    <line x1="32" y1="56" x2="39" y2="47" stroke="#F97316" stroke-width="3" stroke-linecap="round" />
+
+    <!-- Perno centrale -->
+    <circle cx="32" cy="56" r="2.5" fill="#0F172A" />
+  </g>
+</svg>
