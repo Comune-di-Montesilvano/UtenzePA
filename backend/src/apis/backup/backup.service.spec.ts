@@ -98,6 +98,54 @@ describe('BackupService', () => {
     expect(mockConn.end).toHaveBeenCalled();
   });
 
+  it('restoreFromFile rimuove i blocchi delle tabelle escluse (excludeTables)', async () => {
+    const sqlFile = path.join(backupDir, 'restore-input.sql');
+    fs.writeFileSync(
+      sqlFile,
+      [
+        '-- UtenzePA backup',
+        '',
+        'SET FOREIGN_KEY_CHECKS=0;',
+        '',
+        'DROP TABLE IF EXISTS `system_users`;',
+        'CREATE TABLE `system_users` (`id` INT);',
+        '',
+        "INSERT INTO `system_users` (`id`) VALUES (1);",
+        '',
+        'DROP TABLE IF EXISTS `assets`;',
+        'CREATE TABLE `assets` (`id` INT, `created_by_user_id` INT REFERENCES `system_users` (`id`));',
+        '',
+        "INSERT INTO `assets` (`id`) VALUES (1);",
+        '',
+        'SET FOREIGN_KEY_CHECKS=1;',
+      ].join('\n'),
+    );
+    mockConn.query.mockResolvedValue([[], []]);
+
+    await service.restoreFromFile(sqlFile, ['system_users']);
+
+    const executedSql = mockConn.query.mock.calls[0][0] as string;
+    expect(executedSql).not.toContain('DROP TABLE IF EXISTS `system_users`;');
+    expect(executedSql).not.toContain('INSERT INTO `system_users`');
+    // La FK verso system_users nella CREATE TABLE di `assets` deve restare —
+    // e' solo una colonna, non il blocco della tabella esclusa.
+    expect(executedSql).toContain('REFERENCES `system_users`');
+    expect(executedSql).toContain('DROP TABLE IF EXISTS `assets`;');
+    expect(executedSql).toContain("INSERT INTO `assets`");
+    expect(executedSql.trimEnd()).toMatch(/SET FOREIGN_KEY_CHECKS=1;$/);
+  });
+
+  it('restoreFromFile con excludeTables vuoto esegue il dump invariato', async () => {
+    const sqlFile = path.join(backupDir, 'restore-input.sql');
+    const content = 'INSERT INTO x VALUES (1);';
+    fs.writeFileSync(sqlFile, content);
+    mockConn.query.mockResolvedValue([[], []]);
+
+    await service.restoreFromFile(sqlFile);
+
+    expect(mockConn.query).toHaveBeenCalledWith(content);
+  });
+
   it("restoreFromFile propaga l'errore se la query fallisce", async () => {
     const sqlFile = path.join(backupDir, 'restore-input.sql');
     fs.writeFileSync(sqlFile, 'INVALID SQL;');

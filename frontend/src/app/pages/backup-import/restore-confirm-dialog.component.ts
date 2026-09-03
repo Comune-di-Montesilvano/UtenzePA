@@ -5,15 +5,30 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
+import {MatCheckboxModule} from '@angular/material/checkbox';
 
 export interface RestoreConfirmDialogData {
   fileName: string;
 }
 
+export interface RestoreConfirmDialogResult {
+  password: string;
+  excludeUsers: boolean;
+  excludeBranding: boolean;
+}
+
 @Component({
   selector: 'app-restore-confirm-dialog',
   standalone: true,
-  imports: [FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule],
+  imports: [
+    FormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatIconModule,
+    MatCheckboxModule,
+  ],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <h2 mat-dialog-title>Conferma ripristino</h2>
@@ -22,7 +37,16 @@ export interface RestoreConfirmDialogData {
         Stai per sovrascrivere TUTTI i dati attuali con il contenuto del file
         <strong>{{ data.fileName }}</strong>. Questa azione è irreversibile.
       </p>
-      <p>Inserisci la tua password per confermare:</p>
+
+      <mat-checkbox [(ngModel)]="excludeUsers" name="excludeUsers">
+        Non ripristinare gli utenti (mantieni quelli attuali)
+      </mat-checkbox>
+      <br />
+      <mat-checkbox [(ngModel)]="excludeBranding" name="excludeBranding">
+        Non ripristinare il branding (logo, favicon, nome ente attuali)
+      </mat-checkbox>
+
+      <p style="margin-top: 1rem;">Inserisci la tua password per confermare:</p>
       <mat-form-field style="width: 100%;">
         <mat-label>Password</mat-label>
         <input matInput [type]="showPassword ? 'text' : 'password'" [(ngModel)]="password" name="password">
@@ -38,15 +62,21 @@ export interface RestoreConfirmDialogData {
   `
 })
 export class RestoreConfirmDialogComponent {
-  private dialogRef = inject(MatDialogRef<RestoreConfirmDialogComponent, string | undefined>);
+  private dialogRef = inject(MatDialogRef<RestoreConfirmDialogComponent, RestoreConfirmDialogResult | undefined>);
   protected data = inject<RestoreConfirmDialogData>(MAT_DIALOG_DATA);
 
   password = '';
   showPassword = false;
+  excludeUsers = false;
+  excludeBranding = false;
 
   confirm(): void {
     if (!this.password) return;
-    this.dialogRef.close(this.password);
+    this.dialogRef.close({
+      password: this.password,
+      excludeUsers: this.excludeUsers,
+      excludeBranding: this.excludeBranding,
+    });
   }
 
   cancel(): void {

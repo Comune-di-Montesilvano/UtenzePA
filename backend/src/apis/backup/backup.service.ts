@@ -147,8 +147,48 @@ export class BackupService {
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   }
 
-  async restoreFromFile(filePath: string): Promise<void> {
-    const sqlContent = fs.readFileSync(filePath, 'utf8');
+  /**
+   * Rimuove dal dump SQL i blocchi (DROP TABLE + CREATE TABLE + INSERT) delle
+   * tabelle escluse — usato per ripristinare solo i dati di dominio senza
+   * toccare utenti/branding attuali. Il dump e' sempre generato da
+   * createBackup() con un DROP TABLE IF EXISTS come prima riga di ogni
+   * blocco tabella (vedi sopra): e' un delimitatore affidabile, a differenza
+   * di uno split su ';' che romperebbe su valori con punto e virgola dentro
+   * stringhe escapate. Lo statement finale SET FOREIGN_KEY_CHECKS=1 va
+   * sempre preservato anche se la tabella esclusa e' l'ultima del dump —
+   * per questo viene isolato ed accodato a parte, non lasciato dentro
+   * l'ultimo blocco.
+   */
+  private filterDumpTables(sqlContent: string, excludeTables: string[]): string {
+    if (excludeTables.length === 0) return sqlContent;
+    const excludeSet = new Set(excludeTables);
+
+    const tailMarker = 'SET FOREIGN_KEY_CHECKS=1;';
+    const tailIndex = sqlContent.lastIndexOf(tailMarker);
+    const body = tailIndex >= 0 ? sqlContent.slice(0, tailIndex) : sqlContent;
+    const tail = tailIndex >= 0 ? sqlContent.slice(tailIndex) : '';
+
+    const dropRegex = /^DROP TABLE IF EXISTS `([^`]+)`;$/gm;
+    const matches = [...body.matchAll(dropRegex)];
+    if (matches.length === 0) return sqlContent;
+
+    let result = body.slice(0, matches[0].index);
+    for (let i = 0; i < matches.length; i++) {
+      const tableName = matches[i][1];
+      const blockStart = matches[i].index as number;
+      const blockEnd = i + 1 < matches.length ? (matches[i + 1].index as number) : body.length;
+      if (!excludeSet.has(tableName)) {
+        result += body.slice(blockStart, blockEnd);
+      } else {
+        this.logger.log(`Restore: tabella "${tableName}" esclusa`);
+      }
+    }
+    return result + tail;
+  }
+
+  async restoreFromFile(filePath: string, excludeTables: string[] = []): Promise<void> {
+    const rawSql = fs.readFileSync(filePath, 'utf8');
+    const sqlContent = this.filterDumpTables(rawSql, excludeTables);
     const conn = await createConnection({ ...this.dbConfig(), multipleStatements: true });
     try {
       await conn.query(sqlContent);

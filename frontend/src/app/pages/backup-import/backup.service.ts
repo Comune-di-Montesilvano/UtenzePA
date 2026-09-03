@@ -46,12 +46,20 @@ export class BackupService {
     });
   }
 
-  restore(file: File, password: string): Observable<any> {
+  restore(
+    file: File,
+    password: string,
+    options?: { excludeUsers?: boolean; excludeBranding?: boolean },
+  ): Observable<any> {
     return this.chunkedUpload.uploadFile(
       file,
       `${this.BASE_URL}/restore/chunk`,
       `${this.BASE_URL}/restore/finalize`,
-      { password },
+      {
+        password,
+        excludeUsers: options?.excludeUsers ?? false,
+        excludeBranding: options?.excludeBranding ?? false,
+      },
     );
   }
 }

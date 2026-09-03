@@ -108,8 +108,31 @@ describe('BackupController', () => {
     );
 
     expect(authService.validateUser).toHaveBeenCalledWith('admin@example.com', 'correct');
-    expect(service.restoreFromFile).toHaveBeenCalledWith('/tmp/restore.sql');
+    expect(service.restoreFromFile).toHaveBeenCalledWith('/tmp/restore.sql', []);
     expect(result).toEqual({ restored: true });
+  });
+
+  it('restoreFinalize traduce excludeUsers/excludeBranding nelle tabelle da escludere', async () => {
+    fs.writeFileSync('/tmp/restore-exclude.sql', 'dummy');
+    authService.validateUser.mockResolvedValue({ id: 1 } as any);
+    chunkedUpload.assemble.mockReturnValue('/tmp/restore-exclude.sql');
+    service.restoreFromFile.mockResolvedValue(undefined);
+
+    await controller.restoreFinalize(
+      {
+        uploadId: 'u1',
+        totalChunks: 2,
+        password: 'correct',
+        excludeUsers: true,
+        excludeBranding: true,
+      },
+      { id: 1, email: 'admin@example.com', role: 'Admin' },
+    );
+
+    expect(service.restoreFromFile).toHaveBeenCalledWith('/tmp/restore-exclude.sql', [
+      'system_users',
+      'app_settings',
+    ]);
   });
 
   it('restoreFinalize elimina il file assemblato anche se il restore fallisce', async () => {

@@ -10,7 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { AssetsService } from './assets.service';
+import { AssetsService, RegeocodeAllStatus } from './assets.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { UpdateAssetDto } from './dto/update-asset.dto';
 import { SearchAssetDto } from './dto/search-asset.dto';
@@ -60,5 +60,20 @@ export class AssetsController {
   @Delete(':id')
   remove(@Param('id') id: number, @Body() dto: UpdateAssetDto): Promise<void> {
     return this.service.remove(id, dto.updated_by_user_id);
+  }
+
+  // Operazione bulk verso un servizio esterno (Nominatim), puo' durare
+  // diversi minuti — solo Admin, non Operatore (a differenza di create/
+  // update/remove sopra).
+  @Roles('Admin')
+  @Post('regeocode-all')
+  startRegeocodeAll(@Body('forceAll') forceAll?: boolean): RegeocodeAllStatus {
+    return this.service.startRegeocodeAll(forceAll === true);
+  }
+
+  @Roles('Admin')
+  @Get('regeocode-all/status')
+  getRegeocodeAllStatus(): RegeocodeAllStatus {
+    return this.service.getRegeocodeAllStatus();
   }
 }
