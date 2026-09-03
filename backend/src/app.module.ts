@@ -33,6 +33,7 @@ import { UtilizerModule } from '@apis/utilizer/utilizer.module';
 import { DataImporterModule } from '@/data-importer/data-importer.module';
 import { BackupModule } from '@apis/backup/backup.module';
 import { ImportModule } from '@apis/import/import.module';
+import { PhotosModule } from '@apis/photos/photos.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { ImportModule } from '@apis/import/import.module';
     DataImporterModule,
     BackupModule,
     ImportModule,
+    PhotosModule,
   ],
   controllers: [AppController],
   providers: [
