@@ -221,6 +221,12 @@
         </ng-template>
         <ng-template matTabContent>
           <div style="padding: 1rem 0;">
+            <div style="margin-bottom: 1rem;">
+              <button mat-stroked-button (click)="addUtility(tab.value)" [appHasRole]="['Admin','Operatore']">
+                <mat-icon>add</mat-icon>
+                Aggiungi utenza
+              </button>
+            </div>
             @let utilities = getUtilitiesByHardType(tab.value);
             @if (utilities.length > 0) {
               <div style="overflow-x: auto;">

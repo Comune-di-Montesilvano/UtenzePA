@@ -31,6 +31,9 @@ import {PhotoGalleryComponent} from '../../core/components/photo-gallery.compone
 import {PhotosService} from '../../services/photos.service';
 import {UtilityEditDialogComponent} from '../utilities/utility-edit-dialog.component';
 import {ASSET_AGGREGATOR_ICON_FALLBACK} from '../asset-aggregator/enum/asset-aggregator-icon.enum';
+import {UtilityTypesService} from '../utility-types/utility-types.service';
+import {UtilityType} from '../utility-types/entity/utility-type.entity';
+import {UtilityService} from '../utilities/utility.service';
 
 // Stessa larghezza usata per il dialog immobile (vedi UtilityEditDialogComponent
 // ASSET_DIALOG_WIDTH) — tab + gruppi affiancati richiedono spazio simile.
@@ -71,6 +74,8 @@ export class AssetEditDialogComponent implements OnInit {
   private assetAggregatorsService = inject(AssetAggregatorsService);
   private assetService = inject(AssetService);
   private photosService = inject(PhotosService);
+  private utilityTypesService = inject(UtilityTypesService);
+  private utilityService = inject(UtilityService);
   protected data = inject<EditDialogData<Asset>>(MAT_DIALOG_DATA);
 
   isNew = this.data.mode === 'create';
@@ -120,10 +125,25 @@ export class AssetEditDialogComponent implements OnInit {
 
   photoCount: number | null = null;
 
+  // Popolata in ngOnInit — serve ad "Aggiungi utenza" per pre-selezionare il
+  // UtilityType giusto in base al tab (hard_type) da cui si apre il form,
+  // dato che il form utenza lavora per id di UtilityType, non per hard_type.
+  private utilityTypeIdByHardType = new Map<HardType, number>();
+
   ngOnInit(): void {
     this.assetAggregatorsService.search({deleted: false}).subscribe({
       next: data => this.assetAggregatorOptions = data,
       error: err => console.error('Errore nel caricamento degli Asset Aggregator:', err)
+    });
+
+    this.utilityTypesService.search({deleted: false}).subscribe({
+      next: (data: UtilityType[]) => {
+        this.utilityTypeIdByHardType.clear();
+        for (const t of data) {
+          if (!this.utilityTypeIdByHardType.has(t.hard_type)) this.utilityTypeIdByHardType.set(t.hard_type, t.id);
+        }
+      },
+      error: err => console.error('Errore nel caricamento dei Tipi Utenza:', err)
     });
 
     // Solo per mostrare "Foto (N)" sull'etichetta del tab prima ancora di
@@ -156,6 +176,47 @@ export class AssetEditDialogComponent implements OnInit {
 
   getUtilityCountByType(hardType: HardType): number {
     return this.getUtilitiesByHardType(hardType).length;
+  }
+
+  // Apre il form utenza in creazione con immobile e tipologia già
+  // pre-compilati (immobile = quello di questo dialog, tipologia = il tab
+  // da cui si clicca) — a differenza di openUtilityDetail il form qui non
+  // esiste ancora, va creato e persistito noi stessi: questo dialog non
+  // passa dal flusso AbstractDataTableComponent.openCreateDialog()/onCreate
+  // (che fa la stessa cosa per la tabella utenze), essendo aperto da dentro
+  // un altro dialog, quindi va replicata a mano la POST + l'aggiornamento
+  // locale di data.item.utilities (cosi' il conteggio/la tabella del tab
+  // si aggiornano subito, senza dover chiudere e riaprire l'immobile).
+  addUtility(hardType: HardType): void {
+    const utilityTypeId = this.utilityTypeIdByHardType.get(hardType) ?? null;
+    const newUtility = Utility.create({
+      asset_id_fk: this.data.item.id,
+      asset: this.data.item,
+      utility_type_id_fk: utilityTypeId ?? undefined,
+    });
+
+    this.dialog.open<UtilityEditDialogComponent, {mode: 'create'; item: Utility}, Utility | undefined>(UtilityEditDialogComponent, {
+      width: UTILITY_DIALOG_WIDTH,
+      maxWidth: UTILITY_DIALOG_WIDTH,
+      position: EDIT_DIALOG_POSITION,
+      data: {mode: 'create', item: newUtility},
+    }).afterClosed().subscribe(result => {
+      if (!result) return;
+      const userId = this.authService.getCurrentUser()?.id;
+      this.utilityService.create({...result, created_by_user_id: userId, updated_by_user_id: userId}).subscribe({
+        next: created => {
+          // POST ritorna l'entita' salvata da TypeORM.save() SENZA relazioni
+          // popolate (utilityType/asset restano undefined, solo gli _id_fk
+          // sono valorizzati) — getUtilitiesByHardType filtra su
+          // u.utilityType?.hard_type, quindi senza questo stub la nuova
+          // utenza risulterebbe invisibile nel proprio tab finche' non si
+          // riapre il dialog (bug reale, visto in verifica end-to-end).
+          created.utilityType = {hard_type: hardType} as UtilityType;
+          this.data.item.utilities = [...(this.data.item.utilities ?? []), created];
+        },
+        error: err => console.error("Errore nella creazione dell'utenza:", err)
+      });
+    });
   }
 
   openUtilityDetail(utility: Utility): void {
