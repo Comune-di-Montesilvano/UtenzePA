@@ -267,11 +267,34 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     // contatore che eredita le coordinate dall'immobile, il caso più comune,
     // non deve produrre una linea di lunghezza zero).
     const assetLatLngById = new Map<number, { lat: number; lng: number }>();
+    const assetNameById = new Map<number, string>();
     for (const p of points) {
       if (p.type !== 'asset') continue;
+      assetNameById.set(p.id, p.name);
       const lat = CoordinateHelper.parseCoordinate(p.lat);
       const lng = CoordinateHelper.parseCoordinate(p.lng);
       if (!Number.isNaN(lat) && !Number.isNaN(lng)) assetLatLngById.set(p.id, { lat, lng });
+    }
+
+    // Contatori con GPS proprio che condividono esattamente la stessa
+    // coordinata pur essendo collegati ad asset diversi (es. piu' contatori
+    // nello stesso pozzetto/cabina) — i loro marker finiscono sovrapposti
+    // sulla mappa, un click raggiunge solo quello in cima allo z-order, gli
+    // altri restano irraggiungibili. Raggruppati per aprire un selettore
+    // invece del dettaglio diretto quando in un punto ce n'e' piu' di uno
+    // (vedi openUtilityPicker sotto — stesso pattern di openAssetOrPicker,
+    // ma qui i contatori raggruppati sono TUTTI davvero in quel punto,
+    // niente distinzione "altrove" da fare).
+    const utilityGroupsByCoord = new Map<string, MapPoint[]>();
+    for (const p of points) {
+      if (p.type !== 'utility') continue;
+      const lat = CoordinateHelper.parseCoordinate(p.lat);
+      const lng = CoordinateHelper.parseCoordinate(p.lng);
+      if (Number.isNaN(lat) || Number.isNaN(lng)) continue;
+      const key = `${lat},${lng}`;
+      const list = utilityGroupsByCoord.get(key) ?? [];
+      list.push(p);
+      utilityGroupsByCoord.set(key, list);
     }
 
     // Le utenze senza GPS proprio ereditano la posizione esatta dell'asset
@@ -302,7 +325,16 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       // affidata al colore (ora usato per la tipologia).
       const borderStyle = point.source === 'gps' ? 'solid' : 'dashed';
       const utilityCount = isAsset ? (this.utilitiesByAsset.get(point.id)?.length ?? 0) : 0;
-      const badgeHtml = utilityCount > 0 ? `<span class="map-pin-badge">${utilityCount}</span>` : '';
+      const utilityGroup = !isAsset ? utilityGroupsByCoord.get(`${lat},${lng}`) : undefined;
+      // Badge diverso (colore ambra, non rosso come quello immobile) per non
+      // confondere "N contatori collegati a questo immobile" con "N contatori
+      // impilati esattamente qui" — due situazioni diverse, vedi commenti sopra.
+      const overlapBadgeHtml =
+        !isAsset && utilityGroup && utilityGroup.length > 1
+          ? `<span class="map-pin-badge map-pin-badge--overlap">${utilityGroup.length}</span>`
+          : '';
+      const badgeHtml =
+        utilityCount > 0 ? `<span class="map-pin-badge">${utilityCount}</span>` : overlapBadgeHtml;
 
       const icon = L.divIcon({
         className: '',
@@ -319,7 +351,15 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       // "staccato" che sporge dal bordo, visivamente confuso). zIndexOffset
       // forza l'immobile sempre in primo piano sulle utenze coincidenti.
       const marker = L.marker([lat, lng], { icon, zIndexOffset: isAsset ? 1000 : 0 });
-      marker.on('click', () => (isAsset ? this.openAssetOrPicker(point) : this.openDetail(point)));
+      marker.on('click', () => {
+        if (isAsset) {
+          this.openAssetOrPicker(point);
+        } else if (utilityGroup && utilityGroup.length > 1) {
+          this.openUtilityPicker(utilityGroup, assetNameById, lat, lng);
+        } else {
+          this.openDetail(point);
+        }
+      });
       this.clusterGroup.addLayer(marker);
       if (isAsset) this.assetMarkers.set(point.id, marker);
       else this.utilityMarkers.set(point.id, marker);
@@ -438,6 +478,47 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         const target = items[idx].point;
         this.map?.closePopup();
         if (target.type === 'utility') this.goToUtility(target.id);
+      });
+    });
+  }
+
+  // Piu' contatori con GPS proprio impilati esattamente nello stesso punto
+  // (visto: stesso pozzetto/cabina, collegati ad asset diversi) — senza
+  // questo selettore un click raggiunge solo il marker in cima allo
+  // z-order, gli altri sono lì ma irraggiungibili. Mostra anche l'immobile
+  // associato a ciascuno (assetNameById), utile perche' qui — a differenza
+  // di openAssetOrPicker — non sono tutti collegati allo stesso edificio.
+  private openUtilityPicker(
+    group: MapPoint[],
+    assetNameById: Map<number, string>,
+    lat: number,
+    lng: number,
+  ): void {
+    if (!this.map) return;
+
+    const listHtml = group
+      .map((u, i) => {
+        const { iconHtml, color } = this.pointIcon(u);
+        const typeLabel = u.hardType ? this.hardTypeLegend.find((t) => t.value === u.hardType)?.label : 'Utenza';
+        const assetName = u.assetId != null ? (assetNameById.get(u.assetId) ?? '?') : '—';
+        return `<li data-idx="${i}" class="map-picker-item">
+          <span class="map-pin map-pin-inline" style="background:${color}">${iconHtml}</span>
+          <span class="map-picker-item-label">${typeLabel} — ${u.name} <small>(${assetName})</small></span>
+        </li>`;
+      })
+      .join('');
+
+    const popup = L.popup({ closeButton: true, autoPan: true })
+      .setLatLng([lat, lng])
+      .setContent(`<ul class="map-picker-list">${listHtml}</ul>`)
+      .openOn(this.map);
+
+    const el = popup.getElement();
+    el?.querySelectorAll<HTMLLIElement>('[data-idx]').forEach((li) => {
+      li.addEventListener('click', () => {
+        const idx = Number(li.dataset['idx']);
+        this.map?.closePopup();
+        this.openDetail(group[idx]);
       });
     });
   }

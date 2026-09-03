@@ -262,6 +262,13 @@ p-paginator.p-component.p-paginator {
   box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
 }
 
+// Piu' contatori impilati esattamente nello stesso punto (asset diversi,
+// stessa coordinata) — colore diverso dal badge rosso "N contatori
+// collegati a questo immobile" sopra, sono due situazioni diverse.
+.map-pin-badge--overlap {
+  background: #f59e0b;
+}
+
 // Popup di scelta immobile/contatore (MapComponent.openAssetOrPicker) —
 // stesso motivo "innerHTML raw" delle altre regole in questo blocco.
 .map-picker-list {
