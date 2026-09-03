@@ -9,6 +9,7 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatDatepickerModule} from '@angular/material/datepicker';
+import {MatTabsModule} from '@angular/material/tabs';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
@@ -33,14 +34,15 @@ import {MaintenanceManagersService} from '../maintenance-managers/maintenance-ma
 import {ConsipAgreementService} from '../consip-agreement/consip-agreement.service';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {LocationMapComponent} from '../../core/components/location-map.component';
+import {PhotoGalleryComponent} from '../../core/components/photo-gallery.component';
 
 @Component({
   selector: 'app-utility-edit-dialog',
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule,
-    HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent, LocationMapComponent
+    MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatTabsModule,
+    HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent, LocationMapComponent, PhotoGalleryComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-edit-dialog.component.html'
