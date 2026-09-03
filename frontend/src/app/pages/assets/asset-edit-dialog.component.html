@@ -1,12 +1,12 @@
 <h2 mat-dialog-title>
-  {{ isNew ? 'Aggiungi Immobile' : 'Modifica Immobile: ' + data.item.asset_name }}
+  {{ isNew ? 'Aggiungi Immobile' : 'Modifica Immobile: ' + data.item.asset_name + ' (ID ' + data.item.id + ')' }}
 </h2>
 
 <mat-dialog-content>
   <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start">
     <mat-tab>
       <ng-template mat-tab-label>
-        <mat-icon style="margin-right: 5px;">apartment</mat-icon>
+        <mat-icon style="margin-right: 5px;">{{ currentAggregatorIcon() }}</mat-icon>
         Dati
       </ng-template>
   <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-direction: column; gap: 1rem;">

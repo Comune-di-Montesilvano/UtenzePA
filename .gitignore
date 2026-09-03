@@ -21,6 +21,7 @@ node_modules/
 
 *.sql
 *.accdb
+.csv
 
 .worktrees/
 

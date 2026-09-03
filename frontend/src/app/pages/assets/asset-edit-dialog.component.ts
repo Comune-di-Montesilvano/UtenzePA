@@ -30,6 +30,7 @@ import {LocationMapComponent} from '../../core/components/location-map.component
 import {PhotoGalleryComponent} from '../../core/components/photo-gallery.component';
 import {PhotosService} from '../../services/photos.service';
 import {UtilityEditDialogComponent} from '../utilities/utility-edit-dialog.component';
+import {ASSET_AGGREGATOR_ICON_FALLBACK} from '../asset-aggregator/enum/asset-aggregator-icon.enum';
 
 // Stessa larghezza usata per il dialog immobile (vedi UtilityEditDialogComponent
 // ASSET_DIALOG_WIDTH) — tab + gruppi affiancati richiedono spazio simile.
@@ -137,6 +138,16 @@ export class AssetEditDialogComponent implements OnInit {
         error: () => {} // non critico: l'etichetta resta senza numero, la galleria stessa segnala eventuali errori
       });
     }
+  }
+
+  // Icona del tab "Dati" — segue l'aggregato selezionato nel form (non
+  // data.item.assetAggregator, che resterebbe quella iniziale se l'utente
+  // cambia "Tipo immobile" prima di salvare), stesso fallback usato sui
+  // marker mappa quando l'aggregato non ha un'icona custom.
+  currentAggregatorIcon(): string {
+    const id = this.form.controls.asset_type_id.value;
+    const aggregator = this.assetAggregatorOptions.find(a => a.id === id);
+    return aggregator?.icon || ASSET_AGGREGATOR_ICON_FALLBACK;
   }
 
   getUtilitiesByHardType(hardType: HardType): Utility[] {
