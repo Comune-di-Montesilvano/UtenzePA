@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnDestroy, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -7,11 +7,18 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog } from '@angular/material/dialog';
 import { ToastService } from '../../core/services/toast.service';
 import { BackupService, BackupInfo } from './backup.service';
 import { ImportService } from './import.service';
+import { GeocodeService, RegeocodeAllStatus } from './geocode.service';
 import { RestoreConfirmDialogComponent, RestoreConfirmDialogData } from './restore-confirm-dialog.component';
+
+// Poll piu' rado di quanto Nominatim possa mai completare una singola
+// geocodifica (throttle 1.1s + eventuali retry su 429) — non ha senso
+// interrogare lo stato piu' spesso del ritmo con cui puo' cambiare.
+const STATUS_POLL_MS = 3000;
 
 interface EntityTypeOption {
   label: string;
@@ -30,13 +37,15 @@ interface EntityTypeOption {
     MatFormFieldModule,
     MatSelectModule,
     MatProgressSpinnerModule,
+    MatCheckboxModule,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './backup-import.component.html',
 })
-export class BackupImportComponent {
+export class BackupImportComponent implements OnDestroy {
   private backupService = inject(BackupService);
   private importService = inject(ImportService);
+  private geocodeService = inject(GeocodeService);
   private toastService = inject(ToastService);
   private dialog = inject(MatDialog);
 
@@ -64,8 +73,67 @@ export class BackupImportComponent {
   importing = false;
   importResult: Record<string, unknown> | null = null;
 
+  geocodeStatus: RegeocodeAllStatus | null = null;
+  geocodeForceAll = false;
+  private geocodePollHandle: ReturnType<typeof setInterval> | null = null;
+
   ngOnInit() {
     this.loadBackups();
+    this.refreshGeocodeStatus();
+  }
+
+  ngOnDestroy(): void {
+    this.stopGeocodePolling();
+  }
+
+  private refreshGeocodeStatus(): void {
+    this.geocodeService.getStatus().subscribe({
+      next: (status) => {
+        this.geocodeStatus = status;
+        if (status.running) {
+          this.startGeocodePolling();
+        } else {
+          this.stopGeocodePolling();
+        }
+      },
+      error: () => {
+        // Silenzioso: e' un poll di stato in background, non un'azione
+        // esplicita dell'utente — un toast di errore ad ogni tick sarebbe
+        // rumore, non segnale.
+      },
+    });
+  }
+
+  private startGeocodePolling(): void {
+    if (this.geocodePollHandle) return;
+    this.geocodePollHandle = setInterval(() => this.refreshGeocodeStatus(), STATUS_POLL_MS);
+  }
+
+  private stopGeocodePolling(): void {
+    if (!this.geocodePollHandle) return;
+    clearInterval(this.geocodePollHandle);
+    this.geocodePollHandle = null;
+  }
+
+  startRegeocodeAll(): void {
+    this.geocodeService.startAll(this.geocodeForceAll).subscribe({
+      next: (status) => {
+        this.geocodeStatus = status;
+        if (status.running) {
+          this.startGeocodePolling();
+          this.toastService.add({ severity: 'success', summary: 'Rigeocodifica avviata' });
+        } else {
+          // running=false in risposta immediata: un job era gia' in corso
+          // ed e' finito nell'istante tra la richiesta e la risposta, oppure
+          // (piu' raro) non c'erano asset da processare.
+          this.toastService.add({ severity: 'success', summary: 'Rigeocodifica completata' });
+        }
+      },
+      error: (err: any) => {
+        const detail = err?.error?.message ?? 'Errore nell\'avvio della rigeocodifica';
+        this.toastService.add({ severity: 'error', summary: 'Errore', detail });
+      },
+    });
   }
 
   loadBackups() {
