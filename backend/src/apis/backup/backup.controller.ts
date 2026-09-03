@@ -23,8 +23,9 @@ import { JwtAuthGuard } from '@core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@core/auth/guards/roles.guard';
 import { Roles } from '@core/auth/decorators/roles.decorator';
 import { CurrentUser, ICurrentUser } from '@core/auth/decorators/current-user.decorator';
-import { UploadChunkDto } from './dto/upload-chunk.dto';
+import { UploadChunkDto } from '@common/chunked-upload/dto/upload-chunk.dto';
 import { RestoreFinalizeDto } from './dto/restore-finalize.dto';
+import { CreateBackupDto } from './dto/create-backup.dto';
 
 @Controller('backup')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -39,8 +40,8 @@ export class BackupController {
   ) {}
 
   @Post()
-  create(): Promise<BackupInfo> {
-    return this.service.createBackup();
+  create(@Body() dto: CreateBackupDto): Promise<BackupInfo> {
+    return this.service.createBackup(dto.includePhotos ?? false);
   }
 
   @Get()
@@ -55,7 +56,7 @@ export class BackupController {
   ): StreamableFile {
     const filePath = this.service.getBackupPath(filename);
     res.set({
-      'Content-Type': 'application/sql',
+      'Content-Type': filename.endsWith('.tar.gz') ? 'application/gzip' : 'application/sql',
       'Content-Disposition': `attachment; filename="${filename}"`,
     });
     return new StreamableFile(fs.createReadStream(filePath));
@@ -94,11 +95,12 @@ export class BackupController {
       throw new BadRequestException('Password non corretta');
     }
 
+    const isArchive = dto.originalFilename?.endsWith('.tar.gz') ?? false;
     const filePath = this.chunkedUpload.assemble(
       dto.uploadId,
       dto.totalChunks,
       this.tmpDir,
-      `${dto.uploadId}.sql`,
+      `${dto.uploadId}${isArchive ? '.tar.gz' : '.sql'}`,
     );
     const excludeTables: string[] = [
       ...(dto.excludeUsers ? ['system_users'] : []),

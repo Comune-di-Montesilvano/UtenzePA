@@ -3,12 +3,14 @@ import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
+import { ChunkedUploadService } from './chunked-upload.service';
 import { Photo, PhotoEntityType } from '../core/entities/photo.entity';
 
 @Injectable({ providedIn: 'root' })
 export class PhotosService {
   private http = inject(HttpClient);
   private auth = inject(AuthService);
+  private chunkedUpload = inject(ChunkedUploadService);
   private readonly BASE_URL = `${environment.apiUrl}/photos`;
 
   private getAuthHeaders(): HttpHeaders {
@@ -20,11 +22,22 @@ export class PhotosService {
     return this.http.get<Photo[]>(this.BASE_URL, { headers: this.getAuthHeaders(), params });
   }
 
+  // Sempre a chunk (1MB per parte, vincolo reverse proxy di produzione — vedi
+  // ChunkedUploadService) — a differenza di un backup/import, qui il caso
+  // comune (foto da fotocamera/smartphone) supera quasi sempre 1MB, non è
+  // un caso limite.
   upload(entityType: PhotoEntityType, entityId: number, file: File): Observable<Photo> {
-    const formData = new FormData();
-    formData.append('file', file);
-    const params = new HttpParams().set('entityType', entityType).set('entityId', String(entityId));
-    return this.http.post<Photo>(this.BASE_URL, formData, { headers: this.getAuthHeaders(), params });
+    return this.chunkedUpload.uploadFile(
+      file,
+      `${this.BASE_URL}/upload/chunk`,
+      `${this.BASE_URL}/upload/finalize`,
+      {
+        entityType,
+        entityId,
+        originalFilename: file.name,
+        mimeType: file.type,
+      },
+    );
   }
 
   getFileBlob(id: number): Observable<Blob> {

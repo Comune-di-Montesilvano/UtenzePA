@@ -3,13 +3,16 @@
 <mat-tab-group>
   <mat-tab label="Backup">
     <div style="padding: 1rem 0;">
-      <div style="margin-bottom: 1rem;">
+      <div style="margin-bottom: 1rem; display: flex; align-items: center; gap: 1rem;">
         <button mat-flat-button [disabled]="creatingBackup" (click)="createBackup()">
           @if (creatingBackup) {
             <mat-spinner diameter="18" style="display: inline-block; margin-right: 0.5rem;"></mat-spinner>
           }
           Crea backup ora
         </button>
+        <mat-checkbox [(ngModel)]="includePhotosInBackup" [disabled]="creatingBackup">
+          Includi foto (genera un .tar.gz invece di .sql)
+        </mat-checkbox>
       </div>
 
       <table mat-table [dataSource]="backups" style="width: 100%;">
@@ -44,7 +47,7 @@
       <div style="margin-top: 2rem;">
         <h3>Ripristina da backup</h3>
         <p style="color: #dc2626;">Attenzione: il ripristino sovrascrive tutti i dati attuali. Azione irreversibile.</p>
-        <input type="file" accept=".sql" [disabled]="restoring" (change)="onRestoreFileSelected($event)" />
+        <input type="file" accept=".sql,.tar.gz" [disabled]="restoring" (change)="onRestoreFileSelected($event)" />
         @if (restoring) {
           <mat-spinner diameter="20" style="display: inline-block; margin-left: 0.5rem; vertical-align: middle;"></mat-spinner>
         }

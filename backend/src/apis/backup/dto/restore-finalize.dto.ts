@@ -28,4 +28,13 @@ export class RestoreFinalizeDto {
   @Type(() => Boolean)
   @IsBoolean({ message: 'Il campo excludeBranding deve essere booleano' })
   excludeBranding?: boolean;
+
+  // Nome del file originale scelto dall'utente — serve solo a distinguere
+  // un backup .sql (solo dump) da un .tar.gz (dump + foto) una volta
+  // riassemblato dai chunk, che di per sé sono blob "nudi" senza nome/
+  // estensione. Assente/non riconosciuto => trattato come .sql (comportamento
+  // di sempre, retro-compatibile con un frontend non ancora aggiornato).
+  @IsOptional()
+  @IsString({ message: 'Il campo originalFilename deve essere una stringa' })
+  originalFilename?: string;
 }

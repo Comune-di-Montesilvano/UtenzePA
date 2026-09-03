@@ -47,8 +47,8 @@ describe('BackupController', () => {
     const info = { filename: 'utenzepa_20260101_000000.sql', size: 10, createdAt: new Date() };
     service.createBackup.mockResolvedValue(info);
 
-    await expect(controller.create()).resolves.toEqual(info);
-    expect(service.createBackup).toHaveBeenCalled();
+    await expect(controller.create({})).resolves.toEqual(info);
+    expect(service.createBackup).toHaveBeenCalledWith(false);
   });
 
   it('list delega a service.listBackups', async () => {
@@ -110,6 +110,20 @@ describe('BackupController', () => {
     expect(authService.validateUser).toHaveBeenCalledWith('admin@example.com', 'correct');
     expect(service.restoreFromFile).toHaveBeenCalledWith('/tmp/restore.sql', []);
     expect(result).toEqual({ restored: true });
+  });
+
+  it('restoreFinalize assembla come .tar.gz quando originalFilename lo indica', async () => {
+    fs.writeFileSync('/tmp/restore.sql', 'dummy');
+    authService.validateUser.mockResolvedValue({ id: 1 } as any);
+    chunkedUpload.assemble.mockReturnValue('/tmp/restore.sql');
+    service.restoreFromFile.mockResolvedValue(undefined);
+
+    await controller.restoreFinalize(
+      { uploadId: 'u1', totalChunks: 2, password: 'correct', originalFilename: 'mio-backup.tar.gz' },
+      { id: 1, email: 'admin@example.com', role: 'Admin' },
+    );
+
+    expect(chunkedUpload.assemble).toHaveBeenCalledWith('u1', 2, expect.any(String), 'u1.tar.gz');
   });
 
   it('restoreFinalize traduce excludeUsers/excludeBranding nelle tabelle da escludere', async () => {
