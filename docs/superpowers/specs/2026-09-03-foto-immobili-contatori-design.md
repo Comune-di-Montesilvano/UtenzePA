@@ -120,9 +120,12 @@ Nuovo modulo `backend/src/apis/photos/`:
   `Content-Type` da `mime_type`, dietro `JwtAuthGuard` (nessun ruolo
   specifico oltre l'autenticazione — anche `Lettore` deve poter vedere le
   foto, solo non caricarle/eliminarle).
-- `DELETE /api/v1/photos/:id` — rimuove riga DB **e** file fisico dal
-  volume (non solo soft-delete: uno storage limitato non deve accumulare
-  file orfani mai puliti). Gate ruoli `Admin`/`Operatore`.
+- `DELETE /api/v1/photos/:id` — soft-delete della riga (`deleted=true`,
+  stesso pattern `BaseService.remove()` del resto del progetto, per
+  coerenza di audit trail) **e** rimozione immediata del file fisico dal
+  volume (uno storage limitato non deve accumulare file orfani mai puliti —
+  qui la foto non è più raggiungibile una volta cancellata, quindi non ha
+  senso tenerne il file). Gate ruoli `Admin`/`Operatore`.
 
 ## 4. Frontend
 
