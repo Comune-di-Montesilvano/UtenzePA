@@ -50,10 +50,18 @@ services:
       - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
       - BACKUP_MAX_SIZE_MB=${BACKUP_MAX_SIZE_MB:-500}
       - IMPORT_MAX_SIZE_MB=${IMPORT_MAX_SIZE_MB:-50}
+      # HOME di default nell'immagine punta a /root (build-time, utente root) —
+      # con user:"1000:1000" a runtime pnpm risolve lo store in $HOME/.local/share/pnpm,
+      # cioè dentro /root, non scrivibile da uid 1000 (permessi 700 di default):
+      # "attempt to write a readonly database" su ogni pnpm install/start:dev,
+      # crash-loop del container. HOME esplicito su un path scrivibile dall'utente
+      # 1000 (bind-mount del sorgente, owned correttamente) risolve alla radice.
+      - HOME=/usr/src/app
     user: "1000:1000"
     volumes:
       - ./backend:/usr/src/app
       - ./backend/backups:/usr/src/app/backups
+      - ./backend/photos:/usr/src/app/photos
       - api_node_modules:/usr/src/app/node_modules
     ports:
       - '9229:9229'
