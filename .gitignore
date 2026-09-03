@@ -19,4 +19,12 @@ node_modules/
 # Misc
 *.log
 
-*.sql.worktrees/
+*.sql
+
+.worktrees/
+
+# Cache pnpm/corepack scritte dentro backend/ quando HOME punta lì in dev
+# (vedi docker-compose.override.yml, servizio api — uid 1000 non può
+# scrivere nel default /root del container).
+backend/.cache/
+backend/.local/
