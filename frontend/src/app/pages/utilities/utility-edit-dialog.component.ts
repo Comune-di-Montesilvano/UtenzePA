@@ -236,8 +236,16 @@ export class UtilityEditDialogComponent implements OnInit {
     const lat = this.form.controls.latitude.value;
     const lon = this.form.controls.longitude.value;
     if (isValid(lat) && isValid(lon)) return {lat, lon};
-    const assetLat = this.data.item.asset?.latitude;
-    const assetLon = this.data.item.asset?.longitude;
+    // Fallback all'immobile associato: prima il suo GPS reale, poi — se
+    // l'immobile non ne ha uno proprio — la sua posizione geocodificata
+    // dall'indirizzo (asset.geocoded_latitude/longitude). Senza questo
+    // secondo fallback un contatore collegato a un immobile solo
+    // geocodificato (caso comune, mai un GPS reale inserito a mano) restava
+    // con mini-mappa completamente vuota — nessun marker, nessun hint,
+    // nessun modo di impostare una posizione.
+    const asset = this.data.item.asset;
+    const assetLat = asset?.latitude ?? asset?.geocoded_latitude;
+    const assetLon = asset?.longitude ?? asset?.geocoded_longitude;
     if (isValid(assetLat) && isValid(assetLon)) return {lat: assetLat, lon: assetLon};
     return null;
   }
@@ -247,7 +255,10 @@ export class UtilityEditDialogComponent implements OnInit {
     const lat = this.form.controls.latitude.value;
     const lon = this.form.controls.longitude.value;
     if (isValid(lat) && isValid(lon)) return false;
-    return isValid(this.data.item.asset?.latitude) && isValid(this.data.item.asset?.longitude);
+    const asset = this.data.item.asset;
+    const assetLat = asset?.latitude ?? asset?.geocoded_latitude;
+    const assetLon = asset?.longitude ?? asset?.geocoded_longitude;
+    return isValid(assetLat) && isValid(assetLon);
   }
 
   onPositionSelected(coords: { lat: string; lng: string }): void {
