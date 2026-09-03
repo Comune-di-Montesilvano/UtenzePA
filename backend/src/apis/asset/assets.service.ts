@@ -87,6 +87,16 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
       .leftJoinAndSelect('assets.created_by', 'created_by')
       .leftJoinAndSelect('assets.updated_by', 'updated_by')
       .leftJoinAndSelect('assets.utilities', 'utilities', 'utilities.deleted = 0')
+      // Mancava rispetto a findAll() sopra — mai emerso prima perche' finora
+      // nessun punto della UI apriva il dialog immobile passando da un
+      // singolo GET (sempre via la riga gia' caricata dalla tabella, che usa
+      // findAll() e quindi aveva gia' utilityType). Bug reale: senza questo
+      // join, u.utilityType e' sempre undefined qui, e
+      // AssetEditDialogComponent.getUtilitiesByHardType (filtra su
+      // u.utilityType?.hard_type) mostra 0 utenze per ogni tipo anche
+      // quando ce ne sono — scoperto aprendo il dialog immobile da dentro
+      // il dialog contatore (nuovo flusso di navigazione impilata).
+      .leftJoinAndSelect('utilities.utilityType', 'utilityType', 'utilityType.deleted = 0')
       .leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0')
       .leftJoinAndSelect('utilizerGrants.utilizer', 'utilizer', 'utilizer.deleted = 0')
       .where('assets.id = :id', { id })

@@ -1,6 +1,6 @@
 import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
-import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
+import {MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatSelectModule} from '@angular/material/select';
@@ -9,7 +9,7 @@ import {MatTabsModule} from '@angular/material/tabs';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatIconModule} from '@angular/material/icon';
 import {plainToInstance} from 'class-transformer';
-import {EditDialogData} from '../../core/components/abstract-data-table.component';
+import {EditDialogData, EDIT_DIALOG_POSITION} from '../../core/components/abstract-data-table.component';
 import {Asset} from './entity/asset.entity';
 import {AuthService} from '../../services/auth.service';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
@@ -28,6 +28,12 @@ import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
 import {DatePipe} from '@angular/common';
 import {LocationMapComponent} from '../../core/components/location-map.component';
 import {PhotoGalleryComponent} from '../../core/components/photo-gallery.component';
+import {PhotosService} from '../../services/photos.service';
+import {UtilityEditDialogComponent} from '../utilities/utility-edit-dialog.component';
+
+// Stessa larghezza usata per il dialog immobile (vedi UtilityEditDialogComponent
+// ASSET_DIALOG_WIDTH) — tab + gruppi affiancati richiedono spazio simile.
+const UTILITY_DIALOG_WIDTH = '1150px';
 
 @Component({
   selector: 'app-asset-edit-dialog',
@@ -59,9 +65,11 @@ import {PhotoGalleryComponent} from '../../core/components/photo-gallery.compone
 export class AssetEditDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<AssetEditDialogComponent, Asset | undefined>);
+  private dialog = inject(MatDialog);
   private authService = inject(AuthService);
   private assetAggregatorsService = inject(AssetAggregatorsService);
   private assetService = inject(AssetService);
+  private photosService = inject(PhotosService);
   protected data = inject<EditDialogData<Asset>>(MAT_DIALOG_DATA);
 
   isNew = this.data.mode === 'create';
@@ -109,11 +117,26 @@ export class AssetEditDialogComponent implements OnInit {
     }
   }
 
+  photoCount: number | null = null;
+
   ngOnInit(): void {
     this.assetAggregatorsService.search({deleted: false}).subscribe({
       next: data => this.assetAggregatorOptions = data,
       error: err => console.error('Errore nel caricamento degli Asset Aggregator:', err)
     });
+
+    // Solo per mostrare "Foto (N)" sull'etichetta del tab prima ancora di
+    // aprirlo — il tab e' lazy (matTabContent), PhotoGalleryComponent non
+    // esiste finche' non ci si clicca dentro, quindi il conteggio non puo'
+    // venire da li'. Chiamata leggera (solo metadati, non i file), non
+    // duplicata quando poi si apre davvero il tab (PhotoGalleryComponent
+    // fa la sua load() indipendente).
+    if (!this.isNew) {
+      this.photosService.list('asset', this.data.item.id).subscribe({
+        next: photos => this.photoCount = photos.length,
+        error: () => {} // non critico: l'etichetta resta senza numero, la galleria stessa segnala eventuali errori
+      });
+    }
   }
 
   getUtilitiesByHardType(hardType: HardType): Utility[] {
@@ -125,7 +148,16 @@ export class AssetEditDialogComponent implements OnInit {
   }
 
   openUtilityDetail(utility: Utility): void {
-    window.open(`/utilities?selectedId=${utility.id}`, '_blank');
+    // Sopra questo dialog (stessa finestra), non una tab nuova — stesso
+    // pattern del verso opposto in UtilityEditDialogComponent.navigateToAsset.
+    // L'oggetto e' gia' quello caricato con l'immobile (data.item.utilities),
+    // nessuna chiamata di rete in piu' per riaprirlo.
+    this.dialog.open(UtilityEditDialogComponent, {
+      width: UTILITY_DIALOG_WIDTH,
+      maxWidth: UTILITY_DIALOG_WIDTH,
+      position: EDIT_DIALOG_POSITION,
+      data: {mode: 'edit', item: utility},
+    });
   }
 
   save(): void {

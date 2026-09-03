@@ -4,7 +4,11 @@
 
 <mat-dialog-content>
   <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start">
-    <mat-tab label="Dati">
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon style="margin-right: 5px;">apartment</mat-icon>
+        Dati
+      </ng-template>
   <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-direction: column; gap: 1rem;">
 
     <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
@@ -194,71 +198,74 @@
         }
       </div>
 
-      <div>
-        <h4>Utenze</h4>
-        <mat-tab-group>
-          @for (tab of tabs; track tab.value) {
-            <mat-tab>
-              <ng-template mat-tab-label>
-                <i [class]="tab.icon" [style.color]="tab.color" style="margin-right: 5px;"></i>
-                {{ tab.label }} ({{ getUtilityCountByType(tab.value) }})
-              </ng-template>
-              @let utilities = getUtilitiesByHardType(tab.value);
-              @if (utilities.length > 0) {
-                <div style="overflow-x: auto;">
-                  <table style="width: 100%; min-width: 900px; border-collapse: collapse; margin-top: 1rem;">
-                    <thead>
-                      <tr>
-                        <th style="text-align: left;">ID Utenza</th>
-                        <th style="text-align: left;">Codice</th>
-                        <th style="text-align: left;">N° Contatore</th>
-                        <th style="text-align: left;">Fornitore</th>
-                        <th style="text-align: left;">Attiva</th>
-                        <th style="text-align: left;">Inizio Fornitura</th>
-                        <th style="text-align: left;">Scadenza Fornitura</th>
-                        <th style="width: 60px;"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (u of utilities; track u.id) {
-                        <tr>
-                          <td>{{ u.utility_id }}</td>
-                          <td>{{ u.utility_code }}</td>
-                          <td>{{ u.meter_number }}</td>
-                          <td>{{ u.supplier?.company_name }}</td>
-                          <td>{{ u.supply_active ? 'Sì' : 'No' }}</td>
-                          <td>{{ u.supply_start_date | date: 'dd/MM/yyyy' }}</td>
-                          <td>{{ u.supply_expiry_date | date: 'dd/MM/yyyy' }}</td>
-                          <td>
-                            <button mat-icon-button matTooltip="Apri dettaglio utenza" (click)="openUtilityDetail(u)">
-                              <mat-icon>description</mat-icon>
-                            </button>
-                          </td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
-              } @else {
-                <p style="color: #6A7282; margin: 1rem 0;">
-                  Nessuna utenza di tipo <strong>{{ tab.label }}</strong> associata a questo immobile.
-                </p>
-              }
-            </mat-tab>
-          }
-        </mat-tab-group>
-      </div>
     }
 
   </form>
     </mat-tab>
     <mat-tab label="Foto" [disabled]="isNew">
+      <ng-template mat-tab-label>
+        <mat-icon style="margin-right: 5px;">photo_library</mat-icon>
+        Foto{{ photoCount != null ? ' (' + photoCount + ')' : '' }}
+      </ng-template>
       <ng-template matTabContent>
         <div style="padding: 1rem 0;">
           <app-photo-gallery [entityType]="'asset'" [entityId]="data.item.id"></app-photo-gallery>
         </div>
       </ng-template>
     </mat-tab>
+    @for (tab of tabs; track tab.value) {
+      <mat-tab [disabled]="isNew">
+        <ng-template mat-tab-label>
+          <i [class]="tab.icon" [style.color]="tab.color" style="margin-right: 5px;"></i>
+          {{ tab.label }} ({{ getUtilityCountByType(tab.value) }})
+        </ng-template>
+        <ng-template matTabContent>
+          <div style="padding: 1rem 0;">
+            @let utilities = getUtilitiesByHardType(tab.value);
+            @if (utilities.length > 0) {
+              <div style="overflow-x: auto;">
+                <table style="width: 100%; min-width: 900px; border-collapse: collapse;">
+                  <thead>
+                    <tr>
+                      <th style="text-align: left;">ID Utenza</th>
+                      <th style="text-align: left;">Codice</th>
+                      <th style="text-align: left;">N° Contatore</th>
+                      <th style="text-align: left;">Fornitore</th>
+                      <th style="text-align: left;">Attiva</th>
+                      <th style="text-align: left;">Inizio Fornitura</th>
+                      <th style="text-align: left;">Scadenza Fornitura</th>
+                      <th style="width: 60px;"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (u of utilities; track u.id) {
+                      <tr>
+                        <td>{{ u.utility_id }}</td>
+                        <td>{{ u.utility_code }}</td>
+                        <td>{{ u.meter_number }}</td>
+                        <td>{{ u.supplier?.company_name }}</td>
+                        <td>{{ u.supply_active ? 'Sì' : 'No' }}</td>
+                        <td>{{ u.supply_start_date | date: 'dd/MM/yyyy' }}</td>
+                        <td>{{ u.supply_expiry_date | date: 'dd/MM/yyyy' }}</td>
+                        <td>
+                          <button mat-icon-button matTooltip="Apri dettaglio utenza" (click)="openUtilityDetail(u)">
+                            <mat-icon>description</mat-icon>
+                          </button>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <p style="color: #6A7282; margin: 0;">
+                Nessuna utenza di tipo <strong>{{ tab.label }}</strong> associata a questo immobile.
+              </p>
+            }
+          </div>
+        </ng-template>
+      </mat-tab>
+    }
   </mat-tab-group>
 </mat-dialog-content>
 

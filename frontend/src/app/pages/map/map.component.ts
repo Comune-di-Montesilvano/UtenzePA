@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormControl } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { EDIT_DIALOG_POSITION } from '../../core/components/abstract-data-table.component';
 import { MatDialog } from '@angular/material/dialog';
 import * as L from 'leaflet';
 import { MapService } from './map.service';
@@ -397,13 +398,27 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         badgeHtml = buildingsBadge + utilitiesBadge;
       } else {
         ({ iconHtml, color } = this.pointIcon(point));
-        badgeHtml = utilityCount > 0 ? `<span class="map-pin-badge">${utilityCount}</span>` : '';
+        // Stesso badge (stile/dimensione/icona) usato per il conteggio
+        // utenze in un punto di gruppo (map-pin-badge--utilities) — prima
+        // era un cerchietto rosso piccolo con solo il numero, incoerente
+        // col resto. Il click sul PIN apre sempre l'immobile direttamente
+        // (mai il selettore); il click sul BADGE apre l'elenco utenze — due
+        // target distinti nello stesso marker, vedi bind sotto.
+        badgeHtml =
+          utilityCount > 0
+            ? `<span class="map-pin-badge map-pin-badge--group map-pin-badge--utilities"
+                 data-badge-action="utilities" title="${utilityCount} utenze collegate — clicca per vederle">
+                 <span class="material-icons">speed</span>${utilityCount}
+               </span>`
+            : '';
       }
 
-      // Marker gruppo piu' grande del normale — deve ospitare due badge
-      // separati leggibili, 26px (dimensione standard) li farebbe accavallare.
-      const wrapClass = combined ? ' map-marker-wrap--group' : '';
-      const [iconSize, iconAnchor]: [[number, number], [number, number]] = combined
+      // Marker con badge grande (gruppo, o immobile con utenze) e' piu'
+      // grande del normale — 26px (dimensione standard) farebbe accavallare
+      // un badge pensato per un pin da 34px.
+      const hasBigBadge = combined || (isAsset && utilityCount > 0);
+      const wrapClass = hasBigBadge ? ' map-marker-wrap--group' : '';
+      const [iconSize, iconAnchor]: [[number, number], [number, number]] = hasBigBadge
         ? [[34, 34], [17, 17]]
         : [[26, 26], [13, 13]];
       const icon = L.divIcon({
@@ -438,7 +453,18 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
             | null;
           this.openCombinedPicker(coordGroup, assetNameById, lat, lng, filterType ?? undefined);
         } else if (isAsset) {
-          this.openAssetOrPicker(point);
+          // Stesso principio del gruppo: click sul badge (data-badge-action)
+          // apre l'elenco utenze, click sul pin apre l'immobile diretto —
+          // mai piu' il selettore "di passaggio" per un click qualunque sul
+          // marker immobile.
+          const badgeEl = (e.originalEvent?.target as HTMLElement | null)?.closest(
+            '[data-badge-action="utilities"]',
+          );
+          if (badgeEl) {
+            this.openAssetOrPicker(point);
+          } else {
+            this.openDetail(point);
+          }
         } else {
           this.openDetail(point);
         }
@@ -632,6 +658,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
           .open(AssetEditDialogComponent, {
             width: EDIT_DIALOG_WIDTH,
             maxWidth: EDIT_DIALOG_WIDTH,
+            position: EDIT_DIALOG_POSITION,
             data: { mode: 'edit', item: asset },
           })
           // Il dialog si limita a chiudersi col form compilato (result) — il
@@ -650,6 +677,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
           .open(UtilityEditDialogComponent, {
             width: EDIT_DIALOG_WIDTH,
             maxWidth: EDIT_DIALOG_WIDTH,
+            position: EDIT_DIALOG_POSITION,
             data: { mode: 'edit', item: utility },
           })
           .afterClosed()
@@ -698,6 +726,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       .open(AssetEditDialogComponent, {
         width: EDIT_DIALOG_WIDTH,
         maxWidth: EDIT_DIALOG_WIDTH,
+        position: EDIT_DIALOG_POSITION,
         data: { mode: 'create', item: Asset.create({ latitude: lat, longitude: lng }) },
       })
       .afterClosed()
@@ -715,6 +744,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       .open(UtilityEditDialogComponent, {
         width: EDIT_DIALOG_WIDTH,
         maxWidth: EDIT_DIALOG_WIDTH,
+        position: EDIT_DIALOG_POSITION,
         data: { mode: 'create', item: Utility.create({ latitude: lat, longitude: lng }) },
       })
       .afterClosed()
