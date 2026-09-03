@@ -16,6 +16,7 @@ import { UtilityType } from '@apis/utility-types/entity/utility_type.entity';
 import { CostsBorneBy } from '@apis/shared/entities/utility_cost_borne_by.entity';
 import { MaintenanceManager } from '@apis/shared/entities/maintenanceManagers.entity';
 import { ConsipAgreement } from '@apis/consip-agreement/entity/consip-agreement.entity';
+import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { Phase } from '@apis/shared/enum/user.enums';
 import { UtilizerGrant } from '@apis/utilizer-grant/entity/utilizer-grant.entity';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
@@ -155,8 +156,29 @@ export class DataImporterService {
         continue;
       }
 
-      const tipoImmobile = row['tipo immobile']?.trim().toUpperCase();
-      const asset_type_id = ASSET_TYPE_MAP[tipoImmobile] ?? 8; // default: ALTRI FABBRICATI
+      // 'tipo immobile' e' un campo lookup di Access: l'export via mdbtools
+      // (a differenza dell'export nativo di Access, che risolve il lookup nel
+      // testo visualizzato) restituisce l'ID numerico grezzo salvato nella
+      // colonna, cioe' l'id di aggregati_immobili/asset_aggregators — non il
+      // nome della categoria. Va quindi usato direttamente, non tramite
+      // ASSET_TYPE_MAP (che matcha per nome ed e' pensato per un export testuale).
+      // ASSET_TYPE_MAP resta come fallback per compatibilita' con CSV storici
+      // che contenessero gia' il nome invece dell'id.
+      const tipoImmobileRaw = row['tipo immobile']?.trim();
+      const tipoImmobileNumeric = parseInt(tipoImmobileRaw ?? '', 10);
+      let asset_type_id: number;
+      if (tipoImmobileRaw && !isNaN(tipoImmobileNumeric)) {
+        asset_type_id = tipoImmobileNumeric;
+      } else if (tipoImmobileRaw && ASSET_TYPE_MAP[tipoImmobileRaw.toUpperCase()]) {
+        asset_type_id = ASSET_TYPE_MAP[tipoImmobileRaw.toUpperCase()];
+      } else {
+        asset_type_id = 8; // default: ALTRI FABBRICATI
+        if (tipoImmobileRaw) {
+          this.logger.warn(
+            `"tipo immobile" non riconosciuto (ne' id numerico ne' nome mappato), asset "${asset_name}" categorizzato come ALTRI FABBRICATI: "${tipoImmobileRaw}"`,
+          );
+        }
+      }
 
       const ownershipRaw =
         row['proprietà']?.trim().toLowerCase() ?? row['propriet\u00e0']?.trim().toLowerCase();
@@ -226,7 +248,23 @@ export class DataImporterService {
         continue;
       }
 
-      const existing = await this.assetAggregatorRepo.findOne({ where: { code, deleted: false } });
+      // L'id originale della tabella Access va preservato: ASSET_TYPE_MAP (sopra)
+      // e' hardcoded sugli id storici di 'aggregati immobili' e assets.asset_type_id
+      // punta a questa tabella — un id riassegnato per autoincrement (ordine di
+      // riga del CSV, non l'id originale) romperebbe quella mappa in silenzio.
+      const originalId = parseInt(row['ID']?.trim() ?? '', 10);
+      if (!originalId) {
+        this.logger.warn(`AssetAggregator senza ID originale valido, skip: "${code}"`);
+        skipped++;
+        continue;
+      }
+
+      const existing = await this.assetAggregatorRepo.findOne({
+        where: [
+          { id: originalId, deleted: false },
+          { code, deleted: false },
+        ],
+      });
       if (existing) {
         this.logger.warn(`AssetAggregator già presente, skip: "${code}"`);
         skipped++;
@@ -234,6 +272,7 @@ export class DataImporterService {
       }
 
       const entity = this.assetAggregatorRepo.create({
+        id: originalId,
         code,
         description: row['contenuto']?.trim() || null,
         created_by_user_id: SYSTEM_USER_ID,
@@ -275,8 +314,22 @@ export class DataImporterService {
         continue;
       }
 
+      // L'id originale (colonna id_aggr in Access) va preservato: importUtilities
+      // legge 'id_aggr' dal CSV utenze e lo usa come FK diretta verso questa
+      // tabella (aggregator_id_fk = parseInt(row['id_aggr'])) — un id riassegnato
+      // per autoincrement romperebbe quella FK in silenzio o con violazione.
+      const originalId = parseInt(row['id_aggr']?.trim() ?? '', 10);
+      if (!originalId) {
+        this.logger.warn(`UtilityAggregator senza id_aggr originale valido, skip: "${code}"`);
+        skipped++;
+        continue;
+      }
+
       const existing = await this.utilityAggregatorRepo.findOne({
-        where: { code, deleted: false },
+        where: [
+          { id: originalId, deleted: false },
+          { code, deleted: false },
+        ],
       });
       if (existing) {
         this.logger.warn(`UtilityAggregator già presente, skip: "${code}"`);
@@ -285,6 +338,7 @@ export class DataImporterService {
       }
 
       const entity = this.utilityAggregatorRepo.create({
+        id: originalId,
         code,
         description: row['contenuto']?.trim() || null,
         created_by_user_id: SYSTEM_USER_ID,
@@ -476,27 +530,127 @@ export class DataImporterService {
         continue;
       }
 
-      // FK lookups
-      const supplierRaw = row['fornitore']?.trim().toLowerCase();
-      const supplier_id_fk = supplierRaw ? (supplierMap.get(supplierRaw) ?? null) : null;
+      // FK lookups: se il valore testuale non ha match nel master data (gap gia'
+      // presente nella fonte Access originale, non un bug di questo import), il
+      // record master viene creato al volo invece di lasciare la FK a NULL in
+      // silenzio o far fallire l'insert su colonne NOT NULL (utility_type,
+      // costs_borne_by). Le mappe cache vengono aggiornate per evitare doppie
+      // creazioni sullo stesso valore nello stesso run.
+      const supplierRawOriginal = row['fornitore']?.trim();
+      const supplierRaw = supplierRawOriginal?.toLowerCase();
+      let supplier_id_fk = supplierRaw ? (supplierMap.get(supplierRaw) ?? null) : null;
+      if (supplierRaw && supplier_id_fk === null) {
+        const newSupplier = await this.supplierRepo.save(
+          this.supplierRepo.create({
+            supplier_id: supplierRawOriginal,
+            company_name: supplierRawOriginal,
+            created_by_user_id: SYSTEM_USER_ID,
+            updated_by_user_id: SYSTEM_USER_ID,
+          }),
+        );
+        this.logger.warn(
+          `Fornitore non presente in master data, creato al volo: "${supplierRawOriginal}"`,
+        );
+        supplierMap.set(supplierRaw, newSupplier.id);
+        supplier_id_fk = newSupplier.id;
+      }
 
-      const utilityTypeRaw = row['tipo utenza']?.trim().toLowerCase();
-      const utility_type_id_fk = utilityTypeRaw
-        ? (utilityTypeMap.get(utilityTypeRaw) ?? null)
-        : null;
+      const utilityTypeRawOriginal = row['tipo utenza']?.trim();
+      const utilityTypeRaw = utilityTypeRawOriginal?.toLowerCase();
+      let utility_type_id_fk = utilityTypeRaw ? (utilityTypeMap.get(utilityTypeRaw) ?? null) : null;
+      if (utilityTypeRaw && utility_type_id_fk === null) {
+        const hard_type = utilityTypeRaw.includes('acqua')
+          ? HardTypeEnum.WATER
+          : utilityTypeRaw.includes('gas')
+            ? HardTypeEnum.GAS
+            : utilityTypeRaw.includes('internet') || utilityTypeRaw.includes('fibra')
+              ? HardTypeEnum.INTERNET
+              : HardTypeEnum.LIGHT;
+        const newUtilityType = await this.utilityTypeRepo.save(
+          this.utilityTypeRepo.create({
+            name: utilityTypeRawOriginal,
+            hard_type,
+            created_by_user_id: SYSTEM_USER_ID,
+            updated_by_user_id: SYSTEM_USER_ID,
+          }),
+        );
+        this.logger.warn(
+          `Tipo utenza non presente in master data, creato al volo: "${utilityTypeRawOriginal}" (hard_type=${hard_type})`,
+        );
+        utilityTypeMap.set(utilityTypeRaw, newUtilityType.id);
+        utility_type_id_fk = newUtilityType.id;
+      }
 
-      const costsBorneByRaw = row['consumi a carico di']?.trim().toLowerCase();
-      const costs_borne_by_id_fk = costsBorneByRaw
+      const costsBorneByRawOriginal = row['consumi a carico di']?.trim();
+      const costsBorneByRaw = costsBorneByRawOriginal?.toLowerCase();
+      let costs_borne_by_id_fk = costsBorneByRaw
         ? (costsBorneByMap.get(costsBorneByRaw) ?? null)
         : null;
+      if (costsBorneByRaw && costs_borne_by_id_fk === null) {
+        const newCostsBorneBy = await this.costsBorneByRepo.save(
+          this.costsBorneByRepo.create({
+            name: costsBorneByRawOriginal,
+            created_by_user_id: SYSTEM_USER_ID,
+            updated_by_user_id: SYSTEM_USER_ID,
+          }),
+        );
+        this.logger.warn(
+          `"Consumi a carico di" non presente in master data, creato al volo: "${costsBorneByRawOriginal}"`,
+        );
+        costsBorneByMap.set(costsBorneByRaw, newCostsBorneBy.id);
+        costs_borne_by_id_fk = newCostsBorneBy.id;
+      }
 
-      const maintenanceRaw = row['gestione manutenzione']?.trim().toLowerCase();
-      const maintenance_management_id_fk = maintenanceRaw
+      const maintenanceRawOriginal = row['gestione manutenzione']?.trim();
+      const maintenanceRaw = maintenanceRawOriginal?.toLowerCase();
+      let maintenance_management_id_fk = maintenanceRaw
         ? (maintenanceManagerMap.get(maintenanceRaw) ?? null)
         : null;
+      if (maintenanceRaw && maintenance_management_id_fk === null) {
+        const newMaintenanceManager = await this.maintenanceManagerRepo.save(
+          this.maintenanceManagerRepo.create({
+            code: maintenanceRawOriginal,
+            created_by_user_id: SYSTEM_USER_ID,
+            updated_by_user_id: SYSTEM_USER_ID,
+          }),
+        );
+        this.logger.warn(
+          `Gestione manutenzione non presente in master data, creata al volo: "${maintenanceRawOriginal}"`,
+        );
+        maintenanceManagerMap.set(maintenanceRaw, newMaintenanceManager.id);
+        maintenance_management_id_fk = newMaintenanceManager.id;
+      }
 
-      const consipRaw = row['mercato di provenienza']?.trim().toLowerCase();
-      const consip_agreement_id = consipRaw ? (consipAgreementMap.get(consipRaw) ?? null) : null;
+      // ConsipAgreement richiede cig_master (Codice Identificativo Gara reale) e
+      // supplier_id NOT NULL: un CIG non puo' essere inventato (dato con valore
+      // legale/compliance), quindi la creazione al volo usa un placeholder
+      // esplicito ('MANCANTE', entro il limite di 10 char della colonna) da
+      // completare a mano in UI, invece di lasciare il link NULL in silenzio.
+      const consipRawOriginal = row['mercato di provenienza']?.trim();
+      const consipRaw = consipRawOriginal?.toLowerCase();
+      let consip_agreement_id = consipRaw ? (consipAgreementMap.get(consipRaw) ?? null) : null;
+      if (consipRaw && consip_agreement_id === null) {
+        if (supplier_id_fk === null) {
+          this.logger.warn(
+            `Convenzione Consip "${consipRawOriginal}" non creata al volo: nessun fornitore risolto sulla riga per popolare supplier_id (NOT NULL)`,
+          );
+        } else {
+          const newConsipAgreement = await this.consipAgreementRepo.save(
+            this.consipAgreementRepo.create({
+              name: consipRawOriginal,
+              cig_master: 'MANCANTE',
+              supplier_id: supplier_id_fk,
+              created_by_user_id: SYSTEM_USER_ID,
+              updated_by_user_id: SYSTEM_USER_ID,
+            }),
+          );
+          this.logger.warn(
+            `Convenzione Consip non presente in master data, creata al volo con CIG placeholder da completare: "${consipRawOriginal}"`,
+          );
+          consipAgreementMap.set(consipRaw, newConsipAgreement.id);
+          consip_agreement_id = newConsipAgreement.id;
+        }
+      }
 
       const assetRaw = row['id_fabbricato']?.trim().toLowerCase();
       const asset_id_fk = assetRaw ? (assetMap.get(assetRaw) ?? null) : null;
