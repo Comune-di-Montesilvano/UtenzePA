@@ -28,8 +28,19 @@ button.second-button {
     background-color: #F9FAFB;
 
     .brand-logo {
+      // .login-right è flex-direction:column — align-items:stretch di
+      // default forza la larghezza a riempire il cross-axis fino a
+      // max-width, indipendentemente da max-height: le due dimensioni
+      // vengono vincolate separatamente invece di preservare le
+      // proporzioni originali del logo, risultato uno stiramento visibile
+      // per loghi non 1:1 col rapporto 200:40 (es. stemmi comunali quadrati).
+      // align-self:flex-start esce dallo stretch e lascia che la larghezza
+      // torni auto, proporzionata all'altezza reale.
+      align-self: flex-start;
       max-height: 40px;
       max-width: 200px;
+      width: auto;
+      height: auto;
       margin-bottom: 0.5rem;
     }
 
