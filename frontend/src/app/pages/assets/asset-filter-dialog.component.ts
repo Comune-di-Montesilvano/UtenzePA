@@ -83,8 +83,14 @@ export class AssetFilterDialogComponent implements OnInit {
   ngOnInit(): void {
     this.assetAggregatorsService.search({deleted: false}).subscribe({
       next: data => {
+        // a.code (es. "CASE", "SCUOLE"), non a.description — quest'ultimo è
+        // una nota libera facoltativa, vuota per la maggior parte degli
+        // aggregati: usarla come label produceva righe visibili ma senza
+        // testo nel picker (bug reale, non un problema di stile del
+        // componente — vedi FilterableSelectComponent per la stessa label
+        // usata correttamente altrove, es. filtro mappa).
         this.assetAggregatorOptions = data
-          .map(a => ({label: a.description ?? '', value: a.id}))
+          .map(a => ({label: a.code ?? '', value: a.id}))
           .sort((a, b) => a.label.localeCompare(b.label));
       },
       error: err => console.error('Errore nel caricamento degli Asset Aggregator:', err)

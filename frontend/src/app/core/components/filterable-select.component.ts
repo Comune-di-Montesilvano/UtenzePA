@@ -32,14 +32,16 @@ import {TOption} from '../types/option.interface';
              (blur)="markTouched()">
       <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayFn" (optionSelected)="onOptionSelected($event)">
         @for (opt of filteredOptions; track opt.value) {
-          <mat-option [value]="opt" style="display: flex; align-items: center; gap: 8px;">
-            @if (opt.icon) {
-              <mat-icon style="font-size: 20px; height: 20px; width: 20px; vertical-align: middle;">{{ opt.icon }}</mat-icon>
-            }
-            <span style="flex: 1;">{{ opt.label }}</span>
-            @if (opt.count != null) {
-              <span style="color: #757575; font-size: 0.85em;">({{ opt.count }})</span>
-            }
+          <mat-option [value]="opt">
+            <span style="display: inline-flex; align-items: center; gap: 8px;">
+              @if (opt.icon) {
+                <mat-icon style="font-size: 20px; height: 20px; width: 20px; vertical-align: middle;">{{ opt.icon }}</mat-icon>
+              }
+              <span>{{ opt.label }}</span>
+              @if (opt.count != null) {
+                <span style="color: #757575; font-size: 0.85em;">({{ opt.count }})</span>
+              }
+            </span>
           </mat-option>
         }
       </mat-autocomplete>

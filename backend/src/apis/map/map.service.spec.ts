@@ -123,6 +123,36 @@ describe('MapService', () => {
     );
   });
 
+  it('utilityTypeIds filtra anche gli IMMOBILI, non solo le utenze — solo asset con almeno una utenza del tipo', async () => {
+    utilityRepo.find
+      // Prima chiamata: query dedicata id-immobili-qualificanti.
+      .mockResolvedValueOnce([{ asset_id_fk: 7 }, { asset_id_fk: 7 }, { asset_id_fk: 9 }])
+      // Seconda chiamata: utenze per i punti mappa (stesso filtro, irrilevante qui).
+      .mockResolvedValueOnce([]);
+    assetRepo.find.mockResolvedValue([]);
+
+    await service.getPoints({ utilityTypeIds: [5] });
+
+    expect(assetRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: In([7, 9]) }),
+      }),
+    );
+  });
+
+  it('utilityTypeIds senza nessuna utenza corrispondente esclude tutti gli immobili (sentinella, non "IN ()")', async () => {
+    utilityRepo.find.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    assetRepo.find.mockResolvedValue([]);
+
+    await service.getPoints({ utilityTypeIds: [999] });
+
+    expect(assetRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: In([-1]) }),
+      }),
+    );
+  });
+
   it('showAssets=false esclude gli asset dai risultati', async () => {
     assetRepo.find.mockResolvedValue([
       { id: 1, asset_name: 'Scuola A', address: 'Via Roma 1', latitude: '42.5', longitude: '14.1', geocoded_latitude: null, geocoded_longitude: null, asset_type_id: 3 },
