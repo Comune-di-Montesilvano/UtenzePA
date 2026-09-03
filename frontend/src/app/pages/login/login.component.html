@@ -5,13 +5,13 @@
 
   <div class="login-right">
     <div class="brand-header">
+      <img src="/assets/logo.svg" alt="UtenzePA" class="app-logo">
       @if (logo) {
-        <img [src]="logo" alt="" class="brand-logo">
+        <div class="entity-brand">
+          <img [src]="logo" alt="" class="brand-logo">
+          <p>{{ entityName }}</p>
+        </div>
       }
-      <div class="brand-text">
-        <h2 style="font-size: 30px;">UtenzePA</h2>
-        <p>{{ entityName }}</p>
-      </div>
     </div>
     @if (!showReset && !showOtp) {
       <form [formGroup]="form" (ngSubmit)="submit()">

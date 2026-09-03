@@ -2,13 +2,13 @@
 
   <header class="header">
     <div class="header-left">
+      <img src="/assets/logo.svg" alt="UtenzePA" class="app-logo">
       @if (logo) {
-        <img [src]="logo" alt="" class="brand-logo">
+        <div class="entity-brand">
+          <img [src]="logo" alt="" class="brand-logo">
+          <p>{{ entityName }}</p>
+        </div>
       }
-      <div class="header-left-text">
-        <h1>Gestione Utenze</h1>
-        <p>{{ entityName }}</p>
-      </div>
     </div>
     <div class="header-right">
       <span class="user-initials">{{ userInitials }}</span>

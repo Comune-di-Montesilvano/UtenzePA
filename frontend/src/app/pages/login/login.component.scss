@@ -30,29 +30,34 @@ button.second-button {
     .brand-header {
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 0.875rem;
-      margin-bottom: 0.5rem;
+      // Logo app a sinistra (al posto del vecchio titolo testuale
+      // "UtenzePA"), stemma+nome ente dell'istanza a destra — due brand
+      // distinti (prodotto vs ente che lo usa), separati visivamente.
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      max-width: 460px;
+      margin-left: auto;
+      margin-right: auto;
 
-      // La regola globale "h2, p { text-align: center }" (fondo file)
-      // centra titolo e sottotitolo ciascuno sulla propria riga — con due
-      // testi di larghezza diversa ("UtenzePA" vs "Comune di Montesilvano")
-      // i bordi sinistri non coincidono, effetto sbandierato/sporco.
-      // Allineati a sinistra tra loro, il blocco intero resta centrato
-      // nel pannello grazie a justify-content:center sopra.
-      .brand-text {
-        text-align: left;
-
-        h2 {
-          margin: 0;
-          line-height: 1.15;
-        }
+      .entity-brand {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
 
         p {
-          margin: 0.2rem 0 0;
+          margin: 0.3rem 0 0;
           padding-bottom: 0;
+          font-size: 0.85rem;
         }
       }
+    }
+
+    .app-logo {
+      height: 72px;
+      width: auto;
+      flex-shrink: 0;
     }
 
     .brand-logo {
@@ -62,7 +67,7 @@ button.second-button {
       // 824x824 stirato in un rettangolo) — width/height:auto le lega
       // di nuovo al rapporto reale dell'immagine entro i due massimi.
       max-height: 56px;
-      max-width: 200px;
+      max-width: 140px;
       width: auto;
       height: auto;
       flex-shrink: 0;
