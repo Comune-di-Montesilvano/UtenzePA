@@ -63,6 +63,15 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
   private map: L.Map | null = null;
   private marker: L.Marker | null = null;
 
+  // Quando previewOnly=true (posizione ereditata dall'immobile) il click
+  // sulla mappa parte disattivato — l'utente può riattivarlo esplicitamente
+  // col bottone "Imposta posizione propria" (vedi enableOwnPosition()).
+  // Senza questo stato, previewOnly veniva letto solo una volta in
+  // ngAfterViewInit: un cambio successivo dell'input non riattivava mai il
+  // listener, il click sulla mappa restava permanentemente morto per un
+  // contatore che eredita la posizione dall'immobile.
+  usingOwnPosition = false;
+
   private brandingService = inject(BrandingService);
 
   private get DEFAULT_CENTER(): L.LatLngExpression {
@@ -83,14 +92,29 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
 
     this.renderMarker();
 
-    if (!this.previewOnly) {
-      this.map.on('click', (event: L.LeafletMouseEvent) => {
-        this.positionSelected.emit({
-          lat: event.latlng.lat.toFixed(6),
-          lng: event.latlng.lng.toFixed(6),
-        });
+    this.usingOwnPosition = !this.previewOnly;
+
+    // Listener attaccato sempre, una volta sola — l'emissione è gated su
+    // usingOwnPosition (letto al momento del click, non al bind) invece di
+    // bind/unbind condizionato su previewOnly: previewOnly è un @Input che
+    // può cambiare dopo l'init (form del genitore), e un bind fatto solo qui
+    // in base al suo valore iniziale restava permanentemente morto per un
+    // contatore nato con posizione ereditata — il bug segnalato.
+    this.map.on('click', (event: L.LeafletMouseEvent) => {
+      if (!this.usingOwnPosition) return;
+      this.positionSelected.emit({
+        lat: event.latlng.lat.toFixed(6),
+        lng: event.latlng.lng.toFixed(6),
       });
-    }
+    });
+  }
+
+  // Bottone "Imposta posizione propria" (template, visibile solo quando
+  // previewOnly=true e non ancora attivato) — esce dalla modalità "posizione
+  // ereditata" e attiva il click sulla mappa per far scegliere all'utente una
+  // posizione reale.
+  enableOwnPosition(): void {
+    this.usingOwnPosition = true;
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -105,6 +129,12 @@ export class LocationMapComponent implements AfterViewInit, OnChanges, OnDestroy
   }
 
   clearPosition(): void {
+    // Torna alla posizione ereditata (se disponibile) — se il genitore ha
+    // un valore estimatedLatitude/Longitude da asset, previewOnly ripartirà
+    // true al prossimo giro; il bottone "Imposta posizione propria" deve
+    // ricomparire, quindi lo stato interno va resettato qui, non solo
+    // aspettando ngOnChanges su previewOnly (che non è tracciato).
+    this.usingOwnPosition = false;
     this.positionCleared.emit();
   }
 
