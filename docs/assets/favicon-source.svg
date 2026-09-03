@@ -1,31 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -5 200 120" width="200" height="120">
-  <!-- Solo il simbolo del palazzo (senza wordmark) — sorgente per il favicon -->
-  <g transform="translate(15, 10)">
-    <path d="M 80,0 L 0,40 H 160 Z" fill="#0F172A" />
-    <path d="M 80,8 L 18,34 H 142 Z" fill="#FFFFFF" />
-    <rect x="0" y="42" width="160" height="5" fill="#0F172A" rx="1" />
-    <rect x="10" y="47" width="4" height="48" fill="#CBD5E1" />
-    <rect x="45" y="47" width="4" height="48" fill="#CBD5E1" />
-    <rect x="80" y="47" width="4" height="48" fill="#CBD5E1" />
-    <rect x="115" y="47" width="4" height="48" fill="#CBD5E1" />
-    <rect x="150" y="47" width="4" height="48" fill="#CBD5E1" />
-    <rect x="0" y="95" width="160" height="5" fill="#0F172A" rx="1" />
-    <rect x="-10" y="102" width="180" height="6" fill="#0F172A" rx="2" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%">
+  <!-- STRUTTURA PALAZZO PA -->
+  <!-- Tetto (Timpano) -->
+  <path d="M 32 4 L 4 24 H 60 Z" fill="#0F172A" stroke="#0F172A" stroke-width="2" stroke-linejoin="round" />
 
-    <svg x="17.5" y="59" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
-    </svg>
-    <svg x="52.5" y="59" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EAB308" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-    </svg>
-    <svg x="87.5" y="59" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
-    </svg>
-    <svg x="122.5" y="59" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M5 12.55a11 11 0 0 1 14.08 0" />
-      <path d="M1.42 9a16 16 0 0 1 21.16 0" />
-      <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-      <circle cx="12" cy="20" r="1.5" fill="#10B981" stroke="#10B981" stroke-width="1" />
-    </svg>
+  <!-- Architrave -->
+  <rect x="4" y="26" width="56" height="4" fill="#0F172A" rx="1" />
+
+  <!-- Colonne Laterali (spesse per garantire leggibilità a piccole dimensioni) -->
+  <rect x="4" y="32" width="14" height="26" fill="#0F172A" rx="1" />
+  <rect x="46" y="32" width="14" height="26" fill="#0F172A" rx="1" />
+
+  <!-- Basamento -->
+  <rect x="0" y="60" width="64" height="4" fill="#0F172A" rx="1" />
+
+  <!-- TACHIMETRO / CONTATORE CENTRALE -->
+  <g transform="translate(0, -2)">
+    <!-- Arco di sfondo del quadrante -->
+    <path d="M 22 56 A 10 10 0 0 1 42 56" fill="none" stroke="#CBD5E1" stroke-width="4" stroke-linecap="round" />
+
+    <!-- Arco indicatore del consumo (Azzurro) -->
+    <path d="M 22 56 A 10 10 0 0 1 32 46" fill="none" stroke="#3B82F6" stroke-width="4" stroke-linecap="round" />
+
+    <!-- Ago del tachimetro (Arancione) -->
+    <line x1="32" y1="56" x2="39" y2="47" stroke="#F97316" stroke-width="3" stroke-linecap="round" />
+
+    <!-- Perno centrale -->
+    <circle cx="32" cy="56" r="2.5" fill="#0F172A" />
   </g>
 </svg>
