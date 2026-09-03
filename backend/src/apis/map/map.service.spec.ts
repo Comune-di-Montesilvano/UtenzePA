@@ -1,3 +1,4 @@
+import { In } from 'typeorm';
 import { MapService } from './map.service';
 
 describe('MapService', () => {
@@ -109,15 +110,15 @@ describe('MapService', () => {
     expect(points[0].icon).toBe('school');
   });
 
-  it('assetAggregatorId filtra anche le utility tramite l\'asset collegato', async () => {
+  it('assetAggregatorIds filtra anche le utility tramite l\'asset collegato', async () => {
     assetRepo.find.mockResolvedValue([]);
     utilityRepo.find.mockResolvedValue([]);
 
-    await service.getPoints({ assetAggregatorId: 3 });
+    await service.getPoints({ assetAggregatorIds: [3, 4] });
 
     expect(utilityRepo.find).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ asset: { asset_type_id: 3 } }),
+        where: expect.objectContaining({ asset: { asset_type_id: In([3, 4]) } }),
       }),
     );
   });

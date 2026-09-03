@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Asset } from '@apis/asset/entity/asset.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
@@ -64,7 +64,7 @@ export class MapService {
       const assets = await this.assetRepo.find({
         where: {
           deleted: false,
-          ...(filters.assetAggregatorId ? { asset_type_id: filters.assetAggregatorId } : {}),
+          ...(filters.assetAggregatorIds?.length ? { asset_type_id: In(filters.assetAggregatorIds) } : {}),
         },
         relations: { assetAggregator: true },
       });
@@ -97,12 +97,12 @@ export class MapService {
       const utilities = await this.utilityRepo.find({
         where: {
           deleted: false,
-          ...(filters.utilityTypeId ? { utility_type_id_fk: filters.utilityTypeId } : {}),
+          ...(filters.utilityTypeIds?.length ? { utility_type_id_fk: In(filters.utilityTypeIds) } : {}),
           // Il filtro aggregato immobile va applicato anche alle utenze (tramite
           // l'asset collegato) — altrimenti col checkbox "Contatori" attivo i
           // contatori restano sempre tutti visibili, filtro senza effetto visibile.
-          ...(filters.assetAggregatorId
-            ? { asset: { asset_type_id: filters.assetAggregatorId } }
+          ...(filters.assetAggregatorIds?.length
+            ? { asset: { asset_type_id: In(filters.assetAggregatorIds) } }
             : {}),
         },
         relations: { asset: true, utilityType: true },

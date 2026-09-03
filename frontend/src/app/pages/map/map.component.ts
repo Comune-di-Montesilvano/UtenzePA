@@ -9,7 +9,9 @@ import * as L from 'leaflet';
 import { MapService } from './map.service';
 import { MapPoint, UngeolocatedItem, UNGEOLOCATED_REASON_LABELS } from './map-point.entity';
 import { FilterableSelectComponent } from '../../core/components/filterable-select.component';
+import { MultiSelectComponent } from '../../core/components/multi-select.component';
 import { AssetAggregatorsService } from '../asset-aggregator/asset-aggregator.service';
+import { AssetAggregator } from '../asset-aggregator/entity/asset-aggregator.entity';
 import { UtilityTypesService } from '../utility-types/utility-types.service';
 import { AssetService } from '../assets/asset.service';
 import { UtilityService } from '../utilities/utility.service';
@@ -17,6 +19,7 @@ import { AssetEditDialogComponent } from '../assets/asset-edit-dialog.component'
 import { UtilityEditDialogComponent } from '../utilities/utility-edit-dialog.component';
 import { Asset } from '../assets/entity/asset.entity';
 import { Utility } from '../utilities/entity/utility.entity';
+import { UtilityType } from '../utility-types/entity/utility-type.entity';
 import { TOption } from '../../core/types/option.interface';
 import { HardType, HardTypeIcon, HardTypeColor } from '../utility-types/enum/hard-type.enum';
 import { BrandingService } from '../../services/branding.service';
@@ -52,7 +55,7 @@ const EDIT_DIALOG_WIDTH = '1150px';
 @Component({
   selector: 'app-map',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatCheckboxModule, MatExpansionModule, FilterableSelectComponent],
+  imports: [CommonModule, ReactiveFormsModule, MatCheckboxModule, MatExpansionModule, FilterableSelectComponent, MultiSelectComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './map.component.html',
   styleUrls: ['./map.component.scss'],
@@ -82,8 +85,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
   showAssets = new FormControl(true, { nonNullable: true });
   showUtilities = new FormControl(true, { nonNullable: true });
-  assetAggregatorId = new FormControl<number | null>(null);
-  utilityTypeId = new FormControl<number | null>(null);
+  assetAggregatorIds = new FormControl<number[]>([], {nonNullable: true});
+  utilityTypeIds = new FormControl<number[]>([], {nonNullable: true});
   assetSearch = new FormControl<number | null>(null);
 
   assetAggregatorOptions: TOption[] = [];
@@ -114,26 +117,87 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   // nello z-order, non c'è "fan out" automatico fuori dai cluster.
   private utilitiesByAsset = new Map<number, MapPoint[]>();
 
+  // Popolate dalle due subscribe indipendenti sotto (aggregatori/tipi e
+  // asset/utenze possono arrivare in ordine qualsiasi) — rebuild*Options()
+  // combina ciascuna coppia appena entrambe sono disponibili.
+  private assetAggregators: AssetAggregator[] = [];
+  private assetsForCount: Asset[] = [];
+  private utilityTypes: UtilityType[] = [];
+  private utilitiesForCount: Utility[] = [];
+
   ngOnInit(): void {
     this.assetAggregatorsService.search({ deleted: false }).subscribe({
-      next: (data) => (this.assetAggregatorOptions = data.map((a) => ({ label: a.code ?? '', value: a.id }))),
+      next: (data) => {
+        this.assetAggregators = data;
+        this.rebuildAssetAggregatorOptions();
+      },
     });
     this.utilityTypesService.search({ deleted: false }).subscribe({
-      next: (data) => (this.utilityTypeOptions = data.map((t) => ({ label: t.name, value: t.id }))),
+      next: (data) => {
+        this.utilityTypes = data;
+        this.rebuildUtilityTypeOptions();
+      },
     });
     this.assetService.search({ deleted: false }).subscribe({
-      next: (data) =>
-        (this.assetSearchOptions = data.map((a) => ({
+      next: (data) => {
+        this.assetsForCount = data;
+        this.assetSearchOptions = data.map((a) => ({
           label: a.address ? `${a.asset_name} — ${a.address}` : a.asset_name,
           value: a.id,
-        }))),
+        }));
+        this.rebuildAssetAggregatorOptions();
+      },
+    });
+    this.utilityService.search({ deleted: false }).subscribe({
+      next: (data) => {
+        this.utilitiesForCount = data;
+        this.rebuildUtilityTypeOptions();
+      },
     });
 
     this.showAssets.valueChanges.subscribe(() => this.reload());
     this.showUtilities.valueChanges.subscribe(() => this.reload());
-    this.assetAggregatorId.valueChanges.subscribe(() => this.reload());
-    this.utilityTypeId.valueChanges.subscribe(() => this.reload());
+    this.assetAggregatorIds.valueChanges.subscribe(() => this.reload());
+    this.utilityTypeIds.valueChanges.subscribe(() => this.reload());
     this.assetSearch.valueChanges.subscribe((id) => this.goToAsset(id));
+  }
+
+  // Icona per-aggregato (stessa usata sui marker immobile, ASSET_AGGREGATOR_ICON_FALLBACK
+  // se mancante) + conteggio immobili — quest'ultimo sempre sul totale non
+  // filtrato (assetsForCount viene da una search indipendente dai filtri
+  // mappa correnti), altrimenti il numero cambierebbe ad ogni filtro attivo
+  // invece di rappresentare la dimensione reale dell'aggregato.
+  private rebuildAssetAggregatorOptions(): void {
+    if (this.assetAggregators.length === 0) return;
+    const countByAggregatorId = new Map<number, number>();
+    for (const a of this.assetsForCount) {
+      if (a.asset_type_id == null) continue;
+      countByAggregatorId.set(a.asset_type_id, (countByAggregatorId.get(a.asset_type_id) ?? 0) + 1);
+    }
+    this.assetAggregatorOptions = this.assetAggregators.map((a) => ({
+      label: a.code ?? '',
+      value: a.id,
+      icon: a.icon || ASSET_AGGREGATOR_ICON_FALLBACK,
+      count: countByAggregatorId.get(a.id) ?? 0,
+    }));
+  }
+
+  // Stesso pattern di rebuildAssetAggregatorOptions: icona per hard_type
+  // (HardTypeIcon, Font Awesome — stessa usata sui marker/legenda) + conteggio
+  // utenze sul totale non filtrato.
+  private rebuildUtilityTypeOptions(): void {
+    if (this.utilityTypes.length === 0) return;
+    const countByTypeId = new Map<number, number>();
+    for (const u of this.utilitiesForCount) {
+      if (u.utility_type_id_fk == null) continue;
+      countByTypeId.set(u.utility_type_id_fk, (countByTypeId.get(u.utility_type_id_fk) ?? 0) + 1);
+    }
+    this.utilityTypeOptions = this.utilityTypes.map((t) => ({
+      label: t.name,
+      value: t.id,
+      icon: HardTypeIcon[t.hard_type],
+      count: countByTypeId.get(t.id) ?? 0,
+    }));
   }
 
   private goToAsset(id: number | null): void {
@@ -249,8 +313,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       .getPoints({
         showAssets: this.showAssets.value,
         showUtilities: this.showUtilities.value,
-        assetAggregatorId: this.assetAggregatorId.value,
-        utilityTypeId: this.utilityTypeId.value,
+        assetAggregatorIds: this.assetAggregatorIds.value,
+        utilityTypeIds: this.utilityTypeIds.value,
       })
       .subscribe({
         next: (response) => {

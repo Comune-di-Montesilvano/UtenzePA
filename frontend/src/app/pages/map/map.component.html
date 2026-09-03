@@ -12,17 +12,17 @@
     <mat-checkbox [formControl]="showAssets">Immobili</mat-checkbox>
     <mat-checkbox [formControl]="showUtilities">Contatori</mat-checkbox>
 
-    <app-filterable-select
+    <app-multi-select
       label="Aggregato immobile"
       [options]="assetAggregatorOptions"
-      [formControl]="assetAggregatorId">
-    </app-filterable-select>
+      [formControl]="assetAggregatorIds">
+    </app-multi-select>
 
-    <app-filterable-select
+    <app-multi-select
       label="Tipo utenza"
       [options]="utilityTypeOptions"
-      [formControl]="utilityTypeId">
-    </app-filterable-select>
+      [formControl]="utilityTypeIds">
+    </app-multi-select>
 
     <div class="map-legend">
       <div><span class="map-pin" style="background:#37474f"><span class="material-icons">apartment</span></span> Immobile (icona varia per aggregato)</div>
