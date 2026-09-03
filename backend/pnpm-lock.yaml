@@ -118,7 +118,7 @@ importers:
         specifier: ^7.2.0
         version: 7.8.2
       tar:
-        specifier: ^7.5.22
+        specifier: ^7.5.0
         version: 7.5.22
       typeorm:
         specifier: ^1.1.0
