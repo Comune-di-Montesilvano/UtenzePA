@@ -12,9 +12,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { Utility } from '../../utility/entity/utility.entity';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
-import { Supplier } from '../../shared/entities/supplier.entity';
 import { BudgetChapter } from '../../budget-chapters/entity/budgetChapter.entity';
 import { InvoiceBudgetChapter } from '@apis/invoices/entity/invoice_budget_chapter.entity';
 import { Contract } from '@apis/contracts/entity/contract.entity';
@@ -42,9 +40,6 @@ export class Invoice {
   @Column({ type: 'text', nullable: true })
   notes_on_invoices: string;
 
-  @Column({ type: 'int', nullable: true })
-  utility_id_fk: number;
-
   @CreateDateColumn({ type: 'timestamp' })
   create_date: Date;
 
@@ -62,9 +57,6 @@ export class Invoice {
   deleted: boolean;
 
   @Column({ type: 'int', nullable: true })
-  supplier_id_fk: number;
-
-  @Column({ type: 'int', nullable: true })
   contratto_id_fk: number;
 
   @ManyToOne(() => Contract, (contract) => contract.invoices)
@@ -79,10 +71,6 @@ export class Invoice {
   })
   budget_chapters: BudgetChapter[];
 
-  @ManyToOne(() => Supplier)
-  @JoinColumn({ name: 'supplier_id_fk' })
-  supplier: Supplier;
-
   @ManyToOne(() => SystemUser)
   @JoinColumn({ name: 'created_by_user_id' })
   created_by: SystemUser;
@@ -90,10 +78,6 @@ export class Invoice {
   @ManyToOne(() => SystemUser)
   @JoinColumn({ name: 'updated_by_user_id' })
   updated_by: SystemUser;
-
-  @ManyToOne(() => Utility, (utility) => utility.invoices)
-  @JoinColumn({ name: 'utility_id_fk', referencedColumnName: 'id' })
-  utility: Utility;
 
   @OneToMany(() => InvoiceBudgetChapter, (utp) => utp.invoice)
   invoiceBudgetChapters: InvoiceBudgetChapter[];

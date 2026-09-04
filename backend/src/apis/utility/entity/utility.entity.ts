@@ -6,8 +6,6 @@ import {
   JoinColumn,
   ManyToMany,
   ManyToOne,
-  OneToMany,
-  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -15,15 +13,12 @@ import {
 import { Contract } from '@apis/contracts/entity/contract.entity';
 import { Asset } from '../../asset/entity/asset.entity';
 import { UtilityAggregator } from '../../utility-aggregators/entity/utility-aggregator.entity';
-import { Invoice } from '../../invoices/entity/invoice.entity';
 import { BudgetChapter } from '../../budget-chapters/entity/budgetChapter.entity';
-import { Supplier } from '../../shared/entities/supplier.entity';
 import { UtilityType } from '../../utility-types/entity/utility_type.entity';
 import { CostsBorneBy } from '../../shared/entities/utility_cost_borne_by.entity';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
 import { Phase } from '../../shared/enum/user.enums';
 import { MaintenanceManager } from '../../shared/entities/maintenanceManagers.entity';
-import { ConsipAgreement } from '@apis/consip-agreement/entity/consip-agreement.entity';
 
 @Entity('utilities')
 export class Utility {
@@ -48,35 +43,11 @@ export class Utility {
   @Column()
   costs_borne_by_id_fk: number;
 
-  @Column({ type: 'int', nullable: true })
-  supplier_id_fk: number;
-
-  @Column({ length: 100, nullable: true })
-  consip_order: string;
-
-  @Column({ type: 'date', nullable: true })
-  supply_start_date: string;
-
-  @Column({ type: 'date', nullable: true })
-  supply_expiry_date: string;
-
-  @Column({ type: 'int', nullable: true })
-  consip_agreement_id: number;
-
-  @Column({ type: 'date', nullable: true })
-  management_expiry_date: string;
-
-  @Column({ type: 'date', nullable: true })
-  takeover_termination_date: string;
-
   @Column({ type: 'boolean', default: false, nullable: true })
   supply_active: boolean;
 
   @Column({ type: 'boolean', default: false, nullable: true })
   meter_removed: boolean;
-
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  security_deposit: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   reported_consumption_year: number;
@@ -167,12 +138,6 @@ export class Utility {
   @Column({ type: 'int' })
   budget_chapter_code_fk: number;
 
-  @Column({ type: 'text', nullable: true })
-  order_number: string;
-
-  @Column({ type: 'text', nullable: true })
-  cig_contract: string;
-
   @ManyToOne(() => UtilityType, (type) => type.utilities)
   @JoinColumn({ name: 'utility_type_id_fk', referencedColumnName: 'id' })
   utilityType: UtilityType;
@@ -192,17 +157,6 @@ export class Utility {
   @ManyToOne(() => BudgetChapter, (chapter) => chapter.utilities)
   @JoinColumn({ name: 'budget_chapter_code_fk', referencedColumnName: 'id' })
   budgetChapter: BudgetChapter;
-
-  @OneToMany(() => Invoice, (invoice) => invoice.utility)
-  invoices: Invoice[];
-
-  @ManyToOne(() => Supplier)
-  @JoinColumn({ name: 'supplier_id_fk', referencedColumnName: 'id' })
-  supplier: Supplier;
-
-  @OneToOne(() => ConsipAgreement)
-  @JoinColumn({ name: 'consip_agreement_id', referencedColumnName: 'id' })
-  consipAgreement: ConsipAgreement;
 
   @ManyToMany(() => Contract, (contract) => contract.utilities)
   contratti: Contract[];
