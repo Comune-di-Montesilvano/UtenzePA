@@ -54,7 +54,12 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
    * il "contratto corrente" dell'utenza: tra i contratti associati (via
    * contract_utilities), quello con supply_expiry_date nulla o >= oggi, il
    * più recente per supply_start_date in caso di più match — nessun campo
-   * stato dedicato, calcolo a runtime.
+   * stato dedicato, calcolo a runtime. Stessa definizione (ROW_NUMBER +
+   * rn = 1, tie-break deterministico) di `loadCurrentContracts` sotto: senza
+   * rn = 1 un'utenza con 2+ contratti "correnti" contemporanei (caso normale
+   * durante un rinnovo) farebbe match sui filtri con ENTRAMBI mentre la riga
+   * mostrata in lista ne usa solo uno — drift filtro/proiezione, bug reale
+   * trovato in review.
    *
    * NOTA: deliberatamente `leftJoin`/`innerJoin` (non `...AndSelect`) — un
    * join su `Contract` non raggiungibile da `Utility` tramite una relazione
@@ -80,14 +85,24 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       (subQb) =>
         subQb
           .subQuery()
-          .select('cu.utility_id', 'utility_id')
-          .addSelect('c.id', 'contract_id')
-          .from('contract_utilities', 'cu')
-          .innerJoin('contracts', 'c', 'c.id = cu.contract_id AND c.deleted = 0')
-          .where('c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE()')
-          .orderBy('cu.utility_id', 'ASC')
-          .addOrderBy('c.supply_start_date', 'DESC')
-          .addOrderBy('c.id', 'DESC'),
+          .select('ranked.utility_id', 'utility_id')
+          .addSelect('ranked.contract_id', 'contract_id')
+          .from(
+            (rankedQb) =>
+              rankedQb
+                .subQuery()
+                .select('cu.utility_id', 'utility_id')
+                .addSelect('c.id', 'contract_id')
+                .addSelect(
+                  'ROW_NUMBER() OVER (PARTITION BY cu.utility_id ORDER BY c.supply_start_date DESC, c.id DESC)',
+                  'rn',
+                )
+                .from('contract_utilities', 'cu')
+                .innerJoin('contracts', 'c', 'c.id = cu.contract_id AND c.deleted = 0')
+                .where('c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE()'),
+            'ranked',
+          )
+          .where('ranked.rn = 1'),
       'current_link',
       'current_link.utility_id = Utility.id',
     );

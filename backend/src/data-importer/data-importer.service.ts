@@ -919,9 +919,20 @@ export class DataImporterService {
     const utilityMap = new Map(utilities.map((u) => [u.utility_id?.toLowerCase(), u]));
 
     // I campi contrattuali (supplier incluso) sono ora su Contract, non più
-    // colonne dirette di Utility/Invoice: risolviamo il "contratto corrente"
-    // di ciascuna utenza (stessa definizione di UtilitiesService.loadCurrentContracts)
-    // per valorizzare contratto_id_fk sulle fatture importate.
+    // colonne dirette di Utility/Invoice: risolviamo IL contratto di ciascuna
+    // utenza per valorizzare contratto_id_fk sulle fatture importate.
+    //
+    // Deliberatamente SENZA filtro di scadenza (a differenza di
+    // UtilitiesService.loadCurrentContracts, che risolve il "contratto
+    // corrente"): l'importer Access crea esattamente 1 contratto per utenza
+    // (stesso invariante del backfill storico, Task 6/BackfillContractData),
+    // quindi "il contratto dell'utenza" è sempre il target corretto anche se
+    // nel frattempo è scaduto — non "quello corrente". Filtrare su scadenza
+    // qui lascerebbe contratto_id_fk (e quindi il fornitore, leggibile solo
+    // via invoice.contratto.supplier) silenziosamente NULL per ogni fattura
+    // la cui utenza ha un contratto già scaduto in un re-import dei dati
+    // storici. Il ROW_NUMBER + rn = 1 resta solo come tie-break di sicurezza
+    // per scenari futuri/misti con più di un contratto per utenza.
     const utilityIds = utilities.map((u) => u.id);
     const currentContractByUtilityId = new Map<number, number>();
     if (utilityIds.length > 0) {
@@ -936,7 +947,6 @@ export class DataImporterService {
              FROM contract_utilities cu
              INNER JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
              WHERE cu.utility_id IN (?)
-               AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE())
            ) ranked WHERE ranked.rn = 1`,
           [utilityIds],
         );
