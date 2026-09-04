@@ -236,10 +236,8 @@
                       <th style="text-align: left;">ID Utenza</th>
                       <th style="text-align: left;">Codice</th>
                       <th style="text-align: left;">N° Contatore</th>
-                      <th style="text-align: left;">Fornitore</th>
                       <th style="text-align: left;">Attiva</th>
                       <th style="text-align: left;">Inizio Fornitura</th>
-                      <th style="text-align: left;">Scadenza Fornitura</th>
                       <th style="width: 60px;"></th>
                     </tr>
                   </thead>
@@ -249,10 +247,8 @@
                         <td>{{ u.utility_id }}</td>
                         <td>{{ u.utility_code }}</td>
                         <td>{{ u.meter_number }}</td>
-                        <td>{{ u.supplier?.company_name }}</td>
                         <td>{{ u.supply_active ? 'Sì' : 'No' }}</td>
                         <td>{{ u.supply_start_date | date: 'dd/MM/yyyy' }}</td>
-                        <td>{{ u.supply_expiry_date | date: 'dd/MM/yyyy' }}</td>
                         <td>
                           <button mat-icon-button matTooltip="Apri dettaglio utenza" (click)="openUtilityDetail(u)">
                             <mat-icon>description</mat-icon>

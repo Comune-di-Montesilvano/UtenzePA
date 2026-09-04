@@ -1,0 +1,85 @@
+<h2 mat-dialog-title>{{ isNew ? 'Aggiungi Contratto' : 'Modifica Contratto: ' + (data.item.cig_contract || '#' + data.item.id) }}</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>CIG</mat-label>
+      <input matInput formControlName="cig_contract">
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Numero Ordine</mat-label>
+      <input matInput formControlName="order_number">
+    </mat-form-field>
+
+    <div style="flex: 1 1 45%;">
+      <app-filterable-select label="Fornitore" placeholder="Cerca fornitore..." [options]="supplierOptions" formControlName="supplier_id_fk"></app-filterable-select>
+    </div>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Convenzione CONSIP</mat-label>
+      <mat-select formControlName="consip_agreement_id" (selectionChange)="onConsipAgreementChange($event)">
+        <mat-option [value]="null">Nessuna</mat-option>
+        @for (opt of consipAgreementOptions; track opt.id) {
+          <mat-option [value]="opt.id">{{ opt.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Ordine CONSIP</mat-label>
+      <input matInput formControlName="consip_order">
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Decorrenza Fornitura</mat-label>
+      <input matInput [matDatepicker]="startPicker" formControlName="supply_start_date">
+      <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
+      <mat-datepicker #startPicker></mat-datepicker>
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Scadenza Fornitura</mat-label>
+      <input matInput [matDatepicker]="expiryPicker" formControlName="supply_expiry_date">
+      <mat-datepicker-toggle matIconSuffix [for]="expiryPicker"></mat-datepicker-toggle>
+      <mat-datepicker #expiryPicker></mat-datepicker>
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Scadenza Gestione</mat-label>
+      <input matInput [matDatepicker]="managementPicker" formControlName="management_expiry_date">
+      <mat-datepicker-toggle matIconSuffix [for]="managementPicker"></mat-datepicker-toggle>
+      <mat-datepicker #managementPicker></mat-datepicker>
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Data Voltura/Cessazione</mat-label>
+      <input matInput [matDatepicker]="takeoverPicker" formControlName="takeover_termination_date">
+      <mat-datepicker-toggle matIconSuffix [for]="takeoverPicker"></mat-datepicker-toggle>
+      <mat-datepicker #takeoverPicker></mat-datepicker>
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 45%;">
+      <mat-label>Deposito Cauzionale (€)</mat-label>
+      <input matInput type="number" step="0.01" formControlName="security_deposit">
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 100%;">
+      <mat-label>Utenze coperte</mat-label>
+      <mat-select formControlName="utility_ids" multiple>
+        @for (opt of utilityOptions; track opt.value) {
+          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button (click)="cancel()">Annulla</button>
+  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">
+    {{ isNew ? 'Crea Contratto' : 'Salva Contratto' }}
+  </button>
+</mat-dialog-actions>

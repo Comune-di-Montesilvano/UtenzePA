@@ -20,21 +20,21 @@ import {UtilityType} from '../utility-types/entity/utility-type.entity';
 import {HardType} from '../utility-types/enum/hard-type.enum';
 import {Phase} from './enum/phase.enum';
 import {Asset} from '../assets/entity/asset.entity';
-import {Supplier} from '../suppliers/entity/supplier.entity';
-import {ConsipAgreement} from '../consip-agreement/entity/consip-agreement.entity';
 import {UseTypeDescription} from '../purpose/enum/use-type.enum';
 import {TOption} from '../../core/types/option.interface';
 import {AssetService} from '../assets/asset.service';
-import {SuppliersService} from '../suppliers/suppliers.service';
 import {UtilityAggregatorsService} from '../utility-aggregator/utility-aggregator.service';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
 import {CostsBorneByService} from '../costs-borne-by/costs-borne-by.service';
 import {MaintenanceManagersService} from '../maintenance-managers/maintenance-managers.service';
-import {ConsipAgreementService} from '../consip-agreement/consip-agreement.service';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {LocationMapComponent} from '../../core/components/location-map.component';
 import {PhotoGalleryComponent} from '../../core/components/photo-gallery.component';
 import {AssetEditDialogComponent} from '../assets/asset-edit-dialog.component';
+import {ContractsService} from '../contracts/contract.service';
+import {ContractEditDialogComponent} from '../contracts/contract-edit-dialog.component';
+import {Contract} from '../contracts/entity/contract.entity';
+import {DatePipe} from '@angular/common';
 
 // Stessa larghezza usata da MapComponent.openDetail per lo stesso dialog —
 // deve poter ospitare i tab (Dati/Foto) e i gruppi affiancati dell'immobile.
@@ -46,7 +46,8 @@ const ASSET_DIALOG_WIDTH = '1150px';
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatTabsModule,
-    HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent, LocationMapComponent, PhotoGalleryComponent
+    HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent, LocationMapComponent, PhotoGalleryComponent,
+    DatePipe
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-edit-dialog.component.html'
@@ -57,13 +58,12 @@ export class UtilityEditDialogComponent implements OnInit {
   private dialog = inject(MatDialog);
   private authService = inject(AuthService);
   private assetsService = inject(AssetService);
-  private suppliersService = inject(SuppliersService);
   private utilityAggregatorService = inject(UtilityAggregatorsService);
   private budgetChapterService = inject(BudgetChaptersService);
   private costsBorneByService = inject(CostsBorneByService);
   private maintenanceManagerService = inject(MaintenanceManagersService);
-  private consipService = inject(ConsipAgreementService);
   private utilityTypeService = inject(UtilityTypesService);
+  private contractsService = inject(ContractsService);
   protected data = inject<EditDialogData<Utility>>(MAT_DIALOG_DATA);
 
   isNew = this.data.mode === 'create';
@@ -73,8 +73,6 @@ export class UtilityEditDialogComponent implements OnInit {
   utilityTypeOptions: UtilityType[] = [];
   assetOptions: Asset[] = [];
   assetSelectOptions: TOption[] = [];
-  supplierOptions: Supplier[] = [];
-  consipAgreementOptions: ConsipAgreement[] = [];
   budgetChapterOptions: TOption[] = [];
   aggregatorOptions: TOption[] = [];
   costsBorneByOptions: TOption[] = [];
@@ -117,17 +115,12 @@ export class UtilityEditDialogComponent implements OnInit {
     aggregator_id_fk: [this.resolveOnRelation('aggregator', 'aggregator_id_fk', this.data.item) ?? null],
     asset_id_fk: [this.resolveOnRelation('asset', 'asset_id_fk', this.data.item) ?? null, Validators.required],
     budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null, Validators.required],
-    cig_contract: [this.data.item.cig_contract ?? ''],
-    consip_agreement_id: [this.resolveOnRelation('consipAgreement', 'consip_agreement_id', this.data.item) ?? null],
-    consip_order: [this.data.item.consip_order ?? ''],
-    order_number: [this.data.item.order_number ?? ''],
     costs_borne_by_id_fk: [this.resolveOnRelation('costsBorneBy', 'costs_borne_by_id_fk', this.data.item) ?? null, Validators.required],
     disconnection_ability: [this.data.item.disconnection_ability ?? ''],
     estimated_annual_consumption: [this.data.item.estimated_annual_consumption ?? 0, Validators.required],
     latitude: [this.data.item.latitude ?? ''],
     longitude: [this.data.item.longitude ?? ''],
     maintenance_management_id_fk: [this.resolveOnRelation('maintenanceManager', 'maintenance_management_id_fk', this.data.item) ?? null],
-    management_expiry_date: [this.toDate(this.data.item.management_expiry_date)],
     meter_number: [this.data.item.meter_number ?? ''],
     meter_removed: [this.data.item.meter_removed ?? null],
     meter_verified: [this.data.item.meter_verified ?? null],
@@ -136,14 +129,9 @@ export class UtilityEditDialogComponent implements OnInit {
     power_kw_electric: [this.data.item.power_kw_electric ?? null],
     reported_consumption_year: [this.data.item.reported_consumption_year ?? 0, Validators.required],
     actual_consumption: [this.data.item.actual_consumption ?? 0, Validators.required],
-    security_deposit: [this.data.item.security_deposit ?? 0, Validators.required],
     specifications: [this.data.item.specifications ?? ''],
     supplier_address: [this.data.item.supplier_address ?? ''],
-    supplier_id_fk: [this.resolveOnRelation('supplier', 'supplier_id_fk', this.data.item) ?? null],
     supply_active: [this.data.item.supply_active ?? null],
-    supply_expiry_date: [this.toDate(this.data.item.supply_expiry_date)],
-    supply_start_date: [this.toDate(this.data.item.supply_start_date)],
-    takeover_termination_date: [this.toDate(this.data.item.takeover_termination_date)],
     utility_code: [this.data.item.utility_code ?? ''],
     utility_id: [{value: this.data.item.utility_id ?? '', disabled: !this.isNew}, Validators.required],
     utility_type_id_fk: [this.data.item.utility_type_id_fk ?? null, Validators.required],
@@ -166,14 +154,6 @@ export class UtilityEditDialogComponent implements OnInit {
         this.assetSelectOptions = this.assetOptions.map(a => ({label: a.asset_name ?? '', value: a.id}));
       },
       error: err => console.error('Errore nel caricamento dei Fabbricati:', err)
-    });
-    this.suppliersService.search({deleted: false}).subscribe({
-      next: data => this.supplierOptions = data.sort((a, b) => (a.supplier_id ?? '').localeCompare(b.supplier_id ?? '')),
-      error: err => console.error('Errore nel caricamento dei fornitori:', err)
-    });
-    this.consipService.search({deleted: false}).subscribe({
-      next: data => this.consipAgreementOptions = data.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '')),
-      error: err => console.error('Errore nel caricamento delle convenzioni CONSIP:', err)
     });
     this.utilityAggregatorService.search({deleted: false}).subscribe({
       next: data => this.aggregatorOptions = data
@@ -210,16 +190,22 @@ export class UtilityEditDialogComponent implements OnInit {
     this.selectedHardType = selected?.hard_type ?? null;
   }
 
-  onConsipAgreementChange(event: MatSelectChange): void {
-    const selectedAgreementId: number | null = event.value;
-    if (selectedAgreementId) {
-      const agreement = this.consipAgreementOptions.find(a => a.id === selectedAgreementId);
-      if (agreement?.supplier_id) {
-        this.form.patchValue({supplier_id_fk: agreement.supplier_id});
+  openNewContractDialog(): void {
+    this.dialog.open(ContractEditDialogComponent, {
+      width: '900px',
+      maxWidth: '900px',
+      position: EDIT_DIALOG_POSITION,
+      data: {mode: 'create', item: Contract.create(), preselectedUtilityIds: [this.data.item.id]},
+    }).afterClosed().subscribe(result => {
+      if (result) {
+        this.contractsService.create(result).subscribe(() => {
+          // Ricarica i contratti dell'utenza per aggiornare subito la sezione in questo dialog.
+          this.contractsService.search({utility_id: this.data.item.id} as never).subscribe(
+            contratti => this.data.item.contratti = contratti
+          );
+        });
       }
-    } else {
-      this.form.patchValue({supplier_id_fk: null});
-    }
+    });
   }
 
   navigateToAsset(assetId: number | null | undefined): void {

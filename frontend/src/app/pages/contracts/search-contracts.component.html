@@ -1,0 +1,10 @@
+<div [formGroup]="qSearch" style="display: flex; align-items: center; gap: 0.5rem;">
+  <mat-form-field style="flex: 1;" subscriptSizing="dynamic">
+    <input matInput placeholder="Cerca..." formControlName="qsearch" (keyup.enter)="onQuickSearch()">
+  </mat-form-field>
+
+  <button mat-stroked-button (click)="openFilterDialog()" style="height: 3.5rem;">
+    <mat-icon>filter_list</mat-icon>
+    Filtri
+  </button>
+</div>

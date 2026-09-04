@@ -63,7 +63,6 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     );
     qb.leftJoinAndSelect('assets.utilities', 'utilities', 'utilities.deleted = 0');
     qb.leftJoinAndSelect('utilities.utilityType', 'utilityType', 'utilityType.deleted = 0');
-    qb.leftJoinAndSelect('utilities.supplier', 'supplier', 'supplier.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
     qb.leftJoinAndSelect('utilizerGrants.utilizer', 'utilizer', 'utilizer.deleted = 0');
 

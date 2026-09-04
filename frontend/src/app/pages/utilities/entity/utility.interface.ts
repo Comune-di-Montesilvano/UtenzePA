@@ -9,6 +9,7 @@ import {IBudgetChapter} from '../../budget-chapters/entity/budget-chapter.interf
 import {ICostsBorneBy} from '../../costs-borne-by/entity/costs-borne-by.interface';
 import {UtilityAggregator} from '../../utility-aggregator/entity/utility-aggregator.interface';
 import {IMaintenanceManager} from '../../maintenance-managers/entity/maintenance-manager.interface';
+import {Contract} from '../../contracts/entity/contract.entity';
 
 export interface IUtility {
   id: number;
@@ -19,9 +20,8 @@ export interface IUtility {
   asset_id_fk: number;
   budget_chapter_code_fk: number;
   budgetChapter?: IBudgetChapter;
-  consip_agreement_id?: number;
-  consip_order?: string | null;
   consipAgreement?: IConsipAgreement | null;
+  contratti?: Contract[];
   costs_borne_by_id_fk: number | null;
   costsBorneBy?: ICostsBorneBy | null;
   create_date: Date | null;
@@ -44,15 +44,10 @@ export interface IUtility {
   power_kw_electric?: number | null;
   reported_consumption_year?: number | null;
   actual_consumption?: number | null;
-  security_deposit?: number | null;
   specifications?: string | null;
   supplier?: ISupplier | null;
   supplier_address?: string | null;
-  supplier_id_fk?: number | null;
   supply_active?: boolean | null;
-  supply_expiry_date?: Date | null;
-  supply_start_date?: Date | null;
-  takeover_termination_date?: Date | null;
   update_date: Date | null;
   updated_by?: ISystemUser | null;
   updated_by_user_id: number | null;
@@ -63,6 +58,4 @@ export interface IUtility {
   voltage_kw_electric?: string | null;
   water_concession?: Date | null;
   wbs_gas_element?: string | null;
-  order_number?: string | null;
-  cig_contract?: string | null;
 }

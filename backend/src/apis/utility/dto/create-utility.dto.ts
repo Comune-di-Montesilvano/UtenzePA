@@ -50,46 +50,12 @@ export class CreateUtilityDto {
   supplier_address?: string;
 
   @IsOptional()
-  @IsInt()
-  supplier_id_fk?: number;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  consip_order?: string;
-
-  @IsOptional()
-  @NormalizeDate()
-  supply_start_date?: string;
-
-  @IsOptional()
-  @NormalizeDate()
-  supply_expiry_date?: string;
-
-  @IsOptional()
-  @IsInt()
-  consip_agreement_id?: number;
-
-  @IsOptional()
-  @NormalizeDate()
-  management_expiry_date?: string;
-
-  @IsOptional()
-  @NormalizeDate()
-  takeover_termination_date?: string;
-
-  @IsOptional()
   @IsBoolean()
   supply_active?: boolean;
 
   @IsOptional()
   @IsBoolean()
   meter_removed?: boolean;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  security_deposit?: number;
 
   @IsOptional()
   @IsNumber()
@@ -167,14 +133,6 @@ export class CreateUtilityDto {
   @IsOptional()
   @IsInt()
   maintenance_management_id_fk?: number;
-
-  @IsOptional()
-  @IsString()
-  order_number?: string;
-
-  @IsOptional()
-  @IsString()
-  cig_contract?: string;
 
   @IsOptional()
   @IsInt()

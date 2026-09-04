@@ -13,8 +13,8 @@ import { InvoiceBudgetChapter } from '@apis/invoices/entity/invoice_budget_chapt
 export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, UpdateInvoiceDto> {
   protected readonly entityName = 'Invoice';
   protected readonly relations = [
-    'utility',
-    'supplier',
+    'contratto',
+    'contratto.supplier',
     'budget_chapters',
     'created_by',
     'updated_by',
@@ -35,8 +35,8 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
   async findAll(filters?: Partial<SearchInvoiceDto>): Promise<Invoice[]> {
     const qb = this.repo.createQueryBuilder('Invoice');
 
-    qb.leftJoinAndSelect('Invoice.utility', 'utility', 'utility.deleted = 0');
-    qb.leftJoinAndSelect('Invoice.supplier', 'supplier', 'supplier.deleted = 0');
+    qb.leftJoinAndSelect('Invoice.contratto', 'contratto', 'contratto.deleted = 0');
+    qb.leftJoinAndSelect('contratto.supplier', 'supplier', 'supplier.deleted = 0');
     qb.leftJoinAndSelect(
       'Invoice.budget_chapters',
       'budget_chapters',

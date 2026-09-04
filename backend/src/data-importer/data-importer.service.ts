@@ -20,6 +20,8 @@ import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { Phase } from '@apis/shared/enum/user.enums';
 import { UtilizerGrant } from '@apis/utilizer-grant/entity/utilizer-grant.entity';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
+import { Contract } from '@apis/contracts/entity/contract.entity';
+import { ContractUtility } from '@apis/contracts/entity/contract-utility.entity';
 
 const SYSTEM_USER_ID = 1;
 
@@ -89,6 +91,10 @@ export class DataImporterService {
     private readonly utilizerGrantRepo: Repository<UtilizerGrant>,
     @InjectRepository(Invoice)
     private readonly invoiceRepo: Repository<Invoice>,
+    @InjectRepository(Contract)
+    private readonly contractRepo: Repository<Contract>,
+    @InjectRepository(ContractUtility)
+    private readonly contractUtilityRepo: Repository<ContractUtility>,
   ) {}
 
   private readCsv(filePath: string): Promise<Record<string, string>[]> {
@@ -700,12 +706,12 @@ export class DataImporterService {
         return Phase.NOT_APPLICABLE;
       };
 
+      // I campi contrattuali (fornitore, CIG, date di scadenza, deposito
+      // cauzionale, ...) non sono più colonne dirette di Utility: dopo il
+      // salvataggio dell'utenza viene creato un Contract collegato (stessa
+      // logica del backfill storico, tabella ponte contract_utilities).
       const entity = this.utilityRepo.create({
         utility_id,
-        supply_start_date,
-        consip_order: row['ordine consip']?.trim() || null,
-        supply_expiry_date,
-        supplier_id_fk,
         meter_number: row['numero contatore']?.trim() || null,
         utility_type_id_fk,
         utility_code: row['codice utenza o cliente']?.trim() || null,
@@ -714,12 +720,8 @@ export class DataImporterService {
         aggregator_id_fk,
         costs_borne_by_id_fk,
         maintenance_management_id_fk,
-        consip_agreement_id,
-        management_expiry_date,
-        takeover_termination_date,
         supply_active,
         meter_removed,
-        security_deposit: parseDecimal(row['deposito cauzionale versato']) ?? 0,
         water_concession,
         reported_consumption_year: parseDecimal(row['CONSUMI anno COMUNICATO CONSIP']) ?? 0,
         actual_consumption: 0,
@@ -748,7 +750,40 @@ export class DataImporterService {
       });
 
       try {
-        await this.utilityRepo.save(entity);
+        const savedUtility = await this.utilityRepo.save(entity);
+
+        const hasContractData =
+          supply_start_date ||
+          supply_expiry_date ||
+          management_expiry_date ||
+          takeover_termination_date ||
+          supplier_id_fk ||
+          consip_agreement_id ||
+          row['ordine consip']?.trim() ||
+          row['deposito cauzionale versato']?.trim();
+        if (hasContractData) {
+          const savedContract = await this.contractRepo.save(
+            this.contractRepo.create({
+              supplier_id_fk,
+              consip_order: row['ordine consip']?.trim() || null,
+              consip_agreement_id,
+              supply_start_date,
+              supply_expiry_date,
+              management_expiry_date,
+              takeover_termination_date,
+              security_deposit: parseDecimal(row['deposito cauzionale versato']) ?? 0,
+              created_by_user_id: SYSTEM_USER_ID,
+              updated_by_user_id: SYSTEM_USER_ID,
+            }),
+          );
+          await this.contractUtilityRepo.save(
+            this.contractUtilityRepo.create({
+              contract_id: savedContract.id,
+              utility_id: savedUtility.id,
+            }),
+          );
+        }
+
         imported++;
       } catch (err) {
         const reason = (err as Error).message;
@@ -879,9 +914,46 @@ export class DataImporterService {
 
     const rows = await this.readCsv(filePath);
 
-    // Cache lookup utilities (utility_id → { id, supplier_id_fk })
+    // Cache lookup utilities (utility_id → { id })
     const utilities = await this.utilityRepo.find({ where: { deleted: false } });
     const utilityMap = new Map(utilities.map((u) => [u.utility_id?.toLowerCase(), u]));
+
+    // I campi contrattuali (supplier incluso) sono ora su Contract, non più
+    // colonne dirette di Utility/Invoice: risolviamo IL contratto di ciascuna
+    // utenza per valorizzare contratto_id_fk sulle fatture importate.
+    //
+    // Deliberatamente SENZA filtro di scadenza (a differenza di
+    // UtilitiesService.loadCurrentContracts, che risolve il "contratto
+    // corrente"): l'importer Access crea esattamente 1 contratto per utenza
+    // (stesso invariante del backfill storico, Task 6/BackfillContractData),
+    // quindi "il contratto dell'utenza" è sempre il target corretto anche se
+    // nel frattempo è scaduto — non "quello corrente". Filtrare su scadenza
+    // qui lascerebbe contratto_id_fk (e quindi il fornitore, leggibile solo
+    // via invoice.contratto.supplier) silenziosamente NULL per ogni fattura
+    // la cui utenza ha un contratto già scaduto in un re-import dei dati
+    // storici. Il ROW_NUMBER + rn = 1 resta solo come tie-break di sicurezza
+    // per scenari futuri/misti con più di un contratto per utenza.
+    const utilityIds = utilities.map((u) => u.id);
+    const currentContractByUtilityId = new Map<number, number>();
+    if (utilityIds.length > 0) {
+      const pairs: { utility_id: number; contract_id: number }[] =
+        await this.invoiceRepo.manager.query(
+          `SELECT ranked.utility_id, ranked.contract_id FROM (
+             SELECT cu.utility_id, c.id AS contract_id,
+                    ROW_NUMBER() OVER (
+                      PARTITION BY cu.utility_id
+                      ORDER BY c.supply_start_date DESC, c.id DESC
+                    ) AS rn
+             FROM contract_utilities cu
+             INNER JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
+             WHERE cu.utility_id IN (?)
+           ) ranked WHERE ranked.rn = 1`,
+          [utilityIds],
+        );
+      for (const pair of pairs) {
+        currentContractByUtilityId.set(pair.utility_id, pair.contract_id);
+      }
+    }
 
     let imported = 0;
     let skipped = 0;
@@ -928,8 +1000,7 @@ export class DataImporterService {
 
       const utilityRaw = row['ID_utenza']?.trim().toLowerCase();
       const utility = utilityRaw ? (utilityMap.get(utilityRaw) ?? null) : null;
-      const utility_id_fk = utility?.id ?? null;
-      const supplier_id_fk = utility?.supplier_id_fk ?? null;
+      const contratto_id_fk = utility ? (currentContractByUtilityId.get(utility.id) ?? null) : null;
 
       const entity = this.invoiceRepo.create({
         invoice_id,
@@ -938,8 +1009,7 @@ export class DataImporterService {
         net_amount_excl_vat: parseDecimal(row['importo al netto di IVA']),
         last_invoice_arrears: parseDecimal(row['morosita ultima fattura']),
         notes_on_invoices: row['note su fatture']?.trim() || null,
-        utility_id_fk,
-        supplier_id_fk,
+        contratto_id_fk,
         created_by_user_id: SYSTEM_USER_ID,
         updated_by_user_id: SYSTEM_USER_ID,
       });
