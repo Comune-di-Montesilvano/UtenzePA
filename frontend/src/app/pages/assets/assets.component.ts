@@ -43,7 +43,7 @@ export class AssetsComponent extends AbstractComponent<Asset> {
 
   override loadAll() {
     this.loading = true;
-    this.service.search({}).subscribe((result: Asset[]) => {
+    this.service.search(this.lastFilters).subscribe((result: Asset[]) => {
       this.list = this.service.fromPlain(result);
       this.allItems = [...this.list];
 
