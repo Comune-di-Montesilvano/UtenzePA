@@ -4,6 +4,7 @@ import {
   Entity,
   Index,
   JoinColumn,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   OneToOne,
@@ -11,6 +12,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+import { Contract } from '@apis/contracts/entity/contract.entity';
 import { Asset } from '../../asset/entity/asset.entity';
 import { UtilityAggregator } from '../../utility-aggregators/entity/utility-aggregator.entity';
 import { Invoice } from '../../invoices/entity/invoice.entity';
@@ -201,4 +203,7 @@ export class Utility {
   @OneToOne(() => ConsipAgreement)
   @JoinColumn({ name: 'consip_agreement_id', referencedColumnName: 'id' })
   consipAgreement: ConsipAgreement;
+
+  @ManyToMany(() => Contract, (contract) => contract.utilities)
+  contratti: Contract[];
 }

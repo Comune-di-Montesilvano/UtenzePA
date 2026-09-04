@@ -17,6 +17,7 @@ import { SystemUser } from '../../system-users/entity/system-user.entity';
 import { Supplier } from '../../shared/entities/supplier.entity';
 import { BudgetChapter } from '../../budget-chapters/entity/budgetChapter.entity';
 import { InvoiceBudgetChapter } from '@apis/invoices/entity/invoice_budget_chapter.entity';
+import { Contract } from '@apis/contracts/entity/contract.entity';
 
 @Entity('invoices')
 export class Invoice {
@@ -62,6 +63,13 @@ export class Invoice {
 
   @Column({ type: 'int', nullable: true })
   supplier_id_fk: number;
+
+  @Column({ type: 'int', nullable: true })
+  contratto_id_fk: number;
+
+  @ManyToOne(() => Contract, (contract) => contract.invoices)
+  @JoinColumn({ name: 'contratto_id_fk', referencedColumnName: 'id' })
+  contratto: Contract;
 
   @ManyToMany(() => BudgetChapter, (chapter) => chapter.invoices)
   @JoinTable({
