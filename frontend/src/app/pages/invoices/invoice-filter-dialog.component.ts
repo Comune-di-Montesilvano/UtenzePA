@@ -63,7 +63,7 @@ export class InvoiceFilterDialogComponent implements OnInit {
   ngOnInit(): void {
     this.contractsService.search({deleted: false}).subscribe({
       next: data => this.contractOptions = data
-        .map(c => ({label: c.cig_contract || `Contratto #${c.id}`, value: c.id}))
+        .map(c => ({label: c.cig_contract || `Contratto senza CIG (id ${c.id})`, value: c.id}))
         .sort((a, b) => (a.label ?? '').localeCompare(b.label ?? '')),
       error: err => console.error('Errore nel caricamento dei contratti:', err)
     });

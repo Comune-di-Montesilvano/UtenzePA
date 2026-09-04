@@ -19,7 +19,7 @@ export class ContractsComponent extends AbstractComponent<Contract> {
   }
 
   protected override getEntityIdentifier(entity: Contract): string {
-    return entity.cig_contract ?? `#${entity.id}`;
+    return entity.cig_contract ?? 'CIG non specificato';
   }
 
   protected override entityLabel(): string {

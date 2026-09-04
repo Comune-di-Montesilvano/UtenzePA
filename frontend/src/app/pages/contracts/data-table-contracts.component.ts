@@ -26,7 +26,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
 })
 export class DataTableContractsComponent extends AbstractDataTableComponent<Contract> {
 
-  displayedColumns = ['actions', 'id', 'cig_contract', 'order_number', 'supplier', 'supply_start_date', 'supply_expiry_date', 'utilities'];
+  displayedColumns = ['actions', 'id', 'cig_contract', 'supplier', 'supply_start_date', 'supply_expiry_date', 'order_number', 'utilities'];
 
   constructor(screen: ScreenSizeService) {
     super(screen);
@@ -53,7 +53,7 @@ export class DataTableContractsComponent extends AbstractDataTableComponent<Cont
       width: '350px',
       data: {
         title: 'Elimina contratto',
-        message: `Disattiva il contratto ${entity.cig_contract ?? '#' + entity.id}?`,
+        message: `Disattiva il contratto ${entity.cig_contract ?? 'senza CIG specificato'}?`,
         confirmLabel: 'Elimina',
         danger: true
       }
@@ -67,7 +67,7 @@ export class DataTableContractsComponent extends AbstractDataTableComponent<Cont
       width: '350px',
       data: {
         title: 'Ripristina contratto',
-        message: `Riattiva il contratto ${entity.cig_contract ?? '#' + entity.id}?`,
+        message: `Riattiva il contratto ${entity.cig_contract ?? 'senza CIG specificato'}?`,
         confirmLabel: 'Ripristina'
       }
     }).afterClosed().subscribe(confirmed => {
