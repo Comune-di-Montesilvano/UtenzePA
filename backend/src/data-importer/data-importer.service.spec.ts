@@ -17,6 +17,8 @@ import { MaintenanceManager } from '@apis/shared/entities/maintenanceManagers.en
 import { ConsipAgreement } from '@apis/consip-agreement/entity/consip-agreement.entity';
 import { UtilizerGrant } from '@apis/utilizer-grant/entity/utilizer-grant.entity';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
+import { Contract } from '@apis/contracts/entity/contract.entity';
+import { ContractUtility } from '@apis/contracts/entity/contract-utility.entity';
 
 const mockRepo = () => ({
   findOne: jest.fn().mockResolvedValue(null),
@@ -48,6 +50,8 @@ describe('DataImporterService', () => {
         { provide: getRepositoryToken(ConsipAgreement), useFactory: mockRepo },
         { provide: getRepositoryToken(UtilizerGrant), useFactory: mockRepo },
         { provide: getRepositoryToken(Invoice), useFactory: mockRepo },
+        { provide: getRepositoryToken(Contract), useFactory: mockRepo },
+        { provide: getRepositoryToken(ContractUtility), useFactory: mockRepo },
       ],
     }).compile();
 
