@@ -15,6 +15,8 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   resetPagingCount = 0;
   qsearchFields: (keyof T)[] = [];
   loading = false;
+  /** Ultimi filtri (dialog filtro) applicati via onSearch, riusati da loadAll() dopo save/create/delete/restore. */
+  protected lastFilters: any = {};
 
   protected authService = inject(AuthService);
   protected messageService = inject(ToastService);
@@ -31,7 +33,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
 
   loadAll() {
     this.loading = true;
-    this.service.search({}).subscribe((result: T[]) => {
+    this.service.search(this.lastFilters).subscribe((result: T[]) => {
       this.list = this.service.fromPlain(result);
       this.allItems = [...this.list];
       this.loading = false;
@@ -58,8 +60,10 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
         this.list = [...this.allItems];
       }
     } else {
+      this.lastFilters = filters;
       this.service.search(filters).subscribe((result: T[]) => {
         this.list = this.service.fromPlain(result);
+        this.allItems = [...this.list];
       });
     }
 
