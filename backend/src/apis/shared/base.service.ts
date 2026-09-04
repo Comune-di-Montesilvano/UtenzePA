@@ -23,10 +23,24 @@ export interface BaseEntity extends ObjectLiteral {
 export function toFindOptionsRelations<T extends ObjectLiteral>(
   relations: string[],
 ): FindOptionsRelations<T> {
-  return relations.reduce(
-    (acc, relation) => ({ ...acc, [relation]: true }),
-    {} as FindOptionsRelations<T>,
-  );
+  const result: Record<string, unknown> = {};
+  for (const relation of relations) {
+    const parts = relation.split('.');
+    let node = result;
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      const isLast = i === parts.length - 1;
+      if (isLast) {
+        // Non sovrascrivere un nodo annidato già costruito da un'altra entry
+        // (es. 'contratto.supplier' processata prima di un eventuale 'contratto' da solo).
+        if (typeof node[part] !== 'object') node[part] = true;
+      } else {
+        if (typeof node[part] !== 'object') node[part] = {};
+        node = node[part] as Record<string, unknown>;
+      }
+    }
+  }
+  return result as FindOptionsRelations<T>;
 }
 
 export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdateDto> {

@@ -72,14 +72,14 @@
       <td mat-cell *matCellDef="let item">{{ item.last_invoice_arrears | formatAmount }}</td>
     </ng-container>
 
-    <ng-container matColumnDef="utility.utility_id">
-      <th mat-header-cell *matHeaderCellDef mat-sort-header>Utenza (POD/PDR)</th>
-      <td mat-cell *matCellDef="let item">{{ item.utility?.utility_id || 'N/D' }}</td>
+    <ng-container matColumnDef="contratto.cig_contract">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Contratto (CIG)</th>
+      <td mat-cell *matCellDef="let item">{{ item.contratto?.cig_contract || ('#' + item.contratto?.id) || 'N/D' }}</td>
     </ng-container>
 
-    <ng-container matColumnDef="supplier.supplier_id">
+    <ng-container matColumnDef="contratto.supplier.supplier_id">
       <th mat-header-cell *matHeaderCellDef mat-sort-header>Fornitore</th>
-      <td mat-cell *matCellDef="let item">{{ item.supplier?.supplier_id || 'N/D' }}</td>
+      <td mat-cell *matCellDef="let item">{{ item.contratto?.supplier?.supplier_id || 'N/D' }}</td>
     </ng-container>
 
     <ng-container matColumnDef="budget_chapters">

@@ -12,16 +12,20 @@ import {MaintenanceManager} from '../../maintenance-managers/entity/maintenance-
 import {CostsBorneBy} from '../../costs-borne-by/entity/costs-borne-by.entity';
 import {UtilityAggregator} from '../../utility-aggregator/entity/utility-aggregator.entity';
 import {SystemUser} from '../../system-users/entity/system-user.entity';
+import {Contract} from '../../contracts/entity/contract.entity';
 
 export class Utility extends AbstractEntity implements IUtility {
   utility_id!: string;
   utility_code?: string;
   meter_number?: string;
   supplier_address?: string;
+  @Exclude({toPlainOnly: true})
   consip_order?: string;
+  @Exclude({toPlainOnly: true})
   consip_agreement_id?: number;
   supply_active?: boolean;
   meter_removed?: boolean;
+  @Exclude({toPlainOnly: true})
   security_deposit?: number;
   reported_consumption_year?: number;
   actual_consumption?: number;
@@ -41,11 +45,14 @@ export class Utility extends AbstractEntity implements IUtility {
   utility_type_id_fk!: number;
   costs_borne_by_id_fk!: number | null;
   maintenance_management_id_fk!: number;
+  @Exclude({toPlainOnly: true})
   supplier_id_fk?: number | null;
   asset_id_fk!: number;
   aggregator_id_fk?: number;
   budget_chapter_code_fk!: number;
+  @Exclude({toPlainOnly: true})
   order_number?: string;
+  @Exclude({toPlainOnly: true})
   cig_contract?: string;
 
   @Exclude({toPlainOnly: true})
@@ -73,8 +80,11 @@ export class Utility extends AbstractEntity implements IUtility {
 
   created_by?: SystemUser | null;
   updated_by?: SystemUser | null;
+  @Exclude({toPlainOnly: true})
   supply_start_date?: Date | null;
+  @Exclude({toPlainOnly: true})
   supply_expiry_date?: Date | null;
+  @Exclude({toPlainOnly: true})
   management_expiry_date?: Date | null;
 
   @Transform(({value}) => {
@@ -117,6 +127,7 @@ export class Utility extends AbstractEntity implements IUtility {
   }, {toPlainOnly: true})
   water_concession_range?: string[];
 
+  @Exclude({toPlainOnly: true})
   takeover_termination_date?: Date | null;
 
   @Exclude({toPlainOnly: true})
@@ -127,6 +138,14 @@ export class Utility extends AbstractEntity implements IUtility {
 
   @Exclude({toPlainOnly: true})
   remainingDays: number = 0;
+
+  @Exclude({toPlainOnly: true})
+  @Type(() => Contract)
+  contratti?: Contract[];
+
+  get currentContract(): Contract | null {
+    return this.contratti?.find(c => c.isCurrent) ?? null;
+  }
 
   get label(): string {
     return `${this.utility_id} (${this.utility_code || 'N/D'})`.trim().replace(/ - $/, '');

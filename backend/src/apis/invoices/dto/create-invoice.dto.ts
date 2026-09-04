@@ -30,9 +30,9 @@ export class CreateInvoiceDto {
   @Min(0, { message: "L'importo netto non può essere negativo." })
   net_amount_excl_vat: number;
 
-  @IsNotEmpty({ message: "L'utenza di riferimento è obbligatoria." })
+  @IsNotEmpty({ message: 'Il contratto di riferimento è obbligatorio.' })
   @IsInt()
-  utility_id_fk: number;
+  contratto_id_fk: number;
 
   @IsOptional()
   @IsNumber({}, { message: 'La morosità deve essere un numero valido.' })
@@ -42,10 +42,6 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsString()
   notes_on_invoices?: string;
-
-  @IsOptional()
-  @IsInt()
-  supplier_id_fk?: number;
 
   @IsOptional()
   @IsArray({ message: 'I capitoli di spesa devono essere forniti come un array.' })

@@ -15,6 +15,8 @@ import { MaintenanceManager } from '@apis/shared/entities/maintenanceManagers.en
 import { ConsipAgreement } from '@apis/consip-agreement/entity/consip-agreement.entity';
 import { UtilizerGrant } from '@apis/utilizer-grant/entity/utilizer-grant.entity';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
+import { Contract } from '@apis/contracts/entity/contract.entity';
+import { ContractUtility } from '@apis/contracts/entity/contract-utility.entity';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { Invoice } from '@apis/invoices/entity/invoice.entity';
       ConsipAgreement,
       UtilizerGrant,
       Invoice,
+      Contract,
+      ContractUtility,
     ]),
   ],
   controllers: [DataImporterController],

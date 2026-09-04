@@ -48,11 +48,7 @@ export class UpdateInvoiceDto {
 
   @IsOptional()
   @IsInt()
-  utility_id_fk?: number;
-
-  @IsOptional()
-  @IsInt()
-  supplier_id_fk?: number;
+  contratto_id_fk?: number;
 
   @IsOptional()
   create_date?: Date;

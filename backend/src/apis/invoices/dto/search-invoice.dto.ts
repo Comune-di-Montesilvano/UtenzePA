@@ -29,12 +29,7 @@ export class SearchInvoiceDto {
   @IsOptional()
   @IsInt()
   @Type(() => Number)
-  utility_id_fk?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  supplier_id_fk?: number;
+  contratto_id_fk?: number;
 
   @IsOptional()
   @Transform(({ value }) => (value === '' || value === undefined ? undefined : parseFloat(value)))

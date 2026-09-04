@@ -8,9 +8,8 @@ import {MatDatepickerModule} from '@angular/material/datepicker';
 import {MatButtonModule} from '@angular/material/button';
 import {FilterDialogData} from '../../core/components/abstract-search.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
-import {SuppliersService} from '../suppliers/suppliers.service';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
-import {UtilityService} from '../utilities/utility.service';
+import {ContractsService} from '../contracts/contract.service';
 import {TOption} from '../../core/types/option.interface';
 
 export interface InvoiceFilterValues {
@@ -18,8 +17,7 @@ export interface InvoiceFilterValues {
   protocol_number: string | null;
   net_amount_excl_vat: number | null;
   last_invoice_arrears: number | null;
-  utility_id_fk: number | null;
-  supplier_id_fk: number | null;
+  contratto_id_fk: number | null;
   budget_chapter_ids: number[] | null;
   // In input (data.values) puo' arrivare un Date (prima apertura, dal form)
   // o una stringa locale YYYY-MM-DD (riapertura dopo una ricerca gia' applicata,
@@ -43,13 +41,11 @@ export interface InvoiceFilterValues {
 export class InvoiceFilterDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<InvoiceFilterDialogComponent, InvoiceFilterValues | 'clear'>);
-  private suppliersService = inject(SuppliersService);
+  private contractsService = inject(ContractsService);
   private budgetChapterService = inject(BudgetChaptersService);
-  private utilitiesService = inject(UtilityService);
   protected data = inject<FilterDialogData<InvoiceFilterValues>>(MAT_DIALOG_DATA);
 
-  supplierOptions: TOption[] = [];
-  utilityOptions: TOption[] = [];
+  contractOptions: TOption[] = [];
   budgetChapterOptions: TOption[] = [];
 
   form = this.fb.group({
@@ -57,8 +53,7 @@ export class InvoiceFilterDialogComponent implements OnInit {
     protocol_number: [this.data.values.protocol_number ?? ''],
     net_amount_excl_vat: [this.data.values.net_amount_excl_vat ?? null],
     last_invoice_arrears: [this.data.values.last_invoice_arrears ?? null],
-    utility_id_fk: [this.data.values.utility_id_fk ?? null],
-    supplier_id_fk: [this.data.values.supplier_id_fk ?? null],
+    contratto_id_fk: [this.data.values.contratto_id_fk ?? null],
     budget_chapter_ids: [this.data.values.budget_chapter_ids ?? null],
     invoice_date_from: [this.data.values.invoice_date_from ?? null],
     invoice_date_to: [this.data.values.invoice_date_to ?? null],
@@ -66,17 +61,11 @@ export class InvoiceFilterDialogComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.suppliersService.search({deleted: false}).subscribe({
-      next: data => this.supplierOptions = data
-        .map(s => ({label: s.supplier_id, value: s.id}))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-      error: err => console.error('Errore nel caricamento dei fornitori:', err)
-    });
-    this.utilitiesService.search({deleted: false}).subscribe({
-      next: data => this.utilityOptions = data
-        .map(u => ({label: `${u.utility_id} (${u.utility_code || 'N/D'})`, value: u.id}))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-      error: err => console.error('Errore nel caricamento delle Utenze:', err)
+    this.contractsService.search({deleted: false}).subscribe({
+      next: data => this.contractOptions = data
+        .map(c => ({label: c.cig_contract || `Contratto #${c.id}`, value: c.id}))
+        .sort((a, b) => (a.label ?? '').localeCompare(b.label ?? '')),
+      error: err => console.error('Errore nel caricamento dei contratti:', err)
     });
     this.budgetChapterService.search({deleted: false}).subscribe({
       next: data => this.budgetChapterOptions = data
