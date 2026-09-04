@@ -213,9 +213,9 @@ describe('UtilitiesService', () => {
       );
     });
 
-    it('applica il filtro su supply_expiry_date_range sul contratto corrente', async () => {
+    it('applica il filtro su supply_expiry_date_range sul contratto corrente, normalizzando le date ISO complete a YYYY-MM-DD', async () => {
       await service.findAll({
-        supply_expiry_date_range: ['2026-01-01', '2026-12-31'],
+        supply_expiry_date_range: ['2026-01-01T00:00:00.000Z', '2026-12-31T23:59:59.999Z'],
       } as never);
 
       expect(qb.andWhere).toHaveBeenCalledWith(
@@ -225,6 +225,51 @@ describe('UtilitiesService', () => {
       expect(qb.andWhere).toHaveBeenCalledWith(
         'currentContract.supply_expiry_date <= :cf_supply_expiry_date_end',
         { cf_supply_expiry_date_end: '2026-12-31' },
+      );
+    });
+
+    it('applica il filtro su supply_start_date_range sul contratto corrente, normalizzando le date ISO complete a YYYY-MM-DD', async () => {
+      await service.findAll({
+        supply_start_date_range: ['2026-02-01T00:00:00.000Z', '2026-11-30T23:59:59.999Z'],
+      } as never);
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'currentContract.supply_start_date >= :cf_supply_start_date_start',
+        { cf_supply_start_date_start: '2026-02-01' },
+      );
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'currentContract.supply_start_date <= :cf_supply_start_date_end',
+        { cf_supply_start_date_end: '2026-11-30' },
+      );
+    });
+
+    it('applica il filtro su management_expiry_date_range sul contratto corrente, normalizzando le date ISO complete a YYYY-MM-DD', async () => {
+      await service.findAll({
+        management_expiry_date_range: ['2026-03-01T00:00:00.000Z', '2026-10-31T23:59:59.999Z'],
+      } as never);
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'currentContract.management_expiry_date >= :cf_management_expiry_date_start',
+        { cf_management_expiry_date_start: '2026-03-01' },
+      );
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'currentContract.management_expiry_date <= :cf_management_expiry_date_end',
+        { cf_management_expiry_date_end: '2026-10-31' },
+      );
+    });
+
+    it('applica il filtro su takeover_termination_date_range sul contratto corrente, normalizzando le date ISO complete a YYYY-MM-DD', async () => {
+      await service.findAll({
+        takeover_termination_date_range: ['2026-04-01T00:00:00.000Z', '2026-09-30T23:59:59.999Z'],
+      } as never);
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'currentContract.takeover_termination_date >= :cf_takeover_termination_date_start',
+        { cf_takeover_termination_date_start: '2026-04-01' },
+      );
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'currentContract.takeover_termination_date <= :cf_takeover_termination_date_end',
+        { cf_takeover_termination_date_end: '2026-09-30' },
       );
     });
 
