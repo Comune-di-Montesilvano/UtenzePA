@@ -1,0 +1,20 @@
+<div style="padding: 1rem;">
+  <div>
+    <h1>Contratti</h1>
+    <p style="color: #6A7282;">Gestisci i contratti di fornitura e le utenze che coprono</p>
+  </div>
+  <div style="margin-top: 1rem;">
+    <app-search-contracts (search)="onSearch($event)"></app-search-contracts>
+  </div>
+  <div style="margin-top: 1.5rem;">
+    <app-data-table-contracts
+      [data]="list"
+      [loading]="loading"
+      (onSave)="onSave($event)"
+      (onDelete)="onDelete($event)"
+      (onCreate)="onCreate($event)"
+      (onRestore)="onRestore($event)"
+      [resetPagingTrigger]="resetPagingCount"
+    ></app-data-table-contracts>
+  </div>
+</div>

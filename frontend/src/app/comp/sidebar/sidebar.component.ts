@@ -45,6 +45,7 @@ export class SidebarComponent implements OnInit {
     {label: 'Fornitori', icon: 'local_shipping', route: '/suppliers'},
     {label: 'Capitoli di Spesa', icon: 'attach_money', route: '/budget-chapter'},
     {label: 'Fatture', icon: 'receipt_long', route: '/invoices'},
+    {label: 'Contratti', icon: 'description', route: '/contracts'},
     {label: 'Impostazioni', icon: 'settings', submenu: [
         {label: 'Aggregati Utenze', icon: 'list', route: '/utility-aggregator'},
         {label: 'Aggregati Immobili', icon: 'list', route: '/asset-aggregator'},
