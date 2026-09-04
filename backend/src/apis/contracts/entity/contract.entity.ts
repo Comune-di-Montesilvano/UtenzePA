@@ -8,7 +8,6 @@ import {
   ManyToMany,
   ManyToOne,
   OneToMany,
-  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -82,7 +81,7 @@ export class Contract {
   @JoinColumn({ name: 'supplier_id_fk' })
   supplier: Supplier;
 
-  @OneToOne(() => ConsipAgreement)
+  @ManyToOne(() => ConsipAgreement)
   @JoinColumn({ name: 'consip_agreement_id', referencedColumnName: 'id' })
   consipAgreement: ConsipAgreement;
 
