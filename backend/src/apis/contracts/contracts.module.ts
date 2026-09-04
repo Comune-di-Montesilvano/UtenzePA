@@ -9,6 +9,6 @@ import { ContractsController } from '@apis/contracts/contracts.controller';
   imports: [TypeOrmModule.forFeature([Contract, ContractUtility])],
   providers: [ContractsService],
   controllers: [ContractsController],
-  exports: [TypeOrmModule],
+  exports: [ContractsService],
 })
 export class ContractsModule {}
