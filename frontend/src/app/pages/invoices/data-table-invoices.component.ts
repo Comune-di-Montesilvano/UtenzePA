@@ -39,8 +39,8 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
     {field: 'invoice_date', header: 'Data Fattura', minWidth: '120px'},
     {field: 'net_amount_excl_vat', header: 'Importo Netto', minWidth: '120px'},
     {field: 'last_invoice_arrears', header: 'Morosità', minWidth: '120px'},
-    {field: 'utility.utility_id', header: 'Utenza (POD/PDR)', minWidth: '200px'},
-    {field: 'supplier.supplier_id', header: 'Fornitore', minWidth: '150px'},
+    {field: 'contratto.cig_contract', header: 'Contratto (CIG)', minWidth: '200px'},
+    {field: 'contratto.supplier.supplier_id', header: 'Fornitore', minWidth: '150px'},
     {field: 'budget_chapters', header: 'Capitoli Associati', minWidth: '180px'},
     {field: 'is_paid', header: 'Stato Pagamento', minWidth: '120px'},
     {field: 'notes_on_invoices', header: 'Note', minWidth: '200px'},
@@ -48,7 +48,7 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
 
   private readonly defaultVisibleFields = new Set([
     'invoice_id', 'protocol_number', 'invoice_date', 'net_amount_excl_vat',
-    'last_invoice_arrears', 'utility.utility_id', 'supplier.supplier_id',
+    'last_invoice_arrears', 'contratto.cig_contract', 'contratto.supplier.supplier_id',
     'budget_chapters', 'is_paid',
   ]);
 

@@ -13,8 +13,8 @@ import {AuthService} from '../../services/auth.service';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
-import {UtilityService} from '../utilities/utility.service';
-import {SuppliersService} from '../suppliers/suppliers.service';
+import {ContractsService} from '../contracts/contract.service';
+import {Contract} from '../contracts/entity/contract.entity';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
 import {BudgetChapter} from '../budget-chapters/entity/budget-chapter.entity';
 import {TOption} from '../../core/types/option.interface';
@@ -33,15 +33,15 @@ export class InvoiceEditDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<InvoiceEditDialogComponent, Invoice | undefined>);
   private authService = inject(AuthService);
-  private utilityService = inject(UtilityService);
-  private suppliersService = inject(SuppliersService);
+  private contractsService = inject(ContractsService);
   private budgetChapterService = inject(BudgetChaptersService);
   protected data = inject<EditDialogData<Invoice>>(MAT_DIALOG_DATA);
 
   isNew = this.data.mode === 'create';
 
-  utilityOptions: TOption[] = [];
-  supplierOptions: TOption[] = [];
+  contracts: Contract[] = [];
+  contractOptions: TOption[] = [];
+  selectedContractSupplierLabel: string | null = this.data.item.contratto?.supplier?.supplier_id ?? null;
   budgetChapterOptions: BudgetChapter[] = [];
 
   form = this.fb.group({
@@ -50,8 +50,7 @@ export class InvoiceEditDialogComponent implements OnInit {
     invoice_date: [this.data.item.invoice_date ? new Date(this.data.item.invoice_date) : null, Validators.required],
     net_amount_excl_vat: [this.data.item.net_amount_excl_vat ?? null, Validators.required],
     last_invoice_arrears: [this.data.item.last_invoice_arrears ?? 0, Validators.required],
-    utility_id_fk: [this.data.item.utility_id_fk ?? null, Validators.required],
-    supplier_id_fk: [this.data.item.supplier != null ? (this.data.item.supplier_id_fk ?? null) : null],
+    contratto_id_fk: [this.data.item.contratto_id_fk ?? null, Validators.required],
     notes_on_invoices: [this.data.item.notes_on_invoices ?? ''],
     budget_chapter_ids: [(this.data.item.budget_chapters ?? []).map(bc => bc.id)],
   });
@@ -69,21 +68,17 @@ export class InvoiceEditDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.utilityService.search({deleted: false}).subscribe({
+    this.contractsService.search({deleted: false}).subscribe({
       next: data => {
-        this.utilityOptions = data
-          .map(u => ({label: u.utility_id, value: u.id}))
+        this.contracts = data;
+        this.contractOptions = data
+          .map(c => ({label: c.cig_contract || `Contratto #${c.id}`, value: c.id}))
           .sort((a, b) => (a.label ?? '').localeCompare(b.label ?? ''));
       },
-      error: err => console.error('Errore nel caricamento delle Utenze:', err)
+      error: err => console.error('Errore nel caricamento dei contratti:', err)
     });
-    this.suppliersService.search({deleted: false}).subscribe({
-      next: data => {
-        this.supplierOptions = data
-          .map(s => ({label: s.supplier_id, value: s.id}))
-          .sort((a, b) => (a.label ?? '').localeCompare(b.label ?? ''));
-      },
-      error: err => console.error('Errore nel caricamento dei fornitori:', err)
+    this.form.controls.contratto_id_fk.valueChanges.subscribe(id => {
+      this.selectedContractSupplierLabel = this.contracts.find(c => c.id === id)?.supplier?.supplier_id ?? null;
     });
     this.budgetChapterService.search({deleted: false}).subscribe({
       next: data => this.budgetChapterOptions = data.sort((a, b) => (a.chapter_code ?? '').localeCompare(b.chapter_code ?? '')),
