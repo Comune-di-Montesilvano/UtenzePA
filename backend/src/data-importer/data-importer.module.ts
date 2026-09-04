@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataImporterService } from '@/data-importer/data-importer.service';
-import { DataImporterController } from '@/data-importer/data-importer.controller';
 import { Utilizer } from '@apis/utilizer/entity/utilizer.entity';
 import { Asset } from '@apis/asset/entity/asset.entity';
 import { AssetAggregator } from '@apis/asset-aggregators/entity/asset-aggregator.entity';
@@ -38,7 +37,6 @@ import { ContractUtility } from '@apis/contracts/entity/contract-utility.entity'
       ContractUtility,
     ]),
   ],
-  controllers: [DataImporterController],
   providers: [DataImporterService],
   exports: [DataImporterService],
 })

@@ -218,7 +218,7 @@
         }
         @for (contratto of data.item.contratti; track contratto.id) {
           <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; border: 1px solid #E5E7EB; border-radius: 4px;">
-            <span>{{ contratto.cig_contract || ('Contratto #' + contratto.id) }} — {{ contratto.supplier?.supplier_id || 'N/D' }}</span>
+            <span>{{ contratto.cig_contract || 'CIG non specificato' }} — {{ contratto.supplier?.supplier_id || 'N/D' }}</span>
             @if (contratto.isCurrent) { <span class="mat-action-success">Corrente</span> }
             <span style="color: #6A7282;">
               {{ contratto.supply_start_date ? (contratto.supply_start_date | date: 'dd/MM/yyyy') : 'N/D' }}

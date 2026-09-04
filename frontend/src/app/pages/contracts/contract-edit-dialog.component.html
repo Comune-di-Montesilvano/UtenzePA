@@ -1,4 +1,4 @@
-<h2 mat-dialog-title>{{ isNew ? 'Aggiungi Contratto' : 'Modifica Contratto: ' + (data.item.cig_contract || '#' + data.item.id) }}</h2>
+<h2 mat-dialog-title>{{ isNew ? 'Aggiungi Contratto' : 'Modifica Contratto: ' + (data.item.cig_contract || 'CIG non specificato') }}</h2>
 
 <mat-dialog-content>
   <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">

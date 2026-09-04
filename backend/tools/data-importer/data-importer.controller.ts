@@ -1,5 +1,13 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { DataImporterService } from '@/data-importer/data-importer.service';
+/**
+ * PARCHEGGIATO fuori da src/ (non compilato, non nell'immagine prod/GHCR).
+ * Endpoint GET /api/v1/importer/* legacy, ridondanti: la stessa importazione
+ * (per-entità, da file) è oggi esposta via ImportModule (upload chunked,
+ * usato dalla UI "Backup e Importazione"). Nessuna UI chiamava questi.
+ * Per riattivarlo: sposta questo file in backend/src/data-importer/, ri-aggiungi
+ * DataImporterController a `controllers` in data-importer.module.ts.
+ */
 import { JwtAuthGuard } from '@core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@core/auth/guards/roles.guard';
 
