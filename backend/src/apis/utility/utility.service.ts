@@ -205,6 +205,8 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       'utilityAggregator.deleted = 0',
     );
     qb.leftJoinAndSelect('Utility.contratti', 'contratti', 'contratti.deleted = 0');
+    qb.leftJoinAndSelect('contratti.supplier', 'contrattiSupplier', 'contrattiSupplier.deleted = 0');
+    qb.leftJoinAndSelect('contratti.consipAgreement', 'contrattiConsipAgreement', 'contrattiConsipAgreement.deleted = 0');
 
     this.joinCurrentContract(qb);
 
@@ -407,6 +409,8 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     );
     qb.leftJoinAndSelect('Utility.budgetChapter', 'budgetChapter', 'budgetChapter.deleted = 0');
     qb.leftJoinAndSelect('Utility.contratti', 'contratti', 'contratti.deleted = 0');
+    qb.leftJoinAndSelect('contratti.supplier', 'contrattiSupplier', 'contrattiSupplier.deleted = 0');
+    qb.leftJoinAndSelect('contratti.consipAgreement', 'contrattiConsipAgreement', 'contrattiConsipAgreement.deleted = 0');
     qb.where('Utility.deleted = :deleted', { deleted: false });
     qb.andWhere('currentConsipAgreement.safeguard = :safeguard', { safeguard: 1 });
 
@@ -439,6 +443,8 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('Utility.created_by', 'created_by');
     qb.leftJoinAndSelect('Utility.updated_by', 'updated_by');
     qb.leftJoinAndSelect('Utility.contratti', 'contratti', 'contratti.deleted = 0');
+    qb.leftJoinAndSelect('contratti.supplier', 'contrattiSupplier', 'contrattiSupplier.deleted = 0');
+    qb.leftJoinAndSelect('contratti.consipAgreement', 'contrattiConsipAgreement', 'contrattiConsipAgreement.deleted = 0');
 
     this.joinCurrentContract(qb);
 
