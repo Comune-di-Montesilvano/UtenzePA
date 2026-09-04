@@ -30,3 +30,6 @@ node_modules/
 # scrivere nel default /root del container).
 backend/.cache/
 backend/.local/
+
+# SDD scratch (subagent-driven-development ledgers/briefs)
+.superpowers/
