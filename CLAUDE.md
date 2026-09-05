@@ -101,7 +101,7 @@ PrimeNG rimosso interamente dal frontend (migrazione completa a Angular Material
 ## Architettura
 
 ### Backend
-- `src/apis/` — moduli di dominio, uno per risorsa REST: `auth`, `system-users`, `asset`, `asset-aggregators`, `utility`, `utility-types`, `utility-aggregators`, `invoices`, `suppliers`, `budget-chapters`, `consip-agreement`, `costs-borne-by`, `maintenance-managers`, `purpose`, `utilizer`, `utilizer-grant`, `health`.
+- `src/apis/` — moduli di dominio, uno per risorsa REST: `auth`, `setup`, `system-users`, `settings`, `asset`, `asset-aggregators`, `utility`, `utility-types`, `utility-aggregators`, `map`, `invoices`, `contracts`, `suppliers`, `budget-chapters`, `consip-agreement`, `costs-borne-by`, `maintenance-managers`, `purpose`, `utilizer`, `utilizer-grant`, `backup`, `import`, `photos`, `geocoding`, `health`.
 - `src/core/` — infrastruttura trasversale (auth, database, cronjobs, email, exceptions).
 - `src/common/`, `src/helpers/`, `src/utils/`, `src/data-importer/` (service+module usati da `ImportModule`; il controller legacy e gli script one-off vivono fuori, vedi `backend/tools/`).
 - `src/database/` — migration TypeORM (`migrations/`) e `data-source.ts` dedicato per la CLI. Entity individuate via glob (`src/apis/**/*.entity.ts`), niente elenco esplicito da tenere sincronizzato a mano.
