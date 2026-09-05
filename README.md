@@ -108,6 +108,7 @@ Il backend espone risorse REST sotto `/api/v1`, un modulo NestJS per dominio (`b
 | `utility`, `utility-types`, `utility-aggregators` | Utenze, tipologie e aggregati |
 | `map` | Punti geolocalizzati (immobili + utenze) per la mappa |
 | `invoices` | Fatture |
+| `contracts` | Contratti (fornitore, CIG, date, cauzione — può coprire più utenze, storicizzato) |
 | `suppliers` | Fornitori |
 | `budget-chapters` | Capitoli di spesa |
 | `consip-agreement` | Convenzioni CONSIP |
@@ -144,7 +145,7 @@ Il valore di default al primo avvio (seed di migration) è quello del Comune di 
 Interfaccia in **Angular 22** con **Angular Material**. Sezioni principali (menu laterale):
 
 - **Dashboard**, **Mappa** (geolocalizzazione immobili/contatori)
-- **Immobili**, **Utenze**, **Concessioni**, **Fornitori**, **Capitoli di Spesa**, **Fatture**
+- **Immobili**, **Utenze**, **Concessioni**, **Fornitori**, **Capitoli di Spesa**, **Fatture**, **Contratti**
 - **Impostazioni** — Aggregati Utenze/Immobili, Fornitori Manutenzione, Tipologie uso contatore, Convenzioni CONSIP, Finalità d'uso, Utilizzatori, Backup e Importazione, Branding
 - **Utenti e ruoli**
 
@@ -220,7 +221,8 @@ UtenzePA/
 │   │   ├── common/, helpers/, utils/
 │   │   ├── core/                 # Auth, database, cronjobs, email, exceptions
 │   │   ├── database/migrations/  # Migration TypeORM + data-source per la CLI
-│   │   └── data-importer/
+│   │   └── data-importer/        # Service usato da import CSV chunked (UI Backup e Importazione)
+│   ├── tools/                    # Script one-off (import dati storici) — mai nell'immagine prod
 │   ├── artillery/                # Configurazioni load test
 │   └── postman/                  # Collection Postman
 └── frontend/                     # App Angular
