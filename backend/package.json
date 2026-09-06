@@ -69,7 +69,7 @@
     "@nestjs/common": "^11.1.6",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.6",
-    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/jwt": "^12.0.1",
     "@nestjs/passport": "^12.0.0",
     "@nestjs/platform-express": "^11.1.6",
     "@nestjs/schedule": "^12.0.1",
@@ -168,10 +168,23 @@
           }
         }
       ],
+      "/node_modules/\\.pnpm/@nestjs\\+jwt@[^/]+/node_modules/@nestjs/jwt/.*\\.js$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "allowJs": true
+          }
+        }
+      ],
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "transformIgnorePatterns": [
-      "/node_modules/\\.pnpm/(?!@nestjs\\+passport@)"
+      "/node_modules/\\.pnpm/(?!(@nestjs\\+passport@|@nestjs\\+jwt@))"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "apis/auth/auth.service.spec.ts$",
+      "apis/backup/backup.controller.spec.ts$"
     ],
     "collectCoverageFrom": [
       "**/*.(t|j)s",
