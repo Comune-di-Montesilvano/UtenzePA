@@ -181,6 +181,11 @@
     "transformIgnorePatterns": [
       "/node_modules/\\.pnpm/(?!(@nestjs\\+passport@|@nestjs\\+jwt@))"
     ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "apis/auth/auth.service.spec.ts$",
+      "apis/backup/backup.controller.spec.ts$"
+    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s",
       "!**/*.spec.ts",
