@@ -6,7 +6,15 @@
 // segnalarlo — nessuna gestione lato nostro.
 export class StreetViewHelper {
   static open(lat: string | number, lng: string | number): void {
-    const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}&layer=c`;
+    // Solo i parametri della spec ufficiale del deep-link pano
+    // (viewpoint/heading/pitch/fov, tutti opzionali tranne viewpoint):
+    // https://developers.google.com/maps/documentation/urls/get-started#street-view-action
+    // `&layer=c` (residuo del vecchio schema URL Street View
+    // maps.google.com/maps?layer=c&cbll=...) non fa parte di questa spec —
+    // Google inizializza pano e layer in conflitto, canvas nero finche' un
+    // pan/drag non forza un redraw pulito (bug osservato: schermo nero
+    // all'apertura, si sistema al primo movimento).
+    const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
     window.open(url, '_blank', 'noopener');
   }
 }
