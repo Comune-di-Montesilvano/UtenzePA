@@ -31,4 +31,12 @@ export class MapService {
     const headers = new HttpHeaders({ Authorization: `Bearer ${this.auth.getToken() || ''}` });
     return this.http.get<MapPointsResponse>(`${this.BASE_URL}/points`, { headers, params });
   }
+
+  // Ricerca libera indirizzo (barra ricerca mappa) — null se Nominatim non
+  // trova nessun match, mai un errore applicativo per "non trovato".
+  geocode(q: string): Observable<{ lat: string; lng: string } | null> {
+    const headers = new HttpHeaders({ Authorization: `Bearer ${this.auth.getToken() || ''}` });
+    const params = new HttpParams().set('q', q);
+    return this.http.get<{ lat: string; lng: string } | null>(`${this.BASE_URL}/geocode`, { headers, params });
+  }
 }

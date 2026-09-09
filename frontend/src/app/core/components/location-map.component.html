@@ -1,5 +1,11 @@
 <div class="location-map-wrapper">
   <div [id]="canvasId" class="location-map-canvas"></div>
+  @if (hasKnownPosition()) {
+    <button mat-stroked-button type="button" class="location-map-street-view" (click)="openStreetView()">
+      <mat-icon>streetview</mat-icon>
+      Apri Street View
+    </button>
+  }
   @if (usingOwnPosition && latitude && longitude) {
     <button mat-stroked-button type="button" class="location-map-clear" (click)="clearPosition()">
       Cancella posizione manuale
