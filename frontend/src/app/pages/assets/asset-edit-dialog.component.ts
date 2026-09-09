@@ -224,11 +224,19 @@ export class AssetEditDialogComponent implements OnInit {
     // pattern del verso opposto in UtilityEditDialogComponent.navigateToAsset.
     // L'oggetto e' gia' quello caricato con l'immobile (data.item.utilities),
     // nessuna chiamata di rete in piu' per riaprirlo.
+    //
+    // Il GET immobile non popola il back-reference utilities[].asset (evita
+    // il giro circolare) — asset_id_fk resta valorizzato ma
+    // UtilityEditDialogComponent.resolveOnRelation('asset', ...) lo scarta
+    // se `.asset` non e' presente (guard contro FK orfane non risolvibili),
+    // quindi il campo "Immobile associato" partiva sempre vuoto aprendo da
+    // qui. L'immobile e' pero' gia' noto per certo (data.item) — stesso stub
+    // gia' fatto in addUtility() per l'analogo problema post-POST.
     this.dialog.open(UtilityEditDialogComponent, {
       width: UTILITY_DIALOG_WIDTH,
       maxWidth: UTILITY_DIALOG_WIDTH,
       position: EDIT_DIALOG_POSITION,
-      data: {mode: 'edit', item: utility},
+      data: {mode: 'edit', item: {...utility, asset: utility.asset ?? this.data.item}},
     });
   }
 
