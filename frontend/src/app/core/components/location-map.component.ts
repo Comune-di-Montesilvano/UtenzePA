@@ -1,9 +1,11 @@
 import { Component, Input, Output, EventEmitter, OnInit, AfterViewInit, OnChanges, OnDestroy, SimpleChanges, ChangeDetectionStrategy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import * as L from 'leaflet';
 import { BrandingService } from '../../services/branding.service';
 import { CoordinateHelper } from '../helpers/coordinate.helper';
+import { StreetViewHelper } from '../helpers/street-view.helper';
 
 let instanceCounter = 0;
 
@@ -39,7 +41,7 @@ const ESTIMATED_PIN_ICON = L.divIcon({
 @Component({
   selector: 'app-location-map',
   standalone: true,
-  imports: [CommonModule, MatButtonModule],
+  imports: [CommonModule, MatButtonModule, MatIconModule],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './location-map.component.html',
   styleUrls: ['./location-map.component.scss'],
@@ -156,6 +158,21 @@ export class LocationMapComponent implements OnInit, AfterViewInit, OnChanges, O
     // aspettando ngOnChanges su previewOnly (che non è tracciato).
     this.usingOwnPosition = false;
     this.positionCleared.emit();
+  }
+
+  // Bottone "Apri Street View" nel template — usa la posizione reale se
+  // c'e', altrimenti quella stimata da geocodifica (stesso fallback di
+  // renderMarker/ngAfterViewInit): meglio uno street view sulla stima che
+  // nessun link finche' non si imposta una posizione propria.
+  openStreetView(): void {
+    const latLng = this.currentLatLng() ?? this.estimatedLatLng();
+    if (!latLng) return;
+    const [lat, lng] = latLng as [number, number];
+    StreetViewHelper.open(lat, lng);
+  }
+
+  hasKnownPosition(): boolean {
+    return (this.currentLatLng() ?? this.estimatedLatLng()) !== null;
   }
 
   private currentLatLng(): L.LatLngExpression | null {

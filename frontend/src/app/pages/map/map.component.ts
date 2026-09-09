@@ -3,6 +3,10 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormControl } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
 import { EDIT_DIALOG_POSITION } from '../../core/components/abstract-data-table.component';
 import { MatDialog } from '@angular/material/dialog';
 import * as L from 'leaflet';
@@ -26,6 +30,8 @@ import { BrandingService } from '../../services/branding.service';
 import { AuthService } from '../../services/auth.service';
 import { ASSET_AGGREGATOR_ICON_FALLBACK } from '../asset-aggregator/enum/asset-aggregator-icon.enum';
 import { CoordinateHelper } from '../../core/helpers/coordinate.helper';
+import { StreetViewHelper } from '../../core/helpers/street-view.helper';
+import { ToastService } from '../../core/services/toast.service';
 
 // Fallback per gli immobili senza icona custom sull'aggregato collegato (o
 // aggregato non ancora caricato) — Material Icons (vedi
@@ -55,7 +61,18 @@ const EDIT_DIALOG_WIDTH = '1150px';
 @Component({
   selector: 'app-map',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatCheckboxModule, MatExpansionModule, FilterableSelectComponent, MultiSelectComponent],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    MatCheckboxModule,
+    MatExpansionModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatIconModule,
+    MatButtonModule,
+    FilterableSelectComponent,
+    MultiSelectComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './map.component.html',
   styleUrls: ['./map.component.scss'],
@@ -69,6 +86,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   private utilityService = inject(UtilityService);
   private brandingService = inject(BrandingService);
   private authService = inject(AuthService);
+  private toastService = inject(ToastService);
 
   private map: L.Map | null = null;
   private clusterGroup: L.MarkerClusterGroup | null = null;
@@ -83,11 +101,20 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   // gli oggetti generici come le polyline, ma tenerli fuori evita ambiguità).
   private linksLayer: L.LayerGroup | null = null;
 
+  // Marker temporaneo dell'ultima ricerca indirizzo (searchAddress) — un
+  // solo risultato alla volta, rimosso/sostituito alla ricerca successiva o
+  // manualmente non serve: resta finche' non se ne cerca un altro.
+  private addressSearchMarker: L.Marker | null = null;
+
   showAssets = new FormControl(true, { nonNullable: true });
   showUtilities = new FormControl(true, { nonNullable: true });
   assetAggregatorIds = new FormControl<number[]>([], {nonNullable: true});
   utilityTypeIds = new FormControl<number[]>([], {nonNullable: true});
   assetSearch = new FormControl<number | null>(null);
+  // Ricerca libera indirizzo (geocode Nominatim) — separata da assetSearch:
+  // quest'ultimo cerca solo tra gli immobili gia' in anagrafica, questo va a
+  // colpire un indirizzo qualsiasi anche senza nessun asset/utenza li'.
+  addressSearch = new FormControl('', { nonNullable: true });
 
   assetAggregatorOptions: TOption[] = [];
   utilityTypeOptions: TOption[] = [];
@@ -198,6 +225,33 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       icon: HardTypeIcon[t.hard_type],
       count: countByTypeId.get(t.id) ?? 0,
     }));
+  }
+
+  // Invocato da (keyup.enter) sul campo ricerca indirizzo — chiama il
+  // backend (Nominatim, throttle/backoff gia' gestiti li') e centra/zooma
+  // sul risultato con un marker temporaneo. Nessun match: toast, nessun
+  // errore rumoroso in console (indirizzo-non-trovato e' normale, non un
+  // guasto).
+  searchAddress(): void {
+    const q = this.addressSearch.value.trim();
+    if (!q || !this.map) return;
+
+    this.mapService.geocode(q).subscribe({
+      next: (result) => {
+        if (!result || !this.map) {
+          this.toastService.add({ severity: 'warn', summary: 'Indirizzo non trovato' });
+          return;
+        }
+        const lat = CoordinateHelper.parseCoordinate(result.lat);
+        const lng = CoordinateHelper.parseCoordinate(result.lng);
+        if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+        if (this.addressSearchMarker) this.map.removeLayer(this.addressSearchMarker);
+        this.addressSearchMarker = L.marker([lat, lng]).addTo(this.map);
+        this.map.setView([lat, lng], 18);
+      },
+      error: () => this.toastService.add({ severity: 'error', summary: 'Errore nella ricerca indirizzo' }),
+    });
   }
 
   private goToAsset(id: number | null): void {
@@ -764,6 +818,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     const items = [
       { label: 'Aggiungi immobile qui', action: () => this.createAssetAt(lat, lng) },
       { label: 'Aggiungi contatore qui', action: () => this.createUtilityAt(lat, lng) },
+      { label: 'Apri Street View qui', action: () => StreetViewHelper.open(lat, lng) },
     ];
     const listHtml = items
       .map((it, i) => `<li data-idx="${i}" class="map-picker-item">${it.label}</li>`)

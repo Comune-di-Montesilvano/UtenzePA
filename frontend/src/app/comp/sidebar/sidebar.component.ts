@@ -11,6 +11,11 @@ interface MenuItem {
   route?: string;
   submenu?: MenuItem[];
   open?: boolean;
+  // Intestazione di sezione mostrata SOPRA questa voce (solo visiva, nessun
+  // click/collasso) — valorizzata solo sul primo item di ogni gruppo, per
+  // raggruppare per assonanza (es. "PATRIMONIO") senza aggiungere livelli di
+  // click come i submenu (vedi Impostazioni, che resta un submenu vero).
+  groupLabel?: string;
 }
 
 @Component({
@@ -31,6 +36,7 @@ export class SidebarComponent implements OnInit {
       label: 'Immobili',
       icon: 'apartment',
       route: '/building',
+      groupLabel: 'Patrimonio',
     },
     {
       label: 'Utenze',
@@ -42,7 +48,7 @@ export class SidebarComponent implements OnInit {
       icon: 'verified',
       route: '/utilizer-grant',
     },
-    {label: 'Fornitori', icon: 'local_shipping', route: '/suppliers'},
+    {label: 'Fornitori', icon: 'local_shipping', route: '/suppliers', groupLabel: 'Gestione economica'},
     {label: 'Capitoli di Spesa', icon: 'attach_money', route: '/budget-chapter'},
     {label: 'Fatture', icon: 'receipt_long', route: '/invoices'},
     {label: 'Contratti', icon: 'description', route: '/contracts'},
@@ -56,8 +62,8 @@ export class SidebarComponent implements OnInit {
         {label: 'Utilizzatori', icon: 'person_add', route: '/utilizer'},
         {label: 'Backup e Importazione', icon: 'storage', route: '/backup-import'},
         {label: 'Branding', icon: 'palette', route: '/branding'},
+        {label: 'Utenti e ruoli', icon: 'group', route: '/system-users'},
       ]},
-    {label: 'Utenti e ruoli', icon: 'group', route: '/system-users'},
   ];
 
   toggleSubmenu(item: MenuItem) {

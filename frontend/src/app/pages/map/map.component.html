@@ -1,5 +1,13 @@
 <div class="map-page">
   <aside class="map-sidebar">
+    <h3>Cerca indirizzo</h3>
+    <mat-form-field appearance="outline" class="map-address-search">
+      <input matInput placeholder="Via, civico, comune..." [formControl]="addressSearch" (keyup.enter)="searchAddress()">
+      <button mat-icon-button matSuffix type="button" (click)="searchAddress()">
+        <mat-icon>search</mat-icon>
+      </button>
+    </mat-form-field>
+
     <h3>Cerca edificio</h3>
     <app-filterable-select
       label="Immobile"

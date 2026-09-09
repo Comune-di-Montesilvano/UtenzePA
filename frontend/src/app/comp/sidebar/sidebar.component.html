@@ -2,6 +2,9 @@
   <ul class="sidebar-menu">
 
     @for (item of menu; track item) {
+      @if (item.groupLabel) {
+        <li class="sidebar-group-label">{{ item.groupLabel }}</li>
+      }
       <li>
         @if (!item.submenu) {
           <a
