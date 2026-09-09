@@ -47,6 +47,20 @@ const UNKNOWN_UTILITY_COLOR = '#757575';
 // colpo d'occhio come punto speciale prima ancora di leggere i badge.
 const GROUP_COLOR = '#7c3aed';
 
+// Marker risultato ricerca indirizzo (searchAddress): L.marker senza [icon]
+// referenzia l'icona di default Leaflet (marker-icon.png/marker-shadow.png,
+// URL relativo calcolato dal CSS) che esbuild non ricopia/risolve -> 404
+// silenzioso, marker invisibile. Stesso divIcon di .map-pin usato per gli
+// altri marker della mappa (vedi CLAUDE.md/location-map.component.ts),
+// colore distinto per riconoscerlo come risultato ricerca e non un asset.
+const SEARCH_MARKER_COLOR = '#e53935';
+const SEARCH_MARKER_ICON = L.divIcon({
+  className: '',
+  html: `<span class="map-pin" style="background:${SEARCH_MARKER_COLOR}"><span class="material-icons">place</span></span>`,
+  iconSize: [26, 26],
+  iconAnchor: [13, 13],
+});
+
 // Fallback usato se le coordinate di default salvate in branding sono
 // malformate/non numeriche (es. DTO backend con un vecchio valore invalido) —
 // stesse coordinate del seed di migrazione CreateAppSettings (Montesilvano).
@@ -247,7 +261,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         if (Number.isNaN(lat) || Number.isNaN(lng)) return;
 
         if (this.addressSearchMarker) this.map.removeLayer(this.addressSearchMarker);
-        this.addressSearchMarker = L.marker([lat, lng]).addTo(this.map);
+        this.addressSearchMarker = L.marker([lat, lng], { icon: SEARCH_MARKER_ICON }).addTo(this.map);
         this.map.setView([lat, lng], 18);
       },
       error: () => this.toastService.add({ severity: 'error', summary: 'Errore nella ricerca indirizzo' }),
