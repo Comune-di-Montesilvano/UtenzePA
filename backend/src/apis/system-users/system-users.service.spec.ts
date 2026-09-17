@@ -189,4 +189,40 @@ describe('SystemUsersService', () => {
       await expect(service.remove(999, 1)).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('SystemUsersService — audit', () => {
+    let auditLogService: { record: jest.Mock };
+
+    beforeEach(() => {
+      // Setup già esistente in beforeEach sopra, qui aggiungiamo solo auditLogService
+      auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+    });
+
+    it('esclude password_hash/otp/otp_expiry dalla blocklist audit', () => {
+      expect((service as any).auditBlocklist).toEqual(
+        expect.arrayContaining(['password_hash', 'otp', 'otp_expiry']),
+      );
+    });
+
+    it('create() registra un evento CREATE (passa da BaseService.create)', async () => {
+      repo.findOne.mockResolvedValue(null);
+      jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashed-password' as never);
+
+      await service.create(
+        {
+          email: 'a@b.it',
+          password: 'pwd',
+          firstName: 'A',
+          lastName: 'B',
+          role: 'Operatore',
+        } as any,
+        9,
+      );
+
+      expect(auditLogService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ entityName: 'user', action: 'CREATE', userId: 9 }),
+      );
+    });
+  });
 });
