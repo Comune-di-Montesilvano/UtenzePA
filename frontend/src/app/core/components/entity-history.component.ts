@@ -11,9 +11,18 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { AuditLogService } from '../../services/audit-log.service';
-import { AuditLogEntry } from '../entities/audit-log-entry.entity';
+import { AuditAction, AuditLogEntry } from '../entities/audit-log-entry.entity';
 
 const HISTORY_PAGE_SIZE = 10;
+
+export interface AuditHistoryGroup {
+  id: string; // chiave sintetica per il tracking Angular (@for track)
+  action: AuditAction;
+  createdAt: string;
+  user: AuditLogEntry['user'];
+  userId: number;
+  fields: AuditLogEntry[]; // vuoto per CREATE/DELETE
+}
 
 @Component({
   selector: 'app-entity-history',
@@ -32,6 +41,7 @@ export class EntityHistoryComponent implements OnInit, OnChanges {
   private auditLogService = inject(AuditLogService);
 
   entries: AuditLogEntry[] = [];
+  groups: AuditHistoryGroup[] = [];
   loading = false;
 
   ngOnInit(): void {
@@ -44,10 +54,11 @@ export class EntityHistoryComponent implements OnInit, OnChanges {
     }
   }
 
-  actionLabel(entry: AuditLogEntry): string {
-    if (entry.action === 'CREATE') return 'Creato';
-    if (entry.action === 'DELETE') return 'Eliminato';
-    return `Modificato — ${entry.field_name}`;
+  actionLabel(group: AuditHistoryGroup): string {
+    if (group.action === 'CREATE') return 'Creato';
+    if (group.action === 'DELETE') return 'Eliminato';
+    const count = group.fields.length;
+    return count === 1 ? `Modificato — ${group.fields[0].field_name}` : `Modificato — ${count} campi`;
   }
 
   displayValue(value: string | null, label: string | null): string {
@@ -64,12 +75,37 @@ export class EntityHistoryComponent implements OnInit, OnChanges {
       .subscribe({
         next: (page) => {
           this.entries = page.items;
+          this.groups = this.groupEntries(page.items);
           this.loading = false;
         },
         error: () => {
           this.entries = [];
+          this.groups = [];
           this.loading = false;
         },
       });
+  }
+
+  private groupEntries(items: AuditLogEntry[]): AuditHistoryGroup[] {
+    const map = new Map<string, AuditHistoryGroup>();
+    for (const item of items) {
+      const key = `${item.action}|${item.created_at}|${item.user_id}`;
+      let group = map.get(key);
+      if (!group) {
+        group = {
+          id: key,
+          action: item.action,
+          createdAt: item.created_at,
+          user: item.user,
+          userId: item.user_id,
+          fields: [],
+        };
+        map.set(key, group);
+      }
+      if (item.action === 'UPDATE') {
+        group.fields.push(item);
+      }
+    }
+    return Array.from(map.values());
   }
 }

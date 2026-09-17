@@ -106,7 +106,7 @@ export class AuditLogService {
       .createQueryBuilder()
       .delete()
       .from(AuditLog)
-      .where('created_at < :cutoff', { cutoff })
+      .where('field_name IS NOT NULL AND created_at < :cutoff', { cutoff })
       .execute();
     return result.affected ?? 0;
   }

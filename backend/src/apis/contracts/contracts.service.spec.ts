@@ -75,6 +75,18 @@ describe('ContractsService', () => {
       );
       expect(result).toEqual({ id: 10 });
     });
+
+    it('registra un evento CREATE in audit log', async () => {
+      manager.findOne.mockResolvedValue({ id: 10 } as Contract);
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+
+      await service.create({ cig_contract: 'CIG1' } as never, 5);
+
+      expect(auditLogService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ entityName: 'contract', entityId: 10, action: 'CREATE', userId: 5 }),
+      );
+    });
   });
 
   describe('update', () => {
@@ -88,6 +100,19 @@ describe('ContractsService', () => {
       expect(manager.save).toHaveBeenCalledWith(
         ContractUtility,
         expect.arrayContaining([expect.objectContaining({ utility_id: 3 })]),
+      );
+    });
+
+    it('registra un evento UPDATE in audit log quando cambia un campo scalare', async () => {
+      repo.findOne.mockResolvedValue({ id: 20, deleted: false, cig_contract: 'OLD' } as Contract);
+      manager.findOne.mockResolvedValue({ id: 20, cig_contract: 'NEW' } as Contract);
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+
+      await service.update(20, { cig_contract: 'NEW' } as never, 7);
+
+      expect(auditLogService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ entityName: 'contract', entityId: 20, action: 'UPDATE', userId: 7 }),
       );
     });
   });

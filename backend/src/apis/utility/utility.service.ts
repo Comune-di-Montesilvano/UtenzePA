@@ -9,6 +9,7 @@ import { ExpiryStatus } from './enum/ExpiryStatus.enum';
 import { BaseService } from '@apis/shared/base.service';
 import { Contract } from '@apis/contracts/entity/contract.entity';
 import { DateHelper } from '@/helpers/date.helpers';
+import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 
 @Injectable()
 export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, UpdateUtilityDto> {
@@ -481,7 +482,9 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     });
 
     try {
-      return await this.repo.save(newUtility);
+      const saved = await this.repo.save(newUtility);
+      await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
+      return saved;
     } catch (error) {
       this.manageErrors(error, "Errore durante la creazione dell'Utenza");
     }
@@ -498,5 +501,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     entity.deleted = true;
     entity.updated_by_user_id = updatedByUserId;
     await this.repo.save(entity);
+    await this.recordAudit(AuditAction.DELETE, id, updatedByUserId, []);
   }
 }

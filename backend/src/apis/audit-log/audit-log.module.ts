@@ -1,4 +1,4 @@
-import { Global, Module, OnModuleInit } from '@nestjs/common';
+import { Global, Logger, Module, OnModuleInit } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CronJob } from 'cron';
 import { CronExpression, SchedulerRegistry } from '@nestjs/schedule';
@@ -21,6 +21,8 @@ const RETENTION_DAYS = 60;
   exports: [AuditLogService],
 })
 export class AuditLogModule implements OnModuleInit {
+  private readonly logger = new Logger(AuditLogModule.name);
+
   constructor(
     private readonly schedulerRegistry: SchedulerRegistry,
     private readonly auditLogService: AuditLogService,
@@ -28,7 +30,11 @@ export class AuditLogModule implements OnModuleInit {
 
   onModuleInit() {
     const job = new CronJob(CronExpression.EVERY_DAY_AT_MIDNIGHT, async () => {
-      await this.auditLogService.purgeOlderThan(RETENTION_DAYS);
+      try {
+        await this.auditLogService.purgeOlderThan(RETENTION_DAYS);
+      } catch (error) {
+        this.logger.error(`Retention audit log fallita: ${(error as Error).message}`);
+      }
     });
     this.schedulerRegistry.addCronJob('audit-log-retention', job);
     job.start();

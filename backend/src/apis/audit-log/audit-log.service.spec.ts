@@ -76,7 +76,9 @@ describe('AuditLogService', () => {
 
       const result = await service.purgeOlderThan(60);
 
-      expect(qb.where).toHaveBeenCalledWith('created_at < :cutoff', { cutoff: expect.any(Date) });
+      expect(qb.where).toHaveBeenCalledWith('field_name IS NOT NULL AND created_at < :cutoff', {
+        cutoff: expect.any(Date),
+      });
       expect(result).toBe(5);
     });
   });

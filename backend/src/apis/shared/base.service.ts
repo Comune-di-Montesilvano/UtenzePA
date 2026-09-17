@@ -240,7 +240,7 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
     }
   }
 
-  private async diffFields(
+  protected async diffFields(
     before: Record<string, unknown>,
     after: Record<string, unknown>,
     patch: Record<string, unknown>,
@@ -289,7 +289,7 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
     return value === null || value === undefined ? null : String(value);
   }
 
-  private async recordAudit(
+  protected async recordAudit(
     action: AuditAction,
     entityId: number,
     userId: number | undefined,

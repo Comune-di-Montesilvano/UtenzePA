@@ -8,28 +8,31 @@
 
   @if (loading) {
     <div class="entity-history__loading">Caricamento storico...</div>
-  } @else if (entries.length === 0) {
+  } @else if (groups.length === 0) {
     <div class="entity-history__empty">Nessuna modifica registrata.</div>
   } @else {
     <mat-accordion multi="false">
-      @for (entry of entries; track entry.id) {
-        <mat-expansion-panel [disabled]="entry.action !== 'UPDATE'">
+      @for (group of groups; track group.id) {
+        <mat-expansion-panel [disabled]="group.action !== 'UPDATE'">
           <mat-expansion-panel-header>
             <mat-panel-title>
-              <mat-icon class="entity-history__icon">{{ entry.action === 'CREATE' ? 'add_circle' : entry.action === 'DELETE' ? 'delete' : 'edit' }}</mat-icon>
-              {{ actionLabel(entry) }}
+              <mat-icon class="entity-history__icon">{{ group.action === 'CREATE' ? 'add_circle' : group.action === 'DELETE' ? 'delete' : 'edit' }}</mat-icon>
+              {{ actionLabel(group) }}
             </mat-panel-title>
             <mat-panel-description>
-              {{ entry.user ? entry.user.firstName + ' ' + entry.user.lastName : 'Utente ' + entry.user_id }}
-              — {{ entry.created_at | date:'dd/MM/yyyy HH:mm' }}
+              {{ group.user ? group.user.firstName + ' ' + group.user.lastName : 'Utente ' + group.userId }}
+              — {{ group.createdAt | date:'dd/MM/yyyy HH:mm' }}
             </mat-panel-description>
           </mat-expansion-panel-header>
-          @if (entry.action === 'UPDATE') {
-            <div class="entity-history__diff">
-              <span class="entity-history__diff-old">{{ displayValue(entry.old_value, entry.old_label) }}</span>
-              <mat-icon>arrow_forward</mat-icon>
-              <span class="entity-history__diff-new">{{ displayValue(entry.new_value, entry.new_label) }}</span>
-            </div>
+          @if (group.action === 'UPDATE') {
+            @for (field of group.fields; track field.id) {
+              <div class="entity-history__diff">
+                <span class="entity-history__diff-field">{{ field.field_name }}</span>
+                <span class="entity-history__diff-old">{{ displayValue(field.old_value, field.old_label) }}</span>
+                <mat-icon>arrow_forward</mat-icon>
+                <span class="entity-history__diff-new">{{ displayValue(field.new_value, field.new_label) }}</span>
+              </div>
+            }
           }
         </mat-expansion-panel>
       }
