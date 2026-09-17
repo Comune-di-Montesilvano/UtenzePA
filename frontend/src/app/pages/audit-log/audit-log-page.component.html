@@ -1,0 +1,61 @@
+<div class="page-container">
+  <h1>Log modifiche</h1>
+
+  @if (forbidden) {
+    <p>Accesso riservato agli amministratori.</p>
+  } @else {
+    <form [formGroup]="filterForm" (ngSubmit)="onFilterChange()">
+      <mat-form-field appearance="outline">
+        <mat-label>Entità</mat-label>
+        <mat-select formControlName="entity" (selectionChange)="onFilterChange()">
+          @for (opt of entityOptions; track opt.value) {
+            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>ID Utente</mat-label>
+        <input matInput type="number" formControlName="userId" (change)="onFilterChange()">
+      </mat-form-field>
+    </form>
+
+    <table mat-table [dataSource]="entries">
+      <ng-container matColumnDef="created_at">
+        <th mat-header-cell *matHeaderCellDef>Data</th>
+        <td mat-cell *matCellDef="let entry">{{ entry.created_at | date:'dd/MM/yyyy HH:mm' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="entity_name">
+        <th mat-header-cell *matHeaderCellDef>Entità</th>
+        <td mat-cell *matCellDef="let entry">{{ entry.entity_name }}</td>
+      </ng-container>
+      <ng-container matColumnDef="entity_id">
+        <th mat-header-cell *matHeaderCellDef>ID record</th>
+        <td mat-cell *matCellDef="let entry">{{ entry.entity_id }}</td>
+      </ng-container>
+      <ng-container matColumnDef="user">
+        <th mat-header-cell *matHeaderCellDef>Utente</th>
+        <td mat-cell *matCellDef="let entry">{{ entry.user ? entry.user.firstName + ' ' + entry.user.lastName : entry.user_id }}</td>
+      </ng-container>
+      <ng-container matColumnDef="action">
+        <th mat-header-cell *matHeaderCellDef>Azione</th>
+        <td mat-cell *matCellDef="let entry">{{ entry.action }}</td>
+      </ng-container>
+      <ng-container matColumnDef="summary">
+        <th mat-header-cell *matHeaderCellDef>Dettaglio</th>
+        <td mat-cell *matCellDef="let entry">{{ summary(entry) }}</td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+
+    <mat-paginator
+      [length]="total"
+      [pageSize]="pageSize"
+      [pageIndex]="page - 1"
+      [pageSizeOptions]="[10, 20, 50]"
+      (page)="onPage($event)">
+    </mat-paginator>
+  }
+</div>
