@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DeepPartial, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { SystemUser } from './entity/system-user.entity';
 import { UpdateSystemUserDto } from './dto/update-system-user.dto';
@@ -16,10 +16,10 @@ export class SystemUsersService extends BaseService<
   protected readonly entityName = 'user';
   protected readonly relations: string[] = [];
 
-  // password_hash/otp/otp_expiry non vanno mai nel diff audit, anche se
+  // passwordHash/otp/otp_expiry non vanno mai nel diff audit, anche se
   // presenti nel payload di update — dati sensibili, mai testo in chiaro
-  // nella storia modifiche.
-  protected readonly auditBlocklist: string[] = ['password_hash', 'otp', 'otp_expiry'];
+  // nella storia modifiche. Nomi proprietà TS, non colonne DB.
+  protected readonly auditBlocklist: string[] = ['passwordHash', 'otp', 'otp_expiry'];
 
   constructor(
     @InjectRepository(SystemUser)
