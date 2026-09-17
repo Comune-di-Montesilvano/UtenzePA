@@ -31,6 +31,7 @@ export interface IAsset {
   asset_type_id: number;
   assetAggregator?: IAssetAggregator| null;
   created_by?: { id: number; name: string } | null;
+  updated_by?: { id: number; firstName: string; lastName: string } | null;
   utilizers?: IUtilizer[] | null;
 
   create_date: Date;
