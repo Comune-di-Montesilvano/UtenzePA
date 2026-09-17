@@ -324,6 +324,22 @@
         </div>
       </ng-template>
     </mat-tab>
+    <mat-tab label="Storico" [disabled]="isNew">
+      <ng-template mat-tab-label>
+        <mat-icon style="margin-right: 5px;">history</mat-icon>
+        Storico
+      </ng-template>
+      <ng-template matTabContent>
+        <div style="padding: 1rem 0;">
+          <app-entity-history
+            [entity]="'utilities'"
+            [entityId]="data.item.id"
+            [lastModifiedBy]="data.item.updated_by ? data.item.updated_by.firstName + ' ' + data.item.updated_by.lastName : null"
+            [lastModifiedAt]="data.item.update_date ? data.item.update_date.toString() : null">
+          </app-entity-history>
+        </div>
+      </ng-template>
+    </mat-tab>
   </mat-tab-group>
 </mat-dialog-content>
 

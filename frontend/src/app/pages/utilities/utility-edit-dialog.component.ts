@@ -30,6 +30,7 @@ import {MaintenanceManagersService} from '../maintenance-managers/maintenance-ma
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {LocationMapComponent} from '../../core/components/location-map.component';
 import {PhotoGalleryComponent} from '../../core/components/photo-gallery.component';
+import {EntityHistoryComponent} from '../../core/components/entity-history.component';
 import {AssetEditDialogComponent} from '../assets/asset-edit-dialog.component';
 import {ContractsService} from '../contracts/contract.service';
 import {ContractEditDialogComponent} from '../contracts/contract-edit-dialog.component';
@@ -47,7 +48,7 @@ const ASSET_DIALOG_WIDTH = '1150px';
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatTabsModule,
     HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent, LocationMapComponent, PhotoGalleryComponent,
-    DatePipe
+    EntityHistoryComponent, DatePipe
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-edit-dialog.component.html'
