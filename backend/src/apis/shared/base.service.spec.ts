@@ -1,6 +1,7 @@
 import { ConflictException, HttpException, RequestTimeoutException } from '@nestjs/common';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { BaseService, BaseEntity, toFindOptionsRelations } from './base.service';
+import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 
 interface TestEntity extends BaseEntity {
   name?: string;
@@ -137,6 +138,78 @@ describe('BaseService', () => {
         expect((error as HttpException).getStatus()).toBe(400);
       }
     });
+  });
+});
+
+describe('BaseService — audit', () => {
+  let service: TestService;
+  let repo: { findOne: jest.Mock; save: jest.Mock; create: jest.Mock };
+  let auditLogService: { record: jest.Mock };
+
+  beforeEach(() => {
+    repo = {
+      findOne: jest.fn(),
+      save: jest.fn(async (x) => x),
+      create: jest.fn((x) => x),
+    };
+    auditLogService = { record: jest.fn() };
+    service = new TestService(repo as unknown as Repository<TestEntity>);
+    (service as any).auditLogService = auditLogService;
+  });
+
+  it('registra un CREATE con lo userId passato', async () => {
+    repo.save.mockResolvedValueOnce({ id: 1, name: 'Mario', deleted: false, updated_by_user_id: 9 });
+
+    await service.create({ name: 'Mario' } as any, 9);
+
+    expect(auditLogService.record).toHaveBeenCalledWith(
+      expect.objectContaining({ entityName: 'test', entityId: 1, action: AuditAction.CREATE, userId: 9 }),
+    );
+  });
+
+  it('registra un diff per ogni campo cambiato in update, escludendo i campi in blocklist', async () => {
+    const existing = { id: 1, name: 'Mario', active: true, deleted: false, updated_by_user_id: 9 };
+    repo.findOne.mockResolvedValue(existing);
+    jest.spyOn(service, 'findOne').mockResolvedValue({ ...existing, name: 'Luigi' } as any);
+
+    await service.update(1, { name: 'Luigi', updated_by_user_id: 9 } as any, 9);
+
+    expect(auditLogService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.UPDATE,
+        userId: 9,
+        fields: [expect.objectContaining({ fieldName: 'name', oldValue: 'Mario', newValue: 'Luigi' })],
+      }),
+    );
+  });
+
+  it('non registra nulla se nessun campo tracciabile è cambiato', async () => {
+    const existing = { id: 1, name: 'Mario', deleted: false, updated_by_user_id: 9 };
+    repo.findOne.mockResolvedValue(existing);
+    jest.spyOn(service, 'findOne').mockResolvedValue(existing as any);
+
+    await service.update(1, { name: 'Mario' } as any, 9);
+
+    expect(auditLogService.record).not.toHaveBeenCalled();
+  });
+
+  it('registra un DELETE', async () => {
+    const existing = { id: 1, name: 'Mario', deleted: false, updated_by_user_id: 9 };
+    jest.spyOn(service, 'findOne').mockResolvedValue(existing as any);
+
+    await service.remove(1, 9);
+
+    expect(auditLogService.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: AuditAction.DELETE, entityId: 1, userId: 9 }),
+    );
+  });
+
+  it('non lancia se auditLogService non è impostato (property injection assente, es. test esistenti)', async () => {
+    (service as any).auditLogService = undefined;
+    const existing = { id: 1, name: 'Mario', deleted: false, updated_by_user_id: 9 };
+    jest.spyOn(service, 'findOne').mockResolvedValue(existing as any);
+
+    await expect(service.remove(1, 9)).resolves.toBeUndefined();
   });
 });
 

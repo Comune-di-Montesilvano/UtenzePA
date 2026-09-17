@@ -3,10 +3,14 @@ import {
   ConflictException,
   HttpException,
   HttpStatus,
+  Inject,
+  Optional,
   RequestTimeoutException,
 } from '@nestjs/common';
 import { FindOptionsRelations, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { DateHelper } from '@/helpers/date.helpers';
+import { AuditLogService, AuditFieldChange } from '@apis/audit-log/audit-log.service';
+import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 
 export interface BaseEntity extends ObjectLiteral {
   id: number;
@@ -48,6 +52,31 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
   protected abstract readonly entityName: string;
   protected abstract readonly relations: string[];
 
+  @Inject(AuditLogService)
+  @Optional()
+  protected auditLogService?: AuditLogService;
+
+  // Campi extra da escludere dal diff, oltre a quelli sempre esclusi
+  // (GLOBAL_AUDIT_BLOCKLIST sotto). Es. system-users: password_hash/otp.
+  protected auditBlocklist: string[] = [];
+
+  // Mappa esplicita campo → { repo, field } per risolvere un id FK a
+  // un'etichetta leggibile nel diff — MAI euristica automatica (vedi nota
+  // CLAUDE.md sul bug AssetAggregator.description vs .code). Campi non
+  // mappati restano con solo il valore grezzo (id).
+  protected auditLabelResolvers?: Partial<
+    Record<string, { repo: Repository<ObjectLiteral>; field: string }>
+  >;
+
+  private static readonly GLOBAL_AUDIT_BLOCKLIST = [
+    'id',
+    'create_date',
+    'update_date',
+    'deleted',
+    'created_by_user_id',
+    'updated_by_user_id',
+  ];
+
   async findAll(): Promise<TEntity[]> {
     const alias = this.entityName;
     const qb = this.repo.createQueryBuilder(alias);
@@ -70,7 +99,9 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
     }
     const item = this.repo.create(payload as never);
     try {
-      return (await this.repo.save(item)) as unknown as TEntity;
+      const saved = (await this.repo.save(item)) as unknown as TEntity;
+      await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
+      return saved;
     } catch (error) {
       this.manageErrors(error, `Errore durante la creazione di ${this.entityName}`);
     }
@@ -81,13 +112,21 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
     if (!entity) {
       throw new BadRequestException('elemento non trovato');
     }
+    const before: Record<string, unknown> = { ...(entity as unknown as Record<string, unknown>) };
     Object.assign(entity, updateDto);
     if (userId !== undefined) {
       entity.updated_by_user_id = userId;
     }
     try {
       await this.repo.save(entity);
-      return this.findOne(id);
+      const result = await this.findOne(id);
+      const changes = await this.diffFields(
+        before,
+        entity as unknown as Record<string, unknown>,
+        updateDto as Record<string, unknown>,
+      );
+      await this.recordAudit(AuditAction.UPDATE, id, userId ?? entity.updated_by_user_id, changes);
+      return result;
     } catch (error) {
       this.manageErrors(error, `Errore durante l'aggiornamento di ${this.entityName}`);
     }
@@ -107,6 +146,7 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
     entity.deleted = true;
     entity.updated_by_user_id = updatedByUserId;
     await this.repo.save(entity);
+    await this.recordAudit(AuditAction.DELETE, id, updatedByUserId, []);
   }
 
   protected applyFilters<T extends ObjectLiteral>(
@@ -176,5 +216,58 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
       default:
         throw new HttpException(message, HttpStatus.BAD_REQUEST);
     }
+  }
+
+  private async diffFields(
+    before: Record<string, unknown>,
+    after: Record<string, unknown>,
+    patch: Record<string, unknown>,
+  ): Promise<AuditFieldChange[]> {
+    const blocklist = new Set([...BaseService.GLOBAL_AUDIT_BLOCKLIST, ...this.auditBlocklist]);
+    const changes: AuditFieldChange[] = [];
+
+    for (const key of Object.keys(patch)) {
+      if (blocklist.has(key)) continue;
+
+      const oldValue = before[key] ?? null;
+      const newValue = after[key] ?? null;
+      if (String(oldValue) === String(newValue)) continue;
+
+      const resolver = this.auditLabelResolvers?.[key];
+      let oldLabel: string | null = null;
+      let newLabel: string | null = null;
+      if (resolver) {
+        [oldLabel, newLabel] = await Promise.all([
+          this.resolveLabel(resolver, oldValue),
+          this.resolveLabel(resolver, newValue),
+        ]);
+      }
+
+      changes.push({ fieldName: key, oldValue, newValue, oldLabel, newLabel });
+    }
+
+    return changes;
+  }
+
+  private async resolveLabel(
+    resolver: { repo: Repository<ObjectLiteral>; field: string },
+    id: unknown,
+  ): Promise<string | null> {
+    if (id === null || id === undefined) return null;
+    const row = await resolver.repo.findOne({ where: { id } as never });
+    if (!row) return null;
+    const value = (row as unknown as Record<string, unknown>)[resolver.field];
+    return value === null || value === undefined ? null : String(value);
+  }
+
+  private async recordAudit(
+    action: AuditAction,
+    entityId: number,
+    userId: number | undefined,
+    fields: AuditFieldChange[],
+  ): Promise<void> {
+    if (!this.auditLogService || userId === undefined) return;
+    if (action === AuditAction.UPDATE && fields.length === 0) return;
+    await this.auditLogService.record({ entityName: this.entityName, entityId, action, userId, fields });
   }
 }
