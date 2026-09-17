@@ -98,13 +98,17 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
       payload.updated_by_user_id = userId;
     }
     const item = this.repo.create(payload as never);
+    let saved: TEntity;
     try {
-      const saved = (await this.repo.save(item)) as unknown as TEntity;
-      await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
-      return saved;
+      saved = (await this.repo.save(item)) as unknown as TEntity;
     } catch (error) {
       this.manageErrors(error, `Errore durante la creazione di ${this.entityName}`);
     }
+    // Fuori dal try/catch di persistenza: un fallimento nella scrittura audit
+    // (best-effort, vedi recordAudit) non deve mai mascherare l'esito
+    // dell'operazione primaria già andata a buon fine.
+    await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
+    return saved;
   }
 
   async update(id: number, updateDto: TUpdateDto, userId?: number): Promise<TEntity> {
@@ -117,19 +121,31 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
     if (userId !== undefined) {
       entity.updated_by_user_id = userId;
     }
+    let result: TEntity;
     try {
       await this.repo.save(entity);
-      const result = await this.findOne(id);
+      result = await this.findOne(id);
+    } catch (error) {
+      this.manageErrors(error, `Errore durante l'aggiornamento di ${this.entityName}`);
+    }
+    // Fuori dal try/catch di persistenza, con la propria gestione errori
+    // (dentro diffFields/recordAudit) che non tocca manageErrors: il calcolo
+    // del diff/la scrittura audit sono best-effort, non devono far fallire
+    // un update già persistito correttamente.
+    try {
       const changes = await this.diffFields(
         before,
         entity as unknown as Record<string, unknown>,
         updateDto as Record<string, unknown>,
       );
       await this.recordAudit(AuditAction.UPDATE, id, userId ?? entity.updated_by_user_id, changes);
-      return result;
     } catch (error) {
-      this.manageErrors(error, `Errore durante l'aggiornamento di ${this.entityName}`);
+      console.error(
+        `[BaseService] Errore durante il calcolo/registrazione audit per ${this.entityName}`,
+        error,
+      );
     }
+    return result;
   }
 
   async count(): Promise<number> {
@@ -146,7 +162,13 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
     entity.deleted = true;
     entity.updated_by_user_id = updatedByUserId;
     await this.repo.save(entity);
-    await this.recordAudit(AuditAction.DELETE, id, updatedByUserId, []);
+    // Best-effort: un fallimento della scrittura audit non deve propagarsi e
+    // apparire come un delete fallito, mentre la entity è già stata salvata.
+    try {
+      await this.recordAudit(AuditAction.DELETE, id, updatedByUserId, []);
+    } catch (error) {
+      console.error(`[BaseService] Errore durante la registrazione audit per ${this.entityName}`, error);
+    }
   }
 
   protected applyFilters<T extends ObjectLiteral>(
@@ -231,7 +253,14 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
 
       const oldValue = before[key] ?? null;
       const newValue = after[key] ?? null;
-      if (String(oldValue) === String(newValue)) continue;
+      // Colonne date/timestamp: mysql2 idrata `before` (letto via repo.findOne)
+      // come istanza Date, mentre `after` (dopo Object.assign del DTO) resta
+      // tipicamente una stringa ISO del client — String(Date) vs String(string
+      // ISO) non coincidono mai anche a valore invariato, producendo un diff
+      // spurio ad ogni update che rimanda l'intero record (pattern comune in
+      // questa codebase). Normalizza le sole istanze Date a ISO prima del
+      // confronto, il resto usa il confronto testuale esistente.
+      if (BaseService.toComparableValue(oldValue) === BaseService.toComparableValue(newValue)) continue;
 
       const resolver = this.auditLabelResolvers?.[key];
       let oldLabel: string | null = null;
@@ -268,6 +297,16 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
   ): Promise<void> {
     if (!this.auditLogService || userId === undefined) return;
     if (action === AuditAction.UPDATE && fields.length === 0) return;
-    await this.auditLogService.record({ entityName: this.entityName, entityId, action, userId, fields });
+    try {
+      await this.auditLogService.record({ entityName: this.entityName, entityId, action, userId, fields });
+    } catch (error) {
+      // Audit è best-effort: un fallimento qui non deve mai propagarsi e far
+      // fallire/mascherare l'esito dell'operazione primaria già eseguita.
+      console.error(`[BaseService] Errore durante la registrazione audit per ${this.entityName}`, error);
+    }
+  }
+
+  private static toComparableValue(value: unknown): string {
+    return value instanceof Date ? value.toISOString() : String(value);
   }
 }

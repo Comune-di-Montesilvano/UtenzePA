@@ -211,6 +211,49 @@ describe('BaseService — audit', () => {
 
     await expect(service.remove(1, 9)).resolves.toBeUndefined();
   });
+
+  it('non registra un diff spurio su un campo Date invariato rimandato come stringa ISO dal client (round-trip PATCH)', async () => {
+    const sameDate = new Date('2026-01-01T00:00:00.000Z');
+    // `existing` simula l'entity idratata da mysql2 (repo.findOne): la colonna
+    // date/timestamp arriva come istanza Date reale, non come stringa.
+    const existing = { id: 1, name: 'Mario', createdAt: sameDate, deleted: false, updated_by_user_id: 9 };
+    repo.findOne.mockResolvedValue(existing);
+    jest.spyOn(service, 'findOne').mockResolvedValue({ ...existing } as any);
+
+    // Il client rimanda l'intero record, incluso il campo data invariato ma
+    // serializzato come stringa ISO (pattern comune in questa codebase).
+    await service.update(1, { name: 'Mario', createdAt: sameDate.toISOString() } as any, 9);
+
+    expect(auditLogService.record).not.toHaveBeenCalled();
+  });
+
+  it('create completa con successo anche se auditLogService.record rigetta (audit best-effort)', async () => {
+    const saved = { id: 1, name: 'Mario', deleted: false, updated_by_user_id: 9 };
+    repo.save.mockResolvedValueOnce(saved);
+    auditLogService.record.mockRejectedValueOnce(new Error('audit write failed'));
+
+    await expect(service.create({ name: 'Mario' } as any, 9)).resolves.toEqual(saved);
+  });
+
+  it('update completa con successo anche se auditLogService.record rigetta (audit best-effort)', async () => {
+    const existing = { id: 1, name: 'Mario', deleted: false, updated_by_user_id: 9 };
+    const updated = { ...existing, name: 'Luigi' };
+    repo.findOne.mockResolvedValue(existing);
+    jest.spyOn(service, 'findOne').mockResolvedValue(updated as any);
+    auditLogService.record.mockRejectedValueOnce(new Error('audit write failed'));
+
+    await expect(
+      service.update(1, { name: 'Luigi', updated_by_user_id: 9 } as any, 9),
+    ).resolves.toEqual(updated);
+  });
+
+  it('remove completa con successo anche se auditLogService.record rigetta (audit best-effort)', async () => {
+    const existing = { id: 1, name: 'Mario', deleted: false, updated_by_user_id: 9 };
+    jest.spyOn(service, 'findOne').mockResolvedValue(existing as any);
+    auditLogService.record.mockRejectedValueOnce(new Error('audit write failed'));
+
+    await expect(service.remove(1, 9)).resolves.toBeUndefined();
+  });
 });
 
 describe('toFindOptionsRelations', () => {
