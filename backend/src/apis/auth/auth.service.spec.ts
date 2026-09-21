@@ -11,7 +11,7 @@ import { LdapService } from './ldap/ldap.service';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let userRepository: { findOne: jest.Mock; save: jest.Mock; create: jest.Mock };
+  let userRepository: { findOne: jest.Mock; save: jest.Mock; create: jest.Mock; update: jest.Mock };
   let jwtService: { sign: jest.Mock };
   let mailer: { sendMail: jest.Mock };
   let ldapService: { authenticate: jest.Mock; isConfigured: jest.Mock };
@@ -37,7 +37,12 @@ describe('AuthService', () => {
   } as SystemUser;
 
   beforeEach(async () => {
-    userRepository = { findOne: jest.fn(), save: jest.fn(), create: jest.fn((v) => v) };
+    userRepository = {
+      findOne: jest.fn(),
+      save: jest.fn(),
+      create: jest.fn((v) => v),
+      update: jest.fn().mockResolvedValue(undefined),
+    };
     jwtService = { sign: jest.fn().mockReturnValue('signed-jwt') };
     mailer = { sendMail: jest.fn().mockResolvedValue(true) };
     ldapService = { authenticate: jest.fn(), isConfigured: jest.fn().mockReturnValue(false) };
@@ -165,6 +170,15 @@ describe('AuthService', () => {
         role: baseUser.role,
       });
       expect(result).toEqual({ access_token: 'signed-jwt' });
+    });
+
+    it('aggiorna last_login dell\'utente', async () => {
+      await service.login(baseUser);
+
+      expect(userRepository.update).toHaveBeenCalledWith(
+        baseUser.id,
+        expect.objectContaining({ lastLogin: expect.any(Date) }),
+      );
     });
   });
 

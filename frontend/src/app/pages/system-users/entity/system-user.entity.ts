@@ -8,6 +8,7 @@ export class SystemUser extends AbstractEntity implements ISystemUser {
   email!: string;
   role!: 'Admin' | 'Operatore' | 'Lettore';
   status!: 'Attivo' | 'Disattivo';
+  lastLogin!: Date | null;
 
   @Exclude({ toPlainOnly: true })
   otp?: string;
@@ -27,6 +28,7 @@ export class SystemUser extends AbstractEntity implements ISystemUser {
       email: '',
       role: null,
       status: 'Attivo',
+      lastLogin: null,
       create_date: new Date(),
       update_date: new Date(),
       deleted: false,

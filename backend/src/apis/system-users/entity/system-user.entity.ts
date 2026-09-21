@@ -57,6 +57,9 @@ export class SystemUser {
   @Column({ type: 'timestamp', nullable: true })
   otp_expiry?: Date;
 
+  @Column({ type: 'timestamp', nullable: true, name: 'last_login' })
+  lastLogin: Date | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   create_date: Date;
 

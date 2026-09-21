@@ -93,6 +93,8 @@ export class AuthService {
   }
 
   async login(user: SystemUser) {
+    await this.userRepository.update(user.id, { lastLogin: new Date() });
+
     const payload = {
       sub: user.id,
       email: user.email,
