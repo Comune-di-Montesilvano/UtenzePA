@@ -8,6 +8,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { EMailerModule } from '@/core/email/mailer.module';
 import { JwtStrategyMySql } from '@/core/auth/guards/jwt.strategy';
 import { SettingsModule } from '@apis/settings/settings.module';
+import { LdapService } from './ldap/ldap.service';
 
 @Module({
   imports: [
@@ -18,7 +19,7 @@ import { SettingsModule } from '@apis/settings/settings.module';
     EMailerModule,
     SettingsModule,
   ],
-  providers: [AuthService, JwtStrategyMySql],
+  providers: [AuthService, JwtStrategyMySql, LdapService],
   controllers: [AuthController],
   exports: [AuthService],
 })

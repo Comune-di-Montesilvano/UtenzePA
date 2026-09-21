@@ -40,6 +40,12 @@ services:
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET obbligatorio - genera con openssl rand -hex 32}
       - COOKIE_SECRET=${COOKIE_SECRET:?COOKIE_SECRET obbligatorio - genera con openssl rand -hex 32}
       - SETUP_BOOTSTRAP_TOKEN=${SETUP_BOOTSTRAP_TOKEN:?SETUP_BOOTSTRAP_TOKEN obbligatorio - genera con openssl rand -hex 16, comunicalo fuori banda a chi crea il primo Admin}
+      # LDAP/Active Directory — login utenti Lettore, vuoto = disabilitato
+      - LDAP_HOST=${LDAP_HOST:-}
+      - LDAP_USER_DN_TEMPLATE=${LDAP_USER_DN_TEMPLATE:-}
+      - LDAP_BASE_DN=${LDAP_BASE_DN:-}
+      - LDAP_TLS_SKIP_VERIFY=${LDAP_TLS_SKIP_VERIFY:-false}
+      - LDAP_REQUIRED_GROUP=${LDAP_REQUIRED_GROUP:-}
       # Email (invio notifiche/reset password)
       - HOST_EMAIL=${HOST_EMAIL:-}
       - PORT_EMAIL=${PORT_EMAIL:-587}
