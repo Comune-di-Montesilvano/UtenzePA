@@ -202,6 +202,11 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
 
   async findAll(filters?: Partial<SearchUtilityDto>): Promise<Utility[]> {
     const qb = this.repo.createQueryBuilder('Utility');
+    // Servono per mostrare "ultima modifica" nell'header del dialog aperto
+    // dalla riga di tabella (che usa findAll(), non findOne()) — mancavano
+    // qui, presenti solo in findOne().
+    qb.leftJoinAndSelect('Utility.created_by', 'created_by');
+    qb.leftJoinAndSelect('Utility.updated_by', 'updated_by');
     qb.leftJoinAndSelect('Utility.utilityType', 'utilityType', 'utilityType.deleted = 0');
     qb.leftJoinAndSelect('utilityType.utilityTypePurposes', 'utps');
     qb.leftJoinAndSelect('utps.purpose', 'utpPurpose', 'utpPurpose.deleted = 0');

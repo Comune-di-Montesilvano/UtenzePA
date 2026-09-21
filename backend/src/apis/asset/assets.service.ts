@@ -71,6 +71,12 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
       'assetAggregator',
       'assetAggregator.deleted = 0',
     );
+    // Servono per mostrare "ultima modifica" nell'header del dialog aperto
+    // dalla riga di tabella (che usa findAll(), non findOne()) — mancavano
+    // qui, presenti solo in findOne(), stesso identico bug già noto per
+    // utilityType (vedi commento in findOne() più sotto).
+    qb.leftJoinAndSelect('assets.created_by', 'created_by');
+    qb.leftJoinAndSelect('assets.updated_by', 'updated_by');
     qb.leftJoinAndSelect('assets.utilities', 'utilities', 'utilities.deleted = 0');
     qb.leftJoinAndSelect('utilities.utilityType', 'utilityType', 'utilityType.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
