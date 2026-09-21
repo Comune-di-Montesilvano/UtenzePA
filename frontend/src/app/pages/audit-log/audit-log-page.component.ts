@@ -99,6 +99,10 @@ export class AuditLogPageComponent implements OnInit {
     return `${entry.field_name}: ${oldVal} → ${newVal}`;
   }
 
+  entityLabel(entry: AuditLogEntry): string {
+    return this.entityOptions.find((opt) => opt.value === entry.entity_name)?.label ?? entry.entity_name;
+  }
+
   // Solo immobili/utenze hanno un dialog di dettaglio già wired (Task 10/11) —
   // per le altre entità (contratti, fatture, ecc.) l'id resta testo semplice.
   hasDetailLink(entry: AuditLogEntry): boolean {

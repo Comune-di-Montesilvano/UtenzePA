@@ -1,5 +1,10 @@
-<h2 mat-dialog-title>
-  {{ isNew ? 'Aggiungi Immobile' : 'Modifica Immobile: ' + data.item.asset_name + ' (ID ' + data.item.id + ')' }}
+<h2 mat-dialog-title style="display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;">
+  <span>{{ isNew ? 'Aggiungi Immobile' : 'Modifica Immobile: ' + data.item.asset_name + ' (ID ' + data.item.id + ')' }}</span>
+  @if (!isNew && data.item.updated_by && data.item.update_date) {
+    <span style="font-size: 0.75rem; font-weight: 400; color: rgba(0,0,0,0.6); white-space: nowrap;">
+      Ultima modifica: {{ data.item.update_date | date:'dd/MM/yyyy HH:mm' }} — {{ data.item.updated_by.firstName }} {{ data.item.updated_by.lastName }}
+    </span>
+  }
 </h2>
 
 <mat-dialog-content>

@@ -4,6 +4,9 @@ export interface AuditLogEntry {
   id: number;
   entity_name: string;
   entity_id: number;
+  // Nome/codice leggibile del record (es. asset_name per immobili, utility_id
+  // per utenze) — risolto lato backend, null per le entità senza resolver.
+  entity_label: string | null;
   action: AuditAction;
   field_name: string | null;
   old_value: string | null;

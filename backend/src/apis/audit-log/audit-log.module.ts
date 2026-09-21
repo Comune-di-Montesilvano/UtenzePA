@@ -5,6 +5,8 @@ import { CronExpression, SchedulerRegistry } from '@nestjs/schedule';
 import { AuditLog } from './entity/audit-log.entity';
 import { AuditLogService } from './audit-log.service';
 import { AuditLogController } from './audit-log.controller';
+import { Asset } from '@apis/asset/entity/asset.entity';
+import { Utility } from '@apis/utility/entity/utility.entity';
 
 const RETENTION_DAYS = 60;
 
@@ -15,7 +17,7 @@ const RETENTION_DAYS = 60;
 // confinato al .module.ts, mai caricato dagli spec.
 @Global()
 @Module({
-  imports: [TypeOrmModule.forFeature([AuditLog])],
+  imports: [TypeOrmModule.forFeature([AuditLog, Asset, Utility])],
   providers: [AuditLogService],
   controllers: [AuditLogController],
   exports: [AuditLogService],

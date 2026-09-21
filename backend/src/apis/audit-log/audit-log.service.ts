@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, ObjectLiteral, Repository } from 'typeorm';
 import { AuditLog, AuditAction } from './entity/audit-log.entity';
 import { QueryAuditLogDto } from './dto/query-audit-log.dto';
+import { Asset } from '@apis/asset/entity/asset.entity';
+import { Utility } from '@apis/utility/entity/utility.entity';
 
 export interface AuditFieldChange {
   fieldName: string;
@@ -20,8 +22,10 @@ export interface RecordChangeInput {
   fields?: AuditFieldChange[];
 }
 
+export type AuditLogEntryWithLabel = AuditLog & { entity_label: string | null };
+
 export interface AuditLogQueryResult {
-  items: AuditLog[];
+  items: AuditLogEntryWithLabel[];
   total: number;
   page: number;
   pageSize: number;
@@ -29,10 +33,26 @@ export interface AuditLogQueryResult {
 
 @Injectable()
 export class AuditLogService {
+  // Risolve entity_id a un'etichetta leggibile per la colonna "ID record"
+  // del log globale — mappa esplicita, stesso principio delle label FK già
+  // usate per i diff (mai euristica su nomi colonna). Solo le entità con un
+  // dialog di dettaglio wired lato frontend (Task 10/11) hanno un resolver:
+  // per le altre l'id numerico resta l'unica cosa mostrabile.
+  private readonly entityLabelResolvers: Record<string, { repo: Repository<ObjectLiteral>; field: string }>;
+
   constructor(
     @InjectRepository(AuditLog)
     private readonly repo: Repository<AuditLog>,
-  ) {}
+    @InjectRepository(Asset)
+    private readonly assetRepo: Repository<Asset>,
+    @InjectRepository(Utility)
+    private readonly utilityRepo: Repository<Utility>,
+  ) {
+    this.entityLabelResolvers = {
+      assets: { repo: this.assetRepo, field: 'asset_name' },
+      utilities: { repo: this.utilityRepo, field: 'utility_id' },
+    };
+  }
 
   async record(input: RecordChangeInput): Promise<void> {
     if (input.action === AuditAction.UPDATE) {
@@ -96,7 +116,29 @@ export class AuditLogService {
       .take(pageSize);
 
     const [items, total] = await qb.getManyAndCount();
-    return { items, total, page, pageSize };
+    const labels = await this.resolveEntityLabels(filters.entity, items.map((item) => item.entity_id));
+    const itemsWithLabel: AuditLogEntryWithLabel[] = items.map((item) => ({
+      ...item,
+      entity_label: labels.get(item.entity_id) ?? null,
+    }));
+    return { items: itemsWithLabel, total, page, pageSize };
+  }
+
+  private async resolveEntityLabels(entityName: string, ids: number[]): Promise<Map<number, string>> {
+    const map = new Map<number, string>();
+    const resolver = this.entityLabelResolvers[entityName];
+    if (!resolver || ids.length === 0) return map;
+
+    const uniqueIds = Array.from(new Set(ids));
+    const rows = await resolver.repo.find({ where: { id: In(uniqueIds) } as never });
+    for (const row of rows) {
+      const record = row as unknown as Record<string, unknown>;
+      const value = record[resolver.field];
+      if (value !== null && value !== undefined) {
+        map.set(record.id as number, String(value));
+      }
+    }
+    return map;
   }
 
   async purgeOlderThan(days: number): Promise<number> {
