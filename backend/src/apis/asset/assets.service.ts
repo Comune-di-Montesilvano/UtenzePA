@@ -7,6 +7,7 @@ import { UpdateAssetDto } from './dto/update-asset.dto';
 import { SearchAssetDto } from './dto/search-asset.dto';
 import { BaseService } from '../shared/base.service';
 import { GeocodingService } from '@apis/geocoding/geocoding.service';
+import { AssetAggregator } from '@apis/asset-aggregators/entity/asset-aggregator.entity';
 
 const ADDRESS_FIELDS = ['toponym', 'address', 'civic_number', 'zip_code', 'municipality'] as const;
 
@@ -50,8 +51,17 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     @InjectRepository(Asset)
     protected readonly repo: Repository<Asset>,
     private readonly geocodingService: GeocodingService,
+    @InjectRepository(AssetAggregator)
+    private readonly assetAggregatorRepo: Repository<AssetAggregator>,
   ) {
     super();
+    // code è la label breve corretta mostrata ovunque (icone mappa/filtri);
+    // description è una nota libera quasi sempre vuota — MAI usarla come
+    // label (bug reale corretto altrove nel progetto, vedi
+    // asset-filter-dialog.component.ts).
+    this.auditLabelResolvers = {
+      asset_type_id: { repo: this.assetAggregatorRepo, field: 'code' },
+    };
   }
 
   async findAll(filters?: SearchAssetDto): Promise<Asset[]> {
@@ -61,6 +71,12 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
       'assetAggregator',
       'assetAggregator.deleted = 0',
     );
+    // Servono per mostrare "ultima modifica" nell'header del dialog aperto
+    // dalla riga di tabella (che usa findAll(), non findOne()) — mancavano
+    // qui, presenti solo in findOne(), stesso identico bug già noto per
+    // utilityType (vedi commento in findOne() più sotto).
+    qb.leftJoinAndSelect('assets.created_by', 'created_by');
+    qb.leftJoinAndSelect('assets.updated_by', 'updated_by');
     qb.leftJoinAndSelect('assets.utilities', 'utilities', 'utilities.deleted = 0');
     qb.leftJoinAndSelect('utilities.utilityType', 'utilityType', 'utilityType.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');

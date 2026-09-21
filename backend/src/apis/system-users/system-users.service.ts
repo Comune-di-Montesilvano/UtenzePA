@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DeepPartial, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { SystemUser } from './entity/system-user.entity';
 import { UpdateSystemUserDto } from './dto/update-system-user.dto';
@@ -15,6 +15,11 @@ export class SystemUsersService extends BaseService<
 > {
   protected readonly entityName = 'user';
   protected readonly relations: string[] = [];
+
+  // passwordHash/otp/otp_expiry non vanno mai nel diff audit, anche se
+  // presenti nel payload di update — dati sensibili, mai testo in chiaro
+  // nella storia modifiche. Nomi proprietà TS, non colonne DB.
+  protected readonly auditBlocklist: string[] = ['passwordHash', 'otp', 'otp_expiry'];
 
   constructor(
     @InjectRepository(SystemUser)
@@ -65,20 +70,7 @@ export class SystemUsersService extends BaseService<
     const { password, ...rest } = dto;
     const passwordHash = await bcrypt.hash(password, 10);
 
-    const payload: DeepPartial<SystemUser> = {
-      ...rest,
-      passwordHash,
-      ...(userId !== undefined && {
-        created_by_user_id: userId,
-        updated_by_user_id: userId,
-      }),
-    };
-
-    try {
-      return await this.repo.save(this.repo.create(payload));
-    } catch (error) {
-      this.manageErrors(error, 'Errore durante la creazione utente');
-    }
+    return super.create({ ...rest, passwordHash } as unknown as CreateSystemUserDto, userId);
   }
 
   async update(id: number, dto: UpdateSystemUserDto, userId?: number): Promise<SystemUser> {

@@ -35,6 +35,7 @@ import { BackupModule } from '@apis/backup/backup.module';
 import { ImportModule } from '@apis/import/import.module';
 import { PhotosModule } from '@apis/photos/photos.module';
 import { ContractsModule } from '@apis/contracts/contracts.module';
+import { AuditLogModule } from '@apis/audit-log/audit-log.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { ContractsModule } from '@apis/contracts/contracts.module';
     CronjobsModule,
     HealthModule,
     MySqlModule,
+    AuditLogModule,
     // CsvCheckerModule,
     AuthMysqlModule,
     SetupModule,

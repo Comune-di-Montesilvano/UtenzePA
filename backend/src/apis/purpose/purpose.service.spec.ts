@@ -110,5 +110,18 @@ describe('PurposeService', () => {
       await expect(service.remove(999, 1)).rejects.toThrow(BadRequestException);
       expect(utilityTypePurposeRepo.delete).not.toHaveBeenCalled();
     });
+
+    it('registra un evento DELETE in audit log', async () => {
+      const entity = { id: 1, deleted: false } as Purpose;
+      repo.findOne.mockResolvedValue(entity);
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+
+      await service.remove(1, 5);
+
+      expect(auditLogService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ entityName: 'purpose', entityId: 1, action: 'DELETE', userId: 5 }),
+      );
+    });
   });
 });

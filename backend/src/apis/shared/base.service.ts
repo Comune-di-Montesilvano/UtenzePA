@@ -3,10 +3,14 @@ import {
   ConflictException,
   HttpException,
   HttpStatus,
+  Inject,
+  Optional,
   RequestTimeoutException,
 } from '@nestjs/common';
 import { FindOptionsRelations, ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { DateHelper } from '@/helpers/date.helpers';
+import { AuditLogService, AuditFieldChange } from '@apis/audit-log/audit-log.service';
+import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 
 export interface BaseEntity extends ObjectLiteral {
   id: number;
@@ -48,6 +52,31 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
   protected abstract readonly entityName: string;
   protected abstract readonly relations: string[];
 
+  @Inject(AuditLogService)
+  @Optional()
+  protected auditLogService?: AuditLogService;
+
+  // Campi extra da escludere dal diff, oltre a quelli sempre esclusi
+  // (GLOBAL_AUDIT_BLOCKLIST sotto). Es. system-users: password_hash/otp.
+  protected auditBlocklist: string[] = [];
+
+  // Mappa esplicita campo → { repo, field } per risolvere un id FK a
+  // un'etichetta leggibile nel diff — MAI euristica automatica (vedi nota
+  // CLAUDE.md sul bug AssetAggregator.description vs .code). Campi non
+  // mappati restano con solo il valore grezzo (id).
+  protected auditLabelResolvers?: Partial<
+    Record<string, { repo: Repository<ObjectLiteral>; field: string }>
+  >;
+
+  private static readonly GLOBAL_AUDIT_BLOCKLIST = [
+    'id',
+    'create_date',
+    'update_date',
+    'deleted',
+    'created_by_user_id',
+    'updated_by_user_id',
+  ];
+
   async findAll(): Promise<TEntity[]> {
     const alias = this.entityName;
     const qb = this.repo.createQueryBuilder(alias);
@@ -69,11 +98,17 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
       payload.updated_by_user_id = userId;
     }
     const item = this.repo.create(payload as never);
+    let saved: TEntity;
     try {
-      return (await this.repo.save(item)) as unknown as TEntity;
+      saved = (await this.repo.save(item)) as unknown as TEntity;
     } catch (error) {
       this.manageErrors(error, `Errore durante la creazione di ${this.entityName}`);
     }
+    // Fuori dal try/catch di persistenza: un fallimento nella scrittura audit
+    // (best-effort, vedi recordAudit) non deve mai mascherare l'esito
+    // dell'operazione primaria già andata a buon fine.
+    await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
+    return saved;
   }
 
   async update(id: number, updateDto: TUpdateDto, userId?: number): Promise<TEntity> {
@@ -81,16 +116,36 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
     if (!entity) {
       throw new BadRequestException('elemento non trovato');
     }
+    const before: Record<string, unknown> = { ...(entity as unknown as Record<string, unknown>) };
     Object.assign(entity, updateDto);
     if (userId !== undefined) {
       entity.updated_by_user_id = userId;
     }
+    let result: TEntity;
     try {
       await this.repo.save(entity);
-      return this.findOne(id);
+      result = await this.findOne(id);
     } catch (error) {
       this.manageErrors(error, `Errore durante l'aggiornamento di ${this.entityName}`);
     }
+    // Fuori dal try/catch di persistenza, con la propria gestione errori
+    // (dentro diffFields/recordAudit) che non tocca manageErrors: il calcolo
+    // del diff/la scrittura audit sono best-effort, non devono far fallire
+    // un update già persistito correttamente.
+    try {
+      const changes = await this.diffFields(
+        before,
+        entity as unknown as Record<string, unknown>,
+        updateDto as Record<string, unknown>,
+      );
+      await this.recordAudit(AuditAction.UPDATE, id, userId ?? entity.updated_by_user_id, changes);
+    } catch (error) {
+      console.error(
+        `[BaseService] Errore durante il calcolo/registrazione audit per ${this.entityName}`,
+        error,
+      );
+    }
+    return result;
   }
 
   async count(): Promise<number> {
@@ -107,6 +162,13 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
     entity.deleted = true;
     entity.updated_by_user_id = updatedByUserId;
     await this.repo.save(entity);
+    // Best-effort: un fallimento della scrittura audit non deve propagarsi e
+    // apparire come un delete fallito, mentre la entity è già stata salvata.
+    try {
+      await this.recordAudit(AuditAction.DELETE, id, updatedByUserId, []);
+    } catch (error) {
+      console.error(`[BaseService] Errore durante la registrazione audit per ${this.entityName}`, error);
+    }
   }
 
   protected applyFilters<T extends ObjectLiteral>(
@@ -176,5 +238,90 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
       default:
         throw new HttpException(message, HttpStatus.BAD_REQUEST);
     }
+  }
+
+  protected async diffFields(
+    before: Record<string, unknown>,
+    after: Record<string, unknown>,
+    patch: Record<string, unknown>,
+  ): Promise<AuditFieldChange[]> {
+    const blocklist = new Set([...BaseService.GLOBAL_AUDIT_BLOCKLIST, ...this.auditBlocklist]);
+    const changes: AuditFieldChange[] = [];
+
+    for (const key of Object.keys(patch)) {
+      if (blocklist.has(key)) continue;
+
+      const oldValue = before[key] ?? null;
+      const newValue = after[key] ?? null;
+      // Un PATCH in questa codebase rimanda quasi sempre l'intero record
+      // (Object.assign wholesale), non solo i campi realmente toccati —
+      // quindi il confronto deve normalizzare le differenze di
+      // rappresentazione tra "prima" (idratato da mysql2/TypeORM) e "dopo"
+      // (DTO dal client) che non sono cambi di valore reali: istanze Date vs
+      // stringa ISO, null/undefined/'' equivalenti a "vuoto", stringhe
+      // numeriche decimal ("0.00") vs number (0). Vedi toComparableValue.
+      if (BaseService.toComparableValue(oldValue) === BaseService.toComparableValue(newValue)) continue;
+
+      const resolver = this.auditLabelResolvers?.[key];
+      let oldLabel: string | null = null;
+      let newLabel: string | null = null;
+      if (resolver) {
+        [oldLabel, newLabel] = await Promise.all([
+          this.resolveLabel(resolver, oldValue),
+          this.resolveLabel(resolver, newValue),
+        ]);
+      }
+
+      changes.push({ fieldName: key, oldValue, newValue, oldLabel, newLabel });
+    }
+
+    return changes;
+  }
+
+  private async resolveLabel(
+    resolver: { repo: Repository<ObjectLiteral>; field: string },
+    id: unknown,
+  ): Promise<string | null> {
+    if (id === null || id === undefined) return null;
+    const row = await resolver.repo.findOne({ where: { id } as never });
+    if (!row) return null;
+    const value = (row as unknown as Record<string, unknown>)[resolver.field];
+    return value === null || value === undefined ? null : String(value);
+  }
+
+  protected async recordAudit(
+    action: AuditAction,
+    entityId: number,
+    userId: number | undefined,
+    fields: AuditFieldChange[],
+  ): Promise<void> {
+    if (!this.auditLogService || userId === undefined) return;
+    if (action === AuditAction.UPDATE && fields.length === 0) return;
+    try {
+      await this.auditLogService.record({ entityName: this.entityName, entityId, action, userId, fields });
+    } catch (error) {
+      // Audit è best-effort: un fallimento qui non deve mai propagarsi e far
+      // fallire/mascherare l'esito dell'operazione primaria già eseguita.
+      console.error(`[BaseService] Errore durante la registrazione audit per ${this.entityName}`, error);
+    }
+  }
+
+  private static toComparableValue(value: unknown): string {
+    if (value instanceof Date) return value.toISOString();
+    // null/undefined/stringa vuota sono "vuoto" per un form Angular (un
+    // input di testo non compilato manda '', non null) — vanno trattati come
+    // equivalenti, altrimenti un PATCH che rimanda l'intero record genera un
+    // diff spurio NULL -> '' su ogni campo di testo mai valorizzato (bug
+    // reale osservato in produzione su un'utenza: 10 campi mai toccati
+    // dall'utente finiti nel diff).
+    if (value === null || value === undefined || value === '') return '';
+    // Colonne `decimal`: TypeORM/mysql2 le restituisce come stringa
+    // ("0.00"), mentre il form Angular manda un number (0) — testo grezzo
+    // diverso anche a valore invariato. Se il valore è numerico (number o
+    // stringa numerica), confronta il numero normalizzato invece del testo.
+    if (typeof value === 'number' || (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value)))) {
+      return String(Number(value));
+    }
+    return String(value);
   }
 }

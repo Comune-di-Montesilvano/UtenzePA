@@ -28,6 +28,7 @@ import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
 import {DatePipe} from '@angular/common';
 import {LocationMapComponent} from '../../core/components/location-map.component';
 import {PhotoGalleryComponent} from '../../core/components/photo-gallery.component';
+import {EntityHistoryComponent} from '../../core/components/entity-history.component';
 import {PhotosService} from '../../services/photos.service';
 import {UtilityEditDialogComponent} from '../utilities/utility-edit-dialog.component';
 import {ASSET_AGGREGATOR_ICON_FALLBACK} from '../asset-aggregator/enum/asset-aggregator-icon.enum';
@@ -62,6 +63,7 @@ const UTILITY_DIALOG_WIDTH = '1150px';
     DatePipe,
     LocationMapComponent,
     PhotoGalleryComponent,
+    EntityHistoryComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './asset-edit-dialog.component.html'
