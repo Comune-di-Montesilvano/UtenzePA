@@ -47,17 +47,6 @@
     </td>
   </ng-container>
 
-  <ng-container matColumnDef="statusBadge">
-    <th mat-header-cell *matHeaderCellDef></th>
-    <td mat-cell *matCellDef="let item">
-      @if (item.supply_active) {
-        <span class="status-badge status-badge-success">attiva</span>
-      } @else {
-        <span class="status-badge status-badge-secondary">non attiva</span>
-      }
-    </td>
-  </ng-container>
-
   <ng-container matColumnDef="id">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>ID</th>
     <td mat-cell *matCellDef="let item">{{ item.id }}</td>
@@ -328,16 +317,6 @@
     font-size: 0.75rem;
     font-weight: 600;
     white-space: nowrap;
-  }
-
-  .status-badge-success {
-    background-color: #dcfce7;
-    color: #166534;
-  }
-
-  .status-badge-secondary {
-    background-color: #e5e7eb;
-    color: #374151;
   }
 
   .status-badge-warn {
