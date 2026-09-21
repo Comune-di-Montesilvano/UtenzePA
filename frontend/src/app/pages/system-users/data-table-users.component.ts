@@ -33,7 +33,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
 })
 export class DataTableUsersComponent extends AbstractDataTableComponent<SystemUser> {
 
-  displayedColumns = ['actions', 'id', 'firstName', 'lastName', 'email', 'role', 'status', 'create_date'];
+  displayedColumns = ['actions', 'id', 'firstName', 'lastName', 'email', 'role', 'status', 'lastLogin', 'create_date'];
 
   constructor(screen: ScreenSizeService) {
     super(screen);

@@ -58,6 +58,11 @@
     <td mat-cell *matCellDef="let item">{{ item.status }}</td>
   </ng-container>
 
+  <ng-container matColumnDef="lastLogin">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Ultimo accesso</th>
+    <td mat-cell *matCellDef="let item">{{ item.lastLogin ? (item.lastLogin | date:'dd/MM/yyyy HH:mm') : 'Mai' }}</td>
+  </ng-container>
+
   <ng-container matColumnDef="create_date">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Data Creazione</th>
     <td mat-cell *matCellDef="let item">{{ item.create_date | date:'dd/MM/yyyy HH:mm' }}</td>

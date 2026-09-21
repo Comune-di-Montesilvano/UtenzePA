@@ -9,6 +9,11 @@ export enum UserStatus {
   DISATTIVO = 'Disattivo',
 }
 
+export enum AuthProvider {
+  LOCAL = 'local',
+  LDAP = 'ldap',
+}
+
 export enum Phase {
   SINGLE_PHASE = '1F',
   THREE_PHASE = '3F',

@@ -9,7 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { UserRole, UserStatus } from '../../shared/enum/user.enums';
+import { AuthProvider, UserRole, UserStatus } from '../../shared/enum/user.enums';
 
 @Entity('system_users')
 @Index('UK_email', ['email'], { unique: true })
@@ -26,8 +26,16 @@ export class SystemUser {
   @Column({ length: 255, nullable: false })
   email: string;
 
-  @Column({ length: 255, select: false, name: 'password_hash' })
-  passwordHash: string;
+  @Column({ length: 255, select: false, name: 'password_hash', nullable: true })
+  passwordHash: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: AuthProvider,
+    default: AuthProvider.LOCAL,
+    name: 'auth_provider',
+  })
+  authProvider: AuthProvider;
 
   @Column({
     type: 'enum',
@@ -48,6 +56,9 @@ export class SystemUser {
 
   @Column({ type: 'timestamp', nullable: true })
   otp_expiry?: Date;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'last_login' })
+  lastLogin: Date | null;
 
   @CreateDateColumn({ type: 'timestamp' })
   create_date: Date;

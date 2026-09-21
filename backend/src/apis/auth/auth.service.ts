@@ -7,6 +7,8 @@ import { JwtService } from '@nestjs/jwt';
 import { EMailerService } from '@/core/email/email.service';
 import { generateOtp } from '../shared/otp.helper';
 import { SettingsService } from '@apis/settings/settings.service';
+import { LdapService } from './ldap/ldap.service';
+import { AuthProvider, UserRole, UserStatus } from '../shared/enum/user.enums';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +18,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private mailer: EMailerService,
     private settings: SettingsService,
+    private readonly ldapService: LdapService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<SystemUser | null> {
@@ -28,16 +31,70 @@ export class AuthService {
         lastName: true,
         role: true,
         passwordHash: true,
+        authProvider: true,
         deleted: true,
       },
     });
-    if (user && (await bcrypt.compare(password, user.passwordHash))) {
-      return user;
+
+    if (user) {
+      if (user.authProvider === AuthProvider.LDAP) {
+        return this.validateLdapUser(user, email, password);
+      }
+      if (user.passwordHash && (await bcrypt.compare(password, user.passwordHash))) {
+        return user;
+      }
+      return null;
     }
+
+    if (this.ldapService.isConfigured()) {
+      return this.provisionLdapUser(email, password);
+    }
+
     return null;
   }
 
+  private async validateLdapUser(
+    user: SystemUser,
+    username: string,
+    password: string,
+  ): Promise<SystemUser | null> {
+    try {
+      const ldapUser = await this.ldapService.authenticate(username, password);
+      const [firstName, ...rest] = ldapUser.displayName.split(' ');
+      user.firstName = firstName || user.firstName;
+      user.lastName = rest.join(' ') || user.lastName;
+      return await this.userRepository.save(user);
+    } catch {
+      return null;
+    }
+  }
+
+  private async provisionLdapUser(email: string, password: string): Promise<SystemUser | null> {
+    try {
+      const ldapUser = await this.ldapService.authenticate(email, password);
+      const [firstName, ...rest] = ldapUser.displayName.split(' ');
+
+      const newUser = this.userRepository.create({
+        email,
+        firstName: firstName || null,
+        lastName: rest.join(' ') || ldapUser.displayName,
+        role: UserRole.LETTORE,
+        status: UserStatus.ATTIVO,
+        authProvider: AuthProvider.LDAP,
+        passwordHash: null,
+        created_by_user_id: 1,
+        updated_by_user_id: 1,
+      });
+
+      return await this.userRepository.save(newUser);
+    } catch {
+      return null;
+    }
+  }
+
   async login(user: SystemUser) {
+    await this.userRepository.update(user.id, { lastLogin: new Date() });
+
     const payload = {
       sub: user.id,
       email: user.email,

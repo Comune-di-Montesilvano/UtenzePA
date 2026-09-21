@@ -5,14 +5,16 @@ import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { SystemUser } from '../system-users/entity/system-user.entity';
 import { EMailerService } from '@/core/email/email.service';
-import { UserRole, UserStatus } from '../shared/enum/user.enums';
+import { AuthProvider, UserRole, UserStatus } from '../shared/enum/user.enums';
 import { SettingsService } from '@apis/settings/settings.service';
+import { LdapService } from './ldap/ldap.service';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let userRepository: { findOne: jest.Mock; save: jest.Mock };
+  let userRepository: { findOne: jest.Mock; save: jest.Mock; create: jest.Mock; update: jest.Mock };
   let jwtService: { sign: jest.Mock };
   let mailer: { sendMail: jest.Mock };
+  let ldapService: { authenticate: jest.Mock; isConfigured: jest.Mock };
 
   const baseUser: SystemUser = {
     id: 1,
@@ -20,6 +22,7 @@ describe('AuthService', () => {
     lastName: 'Rossi',
     email: 'mario.rossi@comune.it',
     passwordHash: 'hashed-password',
+    authProvider: AuthProvider.LOCAL,
     role: UserRole.OPERATORE,
     status: UserStatus.ATTIVO,
     otp: undefined,
@@ -34,9 +37,15 @@ describe('AuthService', () => {
   } as SystemUser;
 
   beforeEach(async () => {
-    userRepository = { findOne: jest.fn(), save: jest.fn() };
+    userRepository = {
+      findOne: jest.fn(),
+      save: jest.fn(),
+      create: jest.fn((v) => v),
+      update: jest.fn().mockResolvedValue(undefined),
+    };
     jwtService = { sign: jest.fn().mockReturnValue('signed-jwt') };
     mailer = { sendMail: jest.fn().mockResolvedValue(true) };
+    ldapService = { authenticate: jest.fn(), isConfigured: jest.fn().mockReturnValue(false) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -48,6 +57,7 @@ describe('AuthService', () => {
           provide: SettingsService,
           useValue: { getBrandingSummary: jest.fn().mockResolvedValue({ entity_name: 'Comune di Montesilvano' }) },
         },
+        { provide: LdapService, useValue: ldapService },
       ],
     }).compile();
 
@@ -77,12 +87,76 @@ describe('AuthService', () => {
       expect(result).toBeNull();
     });
 
-    it('restituisce null se l\'utente non esiste', async () => {
+    it('restituisce null se l\'utente non esiste e LDAP non è configurato', async () => {
       userRepository.findOne.mockResolvedValue(null);
+      ldapService.isConfigured.mockReturnValue(false);
 
       const result = await service.validateUser('sconosciuto@comune.it', 'qualsiasi');
 
       expect(result).toBeNull();
+      expect(ldapService.authenticate).not.toHaveBeenCalled();
+    });
+
+    it('utente esistente con authProvider ldap: verifica via LDAP, non bcrypt', async () => {
+      const ldapUser = { ...baseUser, authProvider: AuthProvider.LDAP, passwordHash: null };
+      userRepository.findOne.mockResolvedValue(ldapUser);
+      ldapService.authenticate.mockResolvedValue({ username: ldapUser.email, displayName: 'Mario Rossi' });
+      userRepository.save.mockImplementation(async (u) => u);
+      const bcryptSpy = jest.spyOn(bcrypt, 'compare');
+
+      const result = await service.validateUser(ldapUser.email, 'password-ad');
+
+      expect(ldapService.authenticate).toHaveBeenCalledWith(ldapUser.email, 'password-ad');
+      expect(bcryptSpy).not.toHaveBeenCalled();
+      expect(result?.firstName).toBe('Mario');
+      expect(result?.lastName).toBe('Rossi');
+    });
+
+    it('utente esistente con authProvider ldap: credenziali AD rifiutate → null', async () => {
+      const ldapUser = { ...baseUser, authProvider: AuthProvider.LDAP, passwordHash: null };
+      userRepository.findOne.mockResolvedValue(ldapUser);
+      ldapService.authenticate.mockRejectedValue(new Error('unauthorized'));
+
+      const result = await service.validateUser(ldapUser.email, 'wrong');
+
+      expect(result).toBeNull();
+      expect(userRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('utente non esistente + LDAP configurato + credenziali valide: auto-provisiona come Lettore', async () => {
+      userRepository.findOne.mockResolvedValue(null);
+      ldapService.isConfigured.mockReturnValue(true);
+      ldapService.authenticate.mockResolvedValue({
+        username: 'nuovo.utente@comune.it',
+        displayName: 'Nuovo Utente',
+      });
+      userRepository.save.mockImplementation(async (u) => ({ id: 99, ...u }));
+
+      const result = await service.validateUser('nuovo.utente@comune.it', 'password-ad');
+
+      expect(userRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'nuovo.utente@comune.it',
+          firstName: 'Nuovo',
+          lastName: 'Utente',
+          role: UserRole.LETTORE,
+          authProvider: AuthProvider.LDAP,
+          passwordHash: null,
+        }),
+      );
+      expect(result).toMatchObject({ id: 99, role: UserRole.LETTORE });
+    });
+
+    it('utente non esistente + LDAP configurato + credenziali rifiutate: nessuna riga creata', async () => {
+      userRepository.findOne.mockResolvedValue(null);
+      ldapService.isConfigured.mockReturnValue(true);
+      ldapService.authenticate.mockRejectedValue(new Error('unauthorized'));
+
+      const result = await service.validateUser('sconosciuto@comune.it', 'wrong');
+
+      expect(result).toBeNull();
+      expect(userRepository.create).not.toHaveBeenCalled();
+      expect(userRepository.save).not.toHaveBeenCalled();
     });
   });
 
@@ -96,6 +170,15 @@ describe('AuthService', () => {
         role: baseUser.role,
       });
       expect(result).toEqual({ access_token: 'signed-jwt' });
+    });
+
+    it('aggiorna last_login dell\'utente', async () => {
+      await service.login(baseUser);
+
+      expect(userRepository.update).toHaveBeenCalledWith(
+        baseUser.id,
+        expect.objectContaining({ lastLogin: expect.any(Date) }),
+      );
     });
   });
 

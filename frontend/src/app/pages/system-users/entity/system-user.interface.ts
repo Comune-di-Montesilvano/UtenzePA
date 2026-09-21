@@ -7,4 +7,5 @@ export interface ISystemUser {
   status: 'Attivo' | 'Disattivo';
   create_date: Date;
   update_date: Date;
+  lastLogin: Date | null;
 }
