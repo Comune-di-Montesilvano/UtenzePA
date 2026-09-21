@@ -7,6 +7,7 @@ import { UtilityTypePurpose } from './entity/utility_type_purpose.entity';
 import { CreateUtilityTypeDto } from './dto/create-utility-type.dto';
 import { UpdateUtilityTypeDto } from './dto/update-utility-type.dto';
 import { SearchUtilityTypeDto } from './dto/search-utility-type.dto';
+import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 
 @Injectable()
 export class UtilityTypesService extends BaseService<
@@ -78,13 +79,24 @@ export class UtilityTypesService extends BaseService<
       this.manageErrors(err, `Errore durante la creazione di ${this.entityName}`);
     }
 
-    return this.findOne(savedId);
+    const created = await this.findOne(savedId);
+    await this.recordAudit(
+      AuditAction.CREATE,
+      savedId,
+      userId ?? created?.updated_by_user_id,
+      [],
+    );
+    return created;
   }
 
   async update(id: number, updateDto: UpdateUtilityTypeDto, userId?: number): Promise<UtilityType> {
     const { purposes, ...rest } = updateDto;
 
-    return this.dataSource.transaction(async (manager) => {
+    const before = await this.repo.findOne({ where: { id } as never });
+    if (!before) throw new Error('elemento non trovato');
+    const beforeSnapshot: Record<string, unknown> = { ...before };
+
+    const result = await this.dataSource.transaction(async (manager) => {
       const entity = await this.repo.findOne({ where: { id } as never });
       if (!entity) throw new Error('elemento non trovato');
       Object.assign(entity, rest);
@@ -106,5 +118,17 @@ export class UtilityTypesService extends BaseService<
 
       return this.findOne(id);
     });
+
+    try {
+      const changes = await this.diffFields(
+        beforeSnapshot,
+        result as unknown as Record<string, unknown>,
+        rest as Record<string, unknown>,
+      );
+      await this.recordAudit(AuditAction.UPDATE, id, userId ?? result.updated_by_user_id, changes);
+    } catch (error) {
+      console.error(`[UtilityTypesService] Errore durante il calcolo/registrazione audit`, error);
+    }
+    return result;
   }
 }

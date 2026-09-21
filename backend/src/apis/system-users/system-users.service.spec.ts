@@ -189,4 +189,78 @@ describe('SystemUsersService', () => {
       await expect(service.remove(999, 1)).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('SystemUsersService — audit', () => {
+    let auditLogService: { record: jest.Mock };
+
+    beforeEach(() => {
+      // Setup già esistente in beforeEach sopra, qui aggiungiamo solo auditLogService
+      auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+    });
+
+    it('esclude passwordHash/otp/otp_expiry dalla blocklist audit (nomi proprietà TS)', () => {
+      expect((service as any).auditBlocklist).toEqual(
+        expect.arrayContaining(['passwordHash', 'otp', 'otp_expiry']),
+      );
+    });
+
+    it('create() registra un evento CREATE (passa da BaseService.create)', async () => {
+      repo.findOne.mockResolvedValue(null);
+      jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashed-password' as never);
+
+      await service.create(
+        {
+          email: 'a@b.it',
+          password: 'pwd',
+          firstName: 'A',
+          lastName: 'B',
+          role: 'Operatore',
+        } as any,
+        9,
+      );
+
+      expect(auditLogService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ entityName: 'user', action: 'CREATE', userId: 9 }),
+      );
+    });
+
+    it('update() esclude passwordHash/otp dal diff audit, registra solo campi non sensibili', async () => {
+      // Entity precedente
+      const existing = {
+        id: 1,
+        firstName: 'Mario',
+        passwordHash: 'old-hash',
+        otp: '000000',
+        otp_expiry: new Date('2026-01-01'),
+      } as SystemUser;
+      repo.findOne.mockResolvedValue(existing);
+
+      // DTO con campi sensibili + un campo normale modificato
+      const updateDto = {
+        firstName: 'Marco',
+        passwordHash: 'new-hash-should-be-ignored',
+        otp: '999999-should-be-ignored',
+      } as any;
+
+      await service.update(1, updateDto, 5);
+
+      expect(auditLogService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entityName: 'user',
+          action: 'UPDATE',
+          userId: 5,
+          fields: expect.arrayContaining([
+            expect.objectContaining({ fieldName: 'firstName' }),
+          ]),
+        }),
+      );
+
+      // Verifica che passwordHash e otp NON siano nei fields registrati
+      const recordCall = auditLogService.record.mock.calls[0][0];
+      const fieldNames = (recordCall.fields || []).map((f: any) => f.fieldName);
+      expect(fieldNames).not.toContain('passwordHash');
+      expect(fieldNames).not.toContain('otp');
+    });
+  });
 });

@@ -24,6 +24,7 @@ import {SetupGuard} from "./guards/setup.guard";
 import {RedirectToSetupGuard} from "./guards/redirect-to-setup.guard";
 import {BackupImportComponent} from './pages/backup-import/backup-import.component';
 import {BrandingSettingsComponent} from "./pages/branding-settings/branding-settings.component";
+import {AuditLogPageComponent} from "./pages/audit-log/audit-log-page.component";
 
 export const routes: Routes = [
   {
@@ -53,6 +54,7 @@ export const routes: Routes = [
       {path: 'utilizer-grant', component: UtilizerGrantComponent},
       {path: 'dashboard', component: DashboardComponent},
       {path: 'map', component: MapComponent},
+      {path: 'audit-log', component: AuditLogPageComponent},
 
     ]
   },

@@ -8,6 +8,7 @@ import { SearchInvoiceDto } from './dto/search-invoice.dto';
 import { BudgetChapter } from '../budget-chapters/entity/budgetChapter.entity';
 import { BaseService, toFindOptionsRelations } from '@apis/shared/base.service';
 import { InvoiceBudgetChapter } from '@apis/invoices/entity/invoice_budget_chapter.entity';
+import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 
 @Injectable()
 export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, UpdateInvoiceDto> {
@@ -104,17 +105,17 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       budget_chapter_ids?: number[];
     };
 
-    return this.dataSource.transaction(async (manager) => {
+    const saved = await this.dataSource.transaction(async (manager) => {
       const entity = manager.create(Invoice, {
         ...rest,
         ...(userId !== undefined && { created_by_user_id: userId, updated_by_user_id: userId }),
       });
-      const saved = await manager.save(Invoice, entity);
+      const savedEntity = await manager.save(Invoice, entity);
 
       if (budget_chapters && budget_chapters.length > 0) {
         const rows = budget_chapters.map((budgetChapterId: number) =>
           manager.create(InvoiceBudgetChapter, {
-            invoice_id: saved.id,
+            invoice_id: savedEntity.id,
             budget_chapter_id: budgetChapterId,
           }),
         );
@@ -129,16 +130,23 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       }
 
       return manager.findOne(Invoice, {
-        where: { id: saved.id },
+        where: { id: savedEntity.id },
         relations: toFindOptionsRelations<Invoice>(this.relations),
       });
     });
+
+    await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
+    return saved;
   }
 
   async update(id: number, updateDto: UpdateInvoiceDto, userId?: number): Promise<Invoice> {
     const { budget_chapters, ...rest } = updateDto;
 
-    return this.dataSource.transaction(async (manager) => {
+    const before = await this.repo.findOne({ where: { id } as never });
+    if (!before) throw new Error('elemento non trovato');
+    const beforeSnapshot: Record<string, unknown> = { ...before };
+
+    const result = await this.dataSource.transaction(async (manager) => {
       const entity = await this.repo.findOne({ where: { id } as never });
       if (!entity) throw new Error('elemento non trovato');
       Object.assign(entity, rest);
@@ -163,6 +171,18 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
         relations: toFindOptionsRelations<Invoice>(this.relations),
       });
     });
+
+    try {
+      const changes = await this.diffFields(
+        beforeSnapshot,
+        result as unknown as Record<string, unknown>,
+        rest as Record<string, unknown>,
+      );
+      await this.recordAudit(AuditAction.UPDATE, id, userId ?? result.updated_by_user_id, changes);
+    } catch (error) {
+      console.error(`[InvoicesService] Errore durante il calcolo/registrazione audit`, error);
+    }
+    return result;
   }
 
   async getMonthlyCosts(): Promise<number> {

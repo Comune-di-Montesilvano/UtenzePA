@@ -125,6 +125,22 @@ describe('UtilityTypesService', () => {
         service.create({ name: 'Acqua', hard_type: 'hard' } as never, 5),
       ).rejects.toThrow();
     });
+
+    it('registra un evento CREATE in audit log', async () => {
+      manager.save.mockImplementation((entity, data) =>
+        entity === UtilityType ? Promise.resolve({ ...data, id: 10 }) : Promise.resolve(data),
+      );
+      const created = { id: 10, name: 'Energia elettrica' } as UtilityType;
+      repo.findOne.mockResolvedValue(created);
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+
+      await service.create({ name: 'Energia elettrica', hard_type: 'hard' } as never, 5);
+
+      expect(auditLogService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ entityName: 'utility_types', entityId: 10, action: 'CREATE', userId: 5 }),
+      );
+    });
   });
 
   describe('update', () => {
@@ -154,6 +170,18 @@ describe('UtilityTypesService', () => {
       repo.findOne.mockResolvedValue(null);
 
       await expect(service.update(999, { name: 'X' } as never)).rejects.toThrow();
+    });
+
+    it('registra un evento UPDATE in audit log quando cambia un campo scalare', async () => {
+      repo.findOne.mockResolvedValue({ id: 20, name: 'Vecchio nome' } as UtilityType);
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+
+      await service.update(20, { name: 'Nuovo nome' } as never, 7);
+
+      expect(auditLogService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ entityName: 'utility_types', entityId: 20, action: 'UPDATE', userId: 7 }),
+      );
     });
   });
 });

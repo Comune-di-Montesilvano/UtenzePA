@@ -451,6 +451,22 @@ describe('UtilitiesService', () => {
 
       await expect(service.create({} as never)).rejects.toThrow(HttpException);
     });
+
+    it('registra un evento CREATE in audit log', async () => {
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+
+      const result = await service.create({ supply_expiry_date: null } as never, 4);
+
+      expect(auditLogService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entityName: 'utilities',
+          entityId: (result as unknown as { id: number }).id,
+          action: 'CREATE',
+          userId: 4,
+        }),
+      );
+    });
   });
 
   describe('remove', () => {
@@ -470,6 +486,19 @@ describe('UtilitiesService', () => {
       repo.findOne.mockResolvedValue(null);
 
       await expect(service.remove(999, 1)).rejects.toThrow(BadRequestException);
+    });
+
+    it('registra un evento DELETE in audit log', async () => {
+      const entity = { id: 1, deleted: false } as Utility;
+      repo.findOne.mockResolvedValue(entity);
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+
+      await service.remove(1, 8);
+
+      expect(auditLogService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ entityName: 'utilities', entityId: 1, action: 'DELETE', userId: 8 }),
+      );
     });
   });
 });

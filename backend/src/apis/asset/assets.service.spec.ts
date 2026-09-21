@@ -23,10 +23,14 @@ describe('AssetsService', () => {
       getOne: jest.fn().mockResolvedValue(null),
     };
     repo = { createQueryBuilder: jest.fn().mockReturnValue(qb) };
-    service = new AssetsService(repo as never, {
-      buildQuery: jest.fn(),
-      geocode: jest.fn(),
-    } as never);
+    service = new AssetsService(
+      repo as never,
+      {
+        buildQuery: jest.fn(),
+        geocode: jest.fn(),
+      } as never,
+      { createQueryBuilder: jest.fn() } as never,
+    );
   });
 
   describe('findAll', () => {
@@ -92,7 +96,11 @@ describe('AssetsService', () => {
       (repo as any).save = jest.fn().mockResolvedValue(undefined);
       (repo as any).update = jest.fn().mockResolvedValue(undefined);
       qb.getOne.mockResolvedValue({ id: 1, address: 'Via Vecchia 2' } as Asset);
-      service = new AssetsService(repo as never, geocodingService as never);
+      service = new AssetsService(
+        repo as never,
+        geocodingService as never,
+        { createQueryBuilder: jest.fn() } as never,
+      );
     });
 
     it("azzera i campi geocoded e rilancia il geocoding se cambia l'indirizzo senza gps manuale", async () => {
@@ -135,6 +143,21 @@ describe('AssetsService', () => {
       geocodingService.geocode.mockRejectedValue(new Error('nominatim down'));
 
       await expect(service.update(1, { address: 'Via Nuova 5' } as never)).resolves.toBeDefined();
+    });
+  });
+
+  describe('AssetsService — audit label resolver', () => {
+    it('mappa asset_type_id su AssetAggregator.code, non su description', () => {
+      const assetAggregatorRepo = { createQueryBuilder: jest.fn() };
+      service = new AssetsService(
+        repo as never,
+        { buildQuery: jest.fn(), geocode: jest.fn() } as never,
+        assetAggregatorRepo as never,
+      );
+
+      const resolver = (service as any).auditLabelResolvers?.asset_type_id;
+      expect(resolver).toBeDefined();
+      expect(resolver.field).toBe('code');
     });
   });
 });

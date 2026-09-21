@@ -5,6 +5,7 @@ import {Utility} from '../../utilities/entity/utility.entity';
 import {UtilizerGrant} from '../../utilizer-grant/entity/utilizer-grant.entity';
 import {AssetAggregator} from '../../asset-aggregator/entity/asset-aggregator.entity';
 import {Utilizer} from '../../utilizer/entity/utilizer.entity';
+import {SystemUser} from '../../system-users/entity/system-user.entity';
 
 export class Asset extends AbstractEntity implements IAsset {
   asset_name!: string;
@@ -39,6 +40,10 @@ export class Asset extends AbstractEntity implements IAsset {
 
   @Exclude({toPlainOnly: true})
   created_by?: { id: number; name: string } | null;
+
+  @Exclude({toPlainOnly: true})
+  @Type(() => SystemUser)
+  updated_by?: SystemUser | null;
 
   @Exclude({toPlainOnly: true})
   @Type(() => Utility)

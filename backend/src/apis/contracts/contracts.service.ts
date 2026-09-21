@@ -7,6 +7,7 @@ import { CreateContractDto } from '@apis/contracts/dto/create-contract.dto';
 import { UpdateContractDto } from '@apis/contracts/dto/update-contract.dto';
 import { SearchContractDto } from '@apis/contracts/dto/search-contract.dto';
 import { BaseService, toFindOptionsRelations } from '@apis/shared/base.service';
+import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 
 @Injectable()
 export class ContractsService extends BaseService<Contract, CreateContractDto, UpdateContractDto> {
@@ -55,16 +56,16 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
   async create(dto: CreateContractDto, userId?: number): Promise<Contract> {
     const { utility_ids, ...rest } = dto;
 
-    return this.dataSource.transaction(async (manager) => {
+    const saved = await this.dataSource.transaction(async (manager) => {
       const entity = manager.create(Contract, {
         ...rest,
         ...(userId !== undefined && { created_by_user_id: userId, updated_by_user_id: userId }),
       });
-      const saved = await manager.save(Contract, entity);
+      const savedEntity = await manager.save(Contract, entity);
 
       if (utility_ids && utility_ids.length > 0) {
         const rows = utility_ids.map((utilityId: number) =>
-          manager.create(ContractUtility, { contract_id: saved.id, utility_id: utilityId }),
+          manager.create(ContractUtility, { contract_id: savedEntity.id, utility_id: utilityId }),
         );
         try {
           await manager.save(ContractUtility, rows);
@@ -77,16 +78,23 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
       }
 
       return manager.findOne(Contract, {
-        where: { id: saved.id },
+        where: { id: savedEntity.id },
         relations: toFindOptionsRelations<Contract>(this.relations),
       });
     });
+
+    await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
+    return saved;
   }
 
   async update(id: number, updateDto: UpdateContractDto, userId?: number): Promise<Contract> {
     const { utility_ids, ...rest } = updateDto;
 
-    return this.dataSource.transaction(async (manager) => {
+    const before = await this.repo.findOne({ where: { id } as never });
+    if (!before) throw new BadRequestException('elemento non trovato');
+    const beforeSnapshot: Record<string, unknown> = { ...before };
+
+    const result = await this.dataSource.transaction(async (manager) => {
       const entity = await this.repo.findOne({ where: { id } as never });
       if (!entity) throw new BadRequestException('elemento non trovato');
       Object.assign(entity, rest);
@@ -108,5 +116,17 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
         relations: toFindOptionsRelations<Contract>(this.relations),
       });
     });
+
+    try {
+      const changes = await this.diffFields(
+        beforeSnapshot,
+        result as unknown as Record<string, unknown>,
+        rest as Record<string, unknown>,
+      );
+      await this.recordAudit(AuditAction.UPDATE, id, userId ?? result.updated_by_user_id, changes);
+    } catch (error) {
+      console.error(`[ContractsService] Errore durante il calcolo/registrazione audit`, error);
+    }
+    return result;
   }
 }

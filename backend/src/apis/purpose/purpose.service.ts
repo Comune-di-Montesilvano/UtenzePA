@@ -7,6 +7,7 @@ import { Purpose } from '@apis/purpose/entity/purpose.entity';
 import { CreatePurposeDto } from '@apis/purpose/dto/create-purpose.dto';
 import { UpdatePurposeDto } from '@apis/purpose/dto/update-purpose.dto';
 import { UtilityTypePurpose } from '@apis/utility-types/entity/utility_type_purpose.entity';
+import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 
 @Injectable()
 export class PurposeService extends BaseService<Purpose, CreatePurposeDto, UpdatePurposeDto> {
@@ -52,5 +53,6 @@ export class PurposeService extends BaseService<Purpose, CreatePurposeDto, Updat
     entity.deleted = true;
     entity.updated_by_user_id = updatedByUserId;
     await this.repo.save(entity);
+    await this.recordAudit(AuditAction.DELETE, id, updatedByUserId, []);
   }
 }

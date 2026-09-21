@@ -110,6 +110,18 @@ describe('InvoicesService', () => {
         service.create({ invoice_id: 'F-2026-003', invoice_date: '2026-01-17', budget_chapters: [1] } as never, 5),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('registra un evento CREATE in audit log', async () => {
+      manager.findOne.mockResolvedValue({ id: 10 } as Invoice);
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+
+      await service.create({ invoice_id: 'F-2026-004', invoice_date: '2026-01-18' } as never, 5);
+
+      expect(auditLogService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ entityName: 'Invoice', entityId: 10, action: 'CREATE', userId: 5 }),
+      );
+    });
   });
 
   describe('update', () => {
@@ -123,6 +135,19 @@ describe('InvoicesService', () => {
       expect(manager.save).toHaveBeenCalledWith(
         InvoiceBudgetChapter,
         expect.arrayContaining([expect.objectContaining({ budget_chapter_id: 3 })]),
+      );
+    });
+
+    it('registra un evento UPDATE in audit log quando cambia un campo scalare', async () => {
+      repo.findOne.mockResolvedValue({ id: 20, deleted: false, invoice_id: 'OLD' } as Invoice);
+      manager.findOne.mockResolvedValue({ id: 20, invoice_id: 'NEW' } as Invoice);
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+
+      await service.update(20, { invoice_id: 'NEW' } as never, 7);
+
+      expect(auditLogService.record).toHaveBeenCalledWith(
+        expect.objectContaining({ entityName: 'Invoice', entityId: 20, action: 'UPDATE', userId: 7 }),
       );
     });
   });
