@@ -253,13 +253,13 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
 
       const oldValue = before[key] ?? null;
       const newValue = after[key] ?? null;
-      // Colonne date/timestamp: mysql2 idrata `before` (letto via repo.findOne)
-      // come istanza Date, mentre `after` (dopo Object.assign del DTO) resta
-      // tipicamente una stringa ISO del client — String(Date) vs String(string
-      // ISO) non coincidono mai anche a valore invariato, producendo un diff
-      // spurio ad ogni update che rimanda l'intero record (pattern comune in
-      // questa codebase). Normalizza le sole istanze Date a ISO prima del
-      // confronto, il resto usa il confronto testuale esistente.
+      // Un PATCH in questa codebase rimanda quasi sempre l'intero record
+      // (Object.assign wholesale), non solo i campi realmente toccati —
+      // quindi il confronto deve normalizzare le differenze di
+      // rappresentazione tra "prima" (idratato da mysql2/TypeORM) e "dopo"
+      // (DTO dal client) che non sono cambi di valore reali: istanze Date vs
+      // stringa ISO, null/undefined/'' equivalenti a "vuoto", stringhe
+      // numeriche decimal ("0.00") vs number (0). Vedi toComparableValue.
       if (BaseService.toComparableValue(oldValue) === BaseService.toComparableValue(newValue)) continue;
 
       const resolver = this.auditLabelResolvers?.[key];
@@ -307,6 +307,21 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
   }
 
   private static toComparableValue(value: unknown): string {
-    return value instanceof Date ? value.toISOString() : String(value);
+    if (value instanceof Date) return value.toISOString();
+    // null/undefined/stringa vuota sono "vuoto" per un form Angular (un
+    // input di testo non compilato manda '', non null) — vanno trattati come
+    // equivalenti, altrimenti un PATCH che rimanda l'intero record genera un
+    // diff spurio NULL -> '' su ogni campo di testo mai valorizzato (bug
+    // reale osservato in produzione su un'utenza: 10 campi mai toccati
+    // dall'utente finiti nel diff).
+    if (value === null || value === undefined || value === '') return '';
+    // Colonne `decimal`: TypeORM/mysql2 le restituisce come stringa
+    // ("0.00"), mentre il form Angular manda un number (0) — testo grezzo
+    // diverso anche a valore invariato. Se il valore è numerico (number o
+    // stringa numerica), confronta il numero normalizzato invece del testo.
+    if (typeof value === 'number' || (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value)))) {
+      return String(Number(value));
+    }
+    return String(value);
   }
 }

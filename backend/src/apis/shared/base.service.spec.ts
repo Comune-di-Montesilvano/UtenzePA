@@ -227,6 +227,28 @@ describe('BaseService — audit', () => {
     expect(auditLogService.record).not.toHaveBeenCalled();
   });
 
+  it('non registra un diff spurio quando NULL diventa stringa vuota (input di testo non compilato)', async () => {
+    const existing = { id: 1, name: 'Mario', active: null, deleted: false, updated_by_user_id: 9 };
+    repo.findOne.mockResolvedValue(existing);
+    jest.spyOn(service, 'findOne').mockResolvedValue({ ...existing } as any);
+
+    // Un input Angular non compilato manda '', non null — stesso "vuoto" del
+    // valore mai impostato in DB, non un cambio reale.
+    await service.update(1, { name: 'Mario', active: '' } as any, 9);
+
+    expect(auditLogService.record).not.toHaveBeenCalled();
+  });
+
+  it('non registra un diff spurio su un campo decimal invariato (stringa "0.00" da mysql2 vs number 0 dal form)', async () => {
+    const existing = { id: 1, name: 'Mario', active: '0.00', deleted: false, updated_by_user_id: 9 };
+    repo.findOne.mockResolvedValue(existing);
+    jest.spyOn(service, 'findOne').mockResolvedValue({ ...existing } as any);
+
+    await service.update(1, { name: 'Mario', active: 0 } as any, 9);
+
+    expect(auditLogService.record).not.toHaveBeenCalled();
+  });
+
   it('create completa con successo anche se auditLogService.record rigetta (audit best-effort)', async () => {
     const saved = { id: 1, name: 'Mario', deleted: false, updated_by_user_id: 9 };
     repo.save.mockResolvedValueOnce(saved);
