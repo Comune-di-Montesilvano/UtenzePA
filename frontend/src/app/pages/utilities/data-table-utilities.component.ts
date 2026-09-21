@@ -101,7 +101,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
   );
 
   get displayedColumns(): string[] {
-    return ['actions', 'statusBadge', ...this.selectedColumns.map(c => c.field)];
+    return ['actions', ...this.selectedColumns.map(c => c.field)];
   }
 
   compareColumns = (a: IColumnDef, b: IColumnDef): boolean => a?.field === b?.field;
