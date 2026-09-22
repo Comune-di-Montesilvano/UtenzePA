@@ -8,6 +8,7 @@ const mockClient = {
   bind: jest.fn(),
   search: jest.fn(),
   unbind: jest.fn(),
+  on: jest.fn(),
 };
 
 describe('LdapService', () => {
@@ -242,6 +243,24 @@ describe('LdapService', () => {
       await expect(service.authenticate('mario.rossi', 'wrongpass')).rejects.toThrow(
         'Credenziali non valide',
       );
+    });
+
+    it('registra un handler error sul client — un errore di socket non deve propagarsi come eccezione non gestita', async () => {
+      mockClient.bind.mockImplementation((_dn: string, _pw: string, cb: (err: null) => void) =>
+        cb(null),
+      );
+      mockClient.search.mockImplementation(
+        (_base: string, _opts: unknown, cb: (err: Error) => void) =>
+          cb(new Error('search failed')),
+      );
+
+      await expect(service.authenticate('mario.rossi', 'password123')).rejects.toThrow(
+        'Credenziali non valide',
+      );
+
+      expect(mockClient.on).toHaveBeenCalledWith('error', expect.any(Function));
+      const errorHandler = mockClient.on.mock.calls.find((call) => call[0] === 'error')?.[1];
+      expect(() => errorHandler(new Error('socket disconnected'))).not.toThrow();
     });
 
     it('non applica nessun gate se LDAP_REQUIRED_GROUP è vuoto', async () => {

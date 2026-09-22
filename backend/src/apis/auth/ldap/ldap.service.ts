@@ -65,6 +65,15 @@ export class LdapService {
       referrals: false,
     } as any);
 
+    // Senza listener 'error' un problema di socket (connessione TLS caduta,
+    // rete irraggiungibile, ecc.) diventa un'eccezione non gestita a livello
+    // di EventEmitter e fa crashare l'intero processo Node — non solo la
+    // singola richiesta di login. Loggare e basta: il fallimento della
+    // richiesta in corso resta gestito dai reject/throw più sotto.
+    client.on('error', (err) => {
+      this.logger.error(`LDAP client socket error: ${String(err)}`);
+    });
+
     try {
       await this.bind(client, opts.userDn, opts.password);
       const entry = await this.searchUser(client, opts.baseDn, opts.username);
