@@ -112,6 +112,21 @@ describe('AuthService', () => {
       expect(result?.lastName).toBe('Rossi');
     });
 
+    it('utente esistente con authProvider ldap: valorizza email se assente e AD la restituisce', async () => {
+      const ldapUser = { ...baseUser, authProvider: AuthProvider.LDAP, email: null, username: 'mario.rossi' };
+      userRepository.findOne.mockResolvedValue(ldapUser);
+      ldapService.authenticate.mockResolvedValue({
+        username: 'mario.rossi',
+        displayName: 'Mario Rossi',
+        email: 'mario.rossi@comune.montesilvano.pe.it',
+      });
+      userRepository.save.mockImplementation(async (u) => u);
+
+      const result = await service.validateUser('mario.rossi', 'password-ad');
+
+      expect(result?.email).toBe('mario.rossi@comune.montesilvano.pe.it');
+    });
+
     it('utente esistente con authProvider ldap: credenziali AD rifiutate → null', async () => {
       const ldapUser = { ...baseUser, authProvider: AuthProvider.LDAP, passwordHash: null };
       userRepository.findOne.mockResolvedValue(ldapUser);
@@ -136,7 +151,8 @@ describe('AuthService', () => {
 
       expect(userRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          email: 'nuovo.utente@comune.it',
+          username: 'nuovo.utente@comune.it',
+          email: null,
           firstName: 'Nuovo',
           lastName: 'Utente',
           role: UserRole.LETTORE,
@@ -145,6 +161,43 @@ describe('AuthService', () => {
         }),
       );
       expect(result).toMatchObject({ id: 99, role: UserRole.LETTORE });
+    });
+
+    it('auto-provisioning: valorizza email se restituita da AD', async () => {
+      userRepository.findOne.mockResolvedValue(null);
+      ldapService.isConfigured.mockReturnValue(true);
+      ldapService.authenticate.mockResolvedValue({
+        username: 'nuovo.utente',
+        displayName: 'Nuovo Utente',
+        email: 'nuovo.utente@comune.montesilvano.pe.it',
+      });
+      userRepository.save.mockImplementation(async (u) => ({ id: 100, ...u }));
+
+      await service.validateUser('nuovo.utente', 'password-ad');
+
+      expect(userRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          username: 'nuovo.utente',
+          email: 'nuovo.utente@comune.montesilvano.pe.it',
+        }),
+      );
+    });
+
+    it('auto-provisioning: nessuna riga duplicata se AD restituisce email di un account già esistente', async () => {
+      userRepository.findOne
+        .mockResolvedValueOnce(null) // lookup iniziale per identifier
+        .mockResolvedValueOnce({ ...baseUser, id: 7, role: UserRole.ADMIN }); // email già esistente
+      ldapService.isConfigured.mockReturnValue(true);
+      ldapService.authenticate.mockResolvedValue({
+        username: 'mirko.daddiego',
+        displayName: 'Mirko Daddiego',
+        email: baseUser.email,
+      });
+
+      const result = await service.validateUser('mirko.daddiego', 'password-ad');
+
+      expect(result).toBeNull();
+      expect(userRepository.create).not.toHaveBeenCalled();
     });
 
     it('utente non esistente + LDAP configurato + credenziali rifiutate: nessuna riga creata', async () => {

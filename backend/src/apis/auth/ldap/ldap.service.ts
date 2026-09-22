@@ -4,6 +4,7 @@ import * as ldapjs from 'ldapjs';
 export interface LdapUser {
   username: string;
   displayName: string;
+  email?: string;
 }
 
 @Injectable()
@@ -115,9 +116,12 @@ export class LdapService {
         entry['cn'] ??
         opts.username;
 
+      const mail = entry['mail'];
+
       return {
         username: opts.username,
         displayName: String(rawDisplayName),
+        email: mail ? String(Array.isArray(mail) ? mail[0] : mail) : undefined,
       };
     } catch (error) {
       if (error instanceof UnauthorizedException) throw error;

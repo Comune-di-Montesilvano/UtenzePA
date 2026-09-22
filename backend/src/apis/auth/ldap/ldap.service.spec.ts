@@ -84,6 +84,77 @@ describe('LdapService', () => {
       expect(result.displayName).toBe('Mario Rossi');
     });
 
+    it('include email quando AD restituisce l\'attributo mail', async () => {
+      mockClient.bind.mockImplementation((_dn: string, _pw: string, cb: (err: null) => void) =>
+        cb(null),
+      );
+
+      const mockSearchRes = {
+        on: jest.fn().mockImplementation(function (
+          this: typeof mockSearchRes,
+          event: string,
+          cb: (...args: unknown[]) => void,
+        ) {
+          if (event === 'searchEntry') {
+            cb({
+              object: {
+                sAMAccountName: 'mario.rossi',
+                displayName: 'Mario Rossi',
+                mail: 'mario.rossi@comune.montesilvano.pe.it',
+                memberOf: ['CN=UTENZEPA_LETTORI,OU=Groups,DC=test,DC=local'],
+              },
+            });
+          }
+          if (event === 'end') cb({ status: 0 });
+          return this;
+        }),
+      };
+
+      mockClient.search.mockImplementation(
+        (_base: string, _opts: unknown, cb: (err: null, res: typeof mockSearchRes) => void) =>
+          cb(null, mockSearchRes),
+      );
+
+      const result = await service.authenticate('mario.rossi', 'password123');
+
+      expect(result.email).toBe('mario.rossi@comune.montesilvano.pe.it');
+    });
+
+    it('email assente se AD non restituisce l\'attributo mail', async () => {
+      mockClient.bind.mockImplementation((_dn: string, _pw: string, cb: (err: null) => void) =>
+        cb(null),
+      );
+
+      const mockSearchRes = {
+        on: jest.fn().mockImplementation(function (
+          this: typeof mockSearchRes,
+          event: string,
+          cb: (...args: unknown[]) => void,
+        ) {
+          if (event === 'searchEntry') {
+            cb({
+              object: {
+                sAMAccountName: 'mario.rossi',
+                displayName: 'Mario Rossi',
+                memberOf: ['CN=UTENZEPA_LETTORI,OU=Groups,DC=test,DC=local'],
+              },
+            });
+          }
+          if (event === 'end') cb({ status: 0 });
+          return this;
+        }),
+      };
+
+      mockClient.search.mockImplementation(
+        (_base: string, _opts: unknown, cb: (err: null, res: typeof mockSearchRes) => void) =>
+          cb(null, mockSearchRes),
+      );
+
+      const result = await service.authenticate('mario.rossi', 'password123');
+
+      expect(result.email).toBeUndefined();
+    });
+
     it('autentica utente membro ricorsivo del gruppo richiesto', async () => {
       mockClient.bind.mockImplementation((_dn: string, _pw: string, cb: (err: null) => void) =>
         cb(null),

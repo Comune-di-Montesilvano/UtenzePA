@@ -1,7 +1,9 @@
-import { IsEmail, IsNotEmpty } from 'class-validator';
+import { IsNotEmpty } from 'class-validator';
 
 export class LoginDto {
-  @IsEmail({}, { message: 'Email non valida' })
+  // Email per utenti locali, username AD (nome.cognome) per utenti LDAP —
+  // stesso campo per non introdurre due form/flussi di login distinti.
+  @IsNotEmpty({ message: 'Username obbligatorio' })
   email: string;
 
   @IsNotEmpty({ message: 'Password obbligatoria' })
