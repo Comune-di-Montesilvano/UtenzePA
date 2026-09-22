@@ -118,7 +118,7 @@
     "@types/nodemailer": "^7.0.2",
     "@types/supertest": "^7.2.1",
     "@typescript-eslint/eslint-plugin": "^8.68.0",
-    "@typescript-eslint/parser": "^8.68.0",
+    "@typescript-eslint/parser": "^8.70.0",
     "artillery": "^2.0.26",
     "cross-env": "^10.1.0",
     "depcheck": "^1.4.7",
