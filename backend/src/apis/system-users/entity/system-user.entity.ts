@@ -13,6 +13,7 @@ import { AuthProvider, UserRole, UserStatus } from '../../shared/enum/user.enums
 
 @Entity('system_users')
 @Index('UK_email', ['email'], { unique: true })
+@Index('UK_username', ['username'], { unique: true })
 export class SystemUser {
   @PrimaryGeneratedColumn('increment')
   id: number;
@@ -23,8 +24,13 @@ export class SystemUser {
   @Column({ length: 50, name: 'last_name', nullable: false })
   lastName: string;
 
-  @Column({ length: 255, nullable: false })
-  email: string;
+  @Column({ length: 255, nullable: true })
+  email: string | null;
+
+  // Identificativo AD (nome.cognome / sAMAccountName) per utenti authProvider=ldap.
+  // Null per utenti locali (Admin/Operatore), che si identificano solo via email.
+  @Column({ length: 255, nullable: true })
+  username: string | null;
 
   @Column({ length: 255, select: false, name: 'password_hash', nullable: true })
   passwordHash: string | null;

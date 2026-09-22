@@ -8,6 +8,7 @@ const mockClient = {
   bind: jest.fn(),
   search: jest.fn(),
   unbind: jest.fn(),
+  on: jest.fn(),
 };
 
 describe('LdapService', () => {
@@ -82,6 +83,77 @@ describe('LdapService', () => {
 
       expect(result.username).toBe('mario.rossi');
       expect(result.displayName).toBe('Mario Rossi');
+    });
+
+    it('include email quando AD restituisce l\'attributo mail', async () => {
+      mockClient.bind.mockImplementation((_dn: string, _pw: string, cb: (err: null) => void) =>
+        cb(null),
+      );
+
+      const mockSearchRes = {
+        on: jest.fn().mockImplementation(function (
+          this: typeof mockSearchRes,
+          event: string,
+          cb: (...args: unknown[]) => void,
+        ) {
+          if (event === 'searchEntry') {
+            cb({
+              object: {
+                sAMAccountName: 'mario.rossi',
+                displayName: 'Mario Rossi',
+                mail: 'mario.rossi@comune.montesilvano.pe.it',
+                memberOf: ['CN=UTENZEPA_LETTORI,OU=Groups,DC=test,DC=local'],
+              },
+            });
+          }
+          if (event === 'end') cb({ status: 0 });
+          return this;
+        }),
+      };
+
+      mockClient.search.mockImplementation(
+        (_base: string, _opts: unknown, cb: (err: null, res: typeof mockSearchRes) => void) =>
+          cb(null, mockSearchRes),
+      );
+
+      const result = await service.authenticate('mario.rossi', 'password123');
+
+      expect(result.email).toBe('mario.rossi@comune.montesilvano.pe.it');
+    });
+
+    it('email assente se AD non restituisce l\'attributo mail', async () => {
+      mockClient.bind.mockImplementation((_dn: string, _pw: string, cb: (err: null) => void) =>
+        cb(null),
+      );
+
+      const mockSearchRes = {
+        on: jest.fn().mockImplementation(function (
+          this: typeof mockSearchRes,
+          event: string,
+          cb: (...args: unknown[]) => void,
+        ) {
+          if (event === 'searchEntry') {
+            cb({
+              object: {
+                sAMAccountName: 'mario.rossi',
+                displayName: 'Mario Rossi',
+                memberOf: ['CN=UTENZEPA_LETTORI,OU=Groups,DC=test,DC=local'],
+              },
+            });
+          }
+          if (event === 'end') cb({ status: 0 });
+          return this;
+        }),
+      };
+
+      mockClient.search.mockImplementation(
+        (_base: string, _opts: unknown, cb: (err: null, res: typeof mockSearchRes) => void) =>
+          cb(null, mockSearchRes),
+      );
+
+      const result = await service.authenticate('mario.rossi', 'password123');
+
+      expect(result.email).toBeUndefined();
     });
 
     it('autentica utente membro ricorsivo del gruppo richiesto', async () => {
@@ -171,6 +243,24 @@ describe('LdapService', () => {
       await expect(service.authenticate('mario.rossi', 'wrongpass')).rejects.toThrow(
         'Credenziali non valide',
       );
+    });
+
+    it('registra un handler error sul client — un errore di socket non deve propagarsi come eccezione non gestita', async () => {
+      mockClient.bind.mockImplementation((_dn: string, _pw: string, cb: (err: null) => void) =>
+        cb(null),
+      );
+      mockClient.search.mockImplementation(
+        (_base: string, _opts: unknown, cb: (err: Error) => void) =>
+          cb(new Error('search failed')),
+      );
+
+      await expect(service.authenticate('mario.rossi', 'password123')).rejects.toThrow(
+        'Credenziali non valide',
+      );
+
+      expect(mockClient.on).toHaveBeenCalledWith('error', expect.any(Function));
+      const errorHandler = mockClient.on.mock.calls.find((call) => call[0] === 'error')?.[1];
+      expect(() => errorHandler(new Error('socket disconnected'))).not.toThrow();
     });
 
     it('non applica nessun gate se LDAP_REQUIRED_GROUP è vuoto', async () => {

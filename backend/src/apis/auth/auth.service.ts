@@ -21,12 +21,14 @@ export class AuthService {
     private readonly ldapService: LdapService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<SystemUser | null> {
+  // identifier: email per utenti locali, username AD (nome.cognome) per utenti LDAP.
+  async validateUser(identifier: string, password: string): Promise<SystemUser | null> {
     const user = await this.userRepository.findOne({
-      where: { email },
+      where: [{ email: identifier }, { username: identifier }],
       select: {
         id: true,
         email: true,
+        username: true,
         firstName: true,
         lastName: true,
         role: true,
@@ -38,7 +40,7 @@ export class AuthService {
 
     if (user) {
       if (user.authProvider === AuthProvider.LDAP) {
-        return this.validateLdapUser(user, email, password);
+        return this.validateLdapUser(user, identifier, password);
       }
       if (user.passwordHash && (await bcrypt.compare(password, user.passwordHash))) {
         return user;
@@ -47,7 +49,7 @@ export class AuthService {
     }
 
     if (this.ldapService.isConfigured()) {
-      return this.provisionLdapUser(email, password);
+      return this.provisionLdapUser(identifier, password);
     }
 
     return null;
@@ -63,19 +65,36 @@ export class AuthService {
       const [firstName, ...rest] = ldapUser.displayName.split(' ');
       user.firstName = firstName || user.firstName;
       user.lastName = rest.join(' ') || user.lastName;
+      if (ldapUser.email && !user.email) {
+        user.email = ldapUser.email;
+      }
       return await this.userRepository.save(user);
     } catch {
       return null;
     }
   }
 
-  private async provisionLdapUser(email: string, password: string): Promise<SystemUser | null> {
+  private async provisionLdapUser(username: string, password: string): Promise<SystemUser | null> {
     try {
-      const ldapUser = await this.ldapService.authenticate(email, password);
+      const ldapUser = await this.ldapService.authenticate(username, password);
+
+      // L'identificativo AD digitato (nome.cognome) può non corrispondere a
+      // nessuna riga esistente per email/username, ma l'email restituita da
+      // AD sì (es. account Admin/Operatore già censito con login locale) —
+      // niente auto-provisioning duplicato in quel caso: l'account esistente
+      // resta sul suo metodo di login originale.
+      if (ldapUser.email) {
+        const existing = await this.userRepository.findOne({
+          where: { email: ldapUser.email },
+        });
+        if (existing) return null;
+      }
+
       const [firstName, ...rest] = ldapUser.displayName.split(' ');
 
       const newUser = this.userRepository.create({
-        email,
+        username,
+        email: ldapUser.email ?? null,
         firstName: firstName || null,
         lastName: rest.join(' ') || ldapUser.displayName,
         role: UserRole.LETTORE,
