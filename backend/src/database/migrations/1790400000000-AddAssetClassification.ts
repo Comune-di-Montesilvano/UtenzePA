@@ -44,27 +44,16 @@ const DEFAULT_FUNCTIONS: Record<string, string> = {
 
 // Tipologie (nature) di default: nome -> icona + funzioni ammesse.
 // Quattro tipologie di una parola, scelte con una regola in ordine fisso
-// per evitare classificazioni diverse dello stesso oggetto:
-// 1) complesso gestito come unità (più edifici, o edifici + aree +
-//    impianti) -> Struttura; 2) edificio chiuso -> Fabbricato;
-// 3) dispositivo/installazione tecnica puntuale -> Impianto;
+// (la prima risposta "sì" decide) per evitare che due operatori
+// classifichino diversamente lo stesso oggetto:
+// 1) edificio chiuso, con muri e tetto, anche piccolo -> Fabbricato;
+// 2) dispositivo o punto di fornitura tecnico -> Impianto;
+// 3) opera costruita non chiusa (tribuna, pensilina, ponte, palco fisso,
+//    gazebo, colombario, monumento) -> Manufatto;
 // 4) altrimenti superficie scoperta -> Area.
+// Un insieme di immobili gestito come un'unica cosa (cimitero, plesso
+// scolastico) non è una tipologia: sarà un raggruppamento separato.
 const DEFAULT_NATURES: { name: string; icon: string; functions: string[] }[] = [
-  {
-    name: 'Struttura',
-    icon: 'domain',
-    functions: [
-      'Istruzione',
-      'Sport',
-      'Cimiteriale',
-      'Cultura ed eventi',
-      'Mercato',
-      'Sociale',
-      'Sicurezza e soccorso',
-      'Trasporto pubblico',
-      'Altro',
-    ],
-  },
   {
     name: 'Fabbricato',
     icon: 'apartment',
@@ -102,6 +91,19 @@ const DEFAULT_NATURES: { name: string; icon: string; functions: string[] }[] = [
       'Irrigazione',
       'Videosorveglianza e antenne',
       'Bike sharing',
+      'Altro',
+    ],
+  },
+  {
+    name: 'Manufatto',
+    icon: 'foundation',
+    functions: [
+      'Sport',
+      'Trasporto pubblico',
+      'Viabilità',
+      'Cultura ed eventi',
+      'Cimiteriale',
+      'Verde e tempo libero',
       'Altro',
     ],
   },
