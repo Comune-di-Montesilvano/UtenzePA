@@ -1,0 +1,43 @@
+<h2 mat-dialog-title>
+  {{ isNew ? 'Nuova natura immobile' : 'Modifica natura immobile: ' + data.item.name }}
+</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-direction: column; gap: 1rem; min-width: 460px;">
+    <mat-form-field>
+      <mat-label>Nome *</mat-label>
+      <input matInput formControlName="name">
+      @if (form.controls.name.invalid && form.controls.name.touched) {
+        <mat-error>Obbligatorio</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Icona</mat-label>
+      <mat-icon matPrefix style="margin-right: 0.5rem;">{{ form.controls.icon.value || iconFallback }}</mat-icon>
+      <input matInput formControlName="icon" [matAutocomplete]="iconAuto" placeholder="Cerca o digita un nome icona...">
+      <button mat-icon-button matSuffix type="button" matTooltip="Cerca in tutto il catalogo Material Icons" (click)="openIconPicker()">
+        <mat-icon>search</mat-icon>
+      </button>
+      <mat-autocomplete #iconAuto="matAutocomplete">
+        @for (opt of filteredIconOptions; track opt.value) {
+          <mat-option [value]="opt.value">
+            <mat-icon style="vertical-align: middle; margin-right: 0.5rem;">{{ opt.value }}</mat-icon>
+            {{ opt.label }}
+          </mat-option>
+        }
+      </mat-autocomplete>
+    </mat-form-field>
+
+    <app-multi-select
+      label="Funzioni ammesse"
+      [options]="functionOptions"
+      formControlName="function_ids">
+    </app-multi-select>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-stroked-button (click)="cancel()">Annulla</button>
+  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">Salva</button>
+</mat-dialog-actions>

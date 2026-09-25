@@ -1,4 +1,4 @@
-import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
+import {ChangeDetectionStrategy, Component, Type} from '@angular/core';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
 import {MatPaginatorModule} from '@angular/material/paginator';
@@ -6,55 +6,54 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
-import {AssetAggregator} from './entity/asset-aggregator.entity';
+import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
-import {AssetAggregatorEditDialogComponent} from './asset-aggregator-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
-import {ASSET_AGGREGATOR_ICON_FALLBACK} from './enum/asset-aggregator-icon.enum';
+import {ASSET_AGGREGATOR_ICON_FALLBACK} from '../asset-aggregator/enum/asset-aggregator-icon.enum';
+import {AssetNature} from './entity/asset-nature.entity';
+import {AssetNatureEditDialogComponent} from './asset-nature-edit-dialog.component';
 
 @Component({
-  selector: 'app-data-table-aggregators',
+  selector: 'app-data-table-asset-nature',
   standalone: true,
   imports: [
-    MatTableModule,
-    MatSortModule,
-    MatPaginatorModule,
-    MatButtonModule,
-    MatIconModule,
-    MatTooltipModule,
-    MatProgressBarModule
+    MatTableModule, MatSortModule, MatPaginatorModule, MatButtonModule, MatIconModule,
+    MatTooltipModule, MatProgressBarModule, HasRoleDirective
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
-  templateUrl: './data-table-asset-aggregator.component.html'
+  templateUrl: './data-table-asset-nature.component.html'
 })
-export class DataTableAggregatorsComponent extends AbstractDataTableComponent<AssetAggregator> {
-
-  displayedColumns = ['actions', 'id', 'icon', 'code', 'description'];
+export class DataTableAssetNatureComponent extends AbstractDataTableComponent<AssetNature> {
+  displayedColumns = ['actions', 'id', 'icon', 'name', 'functions'];
   iconFallback = ASSET_AGGREGATOR_ICON_FALLBACK;
 
   constructor(screen: ScreenSizeService) {
     super(screen);
   }
 
-  override itemInstance(): AssetAggregator {
-    return AssetAggregator.create();
+  functionNames(item: AssetNature): string {
+    return (item.functions ?? []).map(f => f.name).join(', ');
+  }
+
+  override itemInstance(): AssetNature {
+    return AssetNature.create();
   }
 
   override editDialogComponent(): Type<unknown> {
-    return AssetAggregatorEditDialogComponent;
+    return AssetNatureEditDialogComponent;
   }
 
   protected override entityLabel(): string {
-    return 'aggregato immobile';
+    return 'natura immobile';
   }
 
-  override openDeleteDialog(entity: AssetAggregator): void {
+  override openDeleteDialog(entity: AssetNature): void {
     this.dialog.open(ConfirmDialogComponent, {
       width: '350px',
       data: {
-        title: 'Elimina aggregato',
-        message: `Sei sicuro di voler eliminare l'anagrafica dell'aggregato immobili ${entity.code}?`,
+        title: 'Elimina natura',
+        message: `Eliminare la natura immobile ${entity.name}?`,
         confirmLabel: 'Elimina',
         danger: true
       }
@@ -63,14 +62,10 @@ export class DataTableAggregatorsComponent extends AbstractDataTableComponent<As
     });
   }
 
-  override restoreItem(entity: AssetAggregator): void {
+  override restoreItem(entity: AssetNature): void {
     this.dialog.open(ConfirmDialogComponent, {
       width: '350px',
-      data: {
-        title: 'Ripristina aggregato',
-        message: `Riattiva aggregato ${entity.description}?`,
-        confirmLabel: 'Ripristina'
-      }
+      data: {title: 'Ripristina natura', message: `Riattiva la natura ${entity.name}?`, confirmLabel: 'Ripristina'}
     }).afterClosed().subscribe(confirmed => {
       if (confirmed) this.onRestore.emit(entity);
     });

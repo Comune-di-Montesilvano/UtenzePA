@@ -1,4 +1,4 @@
-import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
+import {ChangeDetectionStrategy, Component, Type} from '@angular/core';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
 import {MatPaginatorModule} from '@angular/material/paginator';
@@ -6,55 +6,50 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
-import {AssetAggregator} from './entity/asset-aggregator.entity';
+import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
-import {AssetAggregatorEditDialogComponent} from './asset-aggregator-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
-import {ASSET_AGGREGATOR_ICON_FALLBACK} from './enum/asset-aggregator-icon.enum';
+import {ASSET_AGGREGATOR_ICON_FALLBACK} from '../asset-aggregator/enum/asset-aggregator-icon.enum';
+import {AssetFunction} from './entity/asset-function.entity';
+import {AssetFunctionEditDialogComponent} from './asset-function-edit-dialog.component';
 
 @Component({
-  selector: 'app-data-table-aggregators',
+  selector: 'app-data-table-asset-function',
   standalone: true,
   imports: [
-    MatTableModule,
-    MatSortModule,
-    MatPaginatorModule,
-    MatButtonModule,
-    MatIconModule,
-    MatTooltipModule,
-    MatProgressBarModule
+    MatTableModule, MatSortModule, MatPaginatorModule, MatButtonModule, MatIconModule,
+    MatTooltipModule, MatProgressBarModule, HasRoleDirective
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
-  templateUrl: './data-table-asset-aggregator.component.html'
+  templateUrl: './data-table-asset-function.component.html'
 })
-export class DataTableAggregatorsComponent extends AbstractDataTableComponent<AssetAggregator> {
-
-  displayedColumns = ['actions', 'id', 'icon', 'code', 'description'];
+export class DataTableAssetFunctionComponent extends AbstractDataTableComponent<AssetFunction> {
+  displayedColumns = ['actions', 'id', 'icon', 'name'];
   iconFallback = ASSET_AGGREGATOR_ICON_FALLBACK;
 
   constructor(screen: ScreenSizeService) {
     super(screen);
   }
 
-  override itemInstance(): AssetAggregator {
-    return AssetAggregator.create();
+  override itemInstance(): AssetFunction {
+    return AssetFunction.create();
   }
 
   override editDialogComponent(): Type<unknown> {
-    return AssetAggregatorEditDialogComponent;
+    return AssetFunctionEditDialogComponent;
   }
 
   protected override entityLabel(): string {
-    return 'aggregato immobile';
+    return 'funzione immobile';
   }
 
-  override openDeleteDialog(entity: AssetAggregator): void {
+  override openDeleteDialog(entity: AssetFunction): void {
     this.dialog.open(ConfirmDialogComponent, {
       width: '350px',
       data: {
-        title: 'Elimina aggregato',
-        message: `Sei sicuro di voler eliminare l'anagrafica dell'aggregato immobili ${entity.code}?`,
+        title: 'Elimina funzione',
+        message: `Eliminare la funzione immobile ${entity.name}?`,
         confirmLabel: 'Elimina',
         danger: true
       }
@@ -63,14 +58,10 @@ export class DataTableAggregatorsComponent extends AbstractDataTableComponent<As
     });
   }
 
-  override restoreItem(entity: AssetAggregator): void {
+  override restoreItem(entity: AssetFunction): void {
     this.dialog.open(ConfirmDialogComponent, {
       width: '350px',
-      data: {
-        title: 'Ripristina aggregato',
-        message: `Riattiva aggregato ${entity.description}?`,
-        confirmLabel: 'Ripristina'
-      }
+      data: {title: 'Ripristina funzione', message: `Riattiva la funzione ${entity.name}?`, confirmLabel: 'Ripristina'}
     }).afterClosed().subscribe(confirmed => {
       if (confirmed) this.onRestore.emit(entity);
     });

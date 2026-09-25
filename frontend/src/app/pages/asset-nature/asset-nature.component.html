@@ -1,13 +1,13 @@
 <div style="padding: 1rem;">
   <div>
-    <h1>Aggregati Immobili</h1>
-    <p style="color: #6A7282;">Classificazione precedente, in sola lettura. Usare Nature e Funzioni Immobili.</p>
+    <h1>Nature Immobili</h1>
+    <p style="color: #6A7282;">Cosa è fisicamente un immobile (Fabbricato, Area, Impianto…) e quali funzioni ammette.</p>
   </div>
   <div style="margin-top: 1rem;">
-    <app-search-aggregators (search)="onSearch($event)"></app-search-aggregators>
+    <app-search-asset-nature (search)="onSearch($event)"></app-search-asset-nature>
   </div>
   <div style="margin-top: 1.5rem;">
-    <app-data-table-aggregators
+    <app-data-table-asset-nature
       [data]="list"
       [loading]="loading"
       (onSave)="onSave($event)"
@@ -15,6 +15,6 @@
       (onCreate)="onCreate($event)"
       (onRestore)="onRestore($event)"
       [resetPagingTrigger]="resetPagingCount"
-    ></app-data-table-aggregators>
+    ></app-data-table-asset-nature>
   </div>
 </div>

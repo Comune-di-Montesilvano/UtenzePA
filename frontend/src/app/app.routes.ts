@@ -6,6 +6,8 @@ import {SystemUsersComponent} from "./pages/system-users/system-users.component"
 import {UtilityTypesComponent} from "./pages/utility-types/utility-types.component";
 import {SuppliersComponent} from "./pages/suppliers/suppliers.component";
 import {AssetAggregatorsComponent} from "./pages/asset-aggregator/asset-aggregator.component";
+import {AssetNatureComponent} from './pages/asset-nature/asset-nature.component';
+import {AssetFunctionComponent} from './pages/asset-function/asset-function.component';
 import {UtilityAggregatorsComponent} from "./pages/utility-aggregator/utility-aggregators.component";
 import {BudgetChaptersComponent} from "./pages/budget-chapters/budget-chapters.component";
 import {AssetsComponent} from "./pages/assets/assets.component";
@@ -40,6 +42,8 @@ export const routes: Routes = [
       {path: 'utility-types', component: UtilityTypesComponent},
       {path: 'suppliers', component: SuppliersComponent},
       {path: 'asset-aggregator', component: AssetAggregatorsComponent},
+      {path: 'asset-nature', component: AssetNatureComponent},
+      {path: 'asset-function', component: AssetFunctionComponent},
       {path: 'utility-aggregator', component: UtilityAggregatorsComponent},
       {path: 'budget-chapter', component: BudgetChaptersComponent},
       {path: 'building', component: AssetsComponent},
