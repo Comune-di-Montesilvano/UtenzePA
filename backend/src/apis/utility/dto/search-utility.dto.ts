@@ -134,10 +134,11 @@ export class SearchUtilityDto {
   @IsInt()
   maintenance_management_id_fk?: number;
 
+  // Utenze collegate a questo immobile (tra gli altri eventuali).
   @IsOptional()
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))
   @IsInt()
-  asset_id_fk?: number;
+  asset_id?: number;
 
   @IsOptional()
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))

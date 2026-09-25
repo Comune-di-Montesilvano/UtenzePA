@@ -4,6 +4,7 @@ import {
   Entity,
   Index,
   JoinColumn,
+  JoinTable,
   ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -126,9 +127,6 @@ export class Utility {
   @JoinColumn({ name: 'costs_borne_by_id_fk' })
   costsBorneBy: CostsBorneBy;
 
-  @Column({ type: 'int' })
-  asset_id_fk: number;
-
   @Column({ type: 'int', nullable: true })
   maintenance_management_id_fk: number;
 
@@ -142,9 +140,16 @@ export class Utility {
   @JoinColumn({ name: 'utility_type_id_fk', referencedColumnName: 'id' })
   utilityType: UtilityType;
 
-  @ManyToOne(() => Asset, (asset) => asset.utilities)
-  @JoinColumn({ name: 'asset_id_fk', referencedColumnName: 'id' })
-  asset: Asset;
+  // Immobili serviti da questa utenza (N:N, collegamento informativo — la
+  // contabilità resta sul capitolo di spesa della fattura, nessuna
+  // ripartizione costi). Tabella ponte utility_assets.
+  @ManyToMany(() => Asset, (asset) => asset.utilities)
+  @JoinTable({
+    name: 'utility_assets',
+    joinColumn: { name: 'utility_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'asset_id', referencedColumnName: 'id' },
+  })
+  assets: Asset[];
 
   @ManyToOne(() => UtilityAggregator, (aggregator) => aggregator.utilities)
   @JoinColumn({ name: 'aggregator_id_fk', referencedColumnName: 'id' })

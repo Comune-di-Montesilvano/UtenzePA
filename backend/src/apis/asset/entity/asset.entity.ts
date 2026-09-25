@@ -4,6 +4,7 @@ import {
   Entity,
   Index,
   JoinColumn,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -128,7 +129,7 @@ export class Asset {
   @JoinColumn({ name: 'updated_by_user_id' })
   updated_by: SystemUser;
 
-  @OneToMany(() => Utility, (utility) => utility.asset)
+  @ManyToMany(() => Utility, (utility) => utility.assets)
   utilities: Utility[];
 
   @OneToMany(() => UtilizerGrant, (utilizerGrant) => utilizerGrant.asset)

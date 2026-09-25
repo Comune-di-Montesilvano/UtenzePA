@@ -68,14 +68,14 @@ export class MapService {
     // filtro aggregato — qui serve il solo filtro tipo, sull'intero parco).
     // In([]) su MySQL/TypeORM genera "IN ()" non valido — [-1] sentinella
     // forza zero risultati quando nessuna utenza corrisponde, invece di
-    // omettere per errore il filtro (asset_id_fk non è mai negativo).
+    // omettere per errore il filtro (un id immobile non è mai negativo).
     let qualifyingAssetIds: number[] | null = null;
     if (filters.utilityTypeIds?.length) {
       const rows = await this.utilityRepo.find({
         where: { deleted: false, utility_type_id_fk: In(filters.utilityTypeIds) },
-        select: { asset_id_fk: true },
+        relations: { assets: true },
       });
-      qualifyingAssetIds = [...new Set(rows.map((r) => r.asset_id_fk))];
+      qualifyingAssetIds = [...new Set(rows.flatMap((r) => (r.assets ?? []).map((a) => a.id)))];
     }
 
     if (showAssets) {
@@ -121,10 +121,10 @@ export class MapService {
           // l'asset collegato) — altrimenti col checkbox "Contatori" attivo i
           // contatori restano sempre tutti visibili, filtro senza effetto visibile.
           ...(filters.assetAggregatorIds?.length
-            ? { asset: { asset_type_id: In(filters.assetAggregatorIds) } }
+            ? { assets: { asset_type_id: In(filters.assetAggregatorIds) } }
             : {}),
         },
-        relations: { asset: true, utilityType: true },
+        relations: { assets: true, utilityType: true },
       });
 
       for (const utility of utilities) {
@@ -134,19 +134,19 @@ export class MapService {
             id: utility.id,
             type: 'utility',
             name: utility.utility_id,
-            address: utility.asset?.address ?? null,
+            address: utility.assets?.[0]?.address ?? null,
             lat: position.lat,
             lng: position.lng,
             source: position.source,
             hardType: utility.utilityType?.hard_type,
-            assetId: utility.asset?.id ?? null,
+            assetId: utility.assets?.[0]?.id ?? null,
           });
         } else {
           ungeolocated.push({
             id: utility.id,
             type: 'utility',
             name: utility.utility_id,
-            reason: isSet(utility.asset?.address) ? 'geocode_failed' : 'no_address',
+            reason: isSet(utility.assets?.[0]?.address) ? 'geocode_failed' : 'no_address',
           });
         }
       }
@@ -169,6 +169,7 @@ export class MapService {
     if (isSet(utility.latitude) && isSet(utility.longitude)) {
       return { lat: utility.latitude, lng: utility.longitude, source: 'gps' };
     }
-    return utility.asset ? this.resolveAssetPosition(utility.asset) : null;
+    const asset = utility.assets?.[0];
+    return asset ? this.resolveAssetPosition(asset) : null;
   }
 }

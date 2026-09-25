@@ -659,7 +659,7 @@ export class DataImporterService {
       }
 
       const assetRaw = row['id_fabbricato']?.trim().toLowerCase();
-      const asset_id_fk = assetRaw ? (assetMap.get(assetRaw) ?? null) : null;
+      const importedAssetId = assetRaw ? (assetMap.get(assetRaw) ?? null) : null;
 
       const budgetChapterRaw = row['capitolo spesa']?.trim().toLowerCase();
       const budget_chapter_code_fk = budgetChapterRaw
@@ -731,7 +731,8 @@ export class DataImporterService {
         estimated_annual_consumption: parseDecimal(row['consumo annuo presunto DA FATTURA']) ?? 0,
         notes: row['NOTE UTENZE']?.trim() || null,
         additional_notes: row['NOTE AGGIUNTIVE UTENZE']?.trim() || null,
-        asset_id_fk,
+        // Fonte Access: un solo fabbricato per utenza.
+        assets: importedAssetId ? [{ id: importedAssetId } as Asset] : [],
         specifications: row['specifiche']?.trim() || null,
         disconnection_ability: row['disalimentabilIt\u00e0 UTENZA']?.trim() || null,
         meter_verified,

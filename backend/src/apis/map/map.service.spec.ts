@@ -64,7 +64,7 @@ describe('MapService', () => {
   it('una utility con gps proprio produce un punto indipendente', async () => {
     assetRepo.find.mockResolvedValue([]);
     utilityRepo.find.mockResolvedValue([
-      { id: 10, utility_id: 'UT-1', latitude: '42.9', longitude: '14.9', asset: { id: 1, asset_name: 'Scuola A', latitude: null, longitude: null, geocoded_latitude: null, geocoded_longitude: null } },
+      { id: 10, utility_id: 'UT-1', latitude: '42.9', longitude: '14.9', assets: [{ id: 1, asset_name: 'Scuola A', latitude: null, longitude: null, geocoded_latitude: null, geocoded_longitude: null }] },
     ]);
 
     const { points } = await service.getPoints({});
@@ -77,7 +77,7 @@ describe('MapService', () => {
   it('una utility senza gps eredita la posizione (reale) dell\'asset collegato', async () => {
     assetRepo.find.mockResolvedValue([]);
     utilityRepo.find.mockResolvedValue([
-      { id: 11, utility_id: 'UT-2', latitude: null, longitude: null, asset: { id: 1, asset_name: 'Scuola A', address: 'Via Roma 1', latitude: '42.5', longitude: '14.1', geocoded_latitude: null, geocoded_longitude: null } },
+      { id: 11, utility_id: 'UT-2', latitude: null, longitude: null, assets: [{ id: 1, asset_name: 'Scuola A', address: 'Via Roma 1', latitude: '42.5', longitude: '14.1', geocoded_latitude: null, geocoded_longitude: null }] },
     ]);
 
     const { points } = await service.getPoints({});
@@ -90,7 +90,7 @@ describe('MapService', () => {
   it('una utility senza gps il cui asset non ha posizione finisce in ungeolocated ereditando la reason', async () => {
     assetRepo.find.mockResolvedValue([]);
     utilityRepo.find.mockResolvedValue([
-      { id: 12, utility_id: 'UT-3', latitude: null, longitude: null, asset: { id: 1, asset_name: 'Scuola A', address: null, latitude: null, longitude: null, geocoded_latitude: null, geocoded_longitude: null } },
+      { id: 12, utility_id: 'UT-3', latitude: null, longitude: null, assets: [{ id: 1, asset_name: 'Scuola A', address: null, latitude: null, longitude: null, geocoded_latitude: null, geocoded_longitude: null }] },
     ]);
 
     const { points, ungeolocated } = await service.getPoints({});
@@ -118,7 +118,7 @@ describe('MapService', () => {
 
     expect(utilityRepo.find).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ asset: { asset_type_id: In([3, 4]) } }),
+        where: expect.objectContaining({ assets: { asset_type_id: In([3, 4]) } }),
       }),
     );
   });
@@ -126,7 +126,7 @@ describe('MapService', () => {
   it('utilityTypeIds filtra anche gli IMMOBILI, non solo le utenze — solo asset con almeno una utenza del tipo', async () => {
     utilityRepo.find
       // Prima chiamata: query dedicata id-immobili-qualificanti.
-      .mockResolvedValueOnce([{ asset_id_fk: 7 }, { asset_id_fk: 7 }, { asset_id_fk: 9 }])
+      .mockResolvedValueOnce([{ assets: [{ id: 7 }] }, { assets: [{ id: 7 }] }, { assets: [{ id: 9 }] }])
       // Seconda chiamata: utenze per i punti mappa (stesso filtro, irrilevante qui).
       .mockResolvedValueOnce([]);
     assetRepo.find.mockResolvedValue([]);
