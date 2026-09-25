@@ -32,8 +32,11 @@
       </mat-form-field>
 
       <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Natura{{ mustClassify ? ' *' : '' }}</mat-label>
+        <mat-label>Natura</mat-label>
         <mat-select formControlName="nature_id">
+          <!-- Trigger esplicito: senza, la select chiusa mostrerebbe il testo
+               completo dell'opzione, ligatura icona inclusa ("apartmentFabbricato"). -->
+          <mat-select-trigger>{{ selectedNature()?.name }}</mat-select-trigger>
           <mat-option [value]="null">—</mat-option>
           @for (opt of natures; track opt.id) {
             <mat-option [value]="opt.id">
@@ -47,8 +50,9 @@
       </mat-form-field>
 
       <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Funzione{{ mustClassify ? ' *' : '' }}</mat-label>
+        <mat-label>Funzione</mat-label>
         <mat-select formControlName="function_id">
+          <mat-select-trigger>{{ selectedFunction()?.name }}</mat-select-trigger>
           <mat-option [value]="null">—</mat-option>
           @for (opt of functionOptions(); track opt.id) {
             <mat-option [value]="opt.id">
@@ -65,7 +69,7 @@
       </mat-form-field>
 
       <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Stato *</mat-label>
+        <mat-label>Stato</mat-label>
         <mat-select formControlName="status">
           @for (opt of statusOptions; track opt.value) {
             <mat-option [value]="opt.value">{{ opt.label }}</mat-option>

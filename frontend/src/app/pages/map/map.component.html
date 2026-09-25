@@ -37,7 +37,7 @@
     </app-multi-select>
 
     <div class="map-legend">
-      <div><span class="map-pin" style="background:#37474f"><span class="material-icons">apartment</span></span> Immobile (icona varia per aggregato)</div>
+      <div><span class="map-pin" style="background:#37474f"><span class="material-icons">apartment</span></span> Immobile (icona varia per funzione)</div>
       @for (t of hardTypeLegend; track t.value) {
         <div><span class="map-pin" [style.background]="t.color"><i [class]="t.icon"></i></span> {{ t.label }}</div>
       }

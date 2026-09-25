@@ -72,13 +72,39 @@
     <td mat-cell *matCellDef="let item">{{ item.asset_name }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="assetAggregator.description">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Tipo immobile</th>
+  <ng-container matColumnDef="assetNature.name">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Natura</th>
     <td mat-cell *matCellDef="let item">
-      @if (item.assetAggregator?.description) {
-        <span [matTooltip]="item.assetAggregator.description">
-          {{ item.assetAggregator.description | truncate: maxDescLength }}
+      @if (item.assetNature) {
+        <span style="display: inline-flex; align-items: center; gap: 4px;">
+          <mat-icon style="font-size: 18px; height: 18px; width: 18px;">{{ item.assetNature.icon || 'category' }}</mat-icon>{{ item.assetNature.name }}
         </span>
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="assetFunction.name">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Funzione</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.assetFunction) {
+        <span style="display: inline-flex; align-items: center; gap: 4px;">
+          <mat-icon style="font-size: 18px; height: 18px; width: 18px;">{{ item.assetFunction.icon || 'apartment' }}</mat-icon>{{ item.assetFunction.name }}
+        </span>
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="status">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Stato</th>
+    <td mat-cell *matCellDef="let item">{{ item.status }}</td>
+  </ng-container>
+
+  <!-- Vecchio "tipo immobile" (sola lettura): code, mai description (nota libera quasi sempre vuota). -->
+  <ng-container matColumnDef="assetAggregator.code">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Tipo precedente</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.asset_type_id != null && item.assetAggregator?.code) {
+        {{ item.assetAggregator.code }}
       }
     </td>
   </ng-container>

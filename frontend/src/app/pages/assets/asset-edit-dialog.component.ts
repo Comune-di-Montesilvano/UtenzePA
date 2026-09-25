@@ -210,6 +210,14 @@ export class AssetEditDialogComponent implements OnInit {
     return nature?.functions ?? [];
   }
 
+  selectedNature(): AssetNature | undefined {
+    return this.natures.find(n => n.id === this.form.controls.nature_id.value);
+  }
+
+  selectedFunction(): AssetFunction | undefined {
+    return this.allFunctions.find(f => f.id === this.form.controls.function_id.value);
+  }
+
   // Badge header: vecchio tipo ancora valorizzato = immobile da riclassificare.
   legacyTypeLabel(): string | null {
     return this.data.item.asset_type_id != null ? (this.data.item.assetAggregator?.code ?? null) : null;

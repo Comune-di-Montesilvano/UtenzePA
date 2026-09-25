@@ -28,8 +28,12 @@ import {TOption} from '../types/option.interface';
         <div class="multi-select-search" (click)="$event.stopPropagation()">
           <input matInput type="text" placeholder="Cerca..." [formControl]="filterControl" (keydown)="$event.stopPropagation()">
         </div>
-        @for (opt of filteredOptions; track opt.value) {
-          <mat-option [value]="opt.value">
+        <!-- Tutte le opzioni restano nel DOM, quelle escluse dal filtro sono
+             solo nascoste: mat-select multiple ricalcola il valore dalle
+             mat-option presenti, rimuoverle dal DOM faceva perdere le
+             selezioni non visibili al primo clic dopo aver filtrato. -->
+        @for (opt of options; track opt.value) {
+          <mat-option [value]="opt.value" [class.multi-select-filtered-out]="!isVisible(opt)">
             @if (opt.icon && isFaIcon(opt.icon)) {
               <i [class]="opt.icon" style="width: 18px; display: inline-block; text-align: center; margin-right: 4px;"></i>
             } @else if (opt.icon) {
@@ -45,6 +49,9 @@ import {TOption} from '../types/option.interface';
     </mat-form-field>
   `,
   styles: [`
+    .multi-select-filtered-out {
+      display: none;
+    }
     .multi-select-search {
       padding: 8px;
       position: sticky;
@@ -86,7 +93,7 @@ export class MultiSelectComponent implements ControlValueAccessor {
 
   private _options: TOption[] = [];
 
-  filteredOptions: TOption[] = [];
+  private visibleValues = new Set<TOption['value']>();
   filterControl = new FormControl('', {nonNullable: true});
   selectControl = new FormControl<TOption['value'][]>([], {nonNullable: true});
 
@@ -100,7 +107,13 @@ export class MultiSelectComponent implements ControlValueAccessor {
 
   private applyFilter(term: string): void {
     const t = (term ?? '').toLowerCase();
-    this.filteredOptions = this._options.filter(o => o.label.toLowerCase().includes(t));
+    this.visibleValues = new Set(
+      this._options.filter(o => o.label.toLowerCase().includes(t)).map(o => o.value)
+    );
+  }
+
+  isVisible(opt: TOption): boolean {
+    return this.visibleValues.has(opt.value);
   }
 
   // Reset del filtro alla chiusura del pannello — evita che, riaprendolo,
