@@ -283,12 +283,26 @@ export class AssetEditDialogComponent implements OnInit {
     // GET singolo dell'utenza (findOne joina gli immobili) prima di aprire.
     this.utilityService.getById(utility.id).subscribe({
       next: full => {
-        this.dialog.open(UtilityEditDialogComponent, {
+        this.dialog.open<UtilityEditDialogComponent, {mode: 'edit'; item: Utility}, Utility | undefined>(UtilityEditDialogComponent, {
           width: UTILITY_DIALOG_WIDTH,
           maxWidth: UTILITY_DIALOG_WIDTH,
           position: EDIT_DIALOG_POSITION,
           data: {mode: 'edit', item: full},
-        });
+        })
+          // Il dialog si limita a chiudersi col form compilato: il
+          // salvataggio va fatto qui (stesso pattern di MapComponent.openDetail),
+          // altrimenti "Salva" chiudeva senza persistere nulla.
+          .afterClosed().subscribe(result => {
+            if (!result) return;
+            this.utilityService.update(result.id, result).subscribe({
+              next: saved => {
+                const stillLinked = saved.assets?.some(a => a.id === this.data.item.id) ?? true;
+                const others = (this.data.item.utilities ?? []).filter(u => u.id !== saved.id);
+                this.data.item.utilities = stillLinked ? [...others, saved] : others;
+              },
+              error: err => console.error("Errore nel salvataggio dell'utenza:", err)
+            });
+          });
       },
       error: err => console.error("Errore nel caricamento dell'utenza:", err)
     });

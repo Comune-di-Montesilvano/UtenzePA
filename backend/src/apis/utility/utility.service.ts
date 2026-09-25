@@ -525,12 +525,40 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     if (assets !== undefined) {
       // repo.findOne diretto (non this.findOne, che proietta i campi del
       // contratto corrente — vedi remove()).
-      const entity = await this.repo.findOne({ where: { id } as never });
+      const entity = await this.repo.findOne({ where: { id } as never, relations: { assets: true } });
+      const before = [...(entity.assets ?? [])];
       entity.assets = assets;
       await this.repo.save(entity);
+      // asset_ids esce dal DTO prima di super.update, quindi BaseService non
+      // lo vede nel diff: audit esplicito del cambio immobili collegati.
+      await this.recordAssetsChange(id, before, assets, userId ?? entity.updated_by_user_id);
     }
 
     return this.findOne(id);
+  }
+
+  private async recordAssetsChange(
+    id: number,
+    before: Asset[],
+    after: Asset[],
+    userId: number | undefined,
+  ): Promise<void> {
+    const ids = (list: Asset[]) => list.map((a) => a.id).sort((x, y) => x - y);
+    const oldIds = ids(before);
+    const newIds = ids(after);
+    if (oldIds.join(',') === newIds.join(',')) return;
+    const newAssets = await this.assetRepo.find({ where: { id: In(newIds) } });
+    const names = (list: Asset[], order: number[]) =>
+      order.map((assetId) => list.find((a) => a.id === assetId)?.asset_name ?? `#${assetId}`).join(', ');
+    await this.recordAudit(AuditAction.UPDATE, id, userId, [
+      {
+        fieldName: 'asset_ids',
+        oldValue: oldIds.join(','),
+        newValue: newIds.join(','),
+        oldLabel: names(before, oldIds),
+        newLabel: names(newAssets, newIds),
+      },
+    ]);
   }
 
   // Deduplica e verifica che ogni immobile esista e non sia cancellato,

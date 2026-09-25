@@ -38,7 +38,7 @@ describe('UtilitiesService', () => {
     getOne: jest.Mock;
   };
   let contractRepo: { find: jest.Mock };
-  let assetRepo: { count: jest.Mock };
+  let assetRepo: { count: jest.Mock; find: jest.Mock };
 
   beforeEach(() => {
     qb = {
@@ -66,7 +66,7 @@ describe('UtilitiesService', () => {
         getRepository: jest.fn().mockReturnValue(contractRepo),
       },
     };
-    assetRepo = { count: jest.fn().mockResolvedValue(1) };
+    assetRepo = { count: jest.fn().mockResolvedValue(1), find: jest.fn().mockResolvedValue([]) };
     service = new UtilitiesService(repo as never, assetRepo as never);
   });
 
@@ -558,6 +558,59 @@ describe('UtilitiesService', () => {
 
       expect(repo.save).toHaveBeenLastCalledWith(
         expect.objectContaining({ id: 10, assets: [{ id: 5 }] }),
+      );
+    });
+
+    it('update che cambia gli immobili collegati registra la modifica in audit log', async () => {
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+      assetRepo.count.mockResolvedValue(1);
+      assetRepo.find.mockResolvedValue([{ id: 5, asset_name: 'Scuola B' }]);
+      repo.findOne.mockResolvedValue({
+        id: 10,
+        utility_id: 'U1',
+        deleted: false,
+        assets: [{ id: 3, asset_name: 'Scuola A' }],
+      });
+
+      await service.update(10, { asset_ids: [5] } as never, 1);
+
+      expect(auditLogService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entityName: 'utilities',
+          entityId: 10,
+          action: 'UPDATE',
+          userId: 1,
+          fields: [
+            {
+              fieldName: 'asset_ids',
+              oldValue: '3',
+              newValue: '5',
+              oldLabel: 'Scuola A',
+              newLabel: 'Scuola B',
+            },
+          ],
+        }),
+      );
+    });
+
+    it('update con gli stessi immobili (ordine diverso) non registra audit sugli immobili', async () => {
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+      assetRepo.count.mockResolvedValue(2);
+      repo.findOne.mockResolvedValue({
+        id: 10,
+        utility_id: 'U1',
+        deleted: false,
+        assets: [{ id: 3 }, { id: 4 }],
+      });
+
+      await service.update(10, { asset_ids: [4, 3] } as never, 1);
+
+      expect(auditLogService.record).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          fields: expect.arrayContaining([expect.objectContaining({ fieldName: 'asset_ids' })]),
+        }),
       );
     });
 

@@ -217,12 +217,20 @@ export class UtilityEditDialogComponent implements OnInit {
     // di MapComponent.openDetail. MatDialog impila overlay multipli di suo,
     // chiudendo l'immobile si torna al contatore ancora aperto e compilato.
     this.assetsService.getById(assetId).subscribe((asset) => {
-      this.dialog.open(AssetEditDialogComponent, {
+      this.dialog.open<AssetEditDialogComponent, {mode: 'edit'; item: Asset}, Asset | undefined>(AssetEditDialogComponent, {
         width: ASSET_DIALOG_WIDTH,
         maxWidth: ASSET_DIALOG_WIDTH,
         position: EDIT_DIALOG_POSITION,
         data: {mode: 'edit', item: asset},
-      });
+      })
+        // Stesso motivo di AssetEditDialogComponent.openUtilityDetail: il
+        // dialog non persiste da sé, senza questo "Salva" non salvava nulla.
+        .afterClosed().subscribe(result => {
+          if (!result) return;
+          this.assetsService.update(result.id, result).subscribe({
+            error: err => console.error("Errore nel salvataggio dell'immobile:", err)
+          });
+        });
     });
   }
 
