@@ -1,5 +1,11 @@
 <h2 mat-dialog-title style="display: flex; width: 100%; box-sizing: border-box; justify-content: flex-start; align-items: baseline; gap: 1rem;">
   <span>{{ isNew ? 'Aggiungi Immobile' : 'Modifica Immobile: ' + data.item.asset_name + ' (ID ' + data.item.id + ')' }}</span>
+  @if (legacyTypeLabel(); as legacy) {
+    <span style="font-size: 0.75rem; font-weight: 500; padding: 2px 8px; border-radius: 12px; background: #fef3c7; color: #92400e; white-space: nowrap;"
+          matTooltip="Classificazione precedente: sparisce dopo aver salvato natura e funzione">
+      Tipo precedente: {{ legacy }}
+    </span>
+  }
   @if (!isNew && data.item.updated_by && data.item.update_date) {
     <span style="margin-left: auto; font-size: 0.75rem; font-weight: 400; color: rgba(0,0,0,0.6); white-space: nowrap;">
       Ultima modifica: {{ data.item.update_date | date:'dd/MM/yyyy HH:mm' }} — {{ data.item.updated_by.firstName }} {{ data.item.updated_by.lastName }}
@@ -11,7 +17,7 @@
   <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start">
     <mat-tab>
       <ng-template mat-tab-label>
-        <mat-icon style="margin-right: 5px;">{{ currentAggregatorIcon() }}</mat-icon>
+        <mat-icon style="margin-right: 5px;">{{ currentAssetIcon() }}</mat-icon>
         Dati
       </ng-template>
   <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-direction: column; gap: 1rem;">
@@ -26,15 +32,45 @@
       </mat-form-field>
 
       <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Tipo immobile *</mat-label>
-        <mat-select formControlName="asset_type_id">
-          @for (opt of assetAggregatorOptions; track opt.id) {
-            <mat-option [value]="opt.id">{{ opt.code }}</mat-option>
+        <mat-label>Natura{{ mustClassify ? ' *' : '' }}</mat-label>
+        <mat-select formControlName="nature_id">
+          <mat-option [value]="null">—</mat-option>
+          @for (opt of natures; track opt.id) {
+            <mat-option [value]="opt.id">
+              <span><mat-icon style="vertical-align: middle; margin-right: 4px; font-size: 18px; height: 18px; width: 18px;">{{ opt.icon || 'category' }}</mat-icon>{{ opt.name }}</span>
+            </mat-option>
           }
         </mat-select>
-        @if (form.controls.asset_type_id.invalid && form.controls.asset_type_id.touched) {
+        @if (form.controls.nature_id.invalid && form.controls.nature_id.touched) {
           <mat-error>Obbligatorio</mat-error>
         }
+      </mat-form-field>
+
+      <mat-form-field style="flex: 1 1 21%;">
+        <mat-label>Funzione{{ mustClassify ? ' *' : '' }}</mat-label>
+        <mat-select formControlName="function_id">
+          <mat-option [value]="null">—</mat-option>
+          @for (opt of functionOptions(); track opt.id) {
+            <mat-option [value]="opt.id">
+              <span><mat-icon style="vertical-align: middle; margin-right: 4px; font-size: 18px; height: 18px; width: 18px;">{{ opt.icon || 'apartment' }}</mat-icon>{{ opt.name }}</span>
+            </mat-option>
+          }
+        </mat-select>
+        @if (form.controls.nature_id.value == null) {
+          <mat-hint>Scegliere prima la natura</mat-hint>
+        }
+        @if (form.controls.function_id.invalid && form.controls.function_id.touched) {
+          <mat-error>Obbligatorio</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field style="flex: 1 1 21%;">
+        <mat-label>Stato *</mat-label>
+        <mat-select formControlName="status">
+          @for (opt of statusOptions; track opt.value) {
+            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+          }
+        </mat-select>
       </mat-form-field>
 
       <mat-form-field style="flex: 1 1 21%;">

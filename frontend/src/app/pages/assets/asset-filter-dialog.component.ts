@@ -6,15 +6,23 @@ import {MatInputModule} from '@angular/material/input';
 import {MatSelectModule} from '@angular/material/select';
 import {MatRadioModule} from '@angular/material/radio';
 import {MatButtonModule} from '@angular/material/button';
+import {MatCheckboxModule} from '@angular/material/checkbox';
 import {FilterDialogData} from '../../core/components/abstract-search.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {AssetAggregatorsService} from '../asset-aggregator/asset-aggregator.service';
 import {AssetService} from './asset.service';
+import {AssetNaturesService} from '../asset-nature/asset-nature.service';
+import {AssetFunctionsService} from '../asset-function/asset-function.service';
+import {ASSET_STATUS_OPTIONS} from './enum/asset-status.enum';
 import {TOption} from '../../core/types/option.interface';
 
 export interface AssetFilterValues {
   asset_name: string | null;
   asset_type_id: number | null;
+  nature_id: number | null;
+  function_id: number | null;
+  status: string | null;
+  legacy_only: boolean | null;
   category: string | null;
   ownership: number | null;
   toponym: string | null;
@@ -40,7 +48,7 @@ export interface AssetFilterValues {
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatRadioModule, MatButtonModule, FilterableSelectComponent
+    MatSelectModule, MatRadioModule, MatButtonModule, MatCheckboxModule, FilterableSelectComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './asset-filter-dialog.component.html'
@@ -50,16 +58,25 @@ export class AssetFilterDialogComponent implements OnInit {
   private dialogRef = inject(MatDialogRef<AssetFilterDialogComponent, AssetFilterValues | 'clear'>);
   private assetAggregatorsService = inject(AssetAggregatorsService);
   private assetService = inject(AssetService);
+  private naturesService = inject(AssetNaturesService);
+  private functionsService = inject(AssetFunctionsService);
   protected data = inject<FilterDialogData<AssetFilterValues>>(MAT_DIALOG_DATA);
 
   categoryOptions: TOption[] = this.assetService.categoryOptions();
   toponomyOptions: TOption[] = this.assetService.toponymOptions();
 
   assetAggregatorOptions: TOption[] = [];
+  natureOptions: TOption[] = [];
+  functionOptions: TOption[] = [];
+  statusOptions: TOption[] = ASSET_STATUS_OPTIONS;
 
   form = this.fb.group({
     asset_name: [this.data.values.asset_name ?? ''],
     asset_type_id: [this.data.values.asset_type_id ?? null],
+    nature_id: [this.data.values.nature_id ?? null],
+    function_id: [this.data.values.function_id ?? null],
+    status: [this.data.values.status ?? null],
+    legacy_only: [this.data.values.legacy_only ?? null],
     category: [this.data.values.category ?? null],
     ownership: [this.data.values.ownership ?? null],
     toponym: [this.data.values.toponym ?? null],
@@ -81,6 +98,12 @@ export class AssetFilterDialogComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.naturesService.search({deleted: false} as never).subscribe({
+      next: data => this.natureOptions = data.map(n => ({label: n.name, value: n.id, icon: n.icon ?? undefined})),
+    });
+    this.functionsService.search({deleted: false} as never).subscribe({
+      next: data => this.functionOptions = data.map(f => ({label: f.name, value: f.id, icon: f.icon ?? undefined})),
+    });
     this.assetAggregatorsService.search({deleted: false}).subscribe({
       next: data => {
         // a.code (es. "CASE", "SCUOLE"), non a.description — quest'ultimo è

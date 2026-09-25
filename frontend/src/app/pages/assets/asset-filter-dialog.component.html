@@ -10,12 +10,32 @@
 
       <div style="flex: 1 1 45%;">
         <app-filterable-select
-          label="Tipo immobile"
+          label="Tipo precedente"
           placeholder="Cerca..."
           [options]="assetAggregatorOptions"
           formControlName="asset_type_id">
         </app-filterable-select>
       </div>
+
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <app-filterable-select label="Natura" placeholder="Cerca..." [options]="natureOptions" formControlName="nature_id"></app-filterable-select>
+      </div>
+
+      <div style="flex: 1 1 calc(25% - 0.75rem);">
+        <app-filterable-select label="Funzione" placeholder="Cerca..." [options]="functionOptions" formControlName="function_id"></app-filterable-select>
+      </div>
+
+      <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+        <mat-label>Stato</mat-label>
+        <mat-select formControlName="status">
+          <mat-option [value]="null">—</mat-option>
+          @for (opt of statusOptions; track opt.value) {
+            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-checkbox formControlName="legacy_only" style="flex: 1 1 calc(25% - 0.75rem); align-self: center;">Solo da riclassificare</mat-checkbox>
 
       <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
         <mat-label>Categoria</mat-label>

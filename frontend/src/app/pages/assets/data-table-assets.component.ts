@@ -35,7 +35,10 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
   readonly allColumns: IColumnDef[] = [
     {field: 'id', header: 'ID', minWidth: '50px'},
     {field: 'asset_name', header: 'Nome edificio', minWidth: '150px'},
-    {field: 'assetAggregator.description', header: 'Tipo immobile', minWidth: '150px'},
+    {field: 'assetNature.name', header: 'Natura', minWidth: '120px'},
+    {field: 'assetFunction.name', header: 'Funzione', minWidth: '150px'},
+    {field: 'status', header: 'Stato', minWidth: '100px'},
+    {field: 'assetAggregator.code', header: 'Tipo precedente', minWidth: '150px'},
     {field: 'category', header: 'Categoria', minWidth: '120px'},
     {field: 'ownership', header: 'Proprietà', minWidth: '100px'},
     {field: 'toponym', header: 'Toponimo', minWidth: '100px'},
@@ -57,10 +60,14 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
   ];
 
   private readonly defaultVisibleFields = new Set([
-    'id', 'asset_name', 'assetAggregator.description', 'category', 'ownership', 'address', 'municipality'
+    'id', 'asset_name', 'assetNature.name', 'assetFunction.name', 'status', 'assetAggregator.code',
+    'category', 'ownership', 'address', 'municipality'
   ]);
 
-  private static readonly STORAGE_KEY = 'columns:assets';
+  // v2: le colonne classificazione (natura/funzione/stato) sostituiscono
+  // 'Tipo immobile' — chiave nuova perché le selezioni salvate prima non le
+  // conterrebbero e resterebbero nascoste.
+  private static readonly STORAGE_KEY = 'columns:assets:v2';
 
   selectedColumns: IColumnDef[] = this.loadColumnSelection(
     DataTableAssetsComponent.STORAGE_KEY, this.allColumns, this.defaultVisibleFields
@@ -99,8 +106,8 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
         return item.cadastral_value != null
           ? item.cadastral_value.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})
           : '';
-      case 'assetAggregator.description':
-        return item.assetAggregator?.description ?? '';
+      case 'assetAggregator.code':
+        return item.asset_type_id != null ? (item.assetAggregator?.code ?? '') : '';
       default:
         return String(this.getNestedValue(item, field) ?? '');
     }

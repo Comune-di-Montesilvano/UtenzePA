@@ -6,6 +6,9 @@ import {UtilizerGrant} from '../../utilizer-grant/entity/utilizer-grant.entity';
 import {AssetAggregator} from '../../asset-aggregator/entity/asset-aggregator.entity';
 import {Utilizer} from '../../utilizer/entity/utilizer.entity';
 import {SystemUser} from '../../system-users/entity/system-user.entity';
+import {AssetNature} from '../../asset-nature/entity/asset-nature.entity';
+import {AssetFunction} from '../../asset-function/entity/asset-function.entity';
+import {AssetStatus} from '../enum/asset-status.enum';
 
 export class Asset extends AbstractEntity implements IAsset {
   asset_name!: string;
@@ -33,7 +36,22 @@ export class Asset extends AbstractEntity implements IAsset {
   @Transform(({ value }) => (value !== null && value !== undefined && value !== '' ? Number(value) : value))
   cadastral_value?: number;
   category?: string;
-  asset_type_id!: number;
+  // Legacy in sola lettura: mai inviato al backend (non più nel DTO,
+  // forbidNonWhitelisted lo rifiuterebbe).
+  @Exclude({toPlainOnly: true})
+  asset_type_id?: number | null;
+
+  nature_id?: number | null;
+  function_id?: number | null;
+  status?: AssetStatus;
+
+  @Exclude({toPlainOnly: true})
+  @Type(() => AssetNature)
+  assetNature?: AssetNature | null;
+
+  @Exclude({toPlainOnly: true})
+  @Type(() => AssetFunction)
+  assetFunction?: AssetFunction | null;
 
   @Exclude({toPlainOnly: true})
   assetAggregator?: AssetAggregator | null;
@@ -61,7 +79,9 @@ export class Asset extends AbstractEntity implements IAsset {
     return plainToInstance(Asset, {
       asset_id: 0,
       asset_name: '',
-      asset_type_id: null,
+      nature_id: null,
+      function_id: null,
+      status: AssetStatus.ATTIVO,
       ownership: 0,
       area_sqm: 0,
       cadastral_value: 0,
