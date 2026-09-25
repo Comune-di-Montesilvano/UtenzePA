@@ -1,5 +1,6 @@
-import { IsBoolean, IsInt, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { AssetStatusEnum } from '@apis/asset/enum/asset-status.enum';
 
 export class UpdateAssetDto {
   @IsOptional()
@@ -98,12 +99,25 @@ export class UpdateAssetDto {
   @MaxLength(100)
   category?: string;
 
+  // null ammesso (@IsOptional salta la validazione): un immobile legacy si
+  // salva anche senza essere riclassificato.
   @IsOptional()
   @Transform(({ value }) =>
-    value !== undefined && value !== null && value !== '' ? parseInt(value, 10) : value,
+    value !== undefined && value !== null && value !== '' ? parseInt(value, 10) : null,
   )
   @IsInt()
-  asset_type_id?: number;
+  nature_id?: number | null;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value !== undefined && value !== null && value !== '' ? parseInt(value, 10) : null,
+  )
+  @IsInt()
+  function_id?: number | null;
+
+  @IsOptional()
+  @IsEnum(AssetStatusEnum, { message: `Lo stato deve essere uno tra: ${Object.values(AssetStatusEnum).join(', ')}` })
+  status?: AssetStatusEnum;
 
   @IsOptional()
   updated_by_user_id?: number;

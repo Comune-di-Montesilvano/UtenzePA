@@ -1,5 +1,6 @@
-import { IsNotEmpty, IsOptional, IsString, IsInt, MaxLength, IsNumber } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, IsInt, MaxLength, IsNumber } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { AssetStatusEnum } from '@apis/asset/enum/asset-status.enum';
 
 export class CreateAssetDto {
   @IsNotEmpty({ message: 'Il campo asset_name è obbligatorio' })
@@ -92,12 +93,23 @@ export class CreateAssetDto {
   @MaxLength(100)
   category?: string;
 
-  @IsNotEmpty({ message: 'Il campo asset_type_id è obbligatorio' })
+  @IsNotEmpty({ message: 'La natura immobile è obbligatoria' })
   @Transform(({ value }) =>
     value !== undefined && value !== null && value !== '' ? parseInt(value, 10) : value,
   )
   @IsInt()
-  asset_type_id: number;
+  nature_id: number;
+
+  @IsNotEmpty({ message: 'La funzione immobile è obbligatoria' })
+  @Transform(({ value }) =>
+    value !== undefined && value !== null && value !== '' ? parseInt(value, 10) : value,
+  )
+  @IsInt()
+  function_id: number;
+
+  @IsOptional()
+  @IsEnum(AssetStatusEnum, { message: `Lo stato deve essere uno tra: ${Object.values(AssetStatusEnum).join(', ')}` })
+  status?: AssetStatusEnum;
 
   @IsOptional()
   @IsInt()
