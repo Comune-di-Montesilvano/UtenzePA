@@ -29,7 +29,7 @@ export class SearchUtilitiesComponent extends AbstractSearchComponent {
       meter_number: [''],
       supply_active: [null],
       utility_type_id_fk: [null],
-      asset_id_fk: [null],
+      asset_id: [null],
       supplier_id_fk: [null],
       meter_removed: [null],
       utilityState: [null],

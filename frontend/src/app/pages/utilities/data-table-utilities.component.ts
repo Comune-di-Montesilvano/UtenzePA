@@ -131,6 +131,12 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
       if (!active || direction === '') return data;
       const order = direction === 'asc' ? 1 : -1;
 
+      if (active === 'asset.asset_name') {
+        return [...data].sort((a, b) =>
+          order * this.assetNames(a).toLowerCase().localeCompare(this.assetNames(b).toLowerCase(), 'it')
+        );
+      }
+
       if (active === 'asset.utilizer') {
         return [...data].sort((a, b) =>
           order * this.getUtilizersNames(a).toLowerCase().localeCompare(this.getUtilizersNames(b).toLowerCase(), 'it')
@@ -185,8 +191,17 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     this.screen.updateMinHeight();
   }
 
+  // Colonna "Fabbricato Associato": un'utenza può servire più immobili.
+  assetNames(utility: Utility): string {
+    return (utility.assets ?? []).map(a => a.asset_name).join(', ');
+  }
+
   getUtilizersNames(utility: Utility): string {
-    return utility.asset?.utilizerGrants?.map(u => u.utilizer?.name).join(', ') ?? '';
+    return (utility.assets ?? [])
+      .flatMap(a => a.utilizerGrants ?? [])
+      .map(g => g.utilizer?.name)
+      .filter(n => !!n)
+      .join(', ');
   }
 
   private readonly expireStateLabels: Record<ExpireState, string> = {
@@ -251,6 +266,8 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
         return utility.budgetChapter?.label ?? '';
       case 'asset.utilizer':
         return this.getUtilizersNames(utility);
+      case 'asset.asset_name':
+        return this.assetNames(utility);
       case 'expiryStatus':
         return this.getLabel(utility.expiryStatus ?? null);
       default:

@@ -12,6 +12,7 @@ import {MatTabsModule} from '@angular/material/tabs';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData, EDIT_DIALOG_POSITION} from '../../core/components/abstract-data-table.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
+import {MultiSelectComponent} from '../../core/components/multi-select.component';
 import {AuthService} from '../../services/auth.service';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
@@ -47,7 +48,7 @@ const ASSET_DIALOG_WIDTH = '1150px';
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatTabsModule,
-    HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent, LocationMapComponent, PhotoGalleryComponent,
+    HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent, MultiSelectComponent, LocationMapComponent, PhotoGalleryComponent,
     EntityHistoryComponent, DatePipe
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -114,7 +115,7 @@ export class UtilityEditDialogComponent implements OnInit {
   form = this.fb.group({
     additional_notes: [this.data.item.additional_notes ?? ''],
     aggregator_id_fk: [this.resolveOnRelation('aggregator', 'aggregator_id_fk', this.data.item) ?? null],
-    asset_id_fk: [this.resolveOnRelation('asset', 'asset_id_fk', this.data.item) ?? null, Validators.required],
+    asset_ids: [(this.data.item.assets ?? []).map(a => a.id), [Validators.required, Validators.minLength(1)]],
     budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null, Validators.required],
     costs_borne_by_id_fk: [this.resolveOnRelation('costsBorneBy', 'costs_borne_by_id_fk', this.data.item) ?? null, Validators.required],
     disconnection_ability: [this.data.item.disconnection_ability ?? ''],
@@ -242,7 +243,7 @@ export class UtilityEditDialogComponent implements OnInit {
     // geocodificato (caso comune, mai un GPS reale inserito a mano) restava
     // con mini-mappa completamente vuota — nessun marker, nessun hint,
     // nessun modo di impostare una posizione.
-    const asset = this.data.item.asset;
+    const asset = this.primaryAsset();
     const assetLat = asset?.latitude ?? asset?.geocoded_latitude;
     const assetLon = asset?.longitude ?? asset?.geocoded_longitude;
     if (isValid(assetLat) && isValid(assetLon)) return {lat: assetLat, lon: assetLon};
@@ -254,10 +255,35 @@ export class UtilityEditDialogComponent implements OnInit {
     const lat = this.form.controls.latitude.value;
     const lon = this.form.controls.longitude.value;
     if (isValid(lat) && isValid(lon)) return false;
-    const asset = this.data.item.asset;
+    const asset = this.primaryAsset();
     const assetLat = asset?.latitude ?? asset?.geocoded_latitude;
     const assetLon = asset?.longitude ?? asset?.geocoded_longitude;
     return isValid(assetLat) && isValid(assetLon);
+  }
+
+  // Mini-mappa/fallback coordinate: primo immobile selezionato che ha una
+  // posizione (GPS reale o geocodificata).
+  private primaryAsset(): Asset | undefined {
+    const ids = this.form.controls.asset_ids.value ?? [];
+    const candidates = ids
+      .map(id => this.assetOptions.find(a => a.id === id) ?? this.data.item.assets?.find(a => a.id === id))
+      .filter((a): a is Asset => !!a);
+    return candidates.find(a => (a.latitude ?? a.geocoded_latitude) && (a.longitude ?? a.geocoded_longitude)) ?? candidates[0];
+  }
+
+  selectedAssetOptions(): TOption[] {
+    const ids = this.form.controls.asset_ids.value ?? [];
+    return ids.map(id => this.assetSelectOptions.find(o => o.value === id) ?? {label: `#${id}`, value: id});
+  }
+
+  // Concessioni raggruppate per immobile collegato.
+  grantsByAsset(): {assetName: string; utilizers: string[]}[] {
+    return (this.data.item.assets ?? [])
+      .map(a => ({
+        assetName: a.asset_name,
+        utilizers: (a.utilizerGrants ?? []).map(g => g.utilizer?.name ?? '').filter(n => !!n),
+      }))
+      .filter(g => g.utilizers.length > 0);
   }
 
   onPositionSelected(coords: { lat: string; lng: string }): void {

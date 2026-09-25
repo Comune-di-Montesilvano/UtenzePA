@@ -16,8 +16,8 @@ export interface IUtility {
   additional_notes?: string | null;
   aggregator?: UtilityAggregator | null;
   aggregator_id_fk?: number | null;
-  asset?: IAsset;
-  asset_id_fk: number;
+  assets?: IAsset[];
+  asset_ids?: number[];
   budget_chapter_code_fk: number;
   budgetChapter?: IBudgetChapter;
   consipAgreement?: IConsipAgreement | null;

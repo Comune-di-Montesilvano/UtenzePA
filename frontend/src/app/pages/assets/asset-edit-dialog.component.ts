@@ -235,8 +235,8 @@ export class AssetEditDialogComponent implements OnInit {
   addUtility(hardType: HardType): void {
     const utilityTypeId = this.utilityTypeIdByHardType.get(hardType) ?? null;
     const newUtility = Utility.create({
-      asset_id_fk: this.data.item.id,
-      asset: this.data.item,
+      asset_ids: [this.data.item.id],
+      assets: [this.data.item],
       utility_type_id_fk: utilityTypeId ?? undefined,
     });
 
@@ -267,21 +267,22 @@ export class AssetEditDialogComponent implements OnInit {
   openUtilityDetail(utility: Utility): void {
     // Sopra questo dialog (stessa finestra), non una tab nuova — stesso
     // pattern del verso opposto in UtilityEditDialogComponent.navigateToAsset.
-    // L'oggetto e' gia' quello caricato con l'immobile (data.item.utilities),
-    // nessuna chiamata di rete in piu' per riaprirlo.
     //
-    // Il GET immobile non popola il back-reference utilities[].asset (evita
-    // il giro circolare) — asset_id_fk resta valorizzato ma
-    // UtilityEditDialogComponent.resolveOnRelation('asset', ...) lo scarta
-    // se `.asset` non e' presente (guard contro FK orfane non risolvibili),
-    // quindi il campo "Immobile associato" partiva sempre vuoto aprendo da
-    // qui. L'immobile e' pero' gia' noto per certo (data.item) — stesso stub
-    // gia' fatto in addUtility() per l'analogo problema post-POST.
-    this.dialog.open(UtilityEditDialogComponent, {
-      width: UTILITY_DIALOG_WIDTH,
-      maxWidth: UTILITY_DIALOG_WIDTH,
-      position: EDIT_DIALOG_POSITION,
-      data: {mode: 'edit', item: {...utility, asset: utility.asset ?? this.data.item}},
+    // Il GET immobile non popola il back-reference utilities[].assets (evita
+    // il giro circolare): aprire il dialog con i soli dati della riga
+    // mostrerebbe solo questo immobile e, al salvataggio, asset_ids
+    // sostituirebbe l'insieme cancellando gli altri immobili collegati.
+    // GET singolo dell'utenza (findOne joina gli immobili) prima di aprire.
+    this.utilityService.getById(utility.id).subscribe({
+      next: full => {
+        this.dialog.open(UtilityEditDialogComponent, {
+          width: UTILITY_DIALOG_WIDTH,
+          maxWidth: UTILITY_DIALOG_WIDTH,
+          position: EDIT_DIALOG_POSITION,
+          data: {mode: 'edit', item: full},
+        });
+      },
+      error: err => console.error("Errore nel caricamento dell'utenza:", err)
     });
   }
 

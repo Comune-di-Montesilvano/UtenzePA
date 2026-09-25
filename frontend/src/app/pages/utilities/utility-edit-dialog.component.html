@@ -45,29 +45,33 @@
           <input matInput formControlName="utility_code">
         </mat-form-field>
 
-        <div style="flex: 1 1 21%; display: flex; align-items: flex-start; gap: 0.25rem;">
-          <div style="flex: 1 1 auto;">
-            <app-filterable-select
-              label="Immobile Associato *"
-              placeholder="Cerca immobile..."
-              [options]="assetSelectOptions"
-              formControlName="asset_id_fk"
-              [errorMessage]="form.controls.asset_id_fk.invalid && form.controls.asset_id_fk.touched ? 'Obbligatorio' : null">
-            </app-filterable-select>
+        <div style="flex: 1 1 45%; display: flex; flex-direction: column; gap: 0.25rem;">
+          <div style="display: flex; align-items: flex-start; gap: 0.25rem;">
+            <div style="flex: 1 1 auto;">
+              <app-multi-select
+                label="Immobili associati *"
+                [options]="assetSelectOptions"
+                formControlName="asset_ids">
+              </app-multi-select>
+            </div>
+            <button mat-icon-button type="button" [disabled]="!resolveMapCoordsFromForm()"
+                    [style.color]="isMapCoordsFromAsset() ? '#3b82f6' : null"
+                    (click)="navigateToMaps($safeNavigationMigration(resolveMapCoordsFromForm()?.lat), $safeNavigationMigration(resolveMapCoordsFromForm()?.lon))"
+                    [matTooltip]="resolveMapCoordsFromForm() ? 'Mostra su mappa' : 'Funzionalità non disponibile: mancano le coordinate.'"
+                    style="margin-top: 8px;">
+              <mat-icon>location_on</mat-icon>
+            </button>
           </div>
-
-          <button mat-icon-button type="button" [disabled]="!form.controls.asset_id_fk.value"
-                  (click)="navigateToAsset(form.controls.asset_id_fk.value)"
-                  matTooltip="Vai al dettaglio immobile" style="margin-top: 8px;">
-            <mat-icon>apartment</mat-icon>
-          </button>
-          <button mat-icon-button type="button" [disabled]="!resolveMapCoordsFromForm()"
-                  [style.color]="isMapCoordsFromAsset() ? '#3b82f6' : null"
-                  (click)="navigateToMaps($safeNavigationMigration(resolveMapCoordsFromForm()?.lat), $safeNavigationMigration(resolveMapCoordsFromForm()?.lon))"
-                  [matTooltip]="resolveMapCoordsFromForm() ? 'Mostra su mappa' : 'Funzionalità non disponibile: mancano le coordinate.'"
-                  style="margin-top: 8px;">
-            <mat-icon>location_on</mat-icon>
-          </button>
+          @if (form.controls.asset_ids.invalid && form.controls.asset_ids.touched) {
+            <mat-error style="font-size: 0.75rem;">Almeno un immobile obbligatorio</mat-error>
+          }
+          <div style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
+            @for (opt of selectedAssetOptions(); track opt.value) {
+              <button mat-stroked-button type="button" (click)="navigateToAsset($any(opt.value))" matTooltip="Vai al dettaglio immobile">
+                <mat-icon>apartment</mat-icon>{{ opt.label }}
+              </button>
+            }
+          </div>
         </div>
 
         <div style="flex: 1 1 21%;">
@@ -293,12 +297,15 @@
 
       <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
         <legend style="padding: 0 0.5rem; font-weight: 600;">Utilizzatori</legend>
-        @if (data.item.asset?.utilizerGrants?.length) {
-          <ul style="margin: 0; padding-left: 1.5rem; list-style-type: disc;">
-            @for (item of data.item.asset!.utilizerGrants!; track item.id) {
-              <li>{{ item.utilizer!.name }}</li>
-            }
-          </ul>
+        @if (grantsByAsset().length) {
+          @for (group of grantsByAsset(); track group.assetName) {
+            <div style="font-weight: 500; margin-top: 0.25rem;">{{ group.assetName }}</div>
+            <ul style="margin: 0; padding-left: 1.5rem; list-style-type: disc;">
+              @for (name of group.utilizers; track name) {
+                <li>{{ name }}</li>
+              }
+            </ul>
+          }
         } @else {
           <span style="color: #666; font-style: italic;">Nessuna concessione trovata.</span>
         }

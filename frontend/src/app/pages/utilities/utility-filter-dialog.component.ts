@@ -26,7 +26,7 @@ export interface UtilityFilterValues {
   meter_number: string | null;
   supply_active: boolean | null;
   utility_type_id_fk: number | null;
-  asset_id_fk: number | null;
+  asset_id: number | null;
   supplier_id_fk: number | null;
   meter_removed: boolean | null;
   utilityState: ExpireState | null;
@@ -106,7 +106,7 @@ export class UtilityFilterDialogComponent implements OnInit {
     meter_number: [this.data.values.meter_number ?? ''],
     utility_code: [this.data.values.utility_code ?? ''],
     utility_type_id_fk: [this.data.values.utility_type_id_fk ?? null],
-    asset_id_fk: [this.data.values.asset_id_fk ?? null],
+    asset_id: [this.data.values.asset_id ?? null],
     aggregator_id_fk: [this.data.values.aggregator_id_fk ?? null],
     supplier_address: [this.data.values.supplier_address ?? ''],
     latitude: [this.data.values.latitude ?? ''],
