@@ -16,6 +16,11 @@ import { FilterableSelectComponent } from '../../core/components/filterable-sele
 import { MultiSelectComponent } from '../../core/components/multi-select.component';
 import { AssetAggregatorsService } from '../asset-aggregator/asset-aggregator.service';
 import { AssetAggregator } from '../asset-aggregator/entity/asset-aggregator.entity';
+import { AssetNaturesService } from '../asset-nature/asset-nature.service';
+import { AssetNature } from '../asset-nature/entity/asset-nature.entity';
+import { AssetFunctionsService } from '../asset-function/asset-function.service';
+import { AssetFunction } from '../asset-function/entity/asset-function.entity';
+import { ASSET_STATUS_OPTIONS } from '../assets/enum/asset-status.enum';
 import { UtilityTypesService } from '../utility-types/utility-types.service';
 import { AssetService } from '../assets/asset.service';
 import { UtilityService } from '../utilities/utility.service';
@@ -95,6 +100,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   private mapService = inject(MapService);
   private dialog = inject(MatDialog);
   private assetAggregatorsService = inject(AssetAggregatorsService);
+  private naturesService = inject(AssetNaturesService);
+  private functionsService = inject(AssetFunctionsService);
   private utilityTypesService = inject(UtilityTypesService);
   private assetService = inject(AssetService);
   private utilityService = inject(UtilityService);
@@ -124,6 +131,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   showUtilities = new FormControl(true, { nonNullable: true });
   assetAggregatorIds = new FormControl<number[]>([], {nonNullable: true});
   utilityTypeIds = new FormControl<number[]>([], {nonNullable: true});
+  natureIds = new FormControl<number[]>([], {nonNullable: true});
+  functionIds = new FormControl<number[]>([], {nonNullable: true});
+  statuses = new FormControl<string[]>([], {nonNullable: true});
   assetSearch = new FormControl<number | null>(null);
   // Ricerca libera indirizzo (geocode Nominatim) — separata da assetSearch:
   // quest'ultimo cerca solo tra gli immobili gia' in anagrafica, questo va a
@@ -132,6 +142,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
   assetAggregatorOptions: TOption[] = [];
   utilityTypeOptions: TOption[] = [];
+  natureOptions: TOption[] = [];
+  functionOptions: TOption[] = [];
+  statusOptions: TOption[] = ASSET_STATUS_OPTIONS;
   assetSearchOptions: TOption[] = [];
   ungeolocated: UngeolocatedItem[] = [];
   reasonLabels = UNGEOLOCATED_REASON_LABELS;
@@ -162,6 +175,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   // asset/utenze possono arrivare in ordine qualsiasi) — rebuild*Options()
   // combina ciascuna coppia appena entrambe sono disponibili.
   private assetAggregators: AssetAggregator[] = [];
+  private natures: AssetNature[] = [];
+  private functions: AssetFunction[] = [];
   private assetsForCount: Asset[] = [];
   private utilityTypes: UtilityType[] = [];
   private utilitiesForCount: Utility[] = [];
@@ -173,6 +188,18 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         this.rebuildAssetAggregatorOptions();
       },
     });
+    this.naturesService.search({ deleted: false } as never).subscribe({
+      next: (data) => {
+        this.natures = data;
+        this.rebuildClassificationOptions();
+      },
+    });
+    this.functionsService.search({ deleted: false } as never).subscribe({
+      next: (data) => {
+        this.functions = data;
+        this.rebuildClassificationOptions();
+      },
+    });
     this.utilityTypesService.search({ deleted: false }).subscribe({
       next: (data) => {
         this.utilityTypes = data;
@@ -182,6 +209,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     this.assetService.search({ deleted: false }).subscribe({
       next: (data) => {
         this.assetsForCount = data;
+        this.rebuildClassificationOptions();
         this.assetSearchOptions = data.map((a) => ({
           label: a.address ? `${a.asset_name} — ${a.address}` : a.asset_name,
           value: a.id,
@@ -200,6 +228,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     this.showUtilities.valueChanges.subscribe(() => this.reload());
     this.assetAggregatorIds.valueChanges.subscribe(() => this.reload());
     this.utilityTypeIds.valueChanges.subscribe(() => this.reload());
+    this.natureIds.valueChanges.subscribe(() => this.reload());
+    this.functionIds.valueChanges.subscribe(() => this.reload());
+    this.statuses.valueChanges.subscribe(() => this.reload());
     this.assetSearch.valueChanges.subscribe((id) => this.goToAsset(id));
   }
 
@@ -220,6 +251,34 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       value: a.id,
       icon: a.icon || ASSET_AGGREGATOR_ICON_FALLBACK,
       count: countByAggregatorId.get(a.id) ?? 0,
+    }));
+  }
+
+  // Stesso pattern di rebuildAssetAggregatorOptions per natura/funzione:
+  // conteggi sul totale non filtrato (assetsForCount), ricostruite da
+  // qualunque delle tre subscribe arrivi per ultima.
+  private rebuildClassificationOptions(): void {
+    const countBy = (key: 'nature_id' | 'function_id') => {
+      const counts = new Map<number, number>();
+      for (const a of this.assetsForCount) {
+        const id = a[key];
+        if (id != null) counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+      return counts;
+    };
+    const natureCounts = countBy('nature_id');
+    const functionCounts = countBy('function_id');
+    this.natureOptions = this.natures.map((n) => ({
+      label: n.name,
+      value: n.id,
+      icon: n.icon || 'category',
+      count: natureCounts.get(n.id) ?? 0,
+    }));
+    this.functionOptions = this.functions.map((f) => ({
+      label: f.name,
+      value: f.id,
+      icon: f.icon || ASSET_AGGREGATOR_ICON_FALLBACK,
+      count: functionCounts.get(f.id) ?? 0,
     }));
   }
 
@@ -382,6 +441,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         showAssets: this.showAssets.value,
         showUtilities: this.showUtilities.value,
         assetAggregatorIds: this.assetAggregatorIds.value,
+        natureIds: this.natureIds.value,
+        functionIds: this.functionIds.value,
+        statuses: this.statuses.value,
         utilityTypeIds: this.utilityTypeIds.value,
       })
       .subscribe({
@@ -660,7 +722,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     const assetLat = CoordinateHelper.parseCoordinate(point.lat);
     const assetLng = CoordinateHelper.parseCoordinate(point.lng);
 
-    // utilitiesByAsset raggruppa per asset_id_fk, non per posizione reale: un
+    // utilitiesByAsset raggruppa per assetId del punto, non per posizione reale: un
     // contatore con GPS proprio diverso dall'immobile (isElsewhere) compare
     // comunque in questa lista pur non essendo fisicamente qui — stesso
     // confronto usato per decidere se disegnare la linea tratteggiata (vedi

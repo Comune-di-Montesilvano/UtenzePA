@@ -10,6 +10,9 @@ export interface MapPointsFilters {
   showUtilities?: boolean;
   assetAggregatorIds?: number[] | null;
   utilityTypeIds?: number[] | null;
+  natureIds?: number[] | null;
+  functionIds?: number[] | null;
+  statuses?: string[] | null;
 }
 
 @Injectable({ providedIn: 'root' })
