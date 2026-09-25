@@ -47,7 +47,9 @@ export class Utility extends AbstractEntity implements IUtility {
   maintenance_management_id_fk!: number;
   @Exclude({toPlainOnly: true})
   supplier_id_fk?: number | null;
-  asset_id_fk!: number;
+  // Inviato al backend (sostituisce gli immobili collegati); in lettura si
+  // ricava da `assets`.
+  asset_ids?: number[];
   aggregator_id_fk?: number;
   budget_chapter_code_fk!: number;
   @Exclude({toPlainOnly: true})
@@ -69,7 +71,8 @@ export class Utility extends AbstractEntity implements IUtility {
   supplier?: Supplier;
 
   @Exclude({toPlainOnly: true})
-  asset?: Asset;
+  @Type(() => Asset)
+  assets?: Asset[];
 
   @Exclude({toPlainOnly: true})
   aggregator?: UtilityAggregator;

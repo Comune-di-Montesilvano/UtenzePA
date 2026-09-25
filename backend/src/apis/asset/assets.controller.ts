@@ -35,6 +35,12 @@ export class AssetsController {
     return this.service.count();
   }
 
+  // Prima di ':id', altrimenti 'legacy-count' verrebbe letto come id.
+  @Get('legacy-count')
+  async legacyCount(): Promise<{ count: number }> {
+    return { count: await this.service.countLegacy() };
+  }
+
   @Get(':id')
   getOne(@Param('id', ParseIntPipe) id: number): Promise<Asset | null> {
     return this.service.findOne(id);

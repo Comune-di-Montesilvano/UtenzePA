@@ -1,0 +1,20 @@
+<div style="padding: 1rem;">
+  <div>
+    <h1>Tipologie Immobili</h1>
+    <p style="color: #6A7282;">Cosa è fisicamente un immobile (Fabbricato, Area, Impianto…) e quali funzioni ammette.</p>
+  </div>
+  <div style="margin-top: 1rem;">
+    <app-search-asset-nature (search)="onSearch($event)"></app-search-asset-nature>
+  </div>
+  <div style="margin-top: 1.5rem;">
+    <app-data-table-asset-nature
+      [data]="list"
+      [loading]="loading"
+      (onSave)="onSave($event)"
+      (onDelete)="onDelete($event)"
+      (onCreate)="onCreate($event)"
+      (onRestore)="onRestore($event)"
+      [resetPagingTrigger]="resetPagingCount"
+    ></app-data-table-asset-nature>
+  </div>
+</div>

@@ -17,8 +17,11 @@ import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {OnlyNumbersDirective} from '../../core/directives/only-numbers.directive';
 import {LatitudeInputDirective} from '../../core/directives/latitude-input.directive';
 import {LongitudeInputDirective} from '../../core/directives/longitude-input.directive';
-import {AssetAggregatorsService} from '../asset-aggregator/asset-aggregator.service';
-import {AssetAggregator} from '../asset-aggregator/entity/asset-aggregator.entity';
+import {AssetNaturesService} from '../asset-nature/asset-nature.service';
+import {AssetNature} from '../asset-nature/entity/asset-nature.entity';
+import {AssetFunctionsService} from '../asset-function/asset-function.service';
+import {AssetFunction} from '../asset-function/entity/asset-function.entity';
+import {ASSET_STATUS_OPTIONS, AssetStatus} from './enum/asset-status.enum';
 import {AssetService} from './asset.service';
 import {TOption} from '../../core/types/option.interface';
 import {HardType} from '../utility-types/enum/hard-type.enum';
@@ -73,7 +76,8 @@ export class AssetEditDialogComponent implements OnInit {
   private dialogRef = inject(MatDialogRef<AssetEditDialogComponent, Asset | undefined>);
   private dialog = inject(MatDialog);
   private authService = inject(AuthService);
-  private assetAggregatorsService = inject(AssetAggregatorsService);
+  private naturesService = inject(AssetNaturesService);
+  private functionsService = inject(AssetFunctionsService);
   private assetService = inject(AssetService);
   private photosService = inject(PhotosService);
   private utilityTypesService = inject(UtilityTypesService);
@@ -83,7 +87,14 @@ export class AssetEditDialogComponent implements OnInit {
   isNew = this.data.mode === 'create';
   maxDescLength = 50;
 
-  assetAggregatorOptions: AssetAggregator[] = [];
+  natures: AssetNature[] = [];
+  private allFunctions: AssetFunction[] = [];
+  statusOptions = ASSET_STATUS_OPTIONS;
+
+  // Obbligatori per immobili nuovi e per quelli già riclassificati (non
+  // devono poter tornare "vuoti"); un immobile legacy si salva anche senza
+  // riclassificarlo (tiene il vecchio tipo).
+  mustClassify = this.isNew || this.data.item.asset_type_id == null;
   categoryOptions: TOption[] = this.assetService.categoryOptions();
   toponomyOptions: TOption[] = this.assetService.toponymOptions();
   ownershipOptions: TOption[] = [
@@ -94,10 +105,9 @@ export class AssetEditDialogComponent implements OnInit {
 
   form = this.fb.group({
     asset_name: [this.data.item.asset_name ?? '', Validators.required],
-    asset_type_id: [
-      this.data.item.assetAggregator != null ? (this.data.item.asset_type_id ?? null) : null,
-      Validators.required
-    ],
+    nature_id: [this.data.item.nature_id ?? null, this.mustClassify ? Validators.required : []],
+    function_id: [this.data.item.function_id ?? null, this.mustClassify ? Validators.required : []],
+    status: [this.data.item.status ?? AssetStatus.ATTIVO, Validators.required],
     category: [this.data.item.category ?? null],
     ownership: [this.data.item.ownership ?? 0],
     toponym: [this.data.item.toponym ?? null],
@@ -122,7 +132,25 @@ export class AssetEditDialogComponent implements OnInit {
     const role = this.authService.getCurrentUser()?.role;
     if (!role || role === 'Lettore') {
       this.form.disable();
+    } else {
+      this.syncFunctionEnabled();
+      // Cambio natura: la funzione scelta potrebbe non essere più ammessa.
+      this.form.controls.nature_id.valueChanges.subscribe(() => {
+        const fid = this.form.controls.function_id.value;
+        if (fid != null && !this.functionOptions().some(f => f.id === fid)) {
+          this.form.controls.function_id.setValue(null);
+        }
+        this.syncFunctionEnabled();
+      });
     }
+  }
+
+  // Funzione selezionabile solo dopo la natura (le funzioni ammesse
+  // dipendono dalla natura).
+  private syncFunctionEnabled(): void {
+    const fn = this.form.controls.function_id;
+    if (this.form.controls.nature_id.value == null) fn.disable({emitEvent: false});
+    else fn.enable({emitEvent: false});
   }
 
   photoCount: number | null = null;
@@ -133,9 +161,13 @@ export class AssetEditDialogComponent implements OnInit {
   private utilityTypeIdByHardType = new Map<HardType, number>();
 
   ngOnInit(): void {
-    this.assetAggregatorsService.search({deleted: false}).subscribe({
-      next: data => this.assetAggregatorOptions = data,
-      error: err => console.error('Errore nel caricamento degli Asset Aggregator:', err)
+    this.naturesService.search({deleted: false} as never).subscribe({
+      next: data => this.natures = data,
+      error: err => console.error('Errore nel caricamento delle tipologie immobile:', err)
+    });
+    this.functionsService.search({deleted: false} as never).subscribe({
+      next: data => this.allFunctions = data,
+      error: err => console.error('Errore nel caricamento delle funzioni immobile:', err)
     });
 
     this.utilityTypesService.search({deleted: false}).subscribe({
@@ -162,14 +194,33 @@ export class AssetEditDialogComponent implements OnInit {
     }
   }
 
-  // Icona del tab "Dati" — segue l'aggregato selezionato nel form (non
-  // data.item.assetAggregator, che resterebbe quella iniziale se l'utente
-  // cambia "Tipo immobile" prima di salvare), stesso fallback usato sui
-  // marker mappa quando l'aggregato non ha un'icona custom.
-  currentAggregatorIcon(): string {
-    const id = this.form.controls.asset_type_id.value;
-    const aggregator = this.assetAggregatorOptions.find(a => a.id === id);
-    return aggregator?.icon || ASSET_AGGREGATOR_ICON_FALLBACK;
+  // Icona del tab "Dati" — segue la funzione selezionata nel form (non
+  // data.item, che resterebbe quella iniziale se l'utente la cambia prima
+  // di salvare); in transizione ricade sull'icona del vecchio aggregato,
+  // stesso fallback dei marker mappa.
+  currentAssetIcon(): string {
+    const fid = this.form.controls.function_id.value;
+    const fn = this.allFunctions.find(f => f.id === fid);
+    return fn?.icon || this.data.item.assetAggregator?.icon || ASSET_AGGREGATOR_ICON_FALLBACK;
+  }
+
+  // Funzioni ammesse per la natura selezionata (coppie in AssetNature.functions).
+  functionOptions(): AssetFunction[] {
+    const nature = this.natures.find(n => n.id === this.form.controls.nature_id.value);
+    return nature?.functions ?? [];
+  }
+
+  selectedNature(): AssetNature | undefined {
+    return this.natures.find(n => n.id === this.form.controls.nature_id.value);
+  }
+
+  selectedFunction(): AssetFunction | undefined {
+    return this.allFunctions.find(f => f.id === this.form.controls.function_id.value);
+  }
+
+  // Badge header: vecchio tipo ancora valorizzato = immobile da riclassificare.
+  legacyTypeLabel(): string | null {
+    return this.data.item.asset_type_id != null ? (this.data.item.assetAggregator?.code ?? null) : null;
   }
 
   getUtilitiesByHardType(hardType: HardType): Utility[] {
@@ -192,8 +243,8 @@ export class AssetEditDialogComponent implements OnInit {
   addUtility(hardType: HardType): void {
     const utilityTypeId = this.utilityTypeIdByHardType.get(hardType) ?? null;
     const newUtility = Utility.create({
-      asset_id_fk: this.data.item.id,
-      asset: this.data.item,
+      asset_ids: [this.data.item.id],
+      assets: [this.data.item],
       utility_type_id_fk: utilityTypeId ?? undefined,
     });
 
@@ -224,21 +275,36 @@ export class AssetEditDialogComponent implements OnInit {
   openUtilityDetail(utility: Utility): void {
     // Sopra questo dialog (stessa finestra), non una tab nuova — stesso
     // pattern del verso opposto in UtilityEditDialogComponent.navigateToAsset.
-    // L'oggetto e' gia' quello caricato con l'immobile (data.item.utilities),
-    // nessuna chiamata di rete in piu' per riaprirlo.
     //
-    // Il GET immobile non popola il back-reference utilities[].asset (evita
-    // il giro circolare) — asset_id_fk resta valorizzato ma
-    // UtilityEditDialogComponent.resolveOnRelation('asset', ...) lo scarta
-    // se `.asset` non e' presente (guard contro FK orfane non risolvibili),
-    // quindi il campo "Immobile associato" partiva sempre vuoto aprendo da
-    // qui. L'immobile e' pero' gia' noto per certo (data.item) — stesso stub
-    // gia' fatto in addUtility() per l'analogo problema post-POST.
-    this.dialog.open(UtilityEditDialogComponent, {
-      width: UTILITY_DIALOG_WIDTH,
-      maxWidth: UTILITY_DIALOG_WIDTH,
-      position: EDIT_DIALOG_POSITION,
-      data: {mode: 'edit', item: {...utility, asset: utility.asset ?? this.data.item}},
+    // Il GET immobile non popola il back-reference utilities[].assets (evita
+    // il giro circolare): aprire il dialog con i soli dati della riga
+    // mostrerebbe solo questo immobile e, al salvataggio, asset_ids
+    // sostituirebbe l'insieme cancellando gli altri immobili collegati.
+    // GET singolo dell'utenza (findOne joina gli immobili) prima di aprire.
+    this.utilityService.getById(utility.id).subscribe({
+      next: full => {
+        this.dialog.open<UtilityEditDialogComponent, {mode: 'edit'; item: Utility}, Utility | undefined>(UtilityEditDialogComponent, {
+          width: UTILITY_DIALOG_WIDTH,
+          maxWidth: UTILITY_DIALOG_WIDTH,
+          position: EDIT_DIALOG_POSITION,
+          data: {mode: 'edit', item: full},
+        })
+          // Il dialog si limita a chiudersi col form compilato: il
+          // salvataggio va fatto qui (stesso pattern di MapComponent.openDetail),
+          // altrimenti "Salva" chiudeva senza persistere nulla.
+          .afterClosed().subscribe(result => {
+            if (!result) return;
+            this.utilityService.update(result.id, result).subscribe({
+              next: saved => {
+                const stillLinked = saved.assets?.some(a => a.id === this.data.item.id) ?? true;
+                const others = (this.data.item.utilities ?? []).filter(u => u.id !== saved.id);
+                this.data.item.utilities = stillLinked ? [...others, saved] : others;
+              },
+              error: err => console.error("Errore nel salvataggio dell'utenza:", err)
+            });
+          });
+      },
+      error: err => console.error("Errore nel caricamento dell'utenza:", err)
     });
   }
 

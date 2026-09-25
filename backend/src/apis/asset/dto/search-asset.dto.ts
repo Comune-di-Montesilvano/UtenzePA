@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
+import { AssetStatusEnum } from '@apis/asset/enum/asset-status.enum';
 
 export class SearchAssetDto {
   @IsOptional()
@@ -102,6 +103,27 @@ export class SearchAssetDto {
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))
   @IsInt()
   asset_type_id?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : Number(value)))
+  @IsInt()
+  nature_id?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : Number(value)))
+  @IsInt()
+  function_id?: number;
+
+  @IsOptional()
+  @IsEnum(AssetStatusEnum)
+  status?: AssetStatusEnum;
+
+  // Solo immobili ancora col vecchio tipo (asset_type_id valorizzato): usato
+  // dal banner "N immobili da riclassificare".
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === 'true')
+  legacy_only?: boolean;
 
   @IsOptional()
   @IsBoolean()

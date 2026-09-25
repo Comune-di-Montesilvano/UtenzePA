@@ -1,0 +1,20 @@
+<div style="padding: 1rem;">
+  <div>
+    <h1>Funzioni Immobili</h1>
+    <p style="color: #6A7282;">A cosa serve un immobile (Istruzione, Sport, Illuminazione…). Le combinazioni ammesse si impostano sulla Tipologia.</p>
+  </div>
+  <div style="margin-top: 1rem;">
+    <app-search-asset-function (search)="onSearch($event)"></app-search-asset-function>
+  </div>
+  <div style="margin-top: 1.5rem;">
+    <app-data-table-asset-function
+      [data]="list"
+      [loading]="loading"
+      (onSave)="onSave($event)"
+      (onDelete)="onDelete($event)"
+      (onCreate)="onCreate($event)"
+      (onRestore)="onRestore($event)"
+      [resetPagingTrigger]="resetPagingCount"
+    ></app-data-table-asset-function>
+  </div>
+</div>

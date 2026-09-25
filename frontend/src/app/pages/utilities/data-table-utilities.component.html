@@ -69,7 +69,7 @@
 
   <ng-container matColumnDef="asset.asset_name">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Fabbricato Associato</th>
-    <td mat-cell *matCellDef="let item">{{ item.asset?.asset_name }}</td>
+    <td mat-cell *matCellDef="let item">{{ assetNames(item) }}</td>
   </ng-container>
 
   <ng-container matColumnDef="costsBorneBy.name">
@@ -254,7 +254,7 @@
   <ng-container matColumnDef="asset.utilizer">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Utilizzatori</th>
     <td mat-cell *matCellDef="let item">
-      @if (item.asset?.utilizerGrants?.length) {
+      @if (getUtilizersNames(item)) {
         <span [matTooltip]="getUtilizersNames(item)">{{ getUtilizersNames(item) | truncate: maxDescLength }}</span>
       }
     </td>

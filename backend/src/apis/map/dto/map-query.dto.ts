@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional } from 'class-validator';
+import { AssetStatusEnum } from '@apis/asset/enum/asset-status.enum';
 
 export class MapQueryDto {
   @IsOptional()
@@ -38,4 +39,39 @@ export class MapQueryDto {
   )
   @IsInt({ each: true })
   utilityTypeIds?: number[];
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === '' || value === undefined
+      ? undefined
+      : String(value)
+          .split(',')
+          .map((v: string) => Number(v))
+          .filter((n: number) => !Number.isNaN(n)),
+  )
+  @IsInt({ each: true })
+  natureIds?: number[];
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === '' || value === undefined
+      ? undefined
+      : String(value)
+          .split(',')
+          .map((v: string) => Number(v))
+          .filter((n: number) => !Number.isNaN(n)),
+  )
+  @IsInt({ each: true })
+  functionIds?: number[];
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === '' || value === undefined
+      ? undefined
+      : String(value)
+          .split(',')
+          .filter((v: string) => v !== ''),
+  )
+  @IsEnum(AssetStatusEnum, { each: true })
+  statuses?: AssetStatusEnum[];
 }

@@ -4,6 +4,7 @@ import {
   Entity,
   Index,
   JoinColumn,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -14,6 +15,9 @@ import { Utility } from '../../utility/entity/utility.entity';
 import { UtilizerGrant } from '@apis/utilizer-grant/entity/utilizer-grant.entity';
 import { AssetAggregator } from '../../asset-aggregators/entity/asset-aggregator.entity';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
+import { AssetNature } from '@apis/asset-natures/entity/asset-nature.entity';
+import { AssetFunction } from '@apis/asset-functions/entity/asset-function.entity';
+import { AssetStatusEnum } from '@apis/asset/enum/asset-status.enum';
 
 @Entity('assets')
 export class Asset {
@@ -86,8 +90,20 @@ export class Asset {
   @Column({ length: 100, nullable: true })
   category: string;
 
-  @Column({ type: 'int', nullable: false })
-  asset_type_id: number;
+  // Legacy (AssetAggregator): in sola lettura, azzerato quando l'immobile
+  // riceve natura + funzione (AssetsService.update). Colonna e tabella
+  // aggregatori vanno droppate quando nessun immobile lo valorizza più.
+  @Column({ type: 'int', nullable: true })
+  asset_type_id: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  nature_id: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  function_id: number | null;
+
+  @Column({ type: 'enum', enum: AssetStatusEnum, default: AssetStatusEnum.ATTIVO })
+  status: AssetStatusEnum;
 
   @CreateDateColumn({ type: 'timestamp' })
   create_date: Date;
@@ -113,7 +129,7 @@ export class Asset {
   @JoinColumn({ name: 'updated_by_user_id' })
   updated_by: SystemUser;
 
-  @OneToMany(() => Utility, (utility) => utility.asset)
+  @ManyToMany(() => Utility, (utility) => utility.assets)
   utilities: Utility[];
 
   @OneToMany(() => UtilizerGrant, (utilizerGrant) => utilizerGrant.asset)
@@ -122,4 +138,12 @@ export class Asset {
   @ManyToOne(() => AssetAggregator, (aggregator) => aggregator.assets)
   @JoinColumn({ name: 'asset_type_id' })
   assetAggregator: AssetAggregator;
+
+  @ManyToOne(() => AssetNature)
+  @JoinColumn({ name: 'nature_id' })
+  assetNature: AssetNature;
+
+  @ManyToOne(() => AssetFunction)
+  @JoinColumn({ name: 'function_id' })
+  assetFunction: AssetFunction;
 }

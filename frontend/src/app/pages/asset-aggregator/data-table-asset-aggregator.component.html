@@ -1,9 +1,5 @@
 <div style="display: flex; justify-content: space-between; align-items: center;">
   <h3>Elenco ({{data.length}})</h3>
-  <button mat-flat-button (click)="openCreateDialog()" [appHasRole]="['Admin', 'Operatore']">
-    <mat-icon>add</mat-icon>
-    Aggiungi aggregato
-  </button>
 </div>
 
 @if (loading) {
@@ -15,18 +11,8 @@
   <ng-container matColumnDef="actions">
     <th mat-header-cell *matHeaderCellDef>Azioni</th>
     <td mat-cell *matCellDef="let item">
-      <button mat-icon-button (click)="openEditDialog(item)" matTooltip="Modifica" aria-label="Modifica"
-              [appHasRole]="['Admin', 'Operatore', 'Lettore']">
-        <mat-icon>edit</mat-icon>
-      </button>
-      <button mat-icon-button
-              [class.mat-action-success]="item.deleted"
-              [class.mat-action-danger]="!item.deleted"
-              [matTooltip]="item.deleted ? 'Ripristina' : 'Elimina'"
-              [attr.aria-label]="item.deleted ? 'Ripristina' : 'Elimina'"
-              (click)="item.deleted ? restoreItem(item) : openDeleteDialog(item)"
-              [appHasRole]="['Admin', 'Operatore']">
-        <mat-icon>{{ item.deleted ? 'restore' : 'delete' }}</mat-icon>
+      <button mat-icon-button (click)="openEditDialog(item)" matTooltip="Visualizza" aria-label="Visualizza">
+        <mat-icon>visibility</mat-icon>
       </button>
     </td>
   </ng-container>

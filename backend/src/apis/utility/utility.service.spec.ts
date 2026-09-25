@@ -38,6 +38,7 @@ describe('UtilitiesService', () => {
     getOne: jest.Mock;
   };
   let contractRepo: { find: jest.Mock };
+  let assetRepo: { count: jest.Mock; find: jest.Mock };
 
   beforeEach(() => {
     qb = {
@@ -65,7 +66,8 @@ describe('UtilitiesService', () => {
         getRepository: jest.fn().mockReturnValue(contractRepo),
       },
     };
-    service = new UtilitiesService(repo as never);
+    assetRepo = { count: jest.fn().mockResolvedValue(1), find: jest.fn().mockResolvedValue([]) };
+    service = new UtilitiesService(repo as never, assetRepo as never);
   });
 
   describe('getDaysToExpiry', () => {
@@ -131,9 +133,14 @@ describe('UtilitiesService', () => {
         'utilityType.deleted = 0',
       );
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
-        'Utility.asset',
-        'asset',
-        'asset.deleted = 0',
+        'Utility.assets',
+        'assets',
+        'assets.deleted = 0',
+      );
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
+        'assets.utilizerGrants',
+        'utilizerGrants',
+        'utilizerGrants.deleted = 0',
       );
       // join correlato verso il contratto corrente (solo per WHERE, niente AndSelect:
       // non idratabile da TypeORM insieme agli altri join one-to-many della query)
@@ -438,7 +445,7 @@ describe('UtilitiesService', () => {
 
   describe('create', () => {
     it('crea l\'utenza', async () => {
-      const result = await service.create({ supply_expiry_date: null } as never, 4);
+      const result = await service.create({ supply_expiry_date: null, asset_ids: [1] } as never, 4);
 
       expect(repo.save).toHaveBeenCalledWith(
         expect.objectContaining({ created_by_user_id: 4, updated_by_user_id: 4 }),
@@ -449,14 +456,14 @@ describe('UtilitiesService', () => {
     it('rilancia un errore gestito se il salvataggio fallisce', async () => {
       repo.save.mockRejectedValue({ code: 'ALTRO' });
 
-      await expect(service.create({} as never)).rejects.toThrow(HttpException);
+      await expect(service.create({ asset_ids: [1] } as never)).rejects.toThrow(HttpException);
     });
 
     it('registra un evento CREATE in audit log', async () => {
       const auditLogService = { record: jest.fn() };
       (service as any).auditLogService = auditLogService;
 
-      const result = await service.create({ supply_expiry_date: null } as never, 4);
+      const result = await service.create({ supply_expiry_date: null, asset_ids: [1] } as never, 4);
 
       expect(auditLogService.record).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -498,6 +505,123 @@ describe('UtilitiesService', () => {
 
       expect(auditLogService.record).toHaveBeenCalledWith(
         expect.objectContaining({ entityName: 'utilities', entityId: 1, action: 'DELETE', userId: 8 }),
+      );
+    });
+  });
+  describe('immobili associati', () => {
+    it('findAll con asset_id filtra via sotto-query su utility_assets, fuori da applyFilters', async () => {
+      await service.findAll({ asset_id: 7 } as never);
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'Utility.id IN (SELECT ua.utility_id FROM utility_assets ua WHERE ua.asset_id = :filter_asset_id)',
+        { filter_asset_id: 7 },
+      );
+      expect(qb.andWhere).not.toHaveBeenCalledWith(
+        'Utility.asset_id = :filter_asset_id',
+        expect.anything(),
+      );
+    });
+
+    it('findOne carica immobili collegati con concessioni e utilizzatori', async () => {
+      await service.findOne(1);
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('Utility.assets', 'assets', 'assets.deleted = 0');
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
+        'utilizerGrants.utilizer',
+        'utilizer',
+        'utilizer.deleted = 0',
+      );
+    });
+
+    it('create salva gli immobili come relazione deduplicata', async () => {
+      assetRepo.count.mockResolvedValue(2);
+      await service.create({ utility_id: 'U1', asset_ids: [3, 4, 3] } as never, 1);
+      expect(assetRepo.count).toHaveBeenCalledWith({
+        where: { id: expect.anything(), deleted: false },
+      });
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ assets: [{ id: 3 }, { id: 4 }] }),
+      );
+    });
+
+    it('create rifiuta se un immobile non esiste o è cancellato', async () => {
+      assetRepo.count.mockResolvedValue(1);
+      await expect(
+        service.create({ utility_id: 'U1', asset_ids: [3, 99] } as never, 1),
+      ).rejects.toThrow('Uno o più immobili associati non esistono o sono stati eliminati.');
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('update con asset_ids sostituisce gli immobili collegati', async () => {
+      assetRepo.count.mockResolvedValue(1);
+      repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false });
+
+      await service.update(10, { asset_ids: [5] } as never, 1);
+
+      expect(repo.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({ id: 10, assets: [{ id: 5 }] }),
+      );
+    });
+
+    it('update che cambia gli immobili collegati registra la modifica in audit log', async () => {
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+      assetRepo.count.mockResolvedValue(1);
+      assetRepo.find.mockResolvedValue([{ id: 5, asset_name: 'Scuola B' }]);
+      repo.findOne.mockResolvedValue({
+        id: 10,
+        utility_id: 'U1',
+        deleted: false,
+        assets: [{ id: 3, asset_name: 'Scuola A' }],
+      });
+
+      await service.update(10, { asset_ids: [5] } as never, 1);
+
+      expect(auditLogService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entityName: 'utilities',
+          entityId: 10,
+          action: 'UPDATE',
+          userId: 1,
+          fields: [
+            {
+              fieldName: 'asset_ids',
+              oldValue: '3',
+              newValue: '5',
+              oldLabel: 'Scuola A',
+              newLabel: 'Scuola B',
+            },
+          ],
+        }),
+      );
+    });
+
+    it('update con gli stessi immobili (ordine diverso) non registra audit sugli immobili', async () => {
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+      assetRepo.count.mockResolvedValue(2);
+      repo.findOne.mockResolvedValue({
+        id: 10,
+        utility_id: 'U1',
+        deleted: false,
+        assets: [{ id: 3 }, { id: 4 }],
+      });
+
+      await service.update(10, { asset_ids: [4, 3] } as never, 1);
+
+      expect(auditLogService.record).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          fields: expect.arrayContaining([expect.objectContaining({ fieldName: 'asset_ids' })]),
+        }),
+      );
+    });
+
+    it('update senza asset_ids non tocca gli immobili collegati', async () => {
+      repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false });
+
+      await service.update(10, { notes: 'x' } as never, 1);
+
+      expect(assetRepo.count).not.toHaveBeenCalled();
+      expect(repo.save).not.toHaveBeenCalledWith(
+        expect.objectContaining({ assets: expect.anything() }),
       );
     });
   });

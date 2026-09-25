@@ -20,8 +20,12 @@
     <mat-checkbox [formControl]="showAssets">Immobili</mat-checkbox>
     <mat-checkbox [formControl]="showUtilities">Utenze</mat-checkbox>
 
+    <app-multi-select label="Tipologia" [options]="natureOptions" [formControl]="natureIds"></app-multi-select>
+    <app-multi-select label="Funzione" [options]="functionOptions" [formControl]="functionIds"></app-multi-select>
+    <app-multi-select label="Stato" [options]="statusOptions" [formControl]="statuses"></app-multi-select>
+
     <app-multi-select
-      label="Aggregato immobile"
+      label="Tipo precedente"
       [options]="assetAggregatorOptions"
       [formControl]="assetAggregatorIds">
     </app-multi-select>
@@ -33,7 +37,7 @@
     </app-multi-select>
 
     <div class="map-legend">
-      <div><span class="map-pin" style="background:#37474f"><span class="material-icons">apartment</span></span> Immobile (icona varia per aggregato)</div>
+      <div><span class="map-pin" style="background:#37474f"><span class="material-icons">apartment</span></span> Immobile (icona varia per funzione)</div>
       @for (t of hardTypeLegend; track t.value) {
         <div><span class="map-pin" [style.background]="t.color"><i [class]="t.icon"></i></span> {{ t.label }}</div>
       }

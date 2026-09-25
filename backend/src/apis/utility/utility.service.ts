@@ -10,6 +10,7 @@ import { BaseService } from '@apis/shared/base.service';
 import { Contract } from '@apis/contracts/entity/contract.entity';
 import { DateHelper } from '@/helpers/date.helpers';
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
+import { Asset } from '@apis/asset/entity/asset.entity';
 
 @Injectable()
 export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, UpdateUtilityDto> {
@@ -19,6 +20,8 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
   constructor(
     @InjectRepository(Utility)
     protected readonly repo: Repository<Utility>,
+    @InjectRepository(Asset)
+    private readonly assetRepo: Repository<Asset>,
   ) {
     super();
   }
@@ -210,8 +213,8 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('Utility.utilityType', 'utilityType', 'utilityType.deleted = 0');
     qb.leftJoinAndSelect('utilityType.utilityTypePurposes', 'utps');
     qb.leftJoinAndSelect('utps.purpose', 'utpPurpose', 'utpPurpose.deleted = 0');
-    qb.leftJoinAndSelect('Utility.asset', 'asset', 'asset.deleted = 0');
-    qb.leftJoinAndSelect('asset.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
+    qb.leftJoinAndSelect('Utility.assets', 'assets', 'assets.deleted = 0');
+    qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
     qb.leftJoinAndSelect('utilizerGrants.utilizer', 'utilizer', 'utilizer.deleted = 0');
     qb.leftJoinAndSelect('Utility.costsBorneBy', 'costsBorneBy', 'costsBorneBy.deleted = 0');
     qb.leftJoinAndSelect(
@@ -350,8 +353,19 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       }
     }
 
+    // Filtro per immobile via sotto-query (solo WHERE): un secondo join
+    // su assets per filtrare restringerebbe anche gli immobili idratati
+    // nella risposta, mostrando solo quello filtrato invece di tutti.
+    if (filters.asset_id) {
+      qb.andWhere(
+        'Utility.id IN (SELECT ua.utility_id FROM utility_assets ua WHERE ua.asset_id = :filter_asset_id)',
+        { filter_asset_id: filters.asset_id },
+      );
+    }
+
     this.applyFilters(qb, filters, 'Utility', [
       'deleted',
+      'asset_id',
       'safeguard',
       'user_id_fk',
       'id',
@@ -419,8 +433,8 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('Utility.utilityType', 'utilityType', 'utilityType.deleted = 0');
     qb.leftJoinAndSelect('utilityType.utilityTypePurposes', 'utps');
     qb.leftJoinAndSelect('utps.purpose', 'utpPurpose', 'utpPurpose.deleted = 0');
-    qb.leftJoinAndSelect('Utility.asset', 'asset', 'asset.deleted = 0');
-    qb.leftJoinAndSelect('asset.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
+    qb.leftJoinAndSelect('Utility.assets', 'assets', 'assets.deleted = 0');
+    qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
     qb.leftJoinAndSelect('utilizerGrants.utilizer', 'utilizer', 'utilizer.deleted = 0');
     qb.leftJoinAndSelect('Utility.costsBorneBy', 'costsBorneBy', 'costsBorneBy.deleted = 0');
     qb.leftJoinAndSelect(
@@ -445,7 +459,11 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
 
   async findOne(id: number): Promise<Utility | null> {
     const qb = this.repo.createQueryBuilder('Utility');
-    qb.leftJoinAndSelect('Utility.asset', 'asset', 'asset.deleted = 0');
+    // Stessi join di findAll (immobili con concessioni): il dialog aperto da
+    // un GET singolo deve mostrare le concessioni come quello aperto dalla riga.
+    qb.leftJoinAndSelect('Utility.assets', 'assets', 'assets.deleted = 0');
+    qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
+    qb.leftJoinAndSelect('utilizerGrants.utilizer', 'utilizer', 'utilizer.deleted = 0');
     qb.leftJoinAndSelect('Utility.utilityType', 'utilityType', 'utilityType.deleted = 0');
     qb.leftJoinAndSelect('utilityType.utilityTypePurposes', 'utps');
     qb.leftJoinAndSelect('utps.purpose', 'utpPurpose', 'utpPurpose.deleted = 0');
@@ -481,8 +499,11 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
   }
 
   async create(dto: CreateUtilityDto, userId?: number): Promise<Utility> {
+    const { asset_ids, ...rest } = dto;
+    const assets = await this.resolveAssets(asset_ids);
     const newUtility = this.repo.create({
-      ...dto,
+      ...rest,
+      assets,
       ...(userId !== undefined && { created_by_user_id: userId, updated_by_user_id: userId }),
     });
 
@@ -493,6 +514,64 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     } catch (error) {
       this.manageErrors(error, "Errore durante la creazione dell'Utenza");
     }
+  }
+
+  async update(id: number, dto: UpdateUtilityDto, userId?: number): Promise<Utility> {
+    const { asset_ids, ...rest } = dto;
+    const assets = asset_ids !== undefined ? await this.resolveAssets(asset_ids) : undefined;
+
+    await super.update(id, rest as UpdateUtilityDto, userId);
+
+    if (assets !== undefined) {
+      // repo.findOne diretto (non this.findOne, che proietta i campi del
+      // contratto corrente — vedi remove()).
+      const entity = await this.repo.findOne({ where: { id } as never, relations: { assets: true } });
+      const before = [...(entity.assets ?? [])];
+      entity.assets = assets;
+      await this.repo.save(entity);
+      // asset_ids esce dal DTO prima di super.update, quindi BaseService non
+      // lo vede nel diff: audit esplicito del cambio immobili collegati.
+      await this.recordAssetsChange(id, before, assets, userId ?? entity.updated_by_user_id);
+    }
+
+    return this.findOne(id);
+  }
+
+  private async recordAssetsChange(
+    id: number,
+    before: Asset[],
+    after: Asset[],
+    userId: number | undefined,
+  ): Promise<void> {
+    const ids = (list: Asset[]) => list.map((a) => a.id).sort((x, y) => x - y);
+    const oldIds = ids(before);
+    const newIds = ids(after);
+    if (oldIds.join(',') === newIds.join(',')) return;
+    const newAssets = await this.assetRepo.find({ where: { id: In(newIds) } });
+    const names = (list: Asset[], order: number[]) =>
+      order.map((assetId) => list.find((a) => a.id === assetId)?.asset_name ?? `#${assetId}`).join(', ');
+    await this.recordAudit(AuditAction.UPDATE, id, userId, [
+      {
+        fieldName: 'asset_ids',
+        oldValue: oldIds.join(','),
+        newValue: newIds.join(','),
+        oldLabel: names(before, oldIds),
+        newLabel: names(newAssets, newIds),
+      },
+    ]);
+  }
+
+  // Deduplica e verifica che ogni immobile esista e non sia cancellato,
+  // altrimenti 400 (niente righe orfane in utility_assets).
+  private async resolveAssets(assetIds: number[]): Promise<Asset[]> {
+    const ids = [...new Set(assetIds)];
+    const found = await this.assetRepo.count({ where: { id: In(ids), deleted: false } });
+    if (found !== ids.length) {
+      throw new BadRequestException(
+        'Uno o più immobili associati non esistono o sono stati eliminati.',
+      );
+    }
+    return ids.map((assetId) => ({ id: assetId }) as Asset);
   }
 
   async remove(id: number, updatedByUserId: number): Promise<void> {

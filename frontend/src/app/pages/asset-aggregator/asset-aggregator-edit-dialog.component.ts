@@ -12,8 +12,6 @@ import {EditDialogData} from '../../core/components/abstract-data-table.componen
 import {AssetAggregator} from './entity/asset-aggregator.entity';
 import {AssetAggregatorIconOptions, ASSET_AGGREGATOR_ICON_FALLBACK} from './enum/asset-aggregator-icon.enum';
 import {IconPickerDialogComponent} from './icon-picker-dialog.component';
-import {AuthService} from '../../services/auth.service';
-import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 
 @Component({
@@ -28,7 +26,6 @@ import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
     MatIconModule,
     MatButtonModule,
     MatTooltipModule,
-    HasRoleDirective,
     ReadOnlyDirective
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -38,7 +35,6 @@ export class AssetAggregatorEditDialogComponent {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<AssetAggregatorEditDialogComponent, AssetAggregator | undefined>);
   private dialog = inject(MatDialog);
-  private authService = inject(AuthService);
   protected data = inject<EditDialogData<AssetAggregator>>(MAT_DIALOG_DATA);
 
   isNew = this.data.mode === 'create';
@@ -79,10 +75,9 @@ export class AssetAggregatorEditDialogComponent {
     // FormGroup per il ruolo Lettore, cosi' i controlli sono anche
     // programmaticamente non modificabili e save() non puo' inviare dati
     // (gate di autorizzazione lato client per il ruolo Lettore).
-    const role = this.authService.getCurrentUser()?.role;
-    if (!role || role === 'Lettore') {
-      this.form.disable();
-    }
+    // Classificazione legacy: sostituita da Natura/Funzione, in sola
+    // lettura finché gli immobili non sono tutti riclassificati.
+    this.form.disable();
   }
 
   onIconOptionSelected(selected: string): void {

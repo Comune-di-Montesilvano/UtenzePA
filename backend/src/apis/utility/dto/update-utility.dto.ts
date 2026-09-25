@@ -1,4 +1,6 @@
 import {
+  ArrayMinSize,
+  IsArray,
   IsOptional,
   IsString,
   IsInt,
@@ -130,8 +132,10 @@ export class UpdateUtilityDto {
   specifications?: string;
 
   @IsOptional()
-  @IsInt()
-  asset_id_fk?: number;
+  @IsArray({ message: 'Gli immobili associati devono essere un array.' })
+  @ArrayMinSize(1, { message: 'Almeno un immobile associato è obbligatorio.' })
+  @IsInt({ each: true, message: 'Ogni immobile associato deve essere un ID intero.' })
+  asset_ids?: number[];
 
   @IsOptional()
   @IsInt()

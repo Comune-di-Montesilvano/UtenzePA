@@ -6,7 +6,6 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
-import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {AssetAggregator} from './entity/asset-aggregator.entity';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
@@ -24,8 +23,7 @@ import {ASSET_AGGREGATOR_ICON_FALLBACK} from './enum/asset-aggregator-icon.enum'
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
-    MatProgressBarModule,
-    HasRoleDirective
+    MatProgressBarModule
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-asset-aggregator.component.html'

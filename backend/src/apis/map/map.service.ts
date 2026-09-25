@@ -68,24 +68,36 @@ export class MapService {
     // filtro aggregato — qui serve il solo filtro tipo, sull'intero parco).
     // In([]) su MySQL/TypeORM genera "IN ()" non valido — [-1] sentinella
     // forza zero risultati quando nessuna utenza corrisponde, invece di
-    // omettere per errore il filtro (asset_id_fk non è mai negativo).
+    // omettere per errore il filtro (un id immobile non è mai negativo).
     let qualifyingAssetIds: number[] | null = null;
     if (filters.utilityTypeIds?.length) {
       const rows = await this.utilityRepo.find({
         where: { deleted: false, utility_type_id_fk: In(filters.utilityTypeIds) },
-        select: { asset_id_fk: true },
+        relations: { assets: true },
       });
-      qualifyingAssetIds = [...new Set(rows.map((r) => r.asset_id_fk))];
+      qualifyingAssetIds = [...new Set(rows.flatMap((r) => (r.assets ?? []).map((a) => a.id)))];
     }
+
+    // Filtri classificazione immobile — stessi criteri sugli immobili e sulle
+    // utenze (tramite gli immobili collegati). Con where su una relazione
+    // ManyToMany TypeORM idrata solo gli immobili che matchano: un'utenza
+    // collegata a un immobile filtrato e a uno no compare solo sul primo.
+    const assetClassWhere = {
+      ...(filters.assetAggregatorIds?.length ? { asset_type_id: In(filters.assetAggregatorIds) } : {}),
+      ...(filters.natureIds?.length ? { nature_id: In(filters.natureIds) } : {}),
+      ...(filters.functionIds?.length ? { function_id: In(filters.functionIds) } : {}),
+      ...(filters.statuses?.length ? { status: In(filters.statuses) } : {}),
+    };
+    const hasAssetClassFilter = Object.keys(assetClassWhere).length > 0;
 
     if (showAssets) {
       const assets = await this.assetRepo.find({
         where: {
           deleted: false,
-          ...(filters.assetAggregatorIds?.length ? { asset_type_id: In(filters.assetAggregatorIds) } : {}),
+          ...assetClassWhere,
           ...(qualifyingAssetIds !== null ? { id: In(qualifyingAssetIds.length ? qualifyingAssetIds : [-1]) } : {}),
         },
-        relations: { assetAggregator: true },
+        relations: { assetAggregator: true, assetFunction: true },
       });
 
       for (const asset of assets) {
@@ -99,7 +111,7 @@ export class MapService {
             lat: position.lat,
             lng: position.lng,
             source: position.source,
-            icon: asset.assetAggregator?.icon ?? null,
+            icon: asset.assetFunction?.icon ?? asset.assetAggregator?.icon ?? null,
           });
         } else {
           ungeolocated.push({
@@ -117,36 +129,59 @@ export class MapService {
         where: {
           deleted: false,
           ...(filters.utilityTypeIds?.length ? { utility_type_id_fk: In(filters.utilityTypeIds) } : {}),
-          // Il filtro aggregato immobile va applicato anche alle utenze (tramite
-          // l'asset collegato) — altrimenti col checkbox "Contatori" attivo i
+          // I filtri immobile vanno applicati anche alle utenze (tramite gli
+          // immobili collegati) — altrimenti col checkbox "Contatori" attivo i
           // contatori restano sempre tutti visibili, filtro senza effetto visibile.
-          ...(filters.assetAggregatorIds?.length
-            ? { asset: { asset_type_id: In(filters.assetAggregatorIds) } }
-            : {}),
+          ...(hasAssetClassFilter ? { assets: assetClassWhere } : {}),
         },
-        relations: { asset: true, utilityType: true },
+        relations: { assets: true, utilityType: true },
       });
 
       for (const utility of utilities) {
-        const position = this.resolveUtilityPosition(utility);
-        if (position) {
+        const linked = utility.assets ?? [];
+        const base = {
+          id: utility.id,
+          type: 'utility' as const,
+          name: utility.utility_id,
+          hardType: utility.utilityType?.hard_type,
+        };
+
+        // Contatore con GPS proprio: è fisicamente in un punto solo.
+        if (isSet(utility.latitude) && isSet(utility.longitude)) {
           points.push({
-            id: utility.id,
-            type: 'utility',
-            name: utility.utility_id,
-            address: utility.asset?.address ?? null,
+            ...base,
+            address: linked[0]?.address ?? null,
+            lat: utility.latitude,
+            lng: utility.longitude,
+            source: 'gps',
+            assetId: linked[0]?.id ?? null,
+          });
+          continue;
+        }
+
+        // Senza GPS proprio: un marker per ogni immobile collegato
+        // localizzabile (stesso id utenza, assetId diverso).
+        let placed = 0;
+        for (const asset of linked) {
+          const position = this.resolveAssetPosition(asset);
+          if (!position) continue;
+          points.push({
+            ...base,
+            address: asset.address ?? null,
             lat: position.lat,
             lng: position.lng,
             source: position.source,
-            hardType: utility.utilityType?.hard_type,
-            assetId: utility.asset?.id ?? null,
+            assetId: asset.id,
           });
-        } else {
+          placed++;
+        }
+
+        if (placed === 0) {
           ungeolocated.push({
             id: utility.id,
             type: 'utility',
             name: utility.utility_id,
-            reason: isSet(utility.asset?.address) ? 'geocode_failed' : 'no_address',
+            reason: linked.some((a) => isSet(a.address)) ? 'geocode_failed' : 'no_address',
           });
         }
       }
@@ -163,12 +198,5 @@ export class MapService {
       return { lat: asset.geocoded_latitude, lng: asset.geocoded_longitude, source: 'geocoded' };
     }
     return null;
-  }
-
-  private resolveUtilityPosition(utility: Utility): Position | null {
-    if (isSet(utility.latitude) && isSet(utility.longitude)) {
-      return { lat: utility.latitude, lng: utility.longitude, source: 'gps' };
-    }
-    return utility.asset ? this.resolveAssetPosition(utility.asset) : null;
   }
 }

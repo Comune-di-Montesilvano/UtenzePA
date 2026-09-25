@@ -1,4 +1,5 @@
 import {Injectable} from '@angular/core';
+import {map, Observable} from 'rxjs';
 import {environment} from '../../../environments/environment';
 import {Asset} from './entity/asset.entity';
 import {AbstractService} from '../../core/services/abstract.service';
@@ -11,6 +12,13 @@ import {TOption} from '../../core/types/option.interface';
 export class AssetService extends AbstractService<Asset> {
   protected override readonly BASE_URL = environment.apiUrl + '/building';
   protected override readonly entityClass = Asset;
+
+  // Immobili ancora col vecchio "tipo immobile": banner "da riclassificare".
+  legacyCount(): Observable<number> {
+    return this.http
+      .get<{count: number}>(`${this.BASE_URL}/legacy-count`, {headers: this.getAuthHeaders()})
+      .pipe(map(r => r.count));
+  }
 
   categoryOptions(): TOption[] {
     return [
