@@ -161,7 +161,7 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     functionId: number | null | undefined,
   ): Promise<void> {
     if (functionId != null && natureId == null) {
-      throw new BadRequestException('Selezionare la natura prima della funzione.');
+      throw new BadRequestException('Selezionare la tipologia prima della funzione.');
     }
     if (natureId == null || functionId == null) return;
     const allowed = await this.natureRepo
@@ -170,7 +170,7 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
       .where('n.id = :natureId AND n.deleted = 0', { natureId })
       .getCount();
     if (allowed === 0) {
-      throw new BadRequestException('Combinazione natura/funzione non ammessa.');
+      throw new BadRequestException('Combinazione tipologia/funzione non ammessa.');
     }
   }
 

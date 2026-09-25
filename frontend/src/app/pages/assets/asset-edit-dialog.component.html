@@ -2,7 +2,7 @@
   <span>{{ isNew ? 'Aggiungi Immobile' : 'Modifica Immobile: ' + data.item.asset_name + ' (ID ' + data.item.id + ')' }}</span>
   @if (legacyTypeLabel(); as legacy) {
     <span style="font-size: 0.75rem; font-weight: 500; padding: 2px 8px; border-radius: 12px; background: #fef3c7; color: #92400e; white-space: nowrap;"
-          matTooltip="Classificazione precedente: sparisce dopo aver salvato natura e funzione">
+          matTooltip="Classificazione precedente: sparisce dopo aver salvato tipologia e funzione">
       Tipo precedente: {{ legacy }}
     </span>
   }
@@ -32,7 +32,7 @@
       </mat-form-field>
 
       <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Natura</mat-label>
+        <mat-label>Tipologia</mat-label>
         <mat-select formControlName="nature_id">
           <!-- Trigger esplicito: senza, la select chiusa mostrerebbe il testo
                completo dell'opzione, ligatura icona inclusa ("apartmentFabbricato"). -->
@@ -61,7 +61,7 @@
           }
         </mat-select>
         @if (form.controls.nature_id.value == null) {
-          <mat-hint>Scegliere prima la natura</mat-hint>
+          <mat-hint>Scegliere prima la tipologia</mat-hint>
         }
         @if (form.controls.function_id.invalid && form.controls.function_id.touched) {
           <mat-error>Obbligatorio</mat-error>

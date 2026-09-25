@@ -2,7 +2,7 @@
   <h3>Elenco ({{data.length}})</h3>
   <button mat-flat-button (click)="openCreateDialog()" [appHasRole]="['Admin', 'Operatore']">
     <mat-icon>add</mat-icon>
-    Aggiungi natura
+    Aggiungi tipologia
   </button>
 </div>
 
@@ -55,7 +55,7 @@
   <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.row-deleted]="row.deleted"></tr>
 
   <tr class="mat-row" *matNoDataRow>
-    <td class="mat-cell" [attr.colspan]="displayedColumns.length">Nessuna natura immobile trovata.</td>
+    <td class="mat-cell" [attr.colspan]="displayedColumns.length">Nessuna tipologia immobile trovata.</td>
   </tr>
 </table>
 

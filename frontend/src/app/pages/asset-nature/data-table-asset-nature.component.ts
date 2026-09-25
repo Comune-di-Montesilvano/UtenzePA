@@ -45,15 +45,15 @@ export class DataTableAssetNatureComponent extends AbstractDataTableComponent<As
   }
 
   protected override entityLabel(): string {
-    return 'natura immobile';
+    return 'tipologia immobile';
   }
 
   override openDeleteDialog(entity: AssetNature): void {
     this.dialog.open(ConfirmDialogComponent, {
       width: '350px',
       data: {
-        title: 'Elimina natura',
-        message: `Eliminare la natura immobile ${entity.name}?`,
+        title: 'Elimina tipologia',
+        message: `Eliminare la tipologia immobile ${entity.name}?`,
         confirmLabel: 'Elimina',
         danger: true
       }
@@ -65,7 +65,7 @@ export class DataTableAssetNatureComponent extends AbstractDataTableComponent<As
   override restoreItem(entity: AssetNature): void {
     this.dialog.open(ConfirmDialogComponent, {
       width: '350px',
-      data: {title: 'Ripristina natura', message: `Riattiva la natura ${entity.name}?`, confirmLabel: 'Ripristina'}
+      data: {title: 'Ripristina tipologia', message: `Riattiva la tipologia ${entity.name}?`, confirmLabel: 'Ripristina'}
     }).afterClosed().subscribe(confirmed => {
       if (confirmed) this.onRestore.emit(entity);
     });

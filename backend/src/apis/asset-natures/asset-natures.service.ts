@@ -52,7 +52,7 @@ export class AssetNaturesService extends BaseService<
     try {
       saved = await this.repo.save(entity);
     } catch (error) {
-      this.manageErrors(error, 'Errore durante la creazione della natura immobile');
+      this.manageErrors(error, 'Errore durante la creazione della tipologia immobile');
     }
     await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
     return this.findOne(saved.id);
@@ -63,7 +63,7 @@ export class AssetNaturesService extends BaseService<
 
     if (function_ids !== undefined) {
       const current = await this.repo.findOne({ where: { id }, relations: { functions: true } });
-      if (!current) throw new BadRequestException('Natura immobile non trovata');
+      if (!current) throw new BadRequestException('Tipologia immobile non trovata');
       const removed = (current.functions ?? [])
         .map((f) => f.id)
         .filter((fid) => !function_ids.includes(fid));
@@ -94,7 +94,7 @@ export class AssetNaturesService extends BaseService<
     const inUse = await this.assetRepo.count({ where: { nature_id: id, deleted: false } });
     if (inUse > 0) {
       throw new ConflictException(
-        `Natura usata da ${inUse} immobili: riclassificarli prima di eliminarla.`,
+        `Tipologia usata da ${inUse} immobili: riclassificarli prima di eliminarla.`,
       );
     }
     return super.remove(id, updatedByUserId);

@@ -54,7 +54,7 @@ export class SidebarComponent implements OnInit {
     {label: 'Contratti', icon: 'description', route: '/contracts'},
     {label: 'Impostazioni', icon: 'settings', submenu: [
         {label: 'Aggregati Utenze', icon: 'list', route: '/utility-aggregator'},
-        {label: 'Nature Immobili', icon: 'category', route: '/asset-nature'},
+        {label: 'Tipologie Immobili', icon: 'category', route: '/asset-nature'},
         {label: 'Funzioni Immobili', icon: 'widgets', route: '/asset-function'},
         {label: 'Aggregati Immobili (vecchio)', icon: 'list', route: '/asset-aggregator'},
         {label: 'Fornitori Manutenzione', icon: 'tune', route: '/maintenance-managers'},

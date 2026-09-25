@@ -106,7 +106,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
           this.loadAll();
         },
         error: (err: any) => {
-          // handleError mostra il messaggio del backend (es. 409 "Natura
+          // handleError mostra il messaggio del backend (es. 409 "Tipologia
           // usata da N immobili…"), non quello tecnico di HttpErrorResponse.
           this.handleError(err, 'Errore cancellazione');
         }

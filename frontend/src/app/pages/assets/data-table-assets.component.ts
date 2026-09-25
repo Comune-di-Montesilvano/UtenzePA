@@ -35,7 +35,7 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
   readonly allColumns: IColumnDef[] = [
     {field: 'id', header: 'ID', minWidth: '50px'},
     {field: 'asset_name', header: 'Nome edificio', minWidth: '150px'},
-    {field: 'assetNature.name', header: 'Natura', minWidth: '120px'},
+    {field: 'assetNature.name', header: 'Tipologia', minWidth: '120px'},
     {field: 'assetFunction.name', header: 'Funzione', minWidth: '150px'},
     {field: 'status', header: 'Stato', minWidth: '100px'},
     {field: 'assetAggregator.code', header: 'Tipo precedente', minWidth: '150px'},

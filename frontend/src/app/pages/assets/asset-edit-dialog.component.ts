@@ -163,7 +163,7 @@ export class AssetEditDialogComponent implements OnInit {
   ngOnInit(): void {
     this.naturesService.search({deleted: false} as never).subscribe({
       next: data => this.natures = data,
-      error: err => console.error('Errore nel caricamento delle nature immobile:', err)
+      error: err => console.error('Errore nel caricamento delle tipologie immobile:', err)
     });
     this.functionsService.search({deleted: false} as never).subscribe({
       next: data => this.allFunctions = data,

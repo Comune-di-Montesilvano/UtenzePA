@@ -93,7 +93,7 @@ export class CreateAssetDto {
   @MaxLength(100)
   category?: string;
 
-  @IsNotEmpty({ message: 'La natura immobile è obbligatoria' })
+  @IsNotEmpty({ message: 'La tipologia immobile è obbligatoria' })
   @Transform(({ value }) =>
     value !== undefined && value !== null && value !== '' ? parseInt(value, 10) : value,
   )

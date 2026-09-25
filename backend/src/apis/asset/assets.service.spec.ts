@@ -209,11 +209,11 @@ describe('AssetsService', () => {
       natureQb.getCount.mockResolvedValue(0);
       await expect(
         service.create({ asset_name: 'X', nature_id: 1, function_id: 9 } as never, 1),
-      ).rejects.toThrow('Combinazione natura/funzione non ammessa.');
+      ).rejects.toThrow('Combinazione tipologia/funzione non ammessa.');
       expect(repo.save).not.toHaveBeenCalled();
     });
 
-    it('update con natura e funzione valorizzate azzera il vecchio tipo', async () => {
+    it('update con tipologia e funzione valorizzate azzera il vecchio tipo', async () => {
       (repo as any).findOne = jest
         .fn()
         .mockResolvedValue({ id: 5, asset_type_id: 3, nature_id: null, function_id: null });
@@ -261,7 +261,7 @@ describe('AssetsService', () => {
         .mockResolvedValue({ id: 5, asset_type_id: 3, nature_id: null, function_id: null });
 
       await expect(service.update(5, { function_id: 2 } as never, 1)).rejects.toThrow(
-        'Selezionare la natura prima della funzione.',
+        'Selezionare la tipologia prima della funzione.',
       );
     });
 

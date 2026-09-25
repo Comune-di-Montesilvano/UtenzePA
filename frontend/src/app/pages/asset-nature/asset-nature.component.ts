@@ -23,7 +23,7 @@ export class AssetNatureComponent extends AbstractComponent<AssetNature> {
   }
 
   protected override entityLabel(): string {
-    return 'Natura';
+    return 'Tipologia';
   }
 
   protected override entityToPayload(entity: AssetNature): Partial<AssetNature> {
