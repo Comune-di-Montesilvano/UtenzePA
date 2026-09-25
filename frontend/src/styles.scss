@@ -412,3 +412,13 @@ p-paginator.p-component.p-paginator {
   background: #9e9e9e;
   border-style: dashed;
 }
+
+// Tooltip su più righe (testo con a capo), es. regola classificazione immobili
+// nel dialog immobile. Globale: i tooltip Material vivono nell'overlay CDK,
+// fuori dall'encapsulation del componente.
+.tooltip-multiline .mdc-tooltip__surface {
+  white-space: pre-line;
+  max-width: 420px;
+  text-align: left;
+}
+

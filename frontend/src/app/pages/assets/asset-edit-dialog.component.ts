@@ -91,6 +91,17 @@ export class AssetEditDialogComponent implements OnInit {
   private allFunctions: AssetFunction[] = [];
   statusOptions = ASSET_STATUS_OPTIONS;
 
+  // Regola di classificazione in ordine fisso: la prima risposta "sì"
+  // decide, così due operatori classificano lo stesso oggetto allo stesso
+  // modo (stessa regola del seed in 1790400000000-AddAssetClassification).
+  readonly classificationRule = [
+    `Rispondere nell'ordine, la prima risposta "sì" decide:`,
+    `1. È un edificio chiuso, con muri e tetto, anche piccolo (es. chiosco)? → Fabbricato`,
+    `2. È un dispositivo o un punto di fornitura tecnico (punto luce, semaforo, fontana, presa, pompa, cabina)? → Impianto`,
+    `3. È un'opera costruita non chiusa (tribuna, pensilina, ponte, palco fisso, gazebo, colombario, monumento)? → Manufatto`,
+    `4. Altrimenti è una superficie scoperta (parco, piazza, parcheggio, rotatoria, campo, terreno) → Area`,
+  ].join('\n');
+
   // Obbligatori per immobili nuovi e per quelli già riclassificati (non
   // devono poter tornare "vuoti"); un immobile legacy si salva anche senza
   // riclassificarlo (tiene il vecchio tipo).
