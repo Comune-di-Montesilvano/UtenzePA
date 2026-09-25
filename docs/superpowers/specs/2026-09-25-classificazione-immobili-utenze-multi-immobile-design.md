@@ -75,27 +75,27 @@ Una sola migration scritta a mano. `migration:generate` usato solo come riferime
 ### Nuove anagrafiche
 
 - `apis/asset-natures/`: CRUD standard (`/asset-natures`), stesso pattern di `purpose`/`asset-aggregators`.
-  - `GET /asset-natures/:id/functions` → funzioni ammesse.
-  - `PUT /asset-natures/:id/functions` body `{ function_ids: number[] }` → sostituisce le coppie. **409** se rimuove una coppia usata da almeno un immobile non cancellato (messaggio con numero di immobili coinvolti).
+  - Le coppie ammesse viaggiano nel DTO della natura: `function_ids?: number[]` in create/update (stesso pattern di `utility_ids` nei contratti) — se presente sostituisce l'insieme. **409** se rimuove una coppia usata da almeno un immobile non cancellato (messaggio con numero di immobili coinvolti).
+  - `GET /asset-natures` restituisce ogni natura con `functions` (solo non cancellate): il frontend filtra le funzioni ammesse lato client, nessun endpoint dedicato.
 - `apis/asset-functions/`: CRUD standard (`/asset-functions`), campo `icon`.
 - Soft-delete di natura/funzione: **409** se usata da immobili non cancellati.
 
-### Immobili (`/assets`)
+### Immobili (`/building` — path storico del controller `AssetsController`)
 
 - DTO create: `nature_id`, `function_id` **obbligatori**; `status` opzionale (default `Attivo`). `asset_type_id` rimosso.
 - DTO update: `nature_id`, `function_id`, `status` opzionali. `asset_type_id` rimosso (non più scrivibile via API).
 - Validazione (create e update, sui valori risultanti dopo il merge con l'esistente): se natura e funzione sono entrambe valorizzate, la coppia deve esistere in `asset_nature_functions`, altrimenti **400** con messaggio esplicito. Funzione senza natura → 400.
 - Azzeramento legacy: se dopo il salvataggio natura **e** funzione sono valorizzate → `asset_type_id = NULL`.
 - Search: `+ nature_id`, `function_id`, `status`, `legacy_only` (boolean: `asset_type_id IS NOT NULL`). Filtro `asset_type_id` mantenuto.
-- `findAll()` e `findOne()`: join `nature`, `function`, `assetAggregator` in **entrambi** (lezione CLAUDE.md: il dialog si apre dalla riga di `findAll()`).
-- `GET /assets/legacy-count` → `{ count: number }` immobili non cancellati con `asset_type_id` non NULL.
+- `findAll()` e `findOne()`: join `assetNature`, `assetFunction`, `assetAggregator` (nomi relazione sull'entity `Asset`, coerenti con `assetAggregator`) in **entrambi** (lezione CLAUDE.md: il dialog si apre dalla riga di `findAll()`).
+- `GET /building/legacy-count` → `{ count: number }` immobili non cancellati con `asset_type_id` non NULL.
 
 ### Utenze (`/utilities`)
 
 - DTO create: `asset_ids: number[]` (`@ArrayMinSize(1)`, obbligatorio) al posto di `asset_id_fk`.
 - DTO update: `asset_ids?: number[]` (se presente, `@ArrayMinSize(1)`; sostituisce l'insieme).
 - Validazione: tutti gli id esistono e non sono cancellati, altrimenti 400.
-- Search: `asset_ids` → utenze collegate ad **almeno uno** degli immobili (join su `utility_assets` solo in `WHERE`, dati caricati via relazione reale — vedi lezione CLAUDE.md su `leftJoinAndSelect` + join one-to-many).
+- Search: `asset_id` (singolo, il filtro UI è a selezione singola) → utenze collegate a quell'immobile, tra gli altri (sotto-query `Utility.id IN (SELECT utility_id FROM utility_assets WHERE asset_id = ?)` solo in `WHERE`, nessun join aggiuntivo — vedi lezione CLAUDE.md su `leftJoinAndSelect` + join one-to-many).
 - Risposta: `assets: Asset[]` (con `utilizerGrants` per ciascuno) al posto di `asset`. Breaking change del contratto, unico client = frontend dello stesso repo, rilasciati insieme.
 - `assets.service` `findAll`/`findOne`: le utenze dell'immobile passano dalla relazione N:N.
 
@@ -105,7 +105,7 @@ Una sola migration scritta a mano. `migration:generate` usato solo come riferime
 - Filtri: `+ natureIds`, `functionIds`, `statuses`; `assetAggregatorIds` mantenuto.
 - Marker utenza:
   - coordinate proprie presenti → un marker, `id = utilityId`, `assetId` = primo immobile collegato (per il raggruppamento)
-  - altrimenti → un marker per ogni immobile collegato con posizione risolvibile, `id = "${utilityId}-${assetId}"`, `assetId` singolo
+  - altrimenti → un marker per ogni immobile collegato con posizione risolvibile; `id` resta l'id utenza (serve ad aprire il dettaglio), l'unicità del punto è la coppia (`id`, `assetId`), `assetId` singolo per punto
   - utenza senza posizione risolvibile su nessun immobile → una sola voce "non localizzata"
 - Il filtro immobili su utenze considera **qualunque** immobile collegato.
 
@@ -137,28 +137,28 @@ Una sola migration scritta a mano. `migration:generate` usato solo come riferime
 
 ### Dialog utenza (`utility-edit-dialog`)
 
-- `FilterableSelect` singolo → lista di chip + `FilterableSelect` "Aggiungi immobile" (esclude gli immobili già aggiunti). Almeno un immobile obbligatorio.
-- Ogni chip: rimozione + pulsante "vai all'immobile".
+- `FilterableSelect` singolo → `app-multi-select` esistente (mat-select multiple con campo di ricerca, già usato in mappa) "Immobili associati". Almeno un immobile obbligatorio.
+- Sotto la select, un pulsante per ogni immobile selezionato ("vai all'immobile").
 - Sezione concessioni raggruppata per immobile collegato.
 
 ### Tabella e filtri utenze
 
 - Colonna immobile: nomi separati da virgola.
-- Filtro immobile: selezione singola, invia `asset_ids: [id]`.
+- Filtro immobile: selezione singola, invia `asset_id`.
 
 ### Mappa
 
 - Filtri Natura, Funzione, Stato + Tipo precedente.
-- Chiave marker aggiornata per gestire `id` stringa `utilityId-assetId`.
+- Nessun cambio di chiave: `utilitiesByAsset` è già indicizzata per `assetId`, i punti duplicati di una stessa utenza cadono su immobili diversi.
 
 ## 4. Test e verifica
 
 - **Unit backend** (`--maxWorkers=2`, file mirati):
   - assets: coppia non ammessa → 400; funzione senza natura → 400; azzeramento legacy solo con entrambe valorizzate; create senza natura/funzione → 400
-  - asset-natures: `PUT functions` con coppia in uso → 409
+  - asset-natures: update con `function_ids` che rimuove una coppia in uso → 409
   - asset-natures/functions: delete in uso → 409
   - utility: `asset_ids` vuoto → 400; id inesistente → 400; filtro N:N
-  - map: utenza con coordinate proprie → 1 marker; senza → 1 marker per immobile; id composti
+  - map: utenza con coordinate proprie → 1 marker; senza → 1 marker per immobile (stesso `id`, `assetId` diversi); senza posizione su nessun immobile → una sola voce ungeolocated
 - **Migration**: su copia del DB reale — conteggio righe `utility_assets` = utenze con `asset_id_fk` non NULL; riavvio container due volte pulito.
 - **Frontend**: `ng build` reale.
 - **E2E browser** (utente temporaneo da eliminare a fine test, vedi CLAUDE.md): crea natura+funzioni+coppie; riclassifica un immobile legacy → badge sparisce e contatore scende; coppia non ammessa impossibile da selezionare; utenza con due immobili → marker su entrambi in mappa.
