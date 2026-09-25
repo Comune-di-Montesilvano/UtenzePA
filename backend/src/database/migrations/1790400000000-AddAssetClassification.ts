@@ -39,12 +39,32 @@ const DEFAULT_FUNCTIONS: Record<string, string> = {
   'Cabina elettrica': 'bolt',
   Irrigazione: 'grass',
   'Videosorveglianza e antenne': 'videocam',
-  'Impianto tecnologico': 'settings',
   Altro: 'more_horiz',
 };
 
-// Nature di default: nome -> icona + funzioni ammesse.
+// Tipologie (nature) di default: nome -> icona + funzioni ammesse.
+// Quattro tipologie di una parola, scelte con una regola in ordine fisso
+// per evitare classificazioni diverse dello stesso oggetto:
+// 1) complesso gestito come unità (più edifici, o edifici + aree +
+//    impianti) -> Struttura; 2) edificio chiuso -> Fabbricato;
+// 3) dispositivo/installazione tecnica puntuale -> Impianto;
+// 4) altrimenti superficie scoperta -> Area.
 const DEFAULT_NATURES: { name: string; icon: string; functions: string[] }[] = [
+  {
+    name: 'Struttura',
+    icon: 'domain',
+    functions: [
+      'Istruzione',
+      'Sport',
+      'Cimiteriale',
+      'Cultura ed eventi',
+      'Mercato',
+      'Sociale',
+      'Sicurezza e soccorso',
+      'Trasporto pubblico',
+      'Altro',
+    ],
+  },
   {
     name: 'Fabbricato',
     icon: 'apartment',
@@ -59,7 +79,6 @@ const DEFAULT_NATURES: { name: string; icon: string; functions: string[] }[] = [
       'Associazioni',
       'Sport',
       'Cultura ed eventi',
-      'Mercato',
       'Commercio e chioschi',
       'Magazzino e autorimessa',
       'Cimiteriale',
@@ -68,54 +87,11 @@ const DEFAULT_NATURES: { name: string; icon: string; functions: string[] }[] = [
     ],
   },
   {
-    name: 'Area / terreno',
-    icon: 'landscape',
-    functions: [
-      'Area edificabile',
-      'Area agricola',
-      'Area pertinenziale',
-      'Verde e tempo libero',
-      'Orti comunali',
-      'Sport',
-      'Cultura ed eventi',
-      'Mercato',
-      'Parcheggio',
-      'Cimiteriale',
-      'Altro',
-    ],
-  },
-  {
-    name: 'Area pubblica attrezzata',
-    icon: 'park',
-    functions: [
-      'Verde e tempo libero',
-      'Piazza',
-      'Sport',
-      'Cultura ed eventi',
-      'Mercato',
-      'Commercio e chioschi',
-      'Altro',
-    ],
-  },
-  {
-    name: 'Infrastruttura stradale',
-    icon: 'add_road',
-    functions: [
-      'Viabilità',
-      'Rotatoria',
-      'Semaforo',
-      'Parcheggio',
-      'Pista ciclabile',
-      'Bike sharing',
-      'Trasporto pubblico',
-      'Altro',
-    ],
-  },
-  {
-    name: 'Impianto tecnologico',
+    name: 'Impianto',
     icon: 'settings_input_component',
     functions: [
       'Illuminazione pubblica',
+      'Semaforo',
       'Fontana',
       "Presa d'acqua",
       'Presa energia elettrica',
@@ -125,14 +101,29 @@ const DEFAULT_NATURES: { name: string; icon: string; functions: string[] }[] = [
       'Cabina elettrica',
       'Irrigazione',
       'Videosorveglianza e antenne',
-      'Impianto tecnologico',
+      'Bike sharing',
       'Altro',
     ],
   },
   {
-    name: 'Altro',
-    icon: 'category',
-    functions: ['Altro'],
+    name: 'Area',
+    icon: 'landscape',
+    functions: [
+      'Verde e tempo libero',
+      'Piazza',
+      'Orti comunali',
+      'Parcheggio',
+      'Viabilità',
+      'Rotatoria',
+      'Pista ciclabile',
+      'Mercato',
+      'Cultura ed eventi',
+      'Sport',
+      'Area edificabile',
+      'Area agricola',
+      'Area pertinenziale',
+      'Altro',
+    ],
   },
 ];
 

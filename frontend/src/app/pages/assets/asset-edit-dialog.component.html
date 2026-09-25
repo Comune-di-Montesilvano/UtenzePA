@@ -44,6 +44,8 @@
             </mat-option>
           }
         </mat-select>
+        <mat-icon matSuffix class="classification-help" [matTooltip]="classificationRule" matTooltipClass="tooltip-multiline"
+                  (click)="$event.stopPropagation()">help_outline</mat-icon>
         @if (form.controls.nature_id.invalid && form.controls.nature_id.touched) {
           <mat-error>Obbligatorio</mat-error>
         }
