@@ -648,9 +648,9 @@ export function validateConsumption(
     const value = Number(candidate.reading_value);
     const sameMeter = sortedReadings(rest).filter((r) => normalizeMeter(r.meter_number) === meter);
     if (sameMeter.some((r) => toDay(r.reading_date) === day)) {
-      return 'Esiste già una lettura per questa matricola in questa data.';
+      return 'Lettura già presente per questa matricola in questa data.';
     }
-    const prev = sameMeter.filter((r) => toDay(r.reading_date) < day).at(-1);
+    const prev = sameMeter.filter((r) => toDay(r.reading_date) < day).slice(-1)[0];
     if (prev && value < Number(prev.reading_value)) {
       return `Lettura inferiore alla precedente (${Number(prev.reading_value)} del ${prev.reading_date}) per la stessa matricola.`;
     }
@@ -1590,7 +1590,7 @@ export class UtilityConsumptionsService extends BaseService<
   // Matricola attuale = quella dell'ultima lettura; poi ricalcolo valori.
   private async afterChange(utility: Utility): Promise<void> {
     const records = await this.repo.find({ where: { utility_id_fk: utility.id, deleted: false } });
-    const latest = sortedReadings(records).at(-1);
+    const latest = sortedReadings(records).slice(-1)[0];
     if (latest && normalizeMeter(latest.meter_number) !== normalizeMeter(utility.meter_number)) {
       await this.utilityRepo.update(utility.id, { meter_number: latest.meter_number.trim() });
     }
