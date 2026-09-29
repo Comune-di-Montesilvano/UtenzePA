@@ -37,9 +37,10 @@ import {ContractsService} from '../contracts/contract.service';
 import {ContractEditDialogComponent} from '../contracts/contract-edit-dialog.component';
 import {Contract} from '../contracts/entity/contract.entity';
 import {DatePipe} from '@angular/common';
+import {UtilityConsumptionsTabComponent} from './consumptions/utility-consumptions-tab.component';
 import {BudgetChapter} from '../budget-chapters/entity/budget-chapter.entity';
 import {SupplyType, SupplyTypeDescription} from '../budget-chapters/enum/supply-type.enum';
-import {formatQty, CONSUMPTION_UNIT_BY_HARD_TYPE} from './consumptions/consumption.model';
+import {formatQty, CONSUMPTION_UNIT_BY_HARD_TYPE, ConsumptionSummary} from './consumptions/consumption.model';
 
 // Stessa larghezza usata da MapComponent.openDetail per lo stesso dialog —
 // deve poter ospitare i tab (Dati/Foto) e i gruppi affiancati dell'immobile.
@@ -61,7 +62,7 @@ const CHAPTER_COMPATIBILITY: Record<HardType, SupplyType[]> = {
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatTabsModule,
     HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent, MultiSelectComponent, LocationMapComponent, PhotoGalleryComponent,
-    EntityHistoryComponent, DatePipe
+    EntityHistoryComponent, DatePipe, UtilityConsumptionsTabComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-edit-dialog.component.html'
@@ -90,6 +91,7 @@ export class UtilityEditDialogComponent implements OnInit {
   budgetChapterOptions: TOption[] = [];
   private budgetChapters: BudgetChapter[] = [];
   readonly formatQty = formatQty;
+  readonly HardType = HardType;
   aggregatorOptions: TOption[] = [];
   costsBorneByOptions: TOption[] = [];
   maintenanceOptions: TOption[] = [];
@@ -358,6 +360,22 @@ export class UtilityEditDialogComponent implements OnInit {
 
   onPositionCleared(): void {
     this.form.patchValue({ latitude: null, longitude: null });
+  }
+
+  // Dopo una modifica alle rilevazioni il backend ha già ricalcolato
+  // effettivo/stima: allinea dati mostrati e form. La stima nel form si
+  // aggiorna solo se l'utente non l'ha toccata — altrimenti "Salva"
+  // rimanderebbe il vecchio valore come modificato e la marcherebbe manuale.
+  onConsumptionSummary(summary: ConsumptionSummary): void {
+    this.data.item.actual_consumption = summary.actual_consumption;
+    this.data.item.actual_consumption_coverage_days = summary.coverage_days;
+    this.data.item.estimated_consumption_source = summary.estimated_source;
+    this.data.item.estimated_annual_consumption = summary.estimated_annual_consumption;
+    const control = this.form.controls.estimated_annual_consumption;
+    if (control.pristine) {
+      control.setValue(summary.estimated_annual_consumption);
+      control.markAsPristine();
+    }
   }
 
   save(): void {

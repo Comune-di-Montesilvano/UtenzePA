@@ -333,6 +333,19 @@
         </div>
       </ng-template>
     </mat-tab>
+    <mat-tab [disabled]="isNew || selectedHardType === HardType.INTERNET">
+      <ng-template mat-tab-label>
+        <mat-icon style="margin-right: 5px;">insights</mat-icon>
+        Consumi
+      </ng-template>
+      <ng-template matTabContent>
+        <app-utility-consumptions-tab
+          [utilityId]="data.item.id"
+          [meterNumber]="data.item.meter_number ?? null"
+          (summaryChanged)="onConsumptionSummary($event)">
+        </app-utility-consumptions-tab>
+      </ng-template>
+    </mat-tab>
     <mat-tab label="Storico" [disabled]="isNew">
       <ng-template mat-tab-label>
         <mat-icon style="margin-right: 5px;">history</mat-icon>
