@@ -21,6 +21,7 @@ describe('UtilitiesService', () => {
     findOne: jest.Mock;
     create: jest.Mock;
     save: jest.Mock;
+    update: jest.Mock;
     manager: {
       query: jest.Mock;
       getRepository: jest.Mock;
@@ -39,6 +40,7 @@ describe('UtilitiesService', () => {
   };
   let contractRepo: { find: jest.Mock };
   let assetRepo: { count: jest.Mock; find: jest.Mock };
+  let recalc: { recalcUtility: jest.Mock };
 
   beforeEach(() => {
     qb = {
@@ -60,6 +62,7 @@ describe('UtilitiesService', () => {
       findOne: jest.fn(),
       create: jest.fn((data) => data),
       save: jest.fn(async (data) => data),
+      update: jest.fn().mockResolvedValue(undefined),
       manager: {
         // nessun contratto corrente per default: niente coppie utility/contratto
         query: jest.fn().mockResolvedValue([]),
@@ -67,7 +70,8 @@ describe('UtilitiesService', () => {
       },
     };
     assetRepo = { count: jest.fn().mockResolvedValue(1), find: jest.fn().mockResolvedValue([]) };
-    service = new UtilitiesService(repo as never, assetRepo as never);
+    recalc = { recalcUtility: jest.fn().mockResolvedValue(undefined) };
+    service = new UtilitiesService(repo as never, assetRepo as never, recalc as never);
   });
 
   describe('getDaysToExpiry', () => {
@@ -623,6 +627,63 @@ describe('UtilitiesService', () => {
       expect(repo.save).not.toHaveBeenCalledWith(
         expect.objectContaining({ assets: expect.anything() }),
       );
+    });
+  });
+
+  describe('stima consumo e matricola', () => {
+    const persisted = {
+      id: 5,
+      utility_id: 'IT005',
+      meter_number: 'M5',
+      estimated_annual_consumption: '1200.00',
+      estimated_consumption_source: 'HISTORY',
+      estimated_consumption_set_at: null,
+      updated_by_user_id: 1,
+    };
+
+    beforeEach(() => {
+      repo.findOne.mockResolvedValue({ ...persisted });
+    });
+
+    it('stima modificata > 0: diventa MANUAL con data', async () => {
+      await service.update(5, { estimated_annual_consumption: 1500 } as never, 2);
+      const saved = repo.save.mock.calls[0][0];
+      expect(saved.estimated_consumption_source).toBe('MANUAL');
+      expect(saved.estimated_consumption_set_at).toBeInstanceOf(Date);
+      expect(recalc.recalcUtility).not.toHaveBeenCalled();
+    });
+
+    it('stima invariata (stringa decimal vs number): origine non toccata', async () => {
+      await service.update(5, { estimated_annual_consumption: 1200, notes: 'x' } as never, 2);
+      const saved = repo.save.mock.calls[0][0];
+      expect(saved.estimated_consumption_source).toBe('HISTORY');
+      expect(recalc.recalcUtility).not.toHaveBeenCalled();
+    });
+
+    it('stima azzerata: NONE e ricalcolo da storico', async () => {
+      await service.update(5, { estimated_annual_consumption: 0 } as never, 2);
+      const saved = repo.save.mock.calls[0][0];
+      expect(saved.estimated_consumption_source).toBe('NONE');
+      expect(saved.estimated_consumption_set_at).toBeNull();
+      expect(recalc.recalcUtility).toHaveBeenCalledWith(5);
+    });
+
+    it('matricola cambiata già usata da altra utenza: 400 con codice utenza', async () => {
+      qb.getOne.mockResolvedValueOnce({ id: 9, utility_id: 'IT009' });
+      await expect(service.update(5, { meter_number: 'DUP' } as never, 2)).rejects.toThrow(/IT009/);
+    });
+
+    it('matricola invariata (spazi/maiuscole): nessun check (duplicati storici non bloccano)', async () => {
+      await service.update(5, { meter_number: ' m5 ', notes: 'y' } as never, 2);
+      expect(qb.andWhere).not.toHaveBeenCalledWith('LOWER(TRIM(u.meter_number)) = :meter', expect.anything());
+    });
+
+    it('create con stima > 0: MANUAL', async () => {
+      assetRepo.count.mockResolvedValue(1);
+      await service.create({ utility_id: 'N1', asset_ids: [1], estimated_annual_consumption: 300 } as never, 2);
+      const created = repo.create.mock.calls[0][0];
+      expect(created.estimated_consumption_source).toBe('MANUAL');
+      expect(created.estimated_consumption_set_at).toBeInstanceOf(Date);
     });
   });
 });

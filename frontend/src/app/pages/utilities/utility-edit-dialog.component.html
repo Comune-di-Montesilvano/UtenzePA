@@ -242,21 +242,20 @@
     <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
       <legend style="padding: 0 0.5rem; font-weight: 600;">Consumi</legend>
       <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Capitolo di Spesa *</mat-label>
-          <mat-select formControlName="budget_chapter_code_fk">
-            @for (opt of budgetChapterOptions; track opt.value) {
-              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-            }
-          </mat-select>
-          @if (form.controls.budget_chapter_code_fk.invalid && form.controls.budget_chapter_code_fk.touched) {
-            <mat-error>Obbligatorio</mat-error>
-          }
-        </mat-form-field>
+        <div style="flex: 1 1 100%;">
+          <app-filterable-select
+            label="Capitolo di Spesa *"
+            placeholder="Cerca per codice, descrizione o PDC..."
+            [options]="budgetChapterOptions"
+            formControlName="budget_chapter_code_fk"
+            [errorMessage]="form.controls.budget_chapter_code_fk.invalid && form.controls.budget_chapter_code_fk.touched ? 'Obbligatorio' : null">
+          </app-filterable-select>
+        </div>
 
         <mat-form-field style="flex: 1 1 21%;">
           <mat-label>Consumo annuo presunto</mat-label>
           <input matInput type="number" formControlName="estimated_annual_consumption">
+          <mat-hint>{{ estimateHint() }}</mat-hint>
           @if (form.controls.estimated_annual_consumption.invalid && form.controls.estimated_annual_consumption.touched) {
             <mat-error>Obbligatorio</mat-error>
           }
@@ -271,11 +270,9 @@
         </mat-form-field>
 
         <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Consumo Annuo da Fatturazione</mat-label>
-          <input matInput type="number" formControlName="actual_consumption">
-          @if (form.controls.actual_consumption.invalid && form.controls.actual_consumption.touched) {
-            <mat-error>Obbligatorio</mat-error>
-          }
+          <mat-label>Consumo effettivo (12 mesi)</mat-label>
+          <input matInput disabled [value]="formatQty(data.item.actual_consumption, consumptionUnit)">
+          <mat-hint>Da storico consumi · dati su {{ data.item.actual_consumption_coverage_days ?? 0 }}/365 giorni</mat-hint>
         </mat-form-field>
 
       </div>
@@ -334,6 +331,19 @@
         <div style="padding: 1rem 0;">
           <app-photo-gallery [entityType]="'utility'" [entityId]="data.item.id"></app-photo-gallery>
         </div>
+      </ng-template>
+    </mat-tab>
+    <mat-tab [disabled]="isNew || selectedHardType === HardType.INTERNET">
+      <ng-template mat-tab-label>
+        <mat-icon style="margin-right: 5px;">insights</mat-icon>
+        Consumi
+      </ng-template>
+      <ng-template matTabContent>
+        <app-utility-consumptions-tab
+          [utilityId]="data.item.id"
+          [meterNumber]="data.item.meter_number ?? null"
+          (summaryChanged)="onConsumptionSummary($event)">
+        </app-utility-consumptions-tab>
       </ng-template>
     </mat-tab>
     <mat-tab label="Storico" [disabled]="isNew">

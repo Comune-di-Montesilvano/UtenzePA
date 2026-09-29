@@ -65,10 +65,6 @@ export class CreateUtilityDto {
   @Min(0)
   reported_consumption_year?: number;
 
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  actual_consumption?: number;
 
   @IsOptional()
   @IsNumber()
