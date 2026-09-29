@@ -34,14 +34,18 @@ export class ConsumptionRecalcService {
     });
     if (!utility || utility.utilityType?.hard_type === HardTypeEnum.INTERNET) return;
 
-    const records = await this.consumptionRepo.find({ where: { utility_id_fk: utilityId, deleted: false } });
+    const records = await this.consumptionRepo.find({
+      where: { utility_id_fk: utilityId, deleted: false },
+    });
     const daily = buildDailyConsumption(records);
     const today = todayDay(now);
     const { actual, coverageDays } = computeActual(daily, today);
     const estimate = decideEstimate(
       {
         source: utility.estimated_consumption_source,
-        setAt: utility.estimated_consumption_set_at ? new Date(utility.estimated_consumption_set_at) : null,
+        setAt: utility.estimated_consumption_set_at
+          ? new Date(utility.estimated_consumption_set_at)
+          : null,
       },
       computeSeasonalEstimate(daily, today),
       now,

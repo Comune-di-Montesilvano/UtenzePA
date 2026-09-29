@@ -80,7 +80,9 @@ export class UtilityConsumptionsService extends BaseService<
   async getSummary(utilityId: number): Promise<UtilityConsumptionSummary> {
     const utility = await this.loadUtility(utilityId);
     const records = await this.repo.find({ where: { utility_id_fk: utilityId, deleted: false } });
-    const setAt = utility.estimated_consumption_set_at ? new Date(utility.estimated_consumption_set_at) : null;
+    const setAt = utility.estimated_consumption_set_at
+      ? new Date(utility.estimated_consumption_set_at)
+      : null;
     return {
       unit: CONSUMPTION_UNIT[utility.utilityType?.hard_type] ?? null,
       actual_consumption: Number(utility.actual_consumption ?? 0),
@@ -108,11 +110,17 @@ export class UtilityConsumptionsService extends BaseService<
     return saved;
   }
 
-  async update(id: number, dto: UpdateUtilityConsumptionDto, userId?: number): Promise<UtilityConsumption> {
+  async update(
+    id: number,
+    dto: UpdateUtilityConsumptionDto,
+    userId?: number,
+  ): Promise<UtilityConsumption> {
     const current = await this.repo.findOne({ where: { id, deleted: false } });
     if (!current) throw new BadRequestException('Rilevazione non trovata');
     const utility = await this.loadUtility(current.utility_id_fk);
-    const merged = normalizeByKind({ ...current, ...dto } as ConsumptionRecord & { notes?: string | null });
+    const merged = normalizeByKind({ ...current, ...dto } as ConsumptionRecord & {
+      notes?: string | null;
+    });
     await this.validate(utility, { ...merged, id });
     const saved = await super.update(id, merged as never, userId);
     await this.afterChange(utility);
@@ -143,7 +151,11 @@ export class UtilityConsumptionsService extends BaseService<
     const error = validateConsumption(candidate, others, todayDay());
     if (error) throw new BadRequestException(error);
     if (candidate.kind === ConsumptionKind.READING) {
-      const conflict = await findMeterConflict(this.utilityRepo, candidate.meter_number, utility.id);
+      const conflict = await findMeterConflict(
+        this.utilityRepo,
+        candidate.meter_number,
+        utility.id,
+      );
       if (conflict) {
         throw new BadRequestException(
           `Matricola ${candidate.meter_number} già associata all'utenza ${conflict.utility_id}.`,

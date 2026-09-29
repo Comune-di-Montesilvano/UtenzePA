@@ -22,7 +22,9 @@ export class UtilityConsumptions1790500000000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE \`utilities\` ADD \`estimated_consumption_source\` enum ('MANUAL', 'HISTORY', 'NONE') NOT NULL DEFAULT 'NONE'`,
     );
-    await queryRunner.query(`ALTER TABLE \`utilities\` ADD \`estimated_consumption_set_at\` datetime NULL`);
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` ADD \`estimated_consumption_set_at\` datetime NULL`,
+    );
     await queryRunner.query(
       `ALTER TABLE \`utilities\` ADD \`actual_consumption_coverage_days\` int NOT NULL DEFAULT '0'`,
     );
@@ -32,12 +34,24 @@ export class UtilityConsumptions1790500000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE \`utilities\` DROP COLUMN \`actual_consumption_coverage_days\``);
-    await queryRunner.query(`ALTER TABLE \`utilities\` DROP COLUMN \`estimated_consumption_set_at\``);
-    await queryRunner.query(`ALTER TABLE \`utilities\` DROP COLUMN \`estimated_consumption_source\``);
-    await queryRunner.query(`ALTER TABLE \`utility_consumptions\` DROP FOREIGN KEY \`FK_f9fe28ce5dd8a0dc97e8de8b03d\``);
-    await queryRunner.query(`ALTER TABLE \`utility_consumptions\` DROP FOREIGN KEY \`FK_1fc50b0c481ff3ae2fe9eca4a4a\``);
-    await queryRunner.query(`ALTER TABLE \`utility_consumptions\` DROP FOREIGN KEY \`FK_f565435ea4eec4b0253644f44c8\``);
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` DROP COLUMN \`actual_consumption_coverage_days\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` DROP COLUMN \`estimated_consumption_set_at\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utilities\` DROP COLUMN \`estimated_consumption_source\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utility_consumptions\` DROP FOREIGN KEY \`FK_f9fe28ce5dd8a0dc97e8de8b03d\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utility_consumptions\` DROP FOREIGN KEY \`FK_1fc50b0c481ff3ae2fe9eca4a4a\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`utility_consumptions\` DROP FOREIGN KEY \`FK_f565435ea4eec4b0253644f44c8\``,
+    );
     await queryRunner.query(`DROP TABLE \`utility_consumptions\``);
   }
 }

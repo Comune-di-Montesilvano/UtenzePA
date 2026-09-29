@@ -1,9 +1,23 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '@/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/core/auth/guards/roles.guard';
 import { Roles } from '@/core/auth/decorators/roles.decorator';
 import { CurrentUser, ICurrentUser } from '@/core/auth/decorators/current-user.decorator';
-import { UtilityConsumptionsService, UtilityConsumptionRow, UtilityConsumptionSummary } from './utility-consumptions.service';
+import {
+  UtilityConsumptionsService,
+  UtilityConsumptionRow,
+  UtilityConsumptionSummary,
+} from './utility-consumptions.service';
 import { CreateUtilityConsumptionDto } from './dto/create-utility-consumption.dto';
 import { UpdateUtilityConsumptionDto } from './dto/update-utility-consumption.dto';
 import { UtilityConsumption } from './entity/utility-consumption.entity';

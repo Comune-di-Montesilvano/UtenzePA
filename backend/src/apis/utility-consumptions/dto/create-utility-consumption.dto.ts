@@ -1,5 +1,15 @@
 import { Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, Min, ValidateIf } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 import { ConsumptionKind } from '../enum/consumption-kind.enum';
 
 const isReading = (o: CreateUtilityConsumptionDto) => o.kind === ConsumptionKind.READING;

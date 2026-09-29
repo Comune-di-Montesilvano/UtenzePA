@@ -64,7 +64,10 @@ export function readingDeltas(records: ConsumptionRecord[]): Map<number, number 
   for (const r of sortedReadings(records)) {
     const sameMeter = prev && normalizeMeter(prev.meter_number) === normalizeMeter(r.meter_number);
     if (r.id !== undefined) {
-      result.set(r.id, sameMeter ? round2(Number(r.reading_value) - Number(prev.reading_value)) : null);
+      result.set(
+        r.id,
+        sameMeter ? round2(Number(r.reading_value) - Number(prev.reading_value)) : null,
+      );
     }
     prev = r;
   }
@@ -77,7 +80,13 @@ export function buildDailyConsumption(records: ConsumptionRecord[]): Map<number,
   const daily = new Map<number, number>();
 
   for (const r of records) {
-    if (r.kind !== ConsumptionKind.PERIOD || !r.period_start || !r.period_end || r.consumption == null) continue;
+    if (
+      r.kind !== ConsumptionKind.PERIOD ||
+      !r.period_start ||
+      !r.period_end ||
+      r.consumption == null
+    )
+      continue;
     const start = toDay(r.period_start);
     const end = toDay(r.period_end);
     const days = end - start + 1;
@@ -105,7 +114,10 @@ export function buildDailyConsumption(records: ConsumptionRecord[]): Map<number,
   return daily;
 }
 
-export function computeActual(daily: Map<number, number>, today: number): { actual: number; coverageDays: number } {
+export function computeActual(
+  daily: Map<number, number>,
+  today: number,
+): { actual: number; coverageDays: number } {
   let actual = 0;
   let coverageDays = 0;
   for (let d = today - WINDOW_DAYS + 1; d <= today; d++) {
@@ -131,7 +143,12 @@ function meanDaily(daily: Map<number, number>, today: number): number | null {
 
 // Stima di un giorno futuro: stesso giorno dell'anno precedente (ripiegando
 // di 365 giorni finché si cade in un giorno passato), altrimenti media.
-function estimatedDay(daily: Map<number, number>, day: number, today: number, mean: number): number {
+function estimatedDay(
+  daily: Map<number, number>,
+  day: number,
+  today: number,
+  mean: number,
+): number {
   let source = day - WINDOW_DAYS;
   while (source > today) source -= WINDOW_DAYS;
   return daily.get(source) ?? mean;
@@ -141,7 +158,8 @@ export function computeSeasonalEstimate(daily: Map<number, number>, today: numbe
   const mean = meanDaily(daily, today);
   if (mean === null) return null;
   let total = 0;
-  for (let d = today + 1; d <= today + WINDOW_DAYS; d++) total += estimatedDay(daily, d, today, mean);
+  for (let d = today + 1; d <= today + WINDOW_DAYS; d++)
+    total += estimatedDay(daily, d, today, mean);
   return round2(total);
 }
 
@@ -198,7 +216,9 @@ export function decideEstimate(
   estimated_consumption_set_at: null;
 } | null {
   const manualValid =
-    state.source === EstimateSource.MANUAL && state.setAt !== null && manualValidUntil(state.setAt) > now;
+    state.source === EstimateSource.MANUAL &&
+    state.setAt !== null &&
+    manualValidUntil(state.setAt) > now;
   if (manualValid || historyEstimate === null) return null;
   return {
     estimated_annual_consumption: historyEstimate,
@@ -235,7 +255,11 @@ export function validateConsumption(
   const rest = others.filter((o) => candidate.id === undefined || o.id !== candidate.id);
 
   if (candidate.kind === ConsumptionKind.READING) {
-    if (!candidate.reading_date || candidate.reading_value == null || !normalizeMeter(candidate.meter_number)) {
+    if (
+      !candidate.reading_date ||
+      candidate.reading_value == null ||
+      !normalizeMeter(candidate.meter_number)
+    ) {
       return 'Data, valore lettura e matricola sono obbligatori.';
     }
     const day = toDay(candidate.reading_date);
