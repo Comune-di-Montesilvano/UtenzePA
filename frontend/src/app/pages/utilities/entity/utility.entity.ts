@@ -28,7 +28,16 @@ export class Utility extends AbstractEntity implements IUtility {
   @Exclude({toPlainOnly: true})
   security_deposit?: number;
   reported_consumption_year?: number;
+  // Calcolati dal backend (storico consumi): mai inviati in scrittura,
+  // il DTO backend li rifiuterebbe (forbidNonWhitelisted).
+  @Exclude({toPlainOnly: true})
   actual_consumption?: number;
+  @Exclude({toPlainOnly: true})
+  actual_consumption_coverage_days?: number;
+  @Exclude({toPlainOnly: true})
+  estimated_consumption_source?: 'MANUAL' | 'HISTORY' | 'NONE';
+  @Exclude({toPlainOnly: true})
+  estimated_consumption_set_at?: string | null;
   estimated_annual_consumption?: number;
   power_kw_electric?: number;
   voltage_kw_electric?: string;
