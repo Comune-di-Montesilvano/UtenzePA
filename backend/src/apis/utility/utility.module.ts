@@ -5,9 +5,10 @@ import { UtilitiesService } from './utility.service';
 import { UtilitiesController } from './utility.controller';
 import { Utility } from './entity/utility.entity';
 import { Contract } from '@apis/contracts/entity/contract.entity';
+import { UtilityConsumptionsModule } from '@apis/utility-consumptions/utility-consumptions.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Utility, Contract, Asset])],
+  imports: [TypeOrmModule.forFeature([Utility, Contract, Asset]), UtilityConsumptionsModule],
   providers: [UtilitiesService],
   controllers: [UtilitiesController],
   exports: [UtilitiesService],
