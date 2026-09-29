@@ -376,6 +376,14 @@ export class UtilityEditDialogComponent implements OnInit {
       control.setValue(summary.estimated_annual_consumption);
       control.markAsPristine();
     }
+    // Una lettura con matricola nuova aggiorna la matricola dell'utenza:
+    // senza riallineare il form, "Salva" la riporterebbe a quella vecchia.
+    this.data.item.meter_number = summary.meter_number ?? undefined;
+    const meter = this.form.controls.meter_number;
+    if (meter.pristine) {
+      meter.setValue(summary.meter_number ?? '');
+      meter.markAsPristine();
+    }
   }
 
   save(): void {

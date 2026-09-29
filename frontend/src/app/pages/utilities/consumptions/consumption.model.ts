@@ -39,6 +39,7 @@ export interface MonthlyPoint {
 
 export interface ConsumptionSummary {
   unit: string | null;
+  meter_number: string | null;
   actual_consumption: number;
   coverage_days: number;
   estimated_annual_consumption: number;

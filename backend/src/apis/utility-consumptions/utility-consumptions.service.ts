@@ -30,6 +30,9 @@ export type UtilityConsumptionRow = UtilityConsumption & { computed_consumption:
 
 export interface UtilityConsumptionSummary {
   unit: string | null;
+  // Matricola attuale: può essere cambiata da una lettura con contatore
+  // nuovo, il dialog utenza la riallinea nel form.
+  meter_number: string | null;
   actual_consumption: number;
   coverage_days: number;
   estimated_annual_consumption: number;
@@ -85,6 +88,7 @@ export class UtilityConsumptionsService extends BaseService<
       : null;
     return {
       unit: CONSUMPTION_UNIT[utility.utilityType?.hard_type] ?? null,
+      meter_number: utility.meter_number ?? null,
       actual_consumption: Number(utility.actual_consumption ?? 0),
       coverage_days: Number(utility.actual_consumption_coverage_days ?? 0),
       estimated_annual_consumption: Number(utility.estimated_annual_consumption ?? 0),

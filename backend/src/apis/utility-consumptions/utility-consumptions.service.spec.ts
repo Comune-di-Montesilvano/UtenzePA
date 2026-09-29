@@ -122,6 +122,7 @@ describe('UtilityConsumptionsService', () => {
     });
     const summary = await service.getSummary(7);
     expect(summary.unit).toBe('kWh');
+    expect(summary.meter_number).toBe('M1');
     expect(summary.actual_consumption).toBe(300);
     expect(summary.estimated_annual_consumption).toBe(1800);
     expect(summary.estimated_valid_until).toBe('2027-02-10');
