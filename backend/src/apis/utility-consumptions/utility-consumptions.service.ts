@@ -15,13 +15,13 @@ import { CONSUMPTION_UNIT } from './consumption-unit';
 import {
   buildDailyConsumption,
   computeMonthlySeries,
+  currentMeterReading,
   ConsumptionRecord,
   manualValidUntil,
   MonthlyPoint,
   normalizeByKind,
   normalizeMeter,
   readingDeltas,
-  sortedReadings,
   todayDay,
   validateConsumption,
 } from './consumption-calculator';
@@ -134,8 +134,9 @@ export class UtilityConsumptionsService extends BaseService<
   async remove(id: number, userId: number): Promise<void> {
     const current = await this.repo.findOne({ where: { id, deleted: false } });
     if (!current) throw new BadRequestException('Rilevazione non trovata');
+    const utility = await this.loadUtility(current.utility_id_fk);
     await super.remove(id, userId);
-    await this.recalc.recalcUtility(current.utility_id_fk);
+    await this.afterChange(utility);
   }
 
   private async loadUtility(utilityId: number): Promise<Utility> {
@@ -154,7 +155,16 @@ export class UtilityConsumptionsService extends BaseService<
     const others = await this.repo.find({ where: { utility_id_fk: utility.id, deleted: false } });
     const error = validateConsumption(candidate, others, todayDay());
     if (error) throw new BadRequestException(error);
-    if (candidate.kind === ConsumptionKind.READING) {
+    // Matricola già dell'utenza (attuale o di letture precedenti): nessun
+    // check, i duplicati storici tra utenze bloccano solo un cambio matricola.
+    const ownMeters = new Set([
+      normalizeMeter(utility.meter_number),
+      ...others.map((o) => normalizeMeter(o.meter_number)),
+    ]);
+    if (
+      candidate.kind === ConsumptionKind.READING &&
+      !ownMeters.has(normalizeMeter(candidate.meter_number))
+    ) {
       const conflict = await findMeterConflict(
         this.utilityRepo,
         candidate.meter_number,
@@ -171,7 +181,7 @@ export class UtilityConsumptionsService extends BaseService<
   // Matricola attuale = quella dell'ultima lettura; poi ricalcolo valori.
   private async afterChange(utility: Utility): Promise<void> {
     const records = await this.repo.find({ where: { utility_id_fk: utility.id, deleted: false } });
-    const latest = sortedReadings(records).slice(-1)[0];
+    const latest = currentMeterReading(records);
     if (latest && normalizeMeter(latest.meter_number) !== normalizeMeter(utility.meter_number)) {
       await this.utilityRepo.update(utility.id, { meter_number: latest.meter_number.trim() });
     }

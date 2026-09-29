@@ -62,6 +62,21 @@ describe('UtilityConsumptionsService', () => {
     await expect(service.createForUtility(7, readingDto('2026-04-01', 5, 'OTHER'), 3)).rejects.toThrow(/IT002/);
   });
 
+  it('matricola già dell’utenza (duplicata altrove): nessun check di conflitto', async () => {
+    meterQb.getOne.mockResolvedValue({ id: 8, utility_id: 'IT002' });
+    await service.createForUtility(7, readingDto('2026-04-01', 1400, ' m1 '), 3);
+    expect(repo.save).toHaveBeenCalled();
+    expect(utilityRepo.createQueryBuilder).not.toHaveBeenCalled();
+  });
+
+  it('eliminare la lettura del nuovo contatore riallinea la matricola dell’utenza', async () => {
+    utilityRepo.findOne.mockResolvedValue({ ...lightUtility, meter_number: 'M2' });
+    repo.findOne.mockResolvedValue({ ...existing[1], id: 99, meter_number: 'M2', reading_date: '2026-04-01' });
+    await service.remove(99, 3);
+    expect(utilityRepo.update).toHaveBeenCalledWith(7, { meter_number: 'M1' });
+    expect(recalc.recalcUtility).toHaveBeenCalledWith(7);
+  });
+
   it('rifiuta utenze INTERNET', async () => {
     utilityRepo.findOne.mockResolvedValue({ ...lightUtility, utilityType: { hard_type: HardTypeEnum.INTERNET } });
     await expect(service.createForUtility(7, readingDto('2026-04-01', 1400), 3)).rejects.toThrow(BadRequestException);

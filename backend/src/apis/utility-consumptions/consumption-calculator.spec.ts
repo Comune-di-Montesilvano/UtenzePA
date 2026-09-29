@@ -3,6 +3,7 @@ import {
   computeActual,
   computeMonthlySeries,
   computeSeasonalEstimate,
+  currentMeterReading,
   ConsumptionRecord,
   decideEstimate,
   fromDay,
@@ -67,6 +68,26 @@ describe('consumption-calculator', () => {
         reading(3, '2026-01-21', 105, 'B'),
       ]);
       expect(computeActual(daily, TODAY)).toEqual({ actual: 100, coverageDays: 10 });
+    });
+
+    it('sostituzione contatore con chiusura e apertura nella stessa data, inserite in ordine qualsiasi', () => {
+      const records = [
+        reading(1, '2026-01-01', 100, 'A'),
+        reading(5, '2026-01-10', 0, 'B'),
+        reading(6, '2026-01-10', 5000, 'A'),
+        reading(7, '2026-01-20', 50, 'B'),
+      ];
+      expect(computeActual(buildDailyConsumption(records), TODAY)).toEqual({ actual: 4950, coverageDays: 19 });
+      const deltas = readingDeltas(records);
+      expect(deltas.get(6)).toBe(4900);
+      expect(deltas.get(7)).toBe(50);
+      expect(deltas.get(5)).toBeNull();
+    });
+
+    it('lettura di altra matricola strettamente in mezzo: intervallo scartato', () => {
+      const records = [reading(1, '2026-01-01', 0, 'A'), reading(2, '2026-01-05', 0, 'B'), reading(3, '2026-01-10', 90, 'A')];
+      expect(computeActual(buildDailyConsumption(records), TODAY).actual).toBe(0);
+      expect(readingDeltas(records).get(3)).toBeNull();
     });
 
     it('matricola uguale a meno di spazi/maiuscole: stesso contatore', () => {
@@ -153,6 +174,17 @@ describe('consumption-calculator', () => {
       expect(deltas.get(2)).toBe(100);
       expect(deltas.get(3)).toBeNull();
       expect(deltas.has(4)).toBe(false);
+    });
+  });
+
+  describe('currentMeterReading', () => {
+    it('ultima data: a parità preferisce la matricola nuova (apertura) alla chiusura della vecchia', () => {
+      const records = [reading(1, '2026-01-01', 100, 'A'), reading(5, '2026-01-10', 0, 'B'), reading(6, '2026-01-10', 5000, 'A')];
+      expect(currentMeterReading(records)?.meter_number).toBe('B');
+    });
+
+    it('nessuna lettura: undefined', () => {
+      expect(currentMeterReading([period(1, '2026-01-01', '2026-01-10', 5)])).toBeUndefined();
     });
   });
 

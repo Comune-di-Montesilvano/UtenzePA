@@ -56,22 +56,64 @@ export function sortedReadings(records: ConsumptionRecord[]): ConsumptionRecord[
     .sort((a, b) => toDay(a.reading_date) - toDay(b.reading_date) || (a.id ?? 0) - (b.id ?? 0));
 }
 
-// Consumo di ogni lettura rispetto alla precedente (per data) con la stessa
-// matricola adiacente; null per la prima lettura e per un nuovo contatore.
+// Coppie di letture consecutive della stessa matricola che delimitano un
+// intervallo di consumo valido: scartata se in mezzo (strettamente, date
+// escluse) c'è una lettura di un'altra matricola — contatore sostituito e
+// poi ripreso. Letture di chiusura e apertura nella stessa data, inserite in
+// qualsiasi ordine, non spezzano la coppia.
+function readingPairs(records: ConsumptionRecord[]): [ConsumptionRecord, ConsumptionRecord][] {
+  const readings = sortedReadings(records);
+  const pairs: [ConsumptionRecord, ConsumptionRecord][] = [];
+  const byMeter = new Map<string, ConsumptionRecord[]>();
+  for (const r of readings) {
+    const key = normalizeMeter(r.meter_number);
+    byMeter.set(key, [...(byMeter.get(key) ?? []), r]);
+  }
+  for (const [meter, list] of byMeter) {
+    for (let i = 1; i < list.length; i++) {
+      const from = toDay(list[i - 1].reading_date);
+      const to = toDay(list[i].reading_date);
+      const interrupted = readings.some((r) => {
+        const d = toDay(r.reading_date);
+        return normalizeMeter(r.meter_number) !== meter && d > from && d < to;
+      });
+      if (!interrupted) pairs.push([list[i - 1], list[i]]);
+    }
+  }
+  return pairs;
+}
+
+// Consumo di ogni lettura rispetto alla precedente della stessa matricola;
+// null per la prima lettura di un contatore e dopo un'interruzione.
 export function readingDeltas(records: ConsumptionRecord[]): Map<number, number | null> {
   const result = new Map<number, number | null>();
-  let prev: ConsumptionRecord | null = null;
   for (const r of sortedReadings(records)) {
-    const sameMeter = prev && normalizeMeter(prev.meter_number) === normalizeMeter(r.meter_number);
-    if (r.id !== undefined) {
-      result.set(
-        r.id,
-        sameMeter ? round2(Number(r.reading_value) - Number(prev.reading_value)) : null,
-      );
-    }
-    prev = r;
+    if (r.id !== undefined) result.set(r.id, null);
+  }
+  for (const [a, b] of readingPairs(records)) {
+    if (b.id !== undefined)
+      result.set(b.id, round2(Number(b.reading_value) - Number(a.reading_value)));
   }
   return result;
+}
+
+// Lettura che determina la matricola attuale dell'utenza: la più recente;
+// a parità di data preferisce la matricola che non compare prima (apertura
+// del contatore nuovo) rispetto alla chiusura del vecchio.
+export function currentMeterReading(records: ConsumptionRecord[]): ConsumptionRecord | undefined {
+  const readings = sortedReadings(records);
+  if (!readings.length) return undefined;
+  const lastDay = toDay(readings[readings.length - 1].reading_date);
+  const sameDay = readings.filter((r) => toDay(r.reading_date) === lastDay);
+  const seenBefore = new Set(
+    readings
+      .filter((r) => toDay(r.reading_date) < lastDay)
+      .map((r) => normalizeMeter(r.meter_number)),
+  );
+  return (
+    sameDay.find((r) => !seenBefore.has(normalizeMeter(r.meter_number))) ??
+    sameDay[sameDay.length - 1]
+  );
 }
 
 // Mappa sparsa giorno -> consumo. I periodi hanno precedenza: un giorno
@@ -96,11 +138,7 @@ export function buildDailyConsumption(records: ConsumptionRecord[]): Map<number,
   }
 
   const periodDays = new Set(daily.keys());
-  const readings = sortedReadings(records);
-  for (let i = 1; i < readings.length; i++) {
-    const a = readings[i - 1];
-    const b = readings[i];
-    if (normalizeMeter(a.meter_number) !== normalizeMeter(b.meter_number)) continue;
+  for (const [a, b] of readingPairs(records)) {
     const from = toDay(a.reading_date);
     const to = toDay(b.reading_date);
     if (to <= from) continue;
