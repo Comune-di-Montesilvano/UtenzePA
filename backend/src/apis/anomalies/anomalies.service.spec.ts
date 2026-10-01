@@ -31,5 +31,9 @@ describe('AnomaliesService', () => {
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
     expect(query).toHaveBeenCalledTimes(5);
+    // I contratti chiusi non sono né correnti né anomalie "senza CIG".
+    for (const [sql] of query.mock.calls) {
+      expect(sql).toContain('closed = 0');
+    }
   });
 });

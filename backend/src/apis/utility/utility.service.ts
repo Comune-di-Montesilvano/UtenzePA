@@ -108,7 +108,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
                 )
                 .from('contract_utilities', 'cu')
                 .innerJoin('contracts', 'c', 'c.id = cu.contract_id AND c.deleted = 0')
-                .where('c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE()'),
+                .where('c.closed = 0 AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE())'),
             'ranked',
           )
           .where('ranked.rn = 1'),
@@ -149,7 +149,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
          FROM contract_utilities cu
          INNER JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
          WHERE cu.utility_id IN (?)
-           AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE())
+           AND c.closed = 0 AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE())
        ) ranked WHERE ranked.rn = 1`,
       [utilityIds],
     );

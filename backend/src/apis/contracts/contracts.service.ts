@@ -77,16 +77,20 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
     }
   }
 
-  // CIG obbligatorio salvo contratto esplicitamente escluso (cig_exempt).
-  private assertCigPresent(cig: string | null | undefined, exempt: boolean | null | undefined): void {
-    if (!exempt && !(cig ?? '').trim()) {
+  // CIG obbligatorio salvo contratto escluso (cig_exempt) o chiuso (storico).
+  private assertCigPresent(
+    cig: string | null | undefined,
+    exempt: boolean | null | undefined,
+    closed?: boolean | null,
+  ): void {
+    if (!exempt && !closed && !(cig ?? '').trim()) {
       throw new BadRequestException('CIG obbligatorio: inseriscilo oppure marca il contratto come escluso da CIG.');
     }
   }
 
   async create(dto: CreateContractDto, userId?: number): Promise<Contract> {
     const { utility_ids, ...rest } = dto;
-    this.assertCigPresent(rest.cig_contract, rest.cig_exempt);
+    this.assertCigPresent(rest.cig_contract, rest.cig_exempt, rest.closed);
     if (!rest.cig_exempt) await this.assertCigAvailable(rest.cig_contract, null);
 
     const saved = await this.dataSource.transaction(async (manager) => {
@@ -128,6 +132,7 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
     this.assertCigPresent(
       rest.cig_contract !== undefined ? rest.cig_contract : before.cig_contract,
       rest.cig_exempt !== undefined ? rest.cig_exempt : before.cig_exempt,
+      rest.closed !== undefined ? rest.closed : before.closed,
     );
     if (rest.cig_contract !== undefined) await this.assertCigAvailable(rest.cig_contract, id);
     const beforeSnapshot: Record<string, unknown> = { ...before };
