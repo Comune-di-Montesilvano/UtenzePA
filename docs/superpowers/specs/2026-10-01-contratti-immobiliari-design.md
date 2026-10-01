@@ -6,7 +6,7 @@ Data: 2026-10-01
 
 Trasformare il modulo **Concessioni** in un registro unico dei **contratti immobiliari** del Comune: locazioni, concessioni, comodati, assegnazioni di alloggi, occupazioni di suolo, sia **attivi** (il Comune incassa) sia **passivi** (il Comune paga). Registro + scadenzario: anagrafica contratto, canone, scadenze, rinnovo tacito con preavviso, avvisi in dashboard, totali entrate/uscite.
 
-Fuori scope:
+Fuori scope (roadmap complessiva in `docs/roadmap-patrimonio.md`):
 
 - incassi/pagamenti e rate (nessuna gestione contabile dei canoni);
 - condomini;
@@ -36,6 +36,11 @@ Fonti per l'import iniziale (`W:\PATRIMONIO\4_IMMOBILIARE`, già convertite in `
 | `02_FABBRICATI/02_APPARTAMENTI E CASE COMUNALI AZIENDA/SPRAR/COPIA ELENCO IMMOBILI SPRAR.ods` | 16 | locatore, repertorio, stipula, scadenza, indirizzo, catasto, canone annuo, contatti |
 | `federalismo demaniale/verifica contratti/ELENCO BENI DEMANIALI.ods` | 25 | codice scheda, n. contratto, data, tipologia, contraente, foglio/particella, oggetto, durata, scadenza, canone annuo |
 | `02_FABBRICATI/02_APPARTAMENTI E CASE COMUNALI AZIENDA/1_CASE COMUNALI_ AZIENDA SPECIALE/IMMOBILI CONCESSI A AZIENDA/Politica della Casa REPORT CASE COMUNALI.ods` | 45 | alloggio, assegnatario, tipo contratto (definitivo/parcheggio/custodia) |
+| `02_FABBRICATI/ALTRI FABBRICATI/MERCATINO ITTICO/concessione spazi/situazione aprile 2026.xlsx` | ~10 | box del mercatino ittico: numero, lettera planimetria, ultimo concessionario, tipo autorizzazione, numero concessione |
+| `03_AREE_STRADE_e_P.ILL/2_ DEMANIO e ATTRAVERSAMENTI al 24.10.2022/CANONI E ATTRAVERSAMENTI/CANONI DEMANIO IDRICO/` (`Canoni idrici_UTENZE.xlsx`, `2011/canoni idrici 2011.xls`, `2021/VERIFICA DEBITO OTTOBRE/pagamenti 20211_2020.xlsx`) | ~40 | concessioni demaniali idriche e attraversamenti verso la Regione Abruzzo (passive): ente, autorizzazione, annualità, pagamenti |
+| `02_FABBRICATI/ALTRI FABBRICATI/AUTOPARCO/autoparco via Danubio/1_CONTRATTO 2024/` (`adeguamento istat/Cartel1.xlsx`, `contratto/spese registrazione/Prospetto spese contrattuali.xlsx`) | 1 contratto | locazione passiva autoparco via Danubio: decorrenza, canone, IVA, adeguamento ISTAT, spese di registrazione |
+
+**Esclusa**: `ALLOGGIPROPRIETA'_canoni 2017.xlsx` (305 assegnatari con nucleo familiare): dati personali eccedenti, non si importa (decisione 2026-10-01).
 
 ## Decisioni
 
@@ -151,6 +156,9 @@ Script one-off, stesso pattern della pulizia, eseguito dopo di essa.
 | SPRAR | `PASSIVE`, `LEASE`, canone annuo — arricchisce le concessioni SPRAR esistenti abbinate per indirizzo invece di duplicarle |
 | Beni demaniali | `ACTIVE`, `LEASE`/`LAND_OCCUPATION` dalla tipologia, canone annuo, scadenza dalla colonna periodo, `registration_ref` = codice scheda + n. contratto |
 | Case comunali | `ACTIVE`, `HOUSING_ASSIGNMENT`, figlie (`parent_contract_id`) della concessione all'Azienda Speciale per lo stesso edificio |
+| Mercatino ittico | `ACTIVE`, `CONCESSION`, un contratto per box attualmente concesso, `subject` = box + lettera planimetria, `registration_ref` = numero concessione; tutti sull'immobile del mercatino |
+| Canoni demaniali idrici | `PASSIVE`, `CONCESSION` (attraversamenti: `LAND_OCCUPATION`), controparte Regione Abruzzo, canone annuo dall'ultima annualità nota, `registration_ref` = estremi autorizzazione |
+| Autoparco via Danubio | `PASSIVE`, `LEASE`, canone aggiornato con l'ultimo adeguamento ISTAT del prospetto, IVA |
 
 Abbinamento immobile: indirizzo normalizzato e/o foglio+particella (`assets.sheet`/`parcel`). Nessun abbinamento forzato: se non è univoco, contratto importato senza immobile + riga in Excel "da abbinare".
 
