@@ -13,11 +13,23 @@ Sentry.init({
   // build non taggate — vedi backend/Dockerfile e health.service.ts.
   release: process.env.APP_VERSION,
 
+  // Sentry 11: niente più opzione enableLogs, i log partono appena è attiva
+  // un'integrazione di logging — quindi la si aggiunge solo con SENTRY_LOGS
+  // valorizzata (stesso comportamento opt-in di prima).
   integrations: [
-    Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
+    ...(process.env.SENTRY_LOGS
+      ? [Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] })]
+      : []),
     Sentry.httpIntegration({ breadcrumbs: true }),
   ],
 
-  enableLogs: process.env.SENTRY_LOGS ? Boolean(process.env.SENTRY_LOGS) : false,
+  // Sentry 11 sostituisce sendDefaultPii con dataCollection, con default
+  // permissivi: per un ente pubblico niente IP/utente, cookie e body HTTP
+  // (possono contenere dati personali).
+  dataCollection: {
+    userInfo: false,
+    cookies: false,
+    httpBodies: [],
+  },
   tracesSampleRate: 0.1,
 });
