@@ -9,6 +9,8 @@ export class Contract extends AbstractEntity implements IContract {
   supplier_id_fk?: number | null;
   cig_contract?: string;
   cig_exempt?: boolean;
+  // Chiuso/scaduto esplicito: mai corrente, anche senza date.
+  closed?: boolean;
   order_number?: string;
   consip_order?: string;
   consip_agreement_id?: number | null;
@@ -28,6 +30,7 @@ export class Contract extends AbstractEntity implements IContract {
   utilities?: Utility[];
 
   get isCurrent(): boolean {
+    if (this.closed) return false;
     if (!this.supply_expiry_date) return true;
     const today = new Date();
     today.setHours(0, 0, 0, 0);

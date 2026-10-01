@@ -3,7 +3,9 @@ import { DataSource } from 'typeorm';
 
 // Contratto valido oggi: stessa definizione di "contratto corrente" usata in
 // UtilitiesService (scadenza assente o non ancora passata).
-const CURRENT = '(c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE())';
+// Contratto valido oggi: non chiuso e con scadenza assente o non ancora passata
+// (stessa definizione di "contratto corrente" in UtilitiesService).
+const CURRENT = '(c.closed = 0 AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE()))';
 const HAS_CIG = "TRIM(IFNULL(c.cig_contract, '')) <> ''";
 
 export interface AnomalyList<T> {
@@ -50,7 +52,7 @@ export class AnomaliesService {
        FROM contracts c
        LEFT JOIN suppliers s ON s.id = c.supplier_id_fk
        LEFT JOIN consip_agreement ca ON ca.id = c.consip_agreement_id
-       WHERE c.deleted = 0 AND c.cig_exempt = 0 AND NOT ${HAS_CIG}
+       WHERE c.deleted = 0 AND c.closed = 0 AND c.cig_exempt = 0 AND NOT ${HAS_CIG}
        ORDER BY s.supplier_id, c.id`,
     );
 
@@ -84,9 +86,9 @@ export class AnomaliesService {
       `SELECT ${utilityColumns}, ${currentContractsList} ${activeUtilities}
        AND EXISTS (
          SELECT 1 FROM contract_utilities cu1
-         JOIN contracts c1 ON c1.id = cu1.contract_id AND c1.deleted = 0
+         JOIN contracts c1 ON c1.id = cu1.contract_id AND c1.deleted = 0 AND c1.closed = 0
          JOIN contract_utilities cu2 ON cu2.utility_id = cu1.utility_id AND cu2.contract_id > cu1.contract_id
-         JOIN contracts c2 ON c2.id = cu2.contract_id AND c2.deleted = 0
+         JOIN contracts c2 ON c2.id = cu2.contract_id AND c2.deleted = 0 AND c2.closed = 0
          WHERE cu1.utility_id = u.id
            AND (c1.supply_expiry_date IS NULL OR c1.supply_expiry_date >= CURDATE())
            AND (c2.supply_expiry_date IS NULL OR c2.supply_expiry_date >= CURDATE())
@@ -97,7 +99,7 @@ export class AnomaliesService {
 
     const duplicateCigs: { cig: string; contracts: string }[] = await this.dataSource.query(
       `SELECT MIN(TRIM(c.cig_contract)) AS cig, GROUP_CONCAT(c.id ORDER BY c.id) AS contracts
-       FROM contracts c WHERE c.deleted = 0 AND ${HAS_CIG}
+       FROM contracts c WHERE c.deleted = 0 AND c.closed = 0 AND ${HAS_CIG}
        GROUP BY LOWER(TRIM(c.cig_contract)) HAVING COUNT(*) > 1`,
     );
 

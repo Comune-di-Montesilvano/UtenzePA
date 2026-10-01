@@ -79,7 +79,13 @@
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Scadenza</th>
     <td mat-cell *matCellDef="let item">
       {{ item.supply_expiry_date ? (item.supply_expiry_date | date: 'dd/MM/yyyy') : 'N/D' }}
-      @if (item.isCurrent) { <span class="mat-action-success" style="margin-left: 0.5rem;">Corrente</span> }
+      @if (item.closed) {
+        <span style="margin-left: 0.5rem; color: #6b7280;">Chiuso</span>
+      } @else if (item.isCurrent) {
+        <span class="mat-action-success" style="margin-left: 0.5rem;">Corrente</span>
+      } @else {
+        <span style="margin-left: 0.5rem; color: #6b7280;">Scaduto</span>
+      }
     </td>
   </ng-container>
 

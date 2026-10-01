@@ -35,7 +35,8 @@ export interface ContractDialogExtra {
 function cigRequiredUnlessExempt(group: AbstractControl): ValidationErrors | null {
   const cig = (group.get('cig_contract')?.value ?? '').toString().trim();
   const exempt = !!group.get('cig_exempt')?.value;
-  return !cig && !exempt ? {cigRequired: true} : null;
+  const closed = !!group.get('closed')?.value;
+  return !cig && !exempt && !closed ? {cigRequired: true} : null;
 }
 
 @Component({
@@ -78,6 +79,7 @@ export class ContractEditDialogComponent implements OnInit {
   form = this.fb.group({
     cig_contract: [this.data.item.cig_contract ?? ''],
     cig_exempt: [this.data.item.cig_exempt ?? false],
+    closed: [this.data.item.closed ?? false],
     order_number: [this.data.item.order_number ?? ''],
     consip_order: [this.data.item.consip_order ?? ''],
     consip_agreement_id: [this.data.item.consip_agreement_id ?? null],

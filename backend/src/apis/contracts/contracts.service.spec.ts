@@ -174,6 +174,13 @@ describe('ContractsService', () => {
     });
   });
 
+  describe('contratti chiusi', () => {
+    it('contratto chiuso (storico) senza CIG → ammesso', async () => {
+      manager.findOne.mockResolvedValue({ id: 70, updated_by_user_id: 1 });
+      await expect(service.create({ closed: true, utility_ids: [] } as never, 1)).resolves.toMatchObject({ id: 70 });
+    });
+  });
+
   describe('filtro missing_cig', () => {
     it('solo contratti senza CIG e non esclusi', async () => {
       await service.findAll({ missing_cig: true } as never);

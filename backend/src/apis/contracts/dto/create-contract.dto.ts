@@ -22,6 +22,10 @@ export class CreateContractDto {
   cig_exempt?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  closed?: boolean;
+
+  @IsOptional()
   @IsString()
   order_number?: string;
 

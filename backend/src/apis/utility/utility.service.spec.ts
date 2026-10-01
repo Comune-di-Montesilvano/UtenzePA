@@ -324,6 +324,9 @@ describe('UtilitiesService', () => {
       expect(repo.manager.query).toHaveBeenCalledWith(expect.stringContaining('ROW_NUMBER()'), [
         [1],
       ]);
+      // Un contratto chiuso non è mai "corrente", qualunque siano le date.
+      expect(repo.manager.query).toHaveBeenCalledWith(expect.stringContaining('c.closed = 0'), [[1]]);
+      expect(qb.leftJoin).toHaveBeenCalledWith(expect.any(Function), 'current_link', expect.any(String));
       expect(contractRepo.find).toHaveBeenCalledWith({
         where: { id: expect.anything() },
         relations: { supplier: true, consipAgreement: true },

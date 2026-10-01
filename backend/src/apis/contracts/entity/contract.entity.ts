@@ -34,6 +34,12 @@ export class Contract {
   @Column({ type: 'boolean', default: false })
   cig_exempt: boolean;
 
+  // Contratto chiuso/scaduto: mai "corrente", qualunque siano le date (serve
+  // per lo storico senza date di fornitura, che altrimenti risulterebbe
+  // corrente per scadenza assente).
+  @Column({ type: 'boolean', default: false })
+  closed: boolean;
+
   @Column({ type: 'text', nullable: true })
   order_number: string;
 
