@@ -30,6 +30,8 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
     qb.where(`${alias}.deleted = :deleted`, { deleted: false });
     qb.leftJoinAndSelect(`${alias}.supplier`, 'supplier');
     qb.leftJoinAndSelect(`${alias}.utilities`, 'utilities');
+    // Mostrata in tabella contratti (colonna Convenzione CONSIP).
+    qb.leftJoinAndSelect(`${alias}.consipAgreement`, 'consipAgreement');
 
     if (filters) {
       if (filters.utility_id) {
@@ -53,8 +55,28 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
     return qb.orderBy(`${alias}.id`, 'ASC').getMany();
   }
 
+  // CIG univoco tra contratti non cancellati (trim, case-insensitive).
+  // Check applicativo, non indice DB (soft delete). La SQL fa solo da
+  // prefiltro, l'uguaglianza esatta è in JS.
+  private async assertCigAvailable(cig: string | null | undefined, excludeId: number | null): Promise<void> {
+    const normalized = (cig ?? '').trim().toLowerCase();
+    if (!normalized) return;
+    const qb = this.repo
+      .createQueryBuilder('c')
+      .where('c.deleted = 0')
+      .andWhere('LOWER(c.cig_contract) LIKE :cig', { cig: `%${normalized}%` });
+    if (excludeId !== null) qb.andWhere('c.id <> :excludeId', { excludeId });
+    const conflict = (await qb.getMany()).find(
+      (c) => (c.cig_contract ?? '').trim().toLowerCase() === normalized,
+    );
+    if (conflict) {
+      throw new BadRequestException(`CIG ${cig.trim()} già usato dal contratto ${conflict.id}.`);
+    }
+  }
+
   async create(dto: CreateContractDto, userId?: number): Promise<Contract> {
     const { utility_ids, ...rest } = dto;
+    await this.assertCigAvailable(rest.cig_contract, null);
 
     const saved = await this.dataSource.transaction(async (manager) => {
       const entity = manager.create(Contract, {
@@ -92,6 +114,7 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
 
     const before = await this.repo.findOne({ where: { id } as never });
     if (!before) throw new BadRequestException('elemento non trovato');
+    if (rest.cig_contract !== undefined) await this.assertCigAvailable(rest.cig_contract, id);
     const beforeSnapshot: Record<string, unknown> = { ...before };
 
     const result = await this.dataSource.transaction(async (manager) => {
