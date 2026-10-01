@@ -121,8 +121,16 @@ describe('UtilitiesService', () => {
       expect(service.getExpiryStatus(daysFromToday(89))).toBe(ExpiryStatus.EXPIRING90);
     });
 
-    it('restituisce ACTIVE oltre i 90 giorni', () => {
-      expect(service.getExpiryStatus(daysFromToday(90))).toBe(ExpiryStatus.ACTIVE);
+    it('restituisce EXPIRING120 al confine inferiore (90 giorni)', () => {
+      expect(service.getExpiryStatus(daysFromToday(90))).toBe(ExpiryStatus.EXPIRING120);
+    });
+
+    it('restituisce EXPIRING120 al confine superiore (119 giorni)', () => {
+      expect(service.getExpiryStatus(daysFromToday(119))).toBe(ExpiryStatus.EXPIRING120);
+    });
+
+    it('restituisce ACTIVE da 120 giorni in poi', () => {
+      expect(service.getExpiryStatus(daysFromToday(120))).toBe(ExpiryStatus.ACTIVE);
     });
   });
 

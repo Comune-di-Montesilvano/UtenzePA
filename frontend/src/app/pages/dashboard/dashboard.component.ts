@@ -28,7 +28,8 @@ export class DashboardComponent implements OnInit {
 
   today: Date = new Date();
   expiringItems: Utility[] = [];
-  expireDays: number = 60;
+  // Alert contratti in scadenza: finestra di 4 mesi di calendario.
+  readonly expireMonths = 4;
   futureDate: Date | null = null;
   suppliersCount: number = 0;
   utilitiesCount: number = 0;
@@ -51,8 +52,7 @@ export class DashboardComponent implements OnInit {
   }
 
   loadAllUtilities() {
-    this.futureDate = new Date();
-    this.futureDate.setDate(this.futureDate.getDate() + this.expireDays);
+    this.futureDate = this.expiryWindowEnd();
     const from: string = this.today.toISOString();
     const to: string = this.futureDate.toISOString();
     this.utilitiesService.search({supply_expiry_date_range: [from, to]}).subscribe((utilities: Utility[]) => {
@@ -98,9 +98,15 @@ export class DashboardComponent implements OnInit {
     ];
   }
 
+  private expiryWindowEnd(): Date {
+    const end = new Date();
+    end.setMonth(end.getMonth() + this.expireMonths);
+    return end;
+  }
+
   getSeverity(giorni: number): Severity {
-    if (giorni <= 20) return 'danger';
-    if (giorni <= 40) return 'warn';
+    if (giorni <= 30) return 'danger';
+    if (giorni <= 60) return 'warn';
     return 'success';
   }
 
@@ -110,8 +116,7 @@ export class DashboardComponent implements OnInit {
 
   navigateToExpiringUtilities(): void {
     const today = new Date();
-    let futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + this.expireDays);
+    const futureDate = this.expiryWindowEnd();
 
     const queryParams = {
       supply_expiry_date_range: [today.toISOString(), futureDate.toISOString()],

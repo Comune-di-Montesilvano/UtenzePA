@@ -45,6 +45,7 @@ describe('ContractsService', () => {
       expect(qb.where).toHaveBeenCalledWith('contract.deleted = :deleted', { deleted: false });
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('contract.supplier', 'supplier');
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('contract.utilities', 'utilities');
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('contract.consipAgreement', 'consipAgreement');
     });
 
     it('filtra per utility_id (storico contratti di una utenza)', async () => {
@@ -114,6 +115,34 @@ describe('ContractsService', () => {
       expect(auditLogService.record).toHaveBeenCalledWith(
         expect.objectContaining({ entityName: 'contract', entityId: 20, action: 'UPDATE', userId: 7 }),
       );
+    });
+  });
+
+  describe('CIG univoco', () => {
+    it('create: CIG già usato da un altro contratto (spazi/maiuscole) → 400 con il contratto in conflitto', async () => {
+      qb.getMany.mockResolvedValueOnce([{ id: 9, cig_contract: 'abc123 ' }]);
+      await expect(service.create({ cig_contract: ' ABC123', utility_ids: [] } as never, 1)).rejects.toThrow(/contratto 9/);
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('create: CIG che contiene un altro CIG senza coincidere → ammesso', async () => {
+      qb.getMany.mockResolvedValueOnce([{ id: 9, cig_contract: 'ABC1234' }]);
+      manager.save.mockImplementation(async (_e, data) => ({ id: 50, ...data }));
+      manager.findOne.mockResolvedValue({ id: 50, updated_by_user_id: 1 });
+      await expect(service.create({ cig_contract: 'ABC123', utility_ids: [] } as never, 1)).resolves.toMatchObject({ id: 50 });
+    });
+
+    it('update: il contratto stesso è escluso dal controllo', async () => {
+      repo.findOne.mockResolvedValue({ id: 7, cig_contract: 'OLD' });
+      await service.update(7, { cig_contract: 'NEW' } as never, 1).catch(() => undefined);
+      expect(qb.andWhere).toHaveBeenCalledWith('c.id <> :excludeId', { excludeId: 7 });
+    });
+
+    it('CIG vuoto: nessun controllo', async () => {
+      manager.save.mockImplementation(async (_e, data) => ({ id: 51, ...data }));
+      manager.findOne.mockResolvedValue({ id: 51, updated_by_user_id: 1 });
+      await service.create({ cig_contract: '  ', utility_ids: [] } as never, 1);
+      expect(repo.createQueryBuilder).not.toHaveBeenCalled();
     });
   });
 });
