@@ -44,6 +44,11 @@ export class SidebarComponent implements OnInit {
       route: '/utilities',
     },
     {
+      label: 'Impianti termici',
+      icon: 'local_fire_department',
+      route: '/thermal-plants',
+    },
+    {
       label: 'Concessioni',
       icon: 'verified',
       route: '/utilizer-grant',

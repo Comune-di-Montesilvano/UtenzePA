@@ -276,6 +276,15 @@
         </div>
       </ng-template>
     </mat-tab>
+    <mat-tab [disabled]="isNew">
+      <ng-template mat-tab-label>
+        <mat-icon style="margin-right: 5px;">local_fire_department</mat-icon>
+        Impianti termici
+      </ng-template>
+      <ng-template matTabContent>
+        <app-asset-thermal-plants-tab [assetId]="data.item.id"></app-asset-thermal-plants-tab>
+      </ng-template>
+    </mat-tab>
     @for (tab of tabs; track tab.value) {
       <mat-tab [disabled]="isNew">
         <ng-template mat-tab-label>
