@@ -297,6 +297,7 @@ describe('UtilitiesService', () => {
         id: 1,
         utilityAggregator: { id: 2 },
         utilityType: null,
+        security_deposit: '306.96',
       } as unknown as Utility;
       qb.getMany.mockResolvedValue([utility]);
       repo.manager.query.mockResolvedValue([{ utility_id: 1, contract_id: 50 }]);
@@ -314,7 +315,6 @@ describe('UtilitiesService', () => {
           supply_expiry_date: dateStrFromToday(10),
           management_expiry_date: '2027-01-01',
           takeover_termination_date: '2027-02-01',
-          security_deposit: 123.45,
         },
       ]);
 
@@ -342,11 +342,12 @@ describe('UtilitiesService', () => {
       expect(enriched.supplier).toEqual({ id: 4, name: 'Fornitore SPA' });
       expect(enriched.supplier_id_fk).toBe(4);
       expect(enriched.cig_contract).toBe('CIG1');
-      expect(enriched.security_deposit).toBe(123.45);
+      // Deposito cauzionale dell'utenza (per punto di fornitura), non del contratto.
+      expect(enriched.security_deposit).toBe('306.96');
     });
 
     it('proietta i campi legacy a null/0 quando non esiste un contratto corrente', async () => {
-      const utility = { id: 1, utilityType: null } as unknown as Utility;
+      const utility = { id: 1, utilityType: null, security_deposit: '15.75' } as unknown as Utility;
       qb.getMany.mockResolvedValue([utility]);
       // repo.manager.query di default risolve [] (nessuna coppia utility/contratto)
 
@@ -361,7 +362,7 @@ describe('UtilitiesService', () => {
       expect(enriched.expiryStatus).toBeNull();
       expect(enriched.supplier).toBeNull();
       expect(enriched.supply_expiry_date).toBeNull();
-      expect(enriched.security_deposit).toBe(0);
+      expect(enriched.security_deposit).toBe('15.75');
     });
 
     it('non interroga il contratto corrente se non ci sono utenze', async () => {

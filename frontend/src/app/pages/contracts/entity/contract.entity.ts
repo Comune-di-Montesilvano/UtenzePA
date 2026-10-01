@@ -16,7 +16,6 @@ export class Contract extends AbstractEntity implements IContract {
   supply_expiry_date?: Date | null;
   management_expiry_date?: Date | null;
   takeover_termination_date?: Date | null;
-  security_deposit?: number;
   utility_ids?: number[];
 
   @Exclude({ toPlainOnly: true })
@@ -38,6 +37,6 @@ export class Contract extends AbstractEntity implements IContract {
   }
 
   static create(data?: Partial<Contract>): Contract {
-    return plainToInstance(Contract, { id: 0, security_deposit: 0, deleted: false, ...data });
+    return plainToInstance(Contract, { id: 0, deleted: false, ...data });
   }
 }

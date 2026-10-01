@@ -55,8 +55,6 @@ export class Contract {
   @Column({ type: 'date', nullable: true })
   takeover_termination_date: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  security_deposit: number;
 
   @CreateDateColumn({ type: 'timestamp' })
   create_date: string;

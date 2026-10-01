@@ -7,7 +7,6 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {DatePipe} from '@angular/common';
-import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
 import {FormsModule} from '@angular/forms';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatSelectModule} from '@angular/material/select';
@@ -24,7 +23,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
   imports: [
     MatTableModule, MatSortModule, MatPaginatorModule, MatButtonModule, MatIconModule,
     MatTooltipModule, MatProgressBarModule, DatePipe, HasRoleDirective,
-    FormsModule, MatFormFieldModule, MatSelectModule, FormatAmountPipe
+    FormsModule, MatFormFieldModule, MatSelectModule
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-contracts.component.html'
@@ -42,7 +41,6 @@ export class DataTableContractsComponent extends AbstractDataTableComponent<Cont
     {field: 'management_expiry_date', header: 'Scadenza gestione', minWidth: '130px'},
     {field: 'takeover_termination_date', header: 'Data voltura/cessazione', minWidth: '130px'},
     {field: 'order_number', header: 'Numero Ordine', minWidth: '120px'},
-    {field: 'security_deposit', header: 'Deposito cauzionale', minWidth: '120px'},
     {field: 'utilities', header: 'Utenze coperte', minWidth: '100px'},
   ];
 

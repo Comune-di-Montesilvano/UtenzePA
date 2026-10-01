@@ -103,11 +103,6 @@
     <td mat-cell *matCellDef="let item">{{ item.takeover_termination_date ? (item.takeover_termination_date | date: 'dd/MM/yyyy') : 'N/D' }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="security_deposit">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Deposito cauzionale</th>
-    <td mat-cell *matCellDef="let item">{{ item.security_deposit | formatAmount }}</td>
-  </ng-container>
-
   <ng-container matColumnDef="utilities">
     <th mat-header-cell *matHeaderCellDef>Utenze coperte</th>
     <td mat-cell *matCellDef="let item">{{ item.utilities?.length ?? 0 }}</td>

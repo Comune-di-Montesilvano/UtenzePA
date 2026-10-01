@@ -86,7 +86,6 @@ export class ContractEditDialogComponent implements OnInit {
     supply_expiry_date: [this.toDate(this.data.item.supply_expiry_date)],
     management_expiry_date: [this.toDate(this.data.item.management_expiry_date)],
     takeover_termination_date: [this.toDate(this.data.item.takeover_termination_date)],
-    security_deposit: [this.data.item.security_deposit ?? 0],
     utility_ids: [
       this.data.item.utilities?.map(u => u.id) ?? this.data.preselectedUtilityIds ?? []
     ],

@@ -74,6 +74,11 @@ export class CreateUtilityDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  security_deposit?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   power_kw_electric?: number;
 
   @IsOptional()

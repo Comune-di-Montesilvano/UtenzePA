@@ -8,6 +8,5 @@ export interface IContract {
   supply_expiry_date?: Date | null;
   management_expiry_date?: Date | null;
   takeover_termination_date?: Date | null;
-  security_deposit?: number;
   utility_ids?: number[];
 }
