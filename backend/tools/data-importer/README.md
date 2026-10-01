@@ -48,6 +48,13 @@ perché è usata anche in produzione da `ImportModule` (upload CSV chunked dalla
   ```
   Test: `pnpm exec jest --rootDir . --testRegex 'tools/data-importer/.*\.spec\.ts$'`.
 
+- **`merge-contracts.ts`** — accorpa i contratti duplicati per ordine CONSIP
+  (l'Access collegava un contratto a una sola utenza → un contratto per
+  utenza anche con lo stesso ordine). Superstite = id minore, campi a
+  maggioranza (override espliciti in `OVERRIDES`), collegamenti utenze e
+  fatture spostati, duplicati in soft delete. Prova di default, `--apply` in
+  transazione; report in `/tmp/merge-contracts-report.txt`.
+
 ## Dati sorgente
 
 I CSV esportati da Access vivono in `backend/src/data-importer/source/`
