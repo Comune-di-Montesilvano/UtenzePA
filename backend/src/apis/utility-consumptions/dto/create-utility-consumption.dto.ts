@@ -22,7 +22,7 @@ export class CreateUtilityConsumptionDto {
   kind: ConsumptionKind;
 
   @ValidateIf(isReading)
-  @IsDateString()
+  @IsDateString({ strict: true })
   reading_date?: string | null;
 
   @ValidateIf(isReading)
@@ -38,11 +38,11 @@ export class CreateUtilityConsumptionDto {
   meter_number?: string | null;
 
   @ValidateIf(isPeriod)
-  @IsDateString()
+  @IsDateString({ strict: true })
   period_start?: string | null;
 
   @ValidateIf(isPeriod)
-  @IsDateString()
+  @IsDateString({ strict: true })
   period_end?: string | null;
 
   @ValidateIf(isPeriod)
