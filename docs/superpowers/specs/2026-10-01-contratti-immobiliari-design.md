@@ -134,7 +134,7 @@ Restituiti in ogni riga dell'API: `annual_rent`, `effective_end_date`, `notice_d
 
 ## Pulizia delle righe esistenti
 
-Script one-off (in `backend/tools/`, fuori dall'immagine prod) con report JSON, in sola lettura su richiesta (`--dry-run`) e rieseguibile:
+Script one-off (Python in `.audit-w/contratti/`, fuori dal repo perché tratta dati reali, come gli import precedenti) con report JSON, in sola lettura su richiesta (`--dry-run`) e rieseguibile:
 
 | Gruppo | Riconoscimento | Azione |
 |---|---|---|
@@ -147,7 +147,7 @@ La classificazione è una **mappa esplicita controparte → gruppo** nel codice 
 
 ## Import iniziale
 
-Script one-off, stesso pattern della pulizia, eseguito dopo di essa.
+Script one-off (stessa posizione e pattern della pulizia), eseguito dopo di essa.
 
 | Fonte | Mappatura |
 |---|---|
