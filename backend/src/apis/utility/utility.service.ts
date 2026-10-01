@@ -54,6 +54,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     if (diffDays < 30) return ExpiryStatus.EXPIRING30;
     if (diffDays < 60) return ExpiryStatus.EXPIRING60;
     if (diffDays < 90) return ExpiryStatus.EXPIRING90;
+    if (diffDays < 120) return ExpiryStatus.EXPIRING120;
     return ExpiryStatus.ACTIVE;
   }
 
@@ -398,6 +399,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       [ExpiryStatus.EXPIRING30]: 30,
       [ExpiryStatus.EXPIRING60]: 60,
       [ExpiryStatus.EXPIRING90]: 90,
+      [ExpiryStatus.EXPIRING120]: 120,
     };
 
     const days = expiringDaysMap[utilityState] ?? null;
@@ -406,7 +408,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       qb.andWhere('currentContract.supply_expiry_date < :us_today', { us_today: today });
     } else if (utilityState === ExpiryStatus.ACTIVE) {
       const threshold = new Date(today);
-      threshold.setDate(today.getDate() + 90);
+      threshold.setDate(today.getDate() + 120);
       threshold.setHours(23, 59, 59, 999);
       qb.andWhere('currentContract.supply_expiry_date > :us_threshold', {
         us_threshold: threshold,
