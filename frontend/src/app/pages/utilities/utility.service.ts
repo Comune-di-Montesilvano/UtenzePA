@@ -21,6 +21,7 @@ export class UtilityService extends AbstractService<Utility> {
       text?: string;
       safeguard?: boolean;
       supply_expiry_date_range?: string[];
+      budget_chapter_code_fk?: number;
     },
   ): Observable<Utility[]> {
     let params = new HttpParams();

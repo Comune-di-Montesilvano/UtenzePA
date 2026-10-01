@@ -6,6 +6,13 @@ import {MatInputModule} from '@angular/material/input';
 import {MatSelectModule, MatSelectChange} from '@angular/material/select';
 import {MatDatepickerModule} from '@angular/material/datepicker';
 import {MatButtonModule} from '@angular/material/button';
+import {MatCheckboxModule} from '@angular/material/checkbox';
+import {MatTabsModule} from '@angular/material/tabs';
+import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
+import {FormsModule} from '@angular/forms';
+import {Utility} from '../utilities/entity/utility.entity';
+import {AbstractControl, ValidationErrors} from '@angular/forms';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
@@ -24,12 +31,21 @@ export interface ContractDialogExtra {
   preselectedUtilityIds?: number[];
 }
 
+// CIG obbligatorio salvo contratto escluso (stessa regola del backend).
+function cigRequiredUnlessExempt(group: AbstractControl): ValidationErrors | null {
+  const cig = (group.get('cig_contract')?.value ?? '').toString().trim();
+  const exempt = !!group.get('cig_exempt')?.value;
+  const closed = !!group.get('closed')?.value;
+  return !cig && !exempt && !closed ? {cigRequired: true} : null;
+}
+
 @Component({
   selector: 'app-contract-edit-dialog',
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatDatepickerModule, MatButtonModule, HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent
+    MatDatepickerModule, MatButtonModule, MatCheckboxModule, MatTabsModule, MatIconModule, MatTooltipModule,
+    FormsModule, HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './contract-edit-dialog.component.html'
@@ -47,7 +63,14 @@ export class ContractEditDialogComponent implements OnInit {
 
   supplierOptions: TOption[] = [];
   consipAgreementOptions: ConsipAgreement[] = [];
-  utilityOptions: TOption[] = [];
+  // Tutte le utenze (per la tab Utenze): quelle collegate sono
+  // form.utility_ids, le altre sono candidate da aggiungere.
+  private allUtilities: Utility[] = [];
+  utilityFilter = '';
+  utilityToAdd: number | null = null;
+  // Calcolate solo al cambio dei collegamenti: una lista nuova a ogni change
+  // detection azzererebbe il filtro del FilterableSelect mentre si digita.
+  candidateOptions: TOption[] = [];
 
   private toDate(v: unknown): Date | null {
     return v ? new Date(v as string) : null;
@@ -55,6 +78,8 @@ export class ContractEditDialogComponent implements OnInit {
 
   form = this.fb.group({
     cig_contract: [this.data.item.cig_contract ?? ''],
+    cig_exempt: [this.data.item.cig_exempt ?? false],
+    closed: [this.data.item.closed ?? false],
     order_number: [this.data.item.order_number ?? ''],
     consip_order: [this.data.item.consip_order ?? ''],
     consip_agreement_id: [this.data.item.consip_agreement_id ?? null],
@@ -63,11 +88,10 @@ export class ContractEditDialogComponent implements OnInit {
     supply_expiry_date: [this.toDate(this.data.item.supply_expiry_date)],
     management_expiry_date: [this.toDate(this.data.item.management_expiry_date)],
     takeover_termination_date: [this.toDate(this.data.item.takeover_termination_date)],
-    security_deposit: [this.data.item.security_deposit ?? 0],
     utility_ids: [
       this.data.item.utilities?.map(u => u.id) ?? this.data.preselectedUtilityIds ?? []
     ],
-  });
+  }, {validators: cigRequiredUnlessExempt});
 
   constructor() {
     const role = this.authService.getCurrentUser()?.role;
@@ -88,9 +112,10 @@ export class ContractEditDialogComponent implements OnInit {
       error: err => console.error('Errore nel caricamento delle convenzioni CONSIP:', err)
     });
     this.utilityService.search({deleted: false}).subscribe({
-      next: data => this.utilityOptions = data
-        .map(u => ({label: u.utility_id, value: u.id}))
-        .sort((a, b) => a.label.localeCompare(b.label)),
+      next: data => {
+        this.allUtilities = data.sort((a, b) => a.utility_id.localeCompare(b.utility_id));
+        this.refreshCandidates();
+      },
       error: err => console.error('Errore nel caricamento delle utenze:', err)
     });
   }
@@ -103,6 +128,55 @@ export class ContractEditDialogComponent implements OnInit {
         this.form.patchValue({supplier_id_fk: agreement.supplier_id});
       }
     }
+  }
+
+  private get linkedIds(): number[] {
+    return this.form.controls.utility_ids.value ?? [];
+  }
+
+  get linkedCount(): number {
+    return this.linkedIds.length;
+  }
+
+  linkedUtilities(): Utility[] {
+    const ids = new Set(this.linkedIds);
+    const term = this.utilityFilter.trim().toLowerCase();
+    return this.allUtilities
+      .filter(u => ids.has(u.id))
+      .filter(u => !term || [u.utility_id, u.meter_number, u.utilityType?.name, this.assetNames(u)]
+        .some(v => (v ?? '').toLowerCase().includes(term)));
+  }
+
+  // Opzioni per aggiungere: solo utenze non ancora collegate.
+  private refreshCandidates(): void {
+    const ids = new Set(this.linkedIds);
+    this.candidateOptions = this.allUtilities
+      .filter(u => !ids.has(u.id))
+      .map(u => ({
+        label: u.utility_id,
+        value: u.id,
+        sublabel: [u.utilityType?.name, u.meter_number ? `matr. ${u.meter_number}` : null, this.assetNames(u)]
+          .filter(Boolean).join(' · '),
+        searchText: `${u.utility_id} ${u.meter_number ?? ''} ${this.assetNames(u)}`,
+      }));
+  }
+
+  assetNames(u: Utility): string {
+    return (u.assets ?? []).map(a => a.asset_name).join(', ');
+  }
+
+  addUtility(): void {
+    if (this.utilityToAdd === null) return;
+    this.form.controls.utility_ids.setValue([...this.linkedIds, this.utilityToAdd]);
+    this.form.markAsDirty();
+    this.utilityToAdd = null;
+    this.refreshCandidates();
+  }
+
+  removeUtility(id: number): void {
+    this.form.controls.utility_ids.setValue(this.linkedIds.filter(x => x !== id));
+    this.form.markAsDirty();
+    this.refreshCandidates();
   }
 
   save(): void {

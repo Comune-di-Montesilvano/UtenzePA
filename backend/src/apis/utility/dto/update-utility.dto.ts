@@ -64,17 +64,18 @@ export class UpdateUtilityDto {
   @Min(0)
   reported_consumption_year?: number | null;
 
-  @IsOptional()
-  @Transform(({ value }) => (value === '' ? null : Number(value)))
-  @IsNumber()
-  @Min(0)
-  actual_consumption?: number | null;
 
   @IsOptional()
   @Transform(({ value }) => (value === '' ? null : Number(value)))
   @IsNumber()
   @Min(0)
   estimated_annual_consumption?: number | null;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : Number(value)))
+  @IsNumber()
+  @Min(0)
+  security_deposit?: number | null;
 
   @IsOptional()
   @Transform(({ value }) => (value === '' ? null : Number(value)))

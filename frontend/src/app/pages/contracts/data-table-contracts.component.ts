@@ -7,6 +7,9 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {DatePipe} from '@angular/common';
+import {FormsModule} from '@angular/forms';
+import {MatFormFieldModule} from '@angular/material/form-field';
+import {MatSelectModule} from '@angular/material/select';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {Contract} from './entity/contract.entity';
@@ -19,14 +22,47 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
   standalone: true,
   imports: [
     MatTableModule, MatSortModule, MatPaginatorModule, MatButtonModule, MatIconModule,
-    MatTooltipModule, MatProgressBarModule, DatePipe, HasRoleDirective
+    MatTooltipModule, MatProgressBarModule, DatePipe, HasRoleDirective,
+    FormsModule, MatFormFieldModule, MatSelectModule
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-contracts.component.html'
 })
 export class DataTableContractsComponent extends AbstractDataTableComponent<Contract> {
 
-  displayedColumns = ['actions', 'id', 'cig_contract', 'supplier', 'supply_start_date', 'supply_expiry_date', 'order_number', 'utilities'];
+  readonly allColumns: IColumnDef[] = [
+    {field: 'id', header: 'ID', minWidth: '60px'},
+    {field: 'cig_contract', header: 'CIG', minWidth: '120px'},
+    {field: 'consip_order', header: 'Ordine CONSIP', minWidth: '120px'},
+    {field: 'consipAgreement', header: 'Convenzione CONSIP', minWidth: '180px'},
+    {field: 'supplier', header: 'Fornitore', minWidth: '120px'},
+    {field: 'supply_start_date', header: 'Decorrenza', minWidth: '110px'},
+    {field: 'supply_expiry_date', header: 'Scadenza', minWidth: '130px'},
+    {field: 'management_expiry_date', header: 'Scadenza gestione', minWidth: '130px'},
+    {field: 'takeover_termination_date', header: 'Data voltura/cessazione', minWidth: '130px'},
+    {field: 'order_number', header: 'Numero Ordine', minWidth: '120px'},
+    {field: 'utilities', header: 'Utenze coperte', minWidth: '100px'},
+  ];
+
+  private readonly defaultVisibleFields = new Set([
+    'id', 'cig_contract', 'supplier', 'supply_start_date', 'supply_expiry_date', 'order_number', 'utilities',
+  ]);
+
+  private static readonly STORAGE_KEY = 'columns:contracts';
+
+  selectedColumns: IColumnDef[] = this.loadColumnSelection(
+    DataTableContractsComponent.STORAGE_KEY, this.allColumns, this.defaultVisibleFields
+  );
+
+  get displayedColumns(): string[] {
+    return ['actions', ...this.selectedColumns.map(c => c.field)];
+  }
+
+  compareColumns = (a: IColumnDef, b: IColumnDef): boolean => a?.field === b?.field;
+
+  onColumnsChange(): void {
+    this.saveColumnSelection(DataTableContractsComponent.STORAGE_KEY, this.selectedColumns);
+  }
 
   constructor(screen: ScreenSizeService) {
     super(screen);

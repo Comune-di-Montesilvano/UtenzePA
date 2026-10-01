@@ -1,11 +1,10 @@
 import {
+  IsBoolean,
   IsArray,
   IsInt,
-  IsNumber,
   IsOptional,
   IsString,
   MaxLength,
-  Min,
 } from 'class-validator';
 import { NormalizeDate } from '@/common/decorators/normalize-date.decorator';
 
@@ -17,6 +16,14 @@ export class UpdateContractDto {
   @IsOptional()
   @IsString()
   cig_contract?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  cig_exempt?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  closed?: boolean;
 
   @IsOptional()
   @IsString()
@@ -46,11 +53,6 @@ export class UpdateContractDto {
   @IsOptional()
   @NormalizeDate()
   takeover_termination_date?: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  security_deposit?: number;
 
   @IsOptional()
   @IsArray({ message: 'Le utenze coperte devono essere fornite come un array.' })

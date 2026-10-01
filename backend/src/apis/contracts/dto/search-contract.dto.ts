@@ -31,4 +31,9 @@ export class SearchContractDto {
     return value.split(',').map((v: string) => v.trim()).filter((v: string) => v !== '');
   })
   supply_expiry_date_range?: string[];
+
+  // Solo contratti senza CIG e non esclusi (anomalia).
+  @IsOptional()
+  @Transform(({ value }) => (value === true || value === 'true' || value === '1' ? true : undefined))
+  missing_cig?: boolean;
 }

@@ -21,6 +21,7 @@ describe('UtilitiesService', () => {
     findOne: jest.Mock;
     create: jest.Mock;
     save: jest.Mock;
+    update: jest.Mock;
     manager: {
       query: jest.Mock;
       getRepository: jest.Mock;
@@ -39,6 +40,7 @@ describe('UtilitiesService', () => {
   };
   let contractRepo: { find: jest.Mock };
   let assetRepo: { count: jest.Mock; find: jest.Mock };
+  let recalc: { recalcUtility: jest.Mock };
 
   beforeEach(() => {
     qb = {
@@ -60,6 +62,7 @@ describe('UtilitiesService', () => {
       findOne: jest.fn(),
       create: jest.fn((data) => data),
       save: jest.fn(async (data) => data),
+      update: jest.fn().mockResolvedValue(undefined),
       manager: {
         // nessun contratto corrente per default: niente coppie utility/contratto
         query: jest.fn().mockResolvedValue([]),
@@ -67,7 +70,8 @@ describe('UtilitiesService', () => {
       },
     };
     assetRepo = { count: jest.fn().mockResolvedValue(1), find: jest.fn().mockResolvedValue([]) };
-    service = new UtilitiesService(repo as never, assetRepo as never);
+    recalc = { recalcUtility: jest.fn().mockResolvedValue(undefined) };
+    service = new UtilitiesService(repo as never, assetRepo as never, recalc as never);
   });
 
   describe('getDaysToExpiry', () => {
@@ -117,8 +121,16 @@ describe('UtilitiesService', () => {
       expect(service.getExpiryStatus(daysFromToday(89))).toBe(ExpiryStatus.EXPIRING90);
     });
 
-    it('restituisce ACTIVE oltre i 90 giorni', () => {
-      expect(service.getExpiryStatus(daysFromToday(90))).toBe(ExpiryStatus.ACTIVE);
+    it('restituisce EXPIRING120 al confine inferiore (90 giorni)', () => {
+      expect(service.getExpiryStatus(daysFromToday(90))).toBe(ExpiryStatus.EXPIRING120);
+    });
+
+    it('restituisce EXPIRING120 al confine superiore (119 giorni)', () => {
+      expect(service.getExpiryStatus(daysFromToday(119))).toBe(ExpiryStatus.EXPIRING120);
+    });
+
+    it('restituisce ACTIVE da 120 giorni in poi', () => {
+      expect(service.getExpiryStatus(daysFromToday(120))).toBe(ExpiryStatus.ACTIVE);
     });
   });
 
@@ -285,6 +297,7 @@ describe('UtilitiesService', () => {
         id: 1,
         utilityAggregator: { id: 2 },
         utilityType: null,
+        security_deposit: '306.96',
       } as unknown as Utility;
       qb.getMany.mockResolvedValue([utility]);
       repo.manager.query.mockResolvedValue([{ utility_id: 1, contract_id: 50 }]);
@@ -302,7 +315,6 @@ describe('UtilitiesService', () => {
           supply_expiry_date: dateStrFromToday(10),
           management_expiry_date: '2027-01-01',
           takeover_termination_date: '2027-02-01',
-          security_deposit: 123.45,
         },
       ]);
 
@@ -312,6 +324,9 @@ describe('UtilitiesService', () => {
       expect(repo.manager.query).toHaveBeenCalledWith(expect.stringContaining('ROW_NUMBER()'), [
         [1],
       ]);
+      // Un contratto chiuso non è mai "corrente", qualunque siano le date.
+      expect(repo.manager.query).toHaveBeenCalledWith(expect.stringContaining('c.closed = 0'), [[1]]);
+      expect(qb.leftJoin).toHaveBeenCalledWith(expect.any(Function), 'current_link', expect.any(String));
       expect(contractRepo.find).toHaveBeenCalledWith({
         where: { id: expect.anything() },
         relations: { supplier: true, consipAgreement: true },
@@ -330,11 +345,12 @@ describe('UtilitiesService', () => {
       expect(enriched.supplier).toEqual({ id: 4, name: 'Fornitore SPA' });
       expect(enriched.supplier_id_fk).toBe(4);
       expect(enriched.cig_contract).toBe('CIG1');
-      expect(enriched.security_deposit).toBe(123.45);
+      // Deposito cauzionale dell'utenza (per punto di fornitura), non del contratto.
+      expect(enriched.security_deposit).toBe('306.96');
     });
 
     it('proietta i campi legacy a null/0 quando non esiste un contratto corrente', async () => {
-      const utility = { id: 1, utilityType: null } as unknown as Utility;
+      const utility = { id: 1, utilityType: null, security_deposit: '15.75' } as unknown as Utility;
       qb.getMany.mockResolvedValue([utility]);
       // repo.manager.query di default risolve [] (nessuna coppia utility/contratto)
 
@@ -349,7 +365,7 @@ describe('UtilitiesService', () => {
       expect(enriched.expiryStatus).toBeNull();
       expect(enriched.supplier).toBeNull();
       expect(enriched.supply_expiry_date).toBeNull();
-      expect(enriched.security_deposit).toBe(0);
+      expect(enriched.security_deposit).toBe('15.75');
     });
 
     it('non interroga il contratto corrente se non ci sono utenze', async () => {
@@ -623,6 +639,71 @@ describe('UtilitiesService', () => {
       expect(repo.save).not.toHaveBeenCalledWith(
         expect.objectContaining({ assets: expect.anything() }),
       );
+    });
+  });
+
+  describe('stima consumo e matricola', () => {
+    const persisted = {
+      id: 5,
+      utility_id: 'IT005',
+      meter_number: 'M5',
+      estimated_annual_consumption: '1200.00',
+      estimated_consumption_source: 'HISTORY',
+      estimated_consumption_set_at: null,
+      updated_by_user_id: 1,
+    };
+
+    beforeEach(() => {
+      repo.findOne.mockResolvedValue({ ...persisted });
+    });
+
+    it('stima modificata > 0: diventa MANUAL con data', async () => {
+      await service.update(5, { estimated_annual_consumption: 1500 } as never, 2);
+      const saved = repo.save.mock.calls[0][0];
+      expect(saved.estimated_consumption_source).toBe('MANUAL');
+      expect(saved.estimated_consumption_set_at).toBeInstanceOf(Date);
+      expect(recalc.recalcUtility).not.toHaveBeenCalled();
+    });
+
+    it('stima invariata (stringa decimal vs number): origine non toccata', async () => {
+      await service.update(5, { estimated_annual_consumption: 1200, notes: 'x' } as never, 2);
+      const saved = repo.save.mock.calls[0][0];
+      expect(saved.estimated_consumption_source).toBe('HISTORY');
+      expect(recalc.recalcUtility).not.toHaveBeenCalled();
+    });
+
+    it('stima azzerata: NONE e ricalcolo da storico', async () => {
+      await service.update(5, { estimated_annual_consumption: 0 } as never, 2);
+      const saved = repo.save.mock.calls[0][0];
+      expect(saved.estimated_consumption_source).toBe('NONE');
+      expect(saved.estimated_consumption_set_at).toBeNull();
+      expect(recalc.recalcUtility).toHaveBeenCalledWith(5);
+    });
+
+    it('matricola cambiata già usata da altra utenza: 400 con codice utenza', async () => {
+      qb.getMany.mockResolvedValueOnce([{ id: 9, utility_id: 'IT009', meter_number: 'DUP' }]);
+      await expect(service.update(5, { meter_number: 'DUP' } as never, 2)).rejects.toThrow(/IT009/);
+    });
+
+    it('matricola invariata (spazi/maiuscole): nessun check (duplicati storici non bloccano)', async () => {
+      await service.update(5, { meter_number: ' m5 ', notes: 'y' } as never, 2);
+      expect(qb.andWhere).not.toHaveBeenCalledWith('LOWER(u.meter_number) LIKE :meter', expect.anything());
+    });
+
+    it('matricola salvata già trimmata (tab/spazi da import)', async () => {
+      await service.update(5, { meter_number: ' M6	' } as never, 2);
+      expect(repo.save.mock.calls[0][0].meter_number).toBe('M6');
+      assetRepo.count.mockResolvedValue(1);
+      await service.create({ utility_id: 'N2', asset_ids: [1], meter_number: ' M7 ' } as never, 2);
+      expect(repo.create.mock.calls[0][0].meter_number).toBe('M7');
+    });
+
+    it('create con stima > 0: MANUAL', async () => {
+      assetRepo.count.mockResolvedValue(1);
+      await service.create({ utility_id: 'N1', asset_ids: [1], estimated_annual_consumption: 300 } as never, 2);
+      const created = repo.create.mock.calls[0][0];
+      expect(created.estimated_consumption_source).toBe('MANUAL');
+      expect(created.estimated_consumption_set_at).toBeInstanceOf(Date);
     });
   });
 });
