@@ -81,7 +81,7 @@ const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
                   <td style="padding: 6px; text-align: right;">{{ row.kind === 'READING' ? formatQty(row.reading_value) : '' }}</td>
                   <td style="padding: 6px; text-align: right;">
                     @if (row.computed_consumption === null) {
-                      <span style="color: #6b7280;" matTooltip="Prima lettura o nuovo contatore: nessun consumo calcolabile">—</span>
+                      <span style="color: #6b7280;" matTooltip="Nessun consumo calcolabile: prima lettura del contatore o lettura precedente di un contatore diverso">—</span>
                     } @else {
                       {{ formatQty(row.computed_consumption, summary?.unit) }}
                     }
@@ -121,7 +121,7 @@ export class UtilityConsumptionsTabComponent implements OnInit {
   rows: UtilityConsumption[] = [];
 
   ngOnInit(): void {
-    this.reload(false);
+    this.reload();
   }
 
   estimateBadge(): {text: string; bg: string; fg: string} {
@@ -142,7 +142,7 @@ export class UtilityConsumptionsTabComponent implements OnInit {
       maxWidth: '720px',
       data: {utilityId: this.utilityId, meterNumber: this.meterNumber, item},
     }).afterClosed().subscribe(saved => {
-      if (saved) this.reload(true);
+      if (saved) this.reload();
     });
   }
 
@@ -153,15 +153,16 @@ export class UtilityConsumptionsTabComponent implements OnInit {
     }).afterClosed().subscribe(confirmed => {
       if (!confirmed) return;
       this.service.delete(row.id).subscribe({
-        next: () => this.reload(true),
+        next: () => this.reload(),
         error: err => console.error('Errore eliminazione rilevazione:', err),
       });
     });
   }
 
-  // notify=false al primo caricamento: i valori coincidono già con quelli
-  // dell'utenza aperta, niente da propagare al form.
-  private reload(notify: boolean): void {
+  // Il riepilogo è sempre propagato al dialog, anche al primo caricamento:
+  // la riga di tabella da cui è aperto il dialog può essere precedente al
+  // ricalcolo notturno. Il dialog aggiorna solo i campi non toccati.
+  private reload(): void {
     this.service.list(this.utilityId).subscribe({
       next: rows => this.rows = rows,
       error: err => console.error('Errore caricamento rilevazioni:', err),
@@ -169,7 +170,7 @@ export class UtilityConsumptionsTabComponent implements OnInit {
     this.service.summary(this.utilityId).subscribe({
       next: summary => {
         this.summary = summary;
-        if (notify) this.summaryChanged.emit(summary);
+        this.summaryChanged.emit(summary);
       },
       error: err => console.error('Errore caricamento riepilogo consumi:', err),
     });

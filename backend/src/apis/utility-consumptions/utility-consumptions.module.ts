@@ -26,7 +26,14 @@ export class UtilityConsumptionsModule implements OnModuleInit {
 
   onModuleInit() {
     const cronTime = process.env.CONSUMPTION_RECALC_CRON ?? '0 3 * * *';
-    const job = new CronJob(cronTime, () => this.recalc.handleNightlyRecalc());
+    // Orario italiano: il container gira in UTC.
+    const job = new CronJob(
+      cronTime,
+      () => this.recalc.handleNightlyRecalc(),
+      null,
+      false,
+      'Europe/Rome',
+    );
     this.schedulerRegistry.addCronJob('consumption-recalc', job);
     job.start();
   }

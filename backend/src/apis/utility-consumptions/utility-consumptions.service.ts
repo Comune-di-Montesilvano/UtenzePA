@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BaseService } from '@apis/shared/base.service';
+import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
 import { findMeterConflict } from '@apis/utility/meter-number.helper';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
@@ -38,6 +39,7 @@ export interface UtilityConsumptionSummary {
   estimated_annual_consumption: number;
   estimated_source: EstimateSource;
   estimated_valid_until: string | null;
+  estimated_set_at: string | null;
   monthly: MonthlyPoint[];
 }
 
@@ -93,6 +95,7 @@ export class UtilityConsumptionsService extends BaseService<
       coverage_days: Number(utility.actual_consumption_coverage_days ?? 0),
       estimated_annual_consumption: Number(utility.estimated_annual_consumption ?? 0),
       estimated_source: utility.estimated_consumption_source,
+      estimated_set_at: setAt ? setAt.toISOString() : null,
       estimated_valid_until:
         utility.estimated_consumption_source === EstimateSource.MANUAL && setAt
           ? toLocalIsoDate(manualValidUntil(setAt))
@@ -110,7 +113,7 @@ export class UtilityConsumptionsService extends BaseService<
     const candidate = normalizeByKind(dto as ConsumptionRecord & { notes?: string | null });
     await this.validate(utility, candidate);
     const saved = await super.create({ ...candidate, utility_id_fk: utilityId } as never, userId);
-    await this.afterChange(utility);
+    await this.afterChange(utility, userId);
     return saved;
   }
 
@@ -127,7 +130,7 @@ export class UtilityConsumptionsService extends BaseService<
     });
     await this.validate(utility, { ...merged, id });
     const saved = await super.update(id, merged as never, userId);
-    await this.afterChange(utility);
+    await this.afterChange(utility, userId);
     return saved;
   }
 
@@ -136,7 +139,7 @@ export class UtilityConsumptionsService extends BaseService<
     if (!current) throw new BadRequestException('Rilevazione non trovata');
     const utility = await this.loadUtility(current.utility_id_fk);
     await super.remove(id, userId);
-    await this.afterChange(utility);
+    await this.afterChange(utility, userId);
   }
 
   private async loadUtility(utilityId: number): Promise<Utility> {
@@ -179,11 +182,41 @@ export class UtilityConsumptionsService extends BaseService<
   }
 
   // Matricola attuale = quella dell'ultima lettura; poi ricalcolo valori.
-  private async afterChange(utility: Utility): Promise<void> {
+  // Il cambio matricola è un'azione dell'utente: updated_by + riga audit
+  // esplicita sull'utenza (lo Storico dell'utenza deve mostrarlo).
+  private async afterChange(utility: Utility, userId: number | undefined): Promise<void> {
     const records = await this.repo.find({ where: { utility_id_fk: utility.id, deleted: false } });
     const latest = currentMeterReading(records);
     if (latest && normalizeMeter(latest.meter_number) !== normalizeMeter(utility.meter_number)) {
-      await this.utilityRepo.update(utility.id, { meter_number: latest.meter_number.trim() });
+      const newMeter = latest.meter_number.trim();
+      await this.utilityRepo.update(utility.id, {
+        meter_number: newMeter,
+        ...(userId !== undefined && { updated_by_user_id: userId }),
+      });
+      if (this.auditLogService && userId !== undefined) {
+        try {
+          await this.auditLogService.record({
+            entityName: 'utilities',
+            entityId: utility.id,
+            action: AuditAction.UPDATE,
+            userId,
+            fields: [
+              {
+                fieldName: 'meter_number',
+                oldValue: utility.meter_number ?? null,
+                newValue: newMeter,
+                oldLabel: null,
+                newLabel: null,
+              },
+            ],
+          });
+        } catch (error) {
+          console.error(
+            '[UtilityConsumptionsService] Errore registrazione audit cambio matricola',
+            error,
+          );
+        }
+      }
     }
     await this.recalc.recalcUtility(utility.id);
   }

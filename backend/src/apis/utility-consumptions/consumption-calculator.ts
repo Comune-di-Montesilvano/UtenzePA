@@ -42,9 +42,28 @@ export function fromDay(day: number): string {
   return new Date(day * MS_PER_DAY).toISOString().slice(0, 10);
 }
 
+// "Oggi" sul calendario italiano, indipendente dal fuso del server (il
+// container gira in UTC: tra mezzanotte e le 2 ora italiana sarebbe ancora
+// il giorno prima, e una lettura datata oggi risulterebbe futura).
+const ROME_DATE = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/Rome',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
 export function todayDay(now: Date = new Date()): number {
-  return Math.round(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / MS_PER_DAY);
+  return toDay(ROME_DATE.format(now));
 }
+
+// Data minima accettata per rilevazioni: evita date palesemente errate
+// (e cicli su centinaia di migliaia di giorni nel calcolo).
+export const MIN_CONSUMPTION_DATE = '1990-01-01';
+
+const formatIt = (iso: string): string => {
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return `${d}/${m}/${y}`;
+};
 
 export function normalizeMeter(meter?: string | null): string {
   return (meter ?? '').trim().toLowerCase();
@@ -302,6 +321,8 @@ export function validateConsumption(
     }
     const day = toDay(candidate.reading_date);
     if (day > today) return 'La data della lettura non può essere futura.';
+    if (day < toDay(MIN_CONSUMPTION_DATE))
+      return `La data della lettura non può essere anteriore al ${formatIt(MIN_CONSUMPTION_DATE)}.`;
     const meter = normalizeMeter(candidate.meter_number);
     const value = Number(candidate.reading_value);
     const sameMeter = sortedReadings(rest).filter((r) => normalizeMeter(r.meter_number) === meter);
@@ -310,11 +331,11 @@ export function validateConsumption(
     }
     const prev = sameMeter.filter((r) => toDay(r.reading_date) < day).slice(-1)[0];
     if (prev && value < Number(prev.reading_value)) {
-      return `Lettura inferiore alla precedente (${Number(prev.reading_value)} del ${prev.reading_date}) per la stessa matricola.`;
+      return `Lettura inferiore alla precedente (${Number(prev.reading_value)} del ${formatIt(prev.reading_date)}) per la stessa matricola.`;
     }
     const next = sameMeter.find((r) => toDay(r.reading_date) > day);
     if (next && value > Number(next.reading_value)) {
-      return `Lettura superiore alla successiva (${Number(next.reading_value)} del ${next.reading_date}) per la stessa matricola.`;
+      return `Lettura superiore alla successiva (${Number(next.reading_value)} del ${formatIt(next.reading_date)}) per la stessa matricola.`;
     }
     return null;
   }
@@ -325,6 +346,8 @@ export function validateConsumption(
   const start = toDay(candidate.period_start);
   const end = toDay(candidate.period_end);
   if (end < start) return 'La fine del periodo non può precedere l’inizio.';
+  if (start < toDay(MIN_CONSUMPTION_DATE))
+    return `Il periodo non può iniziare prima del ${formatIt(MIN_CONSUMPTION_DATE)}.`;
   if (end > today) return 'Il periodo non può terminare nel futuro.';
   const overlap = rest.find(
     (o) =>
@@ -334,7 +357,7 @@ export function validateConsumption(
       !(end < toDay(o.period_start) || start > toDay(o.period_end)),
   );
   if (overlap) {
-    return `Il periodo si sovrappone a un periodo già inserito (${overlap.period_start} – ${overlap.period_end}).`;
+    return `Il periodo si sovrappone a un periodo già inserito (${formatIt(overlap.period_start)} – ${formatIt(overlap.period_end)}).`;
   }
   return null;
 }

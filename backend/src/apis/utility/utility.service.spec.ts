@@ -669,13 +669,21 @@ describe('UtilitiesService', () => {
     });
 
     it('matricola cambiata già usata da altra utenza: 400 con codice utenza', async () => {
-      qb.getOne.mockResolvedValueOnce({ id: 9, utility_id: 'IT009' });
+      qb.getMany.mockResolvedValueOnce([{ id: 9, utility_id: 'IT009', meter_number: 'DUP' }]);
       await expect(service.update(5, { meter_number: 'DUP' } as never, 2)).rejects.toThrow(/IT009/);
     });
 
     it('matricola invariata (spazi/maiuscole): nessun check (duplicati storici non bloccano)', async () => {
       await service.update(5, { meter_number: ' m5 ', notes: 'y' } as never, 2);
-      expect(qb.andWhere).not.toHaveBeenCalledWith('LOWER(TRIM(u.meter_number)) = :meter', expect.anything());
+      expect(qb.andWhere).not.toHaveBeenCalledWith('LOWER(u.meter_number) LIKE :meter', expect.anything());
+    });
+
+    it('matricola salvata già trimmata (tab/spazi da import)', async () => {
+      await service.update(5, { meter_number: ' M6	' } as never, 2);
+      expect(repo.save.mock.calls[0][0].meter_number).toBe('M6');
+      assetRepo.count.mockResolvedValue(1);
+      await service.create({ utility_id: 'N2', asset_ids: [1], meter_number: ' M7 ' } as never, 2);
+      expect(repo.create.mock.calls[0][0].meter_number).toBe('M7');
     });
 
     it('create con stima > 0: MANUAL', async () => {
