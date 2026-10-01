@@ -4,7 +4,10 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, from, concatMap, toArray, switchMap } from 'rxjs';
 import { AuthService } from './auth.service';
 
-const CHUNK_SIZE = 1024 * 1024; // 1MB, vincolo reverse proxy di produzione
+// Limite del reverse proxy di produzione: 1MB per richiesta, corpo multipart
+// COMPRESO (boundary, intestazioni, campi uploadId/chunkIndex/...). Con
+// chunk da esattamente 1MB ogni richiesta lo superava di poco → 413.
+const CHUNK_SIZE = 512 * 1024;
 
 @Injectable({ providedIn: 'root' })
 export class ChunkedUploadService {
