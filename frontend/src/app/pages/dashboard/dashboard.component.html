@@ -63,15 +63,18 @@
   <div
     style="display: flex; flex-direction: row; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; align-items: flex-start; width: 100%;">
     <div style="width: 100%;">
+      <app-anomalies-card></app-anomalies-card>
+    </div>
+    <div style="width: 100%;">
       <mat-card>
         <mat-card-header style="display: flex; flex-direction: row; padding: 1.25rem 1.25rem;">
           <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-            <mat-card-title style="font-size: 1.1rem;">Utenze in scadenza</mat-card-title>
+            <mat-card-title style="font-size: 1.1rem;">Contratti in scadenza</mat-card-title>
             <mat-card-subtitle>Contratti in scadenza nei prossimi {{ expireMonths }} mesi.</mat-card-subtitle>
           </div>
           <div style="display: flex; flex-direction: row; gap: 1rem; align-items: center; margin-left: auto;">
-            <button mat-stroked-button (click)="navigateToExpiringUtilities()">
-              Vedi tutte le utenze in scadenza
+            <button mat-stroked-button (click)="navigateToExpiringContracts()">
+              Vedi tutti i contratti in scadenza
             </button>
           </div>
         </mat-card-header>
@@ -81,31 +84,46 @@
             <table style="width: 100%; min-width: 50rem; border-collapse: collapse;">
               <thead>
                 <tr>
-                  <th style="text-align: left; padding: 0.5rem;">Codice</th>
-                  <th style="text-align: left; padding: 0.5rem;">Tipo</th>
-                  <th style="text-align: left; padding: 0.5rem;">Data Scadenza</th>
+                  <th style="text-align: left; padding: 0.5rem;">Contratto</th>
+                  <th style="text-align: left; padding: 0.5rem;">Fornitore</th>
+                  <th style="text-align: left; padding: 0.5rem;">Scadenza</th>
                   <th style="text-align: left; padding: 0.5rem;">Giorni Rimanenti</th>
+                  <th style="text-align: left; padding: 0.5rem;">Utenze collegate</th>
                 </tr>
               </thead>
               <tbody>
-                @for (item of expiringItems; track item.utility_id) {
-                  <tr>
-                    <td style="padding: 0.5rem;">{{ item.utility_id }}</td>
+                @for (item of expiringContracts; track item.contract.id) {
+                  <tr style="cursor: pointer;" (click)="openContract(item.contract.id)">
                     <td style="padding: 0.5rem;">
-                      @if (item.utilityType) {
-                        <span class="badge" [class]="'severity-' + getUtenzaSeverity(item.utilityType)">{{ item.utilityType.name }}</span>
+                      @if (item.contract.cig_contract) {
+                        CIG {{ item.contract.cig_contract }}
+                      } @else if (item.contract.cig_exempt) {
+                        #{{ item.contract.id }} (escluso da CIG)
+                      } @else {
+                        #{{ item.contract.id }} <span class="badge severity-danger">CIG mancante</span>
+                      }
+                      @if (item.contract.consip_order) {
+                        <div style="font-size: 0.8rem; color: #6b7280;">Ordine CONSIP {{ item.contract.consip_order }}</div>
                       }
                     </td>
                     <td style="padding: 0.5rem;">
-                      {{ item.supply_expiry_date | date: 'dd/MM/yyyy' }}
+                      {{ item.contract.supplier?.supplier_id ?? '—' }}
+                      @if (item.contract.consipAgreement?.name) {
+                        <div style="font-size: 0.8rem; color: #6b7280;">{{ item.contract.consipAgreement?.name }}</div>
+                      }
+                    </td>
+                    <td style="padding: 0.5rem;">{{ item.contract.supply_expiry_date | date: 'dd/MM/yyyy' }}</td>
+                    <td style="padding: 0.5rem;">
+                      <span class="badge" [class]="'severity-' + getSeverity(item.days)">{{ item.days }} giorni</span>
                     </td>
                     <td style="padding: 0.5rem;">
-                      <span class="badge" [class]="'severity-' + getSeverity(item.remainingDays)">{{ item.remainingDays }} giorni</span>
+                      <strong>{{ item.contract.utilities?.length ?? 0 }}</strong>
+                      <div style="font-size: 0.8rem; color: #6b7280;">{{ utilitiesPreview(item.contract) }}</div>
                     </td>
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="4" style="text-align: center; padding: 1rem;">Nessuna scadenza contrattuale imminente.</td>
+                    <td colspan="5" style="text-align: center; padding: 1rem;">Nessun contratto in scadenza nei prossimi {{ expireMonths }} mesi.</td>
                   </tr>
                 }
               </tbody>

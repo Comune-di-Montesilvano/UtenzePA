@@ -195,7 +195,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       supply_expiry_date: current?.supply_expiry_date ?? null,
       management_expiry_date: current?.management_expiry_date ?? null,
       takeover_termination_date: current?.takeover_termination_date ?? null,
-      security_deposit: current?.security_deposit ?? 0,
       expiryStatus: this.getExpiryStatus(this.toDate(current?.supply_expiry_date ?? null)),
       aggregator: utility.utilityAggregator ?? null,
       utilityType: utility.utilityType
@@ -264,7 +263,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       'order_number',
       'consip_order',
       'consip_agreement_id',
-      'security_deposit',
       'supply_start_date_range',
       'supply_expiry_date_range',
       'management_expiry_date_range',
@@ -294,14 +292,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       qb.andWhere('currentContract.consip_agreement_id = :cf_consip_agreement_id', {
         cf_consip_agreement_id: filters.consip_agreement_id,
       });
-    }
-    if (filters.security_deposit) {
-      const trimmed = filters.security_deposit.toString().trim();
-      if (trimmed) {
-        qb.andWhere('currentContract.security_deposit LIKE :cf_security_deposit', {
-          cf_security_deposit: `%${trimmed}%`,
-        });
-      }
     }
     if (filters.supply_start_date_range) {
       const [start, end] = filters.supply_start_date_range;

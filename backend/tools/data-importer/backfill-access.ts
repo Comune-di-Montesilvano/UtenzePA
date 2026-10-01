@@ -2,7 +2,7 @@
 //  1. CIG DERIVATO delle utenze → contracts.cig_contract (mai importato);
 //  2. utenze con testo multilinea in Access: l'import si interrompeva al primo
 //     a capo, perdendo note intere e i campi successivi (capitolo, fornitore,
-//     deposito, date contratto, coordinate, ...);
+//     date contratto, coordinate, ...);
 //  3. scadenza concessioni utilizzatori in formati non gg/mm/aaaa
 //     ("24.9.2026", "1/1/2000"), scartata dall'import.
 //
@@ -303,20 +303,6 @@ async function run(): Promise<void> {
           contract.consip_order,
           order,
           fillGuard('consip_order'),
-        );
-      }
-
-      const deposit = parseItalianDecimal(row['deposito cauzionale versato']);
-      if (deposit !== null && !Number(contract.security_deposit)) {
-        await setField(
-          qr,
-          'contracts',
-          cid,
-          'security_deposit',
-          clabel,
-          contract.security_deposit,
-          deposit,
-          '(security_deposit IS NULL OR security_deposit = 0)',
         );
       }
 

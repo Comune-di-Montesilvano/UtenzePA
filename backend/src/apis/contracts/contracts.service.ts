@@ -47,6 +47,9 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
       if (filters.supplier_id_fk) {
         qb.andWhere(`${alias}.supplier_id_fk = :supplier_id_fk`, { supplier_id_fk: filters.supplier_id_fk });
       }
+      if (filters.missing_cig) {
+        qb.andWhere(`TRIM(IFNULL(${alias}.cig_contract, '')) = '' AND ${alias}.cig_exempt = 0`);
+      }
       if (filters.cig_contract) {
         qb.andWhere(`${alias}.cig_contract LIKE :cig_contract`, { cig_contract: `%${filters.cig_contract}%` });
       }
@@ -74,9 +77,17 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
     }
   }
 
+  // CIG obbligatorio salvo contratto esplicitamente escluso (cig_exempt).
+  private assertCigPresent(cig: string | null | undefined, exempt: boolean | null | undefined): void {
+    if (!exempt && !(cig ?? '').trim()) {
+      throw new BadRequestException('CIG obbligatorio: inseriscilo oppure marca il contratto come escluso da CIG.');
+    }
+  }
+
   async create(dto: CreateContractDto, userId?: number): Promise<Contract> {
     const { utility_ids, ...rest } = dto;
-    await this.assertCigAvailable(rest.cig_contract, null);
+    this.assertCigPresent(rest.cig_contract, rest.cig_exempt);
+    if (!rest.cig_exempt) await this.assertCigAvailable(rest.cig_contract, null);
 
     const saved = await this.dataSource.transaction(async (manager) => {
       const entity = manager.create(Contract, {
@@ -114,6 +125,10 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
 
     const before = await this.repo.findOne({ where: { id } as never });
     if (!before) throw new BadRequestException('elemento non trovato');
+    this.assertCigPresent(
+      rest.cig_contract !== undefined ? rest.cig_contract : before.cig_contract,
+      rest.cig_exempt !== undefined ? rest.cig_exempt : before.cig_exempt,
+    );
     if (rest.cig_contract !== undefined) await this.assertCigAvailable(rest.cig_contract, id);
     const beforeSnapshot: Record<string, unknown> = { ...before };
 

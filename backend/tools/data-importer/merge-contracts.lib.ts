@@ -11,7 +11,6 @@ export const MERGED_FIELDS = [
   'supply_expiry_date',
   'management_expiry_date',
   'takeover_termination_date',
-  'security_deposit',
 ] as const;
 
 export type MergedField = (typeof MERGED_FIELDS)[number];

@@ -75,6 +75,12 @@ export class UpdateUtilityDto {
   @Transform(({ value }) => (value === '' ? null : Number(value)))
   @IsNumber()
   @Min(0)
+  security_deposit?: number | null;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : Number(value)))
+  @IsNumber()
+  @Min(0)
   power_kw_electric?: number | null;
 
   @IsOptional()

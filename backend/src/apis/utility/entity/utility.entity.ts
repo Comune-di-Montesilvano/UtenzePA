@@ -74,6 +74,11 @@ export class Utility {
   @Column({ type: 'int', default: 0 })
   actual_consumption_coverage_days: number;
 
+  // Deposito cauzionale versato per questo punto di fornitura (es. ACA lo
+  // chiede per contatore): dato dell'utenza, non del contratto.
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  security_deposit: number;
+
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   power_kw_electric: number;
 

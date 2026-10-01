@@ -12,6 +12,9 @@ import {InvoicesService} from '../invoices/invoices.service';
 import {plainToInstance} from 'class-transformer';
 import {UtilityType} from '../utility-types/entity/utility-type.entity';
 import {HardType} from '../utility-types/enum/hard-type.enum';
+import {AnomaliesCardComponent} from './anomalies-card.component';
+import {ContractsService} from '../contracts/contract.service';
+import {Contract} from '../contracts/entity/contract.entity';
 
 /** Colore badge/tag: mappato su classi CSS locali (vedi dashboard.component.css), non più sulle severity PrimeNG. */
 type Severity = 'info' | 'success' | 'warn' | 'danger' | 'secondary' | 'contrast';
@@ -19,7 +22,7 @@ type Severity = 'info' | 'success' | 'warn' | 'danger' | 'secondary' | 'contrast
 @Component({
              selector: 'app-dashboard',
              standalone: true,
-             imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule],
+             imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, AnomaliesCardComponent],
              templateUrl: './dashboard.component.html',
              changeDetection: ChangeDetectionStrategy.Eager,
              styleUrls: ['./dashboard.component.css']
@@ -27,7 +30,9 @@ type Severity = 'info' | 'success' | 'warn' | 'danger' | 'secondary' | 'contrast
 export class DashboardComponent implements OnInit {
 
   today: Date = new Date();
-  expiringItems: Utility[] = [];
+  // Contratti in scadenza: è il contratto che scade, le utenze sono solo
+  // quelle che copre.
+  expiringContracts: {contract: Contract; days: number}[] = [];
   // Alert contratti in scadenza: finestra di 4 mesi di calendario.
   readonly expireMonths = 4;
   futureDate: Date | null = null;
@@ -48,34 +53,41 @@ export class DashboardComponent implements OnInit {
     private readonly assetService: AssetService,
     private readonly invoiceService: InvoicesService,
     private utilitiesService: UtilityService,
+    private readonly contractsService: ContractsService,
   ) {
   }
 
-  loadAllUtilities() {
-    this.futureDate = this.expiryWindowEnd();
-    const from: string = this.today.toISOString();
-    const to: string = this.futureDate.toISOString();
-    this.utilitiesService.search({supply_expiry_date_range: [from, to]}).subscribe((utilities: Utility[]) => {
-      this.expiringItems = plainToInstance(Utility, utilities)
-        .map(utility => {
-          const giorniRimanenti = utility.daysUntilExpiry;
-          const dataScadenzaFormatted = utility.supply_expiry_date
-            ? new Date(utility.supply_expiry_date).toLocaleDateString('it-IT')
-            : 'N/D';
-          utility.remainingDays = utility.daysUntilExpiry;
-          return utility;
-
-          // return {
-          //   codice: utility.utility_id || 'N/D',
-          //   tipo: utility.utilityType?.name || 'Sconosciuto',
-          //   dataScadenza: dataScadenzaFormatted,
-          //   giorniRimanenti: giorniRimanenti ?? 0,
-          // } as Scadenza;
-        })
-        .filter(s => s.remainingDays >= 0)
-        .sort((a, b) => a.remainingDays - b.remainingDays);
-    });
+  private isoDate(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
+
+  loadExpiringContracts(): void {
+    this.futureDate = this.expiryWindowEnd();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    this.contractsService.search({supply_expiry_date_range: [this.isoDate(today), this.isoDate(this.futureDate)]} as never)
+      .subscribe((contracts: Contract[]) => {
+        this.expiringContracts = contracts
+          .filter(c => c.supply_expiry_date)
+          .map(c => {
+            const expiry = new Date(c.supply_expiry_date as unknown as string);
+            expiry.setHours(0, 0, 0, 0);
+            return {contract: c, days: Math.round((expiry.getTime() - today.getTime()) / 86_400_000)};
+          })
+          .filter(x => x.days >= 0)
+          .sort((a, b) => a.days - b.days);
+      });
+  }
+
+  utilitiesPreview(contract: Contract): string {
+    const codes = (contract.utilities ?? []).map(u => u.utility_id);
+    return codes.length > 3 ? `${codes.slice(0, 3).join(', ')} e altre ${codes.length - 3}` : codes.join(', ');
+  }
+
+  openContract(id: number): void {
+    this.router.navigate(['/contracts'], {queryParams: {selectedId: id}});
+  }
+
 
 
   // deadlines: Scadenza[] = [];
@@ -83,7 +95,7 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit() {
 
-    this.loadAllUtilities();
+    this.loadExpiringContracts();
     this.suppliersService.count().subscribe(c => this.suppliersCount = c);
     this.utilityService.count().subscribe(c => this.utilitiesCount = c);
     this.assetService.count().subscribe(c => this.assetsCount = c);
@@ -114,16 +126,13 @@ export class DashboardComponent implements OnInit {
     this.router.navigate(['/utilities'], {queryParams: {safeguard: true}});
   }
 
-  navigateToExpiringUtilities(): void {
+  navigateToExpiringContracts(): void {
     const today = new Date();
-    const futureDate = this.expiryWindowEnd();
-
-    const queryParams = {
-      supply_expiry_date_range: [today.toISOString(), futureDate.toISOString()],
-    };
-
-    this.router.navigate(['/utilities'], {queryParams: queryParams});
+    this.router.navigate(['/contracts'], {
+      queryParams: {supply_expiry_date_range: [this.isoDate(today), this.isoDate(this.expiryWindowEnd())].join(',')},
+    });
   }
+
 
   getUtenzaSeverity(type: UtilityType): Severity {
     switch (type.hard_type) {

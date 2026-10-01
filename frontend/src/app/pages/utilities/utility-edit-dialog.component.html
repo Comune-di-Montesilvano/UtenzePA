@@ -253,6 +253,11 @@
         </div>
 
         <mat-form-field style="flex: 1 1 21%;">
+          <mat-label>Deposito cauzionale (€)</mat-label>
+          <input matInput type="number" step="0.01" min="0" formControlName="security_deposit">
+        </mat-form-field>
+
+        <mat-form-field style="flex: 1 1 21%;">
           <mat-label>Consumo annuo presunto</mat-label>
           <input matInput type="number" formControlName="estimated_annual_consumption">
           <mat-hint>{{ estimateHint() }}</mat-hint>

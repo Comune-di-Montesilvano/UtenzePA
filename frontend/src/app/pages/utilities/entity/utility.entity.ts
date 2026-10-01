@@ -25,7 +25,7 @@ export class Utility extends AbstractEntity implements IUtility {
   consip_agreement_id?: number;
   supply_active?: boolean;
   meter_removed?: boolean;
-  @Exclude({toPlainOnly: true})
+  // Deposito cauzionale del punto di fornitura (dato dell'utenza).
   security_deposit?: number;
   reported_consumption_year?: number;
   // Calcolati dal backend (storico consumi): mai inviati in scrittura,

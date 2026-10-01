@@ -49,7 +49,15 @@
 
   <ng-container matColumnDef="cig_contract">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>CIG</th>
-    <td mat-cell *matCellDef="let item">{{ item.cig_contract || 'N/D' }}</td>
+    <td mat-cell *matCellDef="let item">
+      @if (item.cig_contract) {
+        {{ item.cig_contract }}
+      } @else if (item.cig_exempt) {
+        <span style="color: #6b7280;" matTooltip="Contratto escluso da CIG">Escluso</span>
+      } @else {
+        <span style="background: #fee2e2; color: #991b1b; border-radius: 10px; padding: 1px 8px; font-size: 0.75rem;">CIG mancante</span>
+      }
+    </td>
   </ng-container>
 
   <ng-container matColumnDef="order_number">
@@ -93,11 +101,6 @@
   <ng-container matColumnDef="takeover_termination_date">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Data voltura/cessazione</th>
     <td mat-cell *matCellDef="let item">{{ item.takeover_termination_date ? (item.takeover_termination_date | date: 'dd/MM/yyyy') : 'N/D' }}</td>
-  </ng-container>
-
-  <ng-container matColumnDef="security_deposit">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Deposito cauzionale</th>
-    <td mat-cell *matCellDef="let item">{{ item.security_deposit | formatAmount }}</td>
   </ng-container>
 
   <ng-container matColumnDef="utilities">
