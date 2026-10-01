@@ -1,0 +1,17 @@
+# Dipendenze e output locali: installati/generati dentro l'immagine.
+# Senza questo file il node_modules dell'host (link pnpm non leggibili da
+# Windows) finisce nel build context e `COPY . .` lo sovrascrive a quello
+# installato nell'immagine.
+node_modules
+dist
+.angular
+.cache
+.local
+coverage
+
+# Git e IDE
+.git
+.gitignore
+.vscode
+.idea
+*.log

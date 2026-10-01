@@ -10,6 +10,7 @@ describe('BudgetChaptersService', () => {
     create: jest.Mock;
     save: jest.Mock;
   };
+  let utilityRepo: { createQueryBuilder: jest.Mock };
   let qb: {
     where: jest.Mock;
     andWhere: jest.Mock;
@@ -30,7 +31,8 @@ describe('BudgetChaptersService', () => {
       create: jest.fn((data) => data),
       save: jest.fn(async (data) => data),
     };
-    service = new BudgetChaptersService(repo as never);
+    utilityRepo = { createQueryBuilder: jest.fn() };
+    service = new BudgetChaptersService(repo as never, utilityRepo as never);
   });
 
   describe('findAll', () => {
@@ -140,6 +142,32 @@ describe('BudgetChaptersService', () => {
       repo.findOne.mockResolvedValue(null);
 
       await expect(service.remove(999, 1)).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('getConsumptionSummary', () => {
+    it('raggruppa per tipo con unità e converte i SUM stringa', async () => {
+      const summaryQb = {
+        innerJoin: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([
+          { hard_type: 'LIGHT', utilities_count: '3', estimated_sum: '1200.50', actual_sum: '900.00' },
+          { hard_type: 'GAS', utilities_count: '1', estimated_sum: null, actual_sum: '0.00' },
+        ]),
+      };
+      utilityRepo.createQueryBuilder.mockReturnValue(summaryQb);
+
+      await expect(service.getConsumptionSummary(4)).resolves.toEqual([
+        { hard_type: 'LIGHT', unit: 'kWh', utilities_count: 3, estimated_sum: 1200.5, actual_sum: 900 },
+        { hard_type: 'GAS', unit: 'Smc', utilities_count: 1, estimated_sum: 0, actual_sum: 0 },
+      ]);
+      expect(summaryQb.andWhere).toHaveBeenCalledWith('u.budget_chapter_code_fk = :chapterId', { chapterId: 4 });
+      expect(summaryQb.andWhere).toHaveBeenCalledWith('ut.hard_type <> :internet', { internet: 'INTERNET' });
     });
   });
 });

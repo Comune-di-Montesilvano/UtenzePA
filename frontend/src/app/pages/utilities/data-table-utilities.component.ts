@@ -209,6 +209,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     [ExpireState.EXPIRING30]: 'In scadenza (30gg)',
     [ExpireState.EXPIRING60]: 'In scadenza (60gg)',
     [ExpireState.EXPIRING90]: 'In scadenza (90gg)',
+    [ExpireState.EXPIRING120]: 'In scadenza (120gg)',
     [ExpireState.EXPIRED]: 'Scaduta',
   };
 

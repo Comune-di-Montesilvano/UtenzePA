@@ -33,13 +33,18 @@ import {TOption} from '../types/option.interface';
       <mat-autocomplete #auto="matAutocomplete" [displayWith]="displayFn" (optionSelected)="onOptionSelected($event)">
         @for (opt of filteredOptions; track opt.value) {
           <mat-option [value]="opt">
-            <span style="display: inline-flex; align-items: center; gap: 8px;">
-              @if (opt.icon) {
-                <mat-icon style="font-size: 20px; height: 20px; width: 20px; vertical-align: middle;">{{ opt.icon }}</mat-icon>
-              }
-              <span>{{ opt.label }}</span>
-              @if (opt.count != null) {
-                <span style="color: #757575; font-size: 0.85em;">({{ opt.count }})</span>
+            <span style="display: inline-flex; flex-direction: column; line-height: 1.25; padding: 2px 0;">
+              <span style="display: inline-flex; align-items: center; gap: 8px;">
+                @if (opt.icon) {
+                  <mat-icon style="font-size: 20px; height: 20px; width: 20px; vertical-align: middle;">{{ opt.icon }}</mat-icon>
+                }
+                <span>{{ opt.label }}</span>
+                @if (opt.count != null) {
+                  <span style="color: #757575; font-size: 0.85em;">({{ opt.count }})</span>
+                }
+              </span>
+              @if (opt.sublabel) {
+                <span style="color: #757575; font-size: 0.8em;">{{ opt.sublabel }}</span>
               }
             </span>
           </mat-option>
@@ -101,7 +106,7 @@ export class FilterableSelectComponent implements ControlValueAccessor {
   constructor() {
     this.searchControl.valueChanges.subscribe(v => {
       const term = typeof v === 'string' ? v.toLowerCase() : (v?.label ?? '').toLowerCase();
-      this.filteredOptions = this._options.filter(o => o.label.toLowerCase().includes(term));
+      this.filteredOptions = this._options.filter(o => (o.searchText ?? o.label).toLowerCase().includes(term));
 
       if (!this.userInteracted) return;
 

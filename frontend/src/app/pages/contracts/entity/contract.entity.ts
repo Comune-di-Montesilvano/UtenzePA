@@ -8,6 +8,9 @@ import { Utility } from '../../utilities/entity/utility.entity';
 export class Contract extends AbstractEntity implements IContract {
   supplier_id_fk?: number | null;
   cig_contract?: string;
+  cig_exempt?: boolean;
+  // Chiuso/scaduto esplicito: mai corrente, anche senza date.
+  closed?: boolean;
   order_number?: string;
   consip_order?: string;
   consip_agreement_id?: number | null;
@@ -15,7 +18,6 @@ export class Contract extends AbstractEntity implements IContract {
   supply_expiry_date?: Date | null;
   management_expiry_date?: Date | null;
   takeover_termination_date?: Date | null;
-  security_deposit?: number;
   utility_ids?: number[];
 
   @Exclude({ toPlainOnly: true })
@@ -28,6 +30,7 @@ export class Contract extends AbstractEntity implements IContract {
   utilities?: Utility[];
 
   get isCurrent(): boolean {
+    if (this.closed) return false;
     if (!this.supply_expiry_date) return true;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -37,6 +40,6 @@ export class Contract extends AbstractEntity implements IContract {
   }
 
   static create(data?: Partial<Contract>): Contract {
-    return plainToInstance(Contract, { id: 0, security_deposit: 0, deleted: false, ...data });
+    return plainToInstance(Contract, { id: 0, deleted: false, ...data });
   }
 }

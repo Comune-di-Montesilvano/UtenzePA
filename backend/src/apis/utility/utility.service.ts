@@ -11,6 +11,9 @@ import { Contract } from '@apis/contracts/entity/contract.entity';
 import { DateHelper } from '@/helpers/date.helpers';
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { Asset } from '@apis/asset/entity/asset.entity';
+import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
+import { EstimateSource } from '@apis/utility-consumptions/enum/estimate-source.enum';
+import { findMeterConflict } from './meter-number.helper';
 
 @Injectable()
 export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, UpdateUtilityDto> {
@@ -22,6 +25,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     protected readonly repo: Repository<Utility>,
     @InjectRepository(Asset)
     private readonly assetRepo: Repository<Asset>,
+    private readonly recalc: ConsumptionRecalcService,
   ) {
     super();
   }
@@ -50,6 +54,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     if (diffDays < 30) return ExpiryStatus.EXPIRING30;
     if (diffDays < 60) return ExpiryStatus.EXPIRING60;
     if (diffDays < 90) return ExpiryStatus.EXPIRING90;
+    if (diffDays < 120) return ExpiryStatus.EXPIRING120;
     return ExpiryStatus.ACTIVE;
   }
 
@@ -103,7 +108,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
                 )
                 .from('contract_utilities', 'cu')
                 .innerJoin('contracts', 'c', 'c.id = cu.contract_id AND c.deleted = 0')
-                .where('c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE()'),
+                .where('c.closed = 0 AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE())'),
             'ranked',
           )
           .where('ranked.rn = 1'),
@@ -144,7 +149,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
          FROM contract_utilities cu
          INNER JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
          WHERE cu.utility_id IN (?)
-           AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE())
+           AND c.closed = 0 AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE())
        ) ranked WHERE ranked.rn = 1`,
       [utilityIds],
     );
@@ -190,7 +195,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       supply_expiry_date: current?.supply_expiry_date ?? null,
       management_expiry_date: current?.management_expiry_date ?? null,
       takeover_termination_date: current?.takeover_termination_date ?? null,
-      security_deposit: current?.security_deposit ?? 0,
       expiryStatus: this.getExpiryStatus(this.toDate(current?.supply_expiry_date ?? null)),
       aggregator: utility.utilityAggregator ?? null,
       utilityType: utility.utilityType
@@ -259,7 +263,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       'order_number',
       'consip_order',
       'consip_agreement_id',
-      'security_deposit',
       'supply_start_date_range',
       'supply_expiry_date_range',
       'management_expiry_date_range',
@@ -289,14 +292,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       qb.andWhere('currentContract.consip_agreement_id = :cf_consip_agreement_id', {
         cf_consip_agreement_id: filters.consip_agreement_id,
       });
-    }
-    if (filters.security_deposit) {
-      const trimmed = filters.security_deposit.toString().trim();
-      if (trimmed) {
-        qb.andWhere('currentContract.security_deposit LIKE :cf_security_deposit', {
-          cf_security_deposit: `%${trimmed}%`,
-        });
-      }
     }
     if (filters.supply_start_date_range) {
       const [start, end] = filters.supply_start_date_range;
@@ -394,6 +389,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       [ExpiryStatus.EXPIRING30]: 30,
       [ExpiryStatus.EXPIRING60]: 60,
       [ExpiryStatus.EXPIRING90]: 90,
+      [ExpiryStatus.EXPIRING120]: 120,
     };
 
     const days = expiringDaysMap[utilityState] ?? null;
@@ -402,7 +398,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       qb.andWhere('currentContract.supply_expiry_date < :us_today', { us_today: today });
     } else if (utilityState === ExpiryStatus.ACTIVE) {
       const threshold = new Date(today);
-      threshold.setDate(today.getDate() + 90);
+      threshold.setDate(today.getDate() + 120);
       threshold.setHours(23, 59, 59, 999);
       qb.andWhere('currentContract.supply_expiry_date > :us_threshold', {
         us_threshold: threshold,
@@ -498,11 +494,33 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     return this.withCurrentContractFields(utility, currentContracts.get(utility.id));
   }
 
+  // Stima annua inserita a mano: MANUAL con data (valida 12 mesi, poi la
+  // sovrascrive lo storico); 0 = "nessuna stima manuale", torna a storico.
+  private estimateFields(value: number): Pick<Utility, 'estimated_consumption_source' | 'estimated_consumption_set_at'> {
+    return value > 0
+      ? { estimated_consumption_source: EstimateSource.MANUAL, estimated_consumption_set_at: new Date() }
+      : { estimated_consumption_source: EstimateSource.NONE, estimated_consumption_set_at: null };
+  }
+
+  private async assertMeterAvailable(meterNumber: string | null | undefined, utilityId: number | null): Promise<void> {
+    const conflict = await findMeterConflict(this.repo, meterNumber, utilityId);
+    if (conflict) {
+      throw new BadRequestException(
+        `Numero contatore ${meterNumber.trim()} già associato all'utenza ${conflict.utility_id}.`,
+      );
+    }
+  }
+
   async create(dto: CreateUtilityDto, userId?: number): Promise<Utility> {
     const { asset_ids, ...rest } = dto;
+    // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
+    if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
+    await this.assertMeterAvailable(rest.meter_number, null);
+    const estimate = Number(rest.estimated_annual_consumption ?? 0);
     const assets = await this.resolveAssets(asset_ids);
     const newUtility = this.repo.create({
       ...rest,
+      ...(estimate > 0 ? this.estimateFields(estimate) : {}),
       assets,
       ...(userId !== undefined && { created_by_user_id: userId, updated_by_user_id: userId }),
     });
@@ -518,9 +536,38 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
 
   async update(id: number, dto: UpdateUtilityDto, userId?: number): Promise<Utility> {
     const { asset_ids, ...rest } = dto;
+    // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
+    if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
     const assets = asset_ids !== undefined ? await this.resolveAssets(asset_ids) : undefined;
 
-    await super.update(id, rest as UpdateUtilityDto, userId);
+    const current = await this.repo.findOne({ where: { id } as never });
+    if (!current) throw new BadRequestException('Utenza non trovata');
+
+    const normalizeMeter = (m?: string | null) => (m ?? '').trim().toLowerCase();
+    if (rest.meter_number !== undefined && normalizeMeter(rest.meter_number) !== normalizeMeter(current.meter_number)) {
+      await this.assertMeterAvailable(rest.meter_number, id);
+    }
+
+    // Confronto numerico: il valore persistito è una stringa decimal
+    // ("1200.00"), il form manda un number — senza Number() ogni salvataggio
+    // del dialog marcherebbe la stima come manuale.
+    let estimateReset = false;
+    const payload: Record<string, unknown> = { ...rest };
+    if (
+      rest.estimated_annual_consumption !== undefined &&
+      rest.estimated_annual_consumption !== null &&
+      Number(rest.estimated_annual_consumption) !== Number(current.estimated_annual_consumption)
+    ) {
+      const value = Number(rest.estimated_annual_consumption);
+      Object.assign(payload, this.estimateFields(value));
+      estimateReset = value === 0;
+    }
+
+    await super.update(id, payload as UpdateUtilityDto, userId);
+
+    if (estimateReset) {
+      await this.recalc.recalcUtility(id);
+    }
 
     if (assets !== undefined) {
       // repo.findOne diretto (non this.findOne, che proietta i campi del
