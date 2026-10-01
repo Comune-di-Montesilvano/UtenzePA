@@ -2,11 +2,9 @@ import {
   IsBoolean,
   IsArray,
   IsInt,
-  IsNumber,
   IsOptional,
   IsString,
   MaxLength,
-  Min,
 } from 'class-validator';
 import { NormalizeDate } from '@/common/decorators/normalize-date.decorator';
 

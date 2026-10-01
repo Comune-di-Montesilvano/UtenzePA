@@ -115,7 +115,10 @@ export class AnomaliesService {
       active_utilities_without_cig_contract: list(withoutCigContract),
       utilities_with_overlapping_contracts: list(overlapping),
       duplicate_cigs: list(
-        duplicateCigs.map((d) => ({ cig: d.cig, contracts: String(d.contracts).split(',').map(Number) })),
+        duplicateCigs.map((d) => ({
+          cig: d.cig,
+          contracts: String(d.contracts).split(',').map(Number),
+        })),
       ),
     };
   }
