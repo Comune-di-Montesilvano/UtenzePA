@@ -3,10 +3,20 @@
 <mat-dialog-content>
   <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
 
+    @if (form.hasError('cigRequired')) {
+      <div style="flex: 1 1 100%; background: #fef2f2; color: #991b1b; border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.875rem;">
+        Contratto senza CIG: senza CIG il contratto è considerato inesistente. Inserisci il CIG oppure marca il contratto come escluso.
+      </div>
+    }
+
     <mat-form-field style="flex: 1 1 45%;">
-      <mat-label>CIG</mat-label>
+      <mat-label>CIG{{ form.controls.cig_exempt.value ? '' : ' *' }}</mat-label>
       <input matInput formControlName="cig_contract">
     </mat-form-field>
+
+    <div style="flex: 1 1 45%; display: flex; align-items: center;">
+      <mat-checkbox formControlName="cig_exempt">Contratto escluso da CIG (es. servizio in house)</mat-checkbox>
+    </div>
 
     <mat-form-field style="flex: 1 1 45%;">
       <mat-label>Numero Ordine</mat-label>

@@ -26,6 +26,7 @@ import { MapModule } from '@apis/map/map.module';
 import { UtilizerGrantModule } from '@apis/utilizer-grant/utilizer-grant.module';
 import { UtilitiesModule } from '@apis/utility/utility.module';
 import { UtilityConsumptionsModule } from '@apis/utility-consumptions/utility-consumptions.module';
+import { AnomaliesModule } from '@apis/anomalies/anomalies.module';
 import { CostsBorneByModule } from '@apis/costs-borne-by/cost-borne-by.module';
 import { MaintenanceManagersModule } from '@apis/maintenance-managers/maintenance-managers.module';
 import { InvoicesModule } from '@apis/invoices/invoie.module';
@@ -67,6 +68,7 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     UtilizerGrantModule,
     UtilitiesModule,
     UtilityConsumptionsModule,
+    AnomaliesModule,
     CostsBorneByModule,
     MaintenanceManagersModule,
     InvoicesModule,

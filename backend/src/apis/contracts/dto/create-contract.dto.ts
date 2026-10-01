@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsArray,
   IsInt,
   IsNumber,
@@ -17,6 +18,10 @@ export class CreateContractDto {
   @IsOptional()
   @IsString()
   cig_contract?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  cig_exempt?: boolean;
 
   @IsOptional()
   @IsString()

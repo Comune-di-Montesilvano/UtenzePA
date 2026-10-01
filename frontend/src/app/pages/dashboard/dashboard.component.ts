@@ -12,6 +12,7 @@ import {InvoicesService} from '../invoices/invoices.service';
 import {plainToInstance} from 'class-transformer';
 import {UtilityType} from '../utility-types/entity/utility-type.entity';
 import {HardType} from '../utility-types/enum/hard-type.enum';
+import {AnomaliesCardComponent} from './anomalies-card.component';
 
 /** Colore badge/tag: mappato su classi CSS locali (vedi dashboard.component.css), non più sulle severity PrimeNG. */
 type Severity = 'info' | 'success' | 'warn' | 'danger' | 'secondary' | 'contrast';
@@ -19,7 +20,7 @@ type Severity = 'info' | 'success' | 'warn' | 'danger' | 'secondary' | 'contrast
 @Component({
              selector: 'app-dashboard',
              standalone: true,
-             imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule],
+             imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, AnomaliesCardComponent],
              templateUrl: './dashboard.component.html',
              changeDetection: ChangeDetectionStrategy.Eager,
              styleUrls: ['./dashboard.component.css']

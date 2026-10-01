@@ -6,6 +6,8 @@ import {MatInputModule} from '@angular/material/input';
 import {MatSelectModule, MatSelectChange} from '@angular/material/select';
 import {MatDatepickerModule} from '@angular/material/datepicker';
 import {MatButtonModule} from '@angular/material/button';
+import {MatCheckboxModule} from '@angular/material/checkbox';
+import {AbstractControl, ValidationErrors} from '@angular/forms';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
@@ -24,12 +26,19 @@ export interface ContractDialogExtra {
   preselectedUtilityIds?: number[];
 }
 
+// CIG obbligatorio salvo contratto escluso (stessa regola del backend).
+function cigRequiredUnlessExempt(group: AbstractControl): ValidationErrors | null {
+  const cig = (group.get('cig_contract')?.value ?? '').toString().trim();
+  const exempt = !!group.get('cig_exempt')?.value;
+  return !cig && !exempt ? {cigRequired: true} : null;
+}
+
 @Component({
   selector: 'app-contract-edit-dialog',
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatDatepickerModule, MatButtonModule, HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent
+    MatDatepickerModule, MatButtonModule, MatCheckboxModule, HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './contract-edit-dialog.component.html'
@@ -55,6 +64,7 @@ export class ContractEditDialogComponent implements OnInit {
 
   form = this.fb.group({
     cig_contract: [this.data.item.cig_contract ?? ''],
+    cig_exempt: [this.data.item.cig_exempt ?? false],
     order_number: [this.data.item.order_number ?? ''],
     consip_order: [this.data.item.consip_order ?? ''],
     consip_agreement_id: [this.data.item.consip_agreement_id ?? null],
@@ -67,7 +77,7 @@ export class ContractEditDialogComponent implements OnInit {
     utility_ids: [
       this.data.item.utilities?.map(u => u.id) ?? this.data.preselectedUtilityIds ?? []
     ],
-  });
+  }, {validators: cigRequiredUnlessExempt});
 
   constructor() {
     const role = this.authService.getCurrentUser()?.role;

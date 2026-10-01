@@ -8,6 +8,7 @@ import { Utility } from '../../utilities/entity/utility.entity';
 export class Contract extends AbstractEntity implements IContract {
   supplier_id_fk?: number | null;
   cig_contract?: string;
+  cig_exempt?: boolean;
   order_number?: string;
   consip_order?: string;
   consip_agreement_id?: number | null;
