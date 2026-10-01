@@ -10,6 +10,18 @@
 <mat-dialog-content>
   <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start">
     <mat-tab label="Dati">
+
+    @if (thermalPlants.length > 0) {
+      <div style="margin-bottom: 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 0.5rem 1rem;">
+        <mat-icon style="color: #c2410c;">local_fire_department</mat-icon>
+        <span>Alimenta:</span>
+        @for (p of thermalPlants; track p.id) {
+          <button mat-stroked-button type="button" (click)="navigateToAsset(p.asset_id_fk)" matTooltip="Apri l'immobile (tab Impianti termici)">
+            {{ p.name }}{{ p.power_kw !== null ? ' ' + p.power_kw.toLocaleString('it-IT') + ' kW' : '' }} — {{ p.asset?.asset_name }}
+          </button>
+        }
+      </div>
+    }
   <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-direction: column; gap: 1.5rem;">
 
     <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">

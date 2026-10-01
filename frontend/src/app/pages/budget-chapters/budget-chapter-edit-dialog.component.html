@@ -54,6 +54,15 @@
         <app-budget-chapter-utilities-tab [chapterId]="data.item.id"></app-budget-chapter-utilities-tab>
       </ng-template>
     </mat-tab>
+    <mat-tab [disabled]="isNew">
+      <ng-template mat-tab-label>
+        <mat-icon style="margin-right: 5px;">euro</mat-icon>
+        Spesa storica
+      </ng-template>
+      <ng-template matTabContent>
+        <app-budget-chapter-spending-tab [chapterId]="data.item.id"></app-budget-chapter-spending-tab>
+      </ng-template>
+    </mat-tab>
   </mat-tab-group>
 </mat-dialog-content>
 

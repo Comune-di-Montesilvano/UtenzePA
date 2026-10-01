@@ -8,6 +8,7 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatTabsModule} from '@angular/material/tabs';
 import {MatIconModule} from '@angular/material/icon';
 import {BudgetChapterUtilitiesTabComponent} from './budget-chapter-utilities-tab.component';
+import {BudgetChapterSpendingTabComponent} from './spending/budget-chapter-spending-tab.component';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {BudgetChapter} from './entity/budget-chapter.entity';
@@ -32,7 +33,8 @@ import {OnlyNumbersDirective} from '../../core/directives/only-numbers.directive
     OnlyNumbersDirective,
     MatTabsModule,
     MatIconModule,
-    BudgetChapterUtilitiesTabComponent
+    BudgetChapterUtilitiesTabComponent,
+    BudgetChapterSpendingTabComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './budget-chapter-edit-dialog.component.html'

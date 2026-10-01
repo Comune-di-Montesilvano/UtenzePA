@@ -38,6 +38,7 @@ import {ContractEditDialogComponent} from '../contracts/contract-edit-dialog.com
 import {Contract} from '../contracts/entity/contract.entity';
 import {DatePipe} from '@angular/common';
 import {UtilityConsumptionsTabComponent} from './consumptions/utility-consumptions-tab.component';
+import {ThermalPlant, ThermalPlantService} from '../assets/thermal-plants/thermal-plant.service';
 import {BudgetChapter} from '../budget-chapters/entity/budget-chapter.entity';
 import {SupplyType, SupplyTypeDescription} from '../budget-chapters/enum/supply-type.enum';
 import {formatQty, CONSUMPTION_UNIT_BY_HARD_TYPE, ConsumptionSummary} from './consumptions/consumption.model';
@@ -73,6 +74,7 @@ export class UtilityEditDialogComponent implements OnInit {
   private dialog = inject(MatDialog);
   private authService = inject(AuthService);
   private assetsService = inject(AssetService);
+  private thermalPlantService = inject(ThermalPlantService);
   private utilityAggregatorService = inject(UtilityAggregatorsService);
   private budgetChapterService = inject(BudgetChaptersService);
   private costsBorneByService = inject(CostsBorneByService);
@@ -165,7 +167,17 @@ export class UtilityEditDialogComponent implements OnInit {
     }
   }
 
+  // Impianti termici alimentati da questa utenza (solo lettura, si
+  // modificano dal dialog dell'immobile).
+  thermalPlants: ThermalPlant[] = [];
+
   ngOnInit(): void {
+    if (!this.isNew) {
+      this.thermalPlantService.listByUtility(this.data.item.id).subscribe({
+        next: plants => this.thermalPlants = plants,
+        error: err => console.error('Errore caricamento impianti termici:', err),
+      });
+    }
     this.assetsService.search({deleted: false}).subscribe({
       next: data => {
         this.assetOptions = data.sort((a, b) => (a.asset_name ?? '').localeCompare(b.asset_name ?? ''));
