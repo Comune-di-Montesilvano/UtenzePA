@@ -729,6 +729,8 @@ export class DataImporterService {
         voltage_kw_electric: row['tensione kw energia elettrica']?.trim() || null,
         phase_type_electric: parsePhase(row['tipo fase energia elettrica']),
         estimated_annual_consumption: parseDecimal(row['consumo annuo presunto DA FATTURA']) ?? 0,
+        // Deposito per punto di fornitura: dato dell'utenza, non del contratto.
+        security_deposit: parseDecimal(row['deposito cauzionale versato']) ?? 0,
         notes: row['NOTE UTENZE']?.trim() || null,
         additional_notes: row['NOTE AGGIUNTIVE UTENZE']?.trim() || null,
         // Fonte Access: un solo fabbricato per utenza.
@@ -760,8 +762,7 @@ export class DataImporterService {
           takeover_termination_date ||
           supplier_id_fk ||
           consip_agreement_id ||
-          row['ordine consip']?.trim() ||
-          row['deposito cauzionale versato']?.trim();
+          row['ordine consip']?.trim();
         if (hasContractData) {
           const savedContract = await this.contractRepo.save(
             this.contractRepo.create({
@@ -772,7 +773,6 @@ export class DataImporterService {
               supply_expiry_date,
               management_expiry_date,
               takeover_termination_date,
-              security_deposit: parseDecimal(row['deposito cauzionale versato']) ?? 0,
               created_by_user_id: SYSTEM_USER_ID,
               updated_by_user_id: SYSTEM_USER_ID,
             }),

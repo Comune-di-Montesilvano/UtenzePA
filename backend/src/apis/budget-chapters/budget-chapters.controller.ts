@@ -4,12 +4,13 @@ import {
   Delete,
   Get,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { BudgetChaptersService } from './budget-chapters.service';
+import { BudgetChaptersService, ChapterConsumptionSummaryRow } from './budget-chapters.service';
 import { CreateBudgetChapterDto } from './dto/create-budget-chapters.dto';
 import { UpdateBudgetChapterDto } from './dto/update-budget-chapters.dto';
 import { JwtAuthGuard } from '@/core/auth/guards/jwt-auth.guard';
@@ -27,6 +28,11 @@ export class BudgetChaptersController {
   @Get()
   getAll(@Query() filters: SearchBudgetChapterDto): Promise<BudgetChapter[]> {
     return this.service.findAll(filters);
+  }
+
+  @Get(':id/consumption-summary')
+  consumptionSummary(@Param('id', ParseIntPipe) id: number): Promise<ChapterConsumptionSummaryRow[]> {
+    return this.service.getConsumptionSummary(id);
   }
 
   @Roles('Admin', 'Operatore')

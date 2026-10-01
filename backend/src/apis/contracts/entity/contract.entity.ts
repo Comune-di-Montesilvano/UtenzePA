@@ -29,6 +29,17 @@ export class Contract {
   @Column({ type: 'text', nullable: true })
   cig_contract: string;
 
+  // Contratto per cui il CIG non è richiesto (es. servizio idrico in house,
+  // connettività): senza questo flag il CIG è obbligatorio.
+  @Column({ type: 'boolean', default: false })
+  cig_exempt: boolean;
+
+  // Contratto chiuso/scaduto: mai "corrente", qualunque siano le date (serve
+  // per lo storico senza date di fornitura, che altrimenti risulterebbe
+  // corrente per scadenza assente).
+  @Column({ type: 'boolean', default: false })
+  closed: boolean;
+
   @Column({ type: 'text', nullable: true })
   order_number: string;
 
@@ -50,8 +61,6 @@ export class Contract {
   @Column({ type: 'date', nullable: true })
   takeover_termination_date: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  security_deposit: number;
 
   @CreateDateColumn({ type: 'timestamp' })
   create_date: string;

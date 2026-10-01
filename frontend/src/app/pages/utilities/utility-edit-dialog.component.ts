@@ -37,10 +37,23 @@ import {ContractsService} from '../contracts/contract.service';
 import {ContractEditDialogComponent} from '../contracts/contract-edit-dialog.component';
 import {Contract} from '../contracts/entity/contract.entity';
 import {DatePipe} from '@angular/common';
+import {UtilityConsumptionsTabComponent} from './consumptions/utility-consumptions-tab.component';
+import {BudgetChapter} from '../budget-chapters/entity/budget-chapter.entity';
+import {SupplyType, SupplyTypeDescription} from '../budget-chapters/enum/supply-type.enum';
+import {formatQty, CONSUMPTION_UNIT_BY_HARD_TYPE, ConsumptionSummary} from './consumptions/consumption.model';
 
 // Stessa larghezza usata da MapComponent.openDetail per lo stesso dialog —
 // deve poter ospitare i tab (Dati/Foto) e i gruppi affiancati dell'immobile.
 const ASSET_DIALOG_WIDTH = '1150px';
+
+// Tipi fornitura capitolo compatibili col tipo utenza; SPRAR sempre
+// compatibile (capitolo multi-utenza). Solo ordinamento, nessun blocco.
+const CHAPTER_COMPATIBILITY: Record<HardType, SupplyType[]> = {
+  [HardType.LIGHT]: [SupplyType.ELECTRICITY],
+  [HardType.GAS]: [SupplyType.GAS_SUPPLY_ONLY, SupplyType.THERMAL_MANAGEMENT],
+  [HardType.WATER]: [SupplyType.WATER],
+  [HardType.INTERNET]: [],
+};
 
 @Component({
   selector: 'app-utility-edit-dialog',
@@ -49,7 +62,7 @@ const ASSET_DIALOG_WIDTH = '1150px';
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatTabsModule,
     HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent, MultiSelectComponent, LocationMapComponent, PhotoGalleryComponent,
-    EntityHistoryComponent, DatePipe
+    EntityHistoryComponent, DatePipe, UtilityConsumptionsTabComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-edit-dialog.component.html'
@@ -76,6 +89,9 @@ export class UtilityEditDialogComponent implements OnInit {
   assetOptions: Asset[] = [];
   assetSelectOptions: TOption[] = [];
   budgetChapterOptions: TOption[] = [];
+  private budgetChapters: BudgetChapter[] = [];
+  readonly formatQty = formatQty;
+  readonly HardType = HardType;
   aggregatorOptions: TOption[] = [];
   costsBorneByOptions: TOption[] = [];
   maintenanceOptions: TOption[] = [];
@@ -129,8 +145,8 @@ export class UtilityEditDialogComponent implements OnInit {
     notes: [this.data.item.notes ?? ''],
     phase_type_electric: [this.data.item.phase_type_electric ?? null],
     power_kw_electric: [this.data.item.power_kw_electric ?? null],
+    security_deposit: [this.data.item.security_deposit ?? 0],
     reported_consumption_year: [this.data.item.reported_consumption_year ?? 0, Validators.required],
-    actual_consumption: [this.data.item.actual_consumption ?? 0, Validators.required],
     specifications: [this.data.item.specifications ?? ''],
     supplier_address: [this.data.item.supplier_address ?? ''],
     supply_active: [this.data.item.supply_active ?? null],
@@ -164,9 +180,10 @@ export class UtilityEditDialogComponent implements OnInit {
       error: err => console.error('Errore nel caricamento degli Aggregati Utenza:', err)
     });
     this.budgetChapterService.search({deleted: false}).subscribe({
-      next: data => this.budgetChapterOptions = data
-        .map(b => ({label: b.description ?? '', value: b.id}))
-        .sort((a, b) => a.label.localeCompare(b.label)),
+      next: data => {
+        this.budgetChapters = data;
+        this.buildBudgetChapterOptions();
+      },
       error: err => console.error('Errore nel caricamento dei Capitoli di Spesa:', err)
     });
     this.costsBorneByService.search().subscribe({
@@ -190,6 +207,50 @@ export class UtilityEditDialogComponent implements OnInit {
   onUtilityTypeChange(event: MatSelectChange): void {
     const selected = this.utilityTypeOptions.find(t => t.id === event.value) ?? null;
     this.selectedHardType = selected?.hard_type ?? null;
+    this.buildBudgetChapterOptions();
+  }
+
+  private buildBudgetChapterOptions(): void {
+    const compatible = (c: BudgetChapter) =>
+      this.selectedHardType === null ||
+      c.supply_type === SupplyType.SPRAR_UTILITIES ||
+      CHAPTER_COMPATIBILITY[this.selectedHardType].includes(c.supply_type);
+    const label = (c: BudgetChapter) => `${c.chapter_code}/${c.article ?? 0} — ${c.description ?? ''}`.trim();
+    this.budgetChapterOptions = [...this.budgetChapters]
+      .sort((a, b) => Number(compatible(b)) - Number(compatible(a)) || label(a).localeCompare(label(b)))
+      .map(c => {
+        const parts = [
+          c.pdc ? `PDC ${c.pdc}` : null,
+          SupplyTypeDescription[c.supply_type] ?? null,
+          compatible(c) ? null : 'tipo fornitura diverso dall’utenza',
+        ].filter(Boolean);
+        return {
+          label: label(c),
+          value: c.id,
+          sublabel: parts.join(' · '),
+          searchText: `${label(c)} ${c.pdc ?? ''}`,
+        };
+      });
+  }
+
+  get consumptionUnit(): string | null {
+    return this.selectedHardType ? CONSUMPTION_UNIT_BY_HARD_TYPE[this.selectedHardType] : null;
+  }
+
+  estimateHint(): string {
+    switch (this.data.item.estimated_consumption_source) {
+      case 'MANUAL': {
+        const setAt = this.data.item.estimated_consumption_set_at;
+        if (!setAt) return 'Inserita manualmente';
+        const until = new Date(setAt);
+        until.setMonth(until.getMonth() + 12);
+        return until > new Date()
+          ? `Manuale, valida fino al ${until.toLocaleDateString('it-IT')}`
+          : 'Manuale scaduta: verrà sostituita dallo storico consumi';
+      }
+      case 'HISTORY': return 'Calcolata dallo storico consumi';
+      default: return 'Metti 0 per calcolarla dallo storico consumi';
+    }
   }
 
   openNewContractDialog(): void {
@@ -300,6 +361,31 @@ export class UtilityEditDialogComponent implements OnInit {
 
   onPositionCleared(): void {
     this.form.patchValue({ latitude: null, longitude: null });
+  }
+
+  // Dopo una modifica alle rilevazioni il backend ha già ricalcolato
+  // effettivo/stima: allinea dati mostrati e form. La stima nel form si
+  // aggiorna solo se l'utente non l'ha toccata — altrimenti "Salva"
+  // rimanderebbe il vecchio valore come modificato e la marcherebbe manuale.
+  onConsumptionSummary(summary: ConsumptionSummary): void {
+    this.data.item.actual_consumption = summary.actual_consumption;
+    this.data.item.actual_consumption_coverage_days = summary.coverage_days;
+    this.data.item.estimated_consumption_source = summary.estimated_source;
+    this.data.item.estimated_annual_consumption = summary.estimated_annual_consumption;
+    this.data.item.estimated_consumption_set_at = summary.estimated_set_at;
+    const control = this.form.controls.estimated_annual_consumption;
+    if (control.pristine) {
+      control.setValue(summary.estimated_annual_consumption);
+      control.markAsPristine();
+    }
+    // Una lettura con matricola nuova aggiorna la matricola dell'utenza:
+    // senza riallineare il form, "Salva" la riporterebbe a quella vecchia.
+    this.data.item.meter_number = summary.meter_number ?? undefined;
+    const meter = this.form.controls.meter_number;
+    if (meter.pristine) {
+      meter.setValue(summary.meter_number ?? '');
+      meter.markAsPristine();
+    }
   }
 
   save(): void {

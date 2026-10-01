@@ -20,6 +20,7 @@ import { CostsBorneBy } from '../../shared/entities/utility_cost_borne_by.entity
 import { SystemUser } from '../../system-users/entity/system-user.entity';
 import { Phase } from '../../shared/enum/user.enums';
 import { MaintenanceManager } from '../../shared/entities/maintenanceManagers.entity';
+import { EstimateSource } from '@apis/utility-consumptions/enum/estimate-source.enum';
 
 @Entity('utilities')
 export class Utility {
@@ -58,6 +59,25 @@ export class Utility {
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   estimated_annual_consumption: number;
+
+  // Origine della stima annua: MANUAL (inserita dall'utente, valida 12 mesi
+  // da estimated_consumption_set_at), HISTORY (calcolata dallo storico
+  // consumi), NONE (nessun dato). Vedi ConsumptionRecalcService.
+  @Column({ type: 'enum', enum: EstimateSource, default: EstimateSource.NONE })
+  estimated_consumption_source: EstimateSource;
+
+  @Column({ type: 'datetime', nullable: true })
+  estimated_consumption_set_at: Date | null;
+
+  // Giorni degli ultimi 365 coperti da dati reali: actual_consumption è
+  // parziale se < 365.
+  @Column({ type: 'int', default: 0 })
+  actual_consumption_coverage_days: number;
+
+  // Deposito cauzionale versato per questo punto di fornitura (es. ACA lo
+  // chiede per contatore): dato dell'utenza, non del contratto.
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  security_deposit: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   power_kw_electric: number;

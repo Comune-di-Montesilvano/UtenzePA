@@ -25,7 +25,13 @@ Sentry.init({
                   })
               ],
 
-              sendDefaultPii: false,
+              // Sentry 11: sendDefaultPii sostituito da dataCollection (default
+              // permissivi). Niente dati utente, cookie e body HTTP.
+              dataCollection: {
+                userInfo: false,
+                cookies: false,
+                httpBodies: [],
+              },
             });
 
 bootstrapApplication(App, appConfig)

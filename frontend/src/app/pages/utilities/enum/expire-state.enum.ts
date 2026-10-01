@@ -3,6 +3,7 @@ export enum ExpireState {
   EXPIRING30 = 'EXPIRING30',
   EXPIRING60 = 'EXPIRING60',
   EXPIRING90 = 'EXPIRING90',
+  EXPIRING120 = 'EXPIRING120',
   EXPIRED = 'EXPIRED',
 }
 
@@ -13,6 +14,7 @@ export namespace ExpireState {
       { label: 'In Scadenza (30gg)', value: ExpireState.EXPIRING30 },
       { label: 'In Scadenza (60gg)', value: ExpireState.EXPIRING60 },
       { label: 'In Scadenza (90gg)', value: ExpireState.EXPIRING90 },
+      { label: 'In Scadenza (120gg)', value: ExpireState.EXPIRING120 },
       { label: 'Scaduta', value: ExpireState.EXPIRED },
     ];
   }
