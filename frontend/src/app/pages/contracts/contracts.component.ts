@@ -27,6 +27,9 @@ export class ContractsComponent extends AbstractComponent<Contract> {
     this.route.queryParams.subscribe(params => {
       const selectedId = params['selectedId'] ? Number(params['selectedId']) : null;
       this.lastFilters = params['missing_cig'] === 'true' ? {missing_cig: true} : {};
+      if (params['supply_expiry_date_range']) {
+        this.lastFilters = {supply_expiry_date_range: params['supply_expiry_date_range']};
+      }
       this.loading = true;
       this.service.search(this.lastFilters).subscribe(result => {
         this.list = this.service.fromPlain(result);
@@ -34,6 +37,9 @@ export class ContractsComponent extends AbstractComponent<Contract> {
         this.loading = false;
         if (params['missing_cig'] === 'true') {
           this.messageService.add({severity: 'info', summary: 'Filtro applicato', detail: 'Contratti senza CIG.'});
+        }
+        if (params['supply_expiry_date_range']) {
+          this.messageService.add({severity: 'info', summary: 'Filtro applicato', detail: 'Contratti in scadenza.'});
         }
         const selected = selectedId ? this.list.find(c => c.id === selectedId) : undefined;
         if (selected) setTimeout(() => this.dataTable?.openEditDialog(selected));
