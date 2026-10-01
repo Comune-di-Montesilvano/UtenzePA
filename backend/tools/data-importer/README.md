@@ -37,6 +37,24 @@ perché è usata anche in produzione da `ImportModule` (upload CSV chunked dalla
   docker exec utenzepa-api-1 node -r ts-node/register -r tsconfig-paths/register tools/data-importer/check-lookups.ts
   ```
 
+- **`backfill-access.ts`** — recupero dati persi dall'import iniziale (CIG
+  derivato dei contratti, scadenze concessioni in formati non `gg/mm/aaaa`,
+  testo troncato al primo a capo). Riempie solo campi vuoti, mai valori già
+  modificati in produzione; default in prova, `--apply` scrive in transazione.
+  Input: export mdbtools (separatore `|`) in `src/data-importer/source/access-utenze.csv`
+  e `access-utilizzatori.csv`. Report in `/tmp/backfill-access-report.txt` nel container.
+  ```bash
+  docker exec utenzepa-api-1 node -r ts-node/register -r tsconfig-paths/register tools/data-importer/backfill-access.ts [--apply]
+  ```
+  Test: `pnpm exec jest --rootDir . --testRegex 'tools/data-importer/.*\.spec\.ts$'`.
+
+- **`merge-contracts.ts`** — accorpa i contratti duplicati per ordine CONSIP
+  (l'Access collegava un contratto a una sola utenza → un contratto per
+  utenza anche con lo stesso ordine). Superstite = id minore, campi a
+  maggioranza (override espliciti in `OVERRIDES`), collegamenti utenze e
+  fatture spostati, duplicati in soft delete. Prova di default, `--apply` in
+  transazione; report in `/tmp/merge-contracts-report.txt`.
+
 ## Dati sorgente
 
 I CSV esportati da Access vivono in `backend/src/data-importer/source/`
