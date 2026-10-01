@@ -521,6 +521,8 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
 
   async create(dto: CreateUtilityDto, userId?: number): Promise<Utility> {
     const { asset_ids, ...rest } = dto;
+    // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
+    if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
     await this.assertMeterAvailable(rest.meter_number, null);
     const estimate = Number(rest.estimated_annual_consumption ?? 0);
     const assets = await this.resolveAssets(asset_ids);
@@ -542,6 +544,8 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
 
   async update(id: number, dto: UpdateUtilityDto, userId?: number): Promise<Utility> {
     const { asset_ids, ...rest } = dto;
+    // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
+    if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
     const assets = asset_ids !== undefined ? await this.resolveAssets(asset_ids) : undefined;
 
     const current = await this.repo.findOne({ where: { id } as never });

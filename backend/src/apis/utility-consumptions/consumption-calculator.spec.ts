@@ -10,6 +10,7 @@ import {
   normalizeByKind,
   readingDeltas,
   toDay,
+  todayDay,
   validateConsumption,
 } from './consumption-calculator';
 import { ConsumptionKind } from './enum/consumption-kind.enum';
@@ -34,6 +35,15 @@ const period = (id: number, start: string, end: string, consumption: number | st
 });
 
 describe('consumption-calculator', () => {
+  describe('todayDay', () => {
+    it('usa il giorno di calendario italiano, non quello del server UTC', () => {
+      // 22:30 UTC del 29/09 = 00:30 del 30/09 a Roma (ora legale)
+      expect(todayDay(new Date('2026-09-29T22:30:00Z'))).toBe(toDay('2026-09-30'));
+      // 23:30 UTC del 15/01 = 00:30 del 16/01 a Roma (ora solare)
+      expect(todayDay(new Date('2026-01-15T23:30:00Z'))).toBe(toDay('2026-01-16'));
+    });
+  });
+
   describe('toDay/fromDay', () => {
     it('round-trip su date di calendario', () => {
       expect(fromDay(toDay('2026-02-28'))).toBe('2026-02-28');
@@ -253,7 +263,7 @@ describe('consumption-calculator', () => {
     });
 
     it('lettura inferiore alla precedente stessa matricola rifiutata', () => {
-      expect(validateConsumption(reading(9, '2026-02-01', 900), others, TODAY)).toMatch(/precedente/);
+      expect(validateConsumption(reading(9, '2026-02-01', 900), others, TODAY)).toMatch(/precedente \(1000 del 01\/01\/2026\)/);
     });
 
     it('lettura superiore alla successiva stessa matricola rifiutata', () => {
@@ -277,11 +287,16 @@ describe('consumption-calculator', () => {
     });
 
     it('periodo sovrapposto a un altro periodo rifiutato', () => {
-      expect(validateConsumption(period(9, '2026-05-31', '2026-06-10', 10), others, TODAY)).toMatch(/sovrappone/);
+      expect(validateConsumption(period(9, '2026-05-31', '2026-06-10', 10), others, TODAY)).toMatch(/sovrappone.*01\/05\/2026 – 31\/05\/2026/);
     });
 
     it('periodo con fine prima dell’inizio rifiutato', () => {
       expect(validateConsumption(period(9, '2026-06-10', '2026-06-01', 10), others, TODAY)).toMatch(/inizio/);
+    });
+
+    it('date anteriori al 1990 rifiutate', () => {
+      expect(validateConsumption(reading(9, '1989-12-31', 10), [], TODAY)).toMatch(/1990/);
+      expect(validateConsumption(period(9, '1989-12-01', '1990-01-10', 10), [], TODAY)).toMatch(/1990/);
     });
 
     it('periodo adiacente ammesso', () => {

@@ -45,6 +45,7 @@ export interface ConsumptionSummary {
   estimated_annual_consumption: number;
   estimated_source: EstimateSource;
   estimated_valid_until: string | null;
+  estimated_set_at: string | null;
   monthly: MonthlyPoint[];
 }
 

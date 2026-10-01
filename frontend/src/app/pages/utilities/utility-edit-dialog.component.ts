@@ -371,6 +371,7 @@ export class UtilityEditDialogComponent implements OnInit {
     this.data.item.actual_consumption_coverage_days = summary.coverage_days;
     this.data.item.estimated_consumption_source = summary.estimated_source;
     this.data.item.estimated_annual_consumption = summary.estimated_annual_consumption;
+    this.data.item.estimated_consumption_set_at = summary.estimated_set_at;
     const control = this.form.controls.estimated_annual_consumption;
     if (control.pristine) {
       control.setValue(summary.estimated_annual_consumption);

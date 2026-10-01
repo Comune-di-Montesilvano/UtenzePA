@@ -8,7 +8,8 @@ describe('UtilityConsumptionsService', () => {
   let service: UtilityConsumptionsService;
   let repo: { find: jest.Mock; findOne: jest.Mock; create: jest.Mock; save: jest.Mock };
   let utilityRepo: { findOne: jest.Mock; update: jest.Mock; createQueryBuilder: jest.Mock };
-  let meterQb: { where: jest.Mock; andWhere: jest.Mock; getOne: jest.Mock };
+  let meterQb: { where: jest.Mock; andWhere: jest.Mock; getMany: jest.Mock };
+  let audit: { record: jest.Mock };
   let recalc: { recalcUtility: jest.Mock };
 
   const lightUtility = { id: 7, utility_id: 'IT001', meter_number: 'M1', utilityType: { hard_type: HardTypeEnum.LIGHT } };
@@ -18,7 +19,7 @@ describe('UtilityConsumptionsService', () => {
   ];
 
   beforeEach(() => {
-    meterQb = { where: jest.fn().mockReturnThis(), andWhere: jest.fn().mockReturnThis(), getOne: jest.fn().mockResolvedValue(null) };
+    meterQb = { where: jest.fn().mockReturnThis(), andWhere: jest.fn().mockReturnThis(), getMany: jest.fn().mockResolvedValue([]) };
     repo = {
       find: jest.fn().mockResolvedValue(existing),
       findOne: jest.fn(),
@@ -32,6 +33,8 @@ describe('UtilityConsumptionsService', () => {
     };
     recalc = { recalcUtility: jest.fn().mockResolvedValue(undefined) };
     service = new UtilityConsumptionsService(repo as never, utilityRepo as never, recalc as never);
+    audit = { record: jest.fn().mockResolvedValue(undefined) };
+    (service as unknown as { auditLogService: unknown }).auditLogService = audit;
   });
 
   const readingDto = (date: string, value: number, meter = 'M1') => ({
@@ -58,12 +61,12 @@ describe('UtilityConsumptionsService', () => {
   });
 
   it('rifiuta matricola già associata ad altra utenza', async () => {
-    meterQb.getOne.mockResolvedValue({ id: 8, utility_id: 'IT002' });
+    meterQb.getMany.mockResolvedValue([{ id: 8, utility_id: 'IT002', meter_number: 'OTHER' }]);
     await expect(service.createForUtility(7, readingDto('2026-04-01', 5, 'OTHER'), 3)).rejects.toThrow(/IT002/);
   });
 
   it('matricola già dell’utenza (duplicata altrove): nessun check di conflitto', async () => {
-    meterQb.getOne.mockResolvedValue({ id: 8, utility_id: 'IT002' });
+    meterQb.getMany.mockResolvedValue([{ id: 8, utility_id: 'IT002', meter_number: 'M1' }]);
     await service.createForUtility(7, readingDto('2026-04-01', 1400, ' m1 '), 3);
     expect(repo.save).toHaveBeenCalled();
     expect(utilityRepo.createQueryBuilder).not.toHaveBeenCalled();
@@ -73,7 +76,7 @@ describe('UtilityConsumptionsService', () => {
     utilityRepo.findOne.mockResolvedValue({ ...lightUtility, meter_number: 'M2' });
     repo.findOne.mockResolvedValue({ ...existing[1], id: 99, meter_number: 'M2', reading_date: '2026-04-01' });
     await service.remove(99, 3);
-    expect(utilityRepo.update).toHaveBeenCalledWith(7, { meter_number: 'M1' });
+    expect(utilityRepo.update).toHaveBeenCalledWith(7, { meter_number: 'M1', updated_by_user_id: 3 });
     expect(recalc.recalcUtility).toHaveBeenCalledWith(7);
   });
 
@@ -90,7 +93,14 @@ describe('UtilityConsumptionsService', () => {
         { id: 99, utility_id_fk: 7, kind: ConsumptionKind.READING, reading_date: '2026-04-01', reading_value: '5.000', meter_number: 'M2', deleted: false },
       ]);
     await service.createForUtility(7, readingDto('2026-04-01', 5, ' M2 '), 3);
-    expect(utilityRepo.update).toHaveBeenCalledWith(7, { meter_number: 'M2' });
+    expect(utilityRepo.update).toHaveBeenCalledWith(7, { meter_number: 'M2', updated_by_user_id: 3 });
+    expect(audit.record).toHaveBeenCalledWith({
+      entityName: 'utilities',
+      entityId: 7,
+      action: 'UPDATE',
+      userId: 3,
+      fields: [{ fieldName: 'meter_number', oldValue: 'M1', newValue: 'M2', oldLabel: null, newLabel: null }],
+    });
   });
 
   it('matricola uguale a meno di maiuscole/spazi: nessun aggiornamento matricola', async () => {
@@ -141,6 +151,7 @@ describe('UtilityConsumptionsService', () => {
     expect(summary.actual_consumption).toBe(300);
     expect(summary.estimated_annual_consumption).toBe(1800);
     expect(summary.estimated_valid_until).toBe('2027-02-10');
+    expect(summary.estimated_set_at).toBe(new Date('2026-02-10T00:00:00').toISOString());
     expect(summary.monthly).toHaveLength(36);
   });
 });

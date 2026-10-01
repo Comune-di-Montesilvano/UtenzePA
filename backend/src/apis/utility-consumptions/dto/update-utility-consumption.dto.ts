@@ -18,7 +18,7 @@ export class UpdateUtilityConsumptionDto {
   kind?: ConsumptionKind;
 
   @IsOptional()
-  @IsDateString()
+  @IsDateString({ strict: true })
   reading_date?: string | null;
 
   @IsOptional()
@@ -33,11 +33,11 @@ export class UpdateUtilityConsumptionDto {
   meter_number?: string | null;
 
   @IsOptional()
-  @IsDateString()
+  @IsDateString({ strict: true })
   period_start?: string | null;
 
   @IsOptional()
-  @IsDateString()
+  @IsDateString({ strict: true })
   period_end?: string | null;
 
   @IsOptional()
