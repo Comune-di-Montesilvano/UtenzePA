@@ -26,13 +26,15 @@ export class SearchUtilizerGrantComponent extends AbstractSearchComponent {
     super();
     this.qSearch = this.fb.group({
       qsearch: [''],
-      concession_act: [''],
-      usage_type: [null],
-      utilities_to_be_taken_over: [null],
-      grant_date: [null],
-      expire_date: [null],
-      asset_id_fk: [null],
+      alert: [null],
+      computed_status: [null],
+      direction: [null],
+      kind: [null],
+      asset_id: [null],
       utilizer_id_fk: [null],
+      department: [''],
+      concession_act: [''],
+      utilities_to_be_taken_over: [null],
     });
   }
 
