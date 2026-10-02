@@ -60,6 +60,9 @@
             @if (form.controls.party_ids.invalid && form.controls.party_ids.touched) {
               <mat-error>Indicare almeno una parte</mat-error>
             }
+            @for (id of form.controls.party_ids.value ?? []; track id) {
+              <a href="javascript:void(0)" (click)="openParty(id)" style="margin-right: 12px;">{{ partyLabel(id) }}</a>
+            }
           </div>
           <mat-form-field class="span-2">
             <mat-label>Oggetto / destinazione d'uso</mat-label>

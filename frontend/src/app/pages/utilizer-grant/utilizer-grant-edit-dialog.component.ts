@@ -277,6 +277,14 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
     if (id) this.navigator.openGrant(id).subscribe();
   }
 
+  partyLabel(id: number): string {
+    return this.partyOptions.find(o => o.value === id)?.label ?? `#${id}`;
+  }
+
+  openParty(id: number): void {
+    this.navigator.openThirdParty(id).subscribe();
+  }
+
   // Header
   titleText(): string {
     if (this.isNew) return 'Nuovo contratto immobiliare';

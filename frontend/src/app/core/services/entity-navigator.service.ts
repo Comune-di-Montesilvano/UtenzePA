@@ -13,6 +13,9 @@ import {ContractsService} from '../../pages/contracts/contract.service';
 import {Contract} from '../../pages/contracts/entity/contract.entity';
 import {UtilizerGrantService} from '../../pages/utilizer-grant/utilizer-grant.service';
 import {UtilizerGrant} from '../../pages/utilizer-grant/entity/utilizer-grant.entity';
+import {ThirdPartiesService} from '../../pages/third-parties/third-parties.service';
+import {ThirdParty} from '../../pages/third-parties/entity/third-party.entity';
+import {ToastService} from './toast.service';
 
 // Import dinamici: i dialog iniettano questo servizio, un import statico dei
 // dialog qui creerebbe un ciclo di moduli.
@@ -21,6 +24,7 @@ const UTILITY_DIALOG = () => import('../../pages/utilities/utility-edit-dialog.c
 const PLANT_DIALOG = () => import('../../pages/plants/plant-edit-dialog.component').then(m => m.PlantEditDialogComponent);
 const CONTRACT_DIALOG = () => import('../../pages/contracts/contract-edit-dialog.component').then(m => m.ContractEditDialogComponent);
 const GRANT_DIALOG = () => import('../../pages/utilizer-grant/utilizer-grant-edit-dialog.component').then(m => m.UtilizerGrantEditDialogComponent);
+const THIRD_PARTY_DIALOG = () => import('../../pages/third-parties/third-party-edit-dialog.component').then(m => m.ThirdPartyEditDialogComponent);
 
 // Apre le schede collegate (impilate sopra quella corrente) e persiste il
 // risultato dove il dialog non salva da sé (immobile, utenza, contratti: la
@@ -35,6 +39,8 @@ export class EntityNavigatorService {
   private utilities = inject(UtilityService);
   private contracts = inject(ContractsService);
   private grants = inject(UtilizerGrantService);
+  private thirdParties = inject(ThirdPartiesService);
+  private toast = inject(ToastService);
 
   openAsset(id: number): Observable<Asset | null> {
     return this.assets.getById(id).pipe(
@@ -89,6 +95,14 @@ export class EntityNavigatorService {
     );
   }
 
+  openThirdParty(id: number): Observable<ThirdParty | null> {
+    return this.thirdParties.getById(id).pipe(
+      switchMap(item => this.sheet<EditDialogData<ThirdParty>, ThirdParty>(THIRD_PARTY_DIALOG, {mode: 'edit', item})),
+      switchMap(r => (r ? this.thirdParties.update(r.id, r) : of(null))),
+      catchError(err => this.fail('Errore apertura/salvataggio del soggetto', err)),
+    );
+  }
+
   openGrant(id: number): Observable<UtilizerGrant | null> {
     return this.grants.getById(id).pipe(
       switchMap(item => this.sheet<EditDialogData<UtilizerGrant>, UtilizerGrant>(GRANT_DIALOG, {mode: 'edit', item})),
@@ -122,8 +136,11 @@ export class EntityNavigatorService {
     return {created_by_user_id: userId, updated_by_user_id: userId};
   }
 
+  // Il messaggio del backend (es. "Partita IVA già usata da …") arriva all'utente.
   private fail(message: string, err: unknown): Observable<null> {
     console.error(message, err);
+    const detail = (err as {error?: {message?: string | string[]}})?.error?.message;
+    this.toast.add({severity: 'error', summary: message, detail: Array.isArray(detail) ? detail.join(', ') : detail});
     return of(null);
   }
 }

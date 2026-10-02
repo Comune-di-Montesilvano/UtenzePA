@@ -8,6 +8,7 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {environment} from '../../../environments/environment';
 import {AuthService} from '../../services/auth.service';
+import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 
 interface AnomalyList<T> {
   count: number;
@@ -38,6 +39,8 @@ interface Anomalies {
   real_estate_contracts_without_assets: AnomalyList<{id: number; counterparty: string | null; subject: string | null}>;
   plants_without_position: AnomalyList<{id: number; code: string; name: string; type: string}>;
   plants_without_asset: AnomalyList<{id: number; code: string; name: string; type: string}>;
+  real_estate_contracts_without_parties: AnomalyList<{id: number; subject: string | null}>;
+  third_parties_without_identifier: AnomalyList<{id: number; name: string; type: string}>;
 }
 
 // Non estende AbstractService: header Authorization messo a mano (nessun
@@ -178,6 +181,37 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+            <mat-expansion-panel [disabled]="data.real_estate_contracts_without_parties.count === 0">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count" [class.zero]="data.real_estate_contracts_without_parties.count === 0">{{ data.real_estate_contracts_without_parties.count }}</span>
+                  Contratti immobiliari senza parti
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (c of data.real_estate_contracts_without_parties.items; track c.id) {
+                  <li>
+                    <a href="javascript:void(0)" (click)="openRealEstateContract(c.id)">#{{ c.id }}</a>
+                    {{ c.subject ?? '' }}
+                  </li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            <mat-expansion-panel [disabled]="data.third_parties_without_identifier.count === 0">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count" [class.zero]="data.third_parties_without_identifier.count === 0">{{ data.third_parties_without_identifier.count }}</span>
+                  Soggetti senza P.IVA o codice fiscale
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (p of data.third_parties_without_identifier.items; track p.id) {
+                  <li>
+                    <a href="javascript:void(0)" (click)="openThirdParty(p.id)">{{ p.name }}</a>
+                  </li>
+                }
+              </ul>
+            </mat-expansion-panel>
             <mat-expansion-panel [disabled]="data.plants_without_asset.count === 0">
               <mat-expansion-panel-header>
                 <mat-panel-title>
@@ -228,6 +262,7 @@ const formatDate = (iso: string | null): string => {
 export class AnomaliesCardComponent implements OnInit {
   private service = inject(AnomaliesService);
   private router = inject(Router);
+  private navigator = inject(EntityNavigatorService);
 
   data: Anomalies | null = null;
   readonly fmt = formatDate;
@@ -237,10 +272,15 @@ export class AnomaliesCardComponent implements OnInit {
     return this.data.contracts_without_cig.count + this.data.active_utilities_without_cig_contract.count
       + this.data.active_utilities_without_contract.count + this.data.utilities_with_overlapping_contracts.count
       + this.data.duplicate_cigs.count + this.data.real_estate_contracts_without_assets.count
-      + this.data.plants_without_position.count + this.data.plants_without_asset.count;
+      + this.data.plants_without_position.count + this.data.plants_without_asset.count
+      + this.data.real_estate_contracts_without_parties.count + this.data.third_parties_without_identifier.count;
   }
 
   ngOnInit(): void {
+    this.load();
+  }
+
+  private load(): void {
     this.service.get().subscribe({
       next: data => this.data = data,
       error: err => console.error('Errore caricamento anomalie:', err),
@@ -265,6 +305,12 @@ export class AnomaliesCardComponent implements OnInit {
 
   openPlant(id: number): void {
     this.router.navigate(['/plants'], {queryParams: {selectedId: id}});
+  }
+
+  openThirdParty(id: number): void {
+    this.navigator.openThirdParty(id).subscribe(saved => {
+      if (saved) this.load();
+    });
   }
 
   openRealEstateContract(id: number): void {

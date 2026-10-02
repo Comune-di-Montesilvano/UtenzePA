@@ -1,0 +1,26 @@
+<div style="padding: 1rem;">
+  <div>
+    <h1>Soggetti terzi</h1>
+    <p style="color: #6A7282;">Persone fisiche e giuridiche: fornitori e parti dei contratti immobiliari.</p>
+  </div>
+  <div style="margin-top: 1rem;">
+    <app-search-third-parties (search)="onDialogSearch($event)"></app-search-third-parties>
+  </div>
+  <mat-chip-listbox multiple aria-label="Filtri rapidi per ruolo" style="margin-top: 0.75rem; display: block;"
+                    [value]="selectedRoles" (change)="onRolesChange($event.value)">
+    @for (c of chips; track c.role) {
+      <mat-chip-option [value]="c.role">{{ c.label }}</mat-chip-option>
+    }
+  </mat-chip-listbox>
+  <div style="margin-top: 1.5rem;">
+    <app-data-table-third-parties
+      [data]="list"
+      [loading]="loading"
+      (onSave)="onSave($event)"
+      (onDelete)="onDelete($event)"
+      (onCreate)="onCreate($event)"
+      (onRestore)="onRestore($event)"
+      [resetPagingTrigger]="resetPagingCount"
+    ></app-data-table-third-parties>
+  </div>
+</div>

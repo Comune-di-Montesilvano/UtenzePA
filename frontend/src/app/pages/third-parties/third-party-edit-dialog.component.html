@@ -1,0 +1,124 @@
+<app-entity-sheet
+  icon="groups"
+  color="var(--entity-party)"
+  [title]="titleText()"
+  [subtitle]="subtitle()"
+  [lastModified]="lastModified">
+  <ng-container sheetBadges>
+    @for (b of roleBadges; track b.label) {
+      <app-status-badge [info]="b" size="sm"></app-status-badge>
+    }
+  </ng-container>
+
+  <form [formGroup]="form">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
+
+      <mat-tab aria-label="Dati">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="badge" label="Dati" [error]="dataInvalid()"></app-tab-label>
+        </ng-template>
+
+        <mat-button-toggle-group formControlName="type" aria-label="Tipo soggetto" style="margin: 8px 0 16px;">
+          @for (t of types; track t) {
+            <mat-button-toggle [value]="t">{{ typeLabel[t] }}</mat-button-toggle>
+          }
+        </mat-button-toggle-group>
+
+        <div class="sheet-grid">
+          @if (isLegal()) {
+            <mat-form-field class="span-2">
+              <mat-label>Denominazione</mat-label>
+              <input matInput formControlName="company_name">
+              <mat-error>Obbligatoria</mat-error>
+            </mat-form-field>
+          } @else {
+            <mat-form-field>
+              <mat-label>Cognome</mat-label>
+              <input matInput formControlName="last_name">
+              <mat-error>Obbligatorio</mat-error>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Nome</mat-label>
+              <input matInput formControlName="first_name">
+              <mat-error>Obbligatorio</mat-error>
+            </mat-form-field>
+          }
+          <mat-form-field>
+            <mat-label>Partita IVA</mat-label>
+            <input matInput formControlName="vat_number" maxlength="20">
+            <mat-error>{{ form.controls.vat_number.hasError('required') ? 'Obbligatoria' : 'Servono 11 cifre' }}</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Codice fiscale</mat-label>
+            <input matInput formControlName="tax_code" maxlength="20">
+            <mat-error>{{ form.controls.tax_code.hasError('required') ? 'Obbligatorio' : 'Servono 16 caratteri' }}</mat-error>
+          </mat-form-field>
+          <mat-form-field class="span-2">
+            <mat-label>Indirizzo</mat-label>
+            <input matInput formControlName="address">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Città</mat-label>
+            <input matInput formControlName="city">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>CAP</mat-label>
+            <input matInput formControlName="postal_code" maxlength="10">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Email</mat-label>
+            <input matInput formControlName="email">
+            <mat-error>Email non valida</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>PEC</mat-label>
+            <input matInput formControlName="pec">
+            <mat-error>PEC non valida</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Telefono</mat-label>
+            <input matInput formControlName="phone">
+          </mat-form-field>
+          <div></div>
+          <mat-form-field class="span-2">
+            <mat-label>Referente e recapiti</mat-label>
+            <textarea matInput formControlName="contacts" rows="2"></textarea>
+          </mat-form-field>
+          <mat-form-field class="span-2">
+            <mat-label>Note</mat-label>
+            <textarea matInput formControlName="notes" rows="2"></textarea>
+          </mat-form-field>
+        </div>
+      </mat-tab>
+
+      @if (!isNew) {
+        <mat-tab aria-label="Contratti immobiliari">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="real_estate_agent" label="Contratti immobiliari" [count]="grants.length"></app-tab-label>
+          </ng-template>
+          <app-linked-table [columns]="grantColumns" [rows]="grants" [rowStatus]="grantStatusOf"
+                            emptyText="Nessun contratto immobiliare." (open)="openGrant($event.id)"></app-linked-table>
+        </mat-tab>
+
+        <mat-tab aria-label="Forniture">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="description" label="Forniture" [count]="contracts.length + agreements.length"></app-tab-label>
+          </ng-template>
+          <div class="sheet-section-title"><mat-icon>description</mat-icon>Contratti di fornitura</div>
+          <app-linked-table [columns]="contractColumns" [rows]="contracts" [rowStatus]="contractStatusOf"
+                            emptyText="Nessun contratto di fornitura." (open)="openContract($event.id)"></app-linked-table>
+          <div class="sheet-section-title"><mat-icon>handshake</mat-icon>Convenzioni CONSIP</div>
+          <app-linked-table [columns]="agreementColumns" [rows]="agreements"
+                            emptyText="Nessuna convenzione CONSIP."></app-linked-table>
+        </mat-tab>
+      }
+    </mat-tab-group>
+  </form>
+
+  <ng-container sheetActions>
+    <button mat-stroked-button type="button" (click)="cancel()">{{ canEdit ? 'Annulla' : 'Chiudi' }}</button>
+    @if (canEdit) {
+      <button mat-flat-button type="button" (click)="save()">{{ isNew ? 'Crea soggetto' : 'Salva soggetto' }}</button>
+    }
+  </ng-container>
+</app-entity-sheet>
