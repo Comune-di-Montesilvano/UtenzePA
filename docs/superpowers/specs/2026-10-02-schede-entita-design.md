@@ -136,9 +136,9 @@ Invariata: validazioni dei form esistenti; errori di salvataggio come oggi per c
 
 ## Test
 
-- Unit (Karma/Jasmine): `entity-status.ts` (ogni ramo della tabella), `PLANT_TYPE_TABS`, `LinkedTableComponent` (emissione open/add/unlink, readOnly), `openSheet` (offset per livello).
+- Niente Karma (nessun browser nel container, la CI non lo esegue): logica di stato, tab per tipo, tabella collegamenti e offset dei dialog verificati negli scenari E2E sotto.
 - `ng build` reale (il type-check dei template sfugge a `tsc`).
-- E2E Playwright su dati reali, per ciascuna delle 5 schede:
+- E2E Playwright (MCP, browser sull'host) su dati reali, per ciascuna delle 5 schede:
   - altezza e posizione costanti cambiando tab;
   - badge stato coerente e aggiornato cambiando il campo;
   - navigazione impilata (immobile → utenza → impianto → immobile) e ritorno;
