@@ -31,7 +31,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
 })
 export class DataTableUtilizerComponent extends AbstractDataTableComponent<Utilizer> {
 
-  displayedColumns = ['actions', 'id', 'name', 'description'];
+  displayedColumns = ['actions', 'id', 'name', 'tax_code', 'description'];
 
   constructor(screen: ScreenSizeService) {
     super(screen);
@@ -53,8 +53,8 @@ export class DataTableUtilizerComponent extends AbstractDataTableComponent<Utili
     this.dialog.open(ConfirmDialogComponent, {
       width: '350px',
       data: {
-        title: 'Elimina Utilizzatore',
-        message: `Sei sicuro di voler eliminare l'Utilizzatore ${entity.name}?`,
+        title: 'Elimina controparte',
+        message: `Eliminare la controparte ${entity.name}?`,
         confirmLabel: 'Elimina',
         danger: true
       }
@@ -67,8 +67,8 @@ export class DataTableUtilizerComponent extends AbstractDataTableComponent<Utili
     this.dialog.open(ConfirmDialogComponent, {
       width: '350px',
       data: {
-        title: 'Ripristina Utilizzatore',
-        message: `Riattiva Utilizzatore ${entity.name}?`,
+        title: 'Ripristina controparte',
+        message: `Riattivare la controparte ${entity.name}?`,
         confirmLabel: 'Ripristina'
       }
     }).afterClosed().subscribe(confirmed => {

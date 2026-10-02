@@ -29,6 +29,8 @@ export class UtilizerEditDialogComponent {
   form = this.fb.group({
     name: [this.data.item.name ?? '', Validators.required],
     description: [this.data.item.description ?? null],
+    tax_code: [this.data.item.tax_code ?? null as string | null, Validators.maxLength(16)],
+    contacts: [this.data.item.contacts ?? null as string | null],
   });
 
   constructor() {
