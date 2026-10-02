@@ -27,7 +27,7 @@ export class SearchUtilizerGrantDto {
   @IsOptional()
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))
   @IsInt()
-  utilizer_id_fk?: number;
+  party_id?: number;
 
   @IsOptional()
   @IsEnum(ContractDirection)

@@ -92,7 +92,7 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     qb.leftJoinAndSelect('assets.utilities', 'utilities', 'utilities.deleted = 0');
     qb.leftJoinAndSelect('utilities.utilityType', 'utilityType', 'utilityType.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
-    qb.leftJoinAndSelect('utilizerGrants.utilizer', 'utilizer', 'utilizer.deleted = 0');
+    qb.leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0');
 
     if (filters?.deleted !== undefined && filters.deleted !== null) {
       qb.where('assets.deleted = :deleted_filter', {
@@ -134,7 +134,7 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
       // il dialog contatore (nuovo flusso di navigazione impilata).
       .leftJoinAndSelect('utilities.utilityType', 'utilityType', 'utilityType.deleted = 0')
       .leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0')
-      .leftJoinAndSelect('utilizerGrants.utilizer', 'utilizer', 'utilizer.deleted = 0')
+      .leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0')
       .where('assets.id = :id', { id })
       .getOne();
   }

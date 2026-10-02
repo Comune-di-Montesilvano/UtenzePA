@@ -4,6 +4,7 @@ import { In, Repository } from 'typeorm';
 import { BaseService, toFindOptionsRelations } from '@apis/shared/base.service';
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { Asset } from '@apis/asset/entity/asset.entity';
+import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
 import { UtilizerGrant } from './entity/utilizer-grant.entity';
 import { CreateUtilizerGrantDto } from './dto/create-utilizer-grant.dto';
 import { UpdateUtilizerGrantDto } from './dto/update-utilizer-grant.dto';
@@ -44,6 +45,7 @@ const FILTERS_HANDLED_HERE = [
   'q',
   'direction',
   'kind',
+  'party_id',
 ];
 
 @Injectable()
@@ -55,11 +57,11 @@ export class UtilizerGrantService extends BaseService<
   protected readonly entityName = 'utilizer_grant';
   protected readonly relations = [
     'assets',
-    'utilizer',
+    'parties',
     'parent',
-    'parent.utilizer',
+    'parent.parties',
     'children',
-    'children.utilizer',
+    'children.parties',
     'created_by',
     'updated_by',
   ];
@@ -69,6 +71,8 @@ export class UtilizerGrantService extends BaseService<
     protected readonly repo: Repository<UtilizerGrant>,
     @InjectRepository(Asset)
     private readonly assetRepo: Repository<Asset>,
+    @InjectRepository(ThirdParty)
+    private readonly partyRepo: Repository<ThirdParty>,
   ) {
     super();
   }
@@ -81,7 +85,7 @@ export class UtilizerGrantService extends BaseService<
   async findAll(filters: SearchUtilizerGrantDto = {}): Promise<ContractRow[]> {
     const qb = this.repo.createQueryBuilder('UtilizerGrant');
     qb.leftJoinAndSelect('UtilizerGrant.assets', 'asset', 'asset.deleted = 0');
-    qb.leftJoinAndSelect('UtilizerGrant.utilizer', 'utilizer', 'utilizer.deleted = 0');
+    qb.leftJoinAndSelect('UtilizerGrant.parties', 'party', 'party.deleted = 0');
     qb.leftJoinAndSelect('UtilizerGrant.parent', 'parent', 'parent.deleted = 0');
     qb.where('UtilizerGrant.deleted = :deleted', { deleted: filters.deleted ? 1 : 0 });
     if (filters.asset_id) {
@@ -90,13 +94,20 @@ export class UtilizerGrantService extends BaseService<
         { fAsset: filters.asset_id },
       );
     }
+    // Filtri sulle parti con sottoquery: l'elenco parti del contratto resta completo.
+    if (filters.party_id) {
+      qb.andWhere(
+        'UtilizerGrant.id IN (SELECT gp.utilizer_grant_id FROM utilizer_grant_parties gp WHERE gp.third_party_id = :fParty)',
+        { fParty: filters.party_id },
+      );
+    }
     // Enum: uguaglianza esatta (applyFilters userebbe LIKE).
     if (filters.direction)
       qb.andWhere('UtilizerGrant.direction = :fDir', { fDir: filters.direction });
     if (filters.kind) qb.andWhere('UtilizerGrant.kind = :fKind', { fKind: filters.kind });
     if (filters.q) {
       qb.andWhere(
-        '(utilizer.name LIKE :q OR UtilizerGrant.subject LIKE :q OR UtilizerGrant.concession_act LIKE :q OR UtilizerGrant.registration_ref LIKE :q OR asset.asset_name LIKE :q)',
+        '(UtilizerGrant.id IN (SELECT gp.utilizer_grant_id FROM utilizer_grant_parties gp JOIN third_parties tp ON tp.id = gp.third_party_id WHERE tp.company_name LIKE :q OR tp.last_name LIKE :q OR tp.first_name LIKE :q) OR UtilizerGrant.subject LIKE :q OR UtilizerGrant.concession_act LIKE :q OR UtilizerGrant.registration_ref LIKE :q OR asset.asset_name LIKE :q)',
         { q: `%${filters.q}%` },
       );
     }
@@ -160,12 +171,14 @@ export class UtilizerGrantService extends BaseService<
   }
 
   async create(dto: CreateUtilizerGrantDto, userId?: number): Promise<ContractRow> {
-    const { asset_ids, ...rest } = dto;
+    const { asset_ids, party_ids, ...rest } = dto;
     await this.assertValid({ ...rest }, null);
     const assets = await this.resolveAssets(asset_ids ?? []);
+    const parties = await this.resolveParties(party_ids ?? []);
     const entity = this.repo.create({
       ...rest,
       assets,
+      parties,
       ...(userId !== undefined && { created_by_user_id: userId, updated_by_user_id: userId }),
     } as never);
     let saved: UtilizerGrant;
@@ -179,7 +192,7 @@ export class UtilizerGrantService extends BaseService<
   }
 
   async update(id: number, dto: UpdateUtilizerGrantDto, userId?: number): Promise<ContractRow> {
-    const { asset_ids, ...rest } = dto;
+    const { asset_ids, party_ids, ...rest } = dto;
     const current = await this.repo.findOne({ where: { id, deleted: false } });
     if (!current) throw new BadRequestException('Contratto non trovato');
     await this.assertValid({ ...current, ...rest }, id);
@@ -187,6 +200,12 @@ export class UtilizerGrantService extends BaseService<
     if (asset_ids !== undefined) {
       const entity = await this.repo.findOne({ where: { id }, relations: { assets: true } });
       entity.assets = await this.resolveAssets(asset_ids);
+      await this.repo.save(entity);
+    }
+    // Assente = parti invariate (es. salvataggio dalla catena di schede).
+    if (party_ids !== undefined) {
+      const entity = await this.repo.findOne({ where: { id }, relations: { parties: true } });
+      entity.parties = await this.resolveParties(party_ids);
       await this.repo.save(entity);
     }
     return this.findOne(id);
@@ -230,6 +249,14 @@ export class UtilizerGrantService extends BaseService<
     if (found !== ids.length)
       throw new BadRequestException('Uno o più immobili non esistono o sono stati eliminati.');
     return ids.map((assetId) => ({ id: assetId }) as Asset);
+  }
+
+  private async resolveParties(partyIds: number[]): Promise<ThirdParty[]> {
+    const ids = [...new Set(partyIds)];
+    const found = await this.partyRepo.count({ where: { id: In(ids), deleted: false } });
+    if (found !== ids.length)
+      throw new BadRequestException('Una o più parti non esistono o sono state eliminate.');
+    return ids.map((partyId) => ({ id: partyId }) as ThirdParty);
   }
 
   private calcInput(g: UtilizerGrant): CalcInput {

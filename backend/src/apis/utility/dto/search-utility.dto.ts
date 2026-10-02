@@ -112,7 +112,7 @@ export class SearchUtilityDto {
   @IsOptional()
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))
   @IsInt()
-  user_id_fk?: number;
+  party_id?: number;
 
   @IsOptional()
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))

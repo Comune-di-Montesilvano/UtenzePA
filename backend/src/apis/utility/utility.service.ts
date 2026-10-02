@@ -223,7 +223,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('Utility.assets', 'assets', 'assets.deleted = 0');
     qb.leftJoinAndSelect('Utility.plants', 'plants', 'plants.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
-    qb.leftJoinAndSelect('utilizerGrants.utilizer', 'utilizer', 'utilizer.deleted = 0');
+    qb.leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0');
     qb.leftJoinAndSelect('Utility.costsBorneBy', 'costsBorneBy', 'costsBorneBy.deleted = 0');
     qb.leftJoinAndSelect(
       'Utility.maintenanceManager',
@@ -251,8 +251,16 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       });
     }
 
-    if (filters.user_id_fk) {
-      qb.andWhere('utilizer.id = :user_id_fk', { user_id_fk: filters.user_id_fk });
+    // Sottoquery: l'elenco parti dei contratti resta completo.
+    if (filters.party_id) {
+      qb.andWhere(
+        `Utility.id IN (SELECT ua.utility_id FROM utility_assets ua
+           JOIN utilizer_grant_assets uga ON uga.asset_id = ua.asset_id
+           JOIN utilizer_grant g ON g.id = uga.utilizer_grant_id AND g.deleted = 0
+           JOIN utilizer_grant_parties gp ON gp.utilizer_grant_id = g.id
+           WHERE gp.third_party_id = :party_id)`,
+        { party_id: filters.party_id },
+      );
     }
 
     if (filters.utilityState) {
@@ -366,7 +374,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       'deleted',
       'asset_id',
       'safeguard',
-      'user_id_fk',
+      'party_id',
       'id',
       'create_date',
       'update_date',
@@ -436,7 +444,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('Utility.assets', 'assets', 'assets.deleted = 0');
     qb.leftJoinAndSelect('Utility.plants', 'plants', 'plants.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
-    qb.leftJoinAndSelect('utilizerGrants.utilizer', 'utilizer', 'utilizer.deleted = 0');
+    qb.leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0');
     qb.leftJoinAndSelect('Utility.costsBorneBy', 'costsBorneBy', 'costsBorneBy.deleted = 0');
     qb.leftJoinAndSelect(
       'Utility.maintenanceManager',
@@ -465,7 +473,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('Utility.assets', 'assets', 'assets.deleted = 0');
     qb.leftJoinAndSelect('Utility.plants', 'plants', 'plants.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
-    qb.leftJoinAndSelect('utilizerGrants.utilizer', 'utilizer', 'utilizer.deleted = 0');
+    qb.leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0');
     qb.leftJoinAndSelect('Utility.utilityType', 'utilityType', 'utilityType.deleted = 0');
     qb.leftJoinAndSelect('utilityType.utilityTypePurposes', 'utps');
     qb.leftJoinAndSelect('utps.purpose', 'utpPurpose', 'utpPurpose.deleted = 0');

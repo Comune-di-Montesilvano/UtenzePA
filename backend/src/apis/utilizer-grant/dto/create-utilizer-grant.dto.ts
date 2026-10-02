@@ -1,11 +1,11 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
-  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -34,9 +34,10 @@ export class CreateUtilizerGrantDto {
   @MaxLength(100)
   usage_type?: string;
 
-  @IsNotEmpty({ message: 'Il campo utilizer_id_fk è obbligatorio' })
-  @IsInt()
-  utilizer_id_fk: number;
+  @IsArray({ message: 'Indicare le parti del contratto.' })
+  @ArrayMinSize(1, { message: 'Indicare almeno una parte del contratto.' })
+  @IsInt({ each: true })
+  party_ids: number[];
 
   @IsOptional()
   @IsArray()

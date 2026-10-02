@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { BaseService } from '@apis/shared/base.service';
 import { UtilizerGrantService } from './utilizer-grant.service';
 import { ContractStatus, DisplayStatus, RentPeriod } from './enum/real-estate-contract.enum';
 
@@ -13,6 +14,7 @@ describe('UtilizerGrantService', () => {
     find: jest.Mock;
   };
   let assetRepo: { count: jest.Mock };
+  let partyRepo: { count: jest.Mock };
 
   const row = (over: Record<string, unknown> = {}) => ({
     id: 1,
@@ -44,9 +46,12 @@ describe('UtilizerGrantService', () => {
       find: jest.fn().mockResolvedValue([]),
     };
     assetRepo = { count: jest.fn().mockResolvedValue(1) };
-    service = new UtilizerGrantService(repo as never, assetRepo as never);
+    partyRepo = { count: jest.fn().mockResolvedValue(1) };
+    service = new UtilizerGrantService(repo as never, assetRepo as never, partyRepo as never);
     jest.spyOn(service as never, 'today' as never).mockReturnValue('2026-10-02' as never);
   });
+
+  afterEach(() => jest.restoreAllMocks());
 
   it('aggiunge canone annuo e stato mostrato a ogni riga', async () => {
     qb.getMany.mockResolvedValue([row({ end_date: '2025-01-01' })]);
@@ -86,23 +91,59 @@ describe('UtilizerGrantService', () => {
 
   it('rifiuta un contratto con canone senza periodicità', async () => {
     await expect(
-      service.create({ utilizer_id_fk: 1, rent_amount: 10 } as never, 3),
+      service.create({ party_ids: [1], rent_amount: 10 } as never, 3),
     ).rejects.toThrow(BadRequestException);
     expect(repo.save).not.toHaveBeenCalled();
   });
 
   it('rifiuta immobili inesistenti', async () => {
     assetRepo.count.mockResolvedValue(0);
-    await expect(service.create({ utilizer_id_fk: 1, asset_ids: [7] } as never, 3)).rejects.toThrow(
+    await expect(service.create({ party_ids: [1], asset_ids: [7] } as never, 3)).rejects.toThrow(
       /immobili/,
     );
   });
 
   it('crea con immobili collegati', async () => {
     repo.findOne.mockResolvedValue({ id: 99, assets: [{ id: 7 }] });
-    await service.create({ utilizer_id_fk: 1, asset_ids: [7] } as never, 3);
+    await service.create({ party_ids: [1], asset_ids: [7] } as never, 3);
     expect(repo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ utilizer_id_fk: 1, assets: [{ id: 7 }], created_by_user_id: 3 }),
+      expect.objectContaining({ parties: [{ id: 1 }], assets: [{ id: 7 }], created_by_user_id: 3 }),
+    );
+  });
+
+  it('rifiuta parti inesistenti', async () => {
+    partyRepo.count.mockResolvedValue(0);
+    await expect(service.create({ party_ids: [999] } as never, 3)).rejects.toThrow(
+      'Una o più parti non esistono o sono state eliminate.',
+    );
+  });
+
+  it('update senza party_ids non tocca le parti', async () => {
+    repo.findOne.mockResolvedValue({ id: 1, deleted: false });
+    jest.spyOn(BaseService.prototype, 'update').mockResolvedValue({ id: 1 } as never);
+    await service.update(1, { subject: 'x' } as never, 3);
+    expect(repo.findOne).not.toHaveBeenCalledWith(
+      expect.objectContaining({ relations: { parties: true } }),
+    );
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('update con party_ids sostituisce le parti', async () => {
+    repo.findOne.mockResolvedValue({ id: 1, deleted: false, parties: [{ id: 5 }] });
+    partyRepo.count.mockResolvedValue(2);
+    jest.spyOn(BaseService.prototype, 'update').mockResolvedValue({ id: 1 } as never);
+    await service.update(1, { party_ids: [7, 8] } as never, 3);
+    expect(repo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ parties: [{ id: 7 }, { id: 8 }] }),
+    );
+  });
+
+  it('filtro per parte e ricerca testuale con sottoquery (elenco parti completo)', async () => {
+    await service.findAll({ party_id: 5, q: 'rossi' });
+    const clauses = qb.andWhere.mock.calls.map((c) => String(c[0]));
+    expect(clauses.some((c) => c.includes('gp.third_party_id = :fParty'))).toBe(true);
+    expect(clauses.some((c) => c.includes('FROM utilizer_grant_parties gp JOIN third_parties tp'))).toBe(
+      true,
     );
   });
 

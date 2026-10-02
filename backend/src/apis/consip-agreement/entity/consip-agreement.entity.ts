@@ -7,10 +7,9 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
-  OneToOne,
 } from 'typeorm';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
-import { Supplier } from '@apis/shared/entities/supplier.entity';
+import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
 
 @Entity({ name: 'consip_agreement' })
 export class ConsipAgreement {
@@ -60,7 +59,7 @@ export class ConsipAgreement {
   @JoinColumn({ name: 'updated_by_user_id' })
   updated_by: SystemUser;
 
-  @OneToOne(() => Supplier)
+  @ManyToOne(() => ThirdParty)
   @JoinColumn({ name: 'supplier_id' })
-  supplier: Supplier;
+  supplier: ThirdParty;
 }
