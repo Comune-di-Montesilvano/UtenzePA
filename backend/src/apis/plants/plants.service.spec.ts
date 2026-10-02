@@ -11,6 +11,7 @@ describe('PlantsService', () => {
   let fireRepo: Record<string, jest.Mock>;
   let assetRepo: Record<string, jest.Mock>;
   let utilityRepo: Record<string, jest.Mock>;
+  let geocoding: Record<string, jest.Mock>;
 
   const plant = (over: Record<string, unknown> = {}) => ({
     id: 1,
@@ -37,6 +38,7 @@ describe('PlantsService', () => {
       findOne: jest.fn(),
       create: jest.fn((d) => d),
       save: jest.fn(async (d) => ({ id: 9, ...d })),
+      update: jest.fn(),
     };
     thermalRepo = { save: jest.fn(async (d) => d), delete: jest.fn() };
     elevatorRepo = { save: jest.fn(async (d) => d), delete: jest.fn() };
@@ -51,7 +53,11 @@ describe('PlantsService', () => {
       findOne: jest.fn(),
     };
     assetRepo = { count: jest.fn().mockResolvedValue(1) };
-    utilityRepo = { count: jest.fn().mockResolvedValue(1) };
+    utilityRepo = { count: jest.fn().mockResolvedValue(1), find: jest.fn().mockResolvedValue([]) };
+    geocoding = {
+      buildQuery: jest.fn().mockReturnValue('Via X 1, Montesilvano'),
+      geocode: jest.fn().mockResolvedValue({ lat: '42.4', lon: '14.2' }),
+    };
     service = new PlantsService(
       repo as never,
       thermalRepo as never,
@@ -60,6 +66,7 @@ describe('PlantsService', () => {
       fireRepo as never,
       assetRepo as never,
       utilityRepo as never,
+      geocoding as never,
     );
     jest.spyOn(service as never, 'today' as never).mockReturnValue('2026-10-02' as never);
   });
@@ -253,5 +260,88 @@ describe('PlantsService', () => {
     expect(s.by_type[PlantType.FOUNTAIN]).toBe(1);
     expect(s.inspections_overdue).toBe(1);
     expect(s.without_position).toBe(1);
+  });
+
+  describe('correzioni revisione finale', () => {
+    it('verifica: prossima data svuotata + nuova ultima data → ricalcolata', async () => {
+      inspectionRepo.findOne.mockResolvedValue({
+        id: 5, kind: 'Verifica', period_months: 24, last_date: '2024-03-01', next_date: '2026-03-01', deleted: false,
+      });
+      await service.updateInspection(5, { last_date: '2026-10-01', next_date: null } as never, 3);
+      expect(inspectionRepo.save).toHaveBeenCalledWith(expect.objectContaining({ next_date: '2028-10-01' }));
+    });
+
+    it('verifica: prossima data svuotata senza ultima data → resta vuota', async () => {
+      inspectionRepo.findOne.mockResolvedValue({
+        id: 5, kind: 'Verifica', period_months: 24, last_date: null, next_date: '2026-03-01', deleted: false,
+      });
+      await service.updateInspection(5, { next_date: null } as never, 3);
+      expect(inspectionRepo.save).toHaveBeenCalledWith(expect.objectContaining({ next_date: null }));
+    });
+
+    it('creazione con indirizzo e senza coordinate: geocodifica con il comune dell’ente', async () => {
+      repo.findOne.mockResolvedValue(plant({ id: 9 }));
+      await service.create(
+        { type: PlantType.FOUNTAIN, code: 'F9', name: 'F', address: 'Via X', civic_number: '1' } as never,
+        3,
+      );
+      expect(geocoding.buildQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ address: 'Via X', civic_number: '1', municipality: 'Montesilvano' }),
+      );
+      expect(repo.update).toHaveBeenCalledWith(
+        9,
+        expect.objectContaining({ geocoded_latitude: '42.4', geocoded_longitude: '14.2' }),
+      );
+    });
+
+    it('creazione con coordinate manuali: nessuna geocodifica', async () => {
+      repo.findOne.mockResolvedValue(plant({ id: 9 }));
+      await service.create(
+        { type: PlantType.FOUNTAIN, code: 'F8', name: 'F', address: 'Via X', latitude: '42.5', longitude: '14.1' } as never,
+        3,
+      );
+      expect(geocoding.geocode).not.toHaveBeenCalled();
+    });
+
+    it('cambio indirizzo: azzera la geocodifica vecchia e rigeocodifica', async () => {
+      repo.findOne
+        .mockResolvedValueOnce(plant({ id: 1, address: 'Via X', civic_number: null, utilities: [] }))
+        .mockResolvedValue(plant({ id: 1, address: 'Via Y' }));
+      await service.update(1, { address: 'Via Y' } as never, 3);
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ address: 'Via Y', geocoded_latitude: null, geocoded_longitude: null }),
+      );
+      expect(geocoding.geocode).toHaveBeenCalled();
+    });
+
+    it('modifica senza cambio indirizzo: nessuna geocodifica', async () => {
+      repo.findOne.mockResolvedValue(plant({ id: 1, address: 'Via X', utilities: [] }));
+      await service.update(1, { name: 'Nuovo nome' } as never, 3);
+      expect(geocoding.geocode).not.toHaveBeenCalled();
+    });
+
+    it('togliere l’utenza che serve solo questo impianto viene rifiutato', async () => {
+      repo.findOne.mockResolvedValue(plant({ id: 1, utilities: [{ id: 4 }] }));
+      utilityRepo.find.mockResolvedValue([
+        { id: 4, utility_id: 'IT001', assets: [], plants: [{ id: 1, deleted: false }] },
+      ]);
+      await expect(service.update(1, { utility_ids: [] } as never, 3)).rejects.toThrow(/IT001/);
+    });
+
+    it('togliere un’utenza che ha anche un immobile è ammesso', async () => {
+      repo.findOne.mockResolvedValue(plant({ id: 1, utilities: [{ id: 4 }] }));
+      utilityRepo.find.mockResolvedValue([
+        { id: 4, utility_id: 'IT001', assets: [{ id: 2, deleted: false }], plants: [{ id: 1, deleted: false }] },
+      ]);
+      await expect(service.update(1, { utility_ids: [] } as never, 3)).resolves.toBeDefined();
+    });
+
+    it('eliminare l’impianto che è l’unico collegamento di un’utenza viene rifiutato', async () => {
+      repo.findOne.mockResolvedValue(plant({ id: 1, utilities: [{ id: 4 }] }));
+      utilityRepo.find.mockResolvedValue([
+        { id: 4, utility_id: 'IT001', assets: [], plants: [{ id: 1, deleted: false }] },
+      ]);
+      await expect(service.remove(1, 3)).rejects.toThrow(/IT001/);
+    });
   });
 });

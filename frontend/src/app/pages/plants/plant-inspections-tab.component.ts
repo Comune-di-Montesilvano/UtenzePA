@@ -220,8 +220,13 @@ export class PlantInspectionsTabComponent implements OnInit {
       outcome: text(v.outcome),
       notes: text(v.notes),
     };
-    // Prossima vuota: la calcola il backend da ultima + periodicità.
-    if (v.next_date) payload.next_date = toIsoDate(v.next_date);
+    // Prossima data inviata solo se l'utente l'ha toccata (o è una verifica
+    // nuova): altrimenti, cambiando l'ultima data, il backend ricalcola invece
+    // di tenere la scadenza vecchia. Svuotata = null = ricalcolo da ultima +
+    // periodicità.
+    if (!this.editId || this.form.controls.next_date.dirty) {
+      payload.next_date = v.next_date ? toIsoDate(v.next_date) : null;
+    }
     this.saving = true;
     this.error = null;
     const request = this.editId

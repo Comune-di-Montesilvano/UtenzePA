@@ -4,9 +4,8 @@ import { Repository, IsNull, Not } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Asset } from '@apis/asset/entity/asset.entity';
 import { Plant } from '@apis/plants/entity/plant.entity';
+import { PLANTS_MUNICIPALITY } from '@apis/plants/plant.calc';
 import { GeocodingService } from './geocoding.service';
-
-const PLANTS_MUNICIPALITY = 'Montesilvano';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Asset, Plant])],

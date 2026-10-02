@@ -3,6 +3,9 @@ import { addDays, addMonths } from '@apis/utilizer-grant/real-estate-contract.ca
 
 export const INSPECTION_DUE_DAYS = 60;
 
+// Gli impianti non hanno CAP/comune propri: si geocodifica nel comune dell'ente.
+export const PLANTS_MUNICIPALITY = 'Montesilvano';
+
 export function computeNextDate(
   lastDate: string | null,
   periodMonths: number | null,

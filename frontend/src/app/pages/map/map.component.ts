@@ -517,6 +517,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       const assetsHere = group.filter((g) => g.type === 'asset');
       if (assetsHere.length > 1) return true;
       if (assetsHere.length === 0) return true;
+      // Un impianto nello stesso punto di un immobile (es. centrale termica
+      // con posizione ereditata) resterebbe coperto dal marker immobile.
+      if (group.some((g) => g.type === 'plant')) return true;
       const utilitiesHere = group.filter((g) => g.type === 'utility');
       return utilitiesHere.some((u) => u.assetId !== assetsHere[0].id);
     };
@@ -572,6 +575,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         // senza dover aprire il popup.
         const assetsInGroup = coordGroup.filter((g) => g.type === 'asset').length;
         const utilitiesInGroup = coordGroup.filter((g) => g.type === 'utility').length;
+        const plantsInGroup = coordGroup.filter((g) => g.type === 'plant').length;
         color = GROUP_COLOR;
         // Icona sempre uguale a prescindere dalla composizione — un'icona
         // che cambia (immobile vs contatore) confonderebbe "questo e' il
@@ -597,7 +601,14 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
                  <span class="material-icons">speed</span>${utilitiesInGroup}
                </span>`
             : '';
-        badgeHtml = buildingsBadge + utilitiesBadge;
+        const plantsBadge =
+          plantsInGroup > 0
+            ? `<span class="map-pin-badge map-pin-badge--group map-pin-badge--utilities"
+                 data-badge-filter="plant" title="${plantsInGroup} impianti in questo punto — clicca per vederli">
+                 <span class="material-icons">settings_input_component</span>${plantsInGroup}
+               </span>`
+            : '';
+        badgeHtml = buildingsBadge + utilitiesBadge + plantsBadge;
       } else {
         ({ iconHtml, color } = this.pointIcon(point));
         // Stesso badge (stile/dimensione/icona) usato per il conteggio
@@ -652,6 +663,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
           const filterType = badgeEl?.getAttribute('data-badge-filter') as
             | 'asset'
             | 'utility'
+            | 'plant'
             | null;
           this.openCombinedPicker(coordGroup, assetNameById, lat, lng, filterType ?? undefined);
         } else if (isAsset) {
@@ -828,7 +840,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     assetNameById: Map<number, string>,
     lat: number,
     lng: number,
-    filterType?: 'asset' | 'utility',
+    filterType?: 'asset' | 'utility' | 'plant',
   ): void {
     if (!this.map) return;
 
