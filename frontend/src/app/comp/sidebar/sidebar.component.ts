@@ -67,7 +67,7 @@ export class SidebarComponent implements OnInit {
         {label: 'Convenzioni CONSIP', icon: 'handshake', route: '/consip-agreement'},
         {label: 'Finalità d\'uso', icon: 'radio_button_checked', route: '/purpose'},
         {label: 'Controparti', icon: 'person_add', route: '/utilizer'},
-        {label: 'Backup e Importazione', icon: 'storage', route: '/backup-import'},
+        {label: 'Backup e manutenzione', icon: 'storage', route: '/backup-import'},
         {label: 'Branding', icon: 'palette', route: '/branding'},
         {label: 'Utenti e ruoli', icon: 'group', route: '/system-users'},
         {label: 'Log modifiche', icon: 'history', route: '/audit-log'},
