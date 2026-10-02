@@ -4,14 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDialog } from '@angular/material/dialog';
 import { ToastService } from '../../core/services/toast.service';
 import { BackupService, BackupInfo } from './backup.service';
-import { ImportService } from './import.service';
 import { GeocodeService, RegeocodeAllStatus } from './geocode.service';
 import { RestoreConfirmDialogComponent, RestoreConfirmDialogData, RestoreConfirmDialogResult } from './restore-confirm-dialog.component';
 
@@ -19,11 +16,6 @@ import { RestoreConfirmDialogComponent, RestoreConfirmDialogData, RestoreConfirm
 // geocodifica (throttle 1.1s + eventuali retry su 429) — non ha senso
 // interrogare lo stato piu' spesso del ritmo con cui puo' cambiare.
 const STATUS_POLL_MS = 3000;
-
-interface EntityTypeOption {
-  label: string;
-  value: string;
-}
 
 @Component({
   selector: 'app-backup-import',
@@ -34,8 +26,6 @@ interface EntityTypeOption {
     MatTabsModule,
     MatTableModule,
     MatButtonModule,
-    MatFormFieldModule,
-    MatSelectModule,
     MatProgressSpinnerModule,
     MatCheckboxModule,
   ],
@@ -44,7 +34,6 @@ interface EntityTypeOption {
 })
 export class BackupImportComponent implements OnDestroy {
   private backupService = inject(BackupService);
-  private importService = inject(ImportService);
   private geocodeService = inject(GeocodeService);
   private toastService = inject(ToastService);
   private dialog = inject(MatDialog);
@@ -59,22 +48,6 @@ export class BackupImportComponent implements OnDestroy {
 
   restoreFile: File | null = null;
   restoring = false;
-
-  entityTypes: EntityTypeOption[] = [
-    { label: 'Immobili', value: 'immobili' },
-    { label: 'Aggregati immobili', value: 'aggregati-immobili' },
-    { label: 'Aggregati utenze', value: 'aggregati-utenze' },
-    { label: 'Capitoli di spesa', value: 'capitoli-di-spesa' },
-    { label: 'Fornitori', value: 'fornitori' },
-    { label: 'Utilizzatori', value: 'utilizzatori' },
-    { label: 'Concessioni', value: 'concessioni' },
-    { label: 'Utenze', value: 'utenze' },
-    { label: 'Fatture', value: 'fatture' },
-  ];
-  selectedEntityType: string | null = null;
-  importFile: File | null = null;
-  importing = false;
-  importResult: Record<string, unknown> | null = null;
 
   geocodeStatus: RegeocodeAllStatus | null = null;
   geocodeForceAll = false;
@@ -232,30 +205,6 @@ export class BackupImportComponent implements OnDestroy {
         this.restoring = false;
         this.restoreFile = null;
         const detail = err?.error?.message ?? 'Errore nel ripristino';
-        this.toastService.add({ severity: 'error', summary: 'Errore', detail });
-      },
-    });
-  }
-
-  onImportFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    this.importFile = input.files?.[0] ?? null;
-  }
-
-  runImport() {
-    if (!this.selectedEntityType || !this.importFile) return;
-
-    this.importing = true;
-    this.importResult = null;
-    this.importService.import(this.selectedEntityType, this.importFile).subscribe({
-      next: (result) => {
-        this.importing = false;
-        this.importResult = result;
-        this.toastService.add({ severity: 'success', summary: 'Import completato' });
-      },
-      error: (err: any) => {
-        this.importing = false;
-        const detail = err?.error?.message ?? 'Errore nell\'import';
         this.toastService.add({ severity: 'error', summary: 'Errore', detail });
       },
     });
