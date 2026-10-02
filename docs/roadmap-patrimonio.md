@@ -74,6 +74,16 @@ Fonti (`4_IMMOBILIARE/01_CONSISTENZE_CENSIMENTI/CONSISTENZE 2025/`, salvo dove i
 
 Da approfondire: livello di dettaglio (impianto intero vs componenti, es. singolo estintore o singolo punto luce), verifiche obbligatorie per tipo (periodicità di legge), legame con i contratti di manutenzione (voce 7).
 
+Rifiniture aperte (dalla revisione finale del codice, 2026-10-02, rimandate):
+
+- dialog impianto: cambiando tipo, i campi dei dati tecnici nascosti mantengono la validazione → "Salva" disattivato senza errore visibile se c'era un valore non valido;
+- `GET /plants/:id` su impianto eliminato risponde `null` → il dialog aperto da `/plants?selectedId=<eliminato>` va in errore (serve 404 o controllo nel frontend);
+- presidi antincendio non rimossi se il tipo cambia via API diretta (la UI blocca il cambio);
+- impianti dismessi contati nel riepilogo verifiche e in "impianti senza posizione";
+- periodicità proposte nel tab Verifiche calcolate solo all'apertura del dialog (non seguono cambio tipo/potenza);
+- dialog utenza carica l'elenco impianti con tutte le relazioni solo per la select (endpoint leggero di opzioni);
+- codice impianto non ripulito dagli spazi in modifica via API diretta se uguale all'attuale.
+
 ## 4. Complessi
 
 Entità che raggruppa immobili gestiti come un tutt'uno (plesso scolastico, cimitero, stadio, "Edificio con 6 alloggi contrada giardino"). Non è una tipologia (v1.3.0 ha 4 tipologie fisse, l'utente ha escluso "Struttura" e "Altro"). Semi: `assets.associated_building`; abbinamento istituto scolastico → plesso dal report di pulizia delle concessioni (voce 1).

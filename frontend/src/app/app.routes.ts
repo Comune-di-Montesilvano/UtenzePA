@@ -51,7 +51,6 @@ export const routes: Routes = [
       {path: 'utilizer-grant', component: UtilizerGrantComponent},
       {path: 'utilities', component: UtilitiesComponent},
       {path: 'plants', component: PlantsComponent},
-      {path: 'thermal-plants', redirectTo: 'plants'},
       {path: 'maintenance-managers', component: MaintenanceManagersComponent},
       {path: 'invoices', component: InvoicesComponent},
       {path: 'contracts', component: ContractsComponent},
