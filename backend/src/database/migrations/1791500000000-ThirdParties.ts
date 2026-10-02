@@ -80,11 +80,13 @@ export class ThirdParties1791500000000 implements MigrationInterface {
       `CREATE TABLE \`utilizer\` (\`id\` int NOT NULL AUTO_INCREMENT, \`name\` varchar(255) NOT NULL, \`description\` varchar(255) NULL, \`tax_code\` varchar(16) NULL, \`contacts\` text NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
     );
     // Fornitore = id del range originale suppliers o usato da contratti/CONSIP;
-    // gli altri tornano controparti. Sigla = nome con suffisso id (unicità).
+    // gli altri tornano controparti. Solo la sigla (unique, ricostruita) prende
+    // il suffisso id: la ragione sociale resta quella vera, altrimenti un
+    // down → up la sporcherebbe.
     const name = `COALESCE(company_name, CONCAT_WS(' ', last_name, first_name))`;
     await q.query(
       `INSERT INTO \`suppliers\` (id, supplier_id, vat_number, tax_code, company_name, address, city, postal_code, email, pec, create_date, update_date, created_by_user_id, updated_by_user_id, deleted)
-       SELECT id, LEFT(CONCAT(${name}, ' #', id), 50), vat_number, tax_code, CONCAT(${name}, ' #', id), address, city, postal_code, email, pec, create_date, update_date, created_by_user_id, updated_by_user_id, deleted
+       SELECT id, LEFT(CONCAT(${name}, ' #', id), 50), vat_number, tax_code, ${name}, address, city, postal_code, email, pec, create_date, update_date, created_by_user_id, updated_by_user_id, deleted
        FROM \`third_parties\` tp
        WHERE tp.id < 961
           OR EXISTS (SELECT 1 FROM contracts c WHERE c.supplier_id_fk = tp.id)
