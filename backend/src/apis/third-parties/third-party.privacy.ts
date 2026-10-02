@@ -10,3 +10,11 @@ export function maskParty<
   if (!p || FULL_ACCESS_ROLES.has(role ?? '') || p.type !== ThirdPartyType.NATURAL) return p;
   return { ...p, tax_code: null, phone: null };
 }
+
+type PartyLike = { type?: ThirdPartyType | null; tax_code?: string | null; phone?: string | null };
+
+// Contratto di fornitura, convenzione CONSIP: il fornitore può essere una persona fisica.
+export function maskSupplierOf<T extends { supplier?: PartyLike | null }>(e: T, role?: string): T {
+  if (!e?.supplier || FULL_ACCESS_ROLES.has(role ?? '')) return e;
+  return { ...e, supplier: maskParty(e.supplier, role) };
+}

@@ -1,4 +1,8 @@
-import { FULL_ACCESS_ROLES, maskParty } from '@apis/third-parties/third-party.privacy';
+import {
+  FULL_ACCESS_ROLES,
+  maskParty,
+  maskSupplierOf,
+} from '@apis/third-parties/third-party.privacy';
 import { ThirdPartyType } from '@apis/third-parties/enum/third-party.enum';
 
 // CF e telefono delle parti persone fisiche visibili solo ad Admin/Operatore,
@@ -26,10 +30,19 @@ export function maskAssetGrants<T extends { utilizerGrants?: unknown[] }>(
   };
 }
 
-export function maskUtility<T extends { assets?: { utilizerGrants?: unknown[] }[] }>(
-  utility: T,
-  role?: string,
-): T {
-  if (!utility?.assets || FULL_ACCESS_ROLES.has(role ?? '')) return utility;
-  return { ...utility, assets: utility.assets.map((a) => maskAssetGrants(a, role)) };
+// Utenza: parti dei contratti immobiliari degli immobili, fornitore del
+// contratto corrente e fornitori dei contratti di fornitura.
+export function maskUtility<
+  T extends {
+    assets?: { utilizerGrants?: unknown[] }[];
+    supplier?: PartyLike | null;
+    contratti?: { supplier?: PartyLike | null }[];
+  },
+>(utility: T, role?: string): T {
+  if (!utility || FULL_ACCESS_ROLES.has(role ?? '')) return utility;
+  return {
+    ...maskSupplierOf(utility, role),
+    ...(utility.assets && { assets: utility.assets.map((a) => maskAssetGrants(a, role)) }),
+    ...(utility.contratti && { contratti: utility.contratti.map((c) => maskSupplierOf(c, role)) }),
+  };
 }

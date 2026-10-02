@@ -48,6 +48,15 @@ describe('privacy contratti: parti persone fisiche', () => {
     ).toBeNull();
   });
 
+  it('utenze: anche il fornitore (corrente e dei contratti) persona fisica', () => {
+    const person = () => ({ type: ThirdPartyType.NATURAL, tax_code: 'RSSMRA80A01H501U', phone: '333' });
+    const utility = { id: 1, supplier: person(), contratti: [{ id: 5, supplier: person() }] };
+    const masked = maskUtility(utility, 'Lettore');
+    expect(masked.supplier.tax_code).toBeNull();
+    expect(masked.contratti[0].supplier.phone).toBeNull();
+    expect(maskUtility(utility, 'Admin').supplier.tax_code).toBe('RSSMRA80A01H501U');
+  });
+
   it('non modifica l’oggetto originale', () => {
     const g = grant();
     maskContract(g, 'Lettore');

@@ -19,6 +19,7 @@ import { UpdateConsipAgreementDto } from '@apis/consip-agreement/dto/update-cons
 import { SearchConsipAgreementDto } from '@apis/consip-agreement/dto/search-consip-agreement.dto';
 import { JwtAuthGuard } from '@/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/core/auth/guards/roles.guard';
+import { maskSupplierOf } from '@apis/third-parties/third-party.privacy';
 
 @Controller('consip-agreement')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -26,13 +27,20 @@ export class ConsipAgreementController {
   constructor(private readonly service: ConsipAgreementService) {}
 
   @Get()
-  getAll(@Query() filters: SearchConsipAgreementDto): Promise<ConsipAgreement[]> {
-    return this.service.findAll(filters);
+  // Fornitore persona fisica: CF e telefono oscurati per il Lettore.
+  async getAll(
+    @Query() filters: SearchConsipAgreementDto,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<ConsipAgreement[]> {
+    return (await this.service.findAll(filters)).map((a) => maskSupplierOf(a, user?.role));
   }
 
   @Get(':id')
-  getOne(@Param('id', ParseIntPipe) id: number): Promise<ConsipAgreement> {
-    return this.service.findOne(id);
+  async getOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<ConsipAgreement> {
+    return maskSupplierOf(await this.service.findOne(id), user?.role);
   }
 
   @Roles('Admin', 'Operatore')

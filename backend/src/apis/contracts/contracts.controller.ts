@@ -19,6 +19,7 @@ import { UpdateContractDto } from '@apis/contracts/dto/update-contract.dto';
 import { SearchContractDto } from '@apis/contracts/dto/search-contract.dto';
 import { JwtAuthGuard } from '@/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/core/auth/guards/roles.guard';
+import { maskSupplierOf } from '@apis/third-parties/third-party.privacy';
 
 @Controller('contracts')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -26,13 +27,20 @@ export class ContractsController {
   constructor(private readonly service: ContractsService) {}
 
   @Get()
-  getAll(@Query() filters: SearchContractDto): Promise<Contract[]> {
-    return this.service.findAll(filters);
+  // Fornitore persona fisica: CF e telefono oscurati per il Lettore.
+  async getAll(
+    @Query() filters: SearchContractDto,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<Contract[]> {
+    return (await this.service.findAll(filters)).map((c) => maskSupplierOf(c, user?.role));
   }
 
   @Get(':id')
-  getOne(@Param('id', ParseIntPipe) id: number): Promise<Contract> {
-    return this.service.findOne(id);
+  async getOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<Contract> {
+    return maskSupplierOf(await this.service.findOne(id), user?.role);
   }
 
   @Roles('Admin', 'Operatore')

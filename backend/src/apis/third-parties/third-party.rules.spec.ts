@@ -3,7 +3,7 @@ import { PartyRole, ThirdPartyType } from './enum/third-party.enum';
 import { partyName, partyNameSql } from './third-party.name';
 import { normalizeParty, touchesIdentity, validateThirdParty } from './third-party.validation';
 import { matchesRoles, partyRoles, RoleIndex } from './third-party.roles';
-import { maskParty } from './third-party.privacy';
+import { maskParty, maskSupplierOf } from './third-party.privacy';
 
 const LEGAL = ThirdPartyType.LEGAL;
 const NATURAL = ThirdPartyType.NATURAL;
@@ -132,5 +132,25 @@ describe('maskParty', () => {
   it('giuridica: invariata anche per il Lettore', () => {
     const legal = { type: LEGAL, tax_code: '91015370686', phone: '085' };
     expect(maskParty(legal, 'Lettore')).toBe(legal);
+  });
+});
+
+describe('maskSupplierOf', () => {
+  const contract = () => ({
+    id: 1,
+    supplier: { type: NATURAL, last_name: 'Rossi', tax_code: 'RSSMRA80A01H501U', phone: '333' },
+  });
+  it('fornitore persona fisica oscurato per il Lettore', () => {
+    expect(maskSupplierOf(contract(), 'Lettore').supplier).toEqual({
+      type: NATURAL,
+      last_name: 'Rossi',
+      tax_code: null,
+      phone: null,
+    });
+  });
+  it('Operatore e oggetti senza fornitore invariati', () => {
+    const c = contract();
+    expect(maskSupplierOf(c, 'Operatore')).toBe(c);
+    expect(maskSupplierOf({ id: 2, supplier: null }, 'Lettore').supplier).toBeNull();
   });
 });
