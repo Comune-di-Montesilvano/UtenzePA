@@ -1,19 +1,17 @@
-import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, OnInit, QueryList, ViewChild, ViewChildren} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
-import {MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
+import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatSelectModule} from '@angular/material/select';
 import {MatButtonModule} from '@angular/material/button';
-import {MatTabsModule} from '@angular/material/tabs';
+import {MatTab, MatTabGroup, MatTabsModule} from '@angular/material/tabs';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatIconModule} from '@angular/material/icon';
 import {plainToInstance} from 'class-transformer';
-import {EditDialogData, EDIT_DIALOG_POSITION} from '../../core/components/abstract-data-table.component';
+import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {Asset} from './entity/asset.entity';
 import {AuthService} from '../../services/auth.service';
-import {HasRoleDirective} from '../../core/directives/has-role.directive';
-import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {OnlyNumbersDirective} from '../../core/directives/only-numbers.directive';
 import {LatitudeInputDirective} from '../../core/directives/latitude-input.directive';
 import {LongitudeInputDirective} from '../../core/directives/longitude-input.directive';
@@ -24,53 +22,60 @@ import {AssetFunction} from '../asset-function/entity/asset-function.entity';
 import {ASSET_STATUS_OPTIONS, AssetStatus} from './enum/asset-status.enum';
 import {AssetService} from './asset.service';
 import {TOption} from '../../core/types/option.interface';
-import {HardType} from '../utility-types/enum/hard-type.enum';
+import {HardType, HardTypeMatIcon} from '../utility-types/enum/hard-type.enum';
 import {Utility} from '../utilities/entity/utility.entity';
-import {TruncatePipe} from '../../core/pipes/truncate.pipe';
-import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
-import {DatePipe} from '@angular/common';
 import {LocationMapComponent} from '../../core/components/location-map.component';
 import {PhotoGalleryComponent} from '../../core/components/photo-gallery.component';
 import {EntityHistoryComponent} from '../../core/components/entity-history.component';
 import {PhotosService} from '../../services/photos.service';
-import {UtilityEditDialogComponent} from '../utilities/utility-edit-dialog.component';
 import {ASSET_AGGREGATOR_ICON_FALLBACK} from '../asset-aggregator/enum/asset-aggregator-icon.enum';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {UtilityType} from '../utility-types/entity/utility-type.entity';
-import {UtilityService} from '../utilities/utility.service';
-import {AssetPlantsTabComponent} from '../plants/asset-plants-tab.component';
-import {AssetRealEstateContractsTabComponent} from '../utilizer-grant/asset-real-estate-contracts-tab.component';
+import {PlantService} from '../plants/plant.service';
+import {Plant, PLANT_TYPE_ICON, PLANT_TYPE_LABEL} from '../plants/plant.model';
+import {UtilizerGrantService} from '../utilizer-grant/utilizer-grant.service';
+import {UtilizerGrant} from '../utilizer-grant/entity/utilizer-grant.entity';
+import {DIRECTION_LABEL, formatEuro, KIND_LABEL} from '../utilizer-grant/real-estate-contract.model';
+import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
+import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
+import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
+import {PreviewCardComponent, PreviewItem} from '../../core/components/entity-sheet/preview-card.component';
+import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components/entity-sheet/linked-table.component';
+import {
+  assetStatus,
+  grantStatus,
+  inspectionStatusInfo,
+  legacyTypeStatus,
+  plantStatus,
+  StatusInfo,
+  utilityStatus,
+} from '../../core/helpers/entity-status';
+import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
+import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 
-// Stessa larghezza usata per il dialog immobile (vedi UtilityEditDialogComponent
-// ASSET_DIALOG_WIDTH) — tab + gruppi affiancati richiedono spazio simile.
-const UTILITY_DIALOG_WIDTH = '1150px';
+interface UtilitySection {
+  type: HardType;
+  label: string;
+  icon: string;
+  color: string;
+  rows: Utility[];
+}
+
+interface UtilityTypeButton {
+  value: HardType;
+  label: string;
+  icon: string;
+  color: string;
+}
 
 @Component({
   selector: 'app-asset-edit-dialog',
   standalone: true,
   imports: [
-    ReactiveFormsModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
-    MatButtonModule,
-    MatTabsModule,
-    MatTooltipModule,
-    MatIconModule,
-    HasRoleDirective,
-    ReadOnlyDirective,
-    OnlyNumbersDirective,
-    LatitudeInputDirective,
-    LongitudeInputDirective,
-    TruncatePipe,
-    FormatAmountPipe,
-    DatePipe,
-    LocationMapComponent,
-    PhotoGalleryComponent,
-    EntityHistoryComponent,
-    AssetPlantsTabComponent,
-    AssetRealEstateContractsTabComponent,
+    ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
+    MatTabsModule, MatTooltipModule, MatIconModule, OnlyNumbersDirective, LatitudeInputDirective,
+    LongitudeInputDirective, LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
+    EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, PreviewCardComponent, LinkedTableComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './asset-edit-dialog.component.html'
@@ -78,18 +83,23 @@ const UTILITY_DIALOG_WIDTH = '1150px';
 export class AssetEditDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<AssetEditDialogComponent, Asset | undefined>);
-  private dialog = inject(MatDialog);
   private authService = inject(AuthService);
   private naturesService = inject(AssetNaturesService);
   private functionsService = inject(AssetFunctionsService);
   private assetService = inject(AssetService);
   private photosService = inject(PhotosService);
   private utilityTypesService = inject(UtilityTypesService);
-  private utilityService = inject(UtilityService);
+  private plantService = inject(PlantService);
+  private grantService = inject(UtilizerGrantService);
+  private navigator = inject(EntityNavigatorService);
   protected data = inject<EditDialogData<Asset>>(MAT_DIALOG_DATA);
 
+  @ViewChild(MatTabGroup) tabGroup?: MatTabGroup;
+  @ViewChildren(MatTab) tabList?: QueryList<MatTab>;
+
   isNew = this.data.mode === 'create';
-  maxDescLength = 50;
+  readonly canEdit = isEditorRole(this.authService.getCurrentUser()?.role);
+  readonly lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
 
   natures: AssetNature[] = [];
   private allFunctions: AssetFunction[] = [];
@@ -116,7 +126,6 @@ export class AssetEditDialogComponent implements OnInit {
     {label: 'Sì', value: 1},
     {label: 'No', value: 0}
   ];
-  tabs = HardType.items();
 
   form = this.fb.group({
     asset_name: [this.data.item.asset_name ?? '', Validators.required],
@@ -143,9 +152,50 @@ export class AssetEditDialogComponent implements OnInit {
     memo: [this.data.item.memo ?? null],
   });
 
+  photoCount: number | null = null;
+
+  // Collegamenti: campi cache, aggiornati solo su load/aggiunta/salvataggio.
+  utilitySections: UtilitySection[] = [];
+  missingUtilityTypes: UtilityTypeButton[] = [];
+  utilityPreview: PreviewItem[] = [];
+  plants: Plant[] = [];
+  plantPreview: PreviewItem[] = [];
+  grants: UtilizerGrant[] = [];
+  grantPreview: PreviewItem[] = [];
+
+  // Serve ad "Aggiungi utenza" per pre-selezionare il UtilityType giusto in
+  // base al tipo, dato che il form utenza lavora per id di UtilityType.
+  private utilityTypeIdByHardType = new Map<HardType, number>();
+
+  readonly utilityColumns: LinkedColumn<Utility>[] = [
+    {label: 'POD/PDR', value: u => u.utility_id ?? ''},
+    {label: 'Codice cliente', value: u => u.utility_code ?? ''},
+    {label: 'Contatore', value: u => u.meter_number ?? ''},
+    {label: 'Inizio fornitura', value: u => dateIt(u.supply_start_date)},
+  ];
+  readonly utilityStatusOf = (u: Utility): StatusInfo => utilityStatus(u.supply_active);
+
+  readonly plantColumns: LinkedColumn<Plant>[] = [
+    {label: 'Tipo', value: p => PLANT_TYPE_LABEL[p.type]},
+    {label: 'Codice', value: p => p.code},
+    {label: 'Nome', value: p => p.name},
+    {label: 'Utenze', value: p => (p.utilities ?? []).map(u => u.utility_id).join(', ')},
+  ];
+  readonly plantIconOf = (p: Plant): RowIcon => ({icon: PLANT_TYPE_ICON[p.type], color: 'var(--entity-plant)'});
+  readonly plantStatusOf = (p: Plant): StatusInfo | null => inspectionStatusInfo(p.inspection_status);
+
+  readonly grantColumns: LinkedColumn<UtilizerGrant>[] = [
+    {label: 'Direzione', value: g => (g.direction ? DIRECTION_LABEL[g.direction] : '')},
+    {label: 'Tipo', value: g => (g.kind ? KIND_LABEL[g.kind] : '')},
+    {label: 'Controparte', value: g => g.utilizer?.name ?? ''},
+    {label: 'Oggetto', value: g => g.subject ?? ''},
+    {label: 'Canone annuo', value: g => formatEuro(g.annual_rent)},
+    {label: 'Scadenza', value: g => dateIt(g.effective_end_date)},
+  ];
+  readonly grantStatusOf = (g: UtilizerGrant): StatusInfo => grantStatus(g.computed_status);
+
   constructor() {
-    const role = this.authService.getCurrentUser()?.role;
-    if (!role || role === 'Lettore') {
+    if (!this.canEdit) {
       this.form.disable();
     } else {
       this.syncFunctionEnabled();
@@ -168,13 +218,6 @@ export class AssetEditDialogComponent implements OnInit {
     else fn.enable({emitEvent: false});
   }
 
-  photoCount: number | null = null;
-
-  // Popolata in ngOnInit — serve ad "Aggiungi utenza" per pre-selezionare il
-  // UtilityType giusto in base al tab (hard_type) da cui si apre il form,
-  // dato che il form utenza lavora per id di UtilityType, non per hard_type.
-  private utilityTypeIdByHardType = new Map<HardType, number>();
-
   ngOnInit(): void {
     this.naturesService.search({deleted: false} as never).subscribe({
       next: data => this.natures = data,
@@ -184,7 +227,6 @@ export class AssetEditDialogComponent implements OnInit {
       next: data => this.allFunctions = data,
       error: err => console.error('Errore nel caricamento delle funzioni immobile:', err)
     });
-
     this.utilityTypesService.search({deleted: false}).subscribe({
       next: (data: UtilityType[]) => {
         this.utilityTypeIdByHardType.clear();
@@ -194,32 +236,26 @@ export class AssetEditDialogComponent implements OnInit {
       },
       error: err => console.error('Errore nel caricamento dei Tipi Utenza:', err)
     });
-
-    // Solo per mostrare "Foto (N)" sull'etichetta del tab prima ancora di
-    // aprirlo — il tab e' lazy (matTabContent), PhotoGalleryComponent non
-    // esiste finche' non ci si clicca dentro, quindi il conteggio non puo'
-    // venire da li'. Chiamata leggera (solo metadati, non i file), non
-    // duplicata quando poi si apre davvero il tab (PhotoGalleryComponent
-    // fa la sua load() indipendente).
+    this.refreshUtilities();
     if (!this.isNew) {
+      // Conteggio "Foto (N)" prima di aprire il tab (lazy): solo metadati.
       this.photosService.list('asset', this.data.item.id).subscribe({
         next: photos => this.photoCount = photos.length,
-        error: () => {} // non critico: l'etichetta resta senza numero, la galleria stessa segnala eventuali errori
+        error: () => {}
       });
+      this.loadPlants();
+      this.loadGrants();
     }
   }
 
-  // Icona del tab "Dati" — segue la funzione selezionata nel form (non
-  // data.item, che resterebbe quella iniziale se l'utente la cambia prima
-  // di salvare); in transizione ricade sull'icona del vecchio aggregato,
-  // stesso fallback dei marker mappa.
+  // Icona header: segue la funzione selezionata nel form; in transizione
+  // ricade sull'icona del vecchio aggregato, stesso fallback dei marker mappa.
   currentAssetIcon(): string {
     const fid = this.form.controls.function_id.value;
     const fn = this.allFunctions.find(f => f.id === fid);
     return fn?.icon || this.data.item.assetAggregator?.icon || ASSET_AGGREGATOR_ICON_FALLBACK;
   }
 
-  // Funzioni ammesse per la natura selezionata (coppie in AssetNature.functions).
   functionOptions(): AssetFunction[] {
     const nature = this.natures.find(n => n.id === this.form.controls.nature_id.value);
     return nature?.functions ?? [];
@@ -233,98 +269,155 @@ export class AssetEditDialogComponent implements OnInit {
     return this.allFunctions.find(f => f.id === this.form.controls.function_id.value);
   }
 
-  // Badge header: vecchio tipo ancora valorizzato = immobile da riclassificare.
+  // Vecchio tipo ancora valorizzato = immobile da riclassificare.
   legacyTypeLabel(): string | null {
     return this.data.item.asset_type_id != null ? (this.data.item.assetAggregator?.code ?? null) : null;
   }
 
-  getUtilitiesByHardType(hardType: HardType): Utility[] {
-    return this.data.item.utilities?.filter(u => u.utilityType?.hard_type === hardType) ?? [];
+  statusInfo(): StatusInfo {
+    return assetStatus(this.form.controls.status.value);
   }
 
-  getUtilityCountByType(hardType: HardType): number {
-    return this.getUtilitiesByHardType(hardType).length;
+  legacyBadge(): StatusInfo | null {
+    return legacyTypeStatus(this.legacyTypeLabel());
   }
 
-  // Apre il form utenza in creazione con immobile e tipologia già
-  // pre-compilati (immobile = quello di questo dialog, tipologia = il tab
-  // da cui si clicca) — a differenza di openUtilityDetail il form qui non
-  // esiste ancora, va creato e persistito noi stessi: questo dialog non
-  // passa dal flusso AbstractDataTableComponent.openCreateDialog()/onCreate
-  // (che fa la stessa cosa per la tabella utenze), essendo aperto da dentro
-  // un altro dialog, quindi va replicata a mano la POST + l'aggiornamento
-  // locale di data.item.utilities (cosi' il conteggio/la tabella del tab
-  // si aggiornano subito, senza dover chiudere e riaprire l'immobile).
+  titleText(): string {
+    return this.isNew ? 'Nuovo immobile' : (this.form.controls.asset_name.value || 'Immobile senza nome');
+  }
+
+  addressLine(): string {
+    const v = this.form.getRawValue();
+    const street = [v.toponym, v.address, v.civic_number].filter(Boolean).join(' ');
+    return [street, v.municipality].filter(Boolean).join(', ');
+  }
+
+  invalid(...names: string[]): boolean {
+    return hasInvalid(this.form, ...names);
+  }
+
+  filled(...names: string[]): boolean {
+    return hasAnyValue(this.form, ...names);
+  }
+
+  goTo(label: string): void {
+    selectTab(this.tabGroup, this.tabList, label);
+  }
+
+  utilityCount(): number {
+    return this.data.item.utilities?.length ?? 0;
+  }
+
+  hasOverdueInspections(): boolean {
+    return this.plants.some(p => p.inspection_status === 'OVERDUE');
+  }
+
+  hasExpiredGrants(): boolean {
+    return this.grants.some(g => g.computed_status === 'EXPIRED');
+  }
+
+  private refreshUtilities(): void {
+    const all = this.data.item.utilities ?? [];
+    const types = HardType.items();
+    this.utilitySections = types
+      .map(t => ({
+        type: t.value, label: t.label, icon: HardTypeMatIcon[t.value], color: t.color,
+        rows: all.filter(u => u.utilityType?.hard_type === t.value),
+      }))
+      .filter(s => s.rows.length > 0);
+    this.missingUtilityTypes = types
+      .filter(t => !this.utilitySections.some(s => s.type === t.value))
+      .map(t => ({value: t.value, label: t.label, icon: HardTypeMatIcon[t.value], color: t.color}));
+    this.utilityPreview = this.utilitySections.flatMap(s => s.rows.map(u => ({
+      id: u.id, label: u.utility_id ?? `#${u.id}`, sublabel: s.label, icon: s.icon, color: s.color,
+      status: utilityStatus(u.supply_active),
+    })));
+  }
+
+  private loadPlants(): void {
+    this.plantService.list({asset_id: this.data.item.id}).subscribe({
+      next: rows => {
+        this.plants = rows;
+        this.plantPreview = rows.map(p => ({
+          id: p.id, label: `${p.code} — ${p.name}`, sublabel: PLANT_TYPE_LABEL[p.type],
+          icon: PLANT_TYPE_ICON[p.type], color: 'var(--entity-plant)', status: plantStatus(p.status),
+        }));
+      },
+      error: err => console.error('Errore caricamento impianti:', err),
+    });
+  }
+
+  private loadGrants(): void {
+    this.grantService.search({asset_id: this.data.item.id} as never).subscribe({
+      next: rows => {
+        this.grants = rows;
+        this.grantPreview = rows
+          .filter(g => g.computed_status === 'ACTIVE' || g.computed_status === 'EXPIRING')
+          .map(g => ({
+            id: g.id, label: g.utilizer?.name ?? `#${g.id}`,
+            sublabel: [g.kind ? KIND_LABEL[g.kind] : null, g.subject].filter(Boolean).join(' · '),
+            icon: 'real_estate_agent', color: 'var(--entity-grant)', status: grantStatus(g.computed_status),
+          }));
+      },
+      error: err => console.error('Errore caricamento contratti immobiliari:', err),
+    });
+  }
+
   addUtility(hardType: HardType): void {
-    const utilityTypeId = this.utilityTypeIdByHardType.get(hardType) ?? null;
-    const newUtility = Utility.create({
+    const prefill = Utility.create({
       asset_ids: [this.data.item.id],
       assets: [this.data.item],
-      utility_type_id_fk: utilityTypeId ?? undefined,
+      utility_type_id_fk: this.utilityTypeIdByHardType.get(hardType) ?? undefined,
     });
-
-    this.dialog.open<UtilityEditDialogComponent, {mode: 'create'; item: Utility}, Utility | undefined>(UtilityEditDialogComponent, {
-      width: UTILITY_DIALOG_WIDTH,
-      maxWidth: UTILITY_DIALOG_WIDTH,
-      position: EDIT_DIALOG_POSITION,
-      data: {mode: 'create', item: newUtility},
-    }).afterClosed().subscribe(result => {
-      if (!result) return;
-      const userId = this.authService.getCurrentUser()?.id;
-      this.utilityService.create({...result, created_by_user_id: userId, updated_by_user_id: userId}).subscribe({
-        next: created => {
-          // POST ritorna l'entita' salvata da TypeORM.save() SENZA relazioni
-          // popolate (utilityType/asset restano undefined, solo gli _id_fk
-          // sono valorizzati) — getUtilitiesByHardType filtra su
-          // u.utilityType?.hard_type, quindi senza questo stub la nuova
-          // utenza risulterebbe invisibile nel proprio tab finche' non si
-          // riapre il dialog (bug reale, visto in verifica end-to-end).
-          created.utilityType = {hard_type: hardType} as UtilityType;
-          this.data.item.utilities = [...(this.data.item.utilities ?? []), created];
-        },
-        error: err => console.error("Errore nella creazione dell'utenza:", err)
-      });
+    this.navigator.createUtility(prefill).subscribe(created => {
+      if (!created) return;
+      // La POST non popola le relazioni: senza questo stub la nuova utenza
+      // resterebbe invisibile nella sua sezione finché non si riapre.
+      created.utilityType = {hard_type: hardType} as UtilityType;
+      this.data.item.utilities = [...(this.data.item.utilities ?? []), created];
+      this.refreshUtilities();
     });
   }
 
-  openUtilityDetail(utility: Utility): void {
-    // Sopra questo dialog (stessa finestra), non una tab nuova — stesso
-    // pattern del verso opposto in UtilityEditDialogComponent.navigateToAsset.
-    //
-    // Il GET immobile non popola il back-reference utilities[].assets (evita
-    // il giro circolare): aprire il dialog con i soli dati della riga
-    // mostrerebbe solo questo immobile e, al salvataggio, asset_ids
-    // sostituirebbe l'insieme cancellando gli altri immobili collegati.
-    // GET singolo dell'utenza (findOne joina gli immobili) prima di aprire.
-    this.utilityService.getById(utility.id).subscribe({
-      next: full => {
-        this.dialog.open<UtilityEditDialogComponent, {mode: 'edit'; item: Utility}, Utility | undefined>(UtilityEditDialogComponent, {
-          width: UTILITY_DIALOG_WIDTH,
-          maxWidth: UTILITY_DIALOG_WIDTH,
-          position: EDIT_DIALOG_POSITION,
-          data: {mode: 'edit', item: full},
-        })
-          // Il dialog si limita a chiudersi col form compilato: il
-          // salvataggio va fatto qui (stesso pattern di MapComponent.openDetail),
-          // altrimenti "Salva" chiudeva senza persistere nulla.
-          .afterClosed().subscribe(result => {
-            if (!result) return;
-            this.utilityService.update(result.id, result).subscribe({
-              next: saved => {
-                const stillLinked = saved.assets?.some(a => a.id === this.data.item.id) ?? true;
-                const others = (this.data.item.utilities ?? []).filter(u => u.id !== saved.id);
-                this.data.item.utilities = stillLinked ? [...others, saved] : others;
-              },
-              error: err => console.error("Errore nel salvataggio dell'utenza:", err)
-            });
-          });
-      },
-      error: err => console.error("Errore nel caricamento dell'utenza:", err)
+  openUtility(id: number): void {
+    this.navigator.openUtility(id).subscribe(saved => {
+      if (!saved) return;
+      const stillLinked = saved.assets?.some(a => a.id === this.data.item.id) ?? true;
+      const others = (this.data.item.utilities ?? []).filter(u => u.id !== saved.id);
+      this.data.item.utilities = stillLinked ? [...others, saved] : others;
+      this.refreshUtilities();
+    });
+  }
+
+  openPlant(id: number): void {
+    this.navigator.openPlant(id).subscribe(saved => {
+      if (saved) this.loadPlants();
+    });
+  }
+
+  createPlant(): void {
+    this.navigator.createPlant(this.data.item.id).subscribe(saved => {
+      if (saved) this.loadPlants();
+    });
+  }
+
+  openGrant(id: number): void {
+    this.navigator.openGrant(id).subscribe(saved => {
+      if (saved) this.loadGrants();
+    });
+  }
+
+  createGrant(): void {
+    this.navigator.createGrant([this.data.item.id]).subscribe(saved => {
+      if (saved) this.loadGrants();
     });
   }
 
   save(): void {
-    if (!this.form.valid) return;
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
     const result = plainToInstance(Asset, {
       id: this.data.item.id,
       ...this.form.getRawValue()

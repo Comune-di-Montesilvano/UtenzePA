@@ -1,151 +1,136 @@
-<h2 mat-dialog-title style="display: flex; width: 100%; box-sizing: border-box; justify-content: flex-start; align-items: baseline; gap: 1rem;">
-  <span>{{ isNew ? 'Aggiungi Immobile' : 'Modifica Immobile: ' + data.item.asset_name + ' (ID ' + data.item.id + ')' }}</span>
-  @if (legacyTypeLabel(); as legacy) {
-    <span style="font-size: 0.75rem; font-weight: 500; padding: 2px 8px; border-radius: 12px; background: #fef3c7; color: #92400e; white-space: nowrap;"
-          matTooltip="Classificazione precedente: sparisce dopo aver salvato tipologia e funzione">
-      Tipo precedente: {{ legacy }}
-    </span>
-  }
-  @if (!isNew && data.item.updated_by && data.item.update_date) {
-    <span style="margin-left: auto; font-size: 0.75rem; font-weight: 400; color: rgba(0,0,0,0.6); white-space: nowrap;">
-      Ultima modifica: {{ data.item.update_date | date:'dd/MM/yyyy HH:mm' }} — {{ data.item.updated_by.firstName }} {{ data.item.updated_by.lastName }}
-    </span>
-  }
-</h2>
+<app-entity-sheet
+  [icon]="currentAssetIcon()"
+  color="var(--entity-asset)"
+  [title]="titleText()"
+  [subtitle]="addressLine()"
+  [lastModified]="lastModified">
+  <ng-container sheetBadges>
+    <app-status-badge [info]="statusInfo()"></app-status-badge>
+    @if (legacyBadge(); as legacy) {
+      <app-status-badge [info]="legacy" size="sm"></app-status-badge>
+    }
+  </ng-container>
 
-<mat-dialog-content>
-  <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start">
-    <mat-tab>
-      <ng-template mat-tab-label>
-        <mat-icon style="margin-right: 5px;">{{ currentAssetIcon() }}</mat-icon>
-        Dati
-      </ng-template>
-  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-direction: column; gap: 1rem;">
+  <form [formGroup]="form">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
 
-    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Nome edificio *</mat-label>
-        <input matInput formControlName="asset_name">
-        @if (form.controls.asset_name.invalid && form.controls.asset_name.touched) {
-          <mat-error>Obbligatorio</mat-error>
-        }
-      </mat-form-field>
+      <mat-tab aria-label="Riepilogo">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="dashboard" label="Riepilogo"
+                         [error]="invalid('asset_name', 'nature_id', 'function_id', 'status')"></app-tab-label>
+        </ng-template>
 
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Tipologia</mat-label>
-        <mat-select formControlName="nature_id">
-          <!-- Trigger esplicito: senza, la select chiusa mostrerebbe il testo
-               completo dell'opzione, ligatura icona inclusa ("apartmentFabbricato"). -->
-          <mat-select-trigger>{{ selectedNature()?.name }}</mat-select-trigger>
-          <mat-option [value]="null">—</mat-option>
-          @for (opt of natures; track opt.id) {
-            <mat-option [value]="opt.id">
-              <span><mat-icon style="vertical-align: middle; margin-right: 4px; font-size: 18px; height: 18px; width: 18px;">{{ opt.icon || 'category' }}</mat-icon>{{ opt.name }}</span>
-            </mat-option>
-          }
-        </mat-select>
-        <mat-icon matSuffix class="classification-help" [matTooltip]="classificationRule" matTooltipClass="tooltip-multiline"
-                  (click)="$event.stopPropagation()">help_outline</mat-icon>
-        @if (form.controls.nature_id.invalid && form.controls.nature_id.touched) {
-          <mat-error>Obbligatorio</mat-error>
-        }
-      </mat-form-field>
+        <div class="sheet-grid">
+          <mat-form-field class="span-2">
+            <mat-label>Nome edificio *</mat-label>
+            <input matInput formControlName="asset_name">
+            @if (form.controls.asset_name.invalid && form.controls.asset_name.touched) {
+              <mat-error>Obbligatorio</mat-error>
+            }
+          </mat-form-field>
 
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Funzione</mat-label>
-        <mat-select formControlName="function_id">
-          <mat-select-trigger>{{ selectedFunction()?.name }}</mat-select-trigger>
-          <mat-option [value]="null">—</mat-option>
-          @for (opt of functionOptions(); track opt.id) {
-            <mat-option [value]="opt.id">
-              <span><mat-icon style="vertical-align: middle; margin-right: 4px; font-size: 18px; height: 18px; width: 18px;">{{ opt.icon || 'apartment' }}</mat-icon>{{ opt.name }}</span>
-            </mat-option>
-          }
-        </mat-select>
-        @if (form.controls.nature_id.value == null) {
-          <mat-hint>Scegliere prima la tipologia</mat-hint>
-        }
-        @if (form.controls.function_id.invalid && form.controls.function_id.touched) {
-          <mat-error>Obbligatorio</mat-error>
-        }
-      </mat-form-field>
+          <mat-form-field>
+            <mat-label>Stato</mat-label>
+            <mat-select formControlName="status">
+              @for (opt of statusOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Stato</mat-label>
-        <mat-select formControlName="status">
-          @for (opt of statusOptions; track opt.value) {
-            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
+          <mat-form-field>
+            <mat-label>Proprietà</mat-label>
+            <mat-select formControlName="ownership">
+              @for (opt of ownershipOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Categoria (destinazione d'uso)</mat-label>
-        <mat-select formControlName="category">
-          @for (opt of categoryOptions; track opt.value) {
-            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
+          <mat-form-field>
+            <mat-label>Tipologia</mat-label>
+            <mat-select formControlName="nature_id">
+              <!-- Trigger esplicito: senza, la select chiusa mostrerebbe il testo
+                   completo dell'opzione, ligatura icona inclusa ("apartmentFabbricato"). -->
+              <mat-select-trigger>{{ selectedNature()?.name }}</mat-select-trigger>
+              <mat-option [value]="null">—</mat-option>
+              @for (opt of natures; track opt.id) {
+                <mat-option [value]="opt.id">
+                  <span><mat-icon style="vertical-align: middle; margin-right: 4px; font-size: 18px; height: 18px; width: 18px;">{{ opt.icon || 'category' }}</mat-icon>{{ opt.name }}</span>
+                </mat-option>
+              }
+            </mat-select>
+            <mat-icon matSuffix class="classification-help" [matTooltip]="classificationRule" matTooltipClass="tooltip-multiline"
+                      (click)="$event.stopPropagation()">help_outline</mat-icon>
+            @if (form.controls.nature_id.invalid && form.controls.nature_id.touched) {
+              <mat-error>Obbligatorio</mat-error>
+            }
+          </mat-form-field>
 
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Proprietà</mat-label>
-        <mat-select formControlName="ownership">
-          @for (opt of ownershipOptions; track opt.value) {
-            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-    </div>
+          <mat-form-field>
+            <mat-label>Funzione</mat-label>
+            <mat-select formControlName="function_id">
+              <mat-select-trigger>{{ selectedFunction()?.name }}</mat-select-trigger>
+              <mat-option [value]="null">—</mat-option>
+              @for (opt of functionOptions(); track opt.id) {
+                <mat-option [value]="opt.id">
+                  <span><mat-icon style="vertical-align: middle; margin-right: 4px; font-size: 18px; height: 18px; width: 18px;">{{ opt.icon || 'apartment' }}</mat-icon>{{ opt.name }}</span>
+                </mat-option>
+              }
+            </mat-select>
+            @if (form.controls.nature_id.value == null) {
+              <mat-hint>Scegliere prima la tipologia</mat-hint>
+            }
+            @if (form.controls.function_id.invalid && form.controls.function_id.touched) {
+              <mat-error>Obbligatorio</mat-error>
+            }
+          </mat-form-field>
 
-    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Toponimo</mat-label>
-        <mat-select formControlName="toponym">
-          @for (opt of toponomyOptions; track opt.value) {
-            <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
+          <mat-form-field class="span-2">
+            <mat-label>Categoria (destinazione d'uso)</mat-label>
+            <mat-select formControlName="category">
+              @for (opt of categoryOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
 
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Indirizzo</mat-label>
-        <input matInput formControlName="address">
-      </mat-form-field>
-
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Civico</mat-label>
-        <input matInput formControlName="civic_number">
-      </mat-form-field>
-
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Comune</mat-label>
-        <input matInput formControlName="municipality">
-      </mat-form-field>
-    </div>
-
-    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>CAP</mat-label>
-        <input matInput formControlName="zip_code" maxlength="5" inputmode="numeric" onlyNumbers>
-      </mat-form-field>
-
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Servizi/Manufatti</mat-label>
-        <input matInput formControlName="services_and_artifacts">
-      </mat-form-field>
-
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Latitudine</mat-label>
-        <input matInput formControlName="latitude" placeholder="Es. 41.1158" geoLatitude>
-      </mat-form-field>
-
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Longitudine</mat-label>
-        <input matInput formControlName="longitude" placeholder="Es. 16.8776" geoLongitude>
-      </mat-form-field>
-
-      <div style="flex: 1 1 100%;">
+        <div class="sheet-section-title"><mat-icon>place</mat-icon>Indirizzo e posizione</div>
+        <div class="sheet-grid">
+          <mat-form-field>
+            <mat-label>Toponimo</mat-label>
+            <mat-select formControlName="toponym">
+              @for (opt of toponomyOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field class="span-2">
+            <mat-label>Indirizzo</mat-label>
+            <input matInput formControlName="address">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Civico</mat-label>
+            <input matInput formControlName="civic_number">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Comune</mat-label>
+            <input matInput formControlName="municipality">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>CAP</mat-label>
+            <input matInput formControlName="zip_code" maxlength="5" inputmode="numeric" onlyNumbers>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Latitudine</mat-label>
+            <input matInput formControlName="latitude" placeholder="Es. 41.1158" geoLatitude>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Longitudine</mat-label>
+            <input matInput formControlName="longitude" placeholder="Es. 16.8776" geoLongitude>
+          </mat-form-field>
+        </div>
         <app-location-map
           [latitude]="form.controls.latitude.value"
           [longitude]="form.controls.longitude.value"
@@ -155,163 +140,185 @@
           (positionCleared)="onPositionCleared()">
         </app-location-map>
         @if (!form.controls.latitude.value && data.item.geocoded_latitude) {
-          <div style="font-size: 0.8rem; color: #757575;">Posizione stimata da indirizzo (geocodifica) — clicca sulla mappa per confermarne una reale.</div>
+          <p class="sheet-hint">Posizione stimata da indirizzo (geocodifica) — clicca sulla mappa per confermarne una reale.</p>
         }
-      </div>
-    </div>
 
-    <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Valore catastale (€)</mat-label>
-        <input matInput type="number" step="0.01" formControlName="cadastral_value">
-      </mat-form-field>
+        @if (form.controls.memo.value) {
+          <div class="sheet-memo">
+            <mat-icon>sticky_note_2</mat-icon>
+            <div><strong>Promemoria</strong><p>{{ form.controls.memo.value }}</p></div>
+          </div>
+        }
 
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Foglio</mat-label>
-        <input matInput formControlName="sheet">
-      </mat-form-field>
+        @if (!isNew) {
+          <div class="sheet-previews">
+            <app-preview-card title="Utenze" icon="electric_meter" color="var(--entity-utility)"
+                              [items]="utilityPreview" emptyText="Nessuna utenza"
+                              (seeAll)="goTo('Utenze')" (open)="openUtility($event.id)"></app-preview-card>
+            <app-preview-card title="Impianti" icon="settings_input_component" color="var(--entity-plant)"
+                              [items]="plantPreview" emptyText="Nessun impianto"
+                              (seeAll)="goTo('Impianti')" (open)="openPlant($event.id)"></app-preview-card>
+            <app-preview-card title="Contratti immobiliari attivi" icon="real_estate_agent" color="var(--entity-grant)"
+                              [items]="grantPreview" emptyText="Nessun contratto attivo"
+                              (seeAll)="goTo('Contratti immobiliari')" (open)="openGrant($event.id)"></app-preview-card>
+          </div>
+        }
+      </mat-tab>
 
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Particella (Mappale)</mat-label>
-        <input matInput formControlName="parcel">
-      </mat-form-field>
-
-      <mat-form-field style="flex: 1 1 21%;">
-        <mat-label>Subalterno</mat-label>
-        <input matInput formControlName="subordinate">
-      </mat-form-field>
-    </div>
-
-    <mat-form-field style="flex: 1 1 21%;">
-      <mat-label>Superficie (mq)</mat-label>
-      <input matInput type="number" step="0.01" formControlName="area_sqm">
-    </mat-form-field>
-
-    <div style="display: flex; flex-direction: column; gap: 1rem;">
-      <mat-form-field style="flex: 1 1 100%;">
-        <mat-label>Descrizione fabbricato</mat-label>
-        <textarea matInput formControlName="associated_building" rows="3" maxlength="255"></textarea>
-      </mat-form-field>
-
-      <mat-form-field style="flex: 1 1 100%;">
-        <mat-label>Specifiche</mat-label>
-        <textarea matInput formControlName="specific_details" rows="3"></textarea>
-      </mat-form-field>
-    </div>
-
-    <mat-form-field>
-      <mat-label>Promemoria</mat-label>
-      <textarea matInput formControlName="memo" rows="3"></textarea>
-    </mat-form-field>
-
-  </form>
-    </mat-tab>
-    <mat-tab label="Foto" [disabled]="isNew">
-      <ng-template mat-tab-label>
-        <mat-icon style="margin-right: 5px;">photo_library</mat-icon>
-        Foto{{ photoCount != null ? ' (' + photoCount + ')' : '' }}
-      </ng-template>
-      <ng-template matTabContent>
-        <div style="padding: 1rem 0;">
-          <app-photo-gallery [entityType]="'asset'" [entityId]="data.item.id"></app-photo-gallery>
+      <mat-tab aria-label="Catasto">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="map" label="Catasto"
+                         [dot]="filled('cadastral_value', 'sheet', 'parcel', 'subordinate', 'area_sqm', 'associated_building', 'services_and_artifacts')"></app-tab-label>
+        </ng-template>
+        <div class="sheet-grid">
+          <mat-form-field>
+            <mat-label>Foglio</mat-label>
+            <input matInput formControlName="sheet">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Particella (Mappale)</mat-label>
+            <input matInput formControlName="parcel">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Subalterno</mat-label>
+            <input matInput formControlName="subordinate">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Valore catastale (€)</mat-label>
+            <input matInput type="number" step="0.01" formControlName="cadastral_value">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Superficie (mq)</mat-label>
+            <input matInput type="number" step="0.01" formControlName="area_sqm">
+          </mat-form-field>
+          <mat-form-field class="span-2">
+            <mat-label>Servizi/Manufatti</mat-label>
+            <input matInput formControlName="services_and_artifacts">
+          </mat-form-field>
+          <mat-form-field class="span-all">
+            <mat-label>Descrizione fabbricato</mat-label>
+            <textarea matInput formControlName="associated_building" rows="3" maxlength="255"></textarea>
+          </mat-form-field>
         </div>
-      </ng-template>
-    </mat-tab>
-    <mat-tab label="Storico" [disabled]="isNew">
-      <ng-template mat-tab-label>
-        <mat-icon style="margin-right: 5px;">history</mat-icon>
-        Storico
-      </ng-template>
-      <ng-template matTabContent>
-        <div style="padding: 1rem 0;">
+      </mat-tab>
+
+      <mat-tab aria-label="Utenze" [disabled]="isNew">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="electric_meter" label="Utenze" [count]="isNew ? null : utilityCount()"></app-tab-label>
+        </ng-template>
+        <ng-template matTabContent>
+          @for (s of utilitySections; track s.type) {
+            <section class="sheet-section">
+              <div class="sheet-section-title">
+                <mat-icon [style.color]="s.color">{{ s.icon }}</mat-icon>{{ s.label }} ({{ s.rows.length }})
+              </div>
+              <app-linked-table
+                [columns]="utilityColumns"
+                [rows]="s.rows"
+                [rowStatus]="utilityStatusOf"
+                [createLabel]="canEdit ? 'Aggiungi utenza ' + s.label : null"
+                (create)="addUtility(s.type)"
+                (open)="openUtility($event.id)">
+              </app-linked-table>
+            </section>
+          } @empty {
+            <p class="sheet-empty">Nessuna utenza collegata a questo immobile.</p>
+          }
+          @if (canEdit && missingUtilityTypes.length) {
+            <div class="sheet-add-row">
+              @for (t of missingUtilityTypes; track t.value) {
+                <button mat-stroked-button type="button" (click)="addUtility(t.value)">
+                  <mat-icon [style.color]="t.color">{{ t.icon }}</mat-icon> Utenza {{ t.label }}
+                </button>
+              }
+            </div>
+          }
+        </ng-template>
+      </mat-tab>
+
+      <mat-tab aria-label="Impianti" [disabled]="isNew">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="settings_input_component" label="Impianti"
+                         [count]="isNew ? null : plants.length" [tone]="hasOverdueInspections() ? 'danger' : 'info'"></app-tab-label>
+        </ng-template>
+        <ng-template matTabContent>
+          <app-linked-table
+            [columns]="plantColumns"
+            [rows]="plants"
+            [rowIcon]="plantIconOf"
+            [rowStatus]="plantStatusOf"
+            [createLabel]="canEdit ? 'Nuovo impianto' : null"
+            emptyText="Nessun impianto censito in questo immobile."
+            (create)="createPlant()"
+            (open)="openPlant($event.id)">
+          </app-linked-table>
+        </ng-template>
+      </mat-tab>
+
+      <mat-tab aria-label="Contratti immobiliari" [disabled]="isNew">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="real_estate_agent" label="Contratti immobiliari"
+                         [count]="isNew ? null : grants.length" [tone]="hasExpiredGrants() ? 'danger' : 'info'"></app-tab-label>
+        </ng-template>
+        <ng-template matTabContent>
+          <app-linked-table
+            [columns]="grantColumns"
+            [rows]="grants"
+            [rowStatus]="grantStatusOf"
+            [createLabel]="canEdit ? 'Nuovo contratto' : null"
+            emptyText="Nessun contratto immobiliare per questo immobile."
+            (create)="createGrant()"
+            (open)="openGrant($event.id)">
+          </app-linked-table>
+        </ng-template>
+      </mat-tab>
+
+      <mat-tab aria-label="Note">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="notes" label="Note" [dot]="filled('specific_details', 'memo')"></app-tab-label>
+        </ng-template>
+        <div class="sheet-grid">
+          <mat-form-field class="span-all">
+            <mat-label>Specifiche</mat-label>
+            <textarea matInput formControlName="specific_details" rows="4"></textarea>
+          </mat-form-field>
+          <mat-form-field class="span-all">
+            <mat-label>Promemoria</mat-label>
+            <textarea matInput formControlName="memo" rows="4"></textarea>
+            <mat-hint>Mostrato in evidenza nel Riepilogo</mat-hint>
+          </mat-form-field>
+        </div>
+      </mat-tab>
+
+      <mat-tab aria-label="Foto" [disabled]="isNew">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="photo_library" label="Foto" [count]="photoCount"></app-tab-label>
+        </ng-template>
+        <ng-template matTabContent>
+          <app-photo-gallery [entityType]="'asset'" [entityId]="data.item.id"></app-photo-gallery>
+        </ng-template>
+      </mat-tab>
+
+      <mat-tab aria-label="Storico" [disabled]="isNew">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="history" label="Storico"></app-tab-label>
+        </ng-template>
+        <ng-template matTabContent>
           <app-entity-history
             [entity]="'assets'"
             [entityId]="data.item.id"
             [lastModifiedBy]="data.item.updated_by ? data.item.updated_by.firstName + ' ' + data.item.updated_by.lastName : null"
             [lastModifiedAt]="data.item.update_date ? data.item.update_date.toString() : null">
           </app-entity-history>
-        </div>
-      </ng-template>
-    </mat-tab>
-    <mat-tab [disabled]="isNew">
-      <ng-template mat-tab-label>
-        <mat-icon style="margin-right: 5px;">settings_input_component</mat-icon>
-        Impianti
-      </ng-template>
-      <ng-template matTabContent>
-        <app-asset-plants-tab [assetId]="data.item.id"></app-asset-plants-tab>
-      </ng-template>
-    </mat-tab>
-    <mat-tab [disabled]="isNew">
-      <ng-template mat-tab-label>
-        <mat-icon style="margin-right: 5px;">real_estate_agent</mat-icon>
-        Contratti immobiliari
-      </ng-template>
-      <ng-template matTabContent>
-        <app-asset-real-estate-contracts-tab [assetId]="data.item.id"></app-asset-real-estate-contracts-tab>
-      </ng-template>
-    </mat-tab>
-    @for (tab of tabs; track tab.value) {
-      <mat-tab [disabled]="isNew">
-        <ng-template mat-tab-label>
-          <i [class]="tab.icon" [style.color]="tab.color" style="margin-right: 5px;"></i>
-          {{ tab.label }} ({{ getUtilityCountByType(tab.value) }})
-        </ng-template>
-        <ng-template matTabContent>
-          <div style="padding: 1rem 0;">
-            <div style="margin-bottom: 1rem;">
-              <button mat-stroked-button (click)="addUtility(tab.value)" [appHasRole]="['Admin','Operatore']">
-                <mat-icon>add</mat-icon>
-                Aggiungi utenza
-              </button>
-            </div>
-            @let utilities = getUtilitiesByHardType(tab.value);
-            @if (utilities.length > 0) {
-              <div style="overflow-x: auto;">
-                <table style="width: 100%; min-width: 900px; border-collapse: collapse;">
-                  <thead>
-                    <tr>
-                      <th style="text-align: left;">ID Utenza</th>
-                      <th style="text-align: left;">Codice</th>
-                      <th style="text-align: left;">N° Contatore</th>
-                      <th style="text-align: left;">Attiva</th>
-                      <th style="text-align: left;">Inizio Fornitura</th>
-                      <th style="width: 60px;"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (u of utilities; track u.id) {
-                      <tr>
-                        <td>{{ u.utility_id }}</td>
-                        <td>{{ u.utility_code }}</td>
-                        <td>{{ u.meter_number }}</td>
-                        <td>{{ u.supply_active ? 'Sì' : 'No' }}</td>
-                        <td>{{ u.supply_start_date | date: 'dd/MM/yyyy' }}</td>
-                        <td>
-                          <button mat-icon-button matTooltip="Apri dettaglio utenza" (click)="openUtilityDetail(u)">
-                            <mat-icon>description</mat-icon>
-                          </button>
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            } @else {
-              <p style="color: #6A7282; margin: 0;">
-                Nessuna utenza di tipo <strong>{{ tab.label }}</strong> associata a questo immobile.
-              </p>
-            }
-          </div>
         </ng-template>
       </mat-tab>
-    }
-  </mat-tab-group>
-</mat-dialog-content>
+    </mat-tab-group>
+  </form>
 
-<mat-dialog-actions align="end">
-  <button mat-stroked-button (click)="cancel()">Annulla</button>
-  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">
-    Salva Immobile
-  </button>
-</mat-dialog-actions>
+  <ng-container sheetActions>
+    <button mat-stroked-button type="button" (click)="cancel()">{{ canEdit ? 'Annulla' : 'Chiudi' }}</button>
+    @if (canEdit) {
+      <button mat-flat-button type="button" (click)="save()">{{ isNew ? 'Crea immobile' : 'Salva immobile' }}</button>
+    }
+  </ng-container>
+</app-entity-sheet>
