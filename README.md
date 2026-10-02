@@ -116,7 +116,7 @@ Il backend espone risorse REST sotto `/api/v1`, un modulo NestJS per dominio (`b
 | `maintenance-managers` | Fornitori manutenzione |
 | `purpose` | Finalità d'uso |
 | `utilizer`, `utilizer-grant` | Utilizzatori e concessioni |
-| `backup`, `import` | Backup/restore database e importazione dati da file |
+| `backup` | Backup/restore database |
 | `geocoding` | Geocodifica indirizzi (asset senza coordinate manuali) |
 | `health` | Health check |
 
@@ -146,7 +146,7 @@ Interfaccia in **Angular 22** con **Angular Material**. Sezioni principali (menu
 
 - **Dashboard**, **Mappa** (geolocalizzazione immobili/contatori)
 - **Immobili**, **Utenze**, **Concessioni**, **Fornitori**, **Capitoli di Spesa**, **Fatture**, **Contratti**
-- **Impostazioni** — Aggregati Utenze/Immobili, Fornitori Manutenzione, Tipologie uso contatore, Convenzioni CONSIP, Finalità d'uso, Utilizzatori, Backup e Importazione, Branding
+- **Impostazioni** — Aggregati Utenze/Immobili, Fornitori Manutenzione, Tipologie uso contatore, Convenzioni CONSIP, Finalità d'uso, Utilizzatori, Backup e manutenzione, Branding
 - **Utenti e ruoli**
 
 ## Sviluppo
@@ -220,9 +220,7 @@ UtenzePA/
 │   │   ├── apis/                # Moduli di dominio (controller/service/entity per risorsa)
 │   │   ├── common/, helpers/, utils/
 │   │   ├── core/                 # Auth, database, cronjobs, email, exceptions
-│   │   ├── database/migrations/  # Migration TypeORM + data-source per la CLI
-│   │   └── data-importer/        # Service usato da import CSV chunked (UI Backup e Importazione)
-│   ├── tools/                    # Script one-off (import dati storici) — mai nell'immagine prod
+│   │   └── database/migrations/  # Migration TypeORM + data-source per la CLI
 │   ├── artillery/                # Configurazioni load test
 │   └── postman/                  # Collection Postman
 └── frontend/                     # App Angular
