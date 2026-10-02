@@ -5,7 +5,8 @@ import { DataSource } from 'typeorm';
 // UtilitiesService (scadenza assente o non ancora passata).
 // Contratto valido oggi: non chiuso e con scadenza assente o non ancora passata
 // (stessa definizione di "contratto corrente" in UtilitiesService).
-const CURRENT = '(c.closed = 0 AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE()))';
+const CURRENT =
+  '(c.closed = 0 AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE()))';
 const HAS_CIG = "TRIM(IFNULL(c.cig_contract, '')) <> ''";
 
 export interface AnomalyList<T> {
@@ -34,6 +35,13 @@ export interface Anomalies {
   active_utilities_without_cig_contract: AnomalyList<UtilityAnomaly>;
   utilities_with_overlapping_contracts: AnomalyList<UtilityAnomaly>;
   duplicate_cigs: AnomalyList<{ cig: string; contracts: number[] }>;
+  real_estate_contracts_without_assets: AnomalyList<RealEstateContractAnomaly>;
+}
+
+export interface RealEstateContractAnomaly {
+  id: number;
+  counterparty: string | null;
+  subject: string | null;
 }
 
 const list = <T>(items: T[]): AnomalyList<T> => ({ count: items.length, items });
@@ -103,7 +111,28 @@ export class AnomaliesService {
        GROUP BY LOWER(TRIM(c.cig_contract)) HAVING COUNT(*) > 1`,
     );
 
+    // Contratti immobiliari senza immobili attivi collegati (es. import non abbinato).
+    const contractsWithoutAssets: {
+      id: unknown;
+      counterparty: string | null;
+      subject: string | null;
+    }[] = await this.dataSource.query(
+      `SELECT g.id, u.name AS counterparty, g.subject
+         FROM utilizer_grant g LEFT JOIN utilizer u ON u.id = g.utilizer_id_fk
+         WHERE g.deleted = 0
+           AND NOT EXISTS (SELECT 1 FROM utilizer_grant_assets a JOIN assets s ON s.id = a.asset_id AND s.deleted = 0
+                           WHERE a.utilizer_grant_id = g.id)
+         ORDER BY u.name, g.id`,
+    );
+
     return {
+      real_estate_contracts_without_assets: list(
+        contractsWithoutAssets.map((c) => ({
+          id: Number(c.id),
+          counterparty: c.counterparty ?? null,
+          subject: c.subject ?? null,
+        })),
+      ),
       contracts_without_cig: list(
         contractsWithoutCig.map((c) => ({
           id: Number(c.id),
