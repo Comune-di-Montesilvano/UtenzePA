@@ -16,9 +16,9 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 
 | # | Funzione | Stato |
 |---|---|---|
-| 1 | Contratti immobiliari (unificazione Concessioni) | codice fatto su `feat/contratti-immobiliari`; pulizia/import dati in attesa degli impianti |
+| 1 | Contratti immobiliari (unificazione Concessioni) | fatto, v1.7.0 (dati: registro ripulito e import fonti sul DB locale, da portare in produzione) |
 | 2 | Inventario patrimoniale e catasto | da approfondire |
-| 3 | Impianto unificato | codice fatto su `feat/contratti-immobiliari` (spec `docs/superpowers/specs/2026-10-02-impianti-design.md`); riclassificazione immobili e import consistenze in migrazione manuale dei dati |
+| 3 | Impianto unificato | fatto, v1.7.0 (immobili convertiti in impianti e consistenze 2025 importate sul DB locale, da portare in produzione) |
 | 4 | Complessi | da approfondire |
 | 5 | Aree verdi | da approfondire |
 | 6 | Fatture per utenza | da approfondire |
