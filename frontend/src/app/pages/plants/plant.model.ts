@@ -60,6 +60,19 @@ export const PLANT_STATUS_LABEL: Record<PlantStatus, string> = {
   TO_VERIFY: 'Da verificare',
 };
 
+// Tab specifici per tipo d'impianto (oltre a Riepilogo/Immobili/Utenze/Foto/
+// Storico, sempre presenti). Un tipo nuovo dichiara qui i suoi tab.
+export type PlantTab = 'technical' | 'fire_equipment' | 'inspections';
+const DEFAULT_PLANT_TABS: PlantTab[] = ['inspections'];
+export const PLANT_TYPE_TABS: Partial<Record<PlantType, PlantTab[]>> = {
+  THERMAL: ['technical', 'inspections'],
+  ELEVATOR: ['technical', 'inspections'],
+  FIRE_PROTECTION: ['fire_equipment', 'inspections'],
+};
+export function plantTabs(type: PlantType): PlantTab[] {
+  return PLANT_TYPE_TABS[type] ?? DEFAULT_PLANT_TABS;
+}
+
 export const POSITION_LABEL: Record<PositionQuality, string> = {
   PRECISE: 'Precisa',
   FROM_ASSET: "Dall'immobile",
