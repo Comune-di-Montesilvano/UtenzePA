@@ -19,7 +19,6 @@ import {ContractsComponent} from "./pages/contracts/contracts.component";
 import {DashboardComponent} from "./pages/dashboard/dashboard.component";
 import {MapComponent} from "./pages/map/map.component";
 import {ConsipAgreementComponent} from './pages/consip-agreement/consip-agreement.component';
-import {PurposeComponent} from './pages/purpose/purpose.component';
 import {ThirdPartiesComponent} from './pages/third-parties/third-parties.component';
 import {SetupComponent} from "./pages/setup/setup.component";
 import {SetupGuard} from "./guards/setup.guard";
@@ -54,7 +53,6 @@ export const routes: Routes = [
       {path: 'invoices', component: InvoicesComponent},
       {path: 'contracts', component: ContractsComponent},
       {path: 'consip-agreement', component: ConsipAgreementComponent},
-      {path: 'purpose', component: PurposeComponent},
       {path: 'utilizer-grant', component: UtilizerGrantComponent},
       {path: 'dashboard', component: DashboardComponent},
       {path: 'map', component: MapComponent},
