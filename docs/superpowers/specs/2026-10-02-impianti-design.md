@@ -158,12 +158,25 @@ Script `.audit-w/impianti/import_plants.py`, stesso schema prova/conferma:
 
 Abbinamento all'immobile contenitore per nome edificio/indirizzo, solo se univoco; altrimenti impianto senza immobile e riga nell'Excel "da abbinare".
 
+## Posizione degli impianti
+
+Situazione dei 243 candidati: 0 con coordinate inserite a mano, 211 con sola posizione geocodificata dall'indirizzo (per punti luce, pompe, semafori di solito è il centro della via, non il punto reale), 32 senza alcuna posizione (indirizzo presente, geocodifica fallita).
+
+Regole:
+
+1. **Posizione mostrata**, in ordine di priorità: coordinate inserite a mano → coordinate dell'immobile contenitore (impianti interni a un edificio: ascensore, termico, antincendio non hanno bisogno di coordinate proprie) → coordinate geocodificate dall'indirizzo.
+2. **Qualità della posizione**, calcolata e mostrata con un badge in elenco e nel dialog: *precisa* (inserita a mano), *dall'immobile*, *stimata* (geocodifica), *assente*.
+3. **Impianti senza posizione**: non compaiono in mappa (come oggi gli immobili senza coordinate); filtro "posizione: assente / stimata" nell'elenco; anomalia "impianti senza posizione" in dashboard (solo *assente*, le *stimate* sarebbero troppo rumorose).
+4. **Correzione**: nel dialog impianto la mini-mappa esistente (`LocationMapComponent`) mostra la posizione stimata e permette di fissare quella reale con un clic, come già per gli immobili. Per gli impianti con immobile contenitore la mini-mappa è in sola anteprima (posizione ereditata), con la possibilità di sovrascriverla.
+5. **Foto**: tab Foto con la galleria esistente (`entity_type = 'plant'`), stesso caricamento e limiti delle foto di immobili e utenze.
+
 ## API
 
 - `GET/POST /plants`, `GET/PATCH/DELETE /plants/:id`; filtri: `type`, `status`, `asset_id`, `utility_id`, `inspection` (`overdue`, `due_soon`), `q`.
 - Dettaglio con: immobile, utenze, dati specifici del tipo (`thermal`, `elevator`), presidi antincendio, verifiche con stato derivato; per `THERMAL` anche gli obblighi calcolati (VVF/INAIL/efficienza).
 - `POST/PATCH/DELETE /plants/:id/inspections[/:inspId]`, idem `/plants/:id/fire-equipment`.
 - `GET /plants/summary`: conteggi per tipo, verifiche scadute/in scadenza, impianti senza posizione.
+- Filtro `position` (`precise`, `from_asset`, `estimated`, `missing`) e campo calcolato `position_quality` in ogni riga.
 - Utenze: DTO con `asset_ids` e `plant_ids`; validazione "almeno un immobile o un impianto". Le risposte delle utenze includono gli impianti collegati.
 - Endpoint impianti termici v1.6.0 (`/thermal-plants`, `/assets/:id/thermal-plants`, `/utilities/:id/thermal-plants`): rimossi, sostituiti da `/plants?type=THERMAL`, `/plants?asset_id=`, `/plants?utility_id=`.
 - Geocodifica: `GeocodingService` estesa agli impianti senza coordinate (stesso scan all'avvio e stesso pulsante manuale).
