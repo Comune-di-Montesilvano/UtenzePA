@@ -8,15 +8,22 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatDatepickerModule} from '@angular/material/datepicker';
 import {MatCheckboxModule} from '@angular/material/checkbox';
 import {MatTabsModule} from '@angular/material/tabs';
+import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatIconModule} from '@angular/material/icon';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {UtilizerGrant} from './entity/utilizer-grant.entity';
 import {AuthService} from '../../services/auth.service';
-import {HasRoleDirective} from '../../core/directives/has-role.directive';
-import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
-import {MultiSelectComponent} from '../../core/components/multi-select.component';
+import {Asset} from '../assets/entity/asset.entity';
+import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
+import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
+import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
+import {LinkedColumn, LinkedTableComponent} from '../../core/components/entity-sheet/linked-table.component';
+import {ValidityBarComponent} from '../../core/components/entity-sheet/validity-bar.component';
+import {assetStatus, grantFlags, grantStatus, StatusInfo} from '../../core/helpers/entity-status';
+import {hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel} from '../../core/components/entity-sheet/sheet-utils';
+import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {EntityHistoryComponent} from '../../core/components/entity-history.component';
 import {AssetService} from '../assets/asset.service';
 import {UtilizerService} from '../utilizer/utilizer.service';
@@ -59,10 +66,13 @@ const PERIOD_FACTOR: Record<RentPeriod, number> = {
     MatCheckboxModule,
     MatTabsModule,
     MatIconModule,
-    HasRoleDirective,
-    ReadOnlyDirective,
+    MatTooltipModule,
     FilterableSelectComponent,
-    MultiSelectComponent,
+    EntitySheetComponent,
+    StatusBadgeComponent,
+    TabLabelComponent,
+    LinkedTableComponent,
+    ValidityBarComponent,
     EntityHistoryComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -78,6 +88,27 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   protected data = inject<EditDialogData<UtilizerGrant>>(MAT_DIALOG_DATA);
 
   readonly item = this.data.item;
+  private navigator = inject(EntityNavigatorService);
+
+  readonly canEdit = isEditorRole(this.authService.getCurrentUser()?.role);
+  readonly lastModified = lastModifiedLabel(this.item.update_date, this.item.updated_by);
+
+  private allAssets: Asset[] = [];
+  assetRows: Asset[] = [];
+  childRows: UtilizerGrant[] = (this.item.children ?? []).filter(c => !c.deleted);
+
+  readonly assetColumns: LinkedColumn<Asset>[] = [
+    {label: 'Nome', value: a => a.asset_name ?? ''},
+    {label: 'Indirizzo', value: a => [a.toponym, a.address, a.civic_number].filter(Boolean).join(' ')},
+  ];
+  readonly assetStatusOf = (a: Asset): StatusInfo => assetStatus(a.status);
+
+  readonly childColumns: LinkedColumn<UtilizerGrant>[] = [
+    {label: '#', value: c => String(c.id)},
+    {label: 'Controparte', value: c => c.utilizer?.name ?? ''},
+    {label: 'Tipo', value: c => this.kindText(c)},
+  ];
+  readonly childStatusOf = (c: UtilizerGrant): StatusInfo => grantStatus(c.computed_status ?? c.status);
   isNew = this.data.mode === 'create';
   assetOptions: TOption[] = [];
   utilizerOptions: TOption[] = [];
@@ -136,20 +167,26 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   });
 
   constructor() {
-    // Lettore: form disabilitato anche programmaticamente (ReadOnlyDirective
-    // sul <form> imposta solo pointer-events:none).
-    const role = this.authService.getCurrentUser()?.role;
-    if (!role || role === 'Lettore') {
+    if (!this.canEdit) {
       this.form.disable();
+    } else {
+      // Durata rinnovo e preavviso contano solo col rinnovo tacito: nascosti
+      // ma validi (es. 0 da dati vecchi) bloccherebbero il Salva senza nulla
+      // di visibile. Il payload li azzera comunque senza rinnovo tacito.
+      this.syncRenewalFields();
+      this.form.controls.tacit_renewal.valueChanges.subscribe(() => this.syncRenewalFields());
     }
   }
 
   ngOnInit(): void {
+    this.refreshAssets();
     this.assetService.search({deleted: false}).subscribe({
       next: (data) => {
+        this.allAssets = data;
         this.assetOptions = data
           .map(a => ({label: a.asset_name, value: a.id}))
           .sort((a, b) => a.label.localeCompare(b.label));
+        this.refreshAssets();
       },
       error: (err) => console.error('Errore nel caricamento degli immobili:', err),
     });
@@ -185,8 +222,87 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
     return `Canone annuo: ${formatEuro(Number(v.rent_amount) * PERIOD_FACTOR[v.rent_period])}`;
   }
 
+  private syncRenewalFields(): void {
+    const on = !!this.form.controls.tacit_renewal.value;
+    for (const c of [this.form.controls.renewal_months, this.form.controls.notice_months]) {
+      if (on) c.enable({emitEvent: false});
+      else c.disable({emitEvent: false});
+    }
+  }
+
+    refreshAssets(): void {
+    const ids = (this.form.controls.asset_ids.value ?? []) as number[];
+    this.assetRows = ids
+      .map(id => this.allAssets.find(a => a.id === id) ?? this.item.assets?.find(a => a.id === id))
+      .filter((a): a is Asset => !!a);
+  }
+
+  private setAssetIds(ids: number[]): void {
+    const c = this.form.controls.asset_ids;
+    c.setValue(ids);
+    c.markAsDirty();
+    c.markAsTouched();
+    this.refreshAssets();
+  }
+
+  addAsset(id: number): void {
+    const ids = (this.form.controls.asset_ids.value ?? []) as number[];
+    if (!ids.includes(id)) this.setAssetIds([...ids, id]);
+  }
+
+  unlinkAsset(id: number): void {
+    this.setAssetIds(((this.form.controls.asset_ids.value ?? []) as number[]).filter(x => x !== id));
+  }
+
+  openAsset(id: number): void {
+    this.navigator.openAsset(id).subscribe();
+  }
+
+  openGrant(id: number | null | undefined): void {
+    if (id) this.navigator.openGrant(id).subscribe();
+  }
+
+  // Header
+  titleText(): string {
+    if (this.isNew) return 'Nuovo contratto immobiliare';
+    const utilizer = this.utilizerOptions.find(o => o.value === this.form.controls.utilizer_id_fk.value)?.label ?? this.item.utilizer?.name;
+    const kind = this.form.controls.kind.value ? KIND_LABEL[this.form.controls.kind.value as ContractKind] : '';
+    return [utilizer, kind].filter(Boolean).join(' — ') || `Contratto immobiliare #${this.item.id}`;
+  }
+
+  headerIcon(): string {
+    return this.form.controls.direction.value === 'PASSIVE' ? 'call_made' : 'call_received';
+  }
+
+  // Badge: stato calcolato dal server, salvo nuovo contratto o stato appena
+  // cambiato nel form (allora si mostra quello dichiarato).
+  statusInfo(): StatusInfo {
+    const declared = this.form.controls.status.value as ContractStatus;
+    if (this.isNew || this.form.controls.status.dirty || !this.item.computed_status) return grantStatus(declared);
+    return grantStatus(this.item.computed_status);
+  }
+
+  flags(): StatusInfo[] {
+    return this.isNew ? [] : grantFlags(this.form.controls.status.value as ContractStatus, this.item.computed_status);
+  }
+
+  invalid(...names: string[]): boolean {
+    return hasInvalid(this.form, ...names);
+  }
+
+  filled(...names: string[]): boolean {
+    return hasAnyValue(this.form, ...names);
+  }
+
+  linkedCount(): number {
+    return this.childRows.length + (this.form.controls.parent_contract_id.value ? 1 : 0);
+  }
+
   save(): void {
-    if (!this.form.valid) return;
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
     const v = this.form.getRawValue();
     const text = (s: string | null | undefined) => (s?.trim() ? s.trim() : null);
     const num = (n: number | null | undefined) => (n === null || n === undefined || `${n}` === '' ? null : Number(n));

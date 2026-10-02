@@ -5,21 +5,18 @@ import {MatPaginator} from '@angular/material/paginator';
 import {MatDialog} from '@angular/material/dialog';
 import {ConfirmDialogComponent, ConfirmDialogData} from './confirm-dialog.component';
 import {ScreenSizeService} from '../../services/screen-size.service';
+import {sheetDialogConfig} from './entity-sheet/sheet-utils';
 
 export interface EditDialogData<T> {
   mode: 'create' | 'edit';
   item: T;
 }
 
-// MatDialog di default centra verticalmente sul contenuto attuale — con un
-// mat-tab-group dentro (Dati/Foto/Acqua/Luce/Gas/Internet, altezze molto
-// diverse tra loro) ogni cambio tab faceva saltare l'intero dialog su/giù,
-// il top si spostava insieme al centro. Un top fisso invece non si sposta
-// mai: il dialog cresce/si accorcia verso il basso, non serve un'altezza
-// fissa che avrebbe forzato uno scroll interno vuoto sui tab piu' corti
-// (visto: Gas con 11 righe, molto meno alto di Dati, mostrava comunque una
-// scrollbar). Stessa costante riusata da ogni punto che apre questi due
-// dialog (asset-edit-dialog/utility-edit-dialog), non solo qui.
+// MatDialog di default centra verticalmente sul contenuto attuale: ogni
+// cambio di altezza (es. cambio tab) farebbe saltare il dialog su/giù. Un
+// top fisso non si sposta mai. Vale per le anagrafiche semplici; le schede
+// entità (immobile, utenza, impianto, contratti) usano invece
+// sheetDialogConfig (altezza fissa, entity-sheet/sheet-utils.ts).
 export const EDIT_DIALOG_POSITION = {top: '5vh'};
 
 @Component({
@@ -104,25 +101,31 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
   }
 
   openCreateDialog(): void {
-    this.dialog.open<unknown, EditDialogData<T>, T | undefined>(this.editDialogComponent(), {
-      width: this.editDialogWidth(),
-      maxWidth: this.editDialogWidth(),
-      position: EDIT_DIALOG_POSITION,
-      data: {mode: 'create', item: this.itemInstance()}
-    }).afterClosed().subscribe(result => {
-      if (result) this.onCreate.emit(result);
-    });
+    const data: EditDialogData<T> = {mode: 'create', item: this.itemInstance()};
+    this.dialog.open<unknown, EditDialogData<T>, T | undefined>(this.editDialogComponent(), this.dialogConfig(data))
+      .afterClosed().subscribe(result => {
+        if (result) this.onCreate.emit(result);
+      });
   }
 
   openEditDialog(item: T): void {
-    this.dialog.open<unknown, EditDialogData<T>, T | undefined>(this.editDialogComponent(), {
-      width: this.editDialogWidth(),
-      maxWidth: this.editDialogWidth(),
-      position: EDIT_DIALOG_POSITION,
-      data: {mode: 'edit', item: {...item}}
-    }).afterClosed().subscribe(result => {
-      if (result) this.onSave.emit(result);
-    });
+    const data: EditDialogData<T> = {mode: 'edit', item: {...item}};
+    this.dialog.open<unknown, EditDialogData<T>, T | undefined>(this.editDialogComponent(), this.dialogConfig(data))
+      .afterClosed().subscribe(result => {
+        if (result) this.onSave.emit(result);
+      });
+  }
+
+  // Le entità con scheda (immobile, utenza, contratti) usano il dialog ad
+  // altezza fissa; le anagrafiche semplici restano col dialog classico.
+  protected useSheet(): boolean {
+    return false;
+  }
+
+  private dialogConfig(data: EditDialogData<T>) {
+    return this.useSheet()
+      ? sheetDialogConfig(data, this.dialog.openDialogs.length)
+      : {width: this.editDialogWidth(), maxWidth: this.editDialogWidth(), position: EDIT_DIALOG_POSITION, data};
   }
 
   abstract itemInstance(): T;

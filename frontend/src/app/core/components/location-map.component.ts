@@ -59,6 +59,9 @@ export class LocationMapComponent implements OnInit, AfterViewInit, OnChanges, O
   @Input() estimatedLatitude: string | null = null;
   @Input() estimatedLongitude: string | null = null;
   @Input() previewOnly = false;
+  // Sola lettura (ruolo Lettore): nessun click sulla mappa né pulsanti per
+  // impostare/cancellare la posizione, resta solo la consultazione.
+  @Input() readOnly = false;
   @Output() positionSelected = new EventEmitter<{ lat: string; lng: string }>();
   @Output() positionCleared = new EventEmitter<void>();
 
@@ -123,7 +126,7 @@ export class LocationMapComponent implements OnInit, AfterViewInit, OnChanges, O
     // in base al suo valore iniziale restava permanentemente morto per un
     // contatore nato con posizione ereditata — il bug segnalato.
     this.map.on('click', (event: L.LeafletMouseEvent) => {
-      if (!this.usingOwnPosition) return;
+      if (this.readOnly || !this.usingOwnPosition) return;
       this.positionSelected.emit({
         lat: event.latlng.lat.toFixed(6),
         lng: event.latlng.lng.toFixed(6),

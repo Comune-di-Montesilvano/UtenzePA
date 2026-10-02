@@ -1,24 +1,21 @@
-import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, OnInit, QueryList, ViewChild, ViewChildren} from '@angular/core';
 import {AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators} from '@angular/forms';
-import {MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
+import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
-import {MatSelectModule, MatSelectChange} from '@angular/material/select';
+import {MatSelectChange, MatSelectModule} from '@angular/material/select';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatDatepickerModule} from '@angular/material/datepicker';
-import {MatTabsModule} from '@angular/material/tabs';
+import {MatTab, MatTabGroup, MatTabsModule} from '@angular/material/tabs';
 import {plainToInstance} from 'class-transformer';
-import {EditDialogData, EDIT_DIALOG_POSITION} from '../../core/components/abstract-data-table.component';
+import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
-import {MultiSelectComponent} from '../../core/components/multi-select.component';
 import {AuthService} from '../../services/auth.service';
-import {HasRoleDirective} from '../../core/directives/has-role.directive';
-import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {Utility} from './entity/utility.entity';
 import {UtilityType} from '../utility-types/entity/utility-type.entity';
-import {HardType} from '../utility-types/enum/hard-type.enum';
+import {HardType, HardTypeColor, HardTypeMatIcon} from '../utility-types/enum/hard-type.enum';
 import {Phase} from './enum/phase.enum';
 import {Asset} from '../assets/entity/asset.entity';
 import {UseTypeDescription} from '../purpose/enum/use-type.enum';
@@ -32,22 +29,22 @@ import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {LocationMapComponent} from '../../core/components/location-map.component';
 import {PhotoGalleryComponent} from '../../core/components/photo-gallery.component';
 import {EntityHistoryComponent} from '../../core/components/entity-history.component';
-import {AssetEditDialogComponent} from '../assets/asset-edit-dialog.component';
 import {ContractsService} from '../contracts/contract.service';
-import {ContractEditDialogComponent} from '../contracts/contract-edit-dialog.component';
 import {Contract} from '../contracts/entity/contract.entity';
-import {DatePipe} from '@angular/common';
 import {UtilityConsumptionsTabComponent} from './consumptions/utility-consumptions-tab.component';
 import {PlantService} from '../plants/plant.service';
-import {PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PlantType} from '../plants/plant.model';
-import {PlantEditDialogComponent, PlantEditDialogData} from '../plants/plant-edit-dialog.component';
+import {PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PlantStatus, PlantType} from '../plants/plant.model';
 import {BudgetChapter} from '../budget-chapters/entity/budget-chapter.entity';
 import {SupplyType, SupplyTypeDescription} from '../budget-chapters/enum/supply-type.enum';
-import {formatQty, CONSUMPTION_UNIT_BY_HARD_TYPE, ConsumptionSummary} from './consumptions/consumption.model';
-
-// Stessa larghezza usata da MapComponent.openDetail per lo stesso dialog —
-// deve poter ospitare i tab (Dati/Foto) e i gruppi affiancati dell'immobile.
-const ASSET_DIALOG_WIDTH = '1150px';
+import {CONSUMPTION_UNIT_BY_HARD_TYPE, ConsumptionSummary, formatQty} from './consumptions/consumption.model';
+import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
+import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
+import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
+import {PreviewCardComponent, PreviewItem} from '../../core/components/entity-sheet/preview-card.component';
+import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components/entity-sheet/linked-table.component';
+import {assetStatus, plantStatus, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
+import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
+import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 
 // Tipi fornitura capitolo compatibili col tipo utenza; SPRAR sempre
 // compatibile (capitolo multi-utenza). Solo ordinamento, nessun blocco.
@@ -65,14 +62,25 @@ function atLeastOneLink(group: AbstractControl): ValidationErrors | null {
   return assets.length + plants.length > 0 ? null : {noLink: true};
 }
 
+// Riga impianto: dall'elenco completo, o dai dati parziali dell'utenza
+// finché l'elenco non è caricato.
+interface PlantRow {
+  id: number;
+  code: string;
+  name: string;
+  type: PlantType;
+  status?: PlantStatus;
+}
+
 @Component({
   selector: 'app-utility-edit-dialog',
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatTabsModule,
-    HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent, MultiSelectComponent, LocationMapComponent, PhotoGalleryComponent,
-    EntityHistoryComponent, DatePipe, UtilityConsumptionsTabComponent
+    FilterableSelectComponent, LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
+    UtilityConsumptionsTabComponent, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent,
+    PreviewCardComponent, LinkedTableComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-edit-dialog.component.html'
@@ -80,7 +88,6 @@ function atLeastOneLink(group: AbstractControl): ValidationErrors | null {
 export class UtilityEditDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<UtilityEditDialogComponent, Utility | undefined>);
-  private dialog = inject(MatDialog);
   private authService = inject(AuthService);
   private assetsService = inject(AssetService);
   private plantService = inject(PlantService);
@@ -90,19 +97,26 @@ export class UtilityEditDialogComponent implements OnInit {
   private maintenanceManagerService = inject(MaintenanceManagersService);
   private utilityTypeService = inject(UtilityTypesService);
   private contractsService = inject(ContractsService);
+  private navigator = inject(EntityNavigatorService);
   protected data = inject<EditDialogData<Utility>>(MAT_DIALOG_DATA);
 
+  @ViewChild(MatTabGroup) tabGroup?: MatTabGroup;
+  @ViewChildren(MatTab) tabList?: QueryList<MatTab>;
+
   isNew = this.data.mode === 'create';
-  maxDescLength = 50;
+  readonly canEdit = isEditorRole(this.authService.getCurrentUser()?.role);
+  readonly lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
   readonly useTypeDescription = UseTypeDescription;
+  readonly formatQty = formatQty;
+  readonly HardType = HardType;
 
   utilityTypeOptions: UtilityType[] = [];
   assetOptions: Asset[] = [];
   assetSelectOptions: TOption[] = [];
+  private allPlants: PlantRow[] = [];
+  plantSelectOptions: TOption[] = [];
   budgetChapterOptions: TOption[] = [];
   private budgetChapters: BudgetChapter[] = [];
-  readonly formatQty = formatQty;
-  readonly HardType = HardType;
   aggregatorOptions: TOption[] = [];
   costsBorneByOptions: TOption[] = [];
   maintenanceOptions: TOption[] = [];
@@ -118,19 +132,14 @@ export class UtilityEditDialogComponent implements OnInit {
     {label: 'N/A', value: Phase.NOT_APPLICABLE}
   ];
 
-  // Inizializzato dall'utilityType già presente sull'item (edit) o null (create — Utility.create()
-  // non popola mai utilityType, quindi qui parte sempre null in creazione: nessun reset esplicito
-  // aggiuntivo necessario, il valore iniziale corretto discende direttamente dai dati in ingresso).
+  // Dall'utilityType già presente sull'item (edit) o null (create).
   selectedHardType: HardType | null = this.data.item.utilityType?.hard_type ?? null;
 
   get showLightFields(): boolean { return this.selectedHardType === HardType.LIGHT; }
   get showGasFields(): boolean { return this.selectedHardType === HardType.GAS; }
 
-  // Replica locale di AbstractDataTableComponent.resolveOnRelation(), non accessibile da un
-  // MatDialog standalone (non estende quella classe base) — stessa soluzione già adottata per
-  // AssetEditDialogComponent nel Gruppo D. Se la relazione (es. "asset") non è popolata (FK
-  // orfana o non caricata dal backend), il campo FK collegato parte null invece di mostrare un
-  // id non risolvibile nella select.
+  // Se la relazione non è popolata (FK orfana o non caricata), il campo FK
+  // parte null invece di mostrare un id non risolvibile nella select.
   private resolveOnRelation<K extends keyof Utility>(relation: keyof Utility, prop: K, data?: Partial<Utility>): Utility[K] | null {
     return (data as any)?.[relation] != null ? ((data as any)?.[prop] ?? null) : null;
   }
@@ -170,33 +179,46 @@ export class UtilityEditDialogComponent implements OnInit {
     wbs_gas_element: [this.data.item.wbs_gas_element ?? ''],
   }, {validators: atLeastOneLink});
 
+  // Collegamenti: campi cache aggiornati da refreshLinks().
+  contracts: Contract[] = this.data.item.contratti ?? [];
+  assetRows: Asset[] = [];
+  plantRows: PlantRow[] = [];
+  assetPreview: PreviewItem[] = [];
+  plantPreview: PreviewItem[] = [];
+  contractPreview: PreviewItem[] = [];
+
+  readonly assetColumns: LinkedColumn<Asset>[] = [
+    {label: 'Nome', value: a => a.asset_name ?? ''},
+    {label: 'Indirizzo', value: a => [a.toponym, a.address, a.civic_number].filter(Boolean).join(' ')},
+  ];
+  readonly assetStatusOf = (a: Asset): StatusInfo => assetStatus(a.status);
+
+  readonly plantColumns: LinkedColumn<PlantRow>[] = [
+    {label: 'Codice', value: p => p.code},
+    {label: 'Nome', value: p => p.name},
+    {label: 'Tipo', value: p => PLANT_TYPE_LABEL[p.type]},
+  ];
+  readonly plantIconOf = (p: PlantRow): RowIcon => ({icon: PLANT_TYPE_ICON[p.type], color: 'var(--entity-plant)'});
+  readonly plantStatusOf = (p: PlantRow): StatusInfo | null => (p.status ? plantStatus(p.status) : null);
+
+  readonly contractColumns: LinkedColumn<Contract>[] = [
+    {label: 'CIG', value: c => c.cig_contract || (c.cig_exempt ? 'Escluso da CIG' : '—')},
+    {label: 'Fornitore', value: c => c.supplier?.supplier_id ?? ''},
+    {label: 'Decorrenza', value: c => dateIt(c.supply_start_date)},
+    {label: 'Scadenza', value: c => dateIt(c.supply_expiry_date)},
+  ];
+  readonly contractStatusOf = (c: Contract): StatusInfo => supplyContractStatus(c);
+
   constructor() {
-    const role = this.authService.getCurrentUser()?.role;
-    if (!role || role === 'Lettore') {
+    if (!this.canEdit) {
       this.form.disable();
     }
   }
 
-  readonly plantTypeIcon = PLANT_TYPE_ICON;
-  plantSelectOptions: TOption[] = [];
-
   ngOnInit(): void {
-    this.plantService.list().subscribe({
-      next: plants => this.plantSelectOptions = plants.map(p => ({
-        label: `${p.code} — ${p.name}`,
-        value: p.id,
-        sublabel: PLANT_TYPE_LABEL[p.type],
-        searchText: `${p.code} ${p.name} ${PLANT_TYPE_LABEL[p.type]}`,
-      })),
-      error: err => console.error('Errore caricamento impianti:', err),
-    });
-    this.assetsService.search({deleted: false}).subscribe({
-      next: data => {
-        this.assetOptions = data.sort((a, b) => (a.asset_name ?? '').localeCompare(b.asset_name ?? ''));
-        this.assetSelectOptions = this.assetOptions.map(a => ({label: a.asset_name ?? '', value: a.id}));
-      },
-      error: err => console.error('Errore nel caricamento dei Fabbricati:', err)
-    });
+    this.refreshLinks();
+    this.loadPlants();
+    this.loadAssets();
     this.utilityAggregatorService.search({deleted: false}).subscribe({
       next: data => this.aggregatorOptions = data
         .map(a => ({label: a.description ?? '', value: a.id}))
@@ -225,6 +247,184 @@ export class UtilityEditDialogComponent implements OnInit {
     this.utilityTypeService.search().subscribe({
       next: data => this.utilityTypeOptions = data,
       error: err => console.error('Errore nel caricamento dei Tipi Utenza:', err)
+    });
+  }
+
+  private loadAssets(): void {
+    this.assetsService.search({deleted: false}).subscribe({
+      next: data => {
+        this.assetOptions = data.sort((a, b) => (a.asset_name ?? '').localeCompare(b.asset_name ?? ''));
+        this.assetSelectOptions = this.assetOptions.map(a => ({label: a.asset_name ?? '', value: a.id}));
+        this.refreshLinks();
+      },
+      error: err => console.error('Errore nel caricamento dei Fabbricati:', err)
+    });
+  }
+
+  private loadPlants(): void {
+    this.plantService.list().subscribe({
+      next: plants => {
+        this.allPlants = plants.map(p => ({id: p.id, code: p.code, name: p.name, type: p.type, status: p.status}));
+        this.plantSelectOptions = plants.map(p => ({
+          label: `${p.code} — ${p.name}`,
+          value: p.id,
+          sublabel: PLANT_TYPE_LABEL[p.type],
+          searchText: `${p.code} ${p.name} ${PLANT_TYPE_LABEL[p.type]}`,
+        }));
+        this.refreshLinks();
+      },
+      error: err => console.error('Errore caricamento impianti:', err),
+    });
+  }
+
+  refreshLinks(): void {
+    const assetIds = (this.form.controls.asset_ids.value ?? []) as number[];
+    this.assetRows = assetIds
+      .map(id => this.assetOptions.find(a => a.id === id) ?? this.data.item.assets?.find(a => a.id === id))
+      .filter((a): a is Asset => !!a);
+    const plantIds = (this.form.controls.plant_ids.value ?? []) as number[];
+    this.plantRows = plantIds
+      .map(id => this.allPlants.find(p => p.id === id) ?? this.data.item.plants?.find(p => p.id === id))
+      .filter((p): p is PlantRow => !!p);
+    this.assetPreview = this.assetRows.map(a => ({
+      id: a.id, label: a.asset_name ?? `#${a.id}`, sublabel: a.address ?? undefined,
+      icon: 'apartment', color: 'var(--entity-asset)', status: assetStatus(a.status),
+    }));
+    this.plantPreview = this.plantRows.map(p => ({
+      id: p.id, label: `${p.code} — ${p.name}`, sublabel: PLANT_TYPE_LABEL[p.type],
+      icon: PLANT_TYPE_ICON[p.type], color: 'var(--entity-plant)', status: p.status ? plantStatus(p.status) : null,
+    }));
+    this.contractPreview = this.contracts
+      .filter(c => supplyContractStatus(c).tone === 'ok')
+      .map(c => ({
+        id: c.id, label: c.cig_contract || 'CIG non specificato', sublabel: c.supplier?.supplier_id ?? undefined,
+        icon: 'description', color: 'var(--entity-supply-contract)', status: supplyContractStatus(c),
+      }));
+  }
+
+  // Header
+  headerIcon(): string {
+    return this.selectedHardType ? HardTypeMatIcon[this.selectedHardType] : 'electric_meter';
+  }
+
+  headerColor(): string {
+    return this.selectedHardType ? HardTypeColor[this.selectedHardType] : 'var(--entity-utility)';
+  }
+
+  titleText(): string {
+    return this.isNew ? 'Nuova utenza' : (this.form.controls.utility_id.value || 'Utenza');
+  }
+
+  subtitleText(): string {
+    const type = this.utilityTypeOptions.find(t => t.id === this.form.controls.utility_type_id_fk.value)?.name;
+    return [type, this.form.controls.supplier_address.value].filter(Boolean).join(' · ');
+  }
+
+  statusInfo(): StatusInfo {
+    return utilityStatus(this.form.controls.supply_active.value);
+  }
+
+  flags(): StatusInfo[] {
+    return utilityFlags(this.form.controls.meter_removed.value, this.form.controls.meter_verified.value);
+  }
+
+  invalid(...names: string[]): boolean {
+    return hasInvalid(this.form, ...names);
+  }
+
+  filled(...names: string[]): boolean {
+    return hasAnyValue(this.form, ...names);
+  }
+
+  linkError(): boolean {
+    const c = this.form.controls;
+    return this.form.hasError('noLink') && (c.asset_ids.touched || c.plant_ids.touched);
+  }
+
+  hasCurrentContract(): boolean {
+    return this.contractPreview.length > 0;
+  }
+
+  goTo(label: string): void {
+    selectTab(this.tabGroup, this.tabList, label);
+  }
+
+  // Collegamenti (form control → salvati con "Salva")
+  private setIds(control: 'asset_ids' | 'plant_ids', ids: number[]): void {
+    const c = this.form.controls[control];
+    c.setValue(ids);
+    c.markAsDirty();
+    c.markAsTouched();
+    this.refreshLinks();
+  }
+
+  addAsset(id: number): void {
+    this.setIds('asset_ids', [...((this.form.controls.asset_ids.value ?? []) as number[]), id]);
+  }
+
+  unlinkAsset(id: number): void {
+    this.setIds('asset_ids', ((this.form.controls.asset_ids.value ?? []) as number[]).filter(x => x !== id));
+  }
+
+  addPlant(id: number): void {
+    this.setIds('plant_ids', [...((this.form.controls.plant_ids.value ?? []) as number[]), id]);
+  }
+
+  unlinkPlant(id: number): void {
+    this.setIds('plant_ids', ((this.form.controls.plant_ids.value ?? []) as number[]).filter(x => x !== id));
+  }
+
+  openAsset(id: number): void {
+    this.navigator.openAsset(id).subscribe(saved => {
+      if (saved) this.loadAssets();
+    });
+  }
+
+  // L'impianto salva da sé anche i suoi collegamenti alle utenze: dopo il
+  // salvataggio riallinea plant_ids, altrimenti "Salva" qui sovrascriverebbe
+  // la modifica fatta nella scheda impianto.
+  openPlant(id: number): void {
+    this.navigator.openPlant(id).subscribe(saved => {
+      if (!saved) return;
+      this.loadPlants();
+      if (this.isNew) return;
+      this.plantService.get(id).subscribe(plant => this.syncPlantLink(id, plant.utilities.some(u => u.id === this.data.item.id)));
+    });
+  }
+
+  // Impianti come letti dal server: distinguono un collegamento aggiunto/tolto
+  // qui e non ancora salvato da uno cambiato nella scheda impianto.
+  private savedPlantIds = new Set((this.data.item.plants ?? []).map(p => p.id));
+
+  private syncPlantLink(plantId: number, linked: boolean): void {
+    const ids = (this.form.controls.plant_ids.value ?? []) as number[];
+    const has = ids.includes(plantId);
+    const toggledHere = has !== this.savedPlantIds.has(plantId);
+    if (linked) this.savedPlantIds.add(plantId);
+    else this.savedPlantIds.delete(plantId);
+    // Modifica fatta qui e non ancora salvata: vince quella.
+    if (toggledHere || linked === has) return;
+    this.form.controls.plant_ids.setValue(linked ? [...ids, plantId] : ids.filter(x => x !== plantId));
+    this.refreshLinks();
+  }
+
+  openContract(id: number): void {
+    this.navigator.openSupplyContract(id).subscribe(saved => {
+      if (saved) this.reloadContracts();
+    });
+  }
+
+  newContract(): void {
+    this.navigator.createSupplyContract([this.data.item.id]).subscribe(saved => {
+      if (saved) this.reloadContracts();
+    });
+  }
+
+  private reloadContracts(): void {
+    this.contractsService.search({utility_id: this.data.item.id} as never).subscribe(contracts => {
+      this.contracts = contracts;
+      this.data.item.contratti = contracts;
+      this.refreshLinks();
     });
   }
 
@@ -277,48 +477,6 @@ export class UtilityEditDialogComponent implements OnInit {
     }
   }
 
-  openNewContractDialog(): void {
-    this.dialog.open(ContractEditDialogComponent, {
-      width: '900px',
-      maxWidth: '900px',
-      position: EDIT_DIALOG_POSITION,
-      data: {mode: 'create', item: Contract.create(), preselectedUtilityIds: [this.data.item.id]},
-    }).afterClosed().subscribe(result => {
-      if (result) {
-        this.contractsService.create(result).subscribe(() => {
-          // Ricarica i contratti dell'utenza per aggiornare subito la sezione in questo dialog.
-          this.contractsService.search({utility_id: this.data.item.id} as never).subscribe(
-            contratti => this.data.item.contratti = contratti
-          );
-        });
-      }
-    });
-  }
-
-  navigateToAsset(assetId: number | null | undefined): void {
-    if (!assetId) return;
-    // Apre il dialog immobile SOPRA questo (stessa finestra, non una tab
-    // nuova, ne' chiude il dialog contatore sottostante) — stesso pattern
-    // di MapComponent.openDetail. MatDialog impila overlay multipli di suo,
-    // chiudendo l'immobile si torna al contatore ancora aperto e compilato.
-    this.assetsService.getById(assetId).subscribe((asset) => {
-      this.dialog.open<AssetEditDialogComponent, {mode: 'edit'; item: Asset}, Asset | undefined>(AssetEditDialogComponent, {
-        width: ASSET_DIALOG_WIDTH,
-        maxWidth: ASSET_DIALOG_WIDTH,
-        position: EDIT_DIALOG_POSITION,
-        data: {mode: 'edit', item: asset},
-      })
-        // Stesso motivo di AssetEditDialogComponent.openUtilityDetail: il
-        // dialog non persiste da sé, senza questo "Salva" non salvava nulla.
-        .afterClosed().subscribe(result => {
-          if (!result) return;
-          this.assetsService.update(result.id, result).subscribe({
-            error: err => console.error("Errore nel salvataggio dell'immobile:", err)
-          });
-        });
-    });
-  }
-
   navigateToMaps(lat: string | null | undefined, lon: string | null | undefined): void {
     if (lat == null || lon == null) return;
     window.open(`https://www.google.com/maps/@${lat},${lon},15z?q=${lat},${lon}`, '_blank');
@@ -329,13 +487,8 @@ export class UtilityEditDialogComponent implements OnInit {
     const lat = this.form.controls.latitude.value;
     const lon = this.form.controls.longitude.value;
     if (isValid(lat) && isValid(lon)) return {lat, lon};
-    // Fallback all'immobile associato: prima il suo GPS reale, poi — se
-    // l'immobile non ne ha uno proprio — la sua posizione geocodificata
-    // dall'indirizzo (asset.geocoded_latitude/longitude). Senza questo
-    // secondo fallback un contatore collegato a un immobile solo
-    // geocodificato (caso comune, mai un GPS reale inserito a mano) restava
-    // con mini-mappa completamente vuota — nessun marker, nessun hint,
-    // nessun modo di impostare una posizione.
+    // Fallback all'immobile associato: prima il GPS reale, poi la posizione
+    // geocodificata dall'indirizzo (caso comune: nessun GPS inserito a mano).
     const asset = this.primaryAsset();
     const assetLat = asset?.latitude ?? asset?.geocoded_latitude;
     const assetLon = asset?.longitude ?? asset?.geocoded_longitude;
@@ -354,44 +507,9 @@ export class UtilityEditDialogComponent implements OnInit {
     return isValid(assetLat) && isValid(assetLon);
   }
 
-  // Mini-mappa/fallback coordinate: primo immobile selezionato che ha una
-  // posizione (GPS reale o geocodificata).
+  // Primo immobile selezionato che ha una posizione (GPS reale o geocodificata).
   private primaryAsset(): Asset | undefined {
-    const ids = this.form.controls.asset_ids.value ?? [];
-    const candidates = ids
-      .map(id => this.assetOptions.find(a => a.id === id) ?? this.data.item.assets?.find(a => a.id === id))
-      .filter((a): a is Asset => !!a);
-    return candidates.find(a => (a.latitude ?? a.geocoded_latitude) && (a.longitude ?? a.geocoded_longitude)) ?? candidates[0];
-  }
-
-  // Impianti selezionati (riquadro "A servizio di"): dai dati dell'utenza o
-  // dall'elenco completo per quelli appena aggiunti nel form.
-  selectedPlants(): {id: number; label: string; type: PlantType | null}[] {
-    const ids = (this.form.controls.plant_ids.value ?? []) as number[];
-    return ids.map(id => {
-      const known = this.data.item.plants?.find(p => p.id === id);
-      if (known) return {id, label: `${known.code} — ${known.name}`, type: known.type};
-      const opt = this.plantSelectOptions.find(o => o.value === id);
-      return {id, label: opt?.label ?? `#${id}`, type: null};
-    });
-  }
-
-  plantIcon(type: PlantType | null): string {
-    return type ? this.plantTypeIcon[type] : 'settings_input_component';
-  }
-
-  openPlant(plantId: number): void {
-    const role = this.authService.getCurrentUser()?.role;
-    this.dialog.open<PlantEditDialogComponent, PlantEditDialogData, boolean>(PlantEditDialogComponent, {
-      width: '1000px',
-      maxWidth: '1000px',
-      data: {plantId, readOnly: !role || role === 'Lettore'},
-    });
-  }
-
-  selectedAssetOptions(): TOption[] {
-    const ids = this.form.controls.asset_ids.value ?? [];
-    return ids.map(id => this.assetSelectOptions.find(o => o.value === id) ?? {label: `#${id}`, value: id});
+    return this.assetRows.find(a => (a.latitude ?? a.geocoded_latitude) && (a.longitude ?? a.geocoded_longitude)) ?? this.assetRows[0];
   }
 
   // Concessioni raggruppate per immobile collegato.
@@ -402,6 +520,10 @@ export class UtilityEditDialogComponent implements OnInit {
         utilizers: (a.utilizerGrants ?? []).map(g => g.utilizer?.name ?? '').filter(n => !!n),
       }))
       .filter(g => g.utilizers.length > 0);
+  }
+
+  counterpartCount(): number {
+    return this.grantsByAsset().reduce((n, g) => n + g.utilizers.length, 0) + (this.data.item.utilityType?.purposes?.length ?? 0);
   }
 
   onPositionSelected(coords: { lat: string; lng: string }): void {
@@ -438,7 +560,10 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   save(): void {
-    if (!this.form.valid) return;
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
     const result = plainToInstance(Utility, {
       id: this.data.item.id,
       ...this.form.getRawValue()

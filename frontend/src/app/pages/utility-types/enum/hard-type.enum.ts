@@ -33,6 +33,15 @@ export const HardTypeColor: Record<HardType, string> = {
   [HardType.INTERNET]: '#4CAF50', // green
 };
 
+// Icone Material per il tipo utenza (schede e tabelle nuove); HardTypeIcon
+// (font-awesome) resta per gli usi esistenti.
+export const HardTypeMatIcon: Record<HardType, string> = {
+  [HardType.WATER]: 'water_drop',
+  [HardType.LIGHT]: 'bolt',
+  [HardType.GAS]: 'local_fire_department',
+  [HardType.INTERNET]: 'wifi',
+};
+
 export namespace HardType {
   export function items(): { idx: number; label: string; icon: string; color: string; value: HardType }[] {
     return hardTypeValues.map((value, idx) => ({

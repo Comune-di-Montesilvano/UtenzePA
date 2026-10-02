@@ -1,395 +1,401 @@
-<h2 mat-dialog-title style="display: flex; width: 100%; box-sizing: border-box; justify-content: flex-start; align-items: baseline; gap: 1rem;">
-  <span>{{ isNew ? 'Aggiungi Utenza' : 'Modifica Utenza: ' + data.item.utility_id }}</span>
-  @if (!isNew && data.item.updated_by && data.item.update_date) {
-    <span style="margin-left: auto; font-size: 0.75rem; font-weight: 400; color: rgba(0,0,0,0.6); white-space: nowrap;">
-      Ultima modifica: {{ data.item.update_date | date:'dd/MM/yyyy HH:mm' }} — {{ data.item.updated_by.firstName }} {{ data.item.updated_by.lastName }}
-    </span>
-  }
-</h2>
-
-<mat-dialog-content>
-  <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start">
-    <mat-tab label="Dati">
-
-    @if (selectedPlants().length > 0) {
-      <div style="margin-bottom: 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 0.5rem 1rem;">
-        <mat-icon style="color: #c2410c;">settings_input_component</mat-icon>
-        <span>A servizio di:</span>
-        @for (p of selectedPlants(); track p.id) {
-          <button mat-stroked-button type="button" (click)="openPlant(p.id)" matTooltip="Apri l'impianto">
-            <mat-icon>{{ plantIcon(p.type) }}</mat-icon>{{ p.label }}
-          </button>
-        }
-      </div>
+<app-entity-sheet
+  [icon]="headerIcon()"
+  [color]="headerColor()"
+  [title]="titleText()"
+  [subtitle]="subtitleText()"
+  [lastModified]="lastModified">
+  <ng-container sheetBadges>
+    <app-status-badge [info]="statusInfo()"></app-status-badge>
+    @for (f of flags(); track f.label) {
+      <app-status-badge [info]="f" size="sm"></app-status-badge>
     }
-  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-direction: column; gap: 1.5rem;">
+  </ng-container>
 
-    <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
-      <legend style="padding: 0 0.5rem; font-weight: 600;">Identificazione</legend>
-      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Codice Utenza (POD/PDR) *</mat-label>
-          <input matInput formControlName="utility_id">
-          @if (form.controls.utility_id.invalid && form.controls.utility_id.touched) {
-            <mat-error>Obbligatorio</mat-error>
-          }
-        </mat-form-field>
+  <form [formGroup]="form">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
 
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Numero Contatore</mat-label>
-          <input matInput formControlName="meter_number">
-        </mat-form-field>
+      <mat-tab aria-label="Riepilogo">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="dashboard" label="Riepilogo"
+                         [error]="invalid('utility_id', 'utility_type_id_fk', 'budget_chapter_code_fk', 'costs_borne_by_id_fk')"></app-tab-label>
+        </ng-template>
 
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Tipo Uso Contatore *</mat-label>
-          <mat-select formControlName="utility_type_id_fk" (selectionChange)="onUtilityTypeChange($event)">
-            @for (opt of utilityTypeOptions; track opt.id) {
-              <mat-option [value]="opt.id">{{ opt.name }}</mat-option>
+        @if (linkError()) {
+          <div class="sheet-alert tone-danger">Collegare almeno un immobile o un impianto (tab Immobili o Impianti).</div>
+        }
+
+        <div class="sheet-grid">
+          <mat-form-field>
+            <mat-label>Codice Utenza (POD/PDR)</mat-label>
+            <input matInput formControlName="utility_id">
+            @if (form.controls.utility_id.invalid && form.controls.utility_id.touched) {
+              <mat-error>Obbligatorio</mat-error>
             }
-          </mat-select>
-          @if (form.controls.utility_type_id_fk.invalid && form.controls.utility_type_id_fk.touched) {
-            <mat-error>Obbligatorio</mat-error>
-          }
-        </mat-form-field>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Numero Contatore</mat-label>
+            <input matInput formControlName="meter_number">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Tipo Uso Contatore</mat-label>
+            <mat-select formControlName="utility_type_id_fk" (selectionChange)="onUtilityTypeChange($event)">
+              @for (opt of utilityTypeOptions; track opt.id) {
+                <mat-option [value]="opt.id">{{ opt.name }}</mat-option>
+              }
+            </mat-select>
+            @if (form.controls.utility_type_id_fk.invalid && form.controls.utility_type_id_fk.touched) {
+              <mat-error>Obbligatorio</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Codice Utenza o Cliente</mat-label>
+            <input matInput formControlName="utility_code">
+          </mat-form-field>
+          <div class="span-2">
+            <app-filterable-select
+              label="ID Aggregato"
+              placeholder="Cerca aggregato..."
+              [options]="aggregatorOptions"
+              formControlName="aggregator_id_fk">
+            </app-filterable-select>
+          </div>
+          <mat-form-field class="span-2">
+            <mat-label>Costi a Carico di</mat-label>
+            <mat-select formControlName="costs_borne_by_id_fk">
+              @for (opt of costsBorneByOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+            @if (form.controls.costs_borne_by_id_fk.invalid && form.controls.costs_borne_by_id_fk.touched) {
+              <mat-error>Obbligatorio</mat-error>
+            }
+          </mat-form-field>
+          <div class="span-all">
+            <app-filterable-select
+              label="Capitolo di Spesa *"
+              placeholder="Cerca per codice, descrizione o PDC..."
+              [options]="budgetChapterOptions"
+              formControlName="budget_chapter_code_fk"
+              [errorMessage]="form.controls.budget_chapter_code_fk.invalid && form.controls.budget_chapter_code_fk.touched ? 'Obbligatorio' : null">
+            </app-filterable-select>
+          </div>
+        </div>
 
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Codice Utenza o Cliente</mat-label>
-          <input matInput formControlName="utility_code">
-        </mat-form-field>
+        <div class="sheet-section-title">
+          <mat-icon>place</mat-icon>Indirizzo e posizione
+          <button mat-icon-button type="button" [disabled]="!resolveMapCoordsFromForm()"
+                  (click)="navigateToMaps(resolveMapCoordsFromForm()?.lat, resolveMapCoordsFromForm()?.lon)"
+                  [matTooltip]="resolveMapCoordsFromForm() ? 'Apri in Google Maps' : 'Mancano le coordinate'">
+            <mat-icon>open_in_new</mat-icon>
+          </button>
+        </div>
+        <div class="sheet-grid">
+          <mat-form-field class="span-2">
+            <mat-label>Indirizzo Fornitura</mat-label>
+            <input matInput formControlName="supplier_address">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Latitudine</mat-label>
+            <input matInput formControlName="latitude">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Longitudine</mat-label>
+            <input matInput formControlName="longitude">
+          </mat-form-field>
+        </div>
+        <app-location-map
+          [latitude]="resolveMapCoordsFromForm()?.lat ?? null"
+          [longitude]="resolveMapCoordsFromForm()?.lon ?? null"
+          [previewOnly]="isMapCoordsFromAsset()"
+          [readOnly]="!canEdit"
+          (positionSelected)="onPositionSelected($event)"
+          (positionCleared)="onPositionCleared()">
+        </app-location-map>
 
-        <div style="flex: 1 1 45%; display: flex; flex-direction: column; gap: 0.25rem;">
-          <div style="display: flex; align-items: flex-start; gap: 0.25rem;">
-            <div style="flex: 1 1 auto;">
-              <app-multi-select
-                label="Immobili associati"
-                [options]="assetSelectOptions"
-                formControlName="asset_ids">
-              </app-multi-select>
-              <app-multi-select
-                label="Impianti a servizio"
-                [options]="plantSelectOptions"
-                formControlName="plant_ids">
-              </app-multi-select>
+        <div class="sheet-previews">
+          <app-preview-card title="Immobili" icon="apartment" color="var(--entity-asset)"
+                            [items]="assetPreview" emptyText="Nessun immobile"
+                            (seeAll)="goTo('Immobili')" (open)="openAsset($event.id)"></app-preview-card>
+          <app-preview-card title="Impianti" icon="settings_input_component" color="var(--entity-plant)"
+                            [items]="plantPreview" emptyText="Nessun impianto"
+                            (seeAll)="goTo('Impianti')" (open)="openPlant($event.id)"></app-preview-card>
+          @if (!isNew) {
+            <app-preview-card title="Contratto corrente" icon="description" color="var(--entity-supply-contract)"
+                              [items]="contractPreview" emptyText="Nessun contratto corrente"
+                              (seeAll)="goTo('Contratti')" (open)="openContract($event.id)"></app-preview-card>
+            <div class="sheet-stat">
+              <span class="sheet-hint">Consumo effettivo 12 mesi</span>
+              <span class="sheet-stat-value">{{ formatQty(data.item.actual_consumption, consumptionUnit) }}</span>
+              <span class="sheet-hint">Presunto: {{ formatQty(form.controls.estimated_annual_consumption.value, consumptionUnit) }}</span>
             </div>
-            <button mat-icon-button type="button" [disabled]="!resolveMapCoordsFromForm()"
-                    [style.color]="isMapCoordsFromAsset() ? '#3b82f6' : null"
-                    (click)="navigateToMaps($safeNavigationMigration(resolveMapCoordsFromForm()?.lat), $safeNavigationMigration(resolveMapCoordsFromForm()?.lon))"
-                    [matTooltip]="resolveMapCoordsFromForm() ? 'Mostra su mappa' : 'Funzionalità non disponibile: mancano le coordinate.'"
-                    style="margin-top: 8px;">
-              <mat-icon>location_on</mat-icon>
-            </button>
-          </div>
-          @if (form.hasError('noLink') && (form.controls.asset_ids.touched || form.controls.plant_ids.touched)) {
-            <mat-error style="font-size: 0.75rem;">Almeno un immobile o un impianto obbligatorio</mat-error>
           }
-          <div style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
-            @for (opt of selectedAssetOptions(); track opt.value) {
-              <button mat-stroked-button type="button" (click)="navigateToAsset($any(opt.value))" matTooltip="Vai al dettaglio immobile">
-                <mat-icon>apartment</mat-icon>{{ opt.label }}
-              </button>
-            }
-          </div>
         </div>
+      </mat-tab>
 
-        <div style="flex: 1 1 21%;">
-          <app-filterable-select
-            label="ID Aggregato"
-            placeholder="Cerca aggregato..."
-            [options]="aggregatorOptions"
-            formControlName="aggregator_id_fk">
-          </app-filterable-select>
-        </div>
-
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Indirizzo Fornitura</mat-label>
-          <input matInput formControlName="supplier_address">
-        </mat-form-field>
-
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Latitudine</mat-label>
-          <input matInput formControlName="latitude">
-        </mat-form-field>
-
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Longitudine</mat-label>
-          <input matInput formControlName="longitude">
-        </mat-form-field>
-
-        <div style="flex: 1 1 100%;">
-          <app-location-map
-            [latitude]="resolveMapCoordsFromForm()?.lat ?? null"
-            [longitude]="resolveMapCoordsFromForm()?.lon ?? null"
-            [previewOnly]="isMapCoordsFromAsset()"
-            (positionSelected)="onPositionSelected($event)"
-            (positionCleared)="onPositionCleared()">
-          </app-location-map>
-        </div>
-      </div>
-    </fieldset>
-
-    <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
-      <legend style="padding: 0 0.5rem; font-weight: 600;">Caratteristiche tecniche</legend>
-      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-        @if (showLightFields) {
-          <mat-form-field style="flex: 1 1 21%;">
-            <mat-label>Potenza (kW)</mat-label>
-            <input matInput type="number" step="0.01" formControlName="power_kw_electric">
-          </mat-form-field>
-          <mat-form-field style="flex: 1 1 21%;">
-            <mat-label>Tensione (V / kV)</mat-label>
-            <input matInput formControlName="voltage_kw_electric">
-          </mat-form-field>
-          <mat-form-field style="flex: 1 1 21%;">
-            <mat-label>Tipo Fase</mat-label>
-            <mat-select formControlName="phase_type_electric">
-              @for (opt of phaseTypeOptions; track opt.value) {
+      <mat-tab aria-label="Tecnici e stato">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="tune" label="Tecnici e stato"></app-tab-label>
+        </ng-template>
+        <div class="sheet-section-title">Stato utenza</div>
+        <div class="sheet-grid">
+          <mat-form-field>
+            <mat-label>Fornitura Attiva</mat-label>
+            <mat-select formControlName="supply_active">
+              @for (opt of booleanOptions; track opt.value) {
                 <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
               }
             </mat-select>
           </mat-form-field>
-        }
-
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Disalimentabilità utenza</mat-label>
-          <input matInput formControlName="disconnection_ability">
-        </mat-form-field>
-
-        @if (showGasFields) {
-          <mat-form-field style="flex: 1 1 21%;">
-            <mat-label>Elemento WBS Gas</mat-label>
-            <input matInput formControlName="wbs_gas_element">
+          <mat-form-field>
+            <mat-label>Contatore Rimosso</mat-label>
+            <mat-select formControlName="meter_removed">
+              @for (opt of booleanOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
           </mat-form-field>
-        }
-      </div>
-    </fieldset>
-
-    <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
-      <legend style="padding: 0 0.5rem; font-weight: 600;">Stato utenza</legend>
-      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Fornitura Attiva</mat-label>
-          <mat-select formControlName="supply_active">
-            @for (opt of booleanOptions; track opt.value) {
-              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Contatore Rimosso</mat-label>
-          <mat-select formControlName="meter_removed">
-            @for (opt of booleanOptions; track opt.value) {
-              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Contatore Verificato</mat-label>
-          <mat-select formControlName="meter_verified">
-            @for (opt of booleanOptions; track opt.value) {
-              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-      </div>
-    </fieldset>
-
-    <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
-      <legend style="padding: 0 0.5rem; font-weight: 600;">Dati contrattuali</legend>
-      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Fornitore Manutenzione</mat-label>
-          <mat-select formControlName="maintenance_management_id_fk">
-            <mat-option [value]="null">Nessuno</mat-option>
-            @for (opt of maintenanceOptions; track opt.value) {
-              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Concessione acqua</mat-label>
-          <input matInput [matDatepicker]="waterConcessionPicker" formControlName="water_concession">
-          <mat-datepicker-toggle matSuffix [for]="waterConcessionPicker"></mat-datepicker-toggle>
-          <mat-datepicker #waterConcessionPicker></mat-datepicker>
-        </mat-form-field>
-
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Costi a Carico di *</mat-label>
-          <mat-select formControlName="costs_borne_by_id_fk">
-            @for (opt of costsBorneByOptions; track opt.value) {
-              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-            }
-          </mat-select>
-          @if (form.controls.costs_borne_by_id_fk.invalid && form.controls.costs_borne_by_id_fk.touched) {
-            <mat-error>Obbligatorio</mat-error>
-          }
-        </mat-form-field>
-      </div>
-    </fieldset>
-
-    <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
-      <legend style="padding: 0 0.5rem; font-weight: 600;">Contratti</legend>
-      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-        <div style="display: flex; justify-content: flex-end;">
-          <button mat-stroked-button type="button" (click)="openNewContractDialog()" [appHasRole]="['Admin', 'Operatore']">
-            <mat-icon>add</mat-icon>
-            Nuovo contratto
-          </button>
-        </div>
-        @if (!data.item.contratti?.length) {
-          <p style="color: #6A7282;">Nessun contratto associato.</p>
-        }
-        @for (contratto of data.item.contratti; track contratto.id) {
-          <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; border: 1px solid #E5E7EB; border-radius: 4px;">
-            <span>{{ contratto.cig_contract || 'CIG non specificato' }} — {{ contratto.supplier?.supplier_id || 'N/D' }}</span>
-            @if (contratto.isCurrent) { <span class="mat-action-success">Corrente</span> }
-            <span style="color: #6A7282;">
-              {{ contratto.supply_start_date ? (contratto.supply_start_date | date: 'dd/MM/yyyy') : 'N/D' }}
-              →
-              {{ contratto.supply_expiry_date ? (contratto.supply_expiry_date | date: 'dd/MM/yyyy') : 'N/D' }}
-            </span>
-          </div>
-        }
-      </div>
-    </fieldset>
-
-    <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
-      <legend style="padding: 0 0.5rem; font-weight: 600;">Consumi</legend>
-      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-        <div style="flex: 1 1 100%;">
-          <app-filterable-select
-            label="Capitolo di Spesa *"
-            placeholder="Cerca per codice, descrizione o PDC..."
-            [options]="budgetChapterOptions"
-            formControlName="budget_chapter_code_fk"
-            [errorMessage]="form.controls.budget_chapter_code_fk.invalid && form.controls.budget_chapter_code_fk.touched ? 'Obbligatorio' : null">
-          </app-filterable-select>
+          <mat-form-field>
+            <mat-label>Contatore Verificato</mat-label>
+            <mat-select formControlName="meter_verified">
+              @for (opt of booleanOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Disalimentabilità utenza</mat-label>
+            <input matInput formControlName="disconnection_ability">
+          </mat-form-field>
         </div>
 
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Deposito cauzionale (€)</mat-label>
-          <input matInput type="number" step="0.01" min="0" formControlName="security_deposit">
-        </mat-form-field>
-
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Consumo annuo presunto</mat-label>
-          <input matInput type="number" formControlName="estimated_annual_consumption">
-          <mat-hint>{{ estimateHint() }}</mat-hint>
-          @if (form.controls.estimated_annual_consumption.invalid && form.controls.estimated_annual_consumption.touched) {
-            <mat-error>Obbligatorio</mat-error>
+        <div class="sheet-section-title">Caratteristiche tecniche</div>
+        <div class="sheet-grid">
+          @if (showLightFields) {
+            <mat-form-field>
+              <mat-label>Potenza (kW)</mat-label>
+              <input matInput type="number" step="0.01" formControlName="power_kw_electric">
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Tensione (V / kV)</mat-label>
+              <input matInput formControlName="voltage_kw_electric">
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Tipo Fase</mat-label>
+              <mat-select formControlName="phase_type_electric">
+                @for (opt of phaseTypeOptions; track opt.value) {
+                  <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
           }
-        </mat-form-field>
-
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Consumo annuo comunicato Consip</mat-label>
-          <input matInput type="number" formControlName="reported_consumption_year">
-          @if (form.controls.reported_consumption_year.invalid && form.controls.reported_consumption_year.touched) {
-            <mat-error>Obbligatorio</mat-error>
+          @if (showGasFields) {
+            <mat-form-field>
+              <mat-label>Elemento WBS Gas</mat-label>
+              <input matInput formControlName="wbs_gas_element">
+            </mat-form-field>
           }
-        </mat-form-field>
+          @if (!showLightFields && !showGasFields) {
+            <p class="sheet-empty span-all">Nessun dato tecnico specifico per questo tipo di utenza.</p>
+          }
+        </div>
 
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Consumo effettivo (12 mesi)</mat-label>
-          <input matInput disabled [value]="formatQty(data.item.actual_consumption, consumptionUnit)">
-          <mat-hint>Da storico consumi · dati su {{ data.item.actual_consumption_coverage_days ?? 0 }}/365 giorni</mat-hint>
-        </mat-form-field>
+        <div class="sheet-section-title">Gestione</div>
+        <div class="sheet-grid">
+          <mat-form-field>
+            <mat-label>Fornitore Manutenzione</mat-label>
+            <mat-select formControlName="maintenance_management_id_fk">
+              <mat-option [value]="null">Nessuno</mat-option>
+              @for (opt of maintenanceOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Concessione acqua</mat-label>
+            <input matInput [matDatepicker]="waterConcessionPicker" formControlName="water_concession">
+            <mat-datepicker-toggle matSuffix [for]="waterConcessionPicker"></mat-datepicker-toggle>
+            <mat-datepicker #waterConcessionPicker></mat-datepicker>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Deposito cauzionale (€)</mat-label>
+            <input matInput type="number" step="0.01" min="0" formControlName="security_deposit">
+          </mat-form-field>
+        </div>
+      </mat-tab>
 
-      </div>
-    </fieldset>
+      <mat-tab aria-label="Immobili">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="apartment" label="Immobili" [count]="assetRows.length" [error]="linkError()"></app-tab-label>
+        </ng-template>
+        <app-linked-table
+          [columns]="assetColumns"
+          [rows]="assetRows"
+          [rowStatus]="assetStatusOf"
+          [addOptions]="canEdit ? assetSelectOptions : null"
+          addLabel="Collega immobile"
+          itemLabel="l'immobile"
+          [unlinkable]="canEdit"
+          emptyText="Nessun immobile collegato."
+          (add)="addAsset($event)"
+          (unlink)="unlinkAsset($event)"
+          (open)="openAsset($event.id)">
+        </app-linked-table>
+      </mat-tab>
 
-    @if (!isNew) {
-      <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
-        <legend style="padding: 0 0.5rem; font-weight: 600;">Finalità d'uso</legend>
-        @if (data.item.utilityType?.purposes?.length) {
-          <ul style="margin: 0; padding-left: 1.5rem; list-style-type: disc;">
-            @for (purpose of data.item.utilityType!.purposes; track purpose.id) {
-              <li>{{ purpose.name }} ({{ useTypeDescription[purpose.use_type] }})</li>
+      <mat-tab aria-label="Impianti">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="settings_input_component" label="Impianti" [count]="plantRows.length" [error]="linkError()"></app-tab-label>
+        </ng-template>
+        <app-linked-table
+          [columns]="plantColumns"
+          [rows]="plantRows"
+          [rowIcon]="plantIconOf"
+          [rowStatus]="plantStatusOf"
+          [addOptions]="canEdit ? plantSelectOptions : null"
+          addLabel="Collega impianto"
+          itemLabel="l'impianto"
+          [unlinkable]="canEdit"
+          emptyText="Nessun impianto servito da questa utenza."
+          (add)="addPlant($event)"
+          (unlink)="unlinkPlant($event)"
+          (open)="openPlant($event.id)">
+        </app-linked-table>
+      </mat-tab>
+
+      <mat-tab aria-label="Contratti" [disabled]="isNew">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="description" label="Contratti"
+                         [count]="isNew ? null : contracts.length" [tone]="hasCurrentContract() ? 'ok' : 'warn'"></app-tab-label>
+        </ng-template>
+        <ng-template matTabContent>
+          <app-linked-table
+            [columns]="contractColumns"
+            [rows]="contracts"
+            [rowStatus]="contractStatusOf"
+            [createLabel]="canEdit ? 'Nuovo contratto' : null"
+            emptyText="Nessun contratto associato."
+            (create)="newContract()"
+            (open)="openContract($event.id)">
+          </app-linked-table>
+        </ng-template>
+      </mat-tab>
+
+      <mat-tab aria-label="Consumi">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="insights" label="Consumi"
+                         [error]="invalid('estimated_annual_consumption', 'reported_consumption_year')"></app-tab-label>
+        </ng-template>
+        <div class="sheet-grid">
+          <mat-form-field>
+            <mat-label>Consumo annuo presunto</mat-label>
+            <input matInput type="number" formControlName="estimated_annual_consumption">
+            <mat-hint>{{ estimateHint() }}</mat-hint>
+            @if (form.controls.estimated_annual_consumption.invalid && form.controls.estimated_annual_consumption.touched) {
+              <mat-error>Obbligatorio</mat-error>
             }
-          </ul>
-        } @else {
-          <span style="color: #666; font-style: italic;">Nessuna Finalità d'uso associata.</span>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Consumo annuo comunicato Consip</mat-label>
+            <input matInput type="number" formControlName="reported_consumption_year">
+            @if (form.controls.reported_consumption_year.invalid && form.controls.reported_consumption_year.touched) {
+              <mat-error>Obbligatorio</mat-error>
+            }
+          </mat-form-field>
+          @if (!isNew) {
+            <mat-form-field>
+              <mat-label>Consumo effettivo (12 mesi)</mat-label>
+              <input matInput disabled [value]="formatQty(data.item.actual_consumption, consumptionUnit)">
+              <mat-hint>Da storico consumi · dati su {{ data.item.actual_consumption_coverage_days ?? 0 }}/365 giorni</mat-hint>
+            </mat-form-field>
+          }
+        </div>
+        @if (!isNew && selectedHardType !== HardType.INTERNET) {
+          <app-utility-consumptions-tab
+            [utilityId]="data.item.id"
+            [meterNumber]="data.item.meter_number ?? null"
+            (summaryChanged)="onConsumptionSummary($event)">
+          </app-utility-consumptions-tab>
         }
-      </fieldset>
+      </mat-tab>
 
-      <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
-        <legend style="padding: 0 0.5rem; font-weight: 600;">Controparti</legend>
-        @if (grantsByAsset().length) {
+      <mat-tab aria-label="Controparti" [disabled]="isNew">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="groups" label="Controparti" [count]="isNew ? null : counterpartCount()"></app-tab-label>
+        </ng-template>
+        <ng-template matTabContent>
+          <div class="sheet-section-title">Finalità d'uso</div>
+          @if (data.item.utilityType?.purposes?.length) {
+            <ul class="sheet-list">
+              @for (purpose of data.item.utilityType!.purposes; track purpose.id) {
+                <li>{{ purpose.name }} ({{ useTypeDescription[purpose.use_type] }})</li>
+              }
+            </ul>
+          } @else {
+            <p class="sheet-empty">Nessuna finalità d'uso associata.</p>
+          }
+          <div class="sheet-section-title">Controparti</div>
           @for (group of grantsByAsset(); track group.assetName) {
             <div style="font-weight: 500; margin-top: 0.25rem;">{{ group.assetName }}</div>
-            <ul style="margin: 0; padding-left: 1.5rem; list-style-type: disc;">
+            <ul class="sheet-list">
               @for (name of group.utilizers; track name) {
                 <li>{{ name }}</li>
               }
             </ul>
+          } @empty {
+            <p class="sheet-empty">Nessuna concessione trovata.</p>
           }
-        } @else {
-          <span style="color: #666; font-style: italic;">Nessuna concessione trovata.</span>
-        }
-      </fieldset>
-    }
+        </ng-template>
+      </mat-tab>
 
-    <mat-form-field>
-      <mat-label>Specifiche</mat-label>
-      <textarea matInput formControlName="specifications" rows="3"></textarea>
-    </mat-form-field>
-
-    <mat-form-field>
-      <mat-label>Note</mat-label>
-      <textarea matInput formControlName="notes" rows="3"></textarea>
-    </mat-form-field>
-
-    <mat-form-field>
-      <mat-label>Note Aggiuntive</mat-label>
-      <textarea matInput formControlName="additional_notes" rows="3"></textarea>
-    </mat-form-field>
-
-  </form>
-    </mat-tab>
-    <mat-tab label="Foto" [disabled]="isNew">
-      <ng-template matTabContent>
-        <div style="padding: 1rem 0;">
-          <app-photo-gallery [entityType]="'utility'" [entityId]="data.item.id"></app-photo-gallery>
+      <mat-tab aria-label="Note">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="notes" label="Note" [dot]="filled('specifications', 'notes', 'additional_notes')"></app-tab-label>
+        </ng-template>
+        <div class="sheet-grid">
+          <mat-form-field class="span-all">
+            <mat-label>Specifiche</mat-label>
+            <textarea matInput formControlName="specifications" rows="3"></textarea>
+          </mat-form-field>
+          <mat-form-field class="span-all">
+            <mat-label>Note</mat-label>
+            <textarea matInput formControlName="notes" rows="3"></textarea>
+          </mat-form-field>
+          <mat-form-field class="span-all">
+            <mat-label>Note Aggiuntive</mat-label>
+            <textarea matInput formControlName="additional_notes" rows="3"></textarea>
+          </mat-form-field>
         </div>
-      </ng-template>
-    </mat-tab>
-    <mat-tab [disabled]="isNew || selectedHardType === HardType.INTERNET">
-      <ng-template mat-tab-label>
-        <mat-icon style="margin-right: 5px;">insights</mat-icon>
-        Consumi
-      </ng-template>
-      <ng-template matTabContent>
-        <app-utility-consumptions-tab
-          [utilityId]="data.item.id"
-          [meterNumber]="data.item.meter_number ?? null"
-          (summaryChanged)="onConsumptionSummary($event)">
-        </app-utility-consumptions-tab>
-      </ng-template>
-    </mat-tab>
-    <mat-tab label="Storico" [disabled]="isNew">
-      <ng-template mat-tab-label>
-        <mat-icon style="margin-right: 5px;">history</mat-icon>
-        Storico
-      </ng-template>
-      <ng-template matTabContent>
-        <div style="padding: 1rem 0;">
+      </mat-tab>
+
+      <mat-tab aria-label="Foto" [disabled]="isNew">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="photo_library" label="Foto"></app-tab-label>
+        </ng-template>
+        <ng-template matTabContent>
+          <app-photo-gallery [entityType]="'utility'" [entityId]="data.item.id"></app-photo-gallery>
+        </ng-template>
+      </mat-tab>
+
+      <mat-tab aria-label="Storico" [disabled]="isNew">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="history" label="Storico"></app-tab-label>
+        </ng-template>
+        <ng-template matTabContent>
           <app-entity-history
             [entity]="'utilities'"
             [entityId]="data.item.id"
             [lastModifiedBy]="data.item.updated_by ? data.item.updated_by.firstName + ' ' + data.item.updated_by.lastName : null"
             [lastModifiedAt]="data.item.update_date ? data.item.update_date.toString() : null">
           </app-entity-history>
-        </div>
-      </ng-template>
-    </mat-tab>
-  </mat-tab-group>
-</mat-dialog-content>
+        </ng-template>
+      </mat-tab>
+    </mat-tab-group>
+  </form>
 
-<mat-dialog-actions align="end">
-  <button mat-stroked-button (click)="cancel()">Annulla</button>
-  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">
-    {{ isNew ? 'Crea Utenza' : 'Salva Utenza' }}
-  </button>
-</mat-dialog-actions>
+  <ng-container sheetActions>
+    <button mat-stroked-button type="button" (click)="cancel()">{{ canEdit ? 'Annulla' : 'Chiudi' }}</button>
+    @if (canEdit) {
+      <button mat-flat-button type="button" (click)="save()">{{ isNew ? 'Crea utenza' : 'Salva utenza' }}</button>
+    }
+  </ng-container>
+</app-entity-sheet>

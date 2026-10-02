@@ -1,0 +1,338 @@
+<app-entity-sheet
+  [icon]="typeIcon[currentType()]"
+  color="var(--entity-plant)"
+  [title]="title()"
+  [subtitle]="subtitle()"
+  [lastModified]="lastModified()">
+  <ng-container sheetBadges>
+    <app-status-badge [info]="statusInfo()"></app-status-badge>
+    @if (positionInfo(); as pos) {
+      <app-status-badge [info]="pos" size="sm"></app-status-badge>
+    }
+    @if (inspectionFlag(); as f) {
+      <app-status-badge [info]="f" size="sm"></app-status-badge>
+    }
+  </ng-container>
+
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
+  <form [formGroup]="form">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
+
+      <mat-tab aria-label="Riepilogo">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="dashboard" label="Riepilogo" [error]="invalid('type', 'code', 'name')"></app-tab-label>
+        </ng-template>
+        @if (missingCerts().length) {
+          <div class="sheet-alert tone-warn">Certificazioni obbligatorie mancanti: {{ missingCerts().join(', ') }} (tab Dati tecnici).</div>
+        }
+        <div class="sheet-grid">
+          <mat-form-field class="span-2">
+            <mat-label>Tipo</mat-label>
+            <mat-select formControlName="type">
+              <mat-select-trigger>{{ typeLabel[currentType()] }}</mat-select-trigger>
+              @for (t of types; track t) {
+                <mat-option [value]="t"><span><mat-icon style="vertical-align: middle; margin-right: 6px;">{{ typeIcon[t] }}</mat-icon>{{ typeLabel[t] }}</span></mat-option>
+              }
+            </mat-select>
+            @if (typeLocked()) {
+              <mat-hint>Tipo bloccato: ci sono presidi antincendio</mat-hint>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Codice</mat-label>
+            <input matInput formControlName="code" placeholder="es. fon_17">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Stato</mat-label>
+            <mat-select formControlName="status">
+              @for (s of statuses; track s) {
+                <mat-option [value]="s">{{ statusLabel[s] }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field class="span-all">
+            <mat-label>Nome</mat-label>
+            <input matInput formControlName="name">
+          </mat-form-field>
+        </div>
+
+        <div class="sheet-section-title"><mat-icon>place</mat-icon>Indirizzo e posizione</div>
+        <div class="sheet-grid">
+          <mat-form-field>
+            <mat-label>Toponimo</mat-label>
+            <input matInput formControlName="toponym" placeholder="es. Via, Piazza">
+          </mat-form-field>
+          <mat-form-field class="span-2">
+            <mat-label>Indirizzo</mat-label>
+            <input matInput formControlName="address">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Civico</mat-label>
+            <input matInput formControlName="civic_number">
+          </mat-form-field>
+        </div>
+        <app-location-map
+          [latitude]="form.controls.latitude.value"
+          [longitude]="form.controls.longitude.value"
+          [estimatedLatitude]="estimated()?.lat ?? null"
+          [estimatedLongitude]="estimated()?.lng ?? null"
+          [previewOnly]="data.readOnly"
+          [readOnly]="data.readOnly"
+          (positionSelected)="onPositionSelected($event)"
+          (positionCleared)="onPositionCleared()">
+        </app-location-map>
+        @if (!form.controls.latitude.value && estimated()) {
+          <p class="sheet-hint">
+            {{ plant?.position_quality === 'FROM_ASSET' ? "Posizione dell'immobile collegato" : 'Posizione stimata da indirizzo (geocodifica)' }}
+            — clicca sulla mappa per fissarne una propria.
+          </p>
+        }
+
+        <div class="sheet-grid" style="margin-top: 12px;">
+          <mat-form-field class="span-all">
+            <mat-label>Note</mat-label>
+            <textarea matInput rows="2" formControlName="notes"></textarea>
+          </mat-form-field>
+        </div>
+
+        <div class="sheet-previews">
+          <app-preview-card title="Immobili" icon="apartment" color="var(--entity-asset)"
+                            [items]="assetPreview" emptyText="Nessun immobile (es. fontana in piazza)"
+                            (seeAll)="goTo('Immobili')" (open)="openAsset($event.id)"></app-preview-card>
+          <app-preview-card title="Utenze" icon="electric_meter" color="var(--entity-utility)"
+                            [items]="utilityPreview" emptyText="Nessuna utenza"
+                            (seeAll)="goTo('Utenze')" (open)="openUtility($event.id)"></app-preview-card>
+          @if (plant && hasTab('inspections')) {
+            <app-preview-card title="Verifiche" icon="event" color="var(--entity-plant)"
+                              [items]="inspectionPreview" emptyText="Nessuna verifica registrata"
+                              (seeAll)="goTo('Verifiche')" (open)="goTo('Verifiche')"></app-preview-card>
+          }
+        </div>
+      </mat-tab>
+
+      @if (hasTab('technical')) {
+        <mat-tab aria-label="Dati tecnici">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="engineering" label="Dati tecnici"
+                           [dot]="missingCerts().length > 0" tone="warn"
+                           [error]="invalid('thermal', 'elevator')"></app-tab-label>
+          </ng-template>
+          @if (currentType() === 'THERMAL') {
+            <div formGroupName="thermal">
+              <div class="sheet-section-title">Centrale termica</div>
+              <div class="sheet-grid">
+                <mat-form-field>
+                  <mat-label>Potenza totale (kW)</mat-label>
+                  <input matInput type="number" min="0" step="0.01" formControlName="power_kw">
+                  <mat-hint>Somma dei generatori</mat-hint>
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Generatori</mat-label>
+                  <input matInput formControlName="generators_description" placeholder="es. 160+80">
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Mq serviti</mat-label>
+                  <input matInput type="number" min="0" step="0.01" formControlName="served_area_sqm">
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Locale idrico</mat-label>
+                  <mat-select formControlName="water_room">
+                    <mat-option [value]="null">Non indicato</mat-option>
+                    <mat-option [value]="true">Sì</mat-option>
+                    <mat-option [value]="false">No</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field class="span-2">
+                  <mat-label>Certificazione VVF</mat-label>
+                  <input matInput formControlName="vvf_certification" placeholder="es. pratica nr. ...">
+                  <mat-hint>Obbligatoria oltre 116 kW</mat-hint>
+                </mat-form-field>
+                <mat-checkbox formControlName="vvf_exempt" style="align-self: center;">Esente VVF</mat-checkbox>
+                <div></div>
+                <mat-form-field class="span-2">
+                  <mat-label>Certificazione INAIL</mat-label>
+                  <input matInput formControlName="inail_certification" placeholder="es. pratica nr. ...">
+                  <mat-hint>Obbligatoria oltre 35 kW</mat-hint>
+                </mat-form-field>
+                <mat-checkbox formControlName="inail_exempt" style="align-self: center;">Esente INAIL</mat-checkbox>
+              </div>
+              @if (plant?.obligations; as o) {
+                @let vvf = cert(o.vvf_required, !!plant?.thermal?.vvf_exempt, plant?.thermal?.vvf_certification ?? null);
+                @let inail = cert(o.inail_required, !!plant?.thermal?.inail_exempt, plant?.thermal?.inail_certification ?? null);
+                <div style="display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.85rem; margin-top: 8px;">
+                  <span>VVF: <span [style.background]="vvf.bg" [style.color]="vvf.fg" style="border-radius: 10px; padding: 1px 8px;">{{ vvf.text }}</span></span>
+                  <span>INAIL: <span [style.background]="inail.bg" [style.color]="inail.fg" style="border-radius: 10px; padding: 1px 8px;">{{ inail.text }}</span></span>
+                  <span>Controllo efficienza: {{ o.efficiency_check_required ? 'obbligatorio (≥ 10 kW)' : 'non richiesto' }}</span>
+                </div>
+              }
+              <div class="sheet-section-title">Climatizzazione</div>
+              <div class="sheet-grid">
+                @for (f of countFields; track f.key) {
+                  <mat-form-field>
+                    <mat-label>{{ f.label }}</mat-label>
+                    <input matInput type="number" min="0" step="1" [formControlName]="f.key">
+                  </mat-form-field>
+                }
+              </div>
+              <p class="sheet-hint">
+                Obblighi indicativi calcolati dalla potenza: controllo di efficienza da 10 kW (DPR 74/2013), INAIL oltre 35 kW, VVF oltre 116 kW (DPR 151/2011).
+              </p>
+            </div>
+          }
+          @if (currentType() === 'ELEVATOR') {
+            <div formGroupName="elevator" class="sheet-grid">
+              <mat-form-field>
+                <mat-label>Matricola</mat-label>
+                <input matInput formControlName="serial_number">
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Numero impianto</mat-label>
+                <input matInput formControlName="plant_number">
+              </mat-form-field>
+              <mat-form-field class="span-2">
+                <mat-label>Costruttore</mat-label>
+                <input matInput formControlName="manufacturer">
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Anno</mat-label>
+                <input matInput type="number" min="1900" max="2100" step="1" formControlName="year">
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Data collaudo</mat-label>
+                <input matInput [matDatepicker]="testPicker" formControlName="test_date" placeholder="GG/MM/AAAA">
+                <mat-datepicker-toggle matIconSuffix [for]="testPicker"></mat-datepicker-toggle>
+                <mat-datepicker #testPicker></mat-datepicker>
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Tipologia</mat-label>
+                <input matInput formControlName="elevator_type" placeholder="ascensore, montacarichi, piattaforma">
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Azionamento</mat-label>
+                <input matInput formControlName="drive" placeholder="elettrico, oleodinamico">
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Portata (kg)</mat-label>
+                <input matInput type="number" min="0" step="1" formControlName="capacity_kg">
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Fermate</mat-label>
+                <input matInput type="number" min="0" step="1" formControlName="stops">
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Velocità</mat-label>
+                <input matInput formControlName="speed" placeholder="es. 0,63 m/s">
+              </mat-form-field>
+            </div>
+          }
+        </mat-tab>
+      }
+
+      @if (plant && hasTab('fire_equipment')) {
+        <mat-tab aria-label="Presidi">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="fire_extinguisher" label="Presidi" [count]="plant.fireEquipment.length"></app-tab-label>
+          </ng-template>
+          <app-plant-fire-equipment-tab
+            [plantId]="plant.id"
+            [rows]="plant.fireEquipment"
+            [readOnly]="data.readOnly"
+            (changed)="reloadPlant()">
+          </app-plant-fire-equipment-tab>
+        </mat-tab>
+      }
+
+      @if (plant && hasTab('inspections')) {
+        <mat-tab aria-label="Verifiche">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="event" label="Verifiche" [count]="plant.inspections.length"
+                           [tone]="overdueInspections() ? 'danger' : 'info'"></app-tab-label>
+          </ng-template>
+          <app-plant-inspections-tab
+            [plantId]="plant.id"
+            [plantType]="plant.type"
+            [powerKw]="plant.thermal?.power_kw ?? null"
+            [rows]="plant.inspections"
+            [readOnly]="data.readOnly"
+            (changed)="reloadPlant()">
+          </app-plant-inspections-tab>
+        </mat-tab>
+      }
+
+      <mat-tab aria-label="Immobili">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="apartment" label="Immobili" [count]="assetRows.length"></app-tab-label>
+        </ng-template>
+        <app-linked-table
+          [columns]="assetColumns"
+          [rows]="assetRows"
+          [rowStatus]="assetStatusOf"
+          [addOptions]="canEdit ? assetOptions : null"
+          addLabel="Collega immobile"
+          itemLabel="l'immobile"
+          [unlinkable]="canEdit"
+          emptyText="Nessun immobile collegato (es. fontana in piazza)."
+          (add)="addAsset($event)"
+          (unlink)="unlinkAsset($event)"
+          (open)="openAsset($event.id)">
+        </app-linked-table>
+      </mat-tab>
+
+      <mat-tab aria-label="Utenze">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="electric_meter" label="Utenze" [count]="utilityRows.length"></app-tab-label>
+        </ng-template>
+        <app-linked-table
+          [columns]="utilityColumns"
+          [rows]="utilityRows"
+          [rowIcon]="utilityIconOf"
+          [rowStatus]="utilityStatusOf"
+          [addOptions]="canEdit ? utilityOptions : null"
+          addLabel="Collega utenza"
+          itemLabel="l'utenza"
+          [unlinkable]="canEdit"
+          emptyText="Nessuna utenza a servizio dell'impianto."
+          (add)="addUtility($event)"
+          (unlink)="unlinkUtility($event)"
+          (open)="openUtility($event.id)">
+        </app-linked-table>
+      </mat-tab>
+
+      @if (plant) {
+        <mat-tab aria-label="Foto">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="photo_library" label="Foto"></app-tab-label>
+          </ng-template>
+          <ng-template matTabContent>
+            <app-photo-gallery [entityType]="'plant'" [entityId]="plant.id"></app-photo-gallery>
+          </ng-template>
+        </mat-tab>
+        <mat-tab aria-label="Storico">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="history" label="Storico"></app-tab-label>
+          </ng-template>
+          <ng-template matTabContent>
+            <app-entity-history
+              [entity]="'plants'"
+              [entityId]="plant.id"
+              [lastModifiedBy]="plant.updated_by ? (plant.updated_by.firstName ?? '') + ' ' + (plant.updated_by.lastName ?? '') : null"
+              [lastModifiedAt]="plant.update_date ?? null">
+            </app-entity-history>
+          </ng-template>
+        </mat-tab>
+      }
+    </mat-tab-group>
+  </form>
+
+  <ng-container sheetActions>
+    @if (error) {
+      <p class="sheet-error">{{ error }}</p>
+    }
+    <button mat-stroked-button type="button" (click)="dialogRef.close(saved)">{{ data.readOnly ? 'Chiudi' : 'Annulla' }}</button>
+    @if (!data.readOnly) {
+      <button mat-flat-button type="button" (click)="save()" [disabled]="saving || loading">Salva</button>
+    }
+  </ng-container>
+</app-entity-sheet>

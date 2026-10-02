@@ -4,6 +4,7 @@ import { plainToInstance, Exclude } from 'class-transformer';
 import { Supplier } from '../../suppliers/entity/supplier.entity';
 import { ConsipAgreement } from '../../consip-agreement/entity/consip-agreement.entity';
 import { Utility } from '../../utilities/entity/utility.entity';
+import { SystemUser } from '../../system-users/entity/system-user.entity';
 
 export class Contract extends AbstractEntity implements IContract {
   supplier_id_fk?: number | null;
@@ -28,6 +29,10 @@ export class Contract extends AbstractEntity implements IContract {
 
   @Exclude({ toPlainOnly: true })
   utilities?: Utility[];
+
+  // Popolato dal GET (relations del service backend), mai inviato.
+  @Exclude({ toPlainOnly: true })
+  updated_by?: SystemUser | null;
 
   get isCurrent(): boolean {
     if (this.closed) return false;

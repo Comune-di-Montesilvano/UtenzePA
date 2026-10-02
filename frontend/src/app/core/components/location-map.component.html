@@ -6,15 +6,17 @@
       Apri Street View
     </button>
   }
-  @if (usingOwnPosition && latitude && longitude) {
+  @if (!readOnly && usingOwnPosition && latitude && longitude) {
     <button mat-stroked-button type="button" class="location-map-clear" (click)="clearPosition()">
       Cancella posizione manuale
     </button>
   }
   @if (!usingOwnPosition && latitude && longitude) {
     <div class="location-map-hint">Posizione ereditata dall'immobile collegato</div>
-    <button mat-stroked-button type="button" class="location-map-own-position" (click)="enableOwnPosition()">
-      Imposta posizione propria
-    </button>
+    @if (!readOnly) {
+      <button mat-stroked-button type="button" class="location-map-own-position" (click)="enableOwnPosition()">
+        Imposta posizione propria
+      </button>
+    }
   }
 </div>
