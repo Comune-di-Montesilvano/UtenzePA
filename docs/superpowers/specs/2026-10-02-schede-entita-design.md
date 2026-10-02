@@ -48,7 +48,7 @@ Funzioni pure che restituiscono `{tone, label, icon?, tooltip?}`:
 |---|---|---|
 | `assetStatus(a)` | `status`: Attivo ok / Da verificare warn / Dismesso off | tipo precedente (warn) se `legacyTypeLabel` |
 | `utilityStatus(u)` | `supply_active`: Attiva ok / Non attiva off | contatore rimosso (off), contatore non verificato (warn) |
-| `plantStatus(p)` | `status`: Attivo ok / Da verificare warn / Dismesso off | verifiche scadute (danger) |
+| `plantStatus(p)` | `status`: Attivo ok / Da verificare warn / Dismesso off | verifiche scadute (danger), calcolate con `inspectionStatusOf(next_date)` esistente in `plant.model.ts` |
 | `supplyContractStatus(c)` | Chiuso off se `closed`; Scaduto danger se `supply_expiry_date` < oggi; altrimenti In corso ok | senza CIG (danger) se manca CIG e non esente |
 | `grantStatus(g)` | `computed_status`: Attivo ok / In contenzioso danger / Restituito off / Cessato off | stato dichiarato ≠ calcolato (warn) |
 
