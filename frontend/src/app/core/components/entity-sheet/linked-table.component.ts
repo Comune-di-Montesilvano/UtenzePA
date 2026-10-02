@@ -36,7 +36,7 @@ export interface RowIcon {
       <div class="lt-toolbar">
         @if (addOptions) {
           <div class="lt-picker">
-            <app-filterable-select [label]="addLabel" placeholder="Cerca..." [options]="available" [(ngModel)]="toAdd"></app-filterable-select>
+            <app-filterable-select [label]="addLabel" placeholder="Cerca..." [options]="available" [(ngModel)]="toAdd" [ngModelOptions]="{standalone: true}"></app-filterable-select>
           </div>
           <button mat-flat-button type="button" class="lt-link-btn" [disabled]="toAdd === null" (click)="confirmAdd()">
             <mat-icon>link</mat-icon> Collega
