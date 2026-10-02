@@ -1,45 +1,56 @@
-<h2 mat-dialog-title>
-  {{ isNew ? 'Nuovo contratto immobiliare' : 'Contratto immobiliare #' + item.id }}
-</h2>
+<app-entity-sheet
+  [icon]="headerIcon()"
+  color="var(--entity-grant)"
+  [title]="titleText()"
+  [subtitle]="form.controls.subject.value"
+  [lastModified]="lastModified">
+  <ng-container sheetBadges>
+    <app-status-badge [info]="statusInfo()"></app-status-badge>
+    @for (f of flags(); track f.label) {
+      <app-status-badge [info]="f" size="sm"></app-status-badge>
+    }
+  </ng-container>
 
-<mat-dialog-content>
-  <form [formGroup]="form" [readOnly]="['Lettore']">
-    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start">
-      <mat-tab label="Dati">
-        <div style="display: flex; flex-direction: column; gap: 1rem; padding-top: 1rem;">
+  <form [formGroup]="form">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
 
-          <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
-            <legend style="padding: 0 0.5rem; font-weight: 600;">Contratto</legend>
-            <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-              <mat-form-field style="flex: 1 1 160px;">
-                <mat-label>Direzione *</mat-label>
-                <mat-select formControlName="direction">
-                  @for (o of directionOptions; track o.value) {
-                    <mat-option [value]="o.value">{{ o.label }}</mat-option>
-                  }
-                </mat-select>
-                <mat-hint>Entrata: il Comune incassa</mat-hint>
-              </mat-form-field>
-              <mat-form-field style="flex: 1 1 200px;">
-                <mat-label>Tipo *</mat-label>
-                <mat-select formControlName="kind">
-                  @for (o of kindOptions; track o.value) {
-                    <mat-option [value]="o.value">{{ o.label }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-              <mat-form-field style="flex: 1 1 160px;">
-                <mat-label>Stato *</mat-label>
-                <mat-select formControlName="status">
-                  @for (o of statusOptions; track o.value) {
-                    <mat-option [value]="o.value">{{ o.label }}</mat-option>
-                  }
-                </mat-select>
-                @if (!isNew && item.computed_status) {
-                  <mat-hint>Ora: {{ computedStatusText() }}</mat-hint>
-                }
-              </mat-form-field>
-            </div>
+      <mat-tab aria-label="Riepilogo">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="dashboard" label="Riepilogo"
+                         [error]="invalid('direction', 'kind', 'status', 'utilizer_id_fk', 'rent_amount', 'renewal_months', 'notice_months')"></app-tab-label>
+        </ng-template>
+
+        <div class="sheet-grid">
+          <mat-form-field>
+            <mat-label>Direzione</mat-label>
+            <mat-select formControlName="direction">
+              @for (o of directionOptions; track o.value) {
+                <mat-option [value]="o.value">{{ o.label }}</mat-option>
+              }
+            </mat-select>
+            <mat-hint>Entrata: il Comune incassa</mat-hint>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Tipo</mat-label>
+            <mat-select formControlName="kind">
+              @for (o of kindOptions; track o.value) {
+                <mat-option [value]="o.value">{{ o.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Stato</mat-label>
+            <mat-select formControlName="status">
+              @for (o of statusOptions; track o.value) {
+                <mat-option [value]="o.value">{{ o.label }}</mat-option>
+              }
+            </mat-select>
+            @if (!isNew && item.computed_status) {
+              <mat-hint>Ora: {{ computedStatusText() }}</mat-hint>
+            }
+          </mat-form-field>
+          <div></div>
+          <div class="span-all">
             <app-filterable-select
               label="Controparte *"
               placeholder="Cerca controparte..."
@@ -47,175 +58,180 @@
               formControlName="utilizer_id_fk"
               [errorMessage]="form.controls.utilizer_id_fk.invalid && form.controls.utilizer_id_fk.touched ? 'Obbligatorio' : null">
             </app-filterable-select>
-            <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-              <mat-form-field style="flex: 3 1 300px;">
-                <mat-label>Oggetto / destinazione d'uso</mat-label>
-                <input matInput formControlName="subject">
-              </mat-form-field>
-              <mat-form-field style="flex: 1 1 120px;">
-                <mat-label>Settore</mat-label>
-                <input matInput formControlName="department" placeholder="es. LLPP">
-              </mat-form-field>
-              <mat-form-field style="flex: 1 1 160px;">
-                <mat-label>Tipo utilizzo</mat-label>
-                <input matInput formControlName="usage_type">
-              </mat-form-field>
-            </div>
-            <mat-form-field style="width: 100%;">
-              <mat-label>Atto (delibera / determina / repertorio)</mat-label>
-              <textarea matInput formControlName="concession_act" rows="2"></textarea>
-            </mat-form-field>
-          </fieldset>
-
-          <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
-            <legend style="padding: 0 0.5rem; font-weight: 600;">Canone e durata</legend>
-            <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
-              <mat-form-field style="flex: 1 1 140px;">
-                <mat-label>Canone (€)</mat-label>
-                <input matInput type="number" min="0" step="0.01" formControlName="rent_amount">
-                <mat-hint>{{ annualPreview() }}</mat-hint>
-              </mat-form-field>
-              <mat-form-field style="flex: 1 1 140px;">
-                <mat-label>Periodicità</mat-label>
-                <mat-select formControlName="rent_period">
-                  <mat-option [value]="null">—</mat-option>
-                  @for (o of periodOptions; track o.value) {
-                    <mat-option [value]="o.value">{{ o.label }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-              <mat-checkbox formControlName="vat_applicable">Soggetto a IVA</mat-checkbox>
-            </div>
-            <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
-              <mat-form-field style="flex: 1 1 160px;">
-                <mat-label>Decorrenza</mat-label>
-                <input matInput [matDatepicker]="startPicker" formControlName="start_date" placeholder="GG/MM/AAAA">
-                <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
-                <mat-datepicker #startPicker></mat-datepicker>
-              </mat-form-field>
-              <mat-form-field style="flex: 1 1 160px;">
-                <mat-label>Scadenza</mat-label>
-                <input matInput [matDatepicker]="endPicker" formControlName="end_date" placeholder="GG/MM/AAAA">
-                <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
-                <mat-datepicker #endPicker></mat-datepicker>
-              </mat-form-field>
-              <mat-checkbox formControlName="tacit_renewal">Rinnovo tacito</mat-checkbox>
-            </div>
-            @if (form.controls.tacit_renewal.value) {
-              <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-                <mat-form-field style="flex: 1 1 160px;">
-                  <mat-label>Durata rinnovo (mesi) *</mat-label>
-                  <input matInput type="number" min="1" step="1" formControlName="renewal_months">
-                  <mat-hint>es. 48 per un 4+4</mat-hint>
-                </mat-form-field>
-                <mat-form-field style="flex: 1 1 160px;">
-                  <mat-label>Preavviso disdetta (mesi) *</mat-label>
-                  <input matInput type="number" min="0" step="1" formControlName="notice_months">
-                </mat-form-field>
-              </div>
-            }
-            @if (!isNew && (item.effective_end_date || item.notice_deadline)) {
-              <p style="margin: 0; color: #374151;">
-                Scadenza effettiva: <strong>{{ dateIt(item.effective_end_date) || '—' }}</strong>
-                @if (item.notice_deadline) {
-                  · Disdetta entro: <strong>{{ dateIt(item.notice_deadline) }}</strong>
-                }
-              </p>
-            }
-          </fieldset>
-
-          <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
-            <legend style="padding: 0 0.5rem; font-weight: 600;">Dati amministrativi</legend>
-            <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
-              <mat-form-field style="flex: 1 1 200px;">
-                <mat-label>Registrazione / repertorio</mat-label>
-                <input matInput formControlName="registration_ref">
-              </mat-form-field>
-              <mat-form-field style="flex: 1 1 200px;">
-                <mat-label>Dati catastali</mat-label>
-                <input matInput formControlName="cadastral_ref" placeholder="es. Fg. 7 – Part. 54 – Sub 21">
-              </mat-form-field>
-              <mat-form-field style="flex: 1 1 120px;">
-                <mat-label>Superficie (mq)</mat-label>
-                <input matInput type="number" min="0" step="0.01" formControlName="area_sqm">
-              </mat-form-field>
-              <mat-checkbox formControlName="utilities_to_be_taken_over">Utenze da volturare</mat-checkbox>
-            </div>
-            <mat-form-field style="width: 100%;">
-              <mat-label>Note</mat-label>
-              <textarea matInput formControlName="notes" rows="2"></textarea>
-            </mat-form-field>
-          </fieldset>
+          </div>
+          <mat-form-field class="span-2">
+            <mat-label>Oggetto / destinazione d'uso</mat-label>
+            <input matInput formControlName="subject">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Settore</mat-label>
+            <input matInput formControlName="department" placeholder="es. LLPP">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Tipo utilizzo</mat-label>
+            <input matInput formControlName="usage_type">
+          </mat-form-field>
+          <mat-form-field class="span-all">
+            <mat-label>Atto (delibera / determina / repertorio)</mat-label>
+            <textarea matInput formControlName="concession_act" rows="2"></textarea>
+          </mat-form-field>
         </div>
+
+        <div class="sheet-section-title"><mat-icon>euro</mat-icon>Canone e durata</div>
+        <app-validity-bar [start]="form.controls.start_date.value" [end]="item.effective_end_date ?? form.controls.end_date.value"></app-validity-bar>
+        <div class="sheet-grid" style="margin-top: 12px;">
+          <mat-form-field>
+            <mat-label>Canone (€)</mat-label>
+            <input matInput type="number" min="0" step="0.01" formControlName="rent_amount">
+            <mat-hint>{{ annualPreview() }}</mat-hint>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Periodicità</mat-label>
+            <mat-select formControlName="rent_period">
+              <mat-option [value]="null">—</mat-option>
+              @for (o of periodOptions; track o.value) {
+                <mat-option [value]="o.value">{{ o.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-checkbox formControlName="vat_applicable" style="align-self: center;">Soggetto a IVA</mat-checkbox>
+          <div></div>
+          <mat-form-field>
+            <mat-label>Decorrenza</mat-label>
+            <input matInput [matDatepicker]="startPicker" formControlName="start_date" placeholder="GG/MM/AAAA">
+            <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+            <mat-datepicker #startPicker></mat-datepicker>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Scadenza</mat-label>
+            <input matInput [matDatepicker]="endPicker" formControlName="end_date" placeholder="GG/MM/AAAA">
+            <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+            <mat-datepicker #endPicker></mat-datepicker>
+          </mat-form-field>
+          <mat-checkbox formControlName="tacit_renewal" style="align-self: center;">Rinnovo tacito</mat-checkbox>
+          <div></div>
+          @if (form.controls.tacit_renewal.value) {
+            <mat-form-field>
+              <mat-label>Durata rinnovo (mesi) *</mat-label>
+              <input matInput type="number" min="1" step="1" formControlName="renewal_months">
+              <mat-hint>es. 48 per un 4+4</mat-hint>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Preavviso disdetta (mesi) *</mat-label>
+              <input matInput type="number" min="0" step="1" formControlName="notice_months">
+            </mat-form-field>
+          }
+        </div>
+        @if (!isNew && (item.effective_end_date || item.notice_deadline)) {
+          <p style="margin: 8px 0 0; color: #374151;">
+            Scadenza effettiva: <strong>{{ dateIt(item.effective_end_date) || '—' }}</strong>
+            @if (item.notice_deadline) {
+              · Disdetta entro: <strong>{{ dateIt(item.notice_deadline) }}</strong>
+            }
+          </p>
+        }
       </mat-tab>
 
-      <mat-tab label="Immobili">
-        <div style="display: flex; flex-direction: column; gap: 1rem; padding-top: 1rem;">
-          <app-multi-select
-            label="Immobili"
-            placeholder="Cerca immobile..."
-            [options]="assetOptions"
-            formControlName="asset_ids">
-          </app-multi-select>
-          <app-filterable-select
-            label="Contratto padre"
-            placeholder="Cerca contratto..."
-            [options]="parentOptions"
-            formControlName="parent_contract_id">
-          </app-filterable-select>
-          <p style="margin: 0; color: #6b7280; font-size: 0.85rem;">
-            Il contratto padre collega, per esempio, un'assegnazione di alloggio alla concessione
-            all'Azienda Speciale o alla locazione passiva da cui deriva.
-          </p>
-          @if ((item.children ?? []).length > 0) {
-            <div>
-              <div style="font-weight: 600; margin-bottom: 0.25rem;">Contratti figli</div>
-              <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
-                <thead>
-                  <tr style="text-align: left; border-bottom: 1px solid #e5e7eb;">
-                    <th style="padding: 4px;">#</th>
-                    <th style="padding: 4px;">Controparte</th>
-                    <th style="padding: 4px;">Tipo</th>
-                    <th style="padding: 4px;">Stato</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (c of item.children ?? []; track c.id) {
-                    @if (!c.deleted) {
-                      <tr style="border-bottom: 1px solid #f3f4f6;">
-                        <td style="padding: 4px;">{{ c.id }}</td>
-                        <td style="padding: 4px;">{{ c.utilizer?.name }}</td>
-                        <td style="padding: 4px;">{{ kindText(c) }}</td>
-                        <td style="padding: 4px;">{{ declaredStatusText(c) }}</td>
-                      </tr>
-                    }
-                  }
-                </tbody>
-              </table>
-            </div>
-          }
+      <mat-tab aria-label="Immobili">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="apartment" label="Immobili" [count]="assetRows.length"></app-tab-label>
+        </ng-template>
+        <app-linked-table
+          [columns]="assetColumns"
+          [rows]="assetRows"
+          [rowStatus]="assetStatusOf"
+          [addOptions]="canEdit ? assetOptions : null"
+          addLabel="Collega immobile"
+          [unlinkable]="canEdit"
+          emptyText="Nessun immobile collegato."
+          (add)="addAsset($event)"
+          (unlink)="unlinkAsset($event)"
+          (open)="openAsset($event.id)">
+        </app-linked-table>
+      </mat-tab>
+
+      <mat-tab aria-label="Contratti collegati">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="account_tree" label="Contratti collegati" [count]="linkedCount()"></app-tab-label>
+        </ng-template>
+        <div class="sheet-section-title">Contratto padre</div>
+        <div style="display: flex; align-items: flex-start; gap: 8px;">
+          <div style="flex: 1 1 auto;">
+            <app-filterable-select
+              label="Contratto padre"
+              placeholder="Cerca contratto..."
+              [options]="parentOptions"
+              formControlName="parent_contract_id">
+            </app-filterable-select>
+          </div>
+          <button mat-icon-button type="button" style="margin-top: 8px;" [disabled]="!form.controls.parent_contract_id.value"
+                  (click)="openGrant(form.controls.parent_contract_id.value)" matTooltip="Apri il contratto padre">
+            <mat-icon>open_in_new</mat-icon>
+          </button>
+        </div>
+        <p class="sheet-hint">
+          Il contratto padre collega, per esempio, un'assegnazione di alloggio alla concessione
+          all'Azienda Speciale o alla locazione passiva da cui deriva.
+        </p>
+        <div class="sheet-section-title">Contratti figli</div>
+        <app-linked-table
+          [columns]="childColumns"
+          [rows]="childRows"
+          [rowStatus]="childStatusOf"
+          emptyText="Nessun contratto figlio."
+          (open)="openGrant($event.id)">
+        </app-linked-table>
+      </mat-tab>
+
+      <mat-tab aria-label="Dati amministrativi">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="gavel" label="Dati amministrativi"
+                         [dot]="filled('registration_ref', 'cadastral_ref', 'area_sqm', 'notes')"
+                         [error]="invalid('area_sqm')"></app-tab-label>
+        </ng-template>
+        <div class="sheet-grid">
+          <mat-form-field class="span-2">
+            <mat-label>Registrazione / repertorio</mat-label>
+            <input matInput formControlName="registration_ref">
+          </mat-form-field>
+          <mat-form-field class="span-2">
+            <mat-label>Dati catastali</mat-label>
+            <input matInput formControlName="cadastral_ref" placeholder="es. Fg. 7 – Part. 54 – Sub 21">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Superficie (mq)</mat-label>
+            <input matInput type="number" min="0" step="0.01" formControlName="area_sqm">
+          </mat-form-field>
+          <mat-checkbox formControlName="utilities_to_be_taken_over" style="align-self: center;">Utenze da volturare</mat-checkbox>
+          <mat-form-field class="span-all">
+            <mat-label>Note</mat-label>
+            <textarea matInput formControlName="notes" rows="3"></textarea>
+          </mat-form-field>
         </div>
       </mat-tab>
 
       @if (!isNew) {
-        <mat-tab label="Storico">
+        <mat-tab aria-label="Storico">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="history" label="Storico"></app-tab-label>
+          </ng-template>
           <ng-template matTabContent>
-            <div style="padding: 1rem 0;">
-              <app-entity-history
-                [entity]="'utilizer_grant'"
-                [entityId]="item.id"
-                [lastModifiedBy]="item.updated_by ? item.updated_by.firstName + ' ' + item.updated_by.lastName : null"
-                [lastModifiedAt]="item.update_date ? item.update_date.toString() : null">
-              </app-entity-history>
-            </div>
+            <app-entity-history
+              [entity]="'utilizer_grant'"
+              [entityId]="item.id"
+              [lastModifiedBy]="item.updated_by ? item.updated_by.firstName + ' ' + item.updated_by.lastName : null"
+              [lastModifiedAt]="item.update_date ? item.update_date.toString() : null">
+            </app-entity-history>
           </ng-template>
         </mat-tab>
       }
     </mat-tab-group>
   </form>
-</mat-dialog-content>
 
-<mat-dialog-actions align="end">
-  <button mat-stroked-button (click)="cancel()">Annulla</button>
-  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">Salva contratto</button>
-</mat-dialog-actions>
+  <ng-container sheetActions>
+    <button mat-stroked-button type="button" (click)="cancel()">{{ canEdit ? 'Annulla' : 'Chiudi' }}</button>
+    @if (canEdit) {
+      <button mat-flat-button type="button" (click)="save()">{{ isNew ? 'Crea contratto' : 'Salva contratto' }}</button>
+    }
+  </ng-container>
+</app-entity-sheet>
