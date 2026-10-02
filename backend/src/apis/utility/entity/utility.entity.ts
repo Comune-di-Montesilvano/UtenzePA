@@ -13,6 +13,7 @@ import {
 
 import { Contract } from '@apis/contracts/entity/contract.entity';
 import { Asset } from '../../asset/entity/asset.entity';
+import { Plant } from '@apis/plants/entity/plant.entity';
 import { UtilityAggregator } from '../../utility-aggregators/entity/utility-aggregator.entity';
 import { BudgetChapter } from '../../budget-chapters/entity/budgetChapter.entity';
 import { UtilityType } from '../../utility-types/entity/utility_type.entity';
@@ -170,6 +171,16 @@ export class Utility {
     inverseJoinColumn: { name: 'asset_id', referencedColumnName: 'id' },
   })
   assets: Asset[];
+
+  // Impianti a servizio dei quali è questa utenza (N:N, tabella ponte
+  // utility_plants): fontana, punto luce, centrale termica…
+  @ManyToMany(() => Plant, (plant) => plant.utilities)
+  @JoinTable({
+    name: 'utility_plants',
+    joinColumn: { name: 'utility_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'plant_id', referencedColumnName: 'id' },
+  })
+  plants: Plant[];
 
   @ManyToOne(() => UtilityAggregator, (aggregator) => aggregator.utilities)
   @JoinColumn({ name: 'aggregator_id_fk', referencedColumnName: 'id' })
