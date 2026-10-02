@@ -139,13 +139,15 @@ export class AnomaliesService {
     const plantsWithoutPosition: { id: unknown; code: string; name: string; type: string }[] =
       await this.dataSource.query(
         `SELECT p.id, p.code, p.name, p.type
-           FROM plants p LEFT JOIN assets a ON a.id = p.asset_id_fk AND a.deleted = 0
+           FROM plants p
            WHERE p.deleted = 0
              AND NOT (${isSetSql('p.latitude')} AND ${isSetSql('p.longitude')})
              AND NOT (${isSetSql('p.geocoded_latitude')} AND ${isSetSql('p.geocoded_longitude')})
-             AND NOT (a.id IS NOT NULL AND (
-                   (${isSetSql('a.latitude')} AND ${isSetSql('a.longitude')})
-                OR (${isSetSql('a.geocoded_latitude')} AND ${isSetSql('a.geocoded_longitude')})))
+             AND NOT EXISTS (
+               SELECT 1 FROM plant_assets pa JOIN assets a ON a.id = pa.asset_id AND a.deleted = 0
+               WHERE pa.plant_id = p.id AND (
+                    (${isSetSql('a.latitude')} AND ${isSetSql('a.longitude')})
+                 OR (${isSetSql('a.geocoded_latitude')} AND ${isSetSql('a.geocoded_longitude')})))
            ORDER BY p.type, p.code`,
       );
 

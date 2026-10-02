@@ -17,7 +17,7 @@ describe('PlantsService', () => {
     type: PlantType.FOUNTAIN,
     code: 'fon_17',
     name: 'Fontana',
-    asset: null,
+    assets: [],
     latitude: null,
     longitude: null,
     geocoded_latitude: '42.5',
@@ -155,10 +155,44 @@ describe('PlantsService', () => {
     assetRepo.count.mockResolvedValue(0);
     await expect(
       service.create(
-        { type: PlantType.FOUNTAIN, code: 'F2', name: 'F', asset_id_fk: 99 } as never,
+        { type: PlantType.FOUNTAIN, code: 'F2', name: 'F', asset_ids: [99] } as never,
         3,
       ),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('crea impianto collegato a più immobili', async () => {
+    assetRepo.count.mockResolvedValue(2);
+    repo.findOne.mockResolvedValue(plant({ id: 9 }));
+    await service.create(
+      { type: PlantType.THERMAL, code: 'T2', name: 'Centrale', asset_ids: [3, 4, 3] } as never,
+      3,
+    );
+    expect(repo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ assets: [{ id: 3 }, { id: 4 }] }),
+    );
+  });
+
+  it('filtro per immobile: impianti che lo hanno tra gli immobili collegati', async () => {
+    repo.find.mockResolvedValue([
+      plant({ id: 1, assets: [{ id: 5 }] }),
+      plant({ id: 2, assets: [{ id: 6 }, { id: 7 }] }),
+    ]);
+    expect((await service.findAll({ asset_id: 7 })).map((p) => p.id)).toEqual([2]);
+  });
+
+  it('posizione dal primo immobile collegato che ne ha una', async () => {
+    const none = { latitude: null, longitude: null, geocoded_latitude: null, geocoded_longitude: null };
+    repo.find.mockResolvedValue([
+      plant({
+        geocoded_latitude: null,
+        geocoded_longitude: null,
+        assets: [{ id: 5, ...none }, { id: 6, ...none, latitude: '42.7', longitude: '14.3' }],
+      }),
+    ]);
+    const [r] = await service.findAll({});
+    expect(r.position_quality).toBe(PositionQuality.FROM_ASSET);
+    expect(r.position).toEqual({ lat: '42.7', lng: '14.3' });
   });
 
   it('utenza inesistente', async () => {

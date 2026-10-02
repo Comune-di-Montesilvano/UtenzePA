@@ -27,10 +27,11 @@ export class CreatePlantDto {
   @MaxLength(255)
   name: string;
 
+  // Immobili collegati (es. centrale termica che serve più edifici).
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  asset_id_fk?: number | null;
+  @IsArray()
+  @IsInt({ each: true })
+  asset_ids?: number[];
 
   @IsOptional()
   @IsString()

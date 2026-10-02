@@ -39,7 +39,15 @@ function coords(c: Coords | null, kind: 'manual' | 'geocoded'): { lat: string; l
   return isSet(lat) && isSet(lng) ? { lat, lng } : null;
 }
 
-// Priorità: coordinate a mano → immobile contenitore → geocodifica dell'impianto.
+// Tra gli immobili collegati, il primo con una posizione (manuale o geocodificata).
+export function firstLocatedAsset<T extends Coords & { deleted?: boolean }>(
+  assets: T[] | null | undefined,
+): T | null {
+  const live = (assets ?? []).filter((a) => !a.deleted);
+  return live.find((a) => coords(a, 'manual') ?? coords(a, 'geocoded')) ?? null;
+}
+
+// Priorità: coordinate a mano → immobile collegato → geocodifica dell'impianto.
 export function resolvePlantPosition(
   p: PositionInput,
 ): { lat: string; lng: string; quality: PositionQuality } | null {

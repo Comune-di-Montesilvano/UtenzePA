@@ -7,7 +7,7 @@ import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { MapQueryDto } from './dto/map-query.dto';
 import { Plant } from '@apis/plants/entity/plant.entity';
 import { PlantType, PositionQuality } from '@apis/plants/enum/plant.enum';
-import { resolvePlantPosition } from '@apis/plants/plant.calc';
+import { firstLocatedAsset, resolvePlantPosition } from '@apis/plants/plant.calc';
 
 export interface MapPoint {
   id: number;
@@ -139,16 +139,17 @@ export class MapService {
           deleted: false,
           ...(filters.plantTypes?.length ? { type: In(filters.plantTypes) } : {}),
         },
-        relations: { asset: true },
+        relations: { assets: true },
       });
       for (const plant of plants) {
-        const position = resolvePlantPosition({ ...plant, asset: plant.asset ?? null });
+        const asset = firstLocatedAsset(plant.assets);
+        const position = resolvePlantPosition({ ...plant, asset });
         if (position) {
           points.push({
             id: plant.id,
             type: 'plant',
             name: plant.name,
-            address: plant.address ?? plant.asset?.address ?? null,
+            address: plant.address ?? asset?.address ?? null,
             lat: position.lat,
             lng: position.lng,
             source: position.quality === PositionQuality.PRECISE ? 'gps' : 'geocoded',
@@ -160,7 +161,9 @@ export class MapService {
             type: 'plant',
             name: plant.name,
             reason:
-              isSet(plant.address) || isSet(plant.asset?.address) ? 'geocode_failed' : 'no_address',
+              isSet(plant.address) || (plant.assets ?? []).some((a) => isSet(a.address))
+                ? 'geocode_failed'
+                : 'no_address',
           });
         }
       }
@@ -176,7 +179,7 @@ export class MapService {
           // contatori restano sempre tutti visibili, filtro senza effetto visibile.
           ...(hasAssetClassFilter ? { assets: assetClassWhere } : {}),
         },
-        relations: { assets: true, plants: { asset: true }, utilityType: true },
+        relations: { assets: true, plants: { assets: true }, utilityType: true },
       });
 
       for (const utility of utilities) {
@@ -223,11 +226,12 @@ export class MapService {
         }
         const linkedPlants = (utility.plants ?? []).filter((p) => !p.deleted);
         for (const plant of linkedPlants) {
-          const position = resolvePlantPosition({ ...plant, asset: plant.asset ?? null });
+          const plantAsset = firstLocatedAsset(plant.assets);
+          const position = resolvePlantPosition({ ...plant, asset: plantAsset });
           if (!position || usedPoints.has(`${position.lat}|${position.lng}`)) continue;
           points.push({
             ...base,
-            address: plant.address ?? plant.asset?.address ?? null,
+            address: plant.address ?? plantAsset?.address ?? null,
             lat: position.lat,
             lng: position.lng,
             source: position.quality === PositionQuality.PRECISE ? 'gps' : 'geocoded',

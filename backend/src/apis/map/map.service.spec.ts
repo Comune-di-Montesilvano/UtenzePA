@@ -19,8 +19,8 @@ describe('MapService', () => {
 
     it('aggiunge gli impianti con posizione e mette tra i non geolocalizzati quelli senza', async () => {
       plantRepo.find.mockResolvedValue([
-        { id: 1, code: 'fon_1', name: 'Fontana', type: 'FOUNTAIN', address: null, ...noCoords, latitude: '42.5', longitude: '14.1', asset: null },
-        { id: 2, code: 'fon_2', name: 'Fontana 2', type: 'FOUNTAIN', address: 'via X', ...noCoords, asset: null },
+        { id: 1, code: 'fon_1', name: 'Fontana', type: 'FOUNTAIN', address: null, ...noCoords, latitude: '42.5', longitude: '14.1', assets: [] },
+        { id: 2, code: 'fon_2', name: 'Fontana 2', type: 'FOUNTAIN', address: 'via X', ...noCoords, assets: [] },
       ]);
       const { points, ungeolocated } = await service.getPoints({ showAssets: false, showUtilities: false });
       expect(points).toEqual([
@@ -31,7 +31,7 @@ describe('MapService', () => {
 
     it('impianto dentro un immobile: posizione dell’immobile, source geocoded', async () => {
       plantRepo.find.mockResolvedValue([
-        { id: 3, code: 'T1', name: 'Centrale', type: 'THERMAL', address: null, ...noCoords, asset: { ...noCoords, latitude: '42.6', longitude: '14.2', address: 'via Y' } },
+        { id: 3, code: 'T1', name: 'Centrale', type: 'THERMAL', address: null, ...noCoords, assets: [{ ...noCoords, latitude: '42.6', longitude: '14.2', address: 'via Y' }] },
       ]);
       const { points } = await service.getPoints({ showAssets: false, showUtilities: false });
       expect(points[0]).toEqual(expect.objectContaining({ id: 3, lat: '42.6', source: 'geocoded', address: 'via Y' }));
@@ -40,7 +40,7 @@ describe('MapService', () => {
     it('showPlants=false e filtro plantTypes', async () => {
       await service.getPoints({ showAssets: false, showUtilities: false, plantTypes: ['FOUNTAIN'] } as never);
       expect(plantRepo.find).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { deleted: false, type: In(['FOUNTAIN']) } }),
+        expect.objectContaining({ where: { deleted: false, type: In(['FOUNTAIN']) }, relations: { assets: true } }),
       );
       plantRepo.find.mockClear();
       await service.getPoints({ showAssets: false, showUtilities: false, showPlants: false });
@@ -49,7 +49,7 @@ describe('MapService', () => {
 
     it('utenza collegata solo a un impianto: posizionata con le coordinate dell’impianto', async () => {
       utilityRepo.find.mockResolvedValue([
-        { id: 9, utility_id: 'IT001', latitude: null, longitude: null, assets: [], plants: [{ id: 1, address: 'via F', ...noCoords, latitude: '42.5', longitude: '14.1', asset: null }], utilityType: {} },
+        { id: 9, utility_id: 'IT001', latitude: null, longitude: null, assets: [], plants: [{ id: 1, address: 'via F', ...noCoords, latitude: '42.5', longitude: '14.1', assets: [] }], utilityType: {} },
       ]);
       const { points, ungeolocated } = await service.getPoints({ showAssets: false, showPlants: false });
       expect(points).toEqual([
@@ -61,7 +61,7 @@ describe('MapService', () => {
     it('utenza su immobile e impianto nello stesso punto: un solo marker', async () => {
       const asset = { id: 4, address: 'via Z', ...noCoords, latitude: '42.5', longitude: '14.1' };
       utilityRepo.find.mockResolvedValue([
-        { id: 9, utility_id: 'IT001', latitude: null, longitude: null, assets: [asset], plants: [{ id: 1, address: null, ...noCoords, asset }], utilityType: {} },
+        { id: 9, utility_id: 'IT001', latitude: null, longitude: null, assets: [asset], plants: [{ id: 1, address: null, ...noCoords, assets: [asset] }], utilityType: {} },
       ]);
       const { points } = await service.getPoints({ showAssets: false, showPlants: false });
       expect(points).toHaveLength(1);
@@ -70,7 +70,7 @@ describe('MapService', () => {
 
     it('utenza senza posizione né su immobili né su impianti: non geolocalizzata', async () => {
       utilityRepo.find.mockResolvedValue([
-        { id: 9, utility_id: 'IT001', latitude: null, longitude: null, assets: [], plants: [{ id: 1, address: 'via F', ...noCoords, asset: null }], utilityType: {} },
+        { id: 9, utility_id: 'IT001', latitude: null, longitude: null, assets: [], plants: [{ id: 1, address: 'via F', ...noCoords, assets: [] }], utilityType: {} },
       ]);
       const { ungeolocated } = await service.getPoints({ showAssets: false, showPlants: false });
       expect(ungeolocated).toEqual([{ id: 9, type: 'utility', name: 'IT001', reason: 'geocode_failed' }]);

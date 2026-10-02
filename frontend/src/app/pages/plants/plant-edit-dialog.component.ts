@@ -11,7 +11,6 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatTabsModule} from '@angular/material/tabs';
 import {MatDatepickerModule} from '@angular/material/datepicker';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
-import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {MultiSelectComponent} from '../../core/components/multi-select.component';
 import {LocationMapComponent} from '../../core/components/location-map.component';
 import {PhotoGalleryComponent} from '../../core/components/photo-gallery.component';
@@ -69,7 +68,7 @@ const toDate = (iso?: string | null): Date | null => {
   standalone: true,
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatCheckboxModule, MatButtonModule, MatIconModule, MatTabsModule, MatDatepickerModule, MatProgressBarModule,
-    FilterableSelectComponent, MultiSelectComponent, LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
+    MultiSelectComponent, LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
     PlantInspectionsTabComponent, PlantFireEquipmentTabComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
@@ -86,6 +85,7 @@ const toDate = (iso?: string | null): Date | null => {
                 <mat-form-field style="flex: 1 1 240px;">
                   <mat-label>Tipo *</mat-label>
                   <mat-select formControlName="type">
+                    <mat-select-trigger>{{ typeLabel[currentType()] }}</mat-select-trigger>
                     @for (t of types; track t) {
                       <mat-option [value]="t"><span><mat-icon style="vertical-align: middle; margin-right: 6px;">{{ typeIcon[t] }}</mat-icon>{{ typeLabel[t] }}</span></mat-option>
                     }
@@ -111,12 +111,12 @@ const toDate = (iso?: string | null): Date | null => {
                   </mat-select>
                 </mat-form-field>
               </div>
-              <app-filterable-select
-                label="Immobile contenitore"
+              <app-multi-select
+                label="Immobili collegati"
                 placeholder="Nessuno (es. fontana in piazza)"
                 [options]="assetOptions"
-                formControlName="asset_id_fk">
-              </app-filterable-select>
+                formControlName="asset_ids">
+              </app-multi-select>
               <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
                 <mat-form-field style="flex: 1 1 160px;">
                   <mat-label>Toponimo</mat-label>
@@ -150,7 +150,7 @@ const toDate = (iso?: string | null): Date | null => {
               </app-location-map>
               @if (!form.controls.latitude.value && estimated()) {
                 <div style="font-size: 0.8rem; color: #757575;">
-                  {{ plant?.position_quality === 'FROM_ASSET' ? "Posizione dell'immobile contenitore" : 'Posizione stimata da indirizzo (geocodifica)' }}
+                  {{ plant?.position_quality === 'FROM_ASSET' ? "Posizione dell'immobile collegato" : 'Posizione stimata da indirizzo (geocodifica)' }}
                   — clicca sulla mappa per fissarne una propria.
                 </div>
               }
@@ -384,7 +384,7 @@ export class PlantEditDialogComponent implements OnInit {
     code: ['', [Validators.required, Validators.maxLength(100)]],
     name: ['', [Validators.required, Validators.maxLength(255)]],
     status: ['ACTIVE' as PlantStatus],
-    asset_id_fk: [this.data.assetId ?? null as number | null],
+    asset_ids: [(this.data.assetId ? [this.data.assetId] : []) as (string | number | boolean)[]],
     toponym: [''],
     address: [''],
     civic_number: [''],
@@ -505,7 +505,7 @@ export class PlantEditDialogComponent implements OnInit {
       code: p.code,
       name: p.name,
       status: p.status,
-      asset_id_fk: p.asset_id_fk ?? null,
+      asset_ids: (p.assets ?? []).map(a => a.id),
       toponym: p.toponym ?? '',
       address: p.address ?? '',
       civic_number: p.civic_number ?? '',
@@ -555,7 +555,7 @@ export class PlantEditDialogComponent implements OnInit {
       code: (v.code ?? '').trim(),
       name: (v.name ?? '').trim(),
       status: v.status as PlantStatus,
-      asset_id_fk: v.asset_id_fk ? Number(v.asset_id_fk) : null,
+      asset_ids: (v.asset_ids ?? []).map(Number),
       toponym: text(v.toponym),
       address: text(v.address),
       civic_number: text(v.civic_number),

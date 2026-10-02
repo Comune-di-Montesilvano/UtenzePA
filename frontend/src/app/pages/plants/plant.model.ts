@@ -201,7 +201,7 @@ export interface PlantPayload {
   type: PlantType;
   code: string;
   name: string;
-  asset_id_fk: number | null;
+  asset_ids: number[];
   toponym: string | null;
   address: string | null;
   civic_number: string | null;
@@ -220,11 +220,11 @@ export interface ThermalObligations {
   vvf_required: boolean;
 }
 
-export interface Plant extends Omit<PlantPayload, 'utility_ids' | 'thermal' | 'elevator'> {
+export interface Plant extends Omit<PlantPayload, 'utility_ids' | 'asset_ids' | 'thermal' | 'elevator'> {
   id: number;
   geocoded_latitude: string | null;
   geocoded_longitude: string | null;
-  asset: {id: number; asset_name: string; associated_building?: string | null; address?: string | null} | null;
+  assets: {id: number; asset_name: string; associated_building?: string | null; address?: string | null}[];
   utilities: {id: number; utility_id: string}[];
   thermal: PlantThermalData | null;
   elevator: PlantElevatorData | null;

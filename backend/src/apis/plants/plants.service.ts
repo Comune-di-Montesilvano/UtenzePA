@@ -22,7 +22,12 @@ import {
 import { PlantThermalDto } from './dto/plant-thermal.dto';
 import { PlantElevatorDto } from './dto/plant-elevator.dto';
 import { InspectionStatus, PlantType, PositionQuality } from './enum/plant.enum';
-import { computeNextDate, inspectionStatus, resolvePlantPosition } from './plant.calc';
+import {
+  computeNextDate,
+  firstLocatedAsset,
+  inspectionStatus,
+  resolvePlantPosition,
+} from './plant.calc';
 import { ThermalPlantObligations, thermalPlantObligations } from './thermal-plant-obligations';
 
 export type PlantRow = Plant & {
@@ -48,7 +53,7 @@ const SEVERITY = [
 ];
 
 const RELATIONS = {
-  asset: true,
+  assets: true,
   utilities: true,
   thermal: true,
   elevator: true,
@@ -85,11 +90,13 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     const where: Record<string, unknown> = { deleted: false };
     if (filters.type) where.type = filters.type;
     if (filters.status) where.status = filters.status;
-    if (filters.asset_id) where.asset_id_fk = filters.asset_id;
     const today = this.today();
     let rows = (
       await this.repo.find({ where, relations: RELATIONS, order: { code: 'ASC' } })
     ).map((p) => this.toRow(p, today));
+    if (filters.asset_id) {
+      rows = rows.filter((p) => (p.assets ?? []).some((a) => a.id === filters.asset_id));
+    }
     if (filters.utility_id) {
       rows = rows.filter((p) => (p.utilities ?? []).some((u) => u.id === filters.utility_id));
     }
@@ -109,7 +116,7 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
           p.code,
           p.name,
           p.address,
-          p.asset?.asset_name,
+          ...(p.assets ?? []).map((a) => a.asset_name),
           ...(p.utilities ?? []).map((u) => u.utility_id),
         ].some((v) => (v ?? '').toLowerCase().includes(q)),
       );
@@ -140,14 +147,15 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
   }
 
   async create(dto: CreatePlantDto, userId?: number): Promise<PlantRow> {
-    const { thermal, elevator, utility_ids, ...rest } = dto;
+    const { thermal, elevator, utility_ids, asset_ids, ...rest } = dto;
     await this.assertCodeFree(rest.code, null);
-    await this.assertAsset(rest.asset_id_fk);
+    const assets = await this.resolveAssets(asset_ids ?? []);
     const utilities = await this.resolveUtilities(utility_ids ?? []);
     const saved = (await this.repo.save(
       this.repo.create({
         ...rest,
         code: rest.code.trim(),
+        assets,
         utilities,
         ...(userId !== undefined && { created_by_user_id: userId, updated_by_user_id: userId }),
       } as never),
@@ -158,14 +166,14 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
   }
 
   async update(id: number, dto: UpdatePlantDto, userId?: number): Promise<PlantRow> {
-    const { thermal, elevator, utility_ids, ...rest } = dto;
+    const { thermal, elevator, utility_ids, asset_ids, ...rest } = dto;
     const current = await this.repo.findOne({ where: { id, deleted: false } });
     if (!current) throw new BadRequestException('Impianto non trovato');
     if (rest.code !== undefined && rest.code.trim() !== current.code) {
       await this.assertCodeFree(rest.code, id);
       rest.code = rest.code.trim();
     }
-    if (rest.asset_id_fk !== undefined) await this.assertAsset(rest.asset_id_fk);
+    const assets = asset_ids === undefined ? undefined : await this.resolveAssets(asset_ids);
     const utilities = utility_ids === undefined ? undefined : await this.resolveUtilities(utility_ids);
     await super.update(id, rest as UpdatePlantDto, userId);
     // Cambio tipo: i dati specifici del tipo precedente non hanno più senso.
@@ -173,9 +181,13 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     if (type !== PlantType.THERMAL) await this.thermalRepo.delete({ plant_id: id });
     if (type !== PlantType.ELEVATOR) await this.elevatorRepo.delete({ plant_id: id });
     await this.saveDetails(id, type, thermal, elevator);
-    if (utilities !== undefined) {
-      const entity = await this.repo.findOne({ where: { id }, relations: { utilities: true } });
-      entity.utilities = utilities;
+    if (utilities !== undefined || assets !== undefined) {
+      const entity = await this.repo.findOne({
+        where: { id },
+        relations: { utilities: true, assets: true },
+      });
+      if (utilities !== undefined) entity.utilities = utilities;
+      if (assets !== undefined) entity.assets = assets;
       await this.repo.save(entity);
     }
     return this.findOne(id);
@@ -283,11 +295,14 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     }
   }
 
-  private async assertAsset(assetId: number | null | undefined): Promise<void> {
-    if (assetId === null || assetId === undefined) return;
-    if ((await this.assetRepo.count({ where: { id: assetId, deleted: false } })) === 0) {
-      throw new BadRequestException('Immobile non trovato');
+  private async resolveAssets(ids: number[]): Promise<Asset[]> {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return [];
+    const found = await this.assetRepo.count({ where: { id: In(unique), deleted: false } });
+    if (found !== unique.length) {
+      throw new BadRequestException('Uno o più immobili non esistono o sono stati eliminati.');
     }
+    return unique.map((id) => ({ id }) as Asset);
   }
 
   private async resolveUtilities(ids: number[]): Promise<Utility[]> {
@@ -320,7 +335,7 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
       longitude: p.longitude,
       geocoded_latitude: p.geocoded_latitude,
       geocoded_longitude: p.geocoded_longitude,
-      asset: p.asset ?? null,
+      asset: firstLocatedAsset(p.assets),
     });
     const inspections = (p.inspections ?? []).filter((i) => !i.deleted);
     const statuses = inspections.map((i) => inspectionStatus(i.next_date, today));
@@ -329,6 +344,7 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
       inspections,
       fireEquipment: (p.fireEquipment ?? []).filter((f) => !f.deleted),
       utilities: (p.utilities ?? []).filter((u) => !u.deleted),
+      assets: (p.assets ?? []).filter((a) => !a.deleted),
       position: pos ? { lat: pos.lat, lng: pos.lng } : null,
       position_quality: pos?.quality ?? PositionQuality.MISSING,
       inspection_status: SEVERITY.find((s) => statuses.includes(s)) ?? null,

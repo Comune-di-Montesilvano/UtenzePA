@@ -2,8 +2,8 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  Index,
   JoinColumn,
+  JoinTable,
   ManyToMany,
   ManyToOne,
   OneToMany,
@@ -20,12 +20,12 @@ import { PlantElevator } from './plant-elevator.entity';
 import { PlantFireEquipment } from './plant-fire-equipment.entity';
 import { PlantInspection } from './plant-inspection.entity';
 
-// Impianto: oggetto tecnico con posizione propria, immobile contenitore
-// facoltativo, servito da zero o più utenze (tabella ponte utility_plants).
+// Impianto: oggetto tecnico con posizione propria, collegato a zero o più
+// immobili (plant_assets: es. centrale termica che serve più edifici) e
+// servito da zero o più utenze (tabella ponte utility_plants).
 // Dati specifici solo per i tipi che li hanno (termico, ascensore,
 // antincendio); scadenzario verifiche comune a tutti.
 @Entity('plants')
-@Index(['asset_id_fk', 'deleted'])
 export class Plant {
   @PrimaryGeneratedColumn('increment')
   id: number;
@@ -38,9 +38,6 @@ export class Plant {
 
   @Column({ length: 255 })
   name: string;
-
-  @Column({ type: 'int', nullable: true })
-  asset_id_fk: number | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   toponym: string | null;
@@ -87,9 +84,13 @@ export class Plant {
   @Column({ type: 'boolean', default: false })
   deleted: boolean;
 
-  @ManyToOne(() => Asset, { nullable: true })
-  @JoinColumn({ name: 'asset_id_fk' })
-  asset: Asset | null;
+  @ManyToMany(() => Asset)
+  @JoinTable({
+    name: 'plant_assets',
+    joinColumn: { name: 'plant_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'asset_id', referencedColumnName: 'id' },
+  })
+  assets: Asset[];
 
   @ManyToMany(() => Utility, (utility) => utility.plants)
   utilities: Utility[];

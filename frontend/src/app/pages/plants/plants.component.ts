@@ -59,6 +59,7 @@ type PositionFilter = '' | 'precise' | 'from_asset' | 'estimated' | 'missing';
         <mat-form-field style="flex: 0 1 240px;" subscriptSizing="dynamic">
           <mat-label>Tipo</mat-label>
           <mat-select [(ngModel)]="type" (ngModelChange)="reload()">
+            <mat-select-trigger>{{ type ? typeLabel[type] : 'Tutti i tipi' }}</mat-select-trigger>
             <mat-option value="">Tutti i tipi</mat-option>
             @for (t of types; track t) {
               <mat-option [value]="t"><span><mat-icon style="vertical-align: middle; margin-right: 6px;">{{ typeIcon[t] }}</mat-icon>{{ typeLabel[t] }}</span></mat-option>
@@ -140,10 +141,10 @@ type PositionFilter = '' | 'precise' | 'from_asset' | 'estimated' | 'missing';
             </td>
           </ng-container>
           <ng-container matColumnDef="asset">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header>Immobile</th>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Immobili</th>
             <td mat-cell *matCellDef="let item">
-              @if (item.asset) {
-                <a href="" (click)="$event.preventDefault(); openAsset(item)" matTooltip="Apri l'immobile">{{ item.asset.asset_name }}</a>
+              @for (a of asPlant(item).assets; track a.id; let last = $last) {
+                <a href="" (click)="$event.preventDefault(); openAsset(a.id)" matTooltip="Apri l'immobile">{{ a.asset_name }}</a>{{ last ? '' : ', ' }}
               }
             </td>
           </ng-container>
@@ -218,7 +219,7 @@ export class PlantsComponent implements OnInit, AfterViewInit {
     this.dataSource.sortingDataAccessor = (p, column) => {
       switch (column) {
         case 'type': return PLANT_TYPE_LABEL[p.type];
-        case 'asset': return p.asset?.asset_name?.toLowerCase() ?? '';
+        case 'asset': return this.assetsText(p).toLowerCase();
         case 'position': return p.position_quality;
         case 'inspection': return p.inspection_status ?? '';
         default: return String((p as unknown as Record<string, unknown>)[column] ?? '').toLowerCase();
@@ -226,7 +227,7 @@ export class PlantsComponent implements OnInit, AfterViewInit {
     };
     this.dataSource.filterPredicate = (p, q) => {
       if (!q) return true;
-      const haystack = [p.code, p.name, p.address, p.toponym, p.asset?.asset_name, p.asset?.associated_building,
+      const haystack = [p.code, p.name, p.address, p.toponym, ...(p.assets ?? []).flatMap(a => [a.asset_name, a.associated_building]),
         ...(p.utilities ?? []).map(u => u.utility_id), p.notes].join(' ').toLowerCase();
       return haystack.includes(q);
     };
@@ -275,8 +276,12 @@ export class PlantsComponent implements OnInit, AfterViewInit {
     this.paginator?.firstPage();
   }
 
-  openAsset(p: Plant): void {
-    this.router.navigate(['/building'], {queryParams: {selectedId: p.asset_id_fk}});
+  assetsText(p: Plant): string {
+    return (p.assets ?? []).map(a => a.asset_name).join(', ');
+  }
+
+  openAsset(assetId: number): void {
+    this.router.navigate(['/building'], {queryParams: {selectedId: assetId}});
   }
 
   openDialog(item?: Plant, plantId?: number): void {
@@ -304,9 +309,9 @@ export class PlantsComponent implements OnInit, AfterViewInit {
   }
 
   exportCsv(): void {
-    const header = ['Codice', 'Tipo', 'Nome', 'Immobile', 'Indirizzo', 'Utenze', 'Posizione', 'Verifiche', 'Stato', 'Note'];
+    const header = ['Codice', 'Tipo', 'Nome', 'Immobili', 'Indirizzo', 'Utenze', 'Posizione', 'Verifiche', 'Stato', 'Note'];
     const rows = this.dataSource.filteredData.map(p => [
-      p.code, PLANT_TYPE_LABEL[p.type], p.name, p.asset?.asset_name ?? '',
+      p.code, PLANT_TYPE_LABEL[p.type], p.name, this.assetsText(p),
       [p.address, p.civic_number].filter(Boolean).join(' '), this.utilitiesText(p),
       POSITION_LABEL[p.position_quality], this.inspectionText(p), PLANT_STATUS_LABEL[p.status], p.notes ?? '',
     ]);
