@@ -12,15 +12,11 @@ export interface EditDialogData<T> {
   item: T;
 }
 
-// MatDialog di default centra verticalmente sul contenuto attuale — con un
-// mat-tab-group dentro (Dati/Foto/Acqua/Luce/Gas/Internet, altezze molto
-// diverse tra loro) ogni cambio tab faceva saltare l'intero dialog su/giù,
-// il top si spostava insieme al centro. Un top fisso invece non si sposta
-// mai: il dialog cresce/si accorcia verso il basso, non serve un'altezza
-// fissa che avrebbe forzato uno scroll interno vuoto sui tab piu' corti
-// (visto: Gas con 11 righe, molto meno alto di Dati, mostrava comunque una
-// scrollbar). Stessa costante riusata da ogni punto che apre questi due
-// dialog (asset-edit-dialog/utility-edit-dialog), non solo qui.
+// MatDialog di default centra verticalmente sul contenuto attuale: ogni
+// cambio di altezza (es. cambio tab) farebbe saltare il dialog su/giù. Un
+// top fisso non si sposta mai. Vale per le anagrafiche semplici; le schede
+// entità (immobile, utenza, impianto, contratti) usano invece
+// sheetDialogConfig (altezza fissa, entity-sheet/sheet-utils.ts).
 export const EDIT_DIALOG_POSITION = {top: '5vh'};
 
 @Component({
