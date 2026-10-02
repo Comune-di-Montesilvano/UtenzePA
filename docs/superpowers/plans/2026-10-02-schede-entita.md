@@ -5056,3 +5056,9 @@ Emersi dalla revisione finale del branch, non bloccanti. Da fare in un giro dedi
   - aggancio automatico delle letture/consumi (`utility_consumptions`) e della spesa per capitolo;
   - abbinamento del fornitore per P.IVA (con Soggetti terzi) invece che per `supplier_id`;
   - normalizzazione POD a 14 caratteri (vedi nota POD in CLAUDE.md), deduplica per numero fattura + fornitore, anteprima con errori prima del salvataggio.
+- [ ] **Mappa: non toccarla fino alla fine.** Resta com'è finché non sono fatti complessi e dati catastali; la svecchiata UI la esclude.
+- [ ] **Complessi immobiliari** (vedi `docs/roadmap-patrimonio.md`): da introdurre prima di rimettere mano alla mappa.
+- [ ] **Dati catastali automatici da SIT.** Idea: ricavare foglio e particella dell'immobile dalle sue coordinate, invece di inserirli a mano (tab Catasto della scheda immobile).
+  - Geoportale comunale https://montesilvano.geoportal.it/ — piattaforma Autodesk MapGuide (viewer `cassini/mapguide.aspx`); dalla home non risultano servizi OGC né download: individuare il layer catasto e un eventuale endpoint (WMS/WFS, MapGuide REST/mapagent) dalle richieste di rete del viewer o chiedendo all'ufficio SIT.
+  - Alternativa nazionale da verificare: WMS cartografia catastale dell'Agenzia delle Entrate (INSPIRE, licenza aperta) con `GetFeatureInfo` su un punto → foglio/particella.
+  - Uso previsto: suggerimento al salvataggio della posizione o elaborazione batch su tutti gli immobili con coordinate, con conferma dell'utente (mai sovrascrivere dati inseriti a mano); il subalterno non è ricavabile dalla cartografia.
