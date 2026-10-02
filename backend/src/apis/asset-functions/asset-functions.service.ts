@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BaseService } from '@apis/shared/base.service';
@@ -41,7 +41,7 @@ export class AssetFunctionsService extends BaseService<
   async remove(id: number, updatedByUserId: number): Promise<void> {
     const inUse = await this.assetRepo.count({ where: { function_id: id, deleted: false } });
     if (inUse > 0) {
-      throw new ConflictException(
+      throw new BadRequestException(
         `Funzione usata da ${inUse} immobili: riclassificarli prima di eliminarla.`,
       );
     }

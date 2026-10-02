@@ -1,4 +1,4 @@
-import { ConflictException, HttpException, RequestTimeoutException } from '@nestjs/common';
+import { BadRequestException, HttpException, RequestTimeoutException } from '@nestjs/common';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { BaseService, BaseEntity, toFindOptionsRelations } from './base.service';
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
@@ -106,20 +106,20 @@ describe('BaseService', () => {
   });
 
   describe('manageErrors', () => {
-    it('mappa ER_DUP_ENTRY in ConflictException', () => {
+    it('mappa ER_DUP_ENTRY in BadRequestException (400, mai 409)', () => {
       expect(() => service.manageErrorsPublic({ code: 'ER_DUP_ENTRY' }, 'errore')).toThrow(
-        ConflictException,
+        BadRequestException,
       );
     });
 
-    it('mappa errno 1062 in ConflictException', () => {
-      expect(() => service.manageErrorsPublic({ errno: 1062 }, 'errore')).toThrow(ConflictException);
+    it('mappa errno 1062 in BadRequestException (400, mai 409)', () => {
+      expect(() => service.manageErrorsPublic({ errno: 1062 }, 'errore')).toThrow(BadRequestException);
     });
 
-    it('mappa ER_DUP_ENTRY dentro driverError in ConflictException', () => {
+    it('mappa ER_DUP_ENTRY dentro driverError in BadRequestException (400, mai 409)', () => {
       expect(() =>
         service.manageErrorsPublic({ driverError: { code: 'ER_DUP_ENTRY' } }, 'errore'),
-      ).toThrow(ConflictException);
+      ).toThrow(BadRequestException);
     });
 
     it('mappa ECONNREFUSED in RequestTimeoutException', () => {

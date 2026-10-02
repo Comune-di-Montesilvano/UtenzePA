@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   HttpException,
   HttpStatus,
   Inject,
@@ -228,7 +227,7 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
     const code = error?.code ?? error?.driverError?.code;
     const errno = error?.errno ?? error?.driverError?.errno;
     if (code === 'ER_DUP_ENTRY' || errno === 1062) {
-      throw new ConflictException(
+      throw new BadRequestException(
         'Elemento duplicato: esiste già un elemento con gli stessi dati.',
       );
     }
