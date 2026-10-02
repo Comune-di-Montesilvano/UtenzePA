@@ -18,6 +18,7 @@ import { CurrentUser, ICurrentUser } from '@/core/auth/decorators/current-user.d
 import { Utilizer } from './entity/utilizer.entity';
 import { SearchUtilizerGrantDto } from '@apis/utilizer-grant/dto/search-utilizer-grant.dto';
 import { UtilizerService } from '@apis/utilizer/utilizer.service';
+import { maskUtilizer } from '@apis/utilizer-grant/real-estate-contract.privacy';
 
 @Controller('utilizer')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -25,8 +26,11 @@ export class UsersController {
   constructor(private readonly service: UtilizerService) {}
 
   @Get()
-  getAll(@Query() filters: SearchUtilizerGrantDto): Promise<Utilizer[]> {
-    return this.service.findAll(filters);
+  async getAll(
+    @Query() filters: SearchUtilizerGrantDto,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<Utilizer[]> {
+    return (await this.service.findAll(filters)).map((u) => maskUtilizer(u, user?.role));
   }
 
   @Roles('Admin', 'Operatore')

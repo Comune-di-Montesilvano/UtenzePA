@@ -17,6 +17,7 @@ import { RolesGuard } from '@/core/auth/guards/roles.guard';
 import { Roles } from '@/core/auth/decorators/roles.decorator';
 import { CurrentUser, ICurrentUser } from '@/core/auth/decorators/current-user.decorator';
 import { SearchUtilizerGrantDto } from '@apis/utilizer-grant/dto/search-utilizer-grant.dto';
+import { maskContract } from './real-estate-contract.privacy';
 import {
   ContractRow,
   ContractSummary,
@@ -29,9 +30,13 @@ import {
 export class UtilizerGrantController {
   constructor(private readonly service: UtilizerGrantService) {}
 
+  // Codice fiscale della controparte oscurato per i ruoli diversi da Admin/Operatore.
   @Get()
-  getAll(@Query() filters: SearchUtilizerGrantDto): Promise<ContractRow[]> {
-    return this.service.findAll(filters);
+  async getAll(
+    @Query() filters: SearchUtilizerGrantDto,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<ContractRow[]> {
+    return (await this.service.findAll(filters)).map((g) => maskContract(g, user?.role));
   }
 
   // Prima di ':id', altrimenti 'summary' verrebbe letto come id.
@@ -41,8 +46,18 @@ export class UtilizerGrantController {
   }
 
   @Get(':id')
-  getOne(@Param('id', ParseIntPipe) id: number): Promise<ContractRow | null> {
-    return this.service.findOne(id);
+  async getOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<ContractRow | null> {
+    const g = await this.service.findOne(id);
+    return g
+      ? {
+          ...maskContract(g, user?.role),
+          parent: g.parent ? maskContract(g.parent, user?.role) : null,
+          children: (g.children ?? []).map((c) => maskContract(c, user?.role)),
+        }
+      : null;
   }
 
   @Roles('Admin', 'Operatore')
