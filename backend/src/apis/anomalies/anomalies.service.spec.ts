@@ -48,7 +48,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(10);
+    expect(query).toHaveBeenCalledTimes(11);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -130,5 +130,19 @@ describe('AnomaliesService', () => {
     const sql = query.mock.calls[9][0] as string;
     expect(sql).toContain("tp.type = 'LEGAL' AND IFNULL(TRIM(tp.vat_number), '') = ''");
     expect(sql).toContain("tp.type = 'NATURAL' AND IFNULL(TRIM(tp.tax_code), '') = ''");
+  });
+
+  it('elenca le utenze attive senza tipologia ARERA (Internet escluso)', async () => {
+    for (let i = 0; i < 10; i++) query.mockResolvedValueOnce([]);
+    query.mockResolvedValueOnce([{ id: 21, utility_id: 'IT004', type: 'gas' }]);
+    const a = await service.getAnomalies();
+    expect(a.active_utilities_without_arera_category).toEqual({
+      count: 1,
+      items: [{ id: 21, utility_id: 'IT004', type: 'gas' }],
+    });
+    const sql = query.mock.calls[10][0] as string;
+    expect(sql).toContain('u.supply_active = 1');
+    expect(sql).toContain("t.hard_type <> 'INTERNET'");
+    expect(sql).toContain('u.arera_category IS NULL');
   });
 });
