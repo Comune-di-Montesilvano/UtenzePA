@@ -39,6 +39,7 @@ import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {UtilityType} from '../utility-types/entity/utility-type.entity';
 import {UtilityService} from '../utilities/utility.service';
 import {AssetThermalPlantsTabComponent} from './thermal-plants/asset-thermal-plants-tab.component';
+import {AssetRealEstateContractsTabComponent} from '../utilizer-grant/asset-real-estate-contracts-tab.component';
 
 // Stessa larghezza usata per il dialog immobile (vedi UtilityEditDialogComponent
 // ASSET_DIALOG_WIDTH) — tab + gruppi affiancati richiedono spazio simile.
@@ -69,6 +70,7 @@ const UTILITY_DIALOG_WIDTH = '1150px';
     PhotoGalleryComponent,
     EntityHistoryComponent,
     AssetThermalPlantsTabComponent,
+    AssetRealEstateContractsTabComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './asset-edit-dialog.component.html'

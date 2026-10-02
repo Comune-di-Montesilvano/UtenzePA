@@ -35,6 +35,7 @@ interface Anomalies {
   active_utilities_without_cig_contract: AnomalyList<UtilityAnomaly>;
   utilities_with_overlapping_contracts: AnomalyList<UtilityAnomaly>;
   duplicate_cigs: AnomalyList<{cig: string; contracts: number[]}>;
+  real_estate_contracts_without_assets: AnomalyList<{id: number; counterparty: string | null; subject: string | null}>;
 }
 
 // Non estende AbstractService: header Authorization messo a mano (nessun
@@ -155,6 +156,26 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+
+            <mat-expansion-panel [disabled]="data.real_estate_contracts_without_assets.count === 0">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count" [class.zero]="data.real_estate_contracts_without_assets.count === 0">{{ data.real_estate_contracts_without_assets.count }}</span>
+                  Contratti immobiliari senza immobile
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <p style="margin: 0 0 0.5rem;">
+                <a href="javascript:void(0)" (click)="openRealEstateWithoutAssets()">Apri l'elenco filtrato</a>
+              </p>
+              <ul class="anomaly-list">
+                @for (c of data.real_estate_contracts_without_assets.items; track c.id) {
+                  <li>
+                    <a href="javascript:void(0)" (click)="openRealEstateContract(c.id)">#{{ c.id }}</a>
+                    {{ c.counterparty ?? '' }}{{ c.subject ? ' · ' + c.subject : '' }}
+                  </li>
+                }
+              </ul>
+            </mat-expansion-panel>
           </mat-accordion>
         }
       </mat-card-content>
@@ -180,7 +201,7 @@ export class AnomaliesCardComponent implements OnInit {
     if (!this.data) return 0;
     return this.data.contracts_without_cig.count + this.data.active_utilities_without_cig_contract.count
       + this.data.active_utilities_without_contract.count + this.data.utilities_with_overlapping_contracts.count
-      + this.data.duplicate_cigs.count;
+      + this.data.duplicate_cigs.count + this.data.real_estate_contracts_without_assets.count;
   }
 
   ngOnInit(): void {
@@ -196,6 +217,14 @@ export class AnomaliesCardComponent implements OnInit {
 
   openContract(id: number): void {
     this.router.navigate(['/contracts'], {queryParams: {selectedId: id}});
+  }
+
+  openRealEstateWithoutAssets(): void {
+    this.router.navigate(['/utilizer-grant'], {queryParams: {alert: 'without_assets'}});
+  }
+
+  openRealEstateContract(id: number): void {
+    this.router.navigate(['/utilizer-grant'], {queryParams: {selectedId: id}});
   }
 
   openUtility(id: number): void {

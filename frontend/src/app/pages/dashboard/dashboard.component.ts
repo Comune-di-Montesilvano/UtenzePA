@@ -13,6 +13,7 @@ import {plainToInstance} from 'class-transformer';
 import {UtilityType} from '../utility-types/entity/utility-type.entity';
 import {HardType} from '../utility-types/enum/hard-type.enum';
 import {AnomaliesCardComponent} from './anomalies-card.component';
+import {RealEstateContractsCardComponent} from './real-estate-contracts-card.component';
 import {ContractsService} from '../contracts/contract.service';
 import {Contract} from '../contracts/entity/contract.entity';
 
@@ -22,7 +23,7 @@ type Severity = 'info' | 'success' | 'warn' | 'danger' | 'secondary' | 'contrast
 @Component({
              selector: 'app-dashboard',
              standalone: true,
-             imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, AnomaliesCardComponent],
+             imports: [CommonModule, MatCardModule, MatButtonModule, MatIconModule, AnomaliesCardComponent, RealEstateContractsCardComponent],
              templateUrl: './dashboard.component.html',
              changeDetection: ChangeDetectionStrategy.Eager,
              styleUrls: ['./dashboard.component.css']
