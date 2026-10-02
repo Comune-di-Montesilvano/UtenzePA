@@ -98,7 +98,7 @@ Una sola migration (es. `…-AreraCategories.ts`), scritta fuori da `src/databas
 
 ## Frontend
 
-- `core/helpers/arera-category.ts` (nuovo): stessi codici e mappa del backend, con etichette; funzioni `areraOptionsFor(hardType)` e `areraLabel(code)`.
+- `pages/utilities/arera-category.ts` (nuovo; non in `core/` per non far importare a `core/` l'enum `HardType` di `pages/`): stessi codici e mappa del backend, con etichette; funzioni `areraOptionsFor(hardType)` e `areraLabel(code)`.
 - **Scheda utenza** (`utility-edit-dialog`):
   - Riepilogo: etichetta del select tipo utenza da "Tipo Uso Contatore" a **"Tipo utenza"**; nuovo select **"Tipologia ARERA"** (non obbligatorio) con le sole opzioni del tipo scelto, nascosto per Internet. In `onUtilityTypeChange`, se il valore corrente non è ammesso per il nuovo tipo → `null`.
   - Tecnici e stato: input "Disalimentabilità utenza" → select **Sì / No / Non noto** su `disconnectable`.
