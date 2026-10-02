@@ -116,7 +116,7 @@ describe('AnomaliesService', () => {
     for (let i = 0; i < 8; i++) query.mockResolvedValueOnce([]);
     query
       .mockResolvedValueOnce([{ id: '12', subject: 'Chiosco' }])
-      .mockResolvedValueOnce([{ id: '1207', name: 'Barone Alessio', type: 'LEGAL' }]);
+      .mockResolvedValueOnce([{ id: '1207', name: 'Rossi Mario', type: 'LEGAL' }]);
     const a = await service.getAnomalies();
     expect(a.real_estate_contracts_without_parties).toEqual({
       count: 1,
@@ -124,7 +124,7 @@ describe('AnomaliesService', () => {
     });
     expect(a.third_parties_without_identifier).toEqual({
       count: 1,
-      items: [{ id: 1207, name: 'Barone Alessio', type: 'LEGAL' }],
+      items: [{ id: 1207, name: 'Rossi Mario', type: 'LEGAL' }],
     });
     expect(query.mock.calls[8][0]).toContain('utilizer_grant_parties');
     const sql = query.mock.calls[9][0] as string;
