@@ -1,9 +1,11 @@
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
+import {MatDialog} from '@angular/material/dialog';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {FilterableSelectComponent} from '../filterable-select.component';
+import {ConfirmDialogComponent, ConfirmDialogData} from '../confirm-dialog.component';
 import type {TOption} from '../../types/option.interface';
 import type {StatusInfo} from '../../helpers/entity-status';
 import {StatusBadgeComponent} from './status-badge.component';
@@ -92,7 +94,7 @@ export interface RowIcon {
                 }
                 <td class="lt-actions">
                   @if (unlinkable) {
-                    <button mat-icon-button type="button" matTooltip="Scollega" (click)="onUnlink($event, row)">
+                    <button mat-icon-button type="button" class="lt-unlink" matTooltip="Scollega" (click)="onUnlink($event, row)">
                       <mat-icon>link_off</mat-icon>
                     </button>
                   }
@@ -120,6 +122,8 @@ export interface RowIcon {
     .lt-icon-col .mat-icon { font-size: 20px; width: 20px; height: 20px; vertical-align: middle; }
     .lt-actions { width: 1%; white-space: nowrap; text-align: right; }
     .lt-chevron { color: #9ca3af; vertical-align: middle; }
+    .lt-unlink { color: #9ca3af; }
+    .lt-unlink:hover { color: var(--tone-danger-fg); }
   `],
 })
 export class LinkedTableComponent<R extends LinkedRow> implements OnChanges {
@@ -130,6 +134,8 @@ export class LinkedTableComponent<R extends LinkedRow> implements OnChanges {
   @Input() createLabel: string | null = null;
   @Input() unlinkable = false;
   @Input() emptyText = 'Nessun elemento collegato.';
+  // Nome dell'entità collegata nel messaggio di conferma (es. "l'immobile").
+  @Input() itemLabel = "l'elemento";
   @Input() rowIcon: ((row: R) => RowIcon | null) | null = null;
   @Input() rowStatus: ((row: R) => StatusInfo | null) | null = null;
 
@@ -152,8 +158,23 @@ export class LinkedTableComponent<R extends LinkedRow> implements OnChanges {
     this.toAdd = null;
   }
 
+  private dialog = inject(MatDialog);
+
+  // Scollegare chiede sempre conferma: il pulsante sta accanto alla riga
+  // cliccabile ed è facile premerlo per sbaglio.
   onUnlink(event: Event, row: R): void {
     event.stopPropagation();
-    this.unlink.emit(row.id);
+    const name = this.columns[0]?.value(row) || `#${row.id}`;
+    this.dialog.open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
+      width: '420px',
+      data: {
+        title: 'Scollega',
+        message: `Scollegare ${this.itemLabel} «${name}»? Il collegamento viene rimosso al salvataggio della scheda.`,
+        confirmLabel: 'Scollega',
+        danger: true,
+      },
+    }).afterClosed().subscribe(confirmed => {
+      if (confirmed) this.unlink.emit(row.id);
+    });
   }
 }
