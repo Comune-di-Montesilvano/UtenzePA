@@ -20,6 +20,8 @@ Query MySQL dirette (debug/pulizia dati test): `docker exec utenzepa-mysql-1 mys
 
 Porte locali override in `.env` (non i default di `.env.example`): `DOCKER_API_PORT=3010`, mailpit su `1026`/`8026` — conflitto con altri progetti locali sulla stessa macchina (es. comunicaPA usa 3000/1025/8025).
 
+Campagne/notifiche/SEND/PEC NON sono in questo repo: sono in comunicaPA (`../comunicaPA`, docs in `docs/claude/`).
+
 ## Comandi
 
 ### Avvio con Docker (root)
@@ -63,6 +65,8 @@ docker exec -u root utenzepa-api-1 node -r ts-node/register -r tsconfig-paths/re
 
 `nest start --watch` + `migrationsRun: true` esegue una migration NUOVA scritta su disco appena il watcher la rileva — anche prima di un `docker restart` esplicito. Se il contenuto non è ancora definitivo e il file è già in `src/database/migrations/`, rischia di partire a metà e lasciare lo schema modificato senza riga corrispondente in `migrations` (le DDL MySQL fanno commit implicito, la "transazione" di TypeORM non la annulla). Scrivere/rifinire il contenuto in uno scratch path fuori da `src/database/migrations/`, spostarlo nel path definitivo solo a contenuto finale. Se già successo: pulire lo schema a mano (drop colonne/tabelle orfane) e la riga `migrations` corrispondente prima di riprovare. Dopo `docker restart` la migration nuova gira solo a ricompilazione del watcher finita (log "Found 0 errors"): una query subito dopo il restart può non vederla ancora applicata.
 
+Rinominare/sostituire una migration già applicata in locale: aggiornare la riga `migrations.name`, poi `rm -rf dist tsconfig.build.tsbuildinfo` + `docker restart` — il `.js` vecchio in `dist` viene rieseguito.
+
 Spostare/cancellare un file `.ts` sotto `nest start --watch` non ripulisce sempre l'output compilato: `dist/**/*.js` di un file sorgente rimosso/rinominato può sopravvivere e continuare a essere eseguito/riferito dal watcher (crash-loop persistente, "file not found" fantasma su path che invece esistono). Se il container si comporta in modo incoerente dopo aver spostato/rinominato file in `src/`: `docker exec <container> rm -rf dist tsconfig.build.tsbuildinfo` poi `docker restart`.
 
 Nota: gli script `docker:dev*` in `backend/package.json` referenziano `docker-compose-development.yml`, che non esiste nel repo — non funzionanti allo stato attuale, usare il `docker-compose.yml` di root o `pnpm run start:dev` in locale.
@@ -103,7 +107,8 @@ PrimeNG rimosso interamente dal frontend (migrazione completa a Angular Material
 ## Architettura
 
 ### Backend
-- `src/apis/` — moduli di dominio, uno per risorsa REST: `auth`, `setup`, `system-users`, `settings`, `asset`, `asset-aggregators`, `utility`, `utility-types`, `utility-aggregators`, `map`, `invoices`, `contracts`, `suppliers`, `budget-chapters`, `consip-agreement`, `costs-borne-by`, `maintenance-managers`, `purpose`, `utilizer`, `utilizer-grant`, `backup`, `import`, `photos`, `geocoding`, `health`.
+- `src/apis/` — moduli di dominio, uno per risorsa REST: `auth`, `setup`, `system-users`, `settings`, `asset`, `asset-aggregators`, `utility`, `utility-types`, `utility-aggregators`, `map`, `invoices`, `contracts`, `suppliers`, `budget-chapters`, `consip-agreement`, `costs-borne-by`, `maintenance-managers`, `purpose`, `utilizer`, `utilizer-grant`, `backup`, `import`, `photos`, `geocoding`, `health`, `anomalies`, `utility-consumptions`, `budget-chapter-spending`, `thermal-plants`.
+- Impianti termici (`thermal-plants`) = entità dell'immobile, non dell'utenza (l'utenza che li alimenta è FK facoltativa): sopravvivono al cambio contatore. Stesso modello per futuri impianti (ascensori ecc.).
 - `src/core/` — infrastruttura trasversale (auth, database, cronjobs, email, exceptions).
 - `src/common/`, `src/helpers/`, `src/utils/`, `src/data-importer/` (service+module usati da `ImportModule`; il controller legacy e gli script one-off vivono fuori, vedi `backend/tools/`).
 - `src/database/` — migration TypeORM (`migrations/`) e `data-source.ts` dedicato per la CLI. Entity individuate via glob (`src/apis/**/*.entity.ts`), niente elenco esplicito da tenere sincronizzato a mano.
@@ -142,6 +147,10 @@ PrimeNG rimosso interamente dal frontend (migrazione completa a Angular Material
 - Un service frontend che NON estende `AbstractService` (es. scritto da zero per un endpoint nuovo) deve allegare esplicitamente l'header `Authorization: Bearer <token>` per ogni chiamata verso un endpoint protetto — non c'è un interceptor globale che lo fa (l'interceptor esistente gestisce solo il logout su 401, non l'aggiunta del token). Bug reale: `BrandingService.update()` dimenticava l'header, PATCH sempre 401, salvataggio dalla UI mai funzionante — sopravvissuto a review multiple del codice, trovato solo con un test end-to-end reale nel browser (login + save).
 - Tab di un dialog che modifica lato server l'entity del dialog stesso (es. tab Consumi che aggiorna matricola/stima dell'utenza): riallineare il form del dialog (solo i controlli `pristine`), altrimenti "Salva" riporta il DB ai valori vecchi — il dialog rimanda l'intero form. Bug reale trovato solo in E2E.
 - Nessun `LOCALE_ID` registrato: pipe `number`/`date` formattano en-US — per formato italiano `toLocaleString('it-IT')`.
+- Schede entità (immobile, utenza, impianto, contratto fornitura, contratto immobiliare): shell condivisa in `core/components/entity-sheet/` (header fisso con badge stato da `core/helpers/entity-status.ts`, tab con `app-tab-label`, collegamenti con `app-linked-table`, anteprime `app-preview-card`). Aprirle sempre con `openSheet()`/`sheetDialogConfig()` (altezza fissa, top ancorato, offset 2vh per livello di pila) o con `EntityNavigatorService` (carica il record completo con `getById` e persiste alla chiusura) — mai `dialog.open` con width/position a mano. Tab nuovi: `aria-label` = testo dell'etichetta (serve a `selectTab`). Righe/opzioni passate a `app-linked-table` devono essere campi cache, non getter (array nuovo a ogni change detection = filtro del picker azzerato). Tab per tipo d'impianto in `PLANT_TYPE_TABS` (`plant.model.ts`). Salva non è disabilitato: con form invalido fa `markAllAsTouched()` e il tab col campo errato mostra il pallino rosso.
+- `reflect-metadata` sta nei `polyfills` di `angular.json`, non solo in `main.ts`: gli `import()` dinamici (es. `EntityNavigatorService`) cambiano l'ordine di valutazione dei chunk e i decorator `@Type` di class-transformer giravano prima del polyfill (`Reflect.getMetadata is not a function`, pagina bianca al login).
+- Tipi usati in proprietà decorate (`@Input() info: StatusInfo`) vanno importati con `import type` (TS1272 con `isolatedModules` + `emitDecoratorMetadata`).
+- `mat-label` di un campo con `Validators.required`: niente `*` manuale, Material lo aggiunge già (risultato "**"). Il `*` resta solo su `app-filterable-select`, che non lo aggiunge.
 
 ### Docker Compose (root)
 Pattern comunicaPA: `docker-compose.yml` = produzione (immagini `ghcr.io/comune-di-montesilvano/utenzepa-{backend,frontend}`, volumi named, secret obbligatori via `${VAR:?}`), `docker-compose.override.yml` = sviluppo (build locale da Dockerfile, bind mount, porta MySQL/debug esposte), attivato da `COMPOSE_FILE` in `.env`. `.env.example` in root documenta tutte le variabili.
@@ -166,7 +175,9 @@ Nessuna credenziale dev/seed documentata per verifica UI reale (Playwright/brows
 
 Login via API (curl/script invece di Playwright, utile per operazioni bulk sui dati senza passare dal browser): `POST /api/v1/authModule/login` (non `/auth/login`) con `{"email":"<username>","password":"..."}` (il campo `email` accetta lo username; un campo `username` extra → 400 per forbidNonWhitelisted) — risposta `{status,user,token:{access_token}}` (token annidato, non top-level).
 
-E2E Playwright: `/utilities?selectedId=<id>` apre direttamente il dialog utenza; route capitoli = `/budget-chapter` (singolare). Datepicker Material: digitare `gg/mm/aaaa` (ISO → campo invalido, Salva disabilitato).
+E2E Playwright: `?selectedId=<id>` apre il dialog su `/utilities`, `/building` (immobili, NON `/assets`), `/contracts`; `/budget-chapter` (singolare) non lo supporta, aprire dalla riga. Datepicker Material: digitare `gg/mm/aaaa` (ISO → campo invalido, Salva disabilitato).
+
+`curl http://localhost:3010/...` dal Bash tool torna exit 52 (empty reply) per la sandbox: serve `dangerouslyDisableSandbox`, non è l'API giù.
 
 **Debug "il wizard/login non risponde" su un deploy**: quasi sempre `CORS_ORIGIN`/`API_URL` non allineati all'origine reale del browser (`SetupService.getStatus()` in errore di rete ritorna `false` di default, indistinguibile da "admin già esiste" senza controllare la Network tab), oppure c'è già un admin in `system_users`. Controllare prima quei due prima di sospettare un bug applicativo.
 
@@ -219,6 +230,12 @@ Reinstall completo (`pnpm install` da zero, non incrementale) in un container Do
 Export da `.accdb` via `mdbtools` (nessun Access reale disponibile): pacchetto Alpine `mdbtools` installa solo le librerie, servono i binari CLI da `mdbtools-utils`. Flag corte (`-d`, `-D`) falliscono sulla versione Debian (`node:24` image) — usare le lunghe (`--delimiter=`, `--date-format=`, `--datetime-format=`). Colonna Access di tipo lookup (mostra testo, salva int FK): l'export mdbtools restituisce l'id numerico grezzo, non il testo — mai assumere che il valore in un campo "categoria" sia il nome, verificare contro la tabella lookup reale. Conversione encoding UTF-8→latin1 con `iconv` BusyBox (Alpine) sostituisce silenziosamente apostrofi tipografici con `*` invece di traslitterare — serve GNU `iconv` (immagine Debian) con `//TRANSLIT`.
 
 Generare SQL/script con escaping di stringhe non banale (apostrofi, virgolette) da un heredoc Python dentro Bash (`python3 << 'EOF' ... EOF`) è inaffidabile — l'escaping (es. `'` → `\'`) si è perso silenziosamente in un caso reale, producendo SQL invalido solo per le righe con un apostrofo nel testo. Scrivere uno script `.py` reale (tool Write) invece dell'heredoc quando i dati contengono apostrofi/quote.
+
+POD in fonti esterne (TINN, ordini CONSIP) a volte a 15 caratteri = 14 + cifra di controllo finale: normalizzare a 14 (`IT\d{3}E\d{8}`) prima di confrontare con il DB, altrimenti risultano "mancanti" o refusi.
+
+Disalimentabilità utenza: campo testo libero `utilities.disconnection_ability` (da Access, valori tipo "NON disalimentabile per E-DISTRIBUZIONE") — non aggiungere flag nuovi. In generale: grep nell'entity prima di aggiungere una colonna "nuova".
+
+Capitoli di spesa rinumerati negli anni (es. 11201→11407, 11218→11408, 11188→14091, 14521/0→14521/20): dati contabili storici vanno abbinati per descrizione, non per codice — e confermati con la ragioneria (il capitolo è dato contabile, mai assegnarlo "provvisorio" a mano).
 
 Lat/lng importate da fonti Access/Excel hanno separatore decimale italiano (virgola) — `parseFloat`/`Number` diretti troncano silenziosamente al primo carattere non numerico (`"42,51..."` → `42`), piazzando marker a decine di km senza nessun errore. Usare sempre `CoordinateHelper.parseCoordinate()` (`frontend/src/app/core/helpers/coordinate.helper.ts`), mai `parseFloat` diretto su un campo lat/lng.
 
