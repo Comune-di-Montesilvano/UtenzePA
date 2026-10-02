@@ -7,8 +7,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { EDIT_DIALOG_POSITION } from '../../core/components/abstract-data-table.component';
+import { openSheet } from '../../core/components/entity-sheet/sheet-utils';
+import { EntityNavigatorService } from '../../core/services/entity-navigator.service';
 import { MatDialog } from '@angular/material/dialog';
+import { Observable } from 'rxjs';
 import * as L from 'leaflet';
 import { MapService } from './map.service';
 import { MapPoint, UngeolocatedItem, UNGEOLOCATED_REASON_LABELS } from './map-point.entity';
@@ -38,7 +40,6 @@ import { CoordinateHelper } from '../../core/helpers/coordinate.helper';
 import { StreetViewHelper } from '../../core/helpers/street-view.helper';
 import { ToastService } from '../../core/services/toast.service';
 import { PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PLANT_TYPES } from '../plants/plant.model';
-import { PlantEditDialogComponent, PlantEditDialogData } from '../plants/plant-edit-dialog.component';
 
 // Fallback per gli immobili senza icona custom sull'aggregato collegato (o
 // aggregato non ancora caricato) — Material Icons (vedi
@@ -74,12 +75,6 @@ const SEARCH_MARKER_ICON = L.divIcon({
 // stesse coordinate del seed di migrazione CreateAppSettings (Montesilvano).
 const SAFE_DEFAULT_CENTER: L.LatLngExpression = [42.5083, 14.15];
 
-// Width dialog edit: la mappa apre gli stessi AssetEditDialogComponent/
-// UtilityEditDialogComponent usati dalle tabelle — stesso valore del default
-// AbstractDataTableComponent.editDialogWidth() (MatDialog clampa a 560px se
-// non passato esplicitamente, vedi CLAUDE.md).
-const EDIT_DIALOG_WIDTH = '1150px';
-
 @Component({
   selector: 'app-map',
   standalone: true,
@@ -102,6 +97,7 @@ const EDIT_DIALOG_WIDTH = '1150px';
 export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   private mapService = inject(MapService);
   private dialog = inject(MatDialog);
+  private navigator = inject(EntityNavigatorService);
   private assetAggregatorsService = inject(AssetAggregatorsService);
   private naturesService = inject(AssetNaturesService);
   private functionsService = inject(AssetFunctionsService);
@@ -880,54 +876,17 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
   openDetail(point: MapPoint | UngeolocatedItem): void {
     if (point.type === 'plant') {
-      const role = this.authService.getCurrentUser()?.role;
-      this.dialog
-        .open<PlantEditDialogComponent, PlantEditDialogData, boolean>(PlantEditDialogComponent, {
-          width: '1000px',
-          maxWidth: '1000px',
-          data: { plantId: point.id, readOnly: !role || role === 'Lettore' },
-        })
-        .afterClosed()
-        .subscribe((saved) => {
-          if (saved) this.reload();
-        });
+      this.navigator.openPlant(point.id).subscribe((saved) => {
+        if (saved) this.reload();
+      });
       return;
     }
-    if (point.type === 'asset') {
-      this.assetService.getById(point.id).subscribe((asset) => {
-        this.dialog
-          .open(AssetEditDialogComponent, {
-            width: EDIT_DIALOG_WIDTH,
-            maxWidth: EDIT_DIALOG_WIDTH,
-            position: EDIT_DIALOG_POSITION,
-            data: { mode: 'edit', item: asset },
-          })
-          // Il dialog si limita a chiudersi col form compilato (result) — il
-          // salvataggio va fatto qui, stesso pattern di AbstractComponent.onSave()
-          // usato dalle tabelle. Mancava: "Salva" nel dialog aggiornava solo lo
-          // stato locale del form, mai persistito lato server.
-          .afterClosed()
-          .subscribe((result) => {
-            if (!result) return;
-            this.assetService.update(result.id, result).subscribe(() => this.reload());
-          });
-      });
-    } else {
-      this.utilityService.getById(point.id).subscribe((utility) => {
-        this.dialog
-          .open(UtilityEditDialogComponent, {
-            width: EDIT_DIALOG_WIDTH,
-            maxWidth: EDIT_DIALOG_WIDTH,
-            position: EDIT_DIALOG_POSITION,
-            data: { mode: 'edit', item: utility },
-          })
-          .afterClosed()
-          .subscribe((result) => {
-            if (!result) return;
-            this.utilityService.update(result.id, result).subscribe(() => this.reload());
-          });
-      });
-    }
+    const opened: Observable<unknown> = point.type === 'asset'
+      ? this.navigator.openAsset(point.id)
+      : this.navigator.openUtility(point.id);
+    opened.subscribe((saved) => {
+      if (saved) this.reload();
+    });
   }
 
   // Popup "Aggiungi immobile qui / Aggiungi contatore qui" al click destro
@@ -964,13 +923,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private createAssetAt(lat: string, lng: string): void {
     const userId = this.authService.getCurrentUser()?.id;
-    this.dialog
-      .open(AssetEditDialogComponent, {
-        width: EDIT_DIALOG_WIDTH,
-        maxWidth: EDIT_DIALOG_WIDTH,
-        position: EDIT_DIALOG_POSITION,
-        data: { mode: 'create', item: Asset.create({ latitude: lat, longitude: lng }) },
-      })
+    openSheet(this.dialog, AssetEditDialogComponent, { mode: 'create', item: Asset.create({ latitude: lat, longitude: lng }) })
       .afterClosed()
       .subscribe((result) => {
         if (!result) return;
@@ -982,13 +935,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private createUtilityAt(lat: string, lng: string): void {
     const userId = this.authService.getCurrentUser()?.id;
-    this.dialog
-      .open(UtilityEditDialogComponent, {
-        width: EDIT_DIALOG_WIDTH,
-        maxWidth: EDIT_DIALOG_WIDTH,
-        position: EDIT_DIALOG_POSITION,
-        data: { mode: 'create', item: Utility.create({ latitude: lat, longitude: lng }) },
-      })
+    openSheet(this.dialog, UtilityEditDialogComponent, { mode: 'create', item: Utility.create({ latitude: lat, longitude: lng }) })
       .afterClosed()
       .subscribe((result) => {
         if (!result) return;

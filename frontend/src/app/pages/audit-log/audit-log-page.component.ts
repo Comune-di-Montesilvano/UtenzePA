@@ -7,18 +7,12 @@ import { MatInputModule } from '@angular/material/input';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
-import { EDIT_DIALOG_POSITION } from '../../core/components/abstract-data-table.component';
 import { AuditLogService } from '../../services/audit-log.service';
+import { EntityNavigatorService } from '../../core/services/entity-navigator.service';
 import { AuditLogEntry } from '../../core/entities/audit-log-entry.entity';
 import { TOption } from '../../core/types/option.interface';
-import { AssetService } from '../assets/asset.service';
-import { AssetEditDialogComponent } from '../assets/asset-edit-dialog.component';
-import { UtilityService } from '../utilities/utility.service';
-import { UtilityEditDialogComponent } from '../utilities/utility-edit-dialog.component';
+import { Observable } from 'rxjs';
 
-// Stessa larghezza dialog usata da MapComponent.openDetail per gli stessi due dialog.
-const EDIT_DIALOG_WIDTH = '1150px';
 
 // Valori coerenti con `protected readonly entityName` dichiarato in ciascun
 // service backend (verificato in `backend/src/apis/*/*.service.ts`, non con
@@ -58,9 +52,7 @@ const ENTITY_OPTIONS: TOption[] = [
 export class AuditLogPageComponent implements OnInit {
   private fb = inject(FormBuilder);
   private auditLogService = inject(AuditLogService);
-  private dialog = inject(MatDialog);
-  private assetService = inject(AssetService);
-  private utilityService = inject(UtilityService);
+  private navigator = inject(EntityNavigatorService);
 
   entityOptions = ENTITY_OPTIONS;
   displayedColumns = ['created_at', 'entity_name', 'entity_id', 'user', 'action', 'summary'];
@@ -109,41 +101,17 @@ export class AuditLogPageComponent implements OnInit {
     return entry.entity_name === 'assets' || entry.entity_name === 'utilities';
   }
 
-  // Stesso pattern di MapComponent.openDetail: fetch by id, apre lo stesso
-  // dialog di modifica usato altrove, salva sul close se l'utente ha
-  // modificato qualcosa — nessuna nuova view di sola lettura da mantenere.
+  // Apre la scheda del record (stesso dialog di modifica usato altrove) e
+  // ricarica il registro se l'utente salva qualcosa.
   openRecordDetail(entry: AuditLogEntry): void {
-    if (entry.entity_name === 'assets') {
-      this.assetService.getById(entry.entity_id).subscribe((asset) => {
-        this.dialog
-          .open(AssetEditDialogComponent, {
-            width: EDIT_DIALOG_WIDTH,
-            maxWidth: EDIT_DIALOG_WIDTH,
-            position: EDIT_DIALOG_POSITION,
-            data: { mode: 'edit', item: asset },
-          })
-          .afterClosed()
-          .subscribe((result) => {
-            if (!result) return;
-            this.assetService.update(result.id, result).subscribe(() => this.load());
-          });
-      });
-    } else if (entry.entity_name === 'utilities') {
-      this.utilityService.getById(entry.entity_id).subscribe((utility) => {
-        this.dialog
-          .open(UtilityEditDialogComponent, {
-            width: EDIT_DIALOG_WIDTH,
-            maxWidth: EDIT_DIALOG_WIDTH,
-            position: EDIT_DIALOG_POSITION,
-            data: { mode: 'edit', item: utility },
-          })
-          .afterClosed()
-          .subscribe((result) => {
-            if (!result) return;
-            this.utilityService.update(result.id, result).subscribe(() => this.load());
-          });
-      });
-    }
+    const opened: Observable<unknown> | null = entry.entity_name === 'assets'
+      ? this.navigator.openAsset(entry.entity_id)
+      : entry.entity_name === 'utilities'
+        ? this.navigator.openUtility(entry.entity_id)
+        : null;
+    opened?.subscribe((saved) => {
+      if (saved) this.load();
+    });
   }
 
   private load(): void {

@@ -30,6 +30,7 @@ import {
   positionBadge,
 } from './plant.model';
 import {PlantEditDialogComponent, PlantEditDialogData} from './plant-edit-dialog.component';
+import {openSheet} from '../../core/components/entity-sheet/sheet-utils';
 
 type InspectionFilter = '' | 'overdue' | 'due_soon';
 type PositionFilter = '' | 'precise' | 'from_asset' | 'estimated' | 'missing';
@@ -286,10 +287,9 @@ export class PlantsComponent implements OnInit, AfterViewInit {
 
   openDialog(item?: Plant, plantId?: number): void {
     const role = this.auth.getCurrentUser()?.role;
-    this.dialog.open<PlantEditDialogComponent, PlantEditDialogData, boolean>(PlantEditDialogComponent, {
-      width: '1000px',
-      maxWidth: '1000px',
-      data: {plantId: item?.id ?? plantId ?? null, readOnly: !role || role === 'Lettore'},
+    openSheet<PlantEditDialogComponent, PlantEditDialogData, boolean>(this.dialog, PlantEditDialogComponent, {
+      plantId: item?.id ?? plantId ?? null,
+      readOnly: !role || role === 'Lettore',
     }).afterClosed().subscribe(saved => {
       if (saved) this.reload();
     });

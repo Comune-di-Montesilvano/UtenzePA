@@ -76,9 +76,10 @@ export class DataTableContractsComponent extends AbstractDataTableComponent<Cont
     return ContractEditDialogComponent;
   }
 
-  protected override editDialogWidth(): string {
-    return '900px';
+  protected override useSheet(): boolean {
+    return true;
   }
+
 
   protected override entityLabel(): string {
     return 'contratto';

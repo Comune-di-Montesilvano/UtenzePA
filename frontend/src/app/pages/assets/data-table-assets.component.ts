@@ -125,6 +125,10 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
     return AssetEditDialogComponent;
   }
 
+  protected override useSheet(): boolean {
+    return true;
+  }
+
   protected override entityLabel(): string {
     return 'Immobile';
   }

@@ -155,9 +155,10 @@ export class DataTableUtilizerGrantComponent extends AbstractDataTableComponent<
     return UtilizerGrantEditDialogComponent;
   }
 
-  protected override editDialogWidth(): string {
-    return '1000px';
+  protected override useSheet(): boolean {
+    return true;
   }
+
 
   protected override entityLabel(): string {
     return 'contratto immobiliare';
