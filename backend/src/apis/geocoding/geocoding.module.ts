@@ -3,10 +3,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Repository, IsNull, Not } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Asset } from '@apis/asset/entity/asset.entity';
+import { Plant } from '@apis/plants/entity/plant.entity';
 import { GeocodingService } from './geocoding.service';
 
+const PLANTS_MUNICIPALITY = 'Montesilvano';
+
 @Module({
-  imports: [TypeOrmModule.forFeature([Asset])],
+  imports: [TypeOrmModule.forFeature([Asset, Plant])],
   providers: [GeocodingService],
   exports: [GeocodingService],
 })
@@ -15,6 +18,7 @@ export class GeocodingModule implements OnModuleInit {
 
   constructor(
     @InjectRepository(Asset) private readonly assetRepo: Repository<Asset>,
+    @InjectRepository(Plant) private readonly plantRepo: Repository<Plant>,
     private readonly geocodingService: GeocodingService,
   ) {}
 
@@ -61,5 +65,44 @@ export class GeocodingModule implements OnModuleInit {
     }
 
     this.logger.log(`Scan geocoding all'avvio completato: ${succeeded} ok, ${failed} falliti.`);
+    await this.runPlantsScan();
+  }
+
+  // Impianti senza coordinate (manuali o geocodificate) con un indirizzo.
+  // Non hanno CAP/comune propri: si usa il comune dell'ente.
+  private async runPlantsScan(): Promise<void> {
+    const pending = await this.plantRepo.find({
+      where: {
+        latitude: IsNull(),
+        geocoded_latitude: IsNull(),
+        address: Not(IsNull()),
+        deleted: false,
+      },
+    });
+    if (pending.length === 0) return;
+
+    this.logger.log(`Scan geocoding all'avvio: ${pending.length} impianti da elaborare.`);
+    let succeeded = 0;
+    let failed = 0;
+    for (const plant of pending) {
+      const query = this.geocodingService.buildQuery({
+        address: plant.address,
+        civic_number: plant.civic_number,
+        zip_code: null,
+        municipality: PLANTS_MUNICIPALITY,
+      });
+      if (!query) continue;
+      const result = await this.geocodingService.geocode(query);
+      if (result) {
+        plant.geocoded_latitude = result.lat;
+        plant.geocoded_longitude = result.lon;
+        plant.geocoded_at = new Date();
+        await this.plantRepo.save(plant);
+        succeeded++;
+      } else {
+        failed++;
+      }
+    }
+    this.logger.log(`Scan geocoding impianti completato: ${succeeded} ok, ${failed} falliti.`);
   }
 }

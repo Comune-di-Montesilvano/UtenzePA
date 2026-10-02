@@ -40,6 +40,7 @@ describe('UtilitiesService', () => {
   };
   let contractRepo: { find: jest.Mock };
   let assetRepo: { count: jest.Mock; find: jest.Mock };
+  let plantRepo: { count: jest.Mock; find: jest.Mock };
   let recalc: { recalcUtility: jest.Mock };
 
   beforeEach(() => {
@@ -71,7 +72,13 @@ describe('UtilitiesService', () => {
     };
     assetRepo = { count: jest.fn().mockResolvedValue(1), find: jest.fn().mockResolvedValue([]) };
     recalc = { recalcUtility: jest.fn().mockResolvedValue(undefined) };
-    service = new UtilitiesService(repo as never, assetRepo as never, recalc as never);
+    plantRepo = { count: jest.fn().mockResolvedValue(1), find: jest.fn().mockResolvedValue([]) };
+    service = new UtilitiesService(
+      repo as never,
+      assetRepo as never,
+      recalc as never,
+      plantRepo as never,
+    );
   });
 
   describe('getDaysToExpiry', () => {
@@ -524,6 +531,57 @@ describe('UtilitiesService', () => {
       );
     });
   });
+  describe('impianti a servizio', () => {
+    it('crea un’utenza collegata solo a un impianto', async () => {
+      await service.create({ utility_id: 'U1', asset_ids: [], plant_ids: [7] } as never, 1);
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ assets: [], plants: [{ id: 7 }] }),
+      );
+    });
+
+    it('rifiuta un’utenza senza immobili né impianti', async () => {
+      await expect(
+        service.create({ utility_id: 'U1', asset_ids: [], plant_ids: [] } as never, 1),
+      ).rejects.toThrow(/immobile o un impianto/);
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('rifiuta un impianto inesistente', async () => {
+      plantRepo.count.mockResolvedValue(0);
+      await expect(
+        service.create({ utility_id: 'U1', asset_ids: [1], plant_ids: [99] } as never, 1),
+      ).rejects.toThrow(/impianti/);
+    });
+
+    it('PATCH senza asset_ids/plant_ids non tocca i collegamenti', async () => {
+      repo.findOne.mockResolvedValue({ id: 5, utility_id: 'U1', deleted: false });
+      await service.update(5, { notes: 'x' } as never, 1);
+      expect(plantRepo.count).not.toHaveBeenCalled();
+      expect(repo.findOne).not.toHaveBeenCalledWith(
+        expect.objectContaining({ relations: expect.objectContaining({ plants: true }) }),
+      );
+    });
+
+    it('update che toglie l’ultimo immobile senza impianti viene rifiutato', async () => {
+      repo.findOne.mockResolvedValue({ id: 5, utility_id: 'U1', deleted: false, assets: [{ id: 1 }], plants: [] });
+      await expect(service.update(5, { asset_ids: [] } as never, 1)).rejects.toThrow(
+        /immobile o un impianto/,
+      );
+    });
+
+    it('update che sostituisce l’immobile con un impianto', async () => {
+      repo.findOne.mockResolvedValue({ id: 5, utility_id: 'U1', deleted: false, assets: [{ id: 1 }], plants: [] });
+      await service.update(5, { asset_ids: [], plant_ids: [7] } as never, 1);
+      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ id: 5, plants: [{ id: 7 }] }));
+    });
+
+    it('findOne e findAll caricano gli impianti collegati', async () => {
+      await service.findOne(1);
+      await service.findAll({} as never);
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('Utility.plants', 'plants', 'plants.deleted = 0');
+    });
+  });
+
   describe('immobili associati', () => {
     it('findAll con asset_id filtra via sotto-query su utility_assets, fuori da applyFilters', async () => {
       await service.findAll({ asset_id: 7 } as never);

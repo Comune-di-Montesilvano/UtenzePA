@@ -1,5 +1,4 @@
 import {
-  ArrayMinSize,
   IsArray,
   IsOptional,
   IsString,
@@ -134,9 +133,14 @@ export class UpdateUtilityDto {
 
   @IsOptional()
   @IsArray({ message: 'Gli immobili associati devono essere un array.' })
-  @ArrayMinSize(1, { message: 'Almeno un immobile associato è obbligatorio.' })
   @IsInt({ each: true, message: 'Ogni immobile associato deve essere un ID intero.' })
   asset_ids?: number[];
+
+  // Impianti a servizio dei quali è l'utenza (almeno un immobile o un impianto).
+  @IsOptional()
+  @IsArray({ message: 'Gli impianti associati devono essere un array.' })
+  @IsInt({ each: true, message: 'Ogni impianto associato deve essere un ID intero.' })
+  plant_ids?: number[];
 
   @IsOptional()
   @IsInt()

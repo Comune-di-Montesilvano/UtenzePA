@@ -11,6 +11,7 @@ import { Contract } from '@apis/contracts/entity/contract.entity';
 import { DateHelper } from '@/helpers/date.helpers';
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { Asset } from '@apis/asset/entity/asset.entity';
+import { Plant } from '@apis/plants/entity/plant.entity';
 import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
 import { EstimateSource } from '@apis/utility-consumptions/enum/estimate-source.enum';
 import { findMeterConflict } from './meter-number.helper';
@@ -26,6 +27,8 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     @InjectRepository(Asset)
     private readonly assetRepo: Repository<Asset>,
     private readonly recalc: ConsumptionRecalcService,
+    @InjectRepository(Plant)
+    private readonly plantRepo: Repository<Plant>,
   ) {
     super();
   }
@@ -218,6 +221,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('utilityType.utilityTypePurposes', 'utps');
     qb.leftJoinAndSelect('utps.purpose', 'utpPurpose', 'utpPurpose.deleted = 0');
     qb.leftJoinAndSelect('Utility.assets', 'assets', 'assets.deleted = 0');
+    qb.leftJoinAndSelect('Utility.plants', 'plants', 'plants.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
     qb.leftJoinAndSelect('utilizerGrants.utilizer', 'utilizer', 'utilizer.deleted = 0');
     qb.leftJoinAndSelect('Utility.costsBorneBy', 'costsBorneBy', 'costsBorneBy.deleted = 0');
@@ -430,6 +434,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('utilityType.utilityTypePurposes', 'utps');
     qb.leftJoinAndSelect('utps.purpose', 'utpPurpose', 'utpPurpose.deleted = 0');
     qb.leftJoinAndSelect('Utility.assets', 'assets', 'assets.deleted = 0');
+    qb.leftJoinAndSelect('Utility.plants', 'plants', 'plants.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
     qb.leftJoinAndSelect('utilizerGrants.utilizer', 'utilizer', 'utilizer.deleted = 0');
     qb.leftJoinAndSelect('Utility.costsBorneBy', 'costsBorneBy', 'costsBorneBy.deleted = 0');
@@ -458,6 +463,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     // Stessi join di findAll (immobili con concessioni): il dialog aperto da
     // un GET singolo deve mostrare le concessioni come quello aperto dalla riga.
     qb.leftJoinAndSelect('Utility.assets', 'assets', 'assets.deleted = 0');
+    qb.leftJoinAndSelect('Utility.plants', 'plants', 'plants.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
     qb.leftJoinAndSelect('utilizerGrants.utilizer', 'utilizer', 'utilizer.deleted = 0');
     qb.leftJoinAndSelect('Utility.utilityType', 'utilityType', 'utilityType.deleted = 0');
@@ -512,16 +518,19 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
   }
 
   async create(dto: CreateUtilityDto, userId?: number): Promise<Utility> {
-    const { asset_ids, ...rest } = dto;
+    const { asset_ids, plant_ids, ...rest } = dto;
     // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
     if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
     await this.assertMeterAvailable(rest.meter_number, null);
     const estimate = Number(rest.estimated_annual_consumption ?? 0);
-    const assets = await this.resolveAssets(asset_ids);
+    const assets = await this.resolveAssets(asset_ids ?? []);
+    const plants = await this.resolvePlants(plant_ids ?? []);
+    this.assertLinked(assets, plants);
     const newUtility = this.repo.create({
       ...rest,
       ...(estimate > 0 ? this.estimateFields(estimate) : {}),
       assets,
+      plants,
       ...(userId !== undefined && { created_by_user_id: userId, updated_by_user_id: userId }),
     });
 
@@ -535,13 +544,22 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
   }
 
   async update(id: number, dto: UpdateUtilityDto, userId?: number): Promise<Utility> {
-    const { asset_ids, ...rest } = dto;
+    const { asset_ids, plant_ids, ...rest } = dto;
     // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
     if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
     const assets = asset_ids !== undefined ? await this.resolveAssets(asset_ids) : undefined;
+    const plants = plant_ids !== undefined ? await this.resolvePlants(plant_ids) : undefined;
+    const linksChanged = assets !== undefined || plants !== undefined;
 
-    const current = await this.repo.findOne({ where: { id } as never });
+    const current = await this.repo.findOne({
+      where: { id } as never,
+      ...(linksChanged ? { relations: { assets: true, plants: true } } : {}),
+    });
     if (!current) throw new BadRequestException('Utenza non trovata');
+    if (linksChanged) {
+      // Il collegamento finale = quello inviato, altrimenti l'attuale.
+      this.assertLinked(assets ?? current.assets ?? [], plants ?? current.plants ?? []);
+    }
 
     const normalizeMeter = (m?: string | null) => (m ?? '').trim().toLowerCase();
     if (rest.meter_number !== undefined && normalizeMeter(rest.meter_number) !== normalizeMeter(current.meter_number)) {
@@ -569,16 +587,23 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       await this.recalc.recalcUtility(id);
     }
 
-    if (assets !== undefined) {
+    if (linksChanged) {
       // repo.findOne diretto (non this.findOne, che proietta i campi del
       // contratto corrente — vedi remove()).
-      const entity = await this.repo.findOne({ where: { id } as never, relations: { assets: true } });
-      const before = [...(entity.assets ?? [])];
-      entity.assets = assets;
+      const entity = await this.repo.findOne({
+        where: { id } as never,
+        relations: { assets: true, plants: true },
+      });
+      const beforeAssets = [...(entity.assets ?? [])];
+      const beforePlants = [...(entity.plants ?? [])];
+      if (assets !== undefined) entity.assets = assets;
+      if (plants !== undefined) entity.plants = plants;
       await this.repo.save(entity);
-      // asset_ids esce dal DTO prima di super.update, quindi BaseService non
-      // lo vede nel diff: audit esplicito del cambio immobili collegati.
-      await this.recordAssetsChange(id, before, assets, userId ?? entity.updated_by_user_id);
+      // asset_ids/plant_ids escono dal DTO prima di super.update, quindi
+      // BaseService non li vede nel diff: audit esplicito dei collegamenti.
+      const auditUser = userId ?? entity.updated_by_user_id;
+      if (assets !== undefined) await this.recordAssetsChange(id, beforeAssets, assets, auditUser);
+      if (plants !== undefined) await this.recordPlantsChange(id, beforePlants, plants, auditUser);
     }
 
     return this.findOne(id);
@@ -608,10 +633,56 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     ]);
   }
 
+  private async recordPlantsChange(
+    id: number,
+    before: Plant[],
+    after: Plant[],
+    userId: number | undefined,
+  ): Promise<void> {
+    const ids = (list: Plant[]) => list.map((p) => p.id).sort((x, y) => x - y);
+    const oldIds = ids(before);
+    const newIds = ids(after);
+    if (oldIds.join(',') === newIds.join(',')) return;
+    const newPlants = newIds.length ? await this.plantRepo.find({ where: { id: In(newIds) } }) : [];
+    const names = (list: Plant[], order: number[]) =>
+      order.map((plantId) => list.find((p) => p.id === plantId)?.code ?? `#${plantId}`).join(', ');
+    await this.recordAudit(AuditAction.UPDATE, id, userId, [
+      {
+        fieldName: 'plant_ids',
+        oldValue: oldIds.join(','),
+        newValue: newIds.join(','),
+        oldLabel: names(before, oldIds),
+        newLabel: names(newPlants, newIds),
+      },
+    ]);
+  }
+
+  // Un'utenza serve almeno un immobile o un impianto (fontana, punto luce…).
+  private assertLinked(assets: unknown[], plants: unknown[]): void {
+    if (assets.length + plants.length === 0) {
+      throw new BadRequestException(
+        "Un'utenza deve essere collegata ad almeno un immobile o un impianto.",
+      );
+    }
+  }
+
+  private async resolvePlants(plantIds: number[]): Promise<Plant[]> {
+    const ids = [...new Set(plantIds)];
+    if (ids.length === 0) return [];
+    const found = await this.plantRepo.count({ where: { id: In(ids), deleted: false } });
+    if (found !== ids.length) {
+      throw new BadRequestException(
+        'Uno o più impianti associati non esistono o sono stati eliminati.',
+      );
+    }
+    return ids.map((plantId) => ({ id: plantId }) as Plant);
+  }
+
   // Deduplica e verifica che ogni immobile esista e non sia cancellato,
   // altrimenti 400 (niente righe orfane in utility_assets).
   private async resolveAssets(assetIds: number[]): Promise<Asset[]> {
     const ids = [...new Set(assetIds)];
+    if (ids.length === 0) return [];
     const found = await this.assetRepo.count({ where: { id: In(ids), deleted: false } });
     if (found !== ids.length) {
       throw new BadRequestException(

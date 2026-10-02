@@ -9,6 +9,7 @@ import { PhotoEntityType } from './enum/photo-entity-type.enum';
 import { CreatePhotoDto } from './dto/create-photo.dto';
 import { Asset } from '@apis/asset/entity/asset.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
+import { Plant } from '@apis/plants/entity/plant.entity';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 const HEIC_MIME_TYPES = ['image/heic', 'image/heif'];
@@ -23,6 +24,7 @@ export class PhotosService {
     @InjectRepository(Photo) private readonly repo: Repository<Photo>,
     @InjectRepository(Asset) private readonly assetRepo: Repository<Asset>,
     @InjectRepository(Utility) private readonly utilityRepo: Repository<Utility>,
+    @InjectRepository(Plant) private readonly plantRepo: Repository<Plant>,
   ) {
     this.photosDir = process.env.PHOTOS_DIR ?? path.join(process.cwd(), 'photos');
     fs.mkdirSync(this.photosDir, { recursive: true });
@@ -110,12 +112,14 @@ export class PhotosService {
   }
 
   private async assertEntityExists(entityType: PhotoEntityType, entityId: number): Promise<void> {
-    const exists =
-      entityType === PhotoEntityType.ASSET
-        ? await this.assetRepo.exists({ where: { id: entityId, deleted: false } })
-        : await this.utilityRepo.exists({ where: { id: entityId, deleted: false } });
-    if (!exists) {
-      const label = entityType === PhotoEntityType.ASSET ? 'Immobile' : 'Contatore';
+    const where = { where: { id: entityId, deleted: false } };
+    const checks: Record<PhotoEntityType, [() => Promise<boolean>, string]> = {
+      [PhotoEntityType.ASSET]: [() => this.assetRepo.exists(where), 'Immobile'],
+      [PhotoEntityType.UTILITY]: [() => this.utilityRepo.exists(where), 'Contatore'],
+      [PhotoEntityType.PLANT]: [() => this.plantRepo.exists(where), 'Impianto'],
+    };
+    const [exists, label] = checks[entityType];
+    if (!(await exists())) {
       throw new BadRequestException(`${label} non trovato`);
     }
   }
