@@ -44,9 +44,9 @@ export class SidebarComponent implements OnInit {
       route: '/utilities',
     },
     {
-      label: 'Impianti termici',
-      icon: 'local_fire_department',
-      route: '/thermal-plants',
+      label: 'Impianti',
+      icon: 'settings_input_component',
+      route: '/plants',
     },
     {
       label: 'Contratti immobiliari',
