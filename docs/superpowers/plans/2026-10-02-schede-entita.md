@@ -5021,3 +5021,12 @@ Emersi dalla revisione finale del branch, non bloccanti. Da fare in un giro dedi
   Collegamento con il campo testo libero `disconnection_ability` ("NON disalimentabile per…"): per l'acqua, "pubblico non disalimentabile" è proprio la tipologia. Valutare se la tipologia sostituisce o affianca quel campo.
 
   Passi: censimento delle utenze per finalità attuale, tabella di corrispondenza vecchia finalità → tipologia (conferma dell'utente sui casi dubbi), migration con nuova colonna enum su `utilities`, rimozione di `purpose`/`utility_type_purpose` e della pagina Finalità d'uso, tab "Controparti e finalità" della scheda utenza ridotto alle controparti.
+- [ ] **Aggregati utenze (`utility_aggregators`): probabilmente da eliminare.** 22 categorie libere ereditate da Access, assegnate a 632 utenze attive su ~664. Mescolano informazioni che ora hanno una casa propria:
+  - **cosa alimenta** → già coperto dalla classificazione dell'immobile (tipologia/funzione) e dai tipi d'impianto: "scuole direzioni didattiche ecc" (106), "fontane, casette acqua e punti presa acqua" (59), "semafori e rotatorie" (13), "pompe sollevamento e vasche contenimento" (16), "altre strutture sportive" (29), "stalli di ricarica colonnine taxi…" (10);
+  - **stato** → già coperto da fornitura attiva / contatore rimosso: "contatori non individuati disattivati o non attivi" (48);
+  - **finanziamento/capitolo** → già coperto dal capitolo di spesa: "SPRAR" (38);
+  - **residui generici**: "punto presa energia elettrica per diversi usi o uso non inde…" (68), "appartamenti, garage, locali vari, abitazioni" (16).
+
+  Usi nel codice: campo `aggregator_id_fk` su utenza (DTO create/update/search), filtro e colonna nella tabella utenze, select "ID Aggregato" nella scheda utenza, pagina anagrafica Aggregati, importatori (`import.service.ts`, `data-importer.service.ts`).
+
+  Passi: verificare per ogni aggregato che l'informazione sia davvero ricavabile altrove (es. utenze "SPRAR" ↔ capitolo SPRAR, utenze "fontane" ↔ impianto fontana collegato); trasferire quel che manca (es. collegare l'utenza all'impianto o all'immobile giusto) prima di cancellare; poi rimuovere colonna, filtro, select, pagina e tabella con una migration. Valutare se il filtro "per categoria" in tabella utenze vada sostituito da un filtro per tipologia/funzione dell'immobile o tipo d'impianto collegato.
