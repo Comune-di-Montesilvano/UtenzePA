@@ -168,6 +168,8 @@ Dalla revisione finale di v1.7.1 (schede con Riepilogo e tab), non bloccanti:
 - riallineamento solo sul figlio diretto: con catene di 2+ livelli il Salva della scheda in fondo può ripristinare collegamenti cambiati più in alto;
 - verifica E2E delle ultime correzioni (gruppi dati per tipo dell'impianto, rinnovo del contratto immobiliare, mappa in sola lettura per il Lettore), fatte con sola compilazione e CI.
 
+- `asset-natures` e `asset-functions` rispondono 409 (`ConflictException`) su "in uso": il reverse proxy di produzione blocca i 409, quindi il messaggio non arriva alla UI. Passare a 400 come il resto del codice.
+
 ## 14. Schede di fornitori, capitoli, fatture
 
 Stesso modello delle schede di v1.7.1: Fornitori → scheda Soggetto terzo (voce 9); Capitoli di spesa (51, 105 righe di spesa storica) → Riepilogo + tab Utenze, Spesa storica, Fatture; Fatture (185) → Riepilogo + collegamenti navigabili, in vista del nuovo modello per l'import massivo (voce 6).

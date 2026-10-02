@@ -79,7 +79,7 @@ DTO (`@ValidateIf` per tipo) e form, stesse regole:
 
 Formati: P.IVA 11 cifre, CF 16 caratteri alfanumerici (maiuscolo, spazi rimossi). Il CF di un soggetto giuridico può essere numerico a 11 cifre (es. ACA): accettato.
 
-Duplicato: il service intercetta l'errore unique e risponde 409 "P.IVA già usata da <nome>" / "Codice fiscale già usato da <nome>".
+Duplicato: il service controlla prima con una query sull'identificativo (righe eliminate comprese) e risponde **400** (`BadRequestException`, mai 409: il reverse proxy di produzione blocca le risposte 409) "P.IVA già usata da <nome>" / "Codice fiscale già usato da <nome>"; `ER_DUP_ENTRY` intercettato come rete di sicurezza con lo stesso 400. La UI mostra il messaggio sotto il campo P.IVA/CF.
 
 ## Ruoli derivati e filtri rapidi
 
@@ -122,7 +122,7 @@ Operazioni manuali con conferma dell'utente per ogni lista, nessun codice nel re
 
 ## Test
 
-- Unit: validazione per tipo, duplicato → 409, ruoli derivati e filtro `roles`, privacy (CF e telefono oscurati per il Lettore), anomalie nuove; spec di grant/contracts/consip/utility aggiornati.
+- Unit: validazione per tipo, duplicato → 400 con nome del soggetto, ruoli derivati e filtro `roles`, privacy (CF e telefono oscurati per il Lettore), anomalie nuove; spec di grant/contracts/consip/utility aggiornati.
 - Migration: provata su copia del DB locale, poi `down()` e di nuovo `up()`.
 - E2E Playwright: crea e modifica soggetto (giuridico senza P.IVA non salva), chip rapide, contratto immobiliare con due parti, scheda soggetto con collegamenti navigabili, Lettore con CF oscurato.
 
