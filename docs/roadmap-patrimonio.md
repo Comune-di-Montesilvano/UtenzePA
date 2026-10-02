@@ -16,16 +16,16 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 
 | # | Funzione | Stato |
 |---|---|---|
-| 1 | Contratti immobiliari (unificazione Concessioni) | spec scritta, da rivedere: `docs/superpowers/specs/2026-10-01-contratti-immobiliari-design.md` |
+| 1 | Contratti immobiliari (unificazione Concessioni) | codice fatto su `feat/contratti-immobiliari`; pulizia/import dati in attesa degli impianti |
 | 2 | Inventario patrimoniale e catasto | da approfondire |
-| 3 | Impianto unificato | da approfondire |
+| 3 | Impianto unificato | spec scritta: `docs/superpowers/specs/2026-10-02-impianti-design.md` (stesso branch dei contratti, rilascio unico v1.7.0) |
 | 4 | Complessi | da approfondire |
 | 5 | Aree verdi | da approfondire |
 | 6 | Fatture per utenza | da approfondire |
 | 7 | Contratti di servizio e manutenzione | da approfondire |
 | 8 | Permessi di scrittura granulari | da approfondire |
 
-L'inventario (2) viene prima di impianti e complessi perché entrambi si appoggiano su un'anagrafe immobili/terreni completa.
+Gli impianti (3) sono stati anticipati: circa 240 "immobili" Access sono in realtà impianti (punti luce, fontane, pompe, semafori), e separarli prima rende pulita l'anagrafe su cui poggerà l'inventario (2).
 
 ## 1. Contratti immobiliari
 
