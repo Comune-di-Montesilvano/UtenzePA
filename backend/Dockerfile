@@ -129,7 +129,7 @@ COPY --chown=nestjs:nodejs --from=build /usr/src/app/dist ./dist
 # Create writable dirs for backup/import features and ensure ownership
 # (also propagates correct ownership onto the empty backups_data named volume
 # mounted here at container start)
-RUN mkdir -p /usr/src/app/backups /usr/src/app/import-tmp && chown -R nestjs:nodejs /usr/src/app
+RUN mkdir -p /usr/src/app/backups && chown -R nestjs:nodejs /usr/src/app
 
 # Switch to non-root user
 USER nestjs

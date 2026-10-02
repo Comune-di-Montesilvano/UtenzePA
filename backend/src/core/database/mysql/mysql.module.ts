@@ -33,7 +33,7 @@ import { InfisicalConfigService } from '../../infisical/infisical-config.service
           // precedenza qui c'era `invalidWhereValuesBehavior: {null: 'ignore',
           // undefined: 'ignore'}` come escape hatch introdotto al bump — un
           // audit completo di ogni where/delete/update/findOne su repository in
-          // backend/src/apis/**, src/data-importer/** e src/core/** (nessun uso
+          // backend/src/apis/** e src/core/** (nessun uso
           // lì) ha verificato che ogni valore usato in una where object-criteria
           // è o una costante, o un id/parametro già validato da un DTO
           // class-validator (`@IsNotEmpty`) o da un lookup interno con guardia
