@@ -1,11 +1,4 @@
-import {
-  IsBoolean,
-  IsEnum,
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { Transform } from 'class-transformer';
 
