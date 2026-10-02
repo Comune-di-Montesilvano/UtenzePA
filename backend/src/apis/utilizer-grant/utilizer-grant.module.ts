@@ -3,9 +3,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UtilizerGrantService } from './utilizer-grant.service';
 import { UtilizerGrantController } from './utilizer-grant.controller';
 import { UtilizerGrant } from './entity/utilizer-grant.entity';
+import { Asset } from '@apis/asset/entity/asset.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([UtilizerGrant])],
+  imports: [TypeOrmModule.forFeature([UtilizerGrant, Asset])],
   providers: [UtilizerGrantService],
   controllers: [UtilizerGrantController],
   exports: [UtilizerGrantService],

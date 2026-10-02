@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -15,18 +16,33 @@ import { JwtAuthGuard } from '@/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/core/auth/guards/roles.guard';
 import { Roles } from '@/core/auth/decorators/roles.decorator';
 import { CurrentUser, ICurrentUser } from '@/core/auth/decorators/current-user.decorator';
-import { UtilizerGrant } from './entity/utilizer-grant.entity';
 import { SearchUtilizerGrantDto } from '@apis/utilizer-grant/dto/search-utilizer-grant.dto';
-import { UtilizerGrantService } from '@apis/utilizer-grant/utilizer-grant.service';
+import {
+  ContractRow,
+  ContractSummary,
+  UtilizerGrantService,
+} from '@apis/utilizer-grant/utilizer-grant.service';
 
+// Contratti immobiliari (ex concessioni): path invariato.
 @Controller('utilizer-grant')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UtilizerGrantController {
   constructor(private readonly service: UtilizerGrantService) {}
 
   @Get()
-  getAll(@Query() filters: SearchUtilizerGrantDto): Promise<UtilizerGrant[]> {
+  getAll(@Query() filters: SearchUtilizerGrantDto): Promise<ContractRow[]> {
     return this.service.findAll(filters);
+  }
+
+  // Prima di ':id', altrimenti 'summary' verrebbe letto come id.
+  @Get('summary')
+  summary(): Promise<ContractSummary> {
+    return this.service.summary();
+  }
+
+  @Get(':id')
+  getOne(@Param('id', ParseIntPipe) id: number): Promise<ContractRow | null> {
+    return this.service.findOne(id);
   }
 
   @Roles('Admin', 'Operatore')
@@ -34,23 +50,23 @@ export class UtilizerGrantController {
   create(
     @Body() dto: CreateUtilizerGrantDto,
     @CurrentUser() user: ICurrentUser,
-  ): Promise<UtilizerGrant> {
+  ): Promise<ContractRow> {
     return this.service.create(dto, user.id);
   }
 
   @Roles('Admin', 'Operatore')
   @Patch(':id')
   update(
-    @Param('id') id: number,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUtilizerGrantDto,
     @CurrentUser() user: ICurrentUser,
-  ): Promise<UtilizerGrant> {
+  ): Promise<ContractRow> {
     return this.service.update(id, dto, user.id);
   }
 
   @Roles('Admin', 'Operatore')
   @Delete(':id')
-  remove(@Param('id') id: number, @Body() dto: UpdateUtilizerGrantDto): Promise<void> {
-    return this.service.remove(id, dto.updated_by_user_id);
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: ICurrentUser): Promise<void> {
+    return this.service.remove(id, user.id);
   }
 }
