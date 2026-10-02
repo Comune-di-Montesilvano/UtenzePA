@@ -19,7 +19,7 @@
 - UI: "Concessioni" → **"Contratti immobiliari"**; "Utilizzatori" → **"Controparti"**.
 - Enum: `direction` `ACTIVE|PASSIVE` (default `ACTIVE`); `kind` `LEASE|CONCESSION|LOAN_FOR_USE|HOUSING_ASSIGNMENT|LAND_OCCUPATION` (default `CONCESSION`); `rent_period` `MONTHLY|BIMONTHLY|QUARTERLY|SEMIANNUAL|ANNUAL|ONE_OFF`; `status` `ACTIVE|RETURNED|TERMINATED|DISPUTED` (default `ACTIVE`); stato mostrato `ACTIVE|EXPIRING|EXPIRED|RETURNED|TERMINATED|DISPUTED`.
 - Soglie: disdetta entro **60 giorni**, in scadenza entro **4 mesi**.
-- Ruolo Lettore: `tax_code` e `contacts` sempre `null`; `name` = "Assegnatario riservato" sui contratti `HOUSING_ASSIGNMENT`. Lato backend, anche nelle risposte annidate di immobili/utenze.
+- Ruolo Lettore (e ogni ruolo diverso da Admin/Operatore): solo `utilizer.tax_code` oscurato (`null`), lato backend, anche nelle risposte annidate di immobili/utenze. Nomi e contatti visibili.
 - Migration: scritta in `.audit-w/` (o scratchpad) e spostata in `backend/src/database/migrations/` solo a contenuto finale (il watcher la esegue appena compare).
 - Jest sempre con `--maxWorkers=2`, dentro il container: `MSYS_NO_PATHCONV=1 docker exec utenzepa-api-1 pnpm exec jest <path> --maxWorkers=2`.
 - Comandi Docker uno alla volta, mai in parallelo.
@@ -32,7 +32,7 @@
 
 1. Rinnovo tacito con scadenza originaria molto vecchia (es. 1992 + rinnovi di 6 anni) → la scadenza effettiva deve essere la prima data ≥ oggi, mai un ciclo infinito; `renewal_months = 0` o `null` non deve bloccare il server.
 2. Contratto senza immobili (import non abbinato) → elenco, dialog e dashboard funzionano; compare nell'anomalia "senza immobile".
-3. Utente Lettore che apre utenze/immobili → i nomi degli assegnatari di alloggio non compaiono neppure nelle colonne "Controparti" della tabella utenze.
+3. Utente Lettore che apre utenze/immobili → il codice fiscale della controparte non compare in nessuna risposta HTTP, nemmeno annidato in immobili/utenze.
 4. Modifica di un contratto esistente importato da Access (senza canone, senza date) → il salvataggio non deve fallire per validazioni pensate per i contratti nuovi.
 5. Contratto padre eliminato (soft delete) → i figli restano visibili e il dialog non va in errore.
 
@@ -1161,7 +1161,7 @@ git commit -m "feat(contratti-immobiliari): validazioni, filtri avvisi, riepilog
 
 ---
 
-### Task 4: Controparte e oscuramento per il ruolo Lettore
+### Task 4: Controparte e oscuramento del codice fiscale
 
 **Files:**
 - Create: `backend/src/apis/utilizer-grant/real-estate-contract.privacy.ts`
@@ -1171,42 +1171,43 @@ git commit -m "feat(contratti-immobiliari): validazioni, filtri avvisi, riepilog
 
 **Interfaces:**
 - Consumes: Task 3 (`ContractRow`).
-- Produces: `maskContract<T>(grant: T, role: string): T`; `maskAssetGrants<T extends { utilizerGrants?: unknown[] }>(asset: T, role: string): T`; `maskUtilizer<T>(u: T, role): T`; `RESERVED_ASSIGNEE = 'Assegnatario riservato'`.
+- Produces: `maskUtilizer<T>(u: T, role?: string): T`; `maskContract<T>(grant: T, role?: string): T`; `maskAssetGrants<T>(asset: T, role?: string): T`; `maskUtility<T>(utility: T, role?: string): T`. Per i ruoli diversi da Admin/Operatore azzerano **solo** `utilizer.tax_code`; nomi e contatti restano visibili (decisione utente 2026-10-02).
 
 - [ ] **Step 1: Test (falliscono)**
 
 ```ts
 // backend/src/apis/utilizer-grant/real-estate-contract.privacy.spec.ts
-import { maskAssetGrants, maskContract, maskUtilizer, RESERVED_ASSIGNEE } from './real-estate-contract.privacy';
-import { ContractKind } from './enum/real-estate-contract.enum';
+import { maskAssetGrants, maskContract, maskUtility, maskUtilizer } from './real-estate-contract.privacy';
 
-const grant = (kind: ContractKind) => ({
+const grant = () => ({
   id: 1,
-  kind,
   utilizer: { id: 2, name: 'Mario Rossi', tax_code: 'RSSMRA80A01H501U', contacts: '333' },
 });
 
-describe('privacy contratti', () => {
-  it('Admin e Operatore vedono tutto', () => {
-    expect(maskContract(grant(ContractKind.HOUSING_ASSIGNMENT), 'Operatore').utilizer.name).toBe('Mario Rossi');
+describe('privacy contratti: codice fiscale', () => {
+  it('Admin e Operatore vedono il codice fiscale', () => {
+    expect(maskContract(grant(), 'Admin').utilizer.tax_code).toBe('RSSMRA80A01H501U');
+    expect(maskContract(grant(), 'Operatore').utilizer.tax_code).toBe('RSSMRA80A01H501U');
   });
 
-  it('Lettore: codice fiscale e contatti sempre nascosti', () => {
-    const m = maskContract(grant(ContractKind.LEASE), 'Lettore');
-    expect(m.utilizer).toEqual({ id: 2, name: 'Mario Rossi', tax_code: null, contacts: null });
-  });
-
-  it('Lettore: nome nascosto sulle assegnazioni di alloggio', () => {
-    expect(maskContract(grant(ContractKind.HOUSING_ASSIGNMENT), 'Lettore').utilizer.name).toBe(RESERVED_ASSIGNEE);
+  it('Lettore: solo il codice fiscale è nascosto', () => {
+    expect(maskContract(grant(), 'Lettore').utilizer).toEqual({
+      id: 2,
+      name: 'Mario Rossi',
+      tax_code: null,
+      contacts: '333',
+    });
   });
 
   it('ruolo assente trattato come Lettore', () => {
-    expect(maskContract(grant(ContractKind.LEASE), undefined).utilizer.tax_code).toBeNull();
+    expect(maskContract(grant(), undefined).utilizer.tax_code).toBeNull();
   });
 
-  it('immobile con contratti annidati', () => {
-    const asset = { id: 9, utilizerGrants: [grant(ContractKind.HOUSING_ASSIGNMENT)] };
-    expect(maskAssetGrants(asset, 'Lettore').utilizerGrants[0].utilizer.name).toBe(RESERVED_ASSIGNEE);
+  it('contratti annidati in immobili e utenze', () => {
+    const asset = { id: 9, utilizerGrants: [grant()] };
+    expect(maskAssetGrants(asset, 'Lettore').utilizerGrants[0].utilizer.tax_code).toBeNull();
+    const utility = { id: 1, assets: [{ id: 9, utilizerGrants: [grant()] }] };
+    expect(maskUtility(utility, 'Lettore').assets[0].utilizerGrants[0].utilizer.tax_code).toBeNull();
   });
 
   it('anagrafica controparte', () => {
@@ -1214,12 +1215,12 @@ describe('privacy contratti', () => {
       id: 2,
       name: 'X',
       tax_code: null,
-      contacts: null,
+      contacts: 'B',
     });
   });
 
   it('non modifica l’oggetto originale', () => {
-    const g = grant(ContractKind.LEASE);
+    const g = grant();
     maskContract(g, 'Lettore');
     expect(g.utilizer.tax_code).toBe('RSSMRA80A01H501U');
   });
@@ -1233,35 +1234,33 @@ Expected: FAIL, modulo mancante.
 
 ```ts
 // backend/src/apis/utilizer-grant/real-estate-contract.privacy.ts
-import { ContractKind } from './enum/real-estate-contract.enum';
-
-export const RESERVED_ASSIGNEE = 'Assegnatario riservato';
+// Il codice fiscale della controparte è visibile solo ad Admin/Operatore
+// (oscurato lato backend, anche nelle risposte annidate di immobili/utenze).
+// I permessi di scrittura granulari sono un giro successivo (roadmap).
 const FULL_ACCESS = new Set(['Admin', 'Operatore']);
 
 interface UtilizerLike {
-  name?: string;
   tax_code?: string | null;
-  contacts?: string | null;
 }
 
-export function maskUtilizer<T extends UtilizerLike>(u: T, role: string | undefined): T {
+export function maskUtilizer<T extends UtilizerLike>(u: T, role?: string): T {
   if (!u || FULL_ACCESS.has(role ?? '')) return u;
-  return { ...u, tax_code: null, contacts: null };
+  return { ...u, tax_code: null };
 }
 
-// Dati personali della controparte oscurati lato backend per il Lettore:
-// codice fiscale e contatti sempre, il nome sulle assegnazioni di alloggio
-// (persone in situazione di disagio).
-export function maskContract<T extends { kind?: ContractKind; utilizer?: UtilizerLike }>(grant: T, role: string | undefined): T {
-  if (!grant || FULL_ACCESS.has(role ?? '') || !grant.utilizer) return grant;
-  const utilizer = maskUtilizer(grant.utilizer, role);
-  if (grant.kind === ContractKind.HOUSING_ASSIGNMENT) utilizer.name = RESERVED_ASSIGNEE;
-  return { ...grant, utilizer };
+export function maskContract<T extends { utilizer?: UtilizerLike }>(grant: T, role?: string): T {
+  if (!grant?.utilizer || FULL_ACCESS.has(role ?? '')) return grant;
+  return { ...grant, utilizer: maskUtilizer(grant.utilizer, role) };
 }
 
-export function maskAssetGrants<T extends { utilizerGrants?: unknown[] }>(asset: T, role: string | undefined): T {
+export function maskAssetGrants<T extends { utilizerGrants?: unknown[] }>(asset: T, role?: string): T {
   if (!asset?.utilizerGrants || FULL_ACCESS.has(role ?? '')) return asset;
   return { ...asset, utilizerGrants: asset.utilizerGrants.map((g) => maskContract(g as never, role)) };
+}
+
+export function maskUtility<T extends { assets?: { utilizerGrants?: unknown[] }[] }>(utility: T, role?: string): T {
+  if (!utility?.assets || FULL_ACCESS.has(role ?? '')) return utility;
+  return { ...utility, assets: utility.assets.map((a) => maskAssetGrants(a, role)) };
 }
 ```
 
@@ -1280,27 +1279,15 @@ Run lo stesso comando. Expected: PASS.
   @Get(':id')
   async getOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: ICurrentUser): Promise<ContractRow | null> {
     const g = await this.service.findOne(id);
-    return g ? { ...maskContract(g, user?.role), children: (g.children ?? []).map((c) => maskContract(c, user?.role)) } : null;
+    return g
+      ? { ...maskContract(g, user?.role), children: (g.children ?? []).map((c) => maskContract(c, user?.role)) }
+      : null;
   }
 ```
 
-`assets.controller.ts` (`getAll` e `getOne`) e `utility.controller.ts` (`getAll`, `getOne`, `safeguard`): aggiungere `@CurrentUser() user: ICurrentUser` e mappare il risultato. Per le utenze i contratti sono annidati negli immobili:
+`assets.controller.ts` (`getAll`, `getOne`) → `maskAssetGrants`; `utility.controller.ts` (`getAll`, `getOne`, `safeguard`) → `maskUtility`; `utilizer.controller.ts` (`GET`) → `maskUtilizer`. In ognuno aggiungere `@CurrentUser() user: ICurrentUser` e mappare il risultato.
 
-```ts
-const maskUtility = <T extends { assets?: { utilizerGrants?: unknown[] }[] }>(u: T, role?: string): T =>
-  u?.assets ? { ...u, assets: u.assets.map((a) => maskAssetGrants(a, role)) } : u;
-```
-
-Definire `maskUtility` in `real-estate-contract.privacy.ts` (esportata) e aggiungerne un test:
-
-```ts
-  it('utenza con immobili e contratti annidati', () => {
-    const utility = { id: 1, assets: [{ id: 9, utilizerGrants: [grant(ContractKind.HOUSING_ASSIGNMENT)] }] };
-    expect(maskUtility(utility, 'Lettore').assets[0].utilizerGrants[0].utilizer.name).toBe(RESERVED_ASSIGNEE);
-  });
-```
-
-`utilizer.controller.ts`: il `GET` mappa con `maskUtilizer(u, user?.role)`. DTO `create-utilizer.dto.ts`/`update-utilizer.dto.ts`: aggiungere
+DTO `create-utilizer.dto.ts`/`update-utilizer.dto.ts`:
 
 ```ts
   @IsOptional()
@@ -1316,11 +1303,11 @@ Definire `maskUtility` in `real-estate-contract.privacy.ts` (esportata) e aggiun
 - [ ] **Step 4: Test e commit**
 
 Run: `MSYS_NO_PATHCONV=1 docker exec utenzepa-api-1 pnpm exec jest src/apis/utilizer-grant src/apis/asset src/apis/utility src/apis/utilizer --maxWorkers=2`
-Expected: PASS. Se gli spec esistenti dei controller asset/utility istanziano il controller senza utente, passare `{ role: 'Admin' }` nelle chiamate dei test.
+Expected: PASS. Se gli spec esistenti dei controller asset/utility chiamano i metodi senza utente, passare `{ role: 'Admin' }`.
 
 ```bash
 git add backend/src/apis/utilizer-grant backend/src/apis/asset/assets.controller.ts backend/src/apis/utility/utility.controller.ts backend/src/apis/utilizer
-git commit -m "feat(contratti-immobiliari): controparte con codice fiscale e contatti, oscuramento per Lettore"
+git commit -m "feat(contratti-immobiliari): controparte con codice fiscale e contatti, codice fiscale oscurato per Lettore"
 ```
 
 ---
@@ -1374,8 +1361,6 @@ In fondo a `getAnomalies()`, prima del `return`:
 ```
 
 e nel risultato `real_estate_contracts_without_assets: list(contractsWithoutAssets)`; aggiungere il campo all'interfaccia `Anomalies`.
-
-Nota privacy: il nome della controparte qui arriva anche al Lettore. Nel controller anomalie, se `user.role` non è Admin/Operatore, sostituire `counterparty` con `null` (aggiungere `@CurrentUser()` al `GET`).
 
 - [ ] **Step 3: Test e commit**
 
@@ -1896,7 +1881,7 @@ Nessun commit.
 2. Creare un contratto `LEASE` passivo: canone 500 mensile, scadenza = oggi + 4 mesi, rinnovo tacito 48 mesi, preavviso 3 mesi → termine disdetta = oggi + 1 mese: compare nella card "disdette da inviare" e nel filtro `?alert=notice`; canone annuo mostrato 6.000,00 €.
 3. Modificare un contratto importato da Access senza canone né date → il salvataggio riesce (Review Focus 4).
 4. Contratto senza immobili → presente nell'anomalia e nel filtro `without_assets` (Review Focus 2).
-5. Utente temporaneo con ruolo Lettore: in `/utilities` la colonna "Controparti" non mostra i nomi degli assegnatari; nel dettaglio contratto `tax_code`/`contacts` assenti (Review Focus 3, verificare anche nella risposta HTTP).
+5. Utente temporaneo con ruolo Lettore: nella risposta HTTP di `/utilizer-grant`, `/utilizer`, `/assets/:id`, `/utilities` il campo `tax_code` è sempre `null` (Review Focus 3); nomi e contatti visibili.
 6. Soft delete di un contratto padre → il figlio si apre senza errori (Review Focus 5).
 
 - [ ] **Step 2: Suite e build**

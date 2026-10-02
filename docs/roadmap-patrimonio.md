@@ -23,6 +23,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 5 | Aree verdi | da approfondire |
 | 6 | Fatture per utenza | da approfondire |
 | 7 | Contratti di servizio e manutenzione | da approfondire |
+| 8 | Permessi di scrittura granulari | da approfondire |
 
 L'inventario (2) viene prima di impianti e complessi perché entrambi si appoggiano su un'anagrafe immobili/terreni completa.
 
@@ -93,6 +94,10 @@ Oggi le fatture si legano a contratto e capitolo, non all'utenza. Fonte pronta: 
 ## 7. Contratti di servizio e manutenzione
 
 Fonte: `W:\PATRIMONIO\2_ UTENZE\2_UFFICIO ASSOCIATO GESTIONE INTEGRATA ENERGIA\adempimenti servizi\costo storico\Attività di competenza e costo storico .xlsx`: per ambito (impianti elettrici, termici, idrosanitari, ascensori, fontane, semafori, illuminazione pubblica, sollevamenti, videosorveglianza) ditta, costo 2022–2024, scadenza, determina. Da collegare a impianti (voce 3) e immobili.
+
+## 8. Permessi di scrittura granulari
+
+Oggi i ruoli sono tre (Admin, Operatore, Lettore) e chi scrive scrive su tutto. Con il perimetro allargato (contratti immobiliari, impianti, inventario) serve poter dare la scrittura per area: per esempio un ufficio che gestisce solo i contratti immobiliari, un altro solo utenze e impianti. Da approfondire: modello (permessi per modulo o per gruppi), impatto su guard backend e direttiva `appHasRole` frontend, migrazione dei ruoli esistenti. Il codice fiscale delle controparti è già oscurato per il Lettore (v1.7.0).
 
 ## Fuori scope (decisioni prese)
 

@@ -50,7 +50,7 @@ Fonti per l'import iniziale (`W:\PATRIMONIO\4_IMMOBILIARE`, già convertite in `
 - Rinnovo tacito con durata del rinnovo e preavviso.
 - Soglie avvisi: disdetta entro **60 giorni**, scadenza entro **4 mesi** (stessa soglia dei contratti di fornitura).
 - Immobile **facoltativo** sul contratto (import di contratti non abbinabili con certezza); molti-a-molti con gli immobili.
-- Dati personali della controparte oscurati **dal backend** per il ruolo Lettore (regole in sezione API).
+- Codice fiscale della controparte oscurato **dal backend** per il ruolo Lettore (decisione 2026-10-02); permessi di scrittura granulari in un giro successivo.
 - Pulizia della tabella esistente con soft delete + report, mai cancellazioni fisiche.
 
 ## Schema DB
@@ -172,8 +172,8 @@ Endpoint riepilogo `GET utilizer-grant/summary`: conteggi avvisi + totali annui 
 
 Ruolo Lettore, oscuramento lato backend (lista, dettaglio e ovunque la controparte compaia annidata, es. utenze/immobili con `utilizerGrants`):
 
-- `tax_code` e `contacts`: sempre `null`;
-- `name`: sostituito con "Assegnatario riservato" sui contratti `HOUSING_ASSIGNMENT` (persone in situazione di disagio); visibile negli altri casi (enti, società, associazioni).
+- `tax_code`: sempre `null` per i ruoli diversi da Admin/Operatore;
+- nome e contatti: visibili.
 
 ## UI
 
@@ -191,10 +191,10 @@ Ruolo Lettore, oscuramento lato backend (lista, dettaglio e ovunque la contropar
 
 - Unit: helper valori calcolati (moltiplicatori, rinnovo tacito su più cicli, termine disdetta, precedenza stati, date al limite: oggi, fine mese, 29 febbraio).
 - Unit: validazioni DTO/service (canone a coppia, rinnovo senza durata, ciclo padre).
-- Unit: oscuramento controparte per ruolo Lettore.
+- Unit: oscuramento del codice fiscale per il ruolo Lettore, anche annidato.
 - Unit: mappa di classificazione della pulizia (ogni controparte distinta finisce in un gruppo; nessuna non classificata).
 - Migration provata su copia del DB locale: 480 righe, join table popolata, `start_date` azzerata, `end_date` conservata.
-- E2E Playwright: creazione contratto con rinnovo tacito, comparsa in dashboard "disdetta entro 60 giorni", filtro dall'avviso, vista Lettore senza controparte.
+- E2E Playwright: creazione contratto con rinnovo tacito, comparsa in dashboard "disdetta entro 60 giorni", filtro dall'avviso, vista Lettore senza codice fiscale.
 
 ## Rilascio
 
