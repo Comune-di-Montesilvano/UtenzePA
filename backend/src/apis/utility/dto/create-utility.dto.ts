@@ -11,6 +11,7 @@ import {
   Min,
 } from 'class-validator';
 import { Phase } from '../../shared/enum/user.enums';
+import { AreraCategory } from '../arera-category';
 import { NormalizeDate } from '@/common/decorators/normalize-date.decorator';
 
 export class CreateUtilityDto {
@@ -127,9 +128,12 @@ export class CreateUtilityDto {
   meter_verified?: boolean;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  disconnection_ability?: string;
+  @IsEnum(AreraCategory, { message: 'Tipologia ARERA non valida.' })
+  arera_category?: AreraCategory | null;
+
+  @IsOptional()
+  @IsBoolean()
+  disconnectable?: boolean | null;
 
   @IsOptional()
   @IsString()
