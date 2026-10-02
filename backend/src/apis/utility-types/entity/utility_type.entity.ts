@@ -3,8 +3,6 @@ import {
   PrimaryGeneratedColumn,
   Column,
   OneToMany,
-  ManyToMany,
-  JoinTable,
   CreateDateColumn,
   UpdateDateColumn,
   Index,
@@ -14,8 +12,6 @@ import {
 import { Utility } from '../../utility/entity/utility.entity';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
-import { UtilityTypePurpose } from '@apis/utility-types/entity/utility_type_purpose.entity';
-import { Purpose } from '@apis/purpose/entity/purpose.entity';
 
 @Entity('utility_types')
 export class UtilityType {
@@ -60,15 +56,4 @@ export class UtilityType {
 
   @OneToMany(() => Utility, (utility) => utility.utilityType)
   utilities: Utility[];
-
-  @OneToMany(() => UtilityTypePurpose, (utp) => utp.utilityType)
-  utilityTypePurposes: UtilityTypePurpose[];
-
-  @ManyToMany(() => Purpose)
-  @JoinTable({
-    name: 'utility_type_purpose',
-    joinColumn: { name: 'utility_type_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'purpose_id', referencedColumnName: 'id' },
-  })
-  purposes: Purpose[];
 }

@@ -32,7 +32,6 @@ import { CostsBorneByModule } from '@apis/costs-borne-by/cost-borne-by.module';
 import { MaintenanceManagersModule } from '@apis/maintenance-managers/maintenance-managers.module';
 import { InvoicesModule } from '@apis/invoices/invoie.module';
 import { ConsipAgreementModule } from '@apis/consip-agreement/consip-agreement.module';
-import { PurposeModule } from '@apis/purpose/purpose.module';
 import { SettingsModule } from '@apis/settings/settings.module';
 import { ThirdPartiesModule } from '@apis/third-parties/third-parties.module';
 import { BackupModule } from '@apis/backup/backup.module';
@@ -73,7 +72,6 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     MaintenanceManagersModule,
     InvoicesModule,
     ConsipAgreementModule,
-    PurposeModule,
     SettingsModule,
     ThirdPartiesModule,
     BackupModule,
