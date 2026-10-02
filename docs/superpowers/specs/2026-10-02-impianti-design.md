@@ -56,7 +56,7 @@ Fuori scope:
 | colonna | tipo | note |
 |---|---|---|
 | `id` | int PK | |
-| `type` | enum(`THERMAL`,`ELEVATOR`,`FIRE_PROTECTION`,`PHOTOVOLTAIC`,`PUBLIC_LIGHTING`,`TRAFFIC_LIGHT`,`LIFTING_PUMP`,`FOUNTAIN`,`ELECTRICAL_CABIN`,`WATER_KIOSK`,`VIDEO_SURVEILLANCE`,`BIKE_STATION`,`POWER_POINT`,`POWERED_STREET_FURNITURE`) | |
+| `type` | enum(`THERMAL`,`ELEVATOR`,`FIRE_PROTECTION`,`PHOTOVOLTAIC`,`PUBLIC_LIGHTING`,`TRAFFIC_LIGHT`,`LIFTING_PUMP`,`FOUNTAIN`,`ELECTRICAL_CABIN`,`WATER_KIOSK`,`VIDEO_SURVEILLANCE`,`BIKE_STATION`,`POWER_POINT`,`WATER_POINT`,`SEWAGE`,`IRRIGATION`,`POWERED_STREET_FURNITURE`) | |
 | `code` | varchar(100), unique tra i non cancellati (verifica nel service) | per i migrati = vecchio `asset_name` (es. `fon_17`) |
 | `name` | varchar(255) | descrizione |
 | `asset_id_fk` | int, nullable, FK `assets` | immobile contenitore |
@@ -67,7 +67,7 @@ Fuori scope:
 | `notes` | text, nullable | |
 | audit standard | `create_date`, `update_date`, `created_by_user_id`, `updated_by_user_id`, `deleted` | |
 
-Etichette UI dei tipi: Termico, Ascensore, Antincendio, Fotovoltaico, Pubblica illuminazione, Semaforo, Pompa di sollevamento, Fontana, Cabina elettrica, Casetta dell'acqua, Videosorveglianza, Bike station, Punto presa / alimentazione eventi, Arredo urbano alimentato.
+Etichette UI dei tipi: Termico, Ascensore, Antincendio, Fotovoltaico, Pubblica illuminazione, Semaforo, Pompa di sollevamento, Fontana, Cabina elettrica, Casetta dell'acqua, Videosorveglianza e antenne, Bike station, Punto presa / alimentazione eventi, Presa d'acqua, Depurazione e fognatura, Irrigazione, Arredo urbano alimentato.
 
 ### `utility_plants`
 
@@ -119,17 +119,45 @@ Proposte di periodicità (precompilate alla creazione di una verifica, modificab
 
 `entity_type` aggiunge `plant` (galleria foto esistente).
 
+## Tipologia immobile "Impianto" rimossa
+
+La classificazione v1.3.0 degli immobili (`1790400000000-AddAssetClassification`) prevede la tipologia "Impianto" con le funzioni elencate sotto. Con l'entità Impianto quella tipologia non ha più senso: un dispositivo o punto di fornitura tecnico **non è un immobile**. Le sue funzioni diventano tipi di impianto:
+
+| Funzione immobile (tipologia Impianto) | Tipo impianto |
+|---|---|
+| Illuminazione pubblica | `PUBLIC_LIGHTING` |
+| Semaforo | `TRAFFIC_LIGHT` |
+| Fontana | `FOUNTAIN` |
+| Casetta dell'acqua | `WATER_KIOSK` |
+| Pompa di sollevamento | `LIFTING_PUMP` |
+| Cabina elettrica | `ELECTRICAL_CABIN` |
+| Videosorveglianza e antenne | `VIDEO_SURVEILLANCE` |
+| Bike sharing | `BIKE_STATION` |
+| Presa energia elettrica | `POWER_POINT` |
+| Presa d'acqua | `WATER_POINT` |
+| Depurazione e fognatura | `SEWAGE` |
+| Irrigazione | `IRRIGATION` |
+| Altro | nessuno (voce generica eliminata) |
+
+Regola di classificazione degli immobili aggiornata (commento in `AddAssetClassification` e testi UI): 1) edificio chiuso → Fabbricato; 2) opera costruita non chiusa → Manufatto; 3) altrimenti superficie scoperta → Area. Un dispositivo o punto di fornitura tecnico va negli Impianti.
+
 ## Migration (strutturale)
 
-1. Crea `plants`, `utility_plants`, `plant_thermal`, `plant_elevator`, `plant_fire_equipment`, `plant_inspections`; estende l'enum di `photos.entity_type`.
-2. Per ogni riga di `thermal_plants` non cancellata: inserisce `plants` (`type='THERMAL'`, `code='TERM-<id>'`, `name`, `asset_id_fk`, `notes`) + `plant_thermal`; se `utility_id_fk` valorizzato, riga in `utility_plants`.
-3. Rimuove `thermal_plants`.
+1. Rimuove la tipologia "Impianto" (soft delete in `asset_natures`) e le sue coppie in `asset_nature_functions`; soft delete delle funzioni elencate sopra che non sono ammesse da altre tipologie. Gli immobili che le hanno restano invariati finché lo script non li converte (la migration non cancella dati).
+2. Crea `plants`, `utility_plants`, `plant_thermal`, `plant_elevator`, `plant_fire_equipment`, `plant_inspections`; estende l'enum di `photos.entity_type`.
+3. Per ogni riga di `thermal_plants` non cancellata: inserisce `plants` (`type='THERMAL'`, `code='TERM-<id>'`, `name`, `asset_id_fk`, `notes`) + `plant_thermal`; se `utility_id_fk` valorizzato, riga in `utility_plants`.
+4. Rimuove `thermal_plants`.
 
 La migration non tocca gli immobili: la riclassificazione è nello script.
 
 ## Riclassificazione immobili → impianti (script)
 
-`.audit-w/impianti/assets_to_plants.py`, modalità `--dry-run` con report, poi applicazione in transazione dopo conferma dell'utente. Per ogni immobile il cui `asset_name` corrisponde alla mappa prefisso → tipo (tabella in Contesto, regex esplicite, nessuna euristica sul testo libero):
+`.audit-w/impianti/assets_to_plants.py`, modalità `--dry-run` con report, poi applicazione in transazione dopo conferma dell'utente. Si convertono gli immobili che:
+
+- hanno tipologia "Impianto": il tipo si ricava dalla funzione (tabella della sezione precedente); senza funzione o con "Altro" → segnalati nel report, non convertiti;
+- oppure hanno un `asset_name` che corrisponde alla mappa prefisso → tipo (tabella in Contesto, regex esplicite, nessuna euristica sul testo libero).
+
+Per ognuno:
 
 1. crea `plants` con `code = asset_name`, `name = associated_building` (o `asset_name` se vuoto), indirizzo e coordinate (anche geocodificate) copiati, `notes` = `specific_details`/`memo` concatenati;
 2. sposta le utenze: per ogni riga `utility_assets(utility, asset)` crea `utility_plants(utility, plant)` e cancella la riga `utility_assets`;
