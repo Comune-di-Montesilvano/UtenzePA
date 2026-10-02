@@ -24,8 +24,8 @@ import { InfisicalConfigService } from '../../infisical/infisical-config.service
           migrations: [`${__dirname}/../../../database/migrations/*.{ts,js}`],
           migrationsRun: true,
           // Escape hatch per iterazione rapida in dev (mai in produzione: bypassa le migration).
-          synchronize: process.env.SYNCHRONIZE === 'true' || process.env.IMPORT_DATA === 'true',
-          dropSchema: process.env.DROPSCHEMA === 'true' || process.env.IMPORT_DATA === 'true',
+          synchronize: process.env.SYNCHRONIZE === 'true',
+          dropSchema: process.env.DROPSCHEMA === 'true',
           // TypeORM 1.0 di default lancia un errore ('throw') se null/undefined
           // finiscono in una condizione where object-criteria (find*/update/
           // delete/query builder .where(objectLiteral) — non tocca le condizioni
