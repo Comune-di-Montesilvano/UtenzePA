@@ -111,6 +111,20 @@ describe('UtilizerGrantService', () => {
     );
   });
 
+  it('findOne esclude le parti eliminate (anche di padre e figli), come findAll', async () => {
+    const parties = [
+      { id: 1, deleted: false },
+      { id: 2, deleted: true },
+    ];
+    repo.findOne.mockResolvedValue(
+      row({ parties, parent: { id: 7, parties }, children: [{ id: 8, parties }] }),
+    );
+    const g = await service.findOne(1);
+    expect(g.parties.map((p) => p.id)).toEqual([1]);
+    expect(g.parent.parties.map((p) => p.id)).toEqual([1]);
+    expect(g.children[0].parties.map((p) => p.id)).toEqual([1]);
+  });
+
   it('rifiuta parti inesistenti', async () => {
     partyRepo.count.mockResolvedValue(0);
     await expect(service.create({ party_ids: [999] } as never, 3)).rejects.toThrow(

@@ -167,7 +167,16 @@ export class UtilizerGrantService extends BaseService<
       where: { id },
       relations: toFindOptionsRelations<UtilizerGrant>(this.relations),
     });
-    return g ? this.toRow(g, this.today()) : null;
+    return g ? this.toRow(this.withoutDeletedParties(g), this.today()) : null;
+  }
+
+  // Le relazioni di findOne non filtrano: una parte eliminata verrebbe
+  // preselezionata nella scheda e il salvataggio fallirebbe (findAll la esclude già).
+  private withoutDeletedParties(g: UtilizerGrant): UtilizerGrant {
+    for (const x of [g, g.parent, ...(g.children ?? [])]) {
+      if (x?.parties) x.parties = x.parties.filter((p) => !p.deleted);
+    }
+    return g;
   }
 
   async create(dto: CreateUtilizerGrantDto, userId?: number): Promise<ContractRow> {
