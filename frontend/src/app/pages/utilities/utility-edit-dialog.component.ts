@@ -392,10 +392,18 @@ export class UtilityEditDialogComponent implements OnInit {
     });
   }
 
+  // Impianti come letti dal server: distinguono un collegamento aggiunto/tolto
+  // qui e non ancora salvato da uno cambiato nella scheda impianto.
+  private savedPlantIds = new Set((this.data.item.plants ?? []).map(p => p.id));
+
   private syncPlantLink(plantId: number, linked: boolean): void {
     const ids = (this.form.controls.plant_ids.value ?? []) as number[];
     const has = ids.includes(plantId);
-    if (linked === has) return;
+    const toggledHere = has !== this.savedPlantIds.has(plantId);
+    if (linked) this.savedPlantIds.add(plantId);
+    else this.savedPlantIds.delete(plantId);
+    // Modifica fatta qui e non ancora salvata: vince quella.
+    if (toggledHere || linked === has) return;
     this.form.controls.plant_ids.setValue(linked ? [...ids, plantId] : ids.filter(x => x !== plantId));
     this.refreshLinks();
   }

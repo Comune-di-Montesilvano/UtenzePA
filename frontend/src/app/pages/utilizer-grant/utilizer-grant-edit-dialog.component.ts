@@ -169,6 +169,12 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   constructor() {
     if (!this.canEdit) {
       this.form.disable();
+    } else {
+      // Durata rinnovo e preavviso contano solo col rinnovo tacito: nascosti
+      // ma validi (es. 0 da dati vecchi) bloccherebbero il Salva senza nulla
+      // di visibile. Il payload li azzera comunque senza rinnovo tacito.
+      this.syncRenewalFields();
+      this.form.controls.tacit_renewal.valueChanges.subscribe(() => this.syncRenewalFields());
     }
   }
 
@@ -216,7 +222,15 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
     return `Canone annuo: ${formatEuro(Number(v.rent_amount) * PERIOD_FACTOR[v.rent_period])}`;
   }
 
-  refreshAssets(): void {
+  private syncRenewalFields(): void {
+    const on = !!this.form.controls.tacit_renewal.value;
+    for (const c of [this.form.controls.renewal_months, this.form.controls.notice_months]) {
+      if (on) c.enable({emitEvent: false});
+      else c.disable({emitEvent: false});
+    }
+  }
+
+    refreshAssets(): void {
     const ids = (this.form.controls.asset_ids.value ?? []) as number[];
     this.assetRows = ids
       .map(id => this.allAssets.find(a => a.id === id) ?? this.item.assets?.find(a => a.id === id))

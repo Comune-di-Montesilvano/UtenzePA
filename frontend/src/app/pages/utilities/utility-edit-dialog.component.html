@@ -107,6 +107,7 @@
           [latitude]="resolveMapCoordsFromForm()?.lat ?? null"
           [longitude]="resolveMapCoordsFromForm()?.lon ?? null"
           [previewOnly]="isMapCoordsFromAsset()"
+          [readOnly]="!canEdit"
           (positionSelected)="onPositionSelected($event)"
           (positionCleared)="onPositionCleared()">
         </app-location-map>

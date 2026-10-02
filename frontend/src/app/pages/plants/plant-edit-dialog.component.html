@@ -79,6 +79,7 @@
           [estimatedLatitude]="estimated()?.lat ?? null"
           [estimatedLongitude]="estimated()?.lng ?? null"
           [previewOnly]="data.readOnly"
+          [readOnly]="data.readOnly"
           (positionSelected)="onPositionSelected($event)"
           (positionCleared)="onPositionCleared()">
         </app-location-map>
@@ -115,7 +116,8 @@
         <mat-tab aria-label="Dati tecnici">
           <ng-template mat-tab-label>
             <app-tab-label icon="engineering" label="Dati tecnici"
-                           [dot]="missingCerts().length > 0" tone="warn"></app-tab-label>
+                           [dot]="missingCerts().length > 0" tone="warn"
+                           [error]="invalid('thermal', 'elevator')"></app-tab-label>
           </ng-template>
           @if (currentType() === 'THERMAL') {
             <div formGroupName="thermal">

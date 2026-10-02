@@ -189,8 +189,16 @@ export class PlantEditDialogComponent implements OnInit {
     }),
   });
 
+  // Collegamenti utenze come letti dal server: distinguono un collegamento
+  // aggiunto/tolto qui e non ancora salvato da uno cambiato in una scheda figlia.
+  private savedUtilityIds = new Set<number>();
+
   ngOnInit(): void {
     if (this.data.readOnly) this.form.disable();
+    else {
+      this.syncTypeGroups();
+      this.form.controls.type.valueChanges.subscribe(() => this.syncTypeGroups());
+    }
     this.loadAssets();
     this.loadUtilities();
     if (this.data.plantId) this.load(this.data.plantId);
@@ -288,6 +296,20 @@ export class PlantEditDialogComponent implements OnInit {
     return info && (info.tone === 'danger' || info.tone === 'warn') ? info : null;
   }
 
+  // Solo il gruppo dati del tipo corrente partecipa alla validazione: un
+  // valore invalido in un gruppo nascosto (tipo cambiato, dato importato)
+  // bloccherebbe il Salva senza nulla di visibile.
+  private syncTypeGroups(): void {
+    const type = this.currentType();
+    const toggle = (group: 'thermal' | 'elevator', on: boolean) => {
+      const c = this.form.controls[group];
+      if (on) c.enable({emitEvent: false});
+      else c.disable({emitEvent: false});
+    };
+    toggle('thermal', type === 'THERMAL');
+    toggle('elevator', type === 'ELEVATOR');
+  }
+
   currentType(): PlantType {
     return this.form.controls.type.value as PlantType;
   }
@@ -376,7 +398,11 @@ export class PlantEditDialogComponent implements OnInit {
   private syncUtilityLink(utilityId: number, linked: boolean): void {
     const ids = (this.form.controls.utility_ids.value ?? []).map(Number);
     const has = ids.includes(utilityId);
-    if (linked === has) return;
+    const toggledHere = has !== this.savedUtilityIds.has(utilityId);
+    if (linked) this.savedUtilityIds.add(utilityId);
+    else this.savedUtilityIds.delete(utilityId);
+    // Modifica fatta qui e non ancora salvata: vince quella.
+    if (toggledHere || linked === has) return;
     this.form.controls.utility_ids.setValue(linked ? [...ids, utilityId] : ids.filter(x => x !== utilityId));
     this.refreshLinks();
   }
@@ -448,6 +474,8 @@ export class PlantEditDialogComponent implements OnInit {
         speed: e?.speed ?? '',
       },
     });
+    this.savedUtilityIds = new Set((p.utilities ?? []).map(u => u.id));
+    if (!this.data.readOnly) this.syncTypeGroups();
     this.form.markAsPristine();
     this.refreshLinks();
   }
@@ -455,6 +483,7 @@ export class PlantEditDialogComponent implements OnInit {
   save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.error = 'Correggi i campi evidenziati (pallino rosso sul tab).';
       return;
     }
     const v = this.form.getRawValue();

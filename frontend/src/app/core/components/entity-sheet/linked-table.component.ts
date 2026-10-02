@@ -94,7 +94,8 @@ export interface RowIcon {
                 }
                 <td class="lt-actions">
                   @if (unlinkable) {
-                    <button mat-icon-button type="button" class="lt-unlink" matTooltip="Scollega" (click)="onUnlink($event, row)">
+                    <button mat-icon-button type="button" class="lt-unlink" matTooltip="Scollega"
+                            (click)="onUnlink($event, row)" (keydown.enter)="$event.stopPropagation()">
                       <mat-icon>link_off</mat-icon>
                     </button>
                   }

@@ -136,6 +136,7 @@
           [longitude]="form.controls.longitude.value"
           [estimatedLatitude]="data.item.geocoded_latitude ?? null"
           [estimatedLongitude]="data.item.geocoded_longitude ?? null"
+          [readOnly]="!canEdit"
           (positionSelected)="onPositionSelected($event)"
           (positionCleared)="onPositionCleared()">
         </app-location-map>
