@@ -9,6 +9,11 @@ export class ThirdParties1791500000000 implements MigrationInterface {
   name = 'ThirdParties1791500000000';
 
   public async up(q: QueryRunner): Promise<void> {
+    // Le DDL MySQL fanno commit implicito: i dati che violerebbero i nuovi
+    // vincoli si controllano prima, altrimenti la migration si fermerebbe a
+    // metà lasciando lo schema da sistemare a mano.
+    await this.preflight(q);
+
     await q.query(
       `CREATE TABLE \`third_parties\` (\`id\` int NOT NULL AUTO_INCREMENT, \`type\` enum ('NATURAL', 'LEGAL') NOT NULL, \`company_name\` varchar(255) NULL, \`last_name\` varchar(100) NULL, \`first_name\` varchar(100) NULL, \`vat_number\` varchar(20) NULL, \`tax_code\` varchar(16) NULL, \`address\` varchar(255) NULL, \`city\` varchar(100) NULL, \`postal_code\` varchar(10) NULL, \`email\` varchar(100) NULL, \`pec\` varchar(100) NULL, \`phone\` varchar(50) NULL, \`contacts\` text NULL, \`notes\` text NULL, \`create_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6), \`update_date\` timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6), \`created_by_user_id\` int NOT NULL, \`updated_by_user_id\` int NOT NULL, \`deleted\` tinyint NOT NULL DEFAULT 0, UNIQUE INDEX \`IDX_77c8d61f58fdf7293a412b8096\` (\`vat_number\`), UNIQUE INDEX \`IDX_d7529f9132b7c8a95fe7461734\` (\`tax_code\`), INDEX \`IDX_14326d7ad55327d4848f7d0992\` (\`created_by_user_id\`), PRIMARY KEY (\`id\`)) ENGINE=InnoDB`,
     );
@@ -58,6 +63,28 @@ export class ThirdParties1791500000000 implements MigrationInterface {
       await q.query(`ALTER TABLE \`${tbl}\` DROP FOREIGN KEY \`${fk}\``);
     }
 
+    // InitialSchema ha un indice UNIQUE su consip_agreement.supplier_id (vecchio
+    // OneToOne): un fornitore avrebbe una sola convenzione. Si toglie e resta
+    // l'indice non unique dichiarato dall'entity.
+    const uniques: { idx: string }[] = await q.query(
+      `SELECT DISTINCT INDEX_NAME AS idx FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'consip_agreement'
+          AND COLUMN_NAME = 'supplier_id' AND NON_UNIQUE = 0`,
+    );
+    for (const { idx } of uniques) {
+      await q.query(`ALTER TABLE \`consip_agreement\` DROP INDEX \`${idx}\``);
+    }
+    const entityIndex: unknown[] = await q.query(
+      `SELECT 1 FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'consip_agreement'
+          AND INDEX_NAME = 'IDX_4865ffe2d0c44ceb3728328eeb'`,
+    );
+    if (entityIndex.length === 0) {
+      await q.query(
+        `CREATE INDEX \`IDX_4865ffe2d0c44ceb3728328eeb\` ON \`consip_agreement\` (\`supplier_id\`)`,
+      );
+    }
+
     await q.query(
       `ALTER TABLE \`contracts\` ADD CONSTRAINT \`FK_3ffd48901e416673c6e4a7b724b\` FOREIGN KEY (\`supplier_id_fk\`) REFERENCES \`third_parties\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
     );
@@ -68,6 +95,63 @@ export class ThirdParties1791500000000 implements MigrationInterface {
     await q.query(`ALTER TABLE \`utilizer_grant\` DROP COLUMN \`utilizer_id_fk\``);
     await q.query(`DROP TABLE \`utilizer\``);
     await q.query(`DROP TABLE \`suppliers\``);
+  }
+
+  private async preflight(q: QueryRunner): Promise<void> {
+    const checks: { label: string; sql: string; value: string }[] = [
+      {
+        label: 'P.IVA duplicata',
+        value: 'v',
+        sql: `-- preflight: vat duplicata
+          SELECT v FROM (SELECT NULLIF(TRIM(vat_number), '') AS v FROM suppliers) x
+           WHERE v IS NOT NULL GROUP BY v HAVING COUNT(*) > 1`,
+      },
+      {
+        label: 'Codice fiscale duplicato',
+        value: 'v',
+        sql: `-- preflight: cf duplicato
+          SELECT v FROM (SELECT NULLIF(TRIM(tax_code), '') AS v FROM suppliers
+                         UNION ALL SELECT NULLIF(TRIM(tax_code), '') FROM utilizer) x
+           WHERE v IS NOT NULL GROUP BY v HAVING COUNT(*) > 1`,
+      },
+      {
+        label: 'Codice fiscale oltre 16 caratteri (fornitore)',
+        value: 'id',
+        sql: `-- preflight: cf lungo
+          SELECT id FROM suppliers WHERE CHAR_LENGTH(TRIM(tax_code)) > 16`,
+      },
+      {
+        label: 'Convenzioni CONSIP con fornitore inesistente',
+        value: 'id',
+        sql: `-- preflight: consip orfane
+          SELECT ca.id FROM consip_agreement ca LEFT JOIN suppliers s ON s.id = ca.supplier_id
+           WHERE s.id IS NULL`,
+      },
+      {
+        label: 'Contratti di fornitura con fornitore inesistente',
+        value: 'id',
+        sql: `-- preflight: contratti orfani
+          SELECT c.id FROM contracts c LEFT JOIN suppliers s ON s.id = c.supplier_id_fk
+           WHERE c.supplier_id_fk IS NOT NULL AND s.id IS NULL`,
+      },
+      {
+        label: 'Contratti immobiliari con controparte inesistente',
+        value: 'id',
+        sql: `-- preflight: contratti immobiliari orfani
+          SELECT g.id FROM utilizer_grant g LEFT JOIN utilizer u ON u.id = g.utilizer_id_fk
+           WHERE g.utilizer_id_fk IS NOT NULL AND u.id IS NULL`,
+      },
+    ];
+    const problems: string[] = [];
+    for (const { label, sql, value } of checks) {
+      const rows: Record<string, unknown>[] = await q.query(sql);
+      if (rows.length) problems.push(`${label}: ${rows.map((r) => String(r[value])).join(', ')}`);
+    }
+    if (problems.length) {
+      throw new Error(
+        `Migrazione soggetti terzi bloccata, correggere prima i dati:\n- ${problems.join('\n- ')}`,
+      );
+    }
   }
 
   // Rollback d'emergenza: utilizer_id_fk torna NULL (un contratto senza parti
