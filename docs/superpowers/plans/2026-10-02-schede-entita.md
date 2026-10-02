@@ -5010,3 +5010,14 @@ Emersi dalla revisione finale del branch, non bloccanti. Da fare in un giro dedi
   Schema indicativo del soggetto: tipo (fisica/giuridica), denominazione o cognome+nome, CF, P.IVA (solo giuridica), indirizzo, PEC/email/telefono, note; ruoli derivati dai collegamenti (fornitore se ha contratti di fornitura, controparte se ha contratti immobiliari), non da un flag. Il codice breve del fornitore diventa un campo facoltativo "sigla", non più la chiave mostrata. Va valutato l'impatto sull'importatore dati (`data-importer.service.ts` deduplica i fornitori per `supplier_id`) e una migration che preservi gli id referenziati da contratti, convenzioni e contratti immobiliari.
 
   Poi: censimento con query (classificare le 212 righe), proposta di migrazione dei dati con conferma dell'utente riga per riga sui casi dubbi, ripulitura della scheda Controparti e del tab "Controparti" dell'utenza (oggi elenca i nomi delle concessioni degli immobili collegati).
+- [ ] **Finalità d'uso (`purpose`) → tipologie contrattuali hardcoded.** Oggi è una tabella libera, piena di spazzatura (21 voci attive): valori di test ("ACME", "ACME100", "LoremIpsum"), quasi-duplicati ("Riscaldamento cottura e acqua calda" / "Riscaldamento - cottura e acqua calda"), descrizioni di impianto ("Fontana a pozzo artesiano") e un `use_type` GENERIC/SPECIFIC che non distingue nulla. È legata al tipo utenza (`utility_type_purpose`), non alla singola utenza.
+
+  Serve solo a indicare la **tipologia contrattuale** dell'utenza, che è definita da ARERA: diventa un enum fisso per tipo (`hard_type`), da assegnare all'utenza.
+  - **Acqua** (TICSI, delibera 665/2017): uso domestico (residente / non residente / condominiale), industriale, artigianale e commerciale, agricolo e zootecnico, **pubblico non disalimentabile** (ospedali, scuole, carceri, idranti antincendio…), pubblico disalimentabile, altri usi.
+  - **Gas** (TIVG art. 2.3): domestico, condominio uso domestico, attività di servizio pubblico, usi diversi.
+  - **Luce** (TIT, tipologie di contratto, *da verificare sul testo vigente*): BT usi domestici, BT illuminazione pubblica, BT altri usi, MT illuminazione pubblica, MT altri usi, (AT/AAT non pertinenti per il Comune).
+  - **Internet**: nessuna tipologia ARERA.
+
+  Collegamento con il campo testo libero `disconnection_ability` ("NON disalimentabile per…"): per l'acqua, "pubblico non disalimentabile" è proprio la tipologia. Valutare se la tipologia sostituisce o affianca quel campo.
+
+  Passi: censimento delle utenze per finalità attuale, tabella di corrispondenza vecchia finalità → tipologia (conferma dell'utente sui casi dubbi), migration con nuova colonna enum su `utilities`, rimozione di `purpose`/`utility_type_purpose` e della pagina Finalità d'uso, tab "Controparti e finalità" della scheda utenza ridotto alle controparti.
