@@ -41,7 +41,7 @@ Fuori scope:
 
 ## Decisioni
 
-- Impianto = entità autonoma con posizione propria; immobile contenitore facoltativo.
+- Impianto = entità autonoma con posizione propria; collegato a zero o più immobili (`plant_assets`, es. centrale termica che serve più edifici; decisione 2026-10-02, sostituisce l'immobile contenitore unico).
 - Tabella base `plants` + tabelle figlie solo per i tipi con dati ricchi (termico, ascensore, antincendio) + scadenzario generico `plant_inspections`.
 - Utenza ↔ impianto molti-a-molti (`utility_plants`), come utenza ↔ immobile. Un'utenza deve avere almeno un immobile **o** un impianto.
 - Gli impianti termici della v1.6.0 confluiscono in `plants` + `plant_thermal` (nessuna perdita, `thermal_plants` rimossa).
@@ -59,7 +59,6 @@ Fuori scope:
 | `type` | enum(`THERMAL`,`ELEVATOR`,`FIRE_PROTECTION`,`PHOTOVOLTAIC`,`PUBLIC_LIGHTING`,`TRAFFIC_LIGHT`,`LIFTING_PUMP`,`FOUNTAIN`,`ELECTRICAL_CABIN`,`WATER_KIOSK`,`VIDEO_SURVEILLANCE`,`BIKE_STATION`,`POWER_POINT`,`WATER_POINT`,`SEWAGE`,`IRRIGATION`,`POWERED_STREET_FURNITURE`) | |
 | `code` | varchar(100), unique tra i non cancellati (verifica nel service) | per i migrati = vecchio `asset_name` (es. `fon_17`) |
 | `name` | varchar(255) | descrizione |
-| `asset_id_fk` | int, nullable, FK `assets` | immobile contenitore |
 | `toponym`, `address`, `civic_number` | varchar, nullable | come `assets` |
 | `latitude`, `longitude` | varchar(20), nullable | come `assets` (formato e helper invariati) |
 | `geocoded_latitude`, `geocoded_longitude`, `geocoded_at` | come `assets` | |
@@ -68,6 +67,10 @@ Fuori scope:
 | audit standard | `create_date`, `update_date`, `created_by_user_id`, `updated_by_user_id`, `deleted` | |
 
 Etichette UI dei tipi: Termico, Ascensore, Antincendio, Fotovoltaico, Pubblica illuminazione, Semaforo, Pompa di sollevamento, Fontana, Cabina elettrica, Casetta dell'acqua, Videosorveglianza e antenne, Bike station, Punto presa / alimentazione eventi, Presa d'acqua, Depurazione e fognatura, Irrigazione, Arredo urbano alimentato.
+
+### `plant_assets`
+
+`(plant_id, asset_id)` PK composta, FK CASCADE: immobili collegati all'impianto (migration `1791200000000-PlantAssets`, che copia il vecchio `asset_id_fk`).
 
 ### `utility_plants`
 
@@ -195,7 +198,7 @@ Situazione dei 243 candidati: 0 con coordinate inserite a mano, 211 con sola pos
 
 Regole:
 
-1. **Posizione mostrata**, in ordine di priorità: coordinate inserite a mano → coordinate dell'immobile contenitore (impianti interni a un edificio: ascensore, termico, antincendio non hanno bisogno di coordinate proprie) → coordinate geocodificate dall'indirizzo.
+1. **Posizione mostrata**, in ordine di priorità: coordinate inserite a mano → coordinate del primo immobile collegato che ne ha una (impianti interni a un edificio: ascensore, termico, antincendio non hanno bisogno di coordinate proprie) → coordinate geocodificate dall'indirizzo.
 2. **Qualità della posizione**, calcolata e mostrata con un badge in elenco e nel dialog: *precisa* (inserita a mano), *dall'immobile*, *stimata* (geocodifica), *assente*.
 3. **Impianti senza posizione**: non compaiono in mappa (come oggi gli immobili senza coordinate); filtro "posizione: assente / stimata" nell'elenco; anomalia "impianti senza posizione" in dashboard (solo *assente*, le *stimate* sarebbero troppo rumorose).
 4. **Correzione**: nel dialog impianto la mini-mappa esistente (`LocationMapComponent`) mostra la posizione stimata e permette di fissare quella reale con un clic, come già per gli immobili. Per gli impianti con immobile contenitore la mini-mappa è in sola anteprima (posizione ereditata), con la possibilità di sovrascriverla.
