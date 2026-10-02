@@ -37,6 +37,7 @@ interface Anomalies {
   duplicate_cigs: AnomalyList<{cig: string; contracts: number[]}>;
   real_estate_contracts_without_assets: AnomalyList<{id: number; counterparty: string | null; subject: string | null}>;
   plants_without_position: AnomalyList<{id: number; code: string; name: string; type: string}>;
+  plants_without_asset: AnomalyList<{id: number; code: string; name: string; type: string}>;
 }
 
 // Non estende AbstractService: header Authorization messo a mano (nessun
@@ -177,6 +178,21 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+            <mat-expansion-panel [disabled]="data.plants_without_asset.count === 0">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count" [class.zero]="data.plants_without_asset.count === 0">{{ data.plants_without_asset.count }}</span>
+                  Ascensori, antincendio e termici senza immobile
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (p of data.plants_without_asset.items; track p.id) {
+                  <li>
+                    <a href="javascript:void(0)" (click)="openPlant(p.id)">{{ p.code }}</a> {{ p.name }}
+                  </li>
+                }
+              </ul>
+            </mat-expansion-panel>
             <mat-expansion-panel [disabled]="data.plants_without_position.count === 0">
               <mat-expansion-panel-header>
                 <mat-panel-title>
@@ -221,7 +237,7 @@ export class AnomaliesCardComponent implements OnInit {
     return this.data.contracts_without_cig.count + this.data.active_utilities_without_cig_contract.count
       + this.data.active_utilities_without_contract.count + this.data.utilities_with_overlapping_contracts.count
       + this.data.duplicate_cigs.count + this.data.real_estate_contracts_without_assets.count
-      + this.data.plants_without_position.count;
+      + this.data.plants_without_position.count + this.data.plants_without_asset.count;
   }
 
   ngOnInit(): void {

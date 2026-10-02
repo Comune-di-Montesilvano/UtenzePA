@@ -3,6 +3,9 @@ import { addDays, addMonths } from '@apis/utilizer-grant/real-estate-contract.ca
 
 export const INSPECTION_DUE_DAYS = 60;
 
+// Tipi che stanno sempre dentro un edificio: senza immobile collegato sono un'anomalia.
+export const ASSET_REQUIRED_TYPES: PlantType[] = [PlantType.THERMAL, PlantType.ELEVATOR, PlantType.FIRE_PROTECTION];
+
 // Gli impianti non hanno CAP/comune propri: si geocodifica nel comune dell'ente.
 export const PLANTS_MUNICIPALITY = 'Montesilvano';
 

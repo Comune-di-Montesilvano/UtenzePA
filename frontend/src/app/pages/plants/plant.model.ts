@@ -1,6 +1,7 @@
 export type PlantType = 'THERMAL' | 'ELEVATOR' | 'FIRE_PROTECTION' | 'PHOTOVOLTAIC' | 'PUBLIC_LIGHTING'
   | 'TRAFFIC_LIGHT' | 'LIFTING_PUMP' | 'FOUNTAIN' | 'ELECTRICAL_CABIN' | 'WATER_KIOSK' | 'VIDEO_SURVEILLANCE'
-  | 'BIKE_STATION' | 'POWER_POINT' | 'WATER_POINT' | 'SEWAGE' | 'IRRIGATION' | 'POWERED_STREET_FURNITURE';
+  | 'BIKE_STATION' | 'POWER_POINT' | 'WATER_POINT' | 'SEWAGE' | 'IRRIGATION' | 'POWERED_STREET_FURNITURE'
+  | 'COMPACTOR' | 'STORMWATER';
 export type PlantStatus = 'ACTIVE' | 'DECOMMISSIONED' | 'TO_VERIFY';
 export type InspectionStatus = 'OVERDUE' | 'DUE_SOON' | 'OK' | 'NO_DATE';
 export type PositionQuality = 'PRECISE' | 'FROM_ASSET' | 'ESTIMATED' | 'MISSING';
@@ -24,6 +25,8 @@ export const PLANT_TYPE_LABEL: Record<PlantType, string> = {
   SEWAGE: 'Depurazione e fognatura',
   IRRIGATION: 'Irrigazione',
   POWERED_STREET_FURNITURE: 'Arredo urbano alimentato',
+  COMPACTOR: 'Ecocompattatore',
+  STORMWATER: 'Impianto raccolta acque meteoriche',
 };
 
 // Ligature Material Icons.
@@ -45,6 +48,8 @@ export const PLANT_TYPE_ICON: Record<PlantType, string> = {
   SEWAGE: 'plumbing',
   IRRIGATION: 'grass',
   POWERED_STREET_FURNITURE: 'signpost',
+  COMPACTOR: 'recycling',
+  STORMWATER: 'thunderstorm',
 };
 
 export const PLANT_TYPES = Object.keys(PLANT_TYPE_LABEL) as PlantType[];

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ASSET_REQUIRED_TYPES } from '@apis/plants/plant.calc';
 import { DataSource } from 'typeorm';
 
 // Contratto valido oggi: stessa definizione di "contratto corrente" usata in
@@ -37,6 +38,7 @@ export interface Anomalies {
   duplicate_cigs: AnomalyList<{ cig: string; contracts: number[] }>;
   real_estate_contracts_without_assets: AnomalyList<RealEstateContractAnomaly>;
   plants_without_position: AnomalyList<PlantAnomaly>;
+  plants_without_asset: AnomalyList<PlantAnomaly>;
 }
 
 export interface PlantAnomaly {
@@ -151,7 +153,21 @@ export class AnomaliesService {
            ORDER BY p.type, p.code`,
       );
 
+    // Ascensori, antincendio e termici stanno sempre dentro un edificio.
+    const requiredTypes = ASSET_REQUIRED_TYPES.map((t) => `'${t}'`).join(', ');
+    const plantsWithoutAsset: { id: unknown; code: string; name: string; type: string }[] =
+      await this.dataSource.query(
+        `SELECT p.id, p.code, p.name, p.type FROM plants p
+           WHERE p.deleted = 0 AND p.type IN (${requiredTypes})
+             AND NOT EXISTS (SELECT 1 FROM plant_assets pa JOIN assets a ON a.id = pa.asset_id AND a.deleted = 0
+                             WHERE pa.plant_id = p.id)
+           ORDER BY p.type, p.code`,
+      );
+
     return {
+      plants_without_asset: list(
+        plantsWithoutAsset.map((p) => ({ id: Number(p.id), code: p.code, name: p.name, type: p.type })),
+      ),
       plants_without_position: list(
         plantsWithoutPosition.map((p) => ({
           id: Number(p.id),

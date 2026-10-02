@@ -48,7 +48,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(7);
+    expect(query).toHaveBeenCalledTimes(8);
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
     // (le prime 5 query riguardano i contratti di fornitura).
     for (const [sql] of query.mock.calls.slice(0, 5)) {
@@ -88,5 +88,25 @@ describe('AnomaliesService', () => {
       items: [{ id: 7, code: 'fon_2', name: 'Fontana', type: 'FOUNTAIN' }],
     });
     expect(query.mock.calls[6][0]).toContain('FROM plants');
+  });
+
+  it('elenca ascensori, antincendio e termici senza immobile collegato', async () => {
+    query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: '9', code: 'ANT-57', name: 'Antincendio materna', type: 'FIRE_PROTECTION' }]);
+    const a = await service.getAnomalies();
+    expect(a.plants_without_asset).toEqual({
+      count: 1,
+      items: [{ id: 9, code: 'ANT-57', name: 'Antincendio materna', type: 'FIRE_PROTECTION' }],
+    });
+    const sql = query.mock.calls[7][0] as string;
+    expect(sql).toContain('plant_assets');
+    expect(sql).toContain("'THERMAL', 'ELEVATOR', 'FIRE_PROTECTION'");
   });
 });
