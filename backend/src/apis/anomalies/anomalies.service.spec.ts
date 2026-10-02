@@ -5,7 +5,8 @@ describe('AnomaliesService', () => {
   let service: AnomaliesService;
 
   beforeEach(() => {
-    query = jest.fn();
+    // Query non mockate esplicitamente: nessuna riga.
+    query = jest.fn().mockResolvedValue([]);
     service = new AnomaliesService({ query } as never);
   });
 
@@ -47,7 +48,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(6);
+    expect(query).toHaveBeenCalledTimes(7);
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
     // (le prime 5 query riguardano i contratti di fornitura).
     for (const [sql] of query.mock.calls.slice(0, 5)) {
@@ -70,5 +71,22 @@ describe('AnomaliesService', () => {
       items: [{ id: 4, counterparty: 'SPRAR', subject: null }],
     });
     expect(query.mock.calls[5][0]).toContain('utilizer_grant_assets');
+  });
+
+  it('elenca gli impianti senza posizione (né propria, né geocodificata, né dell’immobile)', async () => {
+    query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: '7', code: 'fon_2', name: 'Fontana', type: 'FOUNTAIN' }]);
+    const a = await service.getAnomalies();
+    expect(a.plants_without_position).toEqual({
+      count: 1,
+      items: [{ id: 7, code: 'fon_2', name: 'Fontana', type: 'FOUNTAIN' }],
+    });
+    expect(query.mock.calls[6][0]).toContain('FROM plants');
   });
 });

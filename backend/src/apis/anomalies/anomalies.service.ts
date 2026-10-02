@@ -36,6 +36,14 @@ export interface Anomalies {
   utilities_with_overlapping_contracts: AnomalyList<UtilityAnomaly>;
   duplicate_cigs: AnomalyList<{ cig: string; contracts: number[] }>;
   real_estate_contracts_without_assets: AnomalyList<RealEstateContractAnomaly>;
+  plants_without_position: AnomalyList<PlantAnomaly>;
+}
+
+export interface PlantAnomaly {
+  id: number;
+  code: string;
+  name: string;
+  type: string;
 }
 
 export interface RealEstateContractAnomaly {
@@ -125,7 +133,31 @@ export class AnomaliesService {
          ORDER BY u.name, g.id`,
     );
 
+    // Impianti senza alcuna posizione: né coordinate proprie, né geocodifica,
+    // né un immobile contenitore localizzato (stessa priorità di resolvePlantPosition).
+    const isSetSql = (col: string) => `IFNULL(TRIM(${col}), '') <> ''`;
+    const plantsWithoutPosition: { id: unknown; code: string; name: string; type: string }[] =
+      await this.dataSource.query(
+        `SELECT p.id, p.code, p.name, p.type
+           FROM plants p LEFT JOIN assets a ON a.id = p.asset_id_fk AND a.deleted = 0
+           WHERE p.deleted = 0
+             AND NOT (${isSetSql('p.latitude')} AND ${isSetSql('p.longitude')})
+             AND NOT (${isSetSql('p.geocoded_latitude')} AND ${isSetSql('p.geocoded_longitude')})
+             AND NOT (a.id IS NOT NULL AND (
+                   (${isSetSql('a.latitude')} AND ${isSetSql('a.longitude')})
+                OR (${isSetSql('a.geocoded_latitude')} AND ${isSetSql('a.geocoded_longitude')})))
+           ORDER BY p.type, p.code`,
+      );
+
     return {
+      plants_without_position: list(
+        plantsWithoutPosition.map((p) => ({
+          id: Number(p.id),
+          code: p.code,
+          name: p.name,
+          type: p.type,
+        })),
+      ),
       real_estate_contracts_without_assets: list(
         contractsWithoutAssets.map((c) => ({
           id: Number(c.id),
