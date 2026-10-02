@@ -5030,3 +5030,13 @@ Emersi dalla revisione finale del branch, non bloccanti. Da fare in un giro dedi
   Usi nel codice: campo `aggregator_id_fk` su utenza (DTO create/update/search), filtro e colonna nella tabella utenze, select "ID Aggregato" nella scheda utenza, pagina anagrafica Aggregati, importatori (`import.service.ts`, `data-importer.service.ts`).
 
   Passi: verificare per ogni aggregato che l'informazione sia davvero ricavabile altrove (es. utenze "SPRAR" ↔ capitolo SPRAR, utenze "fontane" ↔ impianto fontana collegato); trasferire quel che manca (es. collegare l'utenza all'impianto o all'immobile giusto) prima di cancellare; poi rimuovere colonna, filtro, select, pagina e tabella con una migration. Valutare se il filtro "per categoria" in tabella utenze vada sostituito da un filtro per tipologia/funzione dell'immobile o tipo d'impianto collegato.
+- [ ] **Costi a carico di (`costs_borne_by`): da derivare, non da scegliere.** Oggi è un'anagrafica libera (obbligatoria sull'utenza) con 7 valori: "comune" (471), "COMUNE C/O ENGIE" (129), "concessionario" (48), "azienda speciale" (7), "GUARDIA COSTIERA" (6), "asl" (2), "Di Baldassarre Clara. Il Comune rimborsa" (1).
+
+  Regola dell'utente: le opzioni sono due. **Paga il Comune**, oppure **paga il soggetto terzo** quando l'utenza è collegata a un immobile con un contratto immobiliare attivo che gli assegna le utenze. Gli impianti sono tutti del Comune, non gestiti da terzi (da confermare): un'utenza collegata solo a impianti la paga il Comune.
+  - "COMUNE C/O ENGIE" = paga il Comune tramite il contratto di gestione calore: l'informazione va sul contratto di fornitura, non qui.
+  - "concessionario" / "azienda speciale" / "GUARDIA COSTIERA" / "asl" = il soggetto del contratto immobiliare dell'immobile (vedi Soggetti terzi).
+  - "…Il Comune rimborsa" = caso misto: paga il soggetto, il Comune rimborsa. Decidere se serve un terzo stato o una nota.
+
+  Il contratto immobiliare ha già `utilities_to_be_taken_over` ("Utenze da volturare"): candidato a diventare il flag "le utenze di questo immobile le paga il soggetto". Il pagatore dell'utenza si mostrerebbe calcolato (badge in scheda utenza: "A carico del Comune" / "A carico di <soggetto> (contratto #…)"), con un'eventuale eccezione manuale.
+
+  Passi: verificare la regola sui dati (utenze "concessionario" ↔ immobili con contratto attivo; utenze "comune" collegate a immobili con contratto attivo = incoerenze da mostrare all'utente); decidere i casi misti; sostituire select e anagrafica con il valore calcolato; migration che rimuove `costs_borne_by_id_fk` dopo il controllo.
