@@ -1,32 +1,38 @@
-import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
-import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
+import {ChangeDetectionStrategy, Component, inject, OnInit, QueryList, ViewChild, ViewChildren} from '@angular/core';
+import {AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, ValidationErrors} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
-import {MatSelectModule, MatSelectChange} from '@angular/material/select';
+import {MatSelectChange, MatSelectModule} from '@angular/material/select';
 import {MatDatepickerModule} from '@angular/material/datepicker';
 import {MatButtonModule} from '@angular/material/button';
 import {MatCheckboxModule} from '@angular/material/checkbox';
-import {MatTabsModule} from '@angular/material/tabs';
+import {MatTab, MatTabGroup, MatTabsModule} from '@angular/material/tabs';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
-import {FormsModule} from '@angular/forms';
-import {Utility} from '../utilities/entity/utility.entity';
-import {AbstractControl, ValidationErrors} from '@angular/forms';
 import {plainToInstance} from 'class-transformer';
+import {Utility} from '../utilities/entity/utility.entity';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {Contract} from './entity/contract.entity';
 import {AuthService} from '../../services/auth.service';
-import {HasRoleDirective} from '../../core/directives/has-role.directive';
-import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {TOption} from '../../core/types/option.interface';
 import {SuppliersService} from '../suppliers/suppliers.service';
 import {ConsipAgreementService} from '../consip-agreement/consip-agreement.service';
 import {UtilityService} from '../utilities/utility.service';
 import {ConsipAgreement} from '../consip-agreement/entity/consip-agreement.entity';
+import {HardTypeColor, HardTypeMatIcon} from '../utility-types/enum/hard-type.enum';
+import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
+import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
+import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
+import {PreviewCardComponent, PreviewItem} from '../../core/components/entity-sheet/preview-card.component';
+import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components/entity-sheet/linked-table.component';
+import {ValidityBarComponent} from '../../core/components/entity-sheet/validity-bar.component';
+import {StatusInfo, supplyContractFlags, supplyContractStatus, utilityStatus} from '../../core/helpers/entity-status';
+import {isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
+import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 
-/** Precompila l'associazione utenze quando aperto dal dettaglio Utenza (Task 13, "+ Nuovo contratto"). */
+/** Precompila l'associazione utenze quando aperto dal dettaglio Utenza ("Nuovo contratto"). */
 export interface ContractDialogExtra {
   preselectedUtilityIds?: number[];
 }
@@ -43,9 +49,10 @@ function cigRequiredUnlessExempt(group: AbstractControl): ValidationErrors | nul
   selector: 'app-contract-edit-dialog',
   standalone: true,
   imports: [
-    ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
+    ReactiveFormsModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatDatepickerModule, MatButtonModule, MatCheckboxModule, MatTabsModule, MatIconModule, MatTooltipModule,
-    FormsModule, HasRoleDirective, ReadOnlyDirective, FilterableSelectComponent
+    FilterableSelectComponent, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, PreviewCardComponent,
+    LinkedTableComponent, ValidityBarComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './contract-edit-dialog.component.html'
@@ -57,20 +64,38 @@ export class ContractEditDialogComponent implements OnInit {
   private suppliersService = inject(SuppliersService);
   private consipService = inject(ConsipAgreementService);
   private utilityService = inject(UtilityService);
+  private navigator = inject(EntityNavigatorService);
   protected data = inject<EditDialogData<Contract> & ContractDialogExtra>(MAT_DIALOG_DATA);
 
+  @ViewChild(MatTabGroup) tabGroup?: MatTabGroup;
+  @ViewChildren(MatTab) tabList?: QueryList<MatTab>;
+
   isNew = this.data.mode === 'create';
+  readonly canEdit = isEditorRole(this.authService.getCurrentUser()?.role);
+  readonly lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
 
   supplierOptions: TOption[] = [];
   consipAgreementOptions: ConsipAgreement[] = [];
-  // Tutte le utenze (per la tab Utenze): quelle collegate sono
-  // form.utility_ids, le altre sono candidate da aggiungere.
+  // Tutte le utenze: quelle collegate sono form.utility_ids.
   private allUtilities: Utility[] = [];
+  utilityOptions: TOption[] = [];
   utilityFilter = '';
-  utilityToAdd: number | null = null;
-  // Calcolate solo al cambio dei collegamenti: una lista nuova a ogni change
-  // detection azzererebbe il filtro del FilterableSelect mentre si digita.
-  candidateOptions: TOption[] = [];
+  // Campi cache (vedi LinkedTableComponent): aggiornati solo su evento.
+  linkedRows: Utility[] = [];
+  filteredRows: Utility[] = [];
+  utilityPreview: PreviewItem[] = [];
+
+  readonly utilityColumns: LinkedColumn<Utility>[] = [
+    {label: 'POD/PDR', value: u => u.utility_id},
+    {label: 'Tipo', value: u => u.utilityType?.name ?? ''},
+    {label: 'Matricola', value: u => u.meter_number ?? ''},
+    {label: 'Immobili', value: u => this.assetNames(u)},
+  ];
+  readonly utilityIconOf = (u: Utility): RowIcon | null => {
+    const t = u.utilityType?.hard_type;
+    return t ? {icon: HardTypeMatIcon[t], color: HardTypeColor[t]} : null;
+  };
+  readonly utilityStatusOf = (u: Utility): StatusInfo => utilityStatus(u.supply_active);
 
   private toDate(v: unknown): Date | null {
     return v ? new Date(v as string) : null;
@@ -94,13 +119,13 @@ export class ContractEditDialogComponent implements OnInit {
   }, {validators: cigRequiredUnlessExempt});
 
   constructor() {
-    const role = this.authService.getCurrentUser()?.role;
-    if (!role || role === 'Lettore') {
+    if (!this.canEdit) {
       this.form.disable();
     }
   }
 
   ngOnInit(): void {
+    this.refreshLinks();
     this.suppliersService.search({deleted: false}).subscribe({
       next: data => this.supplierOptions = data
         .map(s => ({label: s.supplier_id, value: s.id}))
@@ -111,13 +136,79 @@ export class ContractEditDialogComponent implements OnInit {
       next: data => this.consipAgreementOptions = data.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '')),
       error: err => console.error('Errore nel caricamento delle convenzioni CONSIP:', err)
     });
+    this.loadUtilities();
+  }
+
+  private loadUtilities(): void {
     this.utilityService.search({deleted: false}).subscribe({
       next: data => {
         this.allUtilities = data.sort((a, b) => a.utility_id.localeCompare(b.utility_id));
-        this.refreshCandidates();
+        this.utilityOptions = this.allUtilities.map(u => ({
+          label: u.utility_id,
+          value: u.id,
+          sublabel: [u.utilityType?.name, u.meter_number ? `matr. ${u.meter_number}` : null, this.assetNames(u)]
+            .filter(Boolean).join(' · '),
+          searchText: `${u.utility_id} ${u.meter_number ?? ''} ${this.assetNames(u)}`,
+        }));
+        this.refreshLinks();
       },
       error: err => console.error('Errore nel caricamento delle utenze:', err)
     });
+  }
+
+  private get linkedIds(): number[] {
+    return this.form.controls.utility_ids.value ?? [];
+  }
+
+  // Finché l'elenco completo non arriva si usano le utenze già presenti sul
+  // contratto, così conteggio e tabella non partono vuoti.
+  refreshLinks(): void {
+    this.linkedRows = this.linkedIds
+      .map(id => this.allUtilities.find(u => u.id === id) ?? this.data.item.utilities?.find(u => u.id === id))
+      .filter((u): u is Utility => !!u);
+    this.utilityPreview = this.linkedRows.map(u => {
+      const t = u.utilityType?.hard_type;
+      return {
+        id: u.id, label: u.utility_id, sublabel: [u.utilityType?.name, this.assetNames(u)].filter(Boolean).join(' · '),
+        icon: t ? HardTypeMatIcon[t] : 'electric_meter', color: t ? HardTypeColor[t] : 'var(--entity-utility)',
+        status: utilityStatus(u.supply_active),
+      };
+    });
+    this.applyFilter();
+  }
+
+  applyFilter(): void {
+    const term = this.utilityFilter.trim().toLowerCase();
+    this.filteredRows = !term ? this.linkedRows : this.linkedRows
+      .filter(u => [u.utility_id, u.meter_number, u.utilityType?.name, this.assetNames(u)]
+        .some(v => (v ?? '').toLowerCase().includes(term)));
+  }
+
+  assetNames(u: Utility): string {
+    return (u.assets ?? []).map(a => a.asset_name).join(', ');
+  }
+
+  // Header
+  titleText(): string {
+    if (this.isNew) return 'Nuovo contratto di fornitura';
+    return this.form.controls.cig_contract.value || 'CIG non specificato';
+  }
+
+  supplierName(): string {
+    const id = this.form.controls.supplier_id_fk.value;
+    return this.supplierOptions.find(o => o.value === id)?.label ?? this.data.item.supplier?.supplier_id ?? '';
+  }
+
+  statusInfo(): StatusInfo {
+    return supplyContractStatus(this.form.getRawValue());
+  }
+
+  flags(): StatusInfo[] {
+    return supplyContractFlags(this.form.getRawValue());
+  }
+
+  goTo(label: string): void {
+    selectTab(this.tabGroup, this.tabList, label);
   }
 
   onConsipAgreementChange(event: MatSelectChange): void {
@@ -130,57 +221,32 @@ export class ContractEditDialogComponent implements OnInit {
     }
   }
 
-  private get linkedIds(): number[] {
-    return this.form.controls.utility_ids.value ?? [];
-  }
-
-  get linkedCount(): number {
-    return this.linkedIds.length;
-  }
-
-  linkedUtilities(): Utility[] {
-    const ids = new Set(this.linkedIds);
-    const term = this.utilityFilter.trim().toLowerCase();
-    return this.allUtilities
-      .filter(u => ids.has(u.id))
-      .filter(u => !term || [u.utility_id, u.meter_number, u.utilityType?.name, this.assetNames(u)]
-        .some(v => (v ?? '').toLowerCase().includes(term)));
-  }
-
-  // Opzioni per aggiungere: solo utenze non ancora collegate.
-  private refreshCandidates(): void {
-    const ids = new Set(this.linkedIds);
-    this.candidateOptions = this.allUtilities
-      .filter(u => !ids.has(u.id))
-      .map(u => ({
-        label: u.utility_id,
-        value: u.id,
-        sublabel: [u.utilityType?.name, u.meter_number ? `matr. ${u.meter_number}` : null, this.assetNames(u)]
-          .filter(Boolean).join(' · '),
-        searchText: `${u.utility_id} ${u.meter_number ?? ''} ${this.assetNames(u)}`,
-      }));
-  }
-
-  assetNames(u: Utility): string {
-    return (u.assets ?? []).map(a => a.asset_name).join(', ');
-  }
-
-  addUtility(): void {
-    if (this.utilityToAdd === null) return;
-    this.form.controls.utility_ids.setValue([...this.linkedIds, this.utilityToAdd]);
+  // Con il filtro attivo il picker esclude solo le righe visibili: un'utenza
+  // già collegata ma nascosta dal filtro potrebbe essere riproposta.
+  addUtility(id: number): void {
+    if (this.linkedIds.includes(id)) return;
+    this.form.controls.utility_ids.setValue([...this.linkedIds, id]);
     this.form.markAsDirty();
-    this.utilityToAdd = null;
-    this.refreshCandidates();
+    this.refreshLinks();
   }
 
   removeUtility(id: number): void {
     this.form.controls.utility_ids.setValue(this.linkedIds.filter(x => x !== id));
     this.form.markAsDirty();
-    this.refreshCandidates();
+    this.refreshLinks();
+  }
+
+  openUtility(id: number): void {
+    this.navigator.openUtility(id).subscribe(saved => {
+      if (saved) this.loadUtilities();
+    });
   }
 
   save(): void {
-    if (!this.form.valid) return;
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
     const result = plainToInstance(Contract, {
       id: this.data.item.id,
       ...this.form.getRawValue()

@@ -1,36 +1,46 @@
-<h2 mat-dialog-title>{{ isNew ? 'Aggiungi Contratto' : 'Modifica Contratto: ' + (data.item.cig_contract || 'CIG non specificato') }}</h2>
+<app-entity-sheet
+  icon="description"
+  color="var(--entity-supply-contract)"
+  [title]="titleText()"
+  [subtitle]="supplierName()"
+  [lastModified]="lastModified">
+  <ng-container sheetBadges>
+    <app-status-badge [info]="statusInfo()"></app-status-badge>
+    @for (f of flags(); track f.label) {
+      <app-status-badge [info]="f" size="sm"></app-status-badge>
+    }
+  </ng-container>
 
-<mat-dialog-content>
-  <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start">
-    <mat-tab label="Dati">
-        <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem; padding-top: 1rem;">
+  <form [formGroup]="form">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
 
-          @if (form.hasError('cigRequired')) {
-            <div style="flex: 1 1 100%; background: #fef2f2; color: #991b1b; border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.875rem;">
-              Contratto senza CIG: senza CIG il contratto è considerato inesistente. Inserisci il CIG oppure marca il contratto come escluso.
-            </div>
-          }
+      <mat-tab aria-label="Riepilogo">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="dashboard" label="Riepilogo" [error]="form.hasError('cigRequired') && form.touched"></app-tab-label>
+        </ng-template>
 
-          <mat-form-field style="flex: 1 1 45%;">
+        @if (form.hasError('cigRequired')) {
+          <div class="sheet-alert tone-danger">
+            Contratto senza CIG: senza CIG il contratto è considerato inesistente. Inserisci il CIG oppure marca il contratto come escluso.
+          </div>
+        }
+
+        <div class="sheet-grid">
+          <mat-form-field class="span-2">
             <mat-label>CIG{{ form.controls.cig_exempt.value ? '' : ' *' }}</mat-label>
             <input matInput formControlName="cig_contract">
           </mat-form-field>
-
-          <div style="flex: 1 1 45%; display: flex; align-items: center;">
-            <mat-checkbox formControlName="cig_exempt">Contratto escluso da CIG (es. servizio in house)</mat-checkbox>
-            <mat-checkbox formControlName="closed" style="margin-left: 1rem;" matTooltip="Chiuso/scaduto: non è mai il contratto corrente delle utenze, anche senza date">Contratto chiuso</mat-checkbox>
+          <mat-checkbox formControlName="cig_exempt" style="align-self: center;">Escluso da CIG (es. in house)</mat-checkbox>
+          <mat-checkbox formControlName="closed" style="align-self: center;"
+                        matTooltip="Chiuso/scaduto: non è mai il contratto corrente delle utenze, anche senza date">Contratto chiuso</mat-checkbox>
+          <div class="span-2">
+            <app-filterable-select label="Fornitore" placeholder="Cerca fornitore..." [options]="supplierOptions" formControlName="supplier_id_fk"></app-filterable-select>
           </div>
-
-          <mat-form-field style="flex: 1 1 45%;">
+          <mat-form-field class="span-2">
             <mat-label>Numero Ordine</mat-label>
             <input matInput formControlName="order_number">
           </mat-form-field>
-
-          <div style="flex: 1 1 45%;">
-            <app-filterable-select label="Fornitore" placeholder="Cerca fornitore..." [options]="supplierOptions" formControlName="supplier_id_fk"></app-filterable-select>
-          </div>
-
-          <mat-form-field style="flex: 1 1 45%;">
+          <mat-form-field class="span-2">
             <mat-label>Convenzione CONSIP</mat-label>
             <mat-select formControlName="consip_agreement_id" (selectionChange)="onConsipAgreementChange($event)">
               <mat-option [value]="null">Nessuna</mat-option>
@@ -39,106 +49,78 @@
               }
             </mat-select>
           </mat-form-field>
-
-          <mat-form-field style="flex: 1 1 45%;">
+          <mat-form-field class="span-2">
             <mat-label>Ordine CONSIP</mat-label>
             <input matInput formControlName="consip_order">
           </mat-form-field>
+        </div>
 
-          <mat-form-field style="flex: 1 1 45%;">
+        <div class="sheet-section-title"><mat-icon>date_range</mat-icon>Durata</div>
+        <app-validity-bar [start]="form.controls.supply_start_date.value" [end]="form.controls.supply_expiry_date.value"></app-validity-bar>
+        <div class="sheet-grid" style="margin-top: 12px;">
+          <mat-form-field>
             <mat-label>Decorrenza Fornitura</mat-label>
             <input matInput [matDatepicker]="startPicker" formControlName="supply_start_date">
             <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
             <mat-datepicker #startPicker></mat-datepicker>
           </mat-form-field>
-
-          <mat-form-field style="flex: 1 1 45%;">
+          <mat-form-field>
             <mat-label>Scadenza Fornitura</mat-label>
             <input matInput [matDatepicker]="expiryPicker" formControlName="supply_expiry_date">
             <mat-datepicker-toggle matIconSuffix [for]="expiryPicker"></mat-datepicker-toggle>
             <mat-datepicker #expiryPicker></mat-datepicker>
           </mat-form-field>
-
-          <mat-form-field style="flex: 1 1 45%;">
+          <mat-form-field>
             <mat-label>Scadenza Gestione</mat-label>
             <input matInput [matDatepicker]="managementPicker" formControlName="management_expiry_date">
             <mat-datepicker-toggle matIconSuffix [for]="managementPicker"></mat-datepicker-toggle>
             <mat-datepicker #managementPicker></mat-datepicker>
           </mat-form-field>
-
-          <mat-form-field style="flex: 1 1 45%;">
+          <mat-form-field>
             <mat-label>Data Voltura/Cessazione</mat-label>
             <input matInput [matDatepicker]="takeoverPicker" formControlName="takeover_termination_date">
             <mat-datepicker-toggle matIconSuffix [for]="takeoverPicker"></mat-datepicker-toggle>
             <mat-datepicker #takeoverPicker></mat-datepicker>
           </mat-form-field>
-
-
-        </form>
-    </mat-tab>
-
-    <mat-tab>
-      <ng-template mat-tab-label>
-        <mat-icon style="margin-right: 5px;">electric_meter</mat-icon>
-        Utenze ({{ linkedCount }})
-      </ng-template>
-      <div style="display: flex; flex-direction: column; gap: 0.75rem; padding-top: 1rem;">
-        <div style="display: flex; gap: 0.75rem; align-items: flex-start;" [appHasRole]="['Admin','Operatore']">
-          <div style="flex: 1 1 auto;">
-            <app-filterable-select label="Aggiungi utenza" placeholder="Cerca per codice, matricola o immobile..."
-                                   [options]="candidateOptions" [(ngModel)]="utilityToAdd"></app-filterable-select>
-          </div>
-          <button mat-flat-button type="button" style="margin-top: 0.5rem;" [disabled]="utilityToAdd === null" (click)="addUtility()">
-            <mat-icon>add</mat-icon> Aggiungi
-          </button>
         </div>
 
-        <mat-form-field subscriptSizing="dynamic">
+        <div class="sheet-previews">
+          <app-preview-card title="Utenze" icon="electric_meter" color="var(--entity-utility)"
+                            [items]="utilityPreview" emptyText="Nessuna utenza collegata"
+                            (seeAll)="goTo('Utenze')" (open)="openUtility($event.id)"></app-preview-card>
+        </div>
+      </mat-tab>
+
+      <mat-tab aria-label="Utenze">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="electric_meter" label="Utenze" [count]="linkedRows.length"></app-tab-label>
+        </ng-template>
+        <mat-form-field subscriptSizing="dynamic" style="width: 100%;">
           <mat-label>Filtra utenze collegate</mat-label>
-          <input matInput [(ngModel)]="utilityFilter" placeholder="Codice, matricola, tipo, immobile">
+          <input matInput [(ngModel)]="utilityFilter" [ngModelOptions]="{standalone: true}" (ngModelChange)="applyFilter()"
+                 placeholder="Codice, matricola, tipo, immobile">
         </mat-form-field>
+        <app-linked-table
+          [columns]="utilityColumns"
+          [rows]="filteredRows"
+          [rowIcon]="utilityIconOf"
+          [rowStatus]="utilityStatusOf"
+          [addOptions]="canEdit ? utilityOptions : null"
+          addLabel="Collega utenza"
+          [unlinkable]="canEdit"
+          emptyText="Nessuna utenza collegata."
+          (add)="addUtility($event)"
+          (unlink)="removeUtility($event)"
+          (open)="openUtility($event.id)">
+        </app-linked-table>
+      </mat-tab>
+    </mat-tab-group>
+  </form>
 
-        <div style="max-height: 50vh; overflow-y: auto;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
-            <thead>
-              <tr style="text-align: left; border-bottom: 1px solid #e5e7eb;">
-                <th style="padding: 6px;">Codice</th>
-                <th style="padding: 6px;">Tipo</th>
-                <th style="padding: 6px;">Matricola</th>
-                <th style="padding: 6px;">Immobili</th>
-                <th style="padding: 6px;">Attiva</th>
-                <th style="padding: 6px;"></th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (u of linkedUtilities(); track u.id) {
-                <tr style="border-bottom: 1px solid #f3f4f6;">
-                  <td style="padding: 6px;">{{ u.utility_id }}</td>
-                  <td style="padding: 6px;">{{ u.utilityType?.name }}</td>
-                  <td style="padding: 6px;">{{ u.meter_number }}</td>
-                  <td style="padding: 6px;">{{ assetNames(u) }}</td>
-                  <td style="padding: 6px;">{{ u.supply_active ? 'Sì' : 'No' }}</td>
-                  <td style="padding: 6px; text-align: right;">
-                    <button mat-icon-button type="button" (click)="removeUtility(u.id)" [appHasRole]="['Admin','Operatore']" matTooltip="Scollega dal contratto">
-                      <mat-icon>link_off</mat-icon>
-                    </button>
-                  </td>
-                </tr>
-              } @empty {
-                <tr><td colspan="6" style="padding: 1rem; text-align: center; color: #6b7280;">Nessuna utenza collegata.</td></tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </mat-tab>
-
-  </mat-tab-group>
-</mat-dialog-content>
-
-<mat-dialog-actions align="end">
-  <button mat-stroked-button (click)="cancel()">Annulla</button>
-  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">
-    {{ isNew ? 'Crea Contratto' : 'Salva Contratto' }}
-  </button>
-</mat-dialog-actions>
+  <ng-container sheetActions>
+    <button mat-stroked-button type="button" (click)="cancel()">{{ canEdit ? 'Annulla' : 'Chiudi' }}</button>
+    @if (canEdit) {
+      <button mat-flat-button type="button" (click)="save()">{{ isNew ? 'Crea contratto' : 'Salva contratto' }}</button>
+    }
+  </ng-container>
+</app-entity-sheet>
