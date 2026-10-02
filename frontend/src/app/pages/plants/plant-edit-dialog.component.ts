@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, inject, OnInit} from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, OnInit, QueryList, ViewChild, ViewChildren} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {HttpErrorResponse} from '@angular/common/http';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
@@ -8,20 +8,24 @@ import {MatSelectModule} from '@angular/material/select';
 import {MatCheckboxModule} from '@angular/material/checkbox';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
-import {MatTabsModule} from '@angular/material/tabs';
+import {MatTab, MatTabGroup, MatTabsModule} from '@angular/material/tabs';
 import {MatDatepickerModule} from '@angular/material/datepicker';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
-import {MultiSelectComponent} from '../../core/components/multi-select.component';
 import {LocationMapComponent} from '../../core/components/location-map.component';
 import {PhotoGalleryComponent} from '../../core/components/photo-gallery.component';
 import {EntityHistoryComponent} from '../../core/components/entity-history.component';
 import {TOption} from '../../core/types/option.interface';
 import {AssetService} from '../assets/asset.service';
+import {Asset} from '../assets/entity/asset.entity';
 import {UtilityService} from '../utilities/utility.service';
+import {Utility} from '../utilities/entity/utility.entity';
+import {HardTypeColor, HardTypeMatIcon} from '../utility-types/enum/hard-type.enum';
 import {toIsoDate} from '../utilities/consumptions/consumption.model';
 import {PlantService} from './plant.service';
 import {
   certificationStatus,
+  inspectionStatusOf,
+  missingCertifications,
   Plant,
   PLANT_STATUS_LABEL,
   PLANT_TYPE_ICON,
@@ -30,13 +34,28 @@ import {
   PlantElevatorData,
   PlantPayload,
   PlantStatus,
+  PlantTab,
+  plantTabs,
   PlantThermalData,
   PlantType,
-  POSITION_LABEL,
-  positionBadge,
 } from './plant.model';
 import {PlantInspectionsTabComponent} from './plant-inspections-tab.component';
 import {PlantFireEquipmentTabComponent} from './plant-fire-equipment-tab.component';
+import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
+import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
+import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
+import {PreviewCardComponent, PreviewItem} from '../../core/components/entity-sheet/preview-card.component';
+import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components/entity-sheet/linked-table.component';
+import {
+  assetStatus,
+  inspectionStatusInfo,
+  plantStatus,
+  positionStatusInfo,
+  StatusInfo,
+  utilityStatus,
+} from '../../core/helpers/entity-status';
+import {dateIt, hasInvalid, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
+import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 
 export interface PlantEditDialogData {
   // null = nuovo impianto.
@@ -60,324 +79,73 @@ const toDate = (iso?: string | null): Date | null => {
   return new Date(y, m - 1, d);
 };
 
-// Dialog impianto: salva da sé (come il vecchio dialog impianti termici) e
-// chiude con true se qualcosa è stato salvato. Dopo la creazione resta aperto
-// in modifica, così si possono aggiungere subito verifiche, presidi e foto.
+// Dialog impianto: salva da sé e chiude con true se qualcosa è stato
+// salvato. Dopo la creazione resta aperto in modifica, così si possono
+// aggiungere subito verifiche, presidi e foto.
 @Component({
   selector: 'app-plant-edit-dialog',
   standalone: true,
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatCheckboxModule, MatButtonModule, MatIconModule, MatTabsModule, MatDatepickerModule, MatProgressBarModule,
-    MultiSelectComponent, LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
-    PlantInspectionsTabComponent, PlantFireEquipmentTabComponent],
+    LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
+    PlantInspectionsTabComponent, PlantFireEquipmentTabComponent,
+    EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, PreviewCardComponent, LinkedTableComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
-  template: `
-    <h2 mat-dialog-title>{{ title() }}</h2>
-    <mat-dialog-content>
-      @if (loading) {
-        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-      }
-      <form [formGroup]="form">
-        <mat-tab-group animationDuration="0ms" [mat-stretch-tabs]="false">
-          <mat-tab label="Dati">
-            <div style="display: flex; flex-direction: column; gap: 0.75rem; padding-top: 1rem;">
-              <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-                <mat-form-field style="flex: 1 1 240px;">
-                  <mat-label>Tipo *</mat-label>
-                  <mat-select formControlName="type">
-                    <mat-select-trigger>{{ typeLabel[currentType()] }}</mat-select-trigger>
-                    @for (t of types; track t) {
-                      <mat-option [value]="t"><span><mat-icon style="vertical-align: middle; margin-right: 6px;">{{ typeIcon[t] }}</mat-icon>{{ typeLabel[t] }}</span></mat-option>
-                    }
-                  </mat-select>
-                  @if (typeLocked()) {
-                    <mat-hint>Tipo bloccato: ci sono presidi antincendio</mat-hint>
-                  }
-                </mat-form-field>
-                <mat-form-field style="flex: 1 1 160px;">
-                  <mat-label>Codice *</mat-label>
-                  <input matInput formControlName="code" placeholder="es. fon_17">
-                </mat-form-field>
-                <mat-form-field style="flex: 2 1 280px;">
-                  <mat-label>Nome *</mat-label>
-                  <input matInput formControlName="name">
-                </mat-form-field>
-                <mat-form-field style="flex: 1 1 160px;">
-                  <mat-label>Stato</mat-label>
-                  <mat-select formControlName="status">
-                    @for (s of statuses; track s) {
-                      <mat-option [value]="s">{{ statusLabel[s] }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
-              </div>
-              <app-multi-select
-                label="Immobili collegati"
-                placeholder="Nessuno (es. fontana in piazza)"
-                [options]="assetOptions"
-                formControlName="asset_ids">
-              </app-multi-select>
-              <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-                <mat-form-field style="flex: 1 1 160px;">
-                  <mat-label>Toponimo</mat-label>
-                  <input matInput formControlName="toponym" placeholder="es. Via, Piazza">
-                </mat-form-field>
-                <mat-form-field style="flex: 3 1 300px;">
-                  <mat-label>Indirizzo</mat-label>
-                  <input matInput formControlName="address">
-                </mat-form-field>
-                <mat-form-field style="flex: 0 1 120px;">
-                  <mat-label>Civico</mat-label>
-                  <input matInput formControlName="civic_number">
-                </mat-form-field>
-              </div>
-              <div style="display: flex; align-items: center; gap: 0.5rem;">
-                <strong>Posizione</strong>
-                @if (plant) {
-                  @let pb = posBadge();
-                  <span [style.background]="pb.bg" [style.color]="pb.fg"
-                        style="border-radius: 10px; padding: 1px 8px; font-size: 0.75rem;">{{ positionLabel[plant.position_quality] }}</span>
-                }
-              </div>
-              <app-location-map
-                [latitude]="form.controls.latitude.value"
-                [longitude]="form.controls.longitude.value"
-                [estimatedLatitude]="estimated()?.lat ?? null"
-                [estimatedLongitude]="estimated()?.lng ?? null"
-                [previewOnly]="data.readOnly"
-                (positionSelected)="onPositionSelected($event)"
-                (positionCleared)="onPositionCleared()">
-              </app-location-map>
-              @if (!form.controls.latitude.value && estimated()) {
-                <div style="font-size: 0.8rem; color: #757575;">
-                  {{ plant?.position_quality === 'FROM_ASSET' ? "Posizione dell'immobile collegato" : 'Posizione stimata da indirizzo (geocodifica)' }}
-                  — clicca sulla mappa per fissarne una propria.
-                </div>
-              }
-              <mat-form-field>
-                <mat-label>Note</mat-label>
-                <textarea matInput rows="2" formControlName="notes"></textarea>
-              </mat-form-field>
-            </div>
-          </mat-tab>
-
-          @if (currentType() === 'THERMAL' || currentType() === 'ELEVATOR') {
-            <mat-tab label="Dati tecnici">
-              <div style="display: flex; flex-direction: column; gap: 1rem; padding-top: 1rem;">
-                @if (currentType() === 'THERMAL') {
-                  <div formGroupName="thermal" style="display: flex; flex-direction: column; gap: 1rem;">
-                    <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
-                      <legend style="padding: 0 0.5rem; font-weight: 600;">Centrale termica</legend>
-                      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-                        <mat-form-field style="flex: 1 1 150px;">
-                          <mat-label>Potenza totale (kW)</mat-label>
-                          <input matInput type="number" min="0" step="0.01" formControlName="power_kw">
-                          <mat-hint>Somma dei generatori</mat-hint>
-                        </mat-form-field>
-                        <mat-form-field style="flex: 1 1 150px;">
-                          <mat-label>Generatori</mat-label>
-                          <input matInput formControlName="generators_description" placeholder="es. 160+80">
-                        </mat-form-field>
-                        <mat-form-field style="flex: 1 1 150px;">
-                          <mat-label>Mq serviti</mat-label>
-                          <input matInput type="number" min="0" step="0.01" formControlName="served_area_sqm">
-                        </mat-form-field>
-                        <mat-form-field style="flex: 1 1 150px;">
-                          <mat-label>Locale idrico</mat-label>
-                          <mat-select formControlName="water_room">
-                            <mat-option [value]="null">Non indicato</mat-option>
-                            <mat-option [value]="true">Sì</mat-option>
-                            <mat-option [value]="false">No</mat-option>
-                          </mat-select>
-                        </mat-form-field>
-                      </div>
-                      <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
-                        <mat-form-field style="flex: 1 1 280px;">
-                          <mat-label>Certificazione VVF</mat-label>
-                          <input matInput formControlName="vvf_certification" placeholder="es. pratica nr. ...">
-                          <mat-hint>Obbligatoria oltre 116 kW</mat-hint>
-                        </mat-form-field>
-                        <mat-checkbox formControlName="vvf_exempt">Esente VVF</mat-checkbox>
-                      </div>
-                      <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
-                        <mat-form-field style="flex: 1 1 280px;">
-                          <mat-label>Certificazione INAIL</mat-label>
-                          <input matInput formControlName="inail_certification" placeholder="es. pratica nr. ...">
-                          <mat-hint>Obbligatoria oltre 35 kW</mat-hint>
-                        </mat-form-field>
-                        <mat-checkbox formControlName="inail_exempt">Esente INAIL</mat-checkbox>
-                      </div>
-                    </fieldset>
-                    @if (plant?.obligations; as o) {
-                      @let vvf = cert(o.vvf_required, !!plant?.thermal?.vvf_exempt, plant?.thermal?.vvf_certification ?? null);
-                      @let inail = cert(o.inail_required, !!plant?.thermal?.inail_exempt, plant?.thermal?.inail_certification ?? null);
-                      <div style="display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.85rem;">
-                        <span>VVF: <span [style.background]="vvf.bg" [style.color]="vvf.fg" style="border-radius: 10px; padding: 1px 8px;">{{ vvf.text }}</span></span>
-                        <span>INAIL: <span [style.background]="inail.bg" [style.color]="inail.fg" style="border-radius: 10px; padding: 1px 8px;">{{ inail.text }}</span></span>
-                        <span>Controllo efficienza: {{ o.efficiency_check_required ? 'obbligatorio (≥ 10 kW)' : 'non richiesto' }}</span>
-                      </div>
-                    }
-                    <fieldset style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
-                      <legend style="padding: 0 0.5rem; font-weight: 600;">Climatizzazione</legend>
-                      <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
-                        @for (f of countFields; track f.key) {
-                          <mat-form-field style="flex: 1 1 160px;">
-                            <mat-label>{{ f.label }}</mat-label>
-                            <input matInput type="number" min="0" step="1" [formControlName]="f.key">
-                          </mat-form-field>
-                        }
-                      </div>
-                    </fieldset>
-                    <p style="color: #6b7280; font-size: 0.75rem; margin: 0;">
-                      Obblighi indicativi calcolati dalla potenza: controllo di efficienza da 10 kW (DPR 74/2013), INAIL oltre 35 kW, VVF oltre 116 kW (DPR 151/2011).
-                    </p>
-                  </div>
-                }
-                @if (currentType() === 'ELEVATOR') {
-                  <div formGroupName="elevator" style="display: flex; flex-wrap: wrap; gap: 1rem;">
-                    <mat-form-field style="flex: 1 1 180px;">
-                      <mat-label>Matricola</mat-label>
-                      <input matInput formControlName="serial_number">
-                    </mat-form-field>
-                    <mat-form-field style="flex: 1 1 180px;">
-                      <mat-label>Numero impianto</mat-label>
-                      <input matInput formControlName="plant_number">
-                    </mat-form-field>
-                    <mat-form-field style="flex: 2 1 240px;">
-                      <mat-label>Costruttore</mat-label>
-                      <input matInput formControlName="manufacturer">
-                    </mat-form-field>
-                    <mat-form-field style="flex: 1 1 120px;">
-                      <mat-label>Anno</mat-label>
-                      <input matInput type="number" min="1900" max="2100" step="1" formControlName="year">
-                    </mat-form-field>
-                    <mat-form-field style="flex: 1 1 180px;">
-                      <mat-label>Data collaudo</mat-label>
-                      <input matInput [matDatepicker]="testPicker" formControlName="test_date" placeholder="GG/MM/AAAA">
-                      <mat-datepicker-toggle matIconSuffix [for]="testPicker"></mat-datepicker-toggle>
-                      <mat-datepicker #testPicker></mat-datepicker>
-                    </mat-form-field>
-                    <mat-form-field style="flex: 1 1 200px;">
-                      <mat-label>Tipologia</mat-label>
-                      <input matInput formControlName="elevator_type" placeholder="ascensore, montacarichi, piattaforma">
-                    </mat-form-field>
-                    <mat-form-field style="flex: 1 1 160px;">
-                      <mat-label>Azionamento</mat-label>
-                      <input matInput formControlName="drive" placeholder="elettrico, oleodinamico">
-                    </mat-form-field>
-                    <mat-form-field style="flex: 1 1 120px;">
-                      <mat-label>Portata (kg)</mat-label>
-                      <input matInput type="number" min="0" step="1" formControlName="capacity_kg">
-                    </mat-form-field>
-                    <mat-form-field style="flex: 1 1 100px;">
-                      <mat-label>Fermate</mat-label>
-                      <input matInput type="number" min="0" step="1" formControlName="stops">
-                    </mat-form-field>
-                    <mat-form-field style="flex: 1 1 120px;">
-                      <mat-label>Velocità</mat-label>
-                      <input matInput formControlName="speed" placeholder="es. 0,63 m/s">
-                    </mat-form-field>
-                  </div>
-                }
-              </div>
-            </mat-tab>
-          }
-
-          @if (plant && currentType() === 'FIRE_PROTECTION') {
-            <mat-tab label="Presidi">
-              <app-plant-fire-equipment-tab
-                [plantId]="plant.id"
-                [rows]="plant.fireEquipment"
-                [readOnly]="data.readOnly"
-                (changed)="reloadPlant()">
-              </app-plant-fire-equipment-tab>
-            </mat-tab>
-          }
-
-          @if (plant) {
-            <mat-tab label="Verifiche">
-              <app-plant-inspections-tab
-                [plantId]="plant.id"
-                [plantType]="plant.type"
-                [powerKw]="plant.thermal?.power_kw ?? null"
-                [rows]="plant.inspections"
-                [readOnly]="data.readOnly"
-                (changed)="reloadPlant()">
-              </app-plant-inspections-tab>
-            </mat-tab>
-          }
-
-          <mat-tab label="Utenze">
-            <div style="padding-top: 1rem;">
-              <app-multi-select
-                label="Utenze a servizio dell'impianto"
-                placeholder="Cerca utenza..."
-                [options]="utilityOptions"
-                formControlName="utility_ids">
-              </app-multi-select>
-            </div>
-          </mat-tab>
-
-          @if (plant) {
-            <mat-tab label="Foto">
-              <ng-template matTabContent>
-                <div style="padding-top: 1rem;">
-                  <app-photo-gallery [entityType]="'plant'" [entityId]="plant.id"></app-photo-gallery>
-                </div>
-              </ng-template>
-            </mat-tab>
-            <mat-tab label="Storico">
-              <ng-template matTabContent>
-                <div style="padding-top: 1rem;">
-                  <app-entity-history
-                    [entity]="'plants'"
-                    [entityId]="plant.id"
-                    [lastModifiedBy]="plant.updated_by ? (plant.updated_by.firstName ?? '') + ' ' + (plant.updated_by.lastName ?? '') : null"
-                    [lastModifiedAt]="plant.update_date ?? null">
-                  </app-entity-history>
-                </div>
-              </ng-template>
-            </mat-tab>
-          }
-        </mat-tab-group>
-      </form>
-      @if (error) {
-        <p style="color: #b91c1c; margin: 0.5rem 0 0;">{{ error }}</p>
-      }
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-stroked-button (click)="dialogRef.close(saved)">{{ data.readOnly ? 'Chiudi' : 'Annulla' }}</button>
-      @if (!data.readOnly) {
-        <button mat-flat-button (click)="save()" [disabled]="form.invalid || saving || loading">Salva</button>
-      }
-    </mat-dialog-actions>
-  `,
+  templateUrl: './plant-edit-dialog.component.html',
 })
 export class PlantEditDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
   private service = inject(PlantService);
   private assetService = inject(AssetService);
   private utilityService = inject(UtilityService);
+  private navigator = inject(EntityNavigatorService);
   protected dialogRef = inject(MatDialogRef<PlantEditDialogComponent, boolean>);
   protected data = inject<PlantEditDialogData>(MAT_DIALOG_DATA);
+
+  @ViewChild(MatTabGroup) tabGroup?: MatTabGroup;
+  @ViewChildren(MatTab) tabList?: QueryList<MatTab>;
 
   readonly types = PLANT_TYPES;
   readonly typeLabel = PLANT_TYPE_LABEL;
   readonly typeIcon = PLANT_TYPE_ICON;
   readonly statuses = Object.keys(PLANT_STATUS_LABEL) as PlantStatus[];
   readonly statusLabel = PLANT_STATUS_LABEL;
-  readonly positionLabel = POSITION_LABEL;
   readonly countFields = COUNT_FIELDS;
   readonly cert = certificationStatus;
+  readonly canEdit = !this.data.readOnly;
 
   plant: Plant | null = null;
+  private allAssets: Asset[] = [];
+  private allUtilities: Utility[] = [];
   assetOptions: TOption[] = [];
   utilityOptions: TOption[] = [];
+  assetRows: Asset[] = [];
+  utilityRows: Utility[] = [];
+  assetPreview: PreviewItem[] = [];
+  utilityPreview: PreviewItem[] = [];
+  inspectionPreview: PreviewItem[] = [];
   loading = false;
   saving = false;
   // true se qualcosa è stato salvato (anche verifiche/presidi): la pagina ricarica.
   saved = false;
   error: string | null = null;
+
+  readonly assetColumns: LinkedColumn<Asset>[] = [
+    {label: 'Nome', value: a => a.asset_name ?? ''},
+    {label: 'Indirizzo', value: a => [a.toponym, a.address, a.civic_number].filter(Boolean).join(' ')},
+  ];
+  readonly assetStatusOf = (a: Asset): StatusInfo => assetStatus(a.status);
+
+  readonly utilityColumns: LinkedColumn<Utility>[] = [
+    {label: 'POD/PDR', value: u => u.utility_id ?? `#${u.id}`},
+    {label: 'Tipo uso', value: u => u.utilityType?.name ?? ''},
+    {label: 'Immobili', value: u => (u.assets ?? []).map(a => a.asset_name).join(', ')},
+  ];
+  readonly utilityIconOf = (u: Utility): RowIcon | null => {
+    const t = u.utilityType?.hard_type;
+    return t ? {icon: HardTypeMatIcon[t], color: HardTypeColor[t]} : null;
+  };
+  readonly utilityStatusOf = (u: Utility): StatusInfo => utilityStatus(u.supply_active);
 
   form = this.fb.group({
     type: ['FOUNTAIN' as PlantType, Validators.required],
@@ -423,40 +191,129 @@ export class PlantEditDialogComponent implements OnInit {
 
   ngOnInit(): void {
     if (this.data.readOnly) this.form.disable();
-    this.assetService.search({deleted: false} as never).subscribe({
-      next: assets => this.assetOptions = assets
-        .map(a => ({label: a.asset_name ?? '', value: a.id, sublabel: a.associated_building ?? undefined,
-          searchText: `${a.asset_name ?? ''} ${a.associated_building ?? ''}`}))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-      error: err => console.error('Errore caricamento immobili:', err),
-    });
-    this.utilityService.search({deleted: false}).subscribe({
-      next: utilities => this.utilityOptions = utilities.map(u => ({
-        label: u.utility_id ?? `#${u.id}`,
-        value: u.id,
-        sublabel: u.utilityType?.name ?? undefined,
-        searchText: `${u.utility_id ?? ''} ${u.utility_code ?? ''} ${u.utilityType?.name ?? ''}`,
-      })),
-      error: err => console.error('Errore caricamento utenze:', err),
-    });
+    this.loadAssets();
+    this.loadUtilities();
     if (this.data.plantId) this.load(this.data.plantId);
   }
 
+  private loadAssets(): void {
+    this.assetService.search({deleted: false} as never).subscribe({
+      next: assets => {
+        this.allAssets = assets;
+        this.assetOptions = assets
+          .map(a => ({label: a.asset_name ?? '', value: a.id, sublabel: a.associated_building ?? undefined,
+            searchText: `${a.asset_name ?? ''} ${a.associated_building ?? ''}`}))
+          .sort((a, b) => a.label.localeCompare(b.label));
+        this.refreshLinks();
+      },
+      error: err => console.error('Errore caricamento immobili:', err),
+    });
+  }
+
+  private loadUtilities(): void {
+    this.utilityService.search({deleted: false}).subscribe({
+      next: utilities => {
+        this.allUtilities = utilities;
+        this.utilityOptions = utilities.map(u => ({
+          label: u.utility_id ?? `#${u.id}`,
+          value: u.id,
+          sublabel: u.utilityType?.name ?? undefined,
+          searchText: `${u.utility_id ?? ''} ${u.utility_code ?? ''} ${u.utilityType?.name ?? ''}`,
+        }));
+        this.refreshLinks();
+      },
+      error: err => console.error('Errore caricamento utenze:', err),
+    });
+  }
+
+  refreshLinks(): void {
+    const assetIds = (this.form.controls.asset_ids.value ?? []).map(Number);
+    this.assetRows = assetIds
+      .map(id => this.allAssets.find(a => a.id === id) ?? (this.plant?.assets.find(a => a.id === id) as Asset | undefined))
+      .filter((a): a is Asset => !!a);
+    const utilityIds = (this.form.controls.utility_ids.value ?? []).map(Number);
+    this.utilityRows = utilityIds
+      // Finché l'elenco completo non arriva (centinaia di utenze, qualche
+      // secondo) si usa il dato parziale dell'impianto: il conteggio non
+      // deve mostrare 0 nel frattempo.
+      .map(id => this.allUtilities.find(u => u.id === id) ?? (this.plant?.utilities.find(u => u.id === id) as Utility | undefined))
+      .filter((u): u is Utility => !!u);
+    this.assetPreview = this.assetRows.map(a => ({
+      id: a.id, label: a.asset_name ?? `#${a.id}`, sublabel: a.address ?? undefined,
+      icon: 'apartment', color: 'var(--entity-asset)', status: assetStatus(a.status),
+    }));
+    this.utilityPreview = this.utilityRows.map(u => {
+      const t = u.utilityType?.hard_type;
+      return {
+        id: u.id, label: u.utility_id ?? `#${u.id}`, sublabel: u.utilityType?.name ?? undefined,
+        icon: t ? HardTypeMatIcon[t] : 'electric_meter', color: t ? HardTypeColor[t] : 'var(--entity-utility)',
+        status: utilityStatus(u.supply_active),
+      };
+    });
+    this.inspectionPreview = [...(this.plant?.inspections ?? [])]
+      .sort((a, b) => (a.next_date ?? '9999').localeCompare(b.next_date ?? '9999'))
+      .map(i => ({
+        id: i.id, label: i.kind, sublabel: i.next_date ? `Prossima: ${dateIt(i.next_date)}` : 'Senza scadenza',
+        icon: 'event', color: 'var(--entity-plant)', status: inspectionStatusInfo(inspectionStatusOf(i.next_date)),
+      }));
+  }
+
+  // Header
   title(): string {
     if (!this.plant) return 'Nuovo impianto';
-    return `${PLANT_TYPE_LABEL[this.plant.type]}: ${this.plant.code} — ${this.plant.name}`;
+    return `${this.plant.code} — ${this.plant.name}`;
+  }
+
+  subtitle(): string {
+    const v = this.form.getRawValue();
+    const street = [v.toponym, v.address, v.civic_number].filter(Boolean).join(' ');
+    return [PLANT_TYPE_LABEL[this.currentType()], street].filter(Boolean).join(' · ');
+  }
+
+  lastModified(): string | null {
+    return this.plant ? lastModifiedLabel(this.plant.update_date, this.plant.updated_by) : null;
+  }
+
+  statusInfo(): StatusInfo {
+    return plantStatus(this.form.controls.status.value as PlantStatus);
+  }
+
+  positionInfo(): StatusInfo | null {
+    return this.plant ? positionStatusInfo(this.plant.position_quality) : null;
+  }
+
+  // In header solo verifiche scadute o in scadenza.
+  inspectionFlag(): StatusInfo | null {
+    const info = inspectionStatusInfo(this.plant?.inspection_status);
+    return info && (info.tone === 'danger' || info.tone === 'warn') ? info : null;
   }
 
   currentType(): PlantType {
     return this.form.controls.type.value as PlantType;
   }
 
+  hasTab(tab: PlantTab): boolean {
+    return plantTabs(this.currentType()).includes(tab);
+  }
+
   typeLocked(): boolean {
     return (this.plant?.fireEquipment?.length ?? 0) > 0;
   }
 
-  posBadge(): {bg: string; fg: string} {
-    return positionBadge(this.plant?.position_quality ?? 'MISSING');
+  missingCerts(): string[] {
+    return this.plant ? missingCertifications(this.plant) : [];
+  }
+
+  overdueInspections(): boolean {
+    return this.plant?.inspection_status === 'OVERDUE';
+  }
+
+  invalid(...names: string[]): boolean {
+    return hasInvalid(this.form, ...names);
+  }
+
+  goTo(label: string): void {
+    selectTab(this.tabGroup, this.tabList, label);
   }
 
   // Posizione mostrata quando l'impianto non ha coordinate proprie.
@@ -475,6 +332,55 @@ export class PlantEditDialogComponent implements OnInit {
     this.form.markAsDirty();
   }
 
+  // Collegamenti (form control → salvati con "Salva")
+  private setIds(control: 'asset_ids' | 'utility_ids', ids: number[]): void {
+    const c = this.form.controls[control];
+    c.setValue(ids);
+    c.markAsDirty();
+    c.markAsTouched();
+    this.refreshLinks();
+  }
+
+  addAsset(id: number): void {
+    this.setIds('asset_ids', [...(this.form.controls.asset_ids.value ?? []).map(Number), id]);
+  }
+
+  unlinkAsset(id: number): void {
+    this.setIds('asset_ids', (this.form.controls.asset_ids.value ?? []).map(Number).filter(x => x !== id));
+  }
+
+  addUtility(id: number): void {
+    this.setIds('utility_ids', [...(this.form.controls.utility_ids.value ?? []).map(Number), id]);
+  }
+
+  unlinkUtility(id: number): void {
+    this.setIds('utility_ids', (this.form.controls.utility_ids.value ?? []).map(Number).filter(x => x !== id));
+  }
+
+  openAsset(id: number): void {
+    this.navigator.openAsset(id).subscribe(saved => {
+      if (saved) this.loadAssets();
+    });
+  }
+
+  // L'utenza salva i suoi plant_ids: dopo il salvataggio riallinea
+  // utility_ids, altrimenti "Salva" qui sovrascriverebbe la modifica.
+  openUtility(id: number): void {
+    this.navigator.openUtility(id).subscribe(saved => {
+      if (!saved) return;
+      this.loadUtilities();
+      if (this.plant) this.syncUtilityLink(id, (saved.plants ?? []).some(p => p.id === this.plant!.id));
+    });
+  }
+
+  private syncUtilityLink(utilityId: number, linked: boolean): void {
+    const ids = (this.form.controls.utility_ids.value ?? []).map(Number);
+    const has = ids.includes(utilityId);
+    if (linked === has) return;
+    this.form.controls.utility_ids.setValue(linked ? [...ids, utilityId] : ids.filter(x => x !== utilityId));
+    this.refreshLinks();
+  }
+
   reloadPlant(): void {
     this.saved = true;
     if (this.plant) this.load(this.plant.id, false);
@@ -488,6 +394,7 @@ export class PlantEditDialogComponent implements OnInit {
         this.loading = false;
         if (patchForm) this.patch(plant);
         if (this.typeLocked()) this.form.controls.type.disable();
+        this.refreshLinks();
       },
       error: err => {
         this.loading = false;
@@ -542,10 +449,14 @@ export class PlantEditDialogComponent implements OnInit {
       },
     });
     this.form.markAsPristine();
+    this.refreshLinks();
   }
 
   save(): void {
-    if (this.form.invalid) return;
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
     const v = this.form.getRawValue();
     const text = (s: string | null | undefined) => (s?.trim() ? s.trim() : null);
     const num = (n: number | null | undefined) => (n === null || n === undefined || `${n}` === '' ? null : Number(n));
