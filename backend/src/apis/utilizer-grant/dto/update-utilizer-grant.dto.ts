@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -39,8 +40,10 @@ export class UpdateUtilizerGrantDto {
   usage_type?: string;
 
   @IsOptional()
-  @IsInt()
-  utilizer_id_fk?: number;
+  @IsArray({ message: 'Indicare le parti del contratto.' })
+  @ArrayMinSize(1, { message: 'Indicare almeno una parte del contratto.' })
+  @IsInt({ each: true })
+  party_ids?: number[];
 
   @IsOptional()
   @IsArray()

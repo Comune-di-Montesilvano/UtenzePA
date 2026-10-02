@@ -75,7 +75,7 @@ export class UtilizerGrantComponent extends AbstractComponent<UtilizerGrant> {
 
   protected override entityToPayload(entity: UtilizerGrant): Partial<UtilizerGrant> {
     return {
-      utilizer_id_fk: entity.utilizer_id_fk,
+      party_ids: entity.party_ids?.length ? entity.party_ids : (entity.parties ?? []).map(p => p.id),
       asset_ids: entity.asset_ids ?? [],
       direction: entity.direction,
       kind: entity.kind,

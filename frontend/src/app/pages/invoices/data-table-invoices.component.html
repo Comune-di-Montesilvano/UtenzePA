@@ -77,9 +77,9 @@
       <td mat-cell *matCellDef="let item">{{ item.contratto?.cig_contract || 'N/D' }}</td>
     </ng-container>
 
-    <ng-container matColumnDef="contratto.supplier.supplier_id">
+    <ng-container matColumnDef="contratto.supplier">
       <th mat-header-cell *matHeaderCellDef mat-sort-header>Fornitore</th>
-      <td mat-cell *matCellDef="let item">{{ item.contratto?.supplier?.supplier_id || 'N/D' }}</td>
+      <td mat-cell *matCellDef="let item">{{ partyName(item.contratto?.supplier) || 'N/D' }}</td>
     </ng-container>
 
     <ng-container matColumnDef="budget_chapters">

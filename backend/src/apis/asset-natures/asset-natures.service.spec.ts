@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { In } from 'typeorm';
 import { AssetNaturesService } from './asset-natures.service';
 
@@ -55,11 +55,11 @@ describe('AssetNaturesService', () => {
     );
   });
 
-  it('update rifiuta con 409 se rimuove una coppia usata da immobili', async () => {
+  it('update rifiuta con 400 se rimuove una coppia usata da immobili', async () => {
     repo.findOne.mockResolvedValue({ id: 1, name: 'Fabbricato', functions: [{ id: 4 }, { id: 5 }] });
     assetRepo.count.mockResolvedValue(3);
 
-    await expect(service.update(1, { function_ids: [4] }, 9)).rejects.toThrow(ConflictException);
+    await expect(service.update(1, { function_ids: [4] }, 9)).rejects.toThrow(BadRequestException);
     expect(assetRepo.count).toHaveBeenCalledWith({
       where: { nature_id: 1, function_id: In([5]), deleted: false },
     });
@@ -85,11 +85,11 @@ describe('AssetNaturesService', () => {
     expect(repo.save).toHaveBeenCalledTimes(1);
   });
 
-  it('remove rifiuta con 409 se la natura è usata', async () => {
+  it('remove rifiuta con 400 se la natura è usata', async () => {
     repo.findOne.mockResolvedValue({ id: 1, deleted: false });
     assetRepo.count.mockResolvedValue(1);
 
-    await expect(service.remove(1, 9)).rejects.toThrow(ConflictException);
+    await expect(service.remove(1, 9)).rejects.toThrow(BadRequestException);
     expect(assetRepo.count).toHaveBeenCalledWith({ where: { nature_id: 1, deleted: false } });
   });
 });

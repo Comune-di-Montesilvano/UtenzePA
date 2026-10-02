@@ -17,7 +17,7 @@
       <mat-tab aria-label="Riepilogo">
         <ng-template mat-tab-label>
           <app-tab-label icon="dashboard" label="Riepilogo"
-                         [error]="invalid('direction', 'kind', 'status', 'utilizer_id_fk', 'rent_amount', 'renewal_months', 'notice_months')"></app-tab-label>
+                         [error]="invalid('direction', 'kind', 'status', 'party_ids', 'rent_amount', 'renewal_months', 'notice_months')"></app-tab-label>
         </ng-template>
 
         <div class="sheet-grid">
@@ -51,13 +51,18 @@
           </mat-form-field>
           <div></div>
           <div class="span-all">
-            <app-filterable-select
-              label="Controparte *"
-              placeholder="Cerca controparte..."
-              [options]="utilizerOptions"
-              formControlName="utilizer_id_fk"
-              [errorMessage]="form.controls.utilizer_id_fk.invalid && form.controls.utilizer_id_fk.touched ? 'Obbligatorio' : null">
-            </app-filterable-select>
+            <app-multi-select
+              label="Parti del contratto *"
+              placeholder="Uno o più soggetti"
+              [options]="partyOptions"
+              formControlName="party_ids">
+            </app-multi-select>
+            @if (form.controls.party_ids.invalid && form.controls.party_ids.touched) {
+              <mat-error>Indicare almeno una parte</mat-error>
+            }
+            @for (id of form.controls.party_ids.value ?? []; track id) {
+              <a href="javascript:void(0)" (click)="openParty(id)" style="margin-right: 12px;">{{ partyLabel(id) }}</a>
+            }
           </div>
           <mat-form-field class="span-2">
             <mat-label>Oggetto / destinazione d'uso</mat-label>

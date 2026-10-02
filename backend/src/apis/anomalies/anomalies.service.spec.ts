@@ -48,7 +48,9 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(8);
+    expect(query).toHaveBeenCalledTimes(10);
+    // Fornitore = nome del soggetto terzo, non più la sigla.
+    expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
     // (le prime 5 query riguardano i contratti di fornitura).
     for (const [sql] of query.mock.calls.slice(0, 5)) {
@@ -108,5 +110,25 @@ describe('AnomaliesService', () => {
     const sql = query.mock.calls[7][0] as string;
     expect(sql).toContain('plant_assets');
     expect(sql).toContain("'THERMAL', 'ELEVATOR', 'FIRE_PROTECTION'");
+  });
+
+  it('elenca i contratti immobiliari senza parti e i soggetti senza identificativo fiscale', async () => {
+    for (let i = 0; i < 8; i++) query.mockResolvedValueOnce([]);
+    query
+      .mockResolvedValueOnce([{ id: '12', subject: 'Chiosco' }])
+      .mockResolvedValueOnce([{ id: '1207', name: 'Barone Alessio', type: 'LEGAL' }]);
+    const a = await service.getAnomalies();
+    expect(a.real_estate_contracts_without_parties).toEqual({
+      count: 1,
+      items: [{ id: 12, subject: 'Chiosco' }],
+    });
+    expect(a.third_parties_without_identifier).toEqual({
+      count: 1,
+      items: [{ id: 1207, name: 'Barone Alessio', type: 'LEGAL' }],
+    });
+    expect(query.mock.calls[8][0]).toContain('utilizer_grant_parties');
+    const sql = query.mock.calls[9][0] as string;
+    expect(sql).toContain("tp.type = 'LEGAL' AND IFNULL(TRIM(tp.vat_number), '') = ''");
+    expect(sql).toContain("tp.type = 'NATURAL' AND IFNULL(TRIM(tp.tax_code), '') = ''");
   });
 });

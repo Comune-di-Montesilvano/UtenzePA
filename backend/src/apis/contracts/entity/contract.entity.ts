@@ -12,7 +12,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { Supplier } from '@apis/shared/entities/supplier.entity';
+import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
 import { ConsipAgreement } from '@apis/consip-agreement/entity/consip-agreement.entity';
 import { SystemUser } from '@apis/system-users/entity/system-user.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
@@ -86,9 +86,9 @@ export class Contract {
   @JoinColumn({ name: 'updated_by_user_id' })
   updated_by: SystemUser;
 
-  @ManyToOne(() => Supplier)
+  @ManyToOne(() => ThirdParty)
   @JoinColumn({ name: 'supplier_id_fk' })
-  supplier: Supplier;
+  supplier: ThirdParty;
 
   @ManyToOne(() => ConsipAgreement)
   @JoinColumn({ name: 'consip_agreement_id', referencedColumnName: 'id' })

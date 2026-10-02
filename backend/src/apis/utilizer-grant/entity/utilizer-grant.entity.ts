@@ -14,7 +14,7 @@ import {
 
 import { Asset } from '../../asset/entity/asset.entity';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
-import { Utilizer } from '@apis/utilizer/entity/utilizer.entity';
+import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
 import {
   ContractDirection,
   ContractKind,
@@ -24,7 +24,7 @@ import {
 
 // Contratto immobiliare (ex "concessione"): locazione, concessione, comodato,
 // assegnazione alloggio, occupazione suolo, attivo o passivo. Tabella
-// utilizer_grant invariata per non toccare join e import esistenti.
+// utilizer_grant invariata per non toccare join esistenti.
 @Entity('utilizer_grant')
 export class UtilizerGrant {
   @PrimaryGeneratedColumn('increment')
@@ -44,9 +44,6 @@ export class UtilizerGrant {
 
   @Column({ type: 'date', nullable: true })
   end_date: string | null;
-
-  @Column({ type: 'int' })
-  utilizer_id_fk: number;
 
   @Column({ type: 'enum', enum: ContractDirection, default: ContractDirection.ACTIVE })
   direction: ContractDirection;
@@ -129,9 +126,14 @@ export class UtilizerGrant {
   })
   assets: Asset[];
 
-  @ManyToOne(() => Utilizer, (utilizer) => utilizer.utilizerGrants)
-  @JoinColumn({ name: 'utilizer_id_fk', referencedColumnName: 'id' })
-  utilizer: Utilizer;
+  // Parti del contratto (co-intestatari): almeno una.
+  @ManyToMany(() => ThirdParty)
+  @JoinTable({
+    name: 'utilizer_grant_parties',
+    joinColumn: { name: 'utilizer_grant_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'third_party_id', referencedColumnName: 'id' },
+  })
+  parties: ThirdParty[];
 
   // Contratto padre (es. assegnazione alloggio sotto la concessione
   // all'Azienda Speciale o sotto una locazione passiva).

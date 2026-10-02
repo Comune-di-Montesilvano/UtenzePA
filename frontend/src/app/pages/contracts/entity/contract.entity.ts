@@ -1,7 +1,7 @@
 import { AbstractEntity } from '../../../core/entities/abstract.entity';
 import { IContract } from './contract.interface';
 import { plainToInstance, Exclude } from 'class-transformer';
-import { Supplier } from '../../suppliers/entity/supplier.entity';
+import { ThirdParty } from '../../third-parties/entity/third-party.entity';
 import { ConsipAgreement } from '../../consip-agreement/entity/consip-agreement.entity';
 import { Utility } from '../../utilities/entity/utility.entity';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
@@ -22,7 +22,7 @@ export class Contract extends AbstractEntity implements IContract {
   utility_ids?: number[];
 
   @Exclude({ toPlainOnly: true })
-  supplier?: Supplier;
+  supplier?: ThirdParty;
 
   @Exclude({ toPlainOnly: true })
   consipAgreement?: ConsipAgreement;

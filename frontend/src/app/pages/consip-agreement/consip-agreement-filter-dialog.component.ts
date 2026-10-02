@@ -8,7 +8,9 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatDatepickerModule} from '@angular/material/datepicker';
 import {FilterDialogData} from '../../core/components/abstract-search.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
-import {SuppliersService} from '../suppliers/suppliers.service';
+import {ThirdPartiesService} from '../third-parties/third-parties.service';
+import {PartyRole} from '../third-parties/third-party.model';
+import {partyName} from '../../core/helpers/party-name.helper';
 import {TOption} from '../../core/types/option.interface';
 
 export interface ConsipAgreementFilterValues {
@@ -94,7 +96,7 @@ export interface ConsipAgreementFilterValues {
 export class ConsipAgreementFilterDialogComponent {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<ConsipAgreementFilterDialogComponent, ConsipAgreementFilterValues | 'clear'>);
-  private supplierService = inject(SuppliersService);
+  private thirdPartiesService = inject(ThirdPartiesService);
   protected data = inject<FilterDialogData<ConsipAgreementFilterValues>>(MAT_DIALOG_DATA);
 
   supplierOptions: TOption[] = [];
@@ -119,10 +121,10 @@ export class ConsipAgreementFilterDialogComponent {
   });
 
   constructor() {
-    this.supplierService.search({deleted: false}).subscribe({
+    this.thirdPartiesService.search({deleted: false, roles: PartyRole.SUPPLIER} as never).subscribe({
       next: (data) => {
         this.supplierOptions = data
-          .map(s => ({label: s.company_name, value: s.id}))
+          .map(p => ({label: partyName(p), value: p.id}))
           .sort((a, b) => a.label.localeCompare(b.label));
       },
       error: (err) => console.error('Errore nel caricamento dei fornitori:', err),

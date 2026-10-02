@@ -45,6 +45,7 @@ import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components
 import {assetStatus, plantStatus, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
 import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
+import {partyName} from '../../core/helpers/party-name.helper';
 
 // Tipi fornitura capitolo compatibili col tipo utenza; SPRAR sempre
 // compatibile (capitolo multi-utenza). Solo ordinamento, nessun blocco.
@@ -203,7 +204,7 @@ export class UtilityEditDialogComponent implements OnInit {
 
   readonly contractColumns: LinkedColumn<Contract>[] = [
     {label: 'CIG', value: c => c.cig_contract || (c.cig_exempt ? 'Escluso da CIG' : '—')},
-    {label: 'Fornitore', value: c => c.supplier?.supplier_id ?? ''},
+    {label: 'Fornitore', value: c => partyName(c.supplier)},
     {label: 'Decorrenza', value: c => dateIt(c.supply_start_date)},
     {label: 'Scadenza', value: c => dateIt(c.supply_expiry_date)},
   ];
@@ -297,7 +298,7 @@ export class UtilityEditDialogComponent implements OnInit {
     this.contractPreview = this.contracts
       .filter(c => supplyContractStatus(c).tone === 'ok')
       .map(c => ({
-        id: c.id, label: c.cig_contract || 'CIG non specificato', sublabel: c.supplier?.supplier_id ?? undefined,
+        id: c.id, label: c.cig_contract || 'CIG non specificato', sublabel: partyName(c.supplier) || undefined,
         icon: 'description', color: 'var(--entity-supply-contract)', status: supplyContractStatus(c),
       }));
   }
@@ -517,7 +518,7 @@ export class UtilityEditDialogComponent implements OnInit {
     return (this.data.item.assets ?? [])
       .map(a => ({
         assetName: a.asset_name,
-        utilizers: (a.utilizerGrants ?? []).map(g => g.utilizer?.name ?? '').filter(n => !!n),
+        utilizers: (a.utilizerGrants ?? []).flatMap(g => (g.parties ?? []).map(partyName)).filter(n => !!n),
       }))
       .filter(g => g.utilizers.length > 0);
   }

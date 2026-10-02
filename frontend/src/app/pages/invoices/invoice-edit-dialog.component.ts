@@ -18,6 +18,7 @@ import {Contract} from '../contracts/entity/contract.entity';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
 import {BudgetChapter} from '../budget-chapters/entity/budget-chapter.entity';
 import {TOption} from '../../core/types/option.interface';
+import {partyName} from '../../core/helpers/party-name.helper';
 
 @Component({
   selector: 'app-invoice-edit-dialog',
@@ -41,7 +42,7 @@ export class InvoiceEditDialogComponent implements OnInit {
 
   contracts: Contract[] = [];
   contractOptions: TOption[] = [];
-  selectedContractSupplierLabel: string | null = this.data.item.contratto?.supplier?.supplier_id ?? null;
+  selectedContractSupplierLabel: string | null = partyName(this.data.item.contratto?.supplier) || null;
   budgetChapterOptions: BudgetChapter[] = [];
 
   form = this.fb.group({
@@ -78,7 +79,7 @@ export class InvoiceEditDialogComponent implements OnInit {
       error: err => console.error('Errore nel caricamento dei contratti:', err)
     });
     this.form.controls.contratto_id_fk.valueChanges.subscribe(id => {
-      this.selectedContractSupplierLabel = this.contracts.find(c => c.id === id)?.supplier?.supplier_id ?? null;
+      this.selectedContractSupplierLabel = partyName(this.contracts.find(c => c.id === id)?.supplier) || null;
     });
     this.budgetChapterService.search({deleted: false}).subscribe({
       next: data => this.budgetChapterOptions = data.sort((a, b) => (a.chapter_code ?? '').localeCompare(b.chapter_code ?? '')),

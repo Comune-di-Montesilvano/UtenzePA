@@ -62,9 +62,9 @@
     <td mat-cell *matCellDef="let item">{{ item.utilityType?.name }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="supplier.company_name">
+  <ng-container matColumnDef="supplier">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Fornitore</th>
-    <td mat-cell *matCellDef="let item">{{ item.supplier?.company_name }}</td>
+    <td mat-cell *matCellDef="let item">{{ partyName(item.supplier) }}</td>
   </ng-container>
 
   <ng-container matColumnDef="asset.asset_name">
@@ -251,11 +251,11 @@
     <td mat-cell *matCellDef="let item">{{ item.longitude }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="asset.utilizer">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Utilizzatori</th>
+  <ng-container matColumnDef="asset.parties">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Controparti</th>
     <td mat-cell *matCellDef="let item">
-      @if (getUtilizersNames(item)) {
-        <span [matTooltip]="getUtilizersNames(item)">{{ getUtilizersNames(item) | truncate: maxDescLength }}</span>
+      @if (getPartiesNames(item)) {
+        <span [matTooltip]="getPartiesNames(item)">{{ getPartiesNames(item) | truncate: maxDescLength }}</span>
       }
     </td>
   </ng-container>

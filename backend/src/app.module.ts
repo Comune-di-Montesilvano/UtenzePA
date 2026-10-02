@@ -14,7 +14,6 @@ import { AuthMysqlModule } from '@apis/auth/auth.module';
 import { SetupModule } from '@apis/setup/setup.module';
 import { SystemUsersModule } from '@apis/system-users/system-users.module';
 import { UtilityTypesModule } from '@apis/utility-types/utility-types.module';
-import { SuppliersModule } from '@apis/suppliers/suppliers.module';
 import { AssetAggregatorsModule } from '@apis/asset-aggregators/asset-aggregators.module';
 import { AssetNaturesModule } from '@apis/asset-natures/asset-natures.module';
 import { AssetFunctionsModule } from '@apis/asset-functions/asset-functions.module';
@@ -35,7 +34,7 @@ import { InvoicesModule } from '@apis/invoices/invoie.module';
 import { ConsipAgreementModule } from '@apis/consip-agreement/consip-agreement.module';
 import { PurposeModule } from '@apis/purpose/purpose.module';
 import { SettingsModule } from '@apis/settings/settings.module';
-import { UtilizerModule } from '@apis/utilizer/utilizer.module';
+import { ThirdPartiesModule } from '@apis/third-parties/third-parties.module';
 import { BackupModule } from '@apis/backup/backup.module';
 import { PhotosModule } from '@apis/photos/photos.module';
 import { ContractsModule } from '@apis/contracts/contracts.module';
@@ -56,7 +55,6 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     SetupModule,
     SystemUsersModule,
     UtilityTypesModule,
-    SuppliersModule,
     AssetAggregatorsModule,
     AssetNaturesModule,
     AssetFunctionsModule,
@@ -77,7 +75,7 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     ConsipAgreementModule,
     PurposeModule,
     SettingsModule,
-    UtilizerModule,
+    ThirdPartiesModule,
     BackupModule,
     PhotosModule,
     ContractsModule,

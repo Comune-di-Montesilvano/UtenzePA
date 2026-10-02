@@ -1,6 +1,5 @@
 import {IUtilizerGrant} from '../../utilizer-grant/entity/utilizer-grant.interface';
 import {IAssetAggregator} from '../../asset-aggregator/entity/asset-aggregator.interface';
-import {IUtilizer} from '../../utilizer/entity/utilizer.interface';
 
 export interface IAsset {
   id: number;
@@ -35,7 +34,6 @@ export interface IAsset {
   assetAggregator?: IAssetAggregator| null;
   created_by?: { id: number; name: string } | null;
   updated_by?: { id: number; firstName: string; lastName: string } | null;
-  utilizers?: IUtilizer[] | null;
 
   create_date: Date;
   update_date: Date;

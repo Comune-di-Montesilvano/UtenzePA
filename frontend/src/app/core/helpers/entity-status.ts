@@ -129,3 +129,14 @@ export function grantFlags(declared: ContractStatus | null | undefined, computed
     tooltip: 'Lo stato calcolato dalle date è diverso da quello dichiarato',
   }];
 }
+
+// Ruoli dei soggetti terzi (calcolati dal backend dai collegamenti).
+const PARTY_ROLE_BADGE: Record<string, StatusInfo> = {
+  supplier: {tone: 'info', label: 'Fornitore', icon: 'local_shipping'},
+  lessor: {tone: 'info', label: 'Locatore', icon: 'key'},
+  tenant: {tone: 'info', label: 'Conduttore', icon: 'home'},
+};
+
+export function partyRoleBadges(roles: string[] | null | undefined): StatusInfo[] {
+  return (roles ?? []).map(r => PARTY_ROLE_BADGE[r]).filter((b): b is StatusInfo => !!b);
+}

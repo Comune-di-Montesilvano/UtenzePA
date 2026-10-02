@@ -5,7 +5,7 @@ import {ExpireState} from '../enum/expire-state.enum';
 import {ConsipAgreement} from '../../consip-agreement/entity/consip-agreement.entity';
 import {UtilityType} from '../../utility-types/entity/utility-type.entity';
 import {Exclude, plainToInstance, Transform, Type} from 'class-transformer';
-import {Supplier} from '../../suppliers/entity/supplier.entity';
+import {ThirdParty} from '../../third-parties/entity/third-party.entity';
 import {Asset} from '../../assets/entity/asset.entity';
 import type {PlantType} from '../../plants/plant.model';
 import {BudgetChapter} from '../../budget-chapters/entity/budget-chapter.entity';
@@ -80,7 +80,7 @@ export class Utility extends AbstractEntity implements IUtility {
   maintenanceManager?: MaintenanceManager;
 
   @Exclude({toPlainOnly: true})
-  supplier?: Supplier;
+  supplier?: ThirdParty;
 
   @Exclude({toPlainOnly: true})
   @Type(() => Asset)

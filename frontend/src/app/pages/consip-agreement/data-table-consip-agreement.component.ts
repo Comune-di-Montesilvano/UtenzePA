@@ -14,6 +14,7 @@ import {AbstractDataTableComponent} from '../../core/components/abstract-data-ta
 import {ConsipAgreementEditDialogComponent} from './consip-agreement-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 import {BooleanYesNoPipe} from '../../core/pipes/boolean-yes-no-pipe';
+import {partyName} from '../../core/helpers/party-name.helper';
 
 @Component({
   selector: 'app-data-table-consip-agreement',
@@ -34,6 +35,7 @@ import {BooleanYesNoPipe} from '../../core/pipes/boolean-yes-no-pipe';
   templateUrl: './data-table-consip-agreement.component.html'
 })
 export class DataTableConsipAgreementComponent extends AbstractDataTableComponent<ConsipAgreement> {
+  readonly partyName = partyName;
 
   displayedColumns = ['actions', 'id', 'name', 'supplier', 'cig_master', 'expiration_date', 'safeguard'];
 

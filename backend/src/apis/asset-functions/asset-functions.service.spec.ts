@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { AssetFunctionsService } from './asset-functions.service';
 
 describe('AssetFunctionsService', () => {
@@ -31,11 +31,11 @@ describe('AssetFunctionsService', () => {
     });
   });
 
-  it('remove rifiuta con 409 se la funzione è usata da immobili non cancellati', async () => {
+  it('remove rifiuta con 400 se la funzione è usata da immobili non cancellati', async () => {
     repo.findOne.mockResolvedValue({ id: 3, deleted: false });
     assetRepo.count.mockResolvedValue(2);
 
-    await expect(service.remove(3, 1)).rejects.toThrow(ConflictException);
+    await expect(service.remove(3, 1)).rejects.toThrow(BadRequestException);
     expect(assetRepo.count).toHaveBeenCalledWith({ where: { function_id: 3, deleted: false } });
     expect(repo.save).not.toHaveBeenCalled();
   });

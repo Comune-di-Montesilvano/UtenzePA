@@ -194,10 +194,11 @@ describe('UtilitiesService', () => {
       );
     });
 
-    it('applica il filtro su user_id_fk', async () => {
-      await service.findAll({ user_id_fk: 3 } as never);
+    it('filtro per parte con sottoquery (elenco parti completo)', async () => {
+      await service.findAll({ party_id: 3 } as never);
 
-      expect(qb.andWhere).toHaveBeenCalledWith('utilizer.id = :user_id_fk', { user_id_fk: 3 });
+      const call = qb.andWhere.mock.calls.find((c) => String(c[0]).includes('gp.third_party_id = :party_id'));
+      expect(call?.[1]).toEqual({ party_id: 3 });
     });
 
     it('applica il filtro sullo stato EXPIRED sul contratto corrente', async () => {
@@ -595,13 +596,13 @@ describe('UtilitiesService', () => {
       );
     });
 
-    it('findOne carica immobili collegati con concessioni e utilizzatori', async () => {
+    it('findOne carica immobili collegati con contratti immobiliari e parti', async () => {
       await service.findOne(1);
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('Utility.assets', 'assets', 'assets.deleted = 0');
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
-        'utilizerGrants.utilizer',
-        'utilizer',
-        'utilizer.deleted = 0',
+        'utilizerGrants.parties',
+        'grantParties',
+        'grantParties.deleted = 0',
       );
     });
 

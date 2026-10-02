@@ -14,11 +14,12 @@ import {ExpireState} from './enum/expire-state.enum';
 import {TOption} from '../../core/types/option.interface';
 import {AssetService} from '../assets/asset.service';
 import {UtilityAggregatorsService} from '../utility-aggregator/utility-aggregator.service';
-import {SuppliersService} from '../suppliers/suppliers.service';
+import {ThirdPartiesService} from '../third-parties/third-parties.service';
+import {PartyRole} from '../third-parties/third-party.model';
+import {partyName} from '../../core/helpers/party-name.helper';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
 import {CostsBorneByService} from '../costs-borne-by/costs-borne-by.service';
 import {MaintenanceManagersService} from '../maintenance-managers/maintenance-managers.service';
-import {UtilizerService} from '../utilizer/utilizer.service';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 
 export interface UtilityFilterValues {
@@ -53,7 +54,7 @@ export interface UtilityFilterValues {
   additional_notes: string | null;
   latitude: string | null;
   longitude: string | null;
-  user_id_fk: number | null;
+  party_id: number | null;
   cig_contract: string | null;
   order_number: string | null;
   supply_start_date_range: (string | null)[] | null;
@@ -79,11 +80,10 @@ export class UtilityFilterDialogComponent implements OnInit {
   private dialogRef = inject(MatDialogRef<UtilityFilterDialogComponent, UtilityFilterValues | 'clear'>);
   private assetsService = inject(AssetService);
   private utilityAggregatorService = inject(UtilityAggregatorsService);
-  private suppliersService = inject(SuppliersService);
+  private thirdPartiesService = inject(ThirdPartiesService);
   private budgetChapterService = inject(BudgetChaptersService);
   private costsBorneByService = inject(CostsBorneByService);
   private maintenanceManagerService = inject(MaintenanceManagersService);
-  private utilizerService = inject(UtilizerService);
   private utilityTypeService = inject(UtilityTypesService);
   protected data = inject<FilterDialogData<UtilityFilterValues>>(MAT_DIALOG_DATA);
 
@@ -99,7 +99,7 @@ export class UtilityFilterDialogComponent implements OnInit {
   aggregatorOptions: TOption[] = [];
   supplierOptions: TOption[] = [];
   budgetChapterOptions: TOption[] = [];
-  utilizerOptions: TOption[] = [];
+  partyOptions: TOption[] = [];
 
   form = this.fb.group({
     utility_id: [this.data.values.utility_id ?? ''],
@@ -132,7 +132,7 @@ export class UtilityFilterDialogComponent implements OnInit {
     estimated_annual_consumption: [this.data.values.estimated_annual_consumption ?? ''],
     reported_consumption_year: [this.data.values.reported_consumption_year ?? ''],
     security_deposit: [this.data.values.security_deposit ?? null],
-    user_id_fk: [this.data.values.user_id_fk ?? null],
+    party_id: [this.data.values.party_id ?? null],
     specifications: [this.data.values.specifications ?? ''],
     notes: [this.data.values.notes ?? ''],
     additional_notes: [this.data.values.additional_notes ?? ''],
@@ -200,9 +200,9 @@ export class UtilityFilterDialogComponent implements OnInit {
       error: err => console.error('Errore nel caricamento degli Aggregati Utenza:', err)
     });
 
-    this.suppliersService.search({deleted: false}).subscribe({
+    this.thirdPartiesService.search({deleted: false, roles: PartyRole.SUPPLIER} as never).subscribe({
       next: data => this.supplierOptions = data
-        .map((s: any) => ({label: s.company_name, value: s.id}))
+        .map(p => ({label: partyName(p), value: p.id}))
         .sort((a: TOption, b: TOption) => a.label.localeCompare(b.label)),
       error: err => console.error('Errore nel caricamento dei fornitori:', err)
     });
@@ -214,11 +214,11 @@ export class UtilityFilterDialogComponent implements OnInit {
       error: err => console.error('Errore nel caricamento dei Capitoli di Spesa:', err)
     });
 
-    this.utilizerService.search({deleted: false}).subscribe({
-      next: data => this.utilizerOptions = data
-        .map((u: any) => ({label: u.name, value: u.id}))
+    this.thirdPartiesService.search({deleted: false, roles: `${PartyRole.LESSOR},${PartyRole.TENANT}`} as never).subscribe({
+      next: data => this.partyOptions = data
+        .map(p => ({label: partyName(p), value: p.id}))
         .sort((a: TOption, b: TOption) => a.label.localeCompare(b.label)),
-      error: err => console.error('Errore nel caricamento Utilizzatori:', err)
+      error: err => console.error('Errore nel caricamento delle controparti:', err)
     });
   }
 

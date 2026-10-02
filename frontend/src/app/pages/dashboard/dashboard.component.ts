@@ -7,7 +7,9 @@ import {UtilityService} from '../utilities/utility.service';
 import {Router} from '@angular/router';
 import {AssetService} from '../assets/asset.service';
 import {Utility} from '../utilities/entity/utility.entity';
-import {SuppliersService} from '../suppliers/suppliers.service';
+import {ThirdPartiesService} from '../third-parties/third-parties.service';
+import {PartyRole} from '../third-parties/third-party.model';
+import {partyName} from '../../core/helpers/party-name.helper';
 import {InvoicesService} from '../invoices/invoices.service';
 import {plainToInstance} from 'class-transformer';
 import {UtilityType} from '../utility-types/entity/utility-type.entity';
@@ -30,6 +32,7 @@ type Severity = 'info' | 'success' | 'warn' | 'danger' | 'secondary' | 'contrast
              styleUrls: ['./dashboard.component.css']
            })
 export class DashboardComponent implements OnInit {
+  readonly partyName = partyName;
 
   today: Date = new Date();
   // Contratti in scadenza: è il contratto che scade, le utenze sono solo
@@ -51,7 +54,7 @@ export class DashboardComponent implements OnInit {
   constructor(
     @Inject(UtilityService) private utilityService: UtilityService,
     private router: Router,
-    private readonly suppliersService: SuppliersService,
+    private readonly thirdPartiesService: ThirdPartiesService,
     private readonly assetService: AssetService,
     private readonly invoiceService: InvoicesService,
     private utilitiesService: UtilityService,
@@ -98,7 +101,7 @@ export class DashboardComponent implements OnInit {
   ngOnInit() {
 
     this.loadExpiringContracts();
-    this.suppliersService.count().subscribe(c => this.suppliersCount = c);
+    this.thirdPartiesService.search({roles: PartyRole.SUPPLIER} as never).subscribe(list => this.suppliersCount = list.length);
     this.utilityService.count().subscribe(c => this.utilitiesCount = c);
     this.assetService.count().subscribe(c => this.assetsCount = c);
     this.utilityService.getSafeGuardedUtilities().subscribe(utilities => this.safeGuardedUtilitiesList = utilities);

@@ -2,7 +2,7 @@ import {Exclude, plainToInstance, Type} from 'class-transformer';
 import {AbstractEntity} from '../../../core/entities/abstract.entity';
 import {IUtilizerGrant} from './utilizer-grant.interface';
 import {Asset} from '../../assets/entity/asset.entity';
-import {Utilizer} from '../../utilizer/entity/utilizer.entity';
+import {ThirdParty} from '../../third-parties/entity/third-party.entity';
 import {SystemUser} from '../../system-users/entity/system-user.entity';
 import type {
   ContractDirection,
@@ -19,8 +19,8 @@ export class UtilizerGrant extends AbstractEntity implements IUtilizerGrant {
   concession_act?: string;
   utilities_to_be_taken_over?: boolean;
   usage_type?: string;
-  utilizer_id_fk!: number;
   asset_ids?: number[];
+  party_ids?: number[];
 
   start_date?: string | null;
   end_date?: string | null;
@@ -46,8 +46,8 @@ export class UtilizerGrant extends AbstractEntity implements IUtilizerGrant {
   assets?: Asset[];
 
   @Exclude({toPlainOnly: true})
-  @Type(() => Utilizer)
-  utilizer?: Utilizer;
+  @Type(() => ThirdParty)
+  parties?: ThirdParty[];
 
   @Exclude({toPlainOnly: true})
   parent?: UtilizerGrant | null;
@@ -73,8 +73,8 @@ export class UtilizerGrant extends AbstractEntity implements IUtilizerGrant {
 
   static create(data?: Partial<UtilizerGrant>): UtilizerGrant {
     return plainToInstance(UtilizerGrant, {
-      utilizer_id_fk: null,
       asset_ids: [],
+      party_ids: [],
       direction: 'ACTIVE',
       kind: 'CONCESSION',
       status: 'ACTIVE',

@@ -24,7 +24,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 6 | Fatture per utenza | da approfondire |
 | 7 | Contratti di servizio e manutenzione | da approfondire |
 | 8 | Permessi di scrittura granulari | da approfondire |
-| 9 | Soggetti terzi (controparti + fornitori) | da approfondire |
+| 9 | Soggetti terzi (controparti + fornitori) | fatto, v1.8.0 (pulizia dati sul DB locale da fare, poi in produzione) |
 | 10 | Tipologie contrattuali ARERA (al posto delle finalità d'uso) | da approfondire |
 | 11 | Aggregati utenze (da eliminare) | da approfondire |
 | 12 | Costi a carico calcolato | da approfondire |
@@ -40,6 +40,8 @@ Gli impianti (3) sono stati anticipati: circa 240 "immobili" Access sono in real
 ## 1. Contratti immobiliari
 
 Registro unico di locazioni, concessioni, comodati, assegnazioni di alloggi, occupazioni di suolo, attivi e passivi, con scadenzario, rinnovo tacito e preavviso. Unifica il modulo Concessioni (oggi misto di contratti, destinazioni d'uso e note di verifica). Dettagli nella spec.
+
+**Prossimo (richiesta utente 2026-10-02): contratti collegati agli impianti.** Un contratto immobiliare oggi si collega solo a immobili, ma l'oggetto può essere un impianto: esempio reale, un contratto con un condominio per un'antenna della Polizia Locale, senza l'antenna in anagrafe. Serve: tipo d'impianto "Antenna / ripetitore", collegamento contratto ↔ impianti N-N (come `utilizer_grant_assets`, tab nella scheda), anomalia in dashboard "Contratti immobiliari senza immobile né impianto" al posto di quella attuale (73 contratti senza immobile al 2026-10-02). PR separata dopo la v1.8.0.
 
 ## 2. Inventario patrimoniale e catasto
 
@@ -125,6 +127,34 @@ Oggi i ruoli sono tre (Admin, Operatore, Lettore) e chi scrive scrive su tutto. 
 
 ## 9. Soggetti terzi (controparti + fornitori)
 
+Fatto in v1.8.0: spec `docs/superpowers/specs/2026-10-02-soggetti-terzi-design.md`. Il testo più sotto è il censimento di partenza.
+
+**Pulizia dati (DB locale, 2026-10-02)**: report per categoria generato in sola lettura (225 soggetti attivi dopo la migration). Fatto: soft delete dei 111 soggetti senza alcun collegamento (fontane, semafori, contatori, note di lavoro, `ACA_TERZI`, `comune`…), restano 114 attivi. Da fare, una lista alla volta con conferma:
+
+- 17 non-soggetti con contratto ("CANILE COMUNALE", "SPRAR", "LOCALI EX FEA", parchi "…E CONCESSIONARIO CHIOSCO", "mobilità elettrica" con 7 contratti…): testo nelle note del contratto, parte rimossa;
+- 3 soggetti nascosti nella descrizione → rinominare: Egenia S.a.s., Delfino Pescara 1936, Polisportiva SSD Roma Marconi;
+- tipo e nominativi: ~38 persone fisiche (attenzione ai cognomi "Di …": un'euristica li scambia per ditte "X di Y"), 4 ditte individuali da trattare come giuridiche, 6 righe con più persone da spezzare;
+- doppioni probabili: le due Vodafone, "carabinieri" / "Prefettura PE - Compagnia Carabinieri", le due associazioni Vincenziane; ambigui "Sagazio", "Primavera – Di Martino", "AB CASE";
+- fornitori: `TERZI` usato da 2 convenzioni CONSIP; ENEIDE, ENGIE, AGSM, DOLOMITI, Open Fiber senza P.IVA; Estra ed Enel Energia con CF a 10 cifre (zero iniziale perso da Excel).
+
+**Portare in produzione**: la migration controlla prima di ogni DDL P.IVA/CF duplicati, CF oltre 16 caratteri e riferimenti orfani e si ferma con l'elenco (le DDL MySQL fanno commit implicito: un errore a metà lascerebbe lo schema da sistemare a mano). Le FK verso `suppliers`/`utilizer` si leggono da `information_schema` perché `InitialSchema` ne crea alcune (CONSIP, fatture, utenze, contratti immobiliari) che il DB locale non ha; idem l'indice UNIQUE `REL_4865…` su `consip_agreement.supplier_id` (vecchio OneToOne), che la migration elimina. Prima del rilascio: backup, poi verificare i log di avvio.
+
+Rifiniture aperte (dalla revisione finale, rimandate):
+
+- salvataggio parziale del contratto immobiliare se `party_ids` contiene una parte non valida (`super.update` prima di `resolveParties`);
+- la ricerca `q` dei soggetti cerca anche nel CF: un Lettore può dedurre per tentativi un CF oscurato;
+- picker del fornitore (contratti, CONSIP) con tutti i soggetti giuridici finché la pulizia non è finita;
+- eliminazione di un soggetto collegato senza avviso (sparisce da fatture e contratti);
+- `down()` della migration fragile se due fornitori hanno la stessa ragione sociale (`suppliers.company_name` UNIQUE);
+- filtro utenze per parte: la sottoquery non esclude gli immobili eliminati.
+
+Gotcha emersi:
+
+- **Ripristino dalla UI non fa nulla in tutta l'app**: `AbstractComponent.onRestore` manda `deleted:false`, ma `AbstractEntity` lo esclude in serializzazione (`@Exclude({toPlainOnly})`) e il PATCH parte vuoto. Preesistente.
+- **`updated_by` esposto con `otp`/`otp_expiry`** di `SystemUser` (nessun `select:false`/`@Exclude`) in tutti gli endpoint che lo joinano: rischio sul reset password, da sistemare a parte. Preesistente.
+- Un `down()` che altera dati (es. suffisso ` #id` per rendere unica la ragione sociale) viene ricopiato dal successivo `up()`: testare sempre il ciclo up → down → up confrontando i dati, non solo i conteggi.
+- Dopo la rimozione di `backend/tools` l'output di `tsc` in dev è passato da `dist/src/` a `dist/`: la build incrementale ha lasciato un `dist` misto e la migration nuova non partiva all'avvio. Rimedio: `rm -rf dist *.tsbuildinfo` + restart (procedura già in CLAUDE.md). La produzione non ne risente (l'immagine copia solo `src/`).
+
 Proposta dell'utente: riunire controparti (`utilizer`) e fornitori (`suppliers`) in un'unica anagrafica **Soggetti terzi**, persona fisica o giuridica.
 
 - `utilizer` (212 attive su 314) è un minestrone: nel campo `name` convivono soggetti veri ("SIRIO S.r.l.", "Barone Alessio"), luoghi e impianti ("SEMAFORO INC. VIA CHIARINI…", "FONTANA IN AREA VERDE RECINTATA", "cabina enel su area comunale"), note di lavoro ("NO recenti fatture corrispondenti - verificare stato utenza…") e usi ("manifestazioni estive"). Campi: `name`, `description`, `tax_code`, `contacts` (testo libero).
@@ -160,7 +190,7 @@ Dalla revisione finale di v1.7.1 (schede con Riepilogo e tab), non bloccanti:
 - immobile → tab Impianti: ripristinare la colonna "Posizione";
 - immobile → Riepilogo: anteprima Utenze come conteggio per tipo, non elenco;
 - liste del padre non aggiornate dopo il salvataggio di una scheda figlia (contratto immobiliare `openAsset`/`openGrant`, tabella utenze `navigateToAsset`, colonna Utenze del tab Impianti dell'immobile);
-- errori di salvataggio via `EntityNavigatorService` solo in console: mostrare un toast;
+- ~~errori di salvataggio via `EntityNavigatorService` solo in console: mostrare un toast~~ (fatto in v1.8.0);
 - contratto con decorrenza futura: badge "In corso" vs barra "Non ancora iniziato";
 - titolo scheda impianto che non segue il form;
 - permesso di modifica dell'impianto da `readOnly` del navigatore, altre schede da `isEditorRole`: unificare;
@@ -170,7 +200,7 @@ Dalla revisione finale di v1.7.1 (schede con Riepilogo e tab), non bloccanti:
 
 ## 14. Schede di fornitori, capitoli, fatture
 
-Stesso modello delle schede di v1.7.1: Fornitori → scheda Soggetto terzo (voce 9); Capitoli di spesa (51, 105 righe di spesa storica) → Riepilogo + tab Utenze, Spesa storica, Fatture; Fatture (185) → Riepilogo + collegamenti navigabili, in vista del nuovo modello per l'import massivo (voce 6).
+Stesso modello delle schede di v1.7.1: Fornitori fatto con la voce 9 (scheda Soggetto terzo); Capitoli di spesa (51, 105 righe di spesa storica) → Riepilogo + tab Utenze, Spesa storica, Fatture; Fatture (185) → Riepilogo + collegamenti navigabili, in vista del nuovo modello per l'import massivo (voce 6).
 
 ## 15. UI e identità
 

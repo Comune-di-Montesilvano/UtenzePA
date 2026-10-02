@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { BaseService } from '@apis/shared/base.service';
@@ -72,7 +72,7 @@ export class AssetNaturesService extends BaseService<
           where: { nature_id: id, function_id: In(removed), deleted: false },
         });
         if (inUse > 0) {
-          throw new ConflictException(
+          throw new BadRequestException(
             `Impossibile rimuovere funzioni ammesse: ${inUse} immobili usano queste combinazioni.`,
           );
         }
@@ -93,7 +93,7 @@ export class AssetNaturesService extends BaseService<
   async remove(id: number, updatedByUserId: number): Promise<void> {
     const inUse = await this.assetRepo.count({ where: { nature_id: id, deleted: false } });
     if (inUse > 0) {
-      throw new ConflictException(
+      throw new BadRequestException(
         `Tipologia usata da ${inUse} immobili: riclassificarli prima di eliminarla.`,
       );
     }

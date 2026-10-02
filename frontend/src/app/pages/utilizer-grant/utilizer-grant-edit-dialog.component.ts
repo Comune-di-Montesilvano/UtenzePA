@@ -1,5 +1,5 @@
 import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
-import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
+import {AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
@@ -26,7 +26,10 @@ import {hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel} from '../../co
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {EntityHistoryComponent} from '../../core/components/entity-history.component';
 import {AssetService} from '../assets/asset.service';
-import {UtilizerService} from '../utilizer/utilizer.service';
+import {ThirdPartiesService} from '../third-parties/third-parties.service';
+import {ThirdPartyType, TYPE_LABEL} from '../third-parties/third-party.model';
+import {partyName, partyNames} from '../../core/helpers/party-name.helper';
+import {MultiSelectComponent} from '../../core/components/multi-select.component';
 import {UtilizerGrantService} from './utilizer-grant.service';
 import {TOption} from '../../core/types/option.interface';
 import {StringHelper} from '../../core/helpers/string.helper';
@@ -52,11 +55,16 @@ const PERIOD_FACTOR: Record<RentPeriod, number> = {
   MONTHLY: 12, BIMONTHLY: 6, QUARTERLY: 4, SEMIANNUAL: 2, ANNUAL: 1, ONE_OFF: 0,
 };
 
+// Almeno una parte: Validators.required considera valido un array vuoto.
+const atLeastOne = (c: AbstractControl): ValidationErrors | null =>
+  Array.isArray(c.value) && c.value.length > 0 ? null : {required: true};
+
 @Component({
   selector: 'app-utilizer-grant-edit-dialog',
   standalone: true,
   imports: [
     ReactiveFormsModule,
+    MultiSelectComponent,
     MatDialogModule,
     MatFormFieldModule,
     MatInputModule,
@@ -83,7 +91,7 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   private dialogRef = inject(MatDialogRef<UtilizerGrantEditDialogComponent, UtilizerGrant | undefined>);
   private authService = inject(AuthService);
   private assetService = inject(AssetService);
-  private utilizerService = inject(UtilizerService);
+  private thirdPartiesService = inject(ThirdPartiesService);
   private grantService = inject(UtilizerGrantService);
   protected data = inject<EditDialogData<UtilizerGrant>>(MAT_DIALOG_DATA);
 
@@ -105,13 +113,13 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
 
   readonly childColumns: LinkedColumn<UtilizerGrant>[] = [
     {label: '#', value: c => String(c.id)},
-    {label: 'Controparte', value: c => c.utilizer?.name ?? ''},
+    {label: 'Parti', value: c => partyNames(c.parties)},
     {label: 'Tipo', value: c => this.kindText(c)},
   ];
   readonly childStatusOf = (c: UtilizerGrant): StatusInfo => grantStatus(c.computed_status ?? c.status);
   isNew = this.data.mode === 'create';
   assetOptions: TOption[] = [];
-  utilizerOptions: TOption[] = [];
+  partyOptions: TOption[] = [];
   parentOptions: TOption[] = [];
 
   readonly directionOptions = options(DIRECTION_LABEL);
@@ -144,7 +152,10 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
     direction: [(this.item.direction ?? 'ACTIVE') as ContractDirection, Validators.required],
     kind: [(this.item.kind ?? 'CONCESSION') as ContractKind, Validators.required],
     status: [(this.item.status ?? 'ACTIVE') as ContractStatus, Validators.required],
-    utilizer_id_fk: [this.item.utilizer_id_fk ?? null, Validators.required],
+    party_ids: [
+      this.item.party_ids?.length ? this.item.party_ids : (this.item.parties ?? []).map(p => p.id),
+      atLeastOne,
+    ],
     subject: [this.item.subject ?? ''],
     department: [this.item.department ?? ''],
     concession_act: [this.item.concession_act ?? ''],
@@ -191,13 +202,17 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
       error: (err) => console.error('Errore nel caricamento degli immobili:', err),
     });
 
-    this.utilizerService.search({deleted: false}).subscribe({
+    this.thirdPartiesService.search({deleted: false}).subscribe({
       next: (data) => {
-        this.utilizerOptions = data
-          .map(u => ({label: StringHelper.truncateAt(u.name, 100), value: u.id}))
+        this.partyOptions = data
+          .map(p => ({
+            label: StringHelper.truncateAt(partyName(p), 100),
+            value: p.id,
+            sublabel: TYPE_LABEL[p.type as ThirdPartyType],
+          }))
           .sort((a, b) => a.label.localeCompare(b.label));
       },
-      error: (err) => console.error('Errore nel caricamento delle controparti:', err),
+      error: (err) => console.error('Errore nel caricamento dei soggetti:', err),
     });
 
     // Candidati padre: non sé stesso, non un contratto che ha già un padre.
@@ -206,7 +221,7 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
         this.parentOptions = data
           .filter(g => g.id !== this.item.id && !g.parent_contract_id)
           .map(g => ({
-            label: `#${g.id} ${g.utilizer?.name ?? ''}${g.subject ? ' — ' + g.subject : ''}`,
+            label: `#${g.id} ${partyNames(g.parties)}${g.subject ? ' — ' + g.subject : ''}`,
             value: g.id,
             sublabel: g.kind ? KIND_LABEL[g.kind] : undefined,
           }))
@@ -262,12 +277,22 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
     if (id) this.navigator.openGrant(id).subscribe();
   }
 
+  partyLabel(id: number): string {
+    return this.partyOptions.find(o => o.value === id)?.label ?? `#${id}`;
+  }
+
+  openParty(id: number): void {
+    this.navigator.openThirdParty(id).subscribe();
+  }
+
   // Header
   titleText(): string {
     if (this.isNew) return 'Nuovo contratto immobiliare';
-    const utilizer = this.utilizerOptions.find(o => o.value === this.form.controls.utilizer_id_fk.value)?.label ?? this.item.utilizer?.name;
+    const ids = this.form.controls.party_ids.value ?? [];
+    const names = ids.map(id => this.partyOptions.find(o => o.value === id)?.label).filter(Boolean).join(', ')
+      || partyNames(this.item.parties);
     const kind = this.form.controls.kind.value ? KIND_LABEL[this.form.controls.kind.value as ContractKind] : '';
-    return [utilizer, kind].filter(Boolean).join(' — ') || `Contratto immobiliare #${this.item.id}`;
+    return [names, kind].filter(Boolean).join(' — ') || `Contratto immobiliare #${this.item.id}`;
   }
 
   headerIcon(): string {

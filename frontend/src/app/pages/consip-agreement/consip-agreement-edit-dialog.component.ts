@@ -13,7 +13,9 @@ import {AuthService} from '../../services/auth.service';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
-import {SuppliersService} from '../suppliers/suppliers.service';
+import {ThirdPartiesService} from '../third-parties/third-parties.service';
+import {PartyRole} from '../third-parties/third-party.model';
+import {partyName} from '../../core/helpers/party-name.helper';
 import {TOption} from '../../core/types/option.interface';
 
 @Component({
@@ -38,7 +40,7 @@ export class ConsipAgreementEditDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<ConsipAgreementEditDialogComponent, ConsipAgreement | undefined>);
   private authService = inject(AuthService);
-  private supplierService = inject(SuppliersService);
+  private thirdPartiesService = inject(ThirdPartiesService);
   protected data = inject<EditDialogData<ConsipAgreement>>(MAT_DIALOG_DATA);
 
   isNew = this.data.mode === 'create';
@@ -71,10 +73,11 @@ export class ConsipAgreementEditDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.supplierService.search({deleted: false}).subscribe({
+    this.thirdPartiesService.search({deleted: false}).subscribe({
       next: (data) => {
         this.supplierOptions = data
-          .map(s => ({label: s.company_name, value: s.id}))
+          .filter(p => p.type === 'LEGAL' || p.roles?.includes(PartyRole.SUPPLIER) || p.id === this.data.item.supplier_id)
+          .map(p => ({label: partyName(p), value: p.id, sublabel: p.vat_number ?? undefined}))
           .sort((a, b) => a.label.localeCompare(b.label));
       },
       error: (err) => console.error('Errore nel caricamento dei fornitori:', err),

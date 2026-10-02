@@ -4,7 +4,6 @@ import {LoginComponent} from "./pages/login/login.component";
 import {AuthGuard} from "./guards/auth.guard";
 import {SystemUsersComponent} from "./pages/system-users/system-users.component";
 import {UtilityTypesComponent} from "./pages/utility-types/utility-types.component";
-import {SuppliersComponent} from "./pages/suppliers/suppliers.component";
 import {AssetAggregatorsComponent} from "./pages/asset-aggregator/asset-aggregator.component";
 import {AssetNatureComponent} from './pages/asset-nature/asset-nature.component';
 import {AssetFunctionComponent} from './pages/asset-function/asset-function.component';
@@ -21,7 +20,7 @@ import {DashboardComponent} from "./pages/dashboard/dashboard.component";
 import {MapComponent} from "./pages/map/map.component";
 import {ConsipAgreementComponent} from './pages/consip-agreement/consip-agreement.component';
 import {PurposeComponent} from './pages/purpose/purpose.component';
-import {UtilizerComponent} from './pages/utilizer/utilizer.component';
+import {ThirdPartiesComponent} from './pages/third-parties/third-parties.component';
 import {SetupComponent} from "./pages/setup/setup.component";
 import {SetupGuard} from "./guards/setup.guard";
 import {RedirectToSetupGuard} from "./guards/redirect-to-setup.guard";
@@ -41,7 +40,7 @@ export const routes: Routes = [
       {path: 'backup-import', component: BackupImportComponent},
       {path: 'branding', component: BrandingSettingsComponent},
       {path: 'utility-types', component: UtilityTypesComponent},
-      {path: 'suppliers', component: SuppliersComponent},
+      {path: 'third-parties', component: ThirdPartiesComponent},
       {path: 'asset-aggregator', component: AssetAggregatorsComponent},
       {path: 'asset-nature', component: AssetNatureComponent},
       {path: 'asset-function', component: AssetFunctionComponent},
@@ -56,7 +55,6 @@ export const routes: Routes = [
       {path: 'contracts', component: ContractsComponent},
       {path: 'consip-agreement', component: ConsipAgreementComponent},
       {path: 'purpose', component: PurposeComponent},
-      {path: 'utilizer', component: UtilizerComponent},
       {path: 'utilizer-grant', component: UtilizerGrantComponent},
       {path: 'dashboard', component: DashboardComponent},
       {path: 'map', component: MapComponent},

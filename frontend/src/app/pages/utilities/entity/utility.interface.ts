@@ -3,7 +3,6 @@ import {Phase} from '../enum/phase.enum';
 import {IUtilityType} from '../../utility-types/entity/utility-type.interface';
 import {IConsipAgreement} from '../../consip-agreement/entity/consip-agreement.interface';
 import {ISystemUser} from '../../system-users/entity/system-user.interface';
-import {ISupplier} from '../../suppliers/entity/supplier.interface';
 import {IAsset} from '../../assets/entity/asset.interface';
 import {IBudgetChapter} from '../../budget-chapters/entity/budget-chapter.interface';
 import {ICostsBorneBy} from '../../costs-borne-by/entity/costs-borne-by.interface';
@@ -45,7 +44,7 @@ export interface IUtility {
   reported_consumption_year?: number | null;
   actual_consumption?: number | null;
   specifications?: string | null;
-  supplier?: ISupplier | null;
+  supplier?: {type?: string | null; company_name?: string | null; last_name?: string | null; first_name?: string | null} | null;
   supplier_address?: string | null;
   supply_active?: boolean | null;
   update_date: Date | null;

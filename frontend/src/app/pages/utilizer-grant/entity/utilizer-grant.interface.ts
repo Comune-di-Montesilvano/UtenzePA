@@ -1,5 +1,4 @@
 import {IAsset} from '../../assets/entity/asset.interface';
-import {IUtilizer} from '../../utilizer/entity/utilizer.interface';
 import type {
   ContractDirection,
   ContractKind,
@@ -13,8 +12,8 @@ export interface IUtilizerGrant {
   concession_act?: string;
   utilities_to_be_taken_over?: boolean;
   usage_type?: string;
-  utilizer_id_fk: number;
   asset_ids?: number[];
+  party_ids?: number[];
   start_date?: string | null;
   end_date?: string | null;
   direction?: ContractDirection;
@@ -45,5 +44,5 @@ export interface IUtilizerGrant {
   created_by?: { id: number; name: string } | null;
   updated_by?: { id: number; firstName?: string; lastName?: string } | null;
   assets?: IAsset[];
-  utilizer?: IUtilizer;
+  parties?: {id: number; type?: string | null; company_name?: string | null; last_name?: string | null; first_name?: string | null}[];
 }
