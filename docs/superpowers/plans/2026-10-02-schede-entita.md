@@ -5003,4 +5003,10 @@ Emersi dalla revisione finale del branch, non bloccanti. Da fare in un giro dedi
   2. Dove vanno i valori che non sono soggetti. Luoghi e impianti probabilmente diventano impianti o immobili; le note vanno nelle note di utenza o contratto.
   3. Campi minimi del soggetto (oggi: nome, un secondo campo testo, codice fiscale 16 caratteri, note) e tipo persona fisica/giuridica.
 
+  **Proposta (utente, 2026-10-02): unificare controparti e fornitori in "Soggetti terzi"**, di tipo persona fisica / persona giuridica. Oggi i due modelli si sovrappongono:
+  - `suppliers` (13 righe): `supplier_id` (codice breve inserito a mano, es. "ACA", "ACA_TERZI": è l'"id inserito dall'utente" segnalato), `vat_number`, `tax_code`, `company_name`, `address`, `city`, `postal_code`, `email`, `pec`. Usato da contratti di fornitura e convenzioni CONSIP.
+  - `utilizer` (212 attive): `name`, `description`, `tax_code`, `contacts` (testo libero). Usato dai contratti immobiliari.
+
+  Schema indicativo del soggetto: tipo (fisica/giuridica), denominazione o cognome+nome, CF, P.IVA (solo giuridica), indirizzo, PEC/email/telefono, note; ruoli derivati dai collegamenti (fornitore se ha contratti di fornitura, controparte se ha contratti immobiliari), non da un flag. Il codice breve del fornitore diventa un campo facoltativo "sigla", non più la chiave mostrata. Va valutato l'impatto sull'importatore dati (`data-importer.service.ts` deduplica i fornitori per `supplier_id`) e una migration che preservi gli id referenziati da contratti, convenzioni e contratti immobiliari.
+
   Poi: censimento con query (classificare le 212 righe), proposta di migrazione dei dati con conferma dell'utente riga per riga sui casi dubbi, ripulitura della scheda Controparti e del tab "Controparti" dell'utenza (oggi elenca i nomi delle concessioni degli immobili collegati).
