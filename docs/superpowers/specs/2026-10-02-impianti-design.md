@@ -143,10 +143,13 @@ Regola di classificazione degli immobili aggiornata (commento in `AddAssetClassi
 
 ## Migration (strutturale)
 
-1. Rimuove la tipologia "Impianto" (soft delete in `asset_natures`) e le sue coppie in `asset_nature_functions`; soft delete delle funzioni elencate sopra che non sono ammesse da altre tipologie. Gli immobili che le hanno restano invariati finché lo script non li converte (la migration non cancella dati).
-2. Crea `plants`, `utility_plants`, `plant_thermal`, `plant_elevator`, `plant_fire_equipment`, `plant_inspections`; estende l'enum di `photos.entity_type`.
-3. Per ogni riga di `thermal_plants` non cancellata: inserisce `plants` (`type='THERMAL'`, `code='TERM-<id>'`, `name`, `asset_id_fk`, `notes`) + `plant_thermal`; se `utility_id_fk` valorizzato, riga in `utility_plants`.
-4. Rimuove `thermal_plants`.
+Solo trasformazioni strutturali (decisione 2026-10-02: prima il codice, poi la migrazione dei dati fatta a mano sul DB locale, copia della produzione):
+
+1. Crea `plants`, `utility_plants`, `plant_thermal`, `plant_elevator`, `plant_fire_equipment`, `plant_inspections`; estende l'enum di `photos.entity_type`.
+2. Per ogni riga di `thermal_plants` non cancellata: inserisce `plants` (`type='THERMAL'`, `code='TERM-<id>'`, `name`, `asset_id_fk`, `notes`) + `plant_thermal`; se `utility_id_fk` valorizzato, riga in `utility_plants`.
+3. Rimuove `thermal_plants`.
+
+La rimozione della tipologia "Impianto" e delle sue funzioni dagli immobili è un passo della migrazione manuale dei dati (le tipologie presenti nel DB di produzione non coincidono con il seed v1.3.0): soft delete in `asset_natures`/`asset_functions` e delle coppie in `asset_nature_functions`, dopo la conversione degli immobili. Il codice non dipende da quei record.
 
 La migration non tocca gli immobili: la riclassificazione è nello script.
 
