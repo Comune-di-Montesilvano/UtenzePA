@@ -1,5 +1,5 @@
 import {ChangeDetectionStrategy, Component, inject, OnInit} from '@angular/core';
-import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
+import {AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
@@ -31,6 +31,15 @@ import {ConsipAgreement} from '../consip-agreement/entity/consip-agreement.entit
 // Stesse regole del backend (validateThirdParty), che resta la garanzia.
 const VAT = /^\d{11}$/;
 const CF_PERSON = /^[A-Za-z0-9]{16}$/;
+
+// Gli spazi si tolgono in salvataggio (normalizzazione del backend): il
+// formato si controlla sul valore senza spazi, "012 3456 7890" è valido.
+function formatIgnoringSpaces(re: RegExp): ValidatorFn {
+  return (c: AbstractControl): ValidationErrors | null => {
+    const v = (c.value ?? '').toString().replace(/\s+/g, '');
+    return !v || re.test(v) ? null : {pattern: true};
+  };
+}
 
 @Component({
   selector: 'app-third-party-edit-dialog',
@@ -120,8 +129,8 @@ export class ThirdPartyEditDialogComponent implements OnInit {
     c.company_name.setValidators(legal ? [Validators.required] : []);
     c.last_name.setValidators(legal ? [] : [Validators.required]);
     c.first_name.setValidators(legal ? [] : [Validators.required]);
-    c.vat_number.setValidators(legal ? [Validators.required, Validators.pattern(VAT)] : [Validators.pattern(VAT)]);
-    c.tax_code.setValidators(legal ? [] : [Validators.required, Validators.pattern(CF_PERSON)]);
+    c.vat_number.setValidators(legal ? [Validators.required, formatIgnoringSpaces(VAT)] : [formatIgnoringSpaces(VAT)]);
+    c.tax_code.setValidators(legal ? [] : [Validators.required, formatIgnoringSpaces(CF_PERSON)]);
     for (const name of ['company_name', 'last_name', 'first_name', 'vat_number', 'tax_code'] as const) {
       c[name].updateValueAndValidity({emitEvent: false});
     }
