@@ -5,23 +5,36 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatSelectModule} from '@angular/material/select';
 import {MatButtonModule} from '@angular/material/button';
-import {MatDatepickerModule} from '@angular/material/datepicker';
 import {FilterDialogData} from '../../core/components/abstract-search.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {AssetService} from '../assets/asset.service';
 import {UtilizerService} from '../utilizer/utilizer.service';
 import {TOption} from '../../core/types/option.interface';
 import {StringHelper} from '../../core/helpers/string.helper';
+import {
+  ContractAlert,
+  ContractDirection,
+  ContractKind,
+  DIRECTION_LABEL,
+  DisplayStatus,
+  KIND_LABEL,
+  STATUS_LABEL,
+} from './real-estate-contract.model';
 
 export interface UtilizerGrantFilterValues {
+  direction: ContractDirection | null;
+  kind: ContractKind | null;
+  computed_status: DisplayStatus | null;
+  alert: ContractAlert | null;
+  department: string | null;
   concession_act: string | null;
-  usage_type: string | null;
   utilities_to_be_taken_over: boolean | null;
-  grant_date: Date | null;
-  expire_date: Date | null;
-  asset_id_fk: number | null;
+  asset_id: number | null;
   utilizer_id_fk: number | null;
 }
+
+const options = <K extends string>(labels: Record<K, string>) =>
+  (Object.keys(labels) as K[]).map(value => ({value, label: labels[value]}));
 
 @Component({
   selector: 'app-utilizer-grant-filter-dialog',
@@ -33,64 +46,77 @@ export interface UtilizerGrantFilterValues {
     MatInputModule,
     MatSelectModule,
     MatButtonModule,
-    MatDatepickerModule,
     FilterableSelectComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <h2 mat-dialog-title>Filtri Avanzati Concessioni</h2>
+    <h2 mat-dialog-title>Filtri contratti immobiliari</h2>
     <mat-dialog-content>
-      <form [formGroup]="form" id="filter-form" (ngSubmit)="apply()" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <form id="filter-form" [formGroup]="form" (ngSubmit)="apply()"
+            style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1rem; padding-top: 0.5rem;">
+        <mat-form-field>
+          <mat-label>Avviso</mat-label>
+          <mat-select formControlName="alert">
+            <mat-option [value]="null">Nessuno</mat-option>
+            <mat-option value="notice">Disdetta entro 60 giorni</mat-option>
+            <mat-option value="expiring">In scadenza entro 4 mesi</mat-option>
+            <mat-option value="expired_active">Scaduti ancora attivi</mat-option>
+            <mat-option value="without_assets">Senza immobile</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Stato</mat-label>
+          <mat-select formControlName="computed_status">
+            <mat-option [value]="null">Tutti</mat-option>
+            @for (o of statusOptions; track o.value) {
+              <mat-option [value]="o.value">{{ o.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Direzione</mat-label>
+          <mat-select formControlName="direction">
+            <mat-option [value]="null">Tutte</mat-option>
+            @for (o of directionOptions; track o.value) {
+              <mat-option [value]="o.value">{{ o.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Tipo</mat-label>
+          <mat-select formControlName="kind">
+            <mat-option [value]="null">Tutti</mat-option>
+            @for (o of kindOptions; track o.value) {
+              <mat-option [value]="o.value">{{ o.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
         <app-filterable-select
           label="Immobile"
           placeholder="Cerca immobile..."
           [options]="assetOptions"
-          formControlName="asset_id_fk">
+          formControlName="asset_id">
         </app-filterable-select>
-
         <app-filterable-select
-          label="Utilizzatore"
-          placeholder="Cerca utilizzatore..."
+          label="Controparte"
+          placeholder="Cerca controparte..."
           [options]="utilizerOptions"
           formControlName="utilizer_id_fk">
         </app-filterable-select>
-
         <mat-form-field>
-          <mat-label>Tipo Utilizzo</mat-label>
-          <input matInput formControlName="usage_type">
+          <mat-label>Settore</mat-label>
+          <input matInput formControlName="department">
         </mat-form-field>
-
         <mat-form-field>
-          <mat-label>Atto di Concessione</mat-label>
+          <mat-label>Atto</mat-label>
           <input matInput formControlName="concession_act">
         </mat-form-field>
-
-        <mat-form-field>
-          <mat-label>Data Concessione</mat-label>
-          <input matInput [matDatepicker]="grantPicker" formControlName="grant_date" placeholder="GG/MM/AAAA">
-          <mat-datepicker-toggle matSuffix [for]="grantPicker"></mat-datepicker-toggle>
-          <mat-datepicker #grantPicker></mat-datepicker>
-          @if (form.controls.grant_date.hasError('matDatepickerParse')) {
-            <mat-error>Data non valida (GG/MM/AAAA)</mat-error>
-          }
-        </mat-form-field>
-
-        <mat-form-field>
-          <mat-label>Data Scadenza</mat-label>
-          <input matInput [matDatepicker]="expirePicker" formControlName="expire_date" placeholder="GG/MM/AAAA">
-          <mat-datepicker-toggle matSuffix [for]="expirePicker"></mat-datepicker-toggle>
-          <mat-datepicker #expirePicker></mat-datepicker>
-          @if (form.controls.expire_date.hasError('matDatepickerParse')) {
-            <mat-error>Data non valida (GG/MM/AAAA)</mat-error>
-          }
-        </mat-form-field>
-
         <mat-form-field>
           <mat-label>Utenze da volturare</mat-label>
           <mat-select formControlName="utilities_to_be_taken_over">
-            @for (opt of utilitiesOptions; track opt.label) {
-              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-            }
+            <mat-option [value]="null">Tutti</mat-option>
+            <mat-option [value]="true">Sì</mat-option>
+            <mat-option [value]="false">No</mat-option>
           </mat-select>
         </mat-form-field>
       </form>
@@ -108,23 +134,22 @@ export class UtilizerGrantFilterDialogComponent {
   private utilizerService = inject(UtilizerService);
   protected data = inject<FilterDialogData<UtilizerGrantFilterValues>>(MAT_DIALOG_DATA);
 
+  readonly statusOptions = options(STATUS_LABEL);
+  readonly directionOptions = options(DIRECTION_LABEL);
+  readonly kindOptions = options(KIND_LABEL);
   assetOptions: TOption[] = [];
   utilizerOptions: TOption[] = [];
 
-  utilitiesOptions: { label: string; value: boolean | null }[] = [
-    {label: 'Tutti', value: null},
-    {label: 'Sì', value: true},
-    {label: 'No', value: false},
-  ];
-
   form = this.fb.group({
-    concession_act: [this.data.values.concession_act ?? ''],
-    usage_type: [this.data.values.usage_type ?? ''],
-    utilities_to_be_taken_over: [this.data.values.utilities_to_be_taken_over ?? null],
-    grant_date: [this.data.values.grant_date ?? null],
-    expire_date: [this.data.values.expire_date ?? null],
-    asset_id_fk: [this.data.values.asset_id_fk ?? null],
+    alert: [this.data.values.alert ?? null],
+    computed_status: [this.data.values.computed_status ?? null],
+    direction: [this.data.values.direction ?? null],
+    kind: [this.data.values.kind ?? null],
+    asset_id: [this.data.values.asset_id ?? null],
     utilizer_id_fk: [this.data.values.utilizer_id_fk ?? null],
+    department: [this.data.values.department ?? ''],
+    concession_act: [this.data.values.concession_act ?? ''],
+    utilities_to_be_taken_over: [this.data.values.utilities_to_be_taken_over ?? null],
   });
 
   constructor() {
@@ -134,7 +159,7 @@ export class UtilizerGrantFilterDialogComponent {
           .map(a => ({label: a.asset_name, value: a.id}))
           .sort((a, b) => a.label.localeCompare(b.label));
       },
-      error: (err) => console.error('Errore nel caricamento degli Asset:', err),
+      error: (err) => console.error('Errore nel caricamento degli immobili:', err),
     });
     this.utilizerService.search({deleted: false}).subscribe({
       next: (data) => {
@@ -142,7 +167,7 @@ export class UtilizerGrantFilterDialogComponent {
           .map(u => ({label: StringHelper.truncateAt(u.name, 50), value: u.id}))
           .sort((a, b) => a.label.localeCompare(b.label));
       },
-      error: (err) => console.error('Errore nel caricamento degli Utilizzatori:', err),
+      error: (err) => console.error('Errore nel caricamento delle controparti:', err),
     });
   }
 

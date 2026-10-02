@@ -1,5 +1,25 @@
-import { IsOptional, IsString, IsInt, MaxLength, IsBoolean } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
+import {
+  ContractDirection,
+  ContractKind,
+  ContractStatus,
+  RentPeriod,
+} from '../enum/real-estate-contract.enum';
 
+// PATCH parziale: la coerenza del contratto risultante (merge con il
+// persistito) è verificata da validateContract nel service.
 export class UpdateUtilizerGrantDto {
   @IsOptional()
   id?: number;
@@ -19,22 +39,98 @@ export class UpdateUtilizerGrantDto {
   usage_type?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  grant_date?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  expire_date?: string;
-
-  @IsOptional()
-  @IsInt()
-  asset_id_fk?: number;
-
-  @IsOptional()
   @IsInt()
   utilizer_id_fk?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  asset_ids?: number[];
+
+  @IsOptional()
+  @IsDateString({ strict: true })
+  start_date?: string | null;
+
+  @IsOptional()
+  @IsDateString({ strict: true })
+  end_date?: string | null;
+
+  @IsOptional()
+  @IsEnum(ContractDirection)
+  direction?: ContractDirection;
+
+  @IsOptional()
+  @IsEnum(ContractKind)
+  kind?: ContractKind;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  subject?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  rent_amount?: number | null;
+
+  @IsOptional()
+  @IsEnum(RentPeriod)
+  rent_period?: RentPeriod | null;
+
+  @IsOptional()
+  @IsBoolean()
+  vat_applicable?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  tacit_renewal?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  renewal_months?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  notice_months?: number | null;
+
+  @IsOptional()
+  @IsEnum(ContractStatus)
+  status?: ContractStatus;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  registration_ref?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  cadastral_ref?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  area_sqm?: number | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  department?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  parent_contract_id?: number | null;
+
+  @IsOptional()
+  @IsString()
+  notes?: string | null;
 
   @IsOptional()
   create_date?: Date;

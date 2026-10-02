@@ -82,7 +82,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     {field: 'budgetChapter.description', header: 'Capitolo di Spesa', minWidth: '200px'},
     {field: 'latitude', header: 'Latitudine', minWidth: '100px'},
     {field: 'longitude', header: 'Longitudine', minWidth: '100px'},
-    {field: 'asset.utilizer', header: 'Utilizzatori', minWidth: '180px'},
+    {field: 'asset.utilizer', header: 'Controparti', minWidth: '180px'},
     {field: 'specifications', header: 'Specifiche', minWidth: '200px'},
     {field: 'notes', header: 'Note', minWidth: '200px'},
     {field: 'additional_notes', header: 'Note Aggiuntive', minWidth: '200px'},

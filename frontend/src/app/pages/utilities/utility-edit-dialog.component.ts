@@ -1,5 +1,5 @@
 import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
-import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
+import {AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
@@ -38,7 +38,9 @@ import {ContractEditDialogComponent} from '../contracts/contract-edit-dialog.com
 import {Contract} from '../contracts/entity/contract.entity';
 import {DatePipe} from '@angular/common';
 import {UtilityConsumptionsTabComponent} from './consumptions/utility-consumptions-tab.component';
-import {ThermalPlant, ThermalPlantService} from '../assets/thermal-plants/thermal-plant.service';
+import {PlantService} from '../plants/plant.service';
+import {PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PlantType} from '../plants/plant.model';
+import {PlantEditDialogComponent, PlantEditDialogData} from '../plants/plant-edit-dialog.component';
 import {BudgetChapter} from '../budget-chapters/entity/budget-chapter.entity';
 import {SupplyType, SupplyTypeDescription} from '../budget-chapters/enum/supply-type.enum';
 import {formatQty, CONSUMPTION_UNIT_BY_HARD_TYPE, ConsumptionSummary} from './consumptions/consumption.model';
@@ -55,6 +57,13 @@ const CHAPTER_COMPATIBILITY: Record<HardType, SupplyType[]> = {
   [HardType.WATER]: [SupplyType.WATER],
   [HardType.INTERNET]: [],
 };
+
+// Un'utenza serve almeno un immobile o un impianto (stessa regola del backend).
+function atLeastOneLink(group: AbstractControl): ValidationErrors | null {
+  const assets = (group.get('asset_ids')?.value ?? []) as unknown[];
+  const plants = (group.get('plant_ids')?.value ?? []) as unknown[];
+  return assets.length + plants.length > 0 ? null : {noLink: true};
+}
 
 @Component({
   selector: 'app-utility-edit-dialog',
@@ -74,7 +83,7 @@ export class UtilityEditDialogComponent implements OnInit {
   private dialog = inject(MatDialog);
   private authService = inject(AuthService);
   private assetsService = inject(AssetService);
-  private thermalPlantService = inject(ThermalPlantService);
+  private plantService = inject(PlantService);
   private utilityAggregatorService = inject(UtilityAggregatorsService);
   private budgetChapterService = inject(BudgetChaptersService);
   private costsBorneByService = inject(CostsBorneByService);
@@ -133,7 +142,8 @@ export class UtilityEditDialogComponent implements OnInit {
   form = this.fb.group({
     additional_notes: [this.data.item.additional_notes ?? ''],
     aggregator_id_fk: [this.resolveOnRelation('aggregator', 'aggregator_id_fk', this.data.item) ?? null],
-    asset_ids: [(this.data.item.assets ?? []).map(a => a.id), [Validators.required, Validators.minLength(1)]],
+    asset_ids: [(this.data.item.assets ?? []).map(a => a.id)],
+    plant_ids: [(this.data.item.plants ?? []).map(p => p.id)],
     budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null, Validators.required],
     costs_borne_by_id_fk: [this.resolveOnRelation('costsBorneBy', 'costs_borne_by_id_fk', this.data.item) ?? null, Validators.required],
     disconnection_ability: [this.data.item.disconnection_ability ?? ''],
@@ -158,7 +168,7 @@ export class UtilityEditDialogComponent implements OnInit {
     voltage_kw_electric: [this.data.item.voltage_kw_electric ?? ''],
     water_concession: [this.toDate(this.data.item.water_concession)],
     wbs_gas_element: [this.data.item.wbs_gas_element ?? ''],
-  });
+  }, {validators: atLeastOneLink});
 
   constructor() {
     const role = this.authService.getCurrentUser()?.role;
@@ -167,17 +177,19 @@ export class UtilityEditDialogComponent implements OnInit {
     }
   }
 
-  // Impianti termici alimentati da questa utenza (solo lettura, si
-  // modificano dal dialog dell'immobile).
-  thermalPlants: ThermalPlant[] = [];
+  readonly plantTypeIcon = PLANT_TYPE_ICON;
+  plantSelectOptions: TOption[] = [];
 
   ngOnInit(): void {
-    if (!this.isNew) {
-      this.thermalPlantService.listByUtility(this.data.item.id).subscribe({
-        next: plants => this.thermalPlants = plants,
-        error: err => console.error('Errore caricamento impianti termici:', err),
-      });
-    }
+    this.plantService.list().subscribe({
+      next: plants => this.plantSelectOptions = plants.map(p => ({
+        label: `${p.code} — ${p.name}`,
+        value: p.id,
+        sublabel: PLANT_TYPE_LABEL[p.type],
+        searchText: `${p.code} ${p.name} ${PLANT_TYPE_LABEL[p.type]}`,
+      })),
+      error: err => console.error('Errore caricamento impianti:', err),
+    });
     this.assetsService.search({deleted: false}).subscribe({
       next: data => {
         this.assetOptions = data.sort((a, b) => (a.asset_name ?? '').localeCompare(b.asset_name ?? ''));
@@ -350,6 +362,31 @@ export class UtilityEditDialogComponent implements OnInit {
       .map(id => this.assetOptions.find(a => a.id === id) ?? this.data.item.assets?.find(a => a.id === id))
       .filter((a): a is Asset => !!a);
     return candidates.find(a => (a.latitude ?? a.geocoded_latitude) && (a.longitude ?? a.geocoded_longitude)) ?? candidates[0];
+  }
+
+  // Impianti selezionati (riquadro "A servizio di"): dai dati dell'utenza o
+  // dall'elenco completo per quelli appena aggiunti nel form.
+  selectedPlants(): {id: number; label: string; type: PlantType | null}[] {
+    const ids = (this.form.controls.plant_ids.value ?? []) as number[];
+    return ids.map(id => {
+      const known = this.data.item.plants?.find(p => p.id === id);
+      if (known) return {id, label: `${known.code} — ${known.name}`, type: known.type};
+      const opt = this.plantSelectOptions.find(o => o.value === id);
+      return {id, label: opt?.label ?? `#${id}`, type: null};
+    });
+  }
+
+  plantIcon(type: PlantType | null): string {
+    return type ? this.plantTypeIcon[type] : 'settings_input_component';
+  }
+
+  openPlant(plantId: number): void {
+    const role = this.authService.getCurrentUser()?.role;
+    this.dialog.open<PlantEditDialogComponent, PlantEditDialogData, boolean>(PlantEditDialogComponent, {
+      width: '1000px',
+      maxWidth: '1000px',
+      data: {plantId, readOnly: !role || role === 'Lettore'},
+    });
   }
 
   selectedAssetOptions(): TOption[] {

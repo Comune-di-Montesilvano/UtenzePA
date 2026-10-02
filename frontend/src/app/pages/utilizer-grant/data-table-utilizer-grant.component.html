@@ -2,7 +2,22 @@
   <h3>Elenco ({{data.length}})</h3>
   <button mat-flat-button (click)="openCreateDialog()" [appHasRole]="['Admin', 'Operatore']">
     <mat-icon>add</mat-icon>
-    Aggiungi Concessione
+    Aggiungi contratto
+  </button>
+</div>
+
+<div style="display: flex; gap: 0.75rem; align-items: center; margin: 0.75rem 0;">
+  <mat-form-field subscriptSizing="dynamic" style="min-width: 220px;">
+    <mat-label>Colonne visibili</mat-label>
+    <mat-select multiple [(ngModel)]="selectedColumns" [compareWith]="compareColumns" (selectionChange)="onColumnsChange()">
+      @for (col of allColumns; track col.field) {
+        <mat-option [value]="col">{{ col.header }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+  <button mat-stroked-button (click)="exportToCSV()">
+    <mat-icon>ios_share</mat-icon>
+    Esporta CSV
   </button>
 </div>
 
@@ -36,52 +51,104 @@
     <td mat-cell *matCellDef="let item">{{ item.id }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="asset">
-    <th mat-header-cell *matHeaderCellDef>Immobile</th>
-    <td mat-cell *matCellDef="let item">{{ item.asset?.asset_name }}</td>
+  <ng-container matColumnDef="direction">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Direzione</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.direction) {
+        <span [style.background]="item.direction === 'ACTIVE' ? '#dcfce7' : '#fee2e2'"
+              [style.color]="item.direction === 'ACTIVE' ? '#166534' : '#991b1b'"
+              style="border-radius: 10px; padding: 1px 8px; font-size: 0.75rem;">
+          {{ directionText(item) }}
+        </span>
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="kind">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Tipo</th>
+    <td mat-cell *matCellDef="let item">{{ kindText(item) }}</td>
   </ng-container>
 
   <ng-container matColumnDef="utilizer">
-    <th mat-header-cell *matHeaderCellDef>Utilizzatore</th>
+    <th mat-header-cell *matHeaderCellDef>Controparte</th>
+    <td mat-cell *matCellDef="let item" [matTooltip]="item.utilizer?.name ?? ''">{{ truncate(item.utilizer?.name) }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="assets">
+    <th mat-header-cell *matHeaderCellDef>Immobili</th>
     <td mat-cell *matCellDef="let item">
-      <span [matTooltip]="item.utilizer?.name ?? ''">{{ truncate($safeNavigationMigration(item.utilizer?.name)) }}</span>
+      @if ((item.assets ?? []).length === 0) {
+        <span style="color: #b91c1c;">nessuno</span>
+      } @else {
+        <span [matTooltip]="assetNames(item)">{{ truncate(assetNames(item)) }}</span>
+      }
     </td>
   </ng-container>
 
-  <ng-container matColumnDef="usage_type">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Tipo Utilizzo</th>
-    <td mat-cell *matCellDef="let item">{{ item.usage_type || 'N/D' }}</td>
+  <ng-container matColumnDef="subject">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Oggetto</th>
+    <td mat-cell *matCellDef="let item" [matTooltip]="item.subject ?? ''">{{ truncate(item.subject) }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="grant_date">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Data Concessione</th>
-    <td mat-cell *matCellDef="let item">{{ item.grant_date | date: 'dd/MM/yyyy' }}</td>
+  <ng-container matColumnDef="annual_rent">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header style="text-align: right;">Canone annuo</th>
+    <td mat-cell *matCellDef="let item" style="text-align: right; white-space: nowrap;">{{ euro(item.annual_rent) }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="expire_date">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Data Scadenza</th>
-    <td mat-cell *matCellDef="let item">{{ item.expire_date | date: 'dd/MM/yyyy' }}</td>
+  <ng-container matColumnDef="effective_end_date">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Scadenza</th>
+    <td mat-cell *matCellDef="let item">
+      {{ dateIt(item.effective_end_date) }}
+      @if (item.tacit_renewal) {
+        <mat-icon style="font-size: 16px; height: 16px; width: 16px; vertical-align: middle;" matTooltip="Rinnovo tacito">autorenew</mat-icon>
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="notice_deadline">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Disdetta entro</th>
+    <td mat-cell *matCellDef="let item">{{ dateIt(item.notice_deadline) }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="computed_status">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Stato</th>
+    <td mat-cell *matCellDef="let item">
+      @if (item.computed_status) {
+        @let b = statusBadgeOf(item);
+        <span [style.background]="b.bg" [style.color]="b.fg"
+              style="border-radius: 10px; padding: 1px 8px; font-size: 0.75rem; white-space: nowrap;">
+          {{ statusText(item) }}
+        </span>
+      }
+    </td>
+  </ng-container>
+
+  <ng-container matColumnDef="department">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Settore</th>
+    <td mat-cell *matCellDef="let item">{{ item.department }}</td>
   </ng-container>
 
   <ng-container matColumnDef="concession_act">
-    <th mat-header-cell *matHeaderCellDef>Atto di Concessione</th>
-    <td mat-cell *matCellDef="let item">
-      @if (item.concession_act) {
-        <span [matTooltip]="item.concession_act">{{ truncate(item.concession_act) }}</span>
-      }
-    </td>
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Atto</th>
+    <td mat-cell *matCellDef="let item" [matTooltip]="item.concession_act ?? ''">{{ truncate(item.concession_act) }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="registration_ref">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Registrazione</th>
+    <td mat-cell *matCellDef="let item">{{ item.registration_ref }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="cadastral_ref">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Catasto</th>
+    <td mat-cell *matCellDef="let item">{{ item.cadastral_ref }}</td>
   </ng-container>
 
   <ng-container matColumnDef="utilities_to_be_taken_over">
-    <th mat-header-cell *matHeaderCellDef>Utenze da volturare</th>
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Utenze da volturare</th>
     <td mat-cell *matCellDef="let item">
-      @if (item.utilities_to_be_taken_over === true) {
-        <mat-icon class="mat-action-success">check_circle</mat-icon>
-      } @else if (item.utilities_to_be_taken_over === false) {
-        <mat-icon class="mat-action-danger">cancel</mat-icon>
-      } @else {
-        <span>N/D</span>
-      }
+      <mat-icon [style.color]="item.utilities_to_be_taken_over ? '#22c55e' : '#9ca3af'">
+        {{ item.utilities_to_be_taken_over ? 'check_circle' : 'remove' }}
+      </mat-icon>
     </td>
   </ng-container>
 
@@ -89,7 +156,7 @@
   <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.row-deleted]="row.deleted"></tr>
 
   <tr class="mat-row" *matNoDataRow>
-    <td class="mat-cell" [attr.colspan]="displayedColumns.length">Nessuna assegnazione utilizzatore trovata.</td>
+    <td class="mat-cell" [attr.colspan]="displayedColumns.length">Nessun contratto immobiliare trovato.</td>
   </tr>
 </table>
 

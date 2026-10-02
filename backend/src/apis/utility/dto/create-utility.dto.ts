@@ -1,5 +1,4 @@
 import {
-  ArrayMinSize,
   IsArray,
   IsNotEmpty,
   IsOptional,
@@ -24,10 +23,16 @@ export class CreateUtilityDto {
   @MaxLength(20)
   utility_id: string;
 
+  // Almeno un immobile o un impianto: verificato nel service.
+  @IsOptional()
   @IsArray({ message: 'Gli immobili associati devono essere un array.' })
-  @ArrayMinSize(1, { message: 'Almeno un immobile associato è obbligatorio.' })
   @IsInt({ each: true, message: 'Ogni immobile associato deve essere un ID intero.' })
-  asset_ids: number[];
+  asset_ids?: number[];
+
+  @IsOptional()
+  @IsArray({ message: 'Gli impianti associati devono essere un array.' })
+  @IsInt({ each: true, message: 'Ogni impianto associato deve essere un ID intero.' })
+  plant_ids?: number[];
 
   @IsNotEmpty({ message: 'Il campo "Costi a carico di" è obbligatorio.' })
   @IsInt()

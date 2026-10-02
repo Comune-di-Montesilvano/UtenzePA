@@ -1,13 +1,22 @@
 <div style="padding: 1rem;">
   <div>
-    <h1>Gestione Concessioni</h1>
-    <p style="color: #6A7282;">Gestisci le concessioni.</p>
+    <h1>Contratti immobiliari</h1>
+    <p style="color: #6A7282;">Locazioni, concessioni, comodati e assegnazioni degli immobili comunali, attivi e passivi.</p>
   </div>
   <div style="margin-top: 1rem;">
     <app-search-utilizer-grant (search)="onSearch($event)"></app-search-utilizer-grant>
   </div>
+  @let t = totals();
+  <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; margin-top: 0.75rem; color: #374151;">
+    <span>Entrate annue: <strong>{{ euro(t.income) }}</strong></span>
+    <span>Uscite annue: <strong>{{ euro(t.expense) }}</strong></span>
+    <span>Saldo: <strong>{{ euro(t.income - t.expense) }}</strong></span>
+    <span style="color: #6b7280; font-size: 0.85rem;">(contratti attivi o in scadenza tra quelli in elenco)</span>
+  </div>
   <div style="margin-top: 1.5rem;">
-    <app-data-table-utilizer-grant [data]="list"
+    <app-data-table-utilizer-grant
+      #dataTable
+      [data]="list"
       [loading]="loading"
       (onSave)="onSave($event)"
       (onDelete)="onDelete($event)"

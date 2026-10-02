@@ -37,12 +37,15 @@ import { ASSET_AGGREGATOR_ICON_FALLBACK } from '../asset-aggregator/enum/asset-a
 import { CoordinateHelper } from '../../core/helpers/coordinate.helper';
 import { StreetViewHelper } from '../../core/helpers/street-view.helper';
 import { ToastService } from '../../core/services/toast.service';
+import { PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PLANT_TYPES } from '../plants/plant.model';
+import { PlantEditDialogComponent, PlantEditDialogData } from '../plants/plant-edit-dialog.component';
 
 // Fallback per gli immobili senza icona custom sull'aggregato collegato (o
 // aggregato non ancora caricato) — Material Icons (vedi
 // AssetAggregatorIconOptions), non più Font Awesome fisso: ogni immobile
 // eredita ora l'icona del proprio AssetAggregator.icon.
 const ASSET_COLOR = '#37474f';
+const PLANT_COLOR = '#0f766e';
 // Contatore senza tipologia associata (dato mancante) — icona neutra.
 const UNKNOWN_UTILITY_ICON = 'fa fa-question';
 const UNKNOWN_UTILITY_COLOR = '#757575';
@@ -129,6 +132,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
   showAssets = new FormControl(true, { nonNullable: true });
   showUtilities = new FormControl(true, { nonNullable: true });
+  showPlants = new FormControl(true, { nonNullable: true });
+  plantTypes = new FormControl<string[]>([], {nonNullable: true});
+  plantTypeOptions: TOption[] = PLANT_TYPES.map((t) => ({ label: PLANT_TYPE_LABEL[t], value: t, icon: PLANT_TYPE_ICON[t] }));
   assetAggregatorIds = new FormControl<number[]>([], {nonNullable: true});
   utilityTypeIds = new FormControl<number[]>([], {nonNullable: true});
   natureIds = new FormControl<number[]>([], {nonNullable: true});
@@ -226,6 +232,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.showAssets.valueChanges.subscribe(() => this.reload());
     this.showUtilities.valueChanges.subscribe(() => this.reload());
+    this.showPlants.valueChanges.subscribe(() => this.reload());
+    this.plantTypes.valueChanges.subscribe(() => this.reload());
     this.assetAggregatorIds.valueChanges.subscribe(() => this.reload());
     this.utilityTypeIds.valueChanges.subscribe(() => this.reload());
     this.natureIds.valueChanges.subscribe(() => this.reload());
@@ -440,6 +448,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       .getPoints({
         showAssets: this.showAssets.value,
         showUtilities: this.showUtilities.value,
+        showPlants: this.showPlants.value,
+        plantTypes: this.plantTypes.value,
         assetAggregatorIds: this.assetAggregatorIds.value,
         natureIds: this.natureIds.value,
         functionIds: this.functionIds.value,
@@ -507,6 +517,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       const assetsHere = group.filter((g) => g.type === 'asset');
       if (assetsHere.length > 1) return true;
       if (assetsHere.length === 0) return true;
+      // Un impianto nello stesso punto di un immobile (es. centrale termica
+      // con posizione ereditata) resterebbe coperto dal marker immobile.
+      if (group.some((g) => g.type === 'plant')) return true;
       const utilitiesHere = group.filter((g) => g.type === 'utility');
       return utilitiesHere.some((u) => u.assetId !== assetsHere[0].id);
     };
@@ -548,9 +561,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       const pinTitle = this.escapeAttr(
         combined
           ? `${coordGroup.length} elementi in questo punto — clicca per vederli`
-          : isAsset
-            ? `${point.name} (immobile)`
-            : `${point.hardType ? this.hardTypeLegend.find((t) => t.value === point.hardType)?.label : 'Utenza'} — ${point.name}`,
+          : this.pointLabel(point),
       );
 
       if (combined) {
@@ -564,6 +575,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         // senza dover aprire il popup.
         const assetsInGroup = coordGroup.filter((g) => g.type === 'asset').length;
         const utilitiesInGroup = coordGroup.filter((g) => g.type === 'utility').length;
+        const plantsInGroup = coordGroup.filter((g) => g.type === 'plant').length;
         color = GROUP_COLOR;
         // Icona sempre uguale a prescindere dalla composizione — un'icona
         // che cambia (immobile vs contatore) confonderebbe "questo e' il
@@ -589,7 +601,14 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
                  <span class="material-icons">speed</span>${utilitiesInGroup}
                </span>`
             : '';
-        badgeHtml = buildingsBadge + utilitiesBadge;
+        const plantsBadge =
+          plantsInGroup > 0
+            ? `<span class="map-pin-badge map-pin-badge--group map-pin-badge--utilities"
+                 data-badge-filter="plant" title="${plantsInGroup} impianti in questo punto — clicca per vederli">
+                 <span class="material-icons">settings_input_component</span>${plantsInGroup}
+               </span>`
+            : '';
+        badgeHtml = buildingsBadge + utilitiesBadge + plantsBadge;
       } else {
         ({ iconHtml, color } = this.pointIcon(point));
         // Stesso badge (stile/dimensione/icona) usato per il conteggio
@@ -644,6 +663,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
           const filterType = badgeEl?.getAttribute('data-badge-filter') as
             | 'asset'
             | 'utility'
+            | 'plant'
             | null;
           this.openCombinedPicker(coordGroup, assetNameById, lat, lng, filterType ?? undefined);
         } else if (isAsset) {
@@ -665,7 +685,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       });
       this.clusterGroup.addLayer(marker);
       if (isAsset) this.assetMarkers.set(point.id, marker);
-      else this.utilityMarkers.set(point.id, marker);
+      else if (point.type === 'utility') this.utilityMarkers.set(point.id, marker);
 
       // Linea tratteggiata verso l'immobile associato — solo per contatori
       // con posizione propria distinta (vedi assetLatLngById sopra).
@@ -696,6 +716,10 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   // mappa (renderPoints) sia alle voci del popup di scelta immobile/contatori
   // (openAssetOrPicker), stessa resa in entrambi i posti.
   private pointIcon(point: MapPoint): { iconHtml: string; color: string } {
+    if (point.type === 'plant') {
+      const icon = point.plantType ? PLANT_TYPE_ICON[point.plantType] : 'settings_input_component';
+      return { iconHtml: `<span class="material-icons">${icon}</span>`, color: PLANT_COLOR };
+    }
     const isAsset = point.type === 'asset';
     const color = isAsset ? ASSET_COLOR : (point.hardType ? HardTypeColor[point.hardType] : UNKNOWN_UTILITY_COLOR);
     // Gli immobili usano l'icona Material dell'aggregato collegato
@@ -705,6 +729,15 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       ? `<span class="material-icons">${point.icon || ASSET_AGGREGATOR_ICON_FALLBACK}</span>`
       : `<i class="${point.hardType ? HardTypeIcon[point.hardType] : UNKNOWN_UTILITY_ICON}"></i>`;
     return { iconHtml, color };
+  }
+
+  // Etichetta di un punto (tooltip pin e voci dei popup di scelta).
+  private pointLabel(point: MapPoint): string {
+    if (point.type === 'asset') return `${point.name} (immobile)`;
+    if (point.type === 'plant') {
+      return `${point.plantType ? PLANT_TYPE_LABEL[point.plantType] : 'Impianto'} — ${point.name}`;
+    }
+    return `${point.hardType ? this.hardTypeLegend.find((t) => t.value === point.hardType)?.label : 'Utenza'} — ${point.name}`;
   }
 
   // Click su un marker immobile: se ha contatori collegati (badge visibile),
@@ -807,7 +840,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     assetNameById: Map<number, string>,
     lat: number,
     lng: number,
-    filterType?: 'asset' | 'utility',
+    filterType?: 'asset' | 'utility' | 'plant',
   ): void {
     if (!this.map) return;
 
@@ -818,9 +851,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       .map((p, i) => {
         const { iconHtml, color } = this.pointIcon(p);
         const label =
-          p.type === 'asset'
-            ? `${p.name} (immobile)`
-            : `${p.hardType ? this.hardTypeLegend.find((t) => t.value === p.hardType)?.label : 'Utenza'} — ${p.name} <small>(${p.assetId != null ? (assetNameById.get(p.assetId) ?? '?') : '—'})</small>`;
+          p.type === 'utility'
+            ? `${this.pointLabel(p)} <small>(${p.assetId != null ? (assetNameById.get(p.assetId) ?? '?') : '—'})</small>`
+            : this.pointLabel(p);
         return `<li data-idx="${i}" class="map-picker-item">
           <span class="map-pin map-pin-inline" style="background:${color}">${iconHtml}</span>
           <span class="map-picker-item-label">${label}</span>
@@ -846,6 +879,20 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   openDetail(point: MapPoint | UngeolocatedItem): void {
+    if (point.type === 'plant') {
+      const role = this.authService.getCurrentUser()?.role;
+      this.dialog
+        .open<PlantEditDialogComponent, PlantEditDialogData, boolean>(PlantEditDialogComponent, {
+          width: '1000px',
+          maxWidth: '1000px',
+          data: { plantId: point.id, readOnly: !role || role === 'Lettore' },
+        })
+        .afterClosed()
+        .subscribe((saved) => {
+          if (saved) this.reload();
+        });
+      return;
+    }
     if (point.type === 'asset') {
       this.assetService.getById(point.id).subscribe((asset) => {
         this.dialog

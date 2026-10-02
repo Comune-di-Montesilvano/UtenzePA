@@ -12,7 +12,7 @@ import {UtilityAggregatorsComponent} from "./pages/utility-aggregator/utility-ag
 import {BudgetChaptersComponent} from "./pages/budget-chapters/budget-chapters.component";
 import {AssetsComponent} from "./pages/assets/assets.component";
 import {UtilizerGrantComponent} from "./pages/utilizer-grant/utilizer-grant.component";
-import {ThermalPlantsComponent} from './pages/thermal-plants/thermal-plants.component';
+import {PlantsComponent} from './pages/plants/plants.component';
 import {UtilitiesComponent} from "./pages/utilities/utilities.component";
 import {MaintenanceManagersComponent} from "./pages/maintenance-managers/maintenance-managers.component";
 import {InvoicesComponent} from "./pages/invoices/invoices.component";
@@ -50,7 +50,7 @@ export const routes: Routes = [
       {path: 'building', component: AssetsComponent},
       {path: 'utilizer-grant', component: UtilizerGrantComponent},
       {path: 'utilities', component: UtilitiesComponent},
-      {path: 'thermal-plants', component: ThermalPlantsComponent},
+      {path: 'plants', component: PlantsComponent},
       {path: 'maintenance-managers', component: MaintenanceManagersComponent},
       {path: 'invoices', component: InvoicesComponent},
       {path: 'contracts', component: ContractsComponent},

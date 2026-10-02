@@ -5,10 +5,13 @@ import { Asset } from '@apis/asset/entity/asset.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { MapQueryDto } from './dto/map-query.dto';
+import { Plant } from '@apis/plants/entity/plant.entity';
+import { PlantType, PositionQuality } from '@apis/plants/enum/plant.enum';
+import { firstLocatedAsset, resolvePlantPosition } from '@apis/plants/plant.calc';
 
 export interface MapPoint {
   id: number;
-  type: 'asset' | 'utility';
+  type: 'asset' | 'utility' | 'plant';
   name: string;
   address: string | null;
   lat: string;
@@ -27,11 +30,15 @@ export interface MapPoint {
   // all'asset, coprono/nascondono a vicenda: il conteggio resta visibile
   // comunque).
   assetId?: number | null;
+  // Solo per type 'utility' posizionata tramite un impianto collegato.
+  plantId?: number | null;
+  // Solo per type 'plant' — pilota l'icona per tipo impianto.
+  plantType?: PlantType;
 }
 
 export interface UngeolocatedItem {
   id: number;
-  type: 'asset' | 'utility';
+  type: 'asset' | 'utility' | 'plant';
   name: string;
   reason: 'no_address' | 'geocode_failed';
 }
@@ -49,6 +56,7 @@ export class MapService {
   constructor(
     @InjectRepository(Asset) private readonly assetRepo: Repository<Asset>,
     @InjectRepository(Utility) private readonly utilityRepo: Repository<Utility>,
+    @InjectRepository(Plant) private readonly plantRepo: Repository<Plant>,
   ) {}
 
   async getPoints(
@@ -56,6 +64,7 @@ export class MapService {
   ): Promise<{ points: MapPoint[]; ungeolocated: UngeolocatedItem[] }> {
     const showAssets = filters.showAssets !== false;
     const showUtilities = filters.showUtilities !== false;
+    const showPlants = filters.showPlants !== false;
 
     const points: MapPoint[] = [];
     const ungeolocated: UngeolocatedItem[] = [];
@@ -124,6 +133,42 @@ export class MapService {
       }
     }
 
+    if (showPlants) {
+      const plants = await this.plantRepo.find({
+        where: {
+          deleted: false,
+          ...(filters.plantTypes?.length ? { type: In(filters.plantTypes) } : {}),
+        },
+        relations: { assets: true },
+      });
+      for (const plant of plants) {
+        const asset = firstLocatedAsset(plant.assets);
+        const position = resolvePlantPosition({ ...plant, asset });
+        if (position) {
+          points.push({
+            id: plant.id,
+            type: 'plant',
+            name: plant.name,
+            address: plant.address ?? asset?.address ?? null,
+            lat: position.lat,
+            lng: position.lng,
+            source: position.quality === PositionQuality.PRECISE ? 'gps' : 'geocoded',
+            plantType: plant.type,
+          });
+        } else {
+          ungeolocated.push({
+            id: plant.id,
+            type: 'plant',
+            name: plant.name,
+            reason:
+              isSet(plant.address) || (plant.assets ?? []).some((a) => isSet(a.address))
+                ? 'geocode_failed'
+                : 'no_address',
+          });
+        }
+      }
+    }
+
     if (showUtilities) {
       const utilities = await this.utilityRepo.find({
         where: {
@@ -134,7 +179,7 @@ export class MapService {
           // contatori restano sempre tutti visibili, filtro senza effetto visibile.
           ...(hasAssetClassFilter ? { assets: assetClassWhere } : {}),
         },
-        relations: { assets: true, utilityType: true },
+        relations: { assets: true, plants: { assets: true }, utilityType: true },
       });
 
       for (const utility of utilities) {
@@ -160,8 +205,11 @@ export class MapService {
         }
 
         // Senza GPS proprio: un marker per ogni immobile collegato
-        // localizzabile (stesso id utenza, assetId diverso).
+        // localizzabile (stesso id utenza, assetId diverso), poi uno per ogni
+        // impianto collegato in un punto non già occupato (un impianto dentro
+        // lo stesso immobile non duplica il marker).
         let placed = 0;
+        const usedPoints = new Set<string>();
         for (const asset of linked) {
           const position = this.resolveAssetPosition(asset);
           if (!position) continue;
@@ -173,6 +221,24 @@ export class MapService {
             source: position.source,
             assetId: asset.id,
           });
+          usedPoints.add(`${position.lat}|${position.lng}`);
+          placed++;
+        }
+        const linkedPlants = (utility.plants ?? []).filter((p) => !p.deleted);
+        for (const plant of linkedPlants) {
+          const plantAsset = firstLocatedAsset(plant.assets);
+          const position = resolvePlantPosition({ ...plant, asset: plantAsset });
+          if (!position || usedPoints.has(`${position.lat}|${position.lng}`)) continue;
+          points.push({
+            ...base,
+            address: plant.address ?? plantAsset?.address ?? null,
+            lat: position.lat,
+            lng: position.lng,
+            source: position.quality === PositionQuality.PRECISE ? 'gps' : 'geocoded',
+            assetId: null,
+            plantId: plant.id,
+          });
+          usedPoints.add(`${position.lat}|${position.lng}`);
           placed++;
         }
 
@@ -181,7 +247,10 @@ export class MapService {
             id: utility.id,
             type: 'utility',
             name: utility.utility_id,
-            reason: linked.some((a) => isSet(a.address)) ? 'geocode_failed' : 'no_address',
+            reason:
+              linked.some((a) => isSet(a.address)) || linkedPlants.some((p) => isSet(p.address))
+                ? 'geocode_failed'
+                : 'no_address',
           });
         }
       }

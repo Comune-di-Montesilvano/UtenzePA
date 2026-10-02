@@ -1,141 +1,126 @@
 import { BadRequestException } from '@nestjs/common';
 import { UtilizerGrantService } from './utilizer-grant.service';
-import { UtilizerGrant } from './entity/utilizer-grant.entity';
+import { ContractStatus, DisplayStatus, RentPeriod } from './enum/real-estate-contract.enum';
 
 describe('UtilizerGrantService', () => {
   let service: UtilizerGrantService;
+  let qb: Record<string, jest.Mock>;
   let repo: {
     createQueryBuilder: jest.Mock;
     findOne: jest.Mock;
     create: jest.Mock;
     save: jest.Mock;
+    find: jest.Mock;
   };
-  let qb: {
-    where: jest.Mock;
-    andWhere: jest.Mock;
-    leftJoinAndSelect: jest.Mock;
-    orderBy: jest.Mock;
-    getMany: jest.Mock;
-  };
+  let assetRepo: { count: jest.Mock };
+
+  const row = (over: Record<string, unknown> = {}) => ({
+    id: 1,
+    status: ContractStatus.ACTIVE,
+    end_date: null,
+    tacit_renewal: false,
+    renewal_months: null,
+    notice_months: null,
+    rent_amount: '100.00',
+    rent_period: RentPeriod.MONTHLY,
+    direction: 'ACTIVE',
+    assets: [{ id: 3 }],
+    ...over,
+  });
 
   beforeEach(() => {
     qb = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([]),
     };
     repo = {
       createQueryBuilder: jest.fn().mockReturnValue(qb),
       findOne: jest.fn(),
-      create: jest.fn((data) => data),
-      save: jest.fn(async (data) => data),
+      create: jest.fn((d) => d),
+      save: jest.fn(async (d) => ({ id: 99, ...d })),
+      find: jest.fn().mockResolvedValue([]),
     };
-    service = new UtilizerGrantService(repo as never);
+    assetRepo = { count: jest.fn().mockResolvedValue(1) };
+    service = new UtilizerGrantService(repo as never, assetRepo as never);
+    jest.spyOn(service as never, 'today' as never).mockReturnValue('2026-10-02' as never);
   });
 
-  describe('findAll', () => {
-    it('filtra le sole concessioni non cancellate di default e fa il join con asset/utilizer', async () => {
-      await service.findAll({} as never);
-
-      expect(qb.where).toHaveBeenCalledWith('UtilizerGrant.deleted = :deleted_default', {
-        deleted_default: 0,
-      });
-      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
-        'UtilizerGrant.asset',
-        'asset',
-        'asset.deleted = 0',
-      );
-      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
-        'UtilizerGrant.utilizer',
-        'utilizer',
-        'utilizer.deleted = 0',
-      );
-    });
-
-    it('rispetta il filtro deleted esplicito', async () => {
-      await service.findAll({ deleted: true } as never);
-
-      expect(qb.where).toHaveBeenCalledWith('UtilizerGrant.deleted = :deleted_filter', {
-        deleted_filter: 1,
-      });
-    });
-
-    it('applica il filtro sulla data di concessione', async () => {
-      await service.findAll({ grant_date: '2026-01-01' } as never);
-
-      expect(qb.andWhere).toHaveBeenCalledWith(
-        'DATE(UtilizerGrant.grant_date) = DATE(:grant_date)',
-        { grant_date: '2026-01-01' },
-      );
-    });
-
-    it('applica il filtro sulla data di scadenza', async () => {
-      await service.findAll({ expire_date: '2026-12-31' } as never);
-
-      expect(qb.andWhere).toHaveBeenCalledWith(
-        'DATE(UtilizerGrant.expire_date) = DATE(:expire_date)',
-        { expire_date: '2026-12-31' },
-      );
-    });
-
-    it('ordina per id ascendente e restituisce il risultato', async () => {
-      const items = [{ id: 1 } as UtilizerGrant];
-      qb.getMany.mockResolvedValue(items);
-
-      const result = await service.findAll({} as never);
-
-      expect(qb.orderBy).toHaveBeenCalledWith('UtilizerGrant.id', 'ASC');
-      expect(result).toBe(items);
-    });
+  it('aggiunge canone annuo e stato mostrato a ogni riga', async () => {
+    qb.getMany.mockResolvedValue([row({ end_date: '2025-01-01' })]);
+    const [r] = await service.findAll({});
+    expect(r.annual_rent).toBe(1200);
+    expect(r.computed_status).toBe(DisplayStatus.EXPIRED);
   });
 
-  describe('create (ereditato da BaseService)', () => {
-    it('crea la concessione', async () => {
-      const result = await service.create(
-        { asset_id_fk: 1, utilizer_id_fk: 2 } as never,
-        1,
-      );
-
-      expect(repo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ asset_id_fk: 1, utilizer_id_fk: 2 }),
-      );
-      expect(result).toEqual(expect.objectContaining({ asset_id_fk: 1 }));
-    });
+  it('filtro alert=expired_active tiene solo gli scaduti dichiarati attivi', async () => {
+    qb.getMany.mockResolvedValue([
+      row({ id: 1, end_date: '2025-01-01' }),
+      row({ id: 2, end_date: '2025-01-01', status: ContractStatus.RETURNED }),
+      row({ id: 3, end_date: '2030-01-01' }),
+    ]);
+    const rows = await service.findAll({ alert: 'expired_active' });
+    expect(rows.map((r) => r.id)).toEqual([1]);
   });
 
-  describe('update (ereditato da BaseService)', () => {
-    it('aggiorna la concessione esistente', async () => {
-      const entity = { id: 1, usage_type: 'A' } as UtilizerGrant;
-      repo.findOne.mockResolvedValue(entity);
-
-      await service.update(1, { usage_type: 'B' } as never, 3);
-
-      expect(repo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ usage_type: 'B', updated_by_user_id: 3 }),
-      );
-    });
-
-    it('lancia BadRequestException se la concessione non esiste', async () => {
-      repo.findOne.mockResolvedValue(null);
-
-      await expect(service.update(999, { usage_type: 'X' } as never)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
+  it('filtro alert=without_assets', async () => {
+    qb.getMany.mockResolvedValue([row({ id: 1, assets: [] }), row({ id: 2 })]);
+    expect((await service.findAll({ alert: 'without_assets' })).map((r) => r.id)).toEqual([1]);
   });
 
-  describe('remove (ereditato da BaseService)', () => {
-    it('marca la concessione come cancellata', async () => {
-      const entity = { id: 1, deleted: false } as UtilizerGrant;
-      repo.findOne.mockResolvedValue(entity);
+  it('summary: conteggi e totali solo su contratti attivi o in scadenza', async () => {
+    qb.getMany.mockResolvedValue([
+      row({ id: 1 }),
+      row({ id: 2, direction: 'PASSIVE', rent_amount: '50.00' }),
+      row({ id: 3, end_date: '2025-01-01' }),
+      row({ id: 4, assets: [] }),
+    ]);
+    const s = await service.summary();
+    expect(s.expired_active).toBe(1);
+    expect(s.without_assets).toBe(1);
+    expect(s.annual_income).toBe(2400);
+    expect(s.annual_expense).toBe(600);
+  });
 
-      await service.remove(1, 6);
+  it('rifiuta un contratto con canone senza periodicità', async () => {
+    await expect(
+      service.create({ utilizer_id_fk: 1, rent_amount: 10 } as never, 3),
+    ).rejects.toThrow(BadRequestException);
+    expect(repo.save).not.toHaveBeenCalled();
+  });
 
-      expect(repo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 1, deleted: true, updated_by_user_id: 6 }),
-      );
-    });
+  it('rifiuta immobili inesistenti', async () => {
+    assetRepo.count.mockResolvedValue(0);
+    await expect(service.create({ utilizer_id_fk: 1, asset_ids: [7] } as never, 3)).rejects.toThrow(
+      /immobili/,
+    );
+  });
+
+  it('crea con immobili collegati', async () => {
+    repo.findOne.mockResolvedValue({ id: 99, assets: [{ id: 7 }] });
+    await service.create({ utilizer_id_fk: 1, asset_ids: [7] } as never, 3);
+    expect(repo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ utilizer_id_fk: 1, assets: [{ id: 7 }], created_by_user_id: 3 }),
+    );
+  });
+
+  it('di default esclude i cancellati, con deleted=true mostra solo quelli', async () => {
+    await service.findAll({});
+    expect(qb.where).toHaveBeenCalledWith('UtilizerGrant.deleted = :deleted', { deleted: 0 });
+    await service.findAll({ deleted: true });
+    expect(qb.where).toHaveBeenLastCalledWith('UtilizerGrant.deleted = :deleted', { deleted: 1 });
+  });
+
+  it('update di un contratto inesistente', async () => {
+    repo.findOne.mockResolvedValue(null);
+    await expect(service.update(5, { notes: 'x' } as never, 3)).rejects.toThrow(/non trovato/);
+  });
+
+  it('remove marca il contratto come cancellato senza salvare i campi calcolati', async () => {
+    repo.findOne.mockResolvedValue({ id: 5, deleted: false, updated_by_user_id: 1 });
+    await service.remove(5, 3);
+    expect(repo.save).toHaveBeenCalledWith({ id: 5, deleted: true, updated_by_user_id: 3 });
   });
 });

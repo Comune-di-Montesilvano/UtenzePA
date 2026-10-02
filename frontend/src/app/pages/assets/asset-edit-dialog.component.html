@@ -204,49 +204,6 @@
       <textarea matInput formControlName="memo" rows="3"></textarea>
     </mat-form-field>
 
-    @if (!isNew) {
-      <div>
-        <h4>Utilizzatori</h4>
-        @if (data.item.utilizerGrants && data.item.utilizerGrants.length > 0) {
-          <div style="overflow-x: auto;">
-            <table style="width: 100%; min-width: 700px; border-collapse: collapse;">
-              <thead>
-                <tr>
-                  <th style="text-align: left;">ID</th>
-                  <th style="text-align: left;">Utilizzatore</th>
-                  <th style="text-align: left;">Atto di Concessione</th>
-                  <th style="text-align: left;">Concesso</th>
-                  <th style="text-align: left;">Scadenza</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (u of data.item.utilizerGrants; track u.id) {
-                  @if (u.utilizer && !u.deleted) {
-                    <tr [class.row-deleted]="u.deleted">
-                      <td>{{ u.id }}</td>
-                      <td [matTooltip]="u.utilizer.name">{{ u.utilizer.name | truncate: maxDescLength }}</td>
-                      <td>
-                        @if (u.concession_act) {
-                          <span [matTooltip]="u.concession_act">{{ u.concession_act | truncate: maxDescLength }}</span>
-                        } @else {
-                          N/D
-                        }
-                      </td>
-                      <td>{{ u.grant_date | date: 'dd/MM/yyyy' }}</td>
-                      <td>{{ u.expire_date | date: 'dd/MM/yyyy' }}</td>
-                    </tr>
-                  }
-                }
-              </tbody>
-            </table>
-          </div>
-        } @else {
-          <p style="color: #6A7282; margin: 0.5rem 0;">Nessun utilizzatore associato a questo immobile.</p>
-        }
-      </div>
-
-    }
-
   </form>
     </mat-tab>
     <mat-tab label="Foto" [disabled]="isNew">
@@ -278,11 +235,20 @@
     </mat-tab>
     <mat-tab [disabled]="isNew">
       <ng-template mat-tab-label>
-        <mat-icon style="margin-right: 5px;">local_fire_department</mat-icon>
-        Impianti termici
+        <mat-icon style="margin-right: 5px;">settings_input_component</mat-icon>
+        Impianti
       </ng-template>
       <ng-template matTabContent>
-        <app-asset-thermal-plants-tab [assetId]="data.item.id"></app-asset-thermal-plants-tab>
+        <app-asset-plants-tab [assetId]="data.item.id"></app-asset-plants-tab>
+      </ng-template>
+    </mat-tab>
+    <mat-tab [disabled]="isNew">
+      <ng-template mat-tab-label>
+        <mat-icon style="margin-right: 5px;">real_estate_agent</mat-icon>
+        Contratti immobiliari
+      </ng-template>
+      <ng-template matTabContent>
+        <app-asset-real-estate-contracts-tab [assetId]="data.item.id"></app-asset-real-estate-contracts-tab>
       </ng-template>
     </mat-tab>
     @for (tab of tabs; track tab.value) {

@@ -29,4 +29,13 @@ export class UpdateUtilizerDto {
   @IsOptional()
   @IsBoolean()
   deleted?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  tax_code?: string | null;
+
+  @IsOptional()
+  @IsString()
+  contacts?: string | null;
 }

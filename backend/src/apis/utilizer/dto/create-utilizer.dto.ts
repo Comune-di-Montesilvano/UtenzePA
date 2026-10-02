@@ -18,4 +18,13 @@ export class CreateUtilizerDto {
   @IsOptional()
   @IsInt()
   updated_by_user_id?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  tax_code?: string | null;
+
+  @IsOptional()
+  @IsString()
+  contacts?: string | null;
 }

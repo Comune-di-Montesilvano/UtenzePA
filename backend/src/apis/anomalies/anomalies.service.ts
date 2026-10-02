@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
+import { ASSET_REQUIRED_TYPES } from '@apis/plants/plant.calc';
 import { DataSource } from 'typeorm';
 
 // Contratto valido oggi: stessa definizione di "contratto corrente" usata in
 // UtilitiesService (scadenza assente o non ancora passata).
 // Contratto valido oggi: non chiuso e con scadenza assente o non ancora passata
 // (stessa definizione di "contratto corrente" in UtilitiesService).
-const CURRENT = '(c.closed = 0 AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE()))';
+const CURRENT =
+  '(c.closed = 0 AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE()))';
 const HAS_CIG = "TRIM(IFNULL(c.cig_contract, '')) <> ''";
 
 export interface AnomalyList<T> {
@@ -34,6 +36,22 @@ export interface Anomalies {
   active_utilities_without_cig_contract: AnomalyList<UtilityAnomaly>;
   utilities_with_overlapping_contracts: AnomalyList<UtilityAnomaly>;
   duplicate_cigs: AnomalyList<{ cig: string; contracts: number[] }>;
+  real_estate_contracts_without_assets: AnomalyList<RealEstateContractAnomaly>;
+  plants_without_position: AnomalyList<PlantAnomaly>;
+  plants_without_asset: AnomalyList<PlantAnomaly>;
+}
+
+export interface PlantAnomaly {
+  id: number;
+  code: string;
+  name: string;
+  type: string;
+}
+
+export interface RealEstateContractAnomaly {
+  id: number;
+  counterparty: string | null;
+  subject: string | null;
 }
 
 const list = <T>(items: T[]): AnomalyList<T> => ({ count: items.length, items });
@@ -103,7 +121,68 @@ export class AnomaliesService {
        GROUP BY LOWER(TRIM(c.cig_contract)) HAVING COUNT(*) > 1`,
     );
 
+    // Contratti immobiliari senza immobili attivi collegati (es. import non abbinato).
+    const contractsWithoutAssets: {
+      id: unknown;
+      counterparty: string | null;
+      subject: string | null;
+    }[] = await this.dataSource.query(
+      `SELECT g.id, u.name AS counterparty, g.subject
+         FROM utilizer_grant g LEFT JOIN utilizer u ON u.id = g.utilizer_id_fk
+         WHERE g.deleted = 0
+           AND NOT EXISTS (SELECT 1 FROM utilizer_grant_assets a JOIN assets s ON s.id = a.asset_id AND s.deleted = 0
+                           WHERE a.utilizer_grant_id = g.id)
+         ORDER BY u.name, g.id`,
+    );
+
+    // Impianti senza alcuna posizione: né coordinate proprie, né geocodifica,
+    // né un immobile contenitore localizzato (stessa priorità di resolvePlantPosition).
+    const isSetSql = (col: string) => `IFNULL(TRIM(${col}), '') <> ''`;
+    const plantsWithoutPosition: { id: unknown; code: string; name: string; type: string }[] =
+      await this.dataSource.query(
+        `SELECT p.id, p.code, p.name, p.type
+           FROM plants p
+           WHERE p.deleted = 0
+             AND NOT (${isSetSql('p.latitude')} AND ${isSetSql('p.longitude')})
+             AND NOT (${isSetSql('p.geocoded_latitude')} AND ${isSetSql('p.geocoded_longitude')})
+             AND NOT EXISTS (
+               SELECT 1 FROM plant_assets pa JOIN assets a ON a.id = pa.asset_id AND a.deleted = 0
+               WHERE pa.plant_id = p.id AND (
+                    (${isSetSql('a.latitude')} AND ${isSetSql('a.longitude')})
+                 OR (${isSetSql('a.geocoded_latitude')} AND ${isSetSql('a.geocoded_longitude')})))
+           ORDER BY p.type, p.code`,
+      );
+
+    // Ascensori, antincendio e termici stanno sempre dentro un edificio.
+    const requiredTypes = ASSET_REQUIRED_TYPES.map((t) => `'${t}'`).join(', ');
+    const plantsWithoutAsset: { id: unknown; code: string; name: string; type: string }[] =
+      await this.dataSource.query(
+        `SELECT p.id, p.code, p.name, p.type FROM plants p
+           WHERE p.deleted = 0 AND p.type IN (${requiredTypes})
+             AND NOT EXISTS (SELECT 1 FROM plant_assets pa JOIN assets a ON a.id = pa.asset_id AND a.deleted = 0
+                             WHERE pa.plant_id = p.id)
+           ORDER BY p.type, p.code`,
+      );
+
     return {
+      plants_without_asset: list(
+        plantsWithoutAsset.map((p) => ({ id: Number(p.id), code: p.code, name: p.name, type: p.type })),
+      ),
+      plants_without_position: list(
+        plantsWithoutPosition.map((p) => ({
+          id: Number(p.id),
+          code: p.code,
+          name: p.name,
+          type: p.type,
+        })),
+      ),
+      real_estate_contracts_without_assets: list(
+        contractsWithoutAssets.map((c) => ({
+          id: Number(c.id),
+          counterparty: c.counterparty ?? null,
+          subject: c.subject ?? null,
+        })),
+      ),
       contracts_without_cig: list(
         contractsWithoutCig.map((c) => ({
           id: Number(c.id),

@@ -19,6 +19,7 @@
     <h3>Filtri</h3>
     <mat-checkbox [formControl]="showAssets">Immobili</mat-checkbox>
     <mat-checkbox [formControl]="showUtilities">Utenze</mat-checkbox>
+    <mat-checkbox [formControl]="showPlants">Impianti</mat-checkbox>
 
     <app-multi-select label="Tipologia" [options]="natureOptions" [formControl]="natureIds"></app-multi-select>
     <app-multi-select label="Funzione" [options]="functionOptions" [formControl]="functionIds"></app-multi-select>
@@ -36,11 +37,18 @@
       [formControl]="utilityTypeIds">
     </app-multi-select>
 
+    <app-multi-select
+      label="Tipo impianto"
+      [options]="plantTypeOptions"
+      [formControl]="plantTypes">
+    </app-multi-select>
+
     <div class="map-legend">
       <div><span class="map-pin" style="background:#37474f"><span class="material-icons">apartment</span></span> Immobile (icona varia per funzione)</div>
       @for (t of hardTypeLegend; track t.value) {
         <div><span class="map-pin" [style.background]="t.color"><i [class]="t.icon"></i></span> {{ t.label }}</div>
       }
+      <div><span class="map-pin" style="background:#0f766e"><span class="material-icons">settings_input_component</span></span> Impianto (icona varia per tipo)</div>
       <div>
         <span class="map-pin" style="background:#7c3aed"><span class="material-icons">layers</span></span>
         Piu' elementi nello stesso punto — badge <span class="material-icons map-legend-inline-icon">holiday_village</span> immobili,

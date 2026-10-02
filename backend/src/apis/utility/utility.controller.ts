@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '@/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/core/auth/guards/roles.guard';
 import { Roles } from '@/core/auth/decorators/roles.decorator';
 import { CurrentUser, ICurrentUser } from '@/core/auth/decorators/current-user.decorator';
+import { maskUtility } from '@apis/utilizer-grant/real-estate-contract.privacy';
 import { Utility } from './entity/utility.entity';
 import { SearchUtilityDto } from './dto/search-utility.dto';
 
@@ -26,9 +27,13 @@ import { SearchUtilityDto } from './dto/search-utility.dto';
 export class UtilitiesController {
   constructor(private readonly service: UtilitiesService) {}
 
+  // Contratti annidati negli immobili: codice fiscale oscurato per il Lettore.
   @Get()
-  getAll(@Query() filters: SearchUtilityDto): Promise<Utility[]> {
-    return this.service.findAll(filters);
+  async getAll(
+    @Query() filters: SearchUtilityDto,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<Utility[]> {
+    return (await this.service.findAll(filters)).map((u) => maskUtility(u, user?.role));
   }
 
   @Get('counter')
@@ -37,13 +42,16 @@ export class UtilitiesController {
   }
 
   @Get('safeguarded')
-  safeguard(): Promise<Utility[]> {
-    return this.service.findBySafeguard();
+  async safeguard(@CurrentUser() user: ICurrentUser): Promise<Utility[]> {
+    return (await this.service.findBySafeguard()).map((u) => maskUtility(u, user?.role));
   }
 
   @Get(':id')
-  getOne(@Param('id', ParseIntPipe) id: number): Promise<Utility> {
-    return this.service.findOne(id);
+  async getOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<Utility> {
+    return maskUtility(await this.service.findOne(id), user?.role);
   }
 
   @Roles('Admin', 'Operatore')

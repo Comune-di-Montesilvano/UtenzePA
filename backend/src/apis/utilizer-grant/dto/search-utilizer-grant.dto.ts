@@ -1,5 +1,14 @@
-import { IsBoolean, IsInt, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsEnum, IsIn, IsInt, IsOptional, IsString } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { ContractDirection, ContractKind, DisplayStatus } from '../enum/real-estate-contract.enum';
+
+const toBool = ({ value }: { value: unknown }) => {
+  if (value === 'true' || value === 1 || value === true) return true;
+  if (value === 'false' || value === 0 || value === false) return false;
+  return value;
+};
+
+export type ContractAlertFilter = 'notice' | 'expiring' | 'expired_active' | 'without_assets';
 
 export class SearchUtilizerGrantDto {
   @IsOptional()
@@ -11,15 +20,9 @@ export class SearchUtilizerGrantDto {
   usage_type?: string;
 
   @IsOptional()
-  grant_date: string;
-
-  @IsOptional()
-  expire_date: string;
-
-  @IsOptional()
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))
   @IsInt()
-  asset_id_fk?: number;
+  asset_id?: number;
 
   @IsOptional()
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))
@@ -27,20 +30,37 @@ export class SearchUtilizerGrantDto {
   utilizer_id_fk?: number;
 
   @IsOptional()
+  @IsEnum(ContractDirection)
+  direction?: ContractDirection;
+
+  @IsOptional()
+  @IsEnum(ContractKind)
+  kind?: ContractKind;
+
+  @IsOptional()
+  @IsString()
+  department?: string;
+
+  @IsOptional()
+  @IsEnum(DisplayStatus)
+  computed_status?: DisplayStatus;
+
+  @IsOptional()
+  @IsIn(['notice', 'expiring', 'expired_active', 'without_assets'])
+  alert?: ContractAlertFilter;
+
+  // Ricerca libera su controparte, oggetto, atto, registrazione, immobile.
+  @IsOptional()
+  @IsString()
+  q?: string;
+
+  @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => {
-    if (value === 'true' || value === 1 || value === true) return true;
-    if (value === 'false' || value === 0 || value === false) return false;
-    return value;
-  })
+  @Transform(toBool)
   utilities_to_be_taken_over?: boolean;
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => {
-    if (value === 'true' || value === 1 || value === true) return true;
-    if (value === 'false' || value === 0 || value === false) return false;
-    return value;
-  })
+  @Transform(toBool)
   deleted?: boolean;
 }

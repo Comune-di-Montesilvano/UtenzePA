@@ -7,6 +7,7 @@ import {UtilityType} from '../../utility-types/entity/utility-type.entity';
 import {Exclude, plainToInstance, Transform, Type} from 'class-transformer';
 import {Supplier} from '../../suppliers/entity/supplier.entity';
 import {Asset} from '../../assets/entity/asset.entity';
+import type {PlantType} from '../../plants/plant.model';
 import {BudgetChapter} from '../../budget-chapters/entity/budget-chapter.entity';
 import {MaintenanceManager} from '../../maintenance-managers/entity/maintenance-manager.entity';
 import {CostsBorneBy} from '../../costs-borne-by/entity/costs-borne-by.entity';
@@ -59,6 +60,8 @@ export class Utility extends AbstractEntity implements IUtility {
   // Inviato al backend (sostituisce gli immobili collegati); in lettura si
   // ricava da `assets`.
   asset_ids?: number[];
+  // Inviato al backend (impianti a servizio); in lettura si ricava da `plants`.
+  plant_ids?: number[];
   aggregator_id_fk?: number;
   budget_chapter_code_fk!: number;
   @Exclude({toPlainOnly: true})
@@ -82,6 +85,9 @@ export class Utility extends AbstractEntity implements IUtility {
   @Exclude({toPlainOnly: true})
   @Type(() => Asset)
   assets?: Asset[];
+
+  @Exclude({toPlainOnly: true})
+  plants?: {id: number; code: string; name: string; type: PlantType}[];
 
   @Exclude({toPlainOnly: true})
   aggregator?: UtilityAggregator;

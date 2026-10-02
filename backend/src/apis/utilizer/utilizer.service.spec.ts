@@ -60,7 +60,7 @@ describe('UtilizerService', () => {
   });
 
   describe('findOne (ereditato da BaseService)', () => {
-    it('restituisce l\'utilizzatore trovato', async () => {
+    it("restituisce l'utilizzatore trovato", async () => {
       const entity = { id: 1 } as Utilizer;
       repo.findOne.mockResolvedValue(entity);
 
@@ -79,7 +79,7 @@ describe('UtilizerService', () => {
   });
 
   describe('create (ereditato da BaseService)', () => {
-    it('crea l\'utilizzatore', async () => {
+    it("crea l'utilizzatore", async () => {
       const result = await service.create({ name: 'Utilizzatore 1' } as never, 1);
 
       expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ name: 'Utilizzatore 1' }));
@@ -88,7 +88,7 @@ describe('UtilizerService', () => {
   });
 
   describe('update (ereditato da BaseService)', () => {
-    it('aggiorna l\'utilizzatore esistente', async () => {
+    it("aggiorna l'utilizzatore esistente", async () => {
       const entity = { id: 1, name: 'Utilizzatore 1' } as Utilizer;
       repo.findOne.mockResolvedValue(entity);
 
@@ -99,7 +99,7 @@ describe('UtilizerService', () => {
       );
     });
 
-    it('lancia BadRequestException se l\'utilizzatore non esiste', async () => {
+    it("lancia BadRequestException se l'utilizzatore non esiste", async () => {
       repo.findOne.mockResolvedValue(null);
 
       await expect(service.update(999, { name: 'X' } as never)).rejects.toThrow(
@@ -109,7 +109,7 @@ describe('UtilizerService', () => {
   });
 
   describe('remove (ereditato da BaseService)', () => {
-    it('marca l\'utilizzatore come cancellato', async () => {
+    it("marca l'utilizzatore come cancellato", async () => {
       const entity = { id: 1, deleted: false } as Utilizer;
       repo.findOne.mockResolvedValue(entity);
 
@@ -120,7 +120,7 @@ describe('UtilizerService', () => {
       );
     });
 
-    it('lancia BadRequestException se l\'utilizzatore non esiste', async () => {
+    it("lancia BadRequestException se l'utilizzatore non esiste", async () => {
       repo.findOne.mockResolvedValue(null);
 
       await expect(service.remove(999, 1)).rejects.toThrow(BadRequestException);

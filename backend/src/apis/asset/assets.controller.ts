@@ -19,15 +19,20 @@ import { RolesGuard } from '@/core/auth/guards/roles.guard';
 import { Roles } from '@/core/auth/decorators/roles.decorator';
 import { Asset } from './entity/asset.entity';
 import { CurrentUser, ICurrentUser } from '@core/auth/decorators/current-user.decorator';
+import { maskAssetGrants } from '@apis/utilizer-grant/real-estate-contract.privacy';
 
 @Controller('building')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AssetsController {
   constructor(private readonly service: AssetsService) {}
 
+  // Contratti annidati: codice fiscale della controparte oscurato per il Lettore.
   @Get()
-  getAll(@Query() filters: SearchAssetDto): Promise<Asset[]> {
-    return this.service.findAll(filters);
+  async getAll(
+    @Query() filters: SearchAssetDto,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<Asset[]> {
+    return (await this.service.findAll(filters)).map((a) => maskAssetGrants(a, user?.role));
   }
 
   @Get('counter')
@@ -42,8 +47,11 @@ export class AssetsController {
   }
 
   @Get(':id')
-  getOne(@Param('id', ParseIntPipe) id: number): Promise<Asset | null> {
-    return this.service.findOne(id);
+  async getOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<Asset | null> {
+    return maskAssetGrants(await this.service.findOne(id), user?.role);
   }
 
   @Roles('Admin', 'Operatore')

@@ -2,7 +2,6 @@ import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsInt,
-  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -10,17 +9,8 @@ import {
   Min,
 } from 'class-validator';
 
-export class CreateThermalPlantDto {
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(255)
-  name: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  utility_id_fk?: number | null;
-
+// Dati specifici degli impianti termici (campi ex CreateThermalPlantDto).
+export class PlantThermalDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -89,8 +79,4 @@ export class CreateThermalPlantDto {
   @IsInt()
   @Min(0)
   chillers_heat_pumps?: number | null;
-
-  @IsOptional()
-  @IsString()
-  notes?: string | null;
 }

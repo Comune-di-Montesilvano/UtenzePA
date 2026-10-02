@@ -798,6 +798,9 @@ export class DataImporterService {
     return { imported, skipped, skippedRows };
   }
 
+  // Contratti immobiliari (ex concessioni) dal CSV Access. Le etichette tecniche
+  // (pubblica illuminazione, cabine, "VERIFICARE"…) non sono contratti: dopo un
+  // reimport va rieseguita la pulizia (.audit-w/contratti/cleanup_grants.py).
   async importUtilizerGrants(
     filePath: string = path.join(
       process.cwd(),
@@ -864,10 +867,12 @@ export class DataImporterService {
         continue;
       }
 
-      // Skip se già presente
-      const existing = await this.utilizerGrantRepo.findOne({
-        where: { asset_id_fk, utilizer_id_fk, deleted: false },
-      });
+      // Skip se già presente (stessa controparte sullo stesso immobile).
+      const existing = await this.utilizerGrantRepo
+        .createQueryBuilder('g')
+        .innerJoin('g.assets', 'a', 'a.id = :assetId', { assetId: asset_id_fk })
+        .where('g.utilizer_id_fk = :uid AND g.deleted = 0', { uid: utilizer_id_fk })
+        .getOne();
       if (existing) {
         skipped++;
         skippedRows.push({ row: rowLabel, reason: 'già presente' });
@@ -877,12 +882,12 @@ export class DataImporterService {
       const expire_date = parseDate(row['SCADENZA']);
 
       const entity = this.utilizerGrantRepo.create({
-        asset_id_fk,
+        assets: [{ id: asset_id_fk } as Asset],
         utilizer_id_fk,
         concession_act: row['atto concessione immobile']?.trim() || null,
         utilities_to_be_taken_over: parseBool(row['utenze da volturare']),
         usage_type: row['tipo utilizzo']?.trim() || null,
-        expire_date,
+        end_date: expire_date,
         created_by_user_id: SYSTEM_USER_ID,
         updated_by_user_id: SYSTEM_USER_ID,
       });
