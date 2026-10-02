@@ -107,7 +107,8 @@ PrimeNG rimosso interamente dal frontend (migrazione completa a Angular Material
 ## Architettura
 
 ### Backend
-- `src/apis/` — moduli di dominio, uno per risorsa REST: `auth`, `setup`, `system-users`, `settings`, `asset`, `asset-aggregators`, `utility`, `utility-types`, `utility-aggregators`, `map`, `invoices`, `contracts`, `suppliers`, `budget-chapters`, `consip-agreement`, `costs-borne-by`, `maintenance-managers`, `purpose`, `utilizer`, `utilizer-grant`, `backup`, `photos`, `geocoding`, `health`, `anomalies`, `utility-consumptions`, `budget-chapter-spending`, `thermal-plants`.
+- `src/apis/` — moduli di dominio, uno per risorsa REST: `auth`, `setup`, `system-users`, `settings`, `asset`, `asset-aggregators`, `utility`, `utility-types`, `utility-aggregators`, `map`, `invoices`, `contracts`, `third-parties`, `budget-chapters`, `consip-agreement`, `costs-borne-by`, `maintenance-managers`, `purpose`, `utilizer-grant`, `backup`, `photos`, `geocoding`, `health`, `anomalies`, `utility-consumptions`, `budget-chapter-spending`, `thermal-plants`.
+- Soggetti terzi (`third_parties`, modulo `third-parties`) = controparti + fornitori in un'unica anagrafica (ex `utilizer`/`suppliers`, id conservati). Ruoli (fornitore, locatore, conduttore) calcolati dai collegamenti (`third-party.roles.ts`), mai salvati. Contratto immobiliare N-N con le parti (`utilizer_grant_parties`). P.IVA (giuridici) e CF (persone) obbligatori in validazione e `unique` anche tra le righe eliminate: per riusare l'identificativo di un soggetto di prova serve il DELETE fisico.
 - Impianti termici (`thermal-plants`) = entità dell'immobile, non dell'utenza (l'utenza che li alimenta è FK facoltativa): sopravvivono al cambio contatore. Stesso modello per futuri impianti (ascensori ecc.).
 - `src/core/` — infrastruttura trasversale (auth, database, cronjobs, email, exceptions).
 - `src/common/`, `src/helpers/`, `src/utils/`.

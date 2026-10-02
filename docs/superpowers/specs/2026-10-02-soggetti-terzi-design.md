@@ -79,7 +79,7 @@ DTO (`@ValidateIf` per tipo) e form, stesse regole:
 
 Formati: P.IVA 11 cifre, CF 16 caratteri alfanumerici (maiuscolo, spazi rimossi). Il CF di un soggetto giuridico può essere numerico a 11 cifre (es. ACA): accettato.
 
-Duplicato: il service controlla prima con una query sull'identificativo (righe eliminate comprese) e risponde **400** (`BadRequestException`, mai 409: il reverse proxy di produzione blocca le risposte 409) "P.IVA già usata da <nome>" / "Codice fiscale già usato da <nome>"; `ER_DUP_ENTRY` intercettato come rete di sicurezza con lo stesso 400. La UI mostra il messaggio sotto il campo P.IVA/CF.
+Duplicato: il service controlla prima con una query sull'identificativo (righe eliminate comprese) e risponde **400** (`BadRequestException`, mai 409: il reverse proxy di produzione blocca le risposte 409) "P.IVA già usata da <nome>" / "Codice fiscale già usato da <nome>"; `ER_DUP_ENTRY` intercettato come rete di sicurezza con lo stesso 400. La UI mostra il messaggio come toast (il salvataggio passa dalla lista o da `EntityNavigatorService`, che ora mostra anch'esso il messaggio del backend).
 
 ## Ruoli derivati e filtri rapidi
 
@@ -89,7 +89,7 @@ Duplicato: il service controlla prima con una query sull'identificativo (righe e
 | Locatore | parte di un contratto immobiliare `PASSIVE` (il Comune paga) |
 | Conduttore | parte di un contratto immobiliare `ACTIVE` (il Comune incassa) |
 
-Lista Soggetti terzi: chip rapide **Tutti · Fornitori · Locatori · Conduttori · Senza collegamenti**, combinabili in OR. Nel dialog filtri: tipo soggetto, tipo contratto immobiliare (`ContractKind`, si combina con le chip). Backend: parametro `roles` sulla ricerca, risolto con `EXISTS`; nessuna colonna salvata. Gli stessi ruoli compaiono come badge in lista e nel Riepilogo.
+Lista Soggetti terzi: chip rapide **Tutti · Fornitori · Locatori · Conduttori · Senza collegamenti**, combinabili in OR. Nel dialog filtri: tipo soggetto, tipo contratto immobiliare (`ContractKind`, si combina con le chip). Backend: parametro `roles` sulla ricerca; il service carica una volta gli indici dei collegamenti (fornitori, parti dei contratti immobiliari) e calcola i ruoli in memoria (funzioni pure in `third-party.roles.ts`, ~330 soggetti); nessuna colonna salvata. Gli stessi ruoli compaiono come badge in lista e nel Riepilogo.
 
 ## Backend
 
@@ -104,9 +104,8 @@ Lista Soggetti terzi: chip rapide **Tutti · Fornitori · Locatori · Conduttori
 
 - Pagina **Soggetti terzi** (`/third-parties`), una voce in sidebar al posto di Controparti e Fornitori. Lista: nome, tipo, P.IVA/CF, badge ruoli; chip rapide sopra la tabella.
 - **Scheda** sulla shell `entity-sheet` (aperta con `openSheet()`/`EntityNavigatorService`):
-  - Riepilogo: badge ruoli, identificativo, contatti, conteggi collegamenti;
-  - Dati: campi condizionali per tipo;
-  - Collegamenti: contratti immobiliari, contratti di fornitura, convenzioni CONSIP (`app-linked-table`, navigabili, sola lettura).
+  - Dati: campi condizionali per tipo (badge ruoli nell'header: con un solo form d'anagrafica un Riepilogo separato non aggiunge nulla);
+  - Contratti immobiliari e Forniture (contratti di fornitura + convenzioni CONSIP): `app-linked-table`, navigabili, sola lettura.
 - Helper unico `partyName()` (denominazione oppure "Cognome Nome") ovunque oggi compare `supplier_id` o `utilizer.name`: select e tabella contratti, tabella fatture, dashboard, tabella e filtri utenze, scheda immobile, scheda contratto immobiliare.
 - Contratto immobiliare: multi-select delle parti; titolo scheda e colonne con i nomi uniti da ", ".
 - Eliminati `pages/utilizer/`, `pages/suppliers/` e le route `/utilizer`, `/suppliers` (nessun redirect).

@@ -24,7 +24,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 6 | Fatture per utenza | da approfondire |
 | 7 | Contratti di servizio e manutenzione | da approfondire |
 | 8 | Permessi di scrittura granulari | da approfondire |
-| 9 | Soggetti terzi (controparti + fornitori) | da approfondire |
+| 9 | Soggetti terzi (controparti + fornitori) | fatto, v1.8.0 (pulizia dati sul DB locale da fare, poi in produzione) |
 | 10 | Tipologie contrattuali ARERA (al posto delle finalità d'uso) | da approfondire |
 | 11 | Aggregati utenze (da eliminare) | da approfondire |
 | 12 | Costi a carico calcolato | da approfondire |
@@ -125,6 +125,8 @@ Oggi i ruoli sono tre (Admin, Operatore, Lettore) e chi scrive scrive su tutto. 
 
 ## 9. Soggetti terzi (controparti + fornitori)
 
+Fatto in v1.8.0: spec `docs/superpowers/specs/2026-10-02-soggetti-terzi-design.md`. Resta la pulizia dei dati (sezione "Pulizia dati" della spec), da fare a mano con conferma sulle liste. Il testo sotto è il censimento di partenza.
+
 Proposta dell'utente: riunire controparti (`utilizer`) e fornitori (`suppliers`) in un'unica anagrafica **Soggetti terzi**, persona fisica o giuridica.
 
 - `utilizer` (212 attive su 314) è un minestrone: nel campo `name` convivono soggetti veri ("SIRIO S.r.l.", "Barone Alessio"), luoghi e impianti ("SEMAFORO INC. VIA CHIARINI…", "FONTANA IN AREA VERDE RECINTATA", "cabina enel su area comunale"), note di lavoro ("NO recenti fatture corrispondenti - verificare stato utenza…") e usi ("manifestazioni estive"). Campi: `name`, `description`, `tax_code`, `contacts` (testo libero).
@@ -170,7 +172,7 @@ Dalla revisione finale di v1.7.1 (schede con Riepilogo e tab), non bloccanti:
 
 ## 14. Schede di fornitori, capitoli, fatture
 
-Stesso modello delle schede di v1.7.1: Fornitori → scheda Soggetto terzo (voce 9); Capitoli di spesa (51, 105 righe di spesa storica) → Riepilogo + tab Utenze, Spesa storica, Fatture; Fatture (185) → Riepilogo + collegamenti navigabili, in vista del nuovo modello per l'import massivo (voce 6).
+Stesso modello delle schede di v1.7.1: Fornitori fatto con la voce 9 (scheda Soggetto terzo); Capitoli di spesa (51, 105 righe di spesa storica) → Riepilogo + tab Utenze, Spesa storica, Fatture; Fatture (185) → Riepilogo + collegamenti navigabili, in vista del nuovo modello per l'import massivo (voce 6).
 
 ## 15. UI e identità
 

@@ -102,7 +102,9 @@ export class ThirdParties1791500000000 implements MigrationInterface {
     await q.query(
       `UPDATE \`utilizer_grant\` g SET g.utilizer_id_fk = (SELECT MIN(gp.third_party_id) FROM \`utilizer_grant_parties\` gp WHERE gp.utilizer_grant_id = g.id)`,
     );
-    await q.query(`ALTER TABLE \`consip_agreement\` DROP FOREIGN KEY \`FK_4865ffe2d0c44ceb3728328eeb0\``);
+    await q.query(
+      `ALTER TABLE \`consip_agreement\` DROP FOREIGN KEY \`FK_4865ffe2d0c44ceb3728328eeb0\``,
+    );
     await q.query(`ALTER TABLE \`contracts\` DROP FOREIGN KEY \`FK_3ffd48901e416673c6e4a7b724b\``);
     await q.query(
       `ALTER TABLE \`contracts\` ADD CONSTRAINT \`FK_3ffd48901e416673c6e4a7b724b\` FOREIGN KEY (\`supplier_id_fk\`) REFERENCES \`suppliers\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,

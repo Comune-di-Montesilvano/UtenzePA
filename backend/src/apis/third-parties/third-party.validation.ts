@@ -6,7 +6,14 @@ const CF_PERSON = /^[A-Z0-9]{16}$/;
 // Il CF di un soggetto giuridico è spesso numerico a 11 cifre (es. ACA).
 const CF_LEGAL = /^(\d{11}|[A-Z0-9]{16})$/;
 
-const IDENTITY_FIELDS = ['type', 'company_name', 'last_name', 'first_name', 'vat_number', 'tax_code'];
+const IDENTITY_FIELDS = [
+  'type',
+  'company_name',
+  'last_name',
+  'first_name',
+  'vat_number',
+  'tax_code',
+];
 const CODE_FIELDS = ['vat_number', 'tax_code'];
 const NAME_FIELDS = ['company_name', 'last_name', 'first_name'];
 
