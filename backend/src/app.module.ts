@@ -36,6 +36,7 @@ import { ConsipAgreementModule } from '@apis/consip-agreement/consip-agreement.m
 import { PurposeModule } from '@apis/purpose/purpose.module';
 import { SettingsModule } from '@apis/settings/settings.module';
 import { UtilizerModule } from '@apis/utilizer/utilizer.module';
+import { ThirdPartiesModule } from '@apis/third-parties/third-parties.module';
 import { BackupModule } from '@apis/backup/backup.module';
 import { PhotosModule } from '@apis/photos/photos.module';
 import { ContractsModule } from '@apis/contracts/contracts.module';
@@ -78,6 +79,7 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     PurposeModule,
     SettingsModule,
     UtilizerModule,
+    ThirdPartiesModule,
     BackupModule,
     PhotosModule,
     ContractsModule,
