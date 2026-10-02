@@ -8,6 +8,7 @@ import {Exclude, plainToInstance, Transform, Type} from 'class-transformer';
 import {ThirdParty} from '../../third-parties/entity/third-party.entity';
 import {Asset} from '../../assets/entity/asset.entity';
 import type {PlantType} from '../../plants/plant.model';
+import type {AreraCategory} from '../arera-category';
 import {BudgetChapter} from '../../budget-chapters/entity/budget-chapter.entity';
 import {MaintenanceManager} from '../../maintenance-managers/entity/maintenance-manager.entity';
 import {CostsBorneBy} from '../../costs-borne-by/entity/costs-borne-by.entity';
@@ -49,7 +50,8 @@ export class Utility extends AbstractEntity implements IUtility {
   additional_notes?: string;
   wbs_gas_element?: string;
   meter_verified?: boolean;
-  disconnection_ability?: string;
+  arera_category?: AreraCategory | null;
+  disconnectable?: boolean | null;
   specifications?: string;
   water_concession?: Date;
   utility_type_id_fk!: number;
