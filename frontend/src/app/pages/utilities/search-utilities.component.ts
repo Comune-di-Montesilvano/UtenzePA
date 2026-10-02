@@ -56,7 +56,7 @@ export class SearchUtilitiesComponent extends AbstractSearchComponent {
       additional_notes: [''],
       latitude: [''],
       longitude: [''],
-      user_id_fk: [null],
+      party_id: [null],
       supply_start_date_range: [null],
       supply_expiry_date_range: [null],
       management_expiry_date_range: [null],

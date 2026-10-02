@@ -31,7 +31,7 @@ export class SearchUtilizerGrantComponent extends AbstractSearchComponent {
       direction: [null],
       kind: [null],
       asset_id: [null],
-      utilizer_id_fk: [null],
+      party_id: [null],
       department: [''],
       concession_act: [''],
       utilities_to_be_taken_over: [null],

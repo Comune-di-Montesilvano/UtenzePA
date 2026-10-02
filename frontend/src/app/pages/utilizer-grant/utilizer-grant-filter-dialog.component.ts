@@ -8,7 +8,9 @@ import {MatButtonModule} from '@angular/material/button';
 import {FilterDialogData} from '../../core/components/abstract-search.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {AssetService} from '../assets/asset.service';
-import {UtilizerService} from '../utilizer/utilizer.service';
+import {ThirdPartiesService} from '../third-parties/third-parties.service';
+import {PartyRole} from '../third-parties/third-party.model';
+import {partyName} from '../../core/helpers/party-name.helper';
 import {TOption} from '../../core/types/option.interface';
 import {StringHelper} from '../../core/helpers/string.helper';
 import {
@@ -30,7 +32,7 @@ export interface UtilizerGrantFilterValues {
   concession_act: string | null;
   utilities_to_be_taken_over: boolean | null;
   asset_id: number | null;
-  utilizer_id_fk: number | null;
+  party_id: number | null;
 }
 
 const options = <K extends string>(labels: Record<K, string>) =>
@@ -98,10 +100,10 @@ const options = <K extends string>(labels: Record<K, string>) =>
           formControlName="asset_id">
         </app-filterable-select>
         <app-filterable-select
-          label="Controparte"
-          placeholder="Cerca controparte..."
-          [options]="utilizerOptions"
-          formControlName="utilizer_id_fk">
+          label="Parte"
+          placeholder="Cerca soggetto..."
+          [options]="partyOptions"
+          formControlName="party_id">
         </app-filterable-select>
         <mat-form-field>
           <mat-label>Settore</mat-label>
@@ -131,14 +133,14 @@ export class UtilizerGrantFilterDialogComponent {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<UtilizerGrantFilterDialogComponent, UtilizerGrantFilterValues | 'clear'>);
   private assetService = inject(AssetService);
-  private utilizerService = inject(UtilizerService);
+  private thirdPartiesService = inject(ThirdPartiesService);
   protected data = inject<FilterDialogData<UtilizerGrantFilterValues>>(MAT_DIALOG_DATA);
 
   readonly statusOptions = options(STATUS_LABEL);
   readonly directionOptions = options(DIRECTION_LABEL);
   readonly kindOptions = options(KIND_LABEL);
   assetOptions: TOption[] = [];
-  utilizerOptions: TOption[] = [];
+  partyOptions: TOption[] = [];
 
   form = this.fb.group({
     alert: [this.data.values.alert ?? null],
@@ -146,7 +148,7 @@ export class UtilizerGrantFilterDialogComponent {
     direction: [this.data.values.direction ?? null],
     kind: [this.data.values.kind ?? null],
     asset_id: [this.data.values.asset_id ?? null],
-    utilizer_id_fk: [this.data.values.utilizer_id_fk ?? null],
+    party_id: [this.data.values.party_id ?? null],
     department: [this.data.values.department ?? ''],
     concession_act: [this.data.values.concession_act ?? ''],
     utilities_to_be_taken_over: [this.data.values.utilities_to_be_taken_over ?? null],
@@ -161,10 +163,10 @@ export class UtilizerGrantFilterDialogComponent {
       },
       error: (err) => console.error('Errore nel caricamento degli immobili:', err),
     });
-    this.utilizerService.search({deleted: false}).subscribe({
+    this.thirdPartiesService.search({deleted: false, roles: `${PartyRole.LESSOR},${PartyRole.TENANT}`} as never).subscribe({
       next: (data) => {
-        this.utilizerOptions = data
-          .map(u => ({label: StringHelper.truncateAt(u.name, 50), value: u.id}))
+        this.partyOptions = data
+          .map(p => ({label: StringHelper.truncateAt(partyName(p), 50), value: p.id}))
           .sort((a, b) => a.label.localeCompare(b.label));
       },
       error: (err) => console.error('Errore nel caricamento delle controparti:', err),

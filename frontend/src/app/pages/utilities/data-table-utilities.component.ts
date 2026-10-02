@@ -23,6 +23,7 @@ import {ExpireState} from './enum/expire-state.enum';
 import {ExportHelper} from '../../core/helpers/export.helper';
 import {TruncatePipe} from '../../core/pipes/truncate.pipe';
 import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
+import {partyName} from '../../core/helpers/party-name.helper';
 
 @Component({
   selector: 'app-data-table-utilities',
@@ -36,6 +37,7 @@ import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
   templateUrl: './data-table-utilities.component.html'
 })
 export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Utility> {
+  readonly partyName = partyName;
   private navigator = inject(EntityNavigatorService);
 
   maxDescLength = 50;
@@ -44,7 +46,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     {field: 'id', header: 'ID', minWidth: '50px'},
     {field: 'utility_id', header: 'Codice (POD/PDR/Matricola)', minWidth: '180px'},
     {field: 'utilityType.name', header: 'Tipo Utenza', minWidth: '150px'},
-    {field: 'supplier.company_name', header: 'Fornitore', minWidth: '150px'},
+    {field: 'supplier', header: 'Fornitore', minWidth: '150px'},
     {field: 'asset.asset_name', header: 'Fabbricato Associato', minWidth: '150px'},
     {field: 'costsBorneBy.name', header: 'Costi a Carico di', minWidth: '150px'},
     {field: 'aggregator.description', header: 'ID Aggregato', minWidth: '200px'},
@@ -77,7 +79,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     {field: 'budgetChapter.description', header: 'Capitolo di Spesa', minWidth: '200px'},
     {field: 'latitude', header: 'Latitudine', minWidth: '100px'},
     {field: 'longitude', header: 'Longitudine', minWidth: '100px'},
-    {field: 'asset.utilizer', header: 'Controparti', minWidth: '180px'},
+    {field: 'asset.parties', header: 'Controparti', minWidth: '180px'},
     {field: 'specifications', header: 'Specifiche', minWidth: '200px'},
     {field: 'notes', header: 'Note', minWidth: '200px'},
     {field: 'additional_notes', header: 'Note Aggiuntive', minWidth: '200px'},
@@ -85,7 +87,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
   ];
 
   private readonly defaultVisibleFields = new Set([
-    'id', 'utility_id', 'utilityType.name', 'supplier.company_name',
+    'id', 'utility_id', 'utilityType.name', 'supplier',
     'asset.asset_name', 'costsBorneBy.name', 'supply_active', 'supply_expiry_date', 'expiryStatus',
   ]);
 
@@ -114,9 +116,9 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     super(screen);
     // Custom sort fedele all'originale PrimeNG customSort(event): path annidati (es.
     // "utilityType.name") + confronto stringhe con localeCompare('it') + fallback numerico, con
-    // caso speciale per la colonna virtuale "asset.utilizer" (ordina sulla stringa concatenata
-    // dei nomi utilizzatori, non su un campo diretto dell'entity — la stessa logica usata da
-    // exportCellValue/getUtilizersNames più sotto). MatTableDataSource.sortingDataAccessor
+    // caso speciale per la colonna virtuale "asset.parties" (ordina sulla stringa concatenata
+    // dei nomi delle parti, non su un campo diretto dell'entity — la stessa logica usata da
+    // exportCellValue/getPartiesNames più sotto). MatTableDataSource.sortingDataAccessor
     // restituisce un solo valore per colonna e non può applicare un comparator locale-aware a due
     // argomenti: si sovrascrive sortData, l'unico hook che riceve l'intero array e un comparator
     // a due argomenti (stesso pattern di DataTableInvoicesComponent, Gruppo D).
@@ -132,14 +134,16 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
         );
       }
 
-      if (active === 'asset.utilizer') {
+      if (active === 'asset.parties') {
         return [...data].sort((a, b) =>
-          order * this.getUtilizersNames(a).toLowerCase().localeCompare(this.getUtilizersNames(b).toLowerCase(), 'it')
+          order * this.getPartiesNames(a).toLowerCase().localeCompare(this.getPartiesNames(b).toLowerCase(), 'it')
         );
       }
 
-      const getVal = (obj: any, path: string): any =>
-        path.split('.').reduce((acc: any, key: string) => acc?.[key], obj);
+      // Fornitore: si ordina per nome del soggetto, non per l'oggetto.
+      const getVal = (obj: any, path: string): any => path === 'supplier'
+        ? partyName(obj.supplier) || null
+        : path.split('.').reduce((acc: any, key: string) => acc?.[key], obj);
       return [...data].sort((a, b) => {
         const v1 = getVal(a, active);
         const v2 = getVal(b, active);
@@ -191,11 +195,11 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     return (utility.assets ?? []).map(a => a.asset_name).join(', ');
   }
 
-  getUtilizersNames(utility: Utility): string {
-    return (utility.assets ?? [])
+  getPartiesNames(utility: Utility): string {
+    return [...new Set((utility.assets ?? [])
       .flatMap(a => a.utilizerGrants ?? [])
-      .map(g => g.utilizer?.name)
-      .filter(n => !!n)
+      .flatMap(g => (g.parties ?? []).map(partyName))
+      .filter(n => !!n))]
       .join(', ');
   }
 
@@ -224,6 +228,8 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
 
   protected override exportCellValue(utility: Utility, field: string): string {
     switch (field) {
+      case 'supplier':
+        return partyName(utility.supplier);
       case 'supply_active':
         return ExportHelper.boolData(utility.supply_active);
       case 'meter_removed':
@@ -250,8 +256,8 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
           : '';
       case 'budgetChapter.description':
         return utility.budgetChapter?.label ?? '';
-      case 'asset.utilizer':
-        return this.getUtilizersNames(utility);
+      case 'asset.parties':
+        return this.getPartiesNames(utility);
       case 'asset.asset_name':
         return this.assetNames(utility);
       case 'expiryStatus':

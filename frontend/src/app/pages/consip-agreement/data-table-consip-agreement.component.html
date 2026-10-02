@@ -45,7 +45,7 @@
 
   <ng-container matColumnDef="supplier">
     <th mat-header-cell *matHeaderCellDef>Fornitore</th>
-    <td mat-cell *matCellDef="let item">{{ item.supplier?.company_name }}</td>
+    <td mat-cell *matCellDef="let item">{{ partyName(item.supplier) }}</td>
   </ng-container>
 
   <ng-container matColumnDef="cig_master">

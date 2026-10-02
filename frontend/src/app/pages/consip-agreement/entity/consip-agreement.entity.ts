@@ -1,7 +1,7 @@
 import {IConsipAgreement} from './consip-agreement.interface';
 import {Exclude, plainToInstance, Transform, Type} from 'class-transformer';
 import {AbstractEntity} from '../../../core/entities/abstract.entity';
-import {Supplier} from '../../suppliers/entity/supplier.entity';
+import {ThirdParty} from '../../third-parties/entity/third-party.entity';
 
 export class ConsipAgreement extends AbstractEntity implements IConsipAgreement {
   name!: string;
@@ -31,7 +31,7 @@ export class ConsipAgreement extends AbstractEntity implements IConsipAgreement 
   supplier_id!: number;
 
   @Exclude({toPlainOnly: true})
-  supplier?: Supplier;
+  supplier?: ThirdParty;
 
   static create(data?: Partial<ConsipAgreement>): ConsipAgreement {
     return plainToInstance(ConsipAgreement, {

@@ -7,7 +7,9 @@ import {MatButtonModule} from '@angular/material/button';
 import {FilterDialogData} from '../../core/components/abstract-search.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {TOption} from '../../core/types/option.interface';
-import {SuppliersService} from '../suppliers/suppliers.service';
+import {ThirdPartiesService} from '../third-parties/third-parties.service';
+import {PartyRole} from '../third-parties/third-party.model';
+import {partyName} from '../../core/helpers/party-name.helper';
 
 export interface ContractFilterValues {
   cig_contract: string | null;
@@ -47,7 +49,7 @@ export interface ContractFilterValues {
 export class ContractFilterDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<ContractFilterDialogComponent, ContractFilterValues | 'clear'>);
-  private suppliersService = inject(SuppliersService);
+  private thirdPartiesService = inject(ThirdPartiesService);
   protected data = inject<FilterDialogData<ContractFilterValues>>(MAT_DIALOG_DATA);
 
   supplierOptions: TOption[] = [];
@@ -60,9 +62,9 @@ export class ContractFilterDialogComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.suppliersService.search({deleted: false}).subscribe({
+    this.thirdPartiesService.search({deleted: false, roles: PartyRole.SUPPLIER} as never).subscribe({
       next: data => this.supplierOptions = data
-        .map(s => ({label: s.supplier_id, value: s.id}))
+        .map(p => ({label: partyName(p), value: p.id}))
         .sort((a, b) => a.label.localeCompare(b.label)),
       error: err => console.error('Errore nel caricamento dei fornitori:', err)
     });

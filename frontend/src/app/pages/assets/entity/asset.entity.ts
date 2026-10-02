@@ -4,7 +4,6 @@ import {Exclude, plainToInstance, Transform, Type} from 'class-transformer';
 import {Utility} from '../../utilities/entity/utility.entity';
 import {UtilizerGrant} from '../../utilizer-grant/entity/utilizer-grant.entity';
 import {AssetAggregator} from '../../asset-aggregator/entity/asset-aggregator.entity';
-import {Utilizer} from '../../utilizer/entity/utilizer.entity';
 import {SystemUser} from '../../system-users/entity/system-user.entity';
 import {AssetNature} from '../../asset-nature/entity/asset-nature.entity';
 import {AssetFunction} from '../../asset-function/entity/asset-function.entity';
@@ -66,10 +65,6 @@ export class Asset extends AbstractEntity implements IAsset {
   @Exclude({toPlainOnly: true})
   @Type(() => Utility)
   utilities?: Utility[];
-
-  @Exclude({toPlainOnly: true})
-  @Type(() => Utilizer)
-  utilizers?: Utilizer[];
 
   @Exclude({toPlainOnly: true})
   @Type(() => UtilizerGrant)

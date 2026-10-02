@@ -17,7 +17,9 @@ import {FilterableSelectComponent} from '../../core/components/filterable-select
 import {Contract} from './entity/contract.entity';
 import {AuthService} from '../../services/auth.service';
 import {TOption} from '../../core/types/option.interface';
-import {SuppliersService} from '../suppliers/suppliers.service';
+import {ThirdPartiesService} from '../third-parties/third-parties.service';
+import {PartyRole} from '../third-parties/third-party.model';
+import {partyName} from '../../core/helpers/party-name.helper';
 import {ConsipAgreementService} from '../consip-agreement/consip-agreement.service';
 import {UtilityService} from '../utilities/utility.service';
 import {ConsipAgreement} from '../consip-agreement/entity/consip-agreement.entity';
@@ -61,7 +63,7 @@ export class ContractEditDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<ContractEditDialogComponent, Contract | undefined>);
   private authService = inject(AuthService);
-  private suppliersService = inject(SuppliersService);
+  private thirdPartiesService = inject(ThirdPartiesService);
   private consipService = inject(ConsipAgreementService);
   private utilityService = inject(UtilityService);
   private navigator = inject(EntityNavigatorService);
@@ -126,9 +128,10 @@ export class ContractEditDialogComponent implements OnInit {
 
   ngOnInit(): void {
     this.refreshLinks();
-    this.suppliersService.search({deleted: false}).subscribe({
+    this.thirdPartiesService.search({deleted: false}).subscribe({
       next: data => this.supplierOptions = data
-        .map(s => ({label: s.supplier_id, value: s.id}))
+        .filter(p => p.type === 'LEGAL' || p.roles?.includes(PartyRole.SUPPLIER) || p.id === this.data.item.supplier_id_fk)
+        .map(p => ({label: partyName(p), value: p.id, sublabel: p.vat_number ?? undefined}))
         .sort((a, b) => a.label.localeCompare(b.label)),
       error: err => console.error('Errore nel caricamento dei fornitori:', err)
     });
@@ -196,7 +199,7 @@ export class ContractEditDialogComponent implements OnInit {
 
   supplierName(): string {
     const id = this.form.controls.supplier_id_fk.value;
-    return this.supplierOptions.find(o => o.value === id)?.label ?? this.data.item.supplier?.supplier_id ?? '';
+    return this.supplierOptions.find(o => o.value === id)?.label ?? partyName(this.data.item.supplier);
   }
 
   statusInfo(): StatusInfo {

@@ -107,7 +107,7 @@
                       }
                     </td>
                     <td style="padding: 0.5rem;">
-                      {{ item.contract.supplier?.supplier_id ?? '—' }}
+                      {{ partyName(item.contract.supplier) || '—' }}
                       @if (item.contract.consipAgreement?.name) {
                         <div style="font-size: 0.8rem; color: #6b7280;">{{ item.contract.consipAgreement?.name }}</div>
                       }

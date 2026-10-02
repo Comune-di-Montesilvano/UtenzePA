@@ -12,6 +12,7 @@ import {MatSelectModule} from '@angular/material/select';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {UtilizerGrant} from './entity/utilizer-grant.entity';
+import {partyNames} from '../../core/helpers/party-name.helper';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {UtilizerGrantEditDialogComponent} from './utilizer-grant-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
@@ -46,12 +47,13 @@ import {
   templateUrl: './data-table-utilizer-grant.component.html'
 })
 export class DataTableUtilizerGrantComponent extends AbstractDataTableComponent<UtilizerGrant> {
+  readonly partyNames = partyNames;
 
   readonly allColumns: IColumnDef[] = [
     {field: 'id', header: 'ID', minWidth: '60px'},
     {field: 'direction', header: 'Direzione', minWidth: '90px'},
     {field: 'kind', header: 'Tipo', minWidth: '130px'},
-    {field: 'utilizer', header: 'Controparte', minWidth: '180px'},
+    {field: 'parties', header: 'Parti', minWidth: '180px'},
     {field: 'assets', header: 'Immobili', minWidth: '180px'},
     {field: 'subject', header: 'Oggetto', minWidth: '200px'},
     {field: 'annual_rent', header: 'Canone annuo', minWidth: '120px'},
@@ -66,7 +68,7 @@ export class DataTableUtilizerGrantComponent extends AbstractDataTableComponent<
   ];
 
   private readonly defaultVisibleFields = new Set([
-    'direction', 'kind', 'utilizer', 'assets', 'subject', 'annual_rent',
+    'direction', 'kind', 'parties', 'assets', 'subject', 'annual_rent',
     'effective_end_date', 'notice_deadline', 'computed_status',
   ]);
 
@@ -124,8 +126,8 @@ export class DataTableUtilizerGrantComponent extends AbstractDataTableComponent<
         return item.direction ? DIRECTION_LABEL[item.direction] : '';
       case 'kind':
         return item.kind ? KIND_LABEL[item.kind] : '';
-      case 'utilizer':
-        return item.utilizer?.name ?? '';
+      case 'parties':
+        return partyNames(item.parties);
       case 'assets':
         return this.assetNames(item);
       case 'annual_rent':

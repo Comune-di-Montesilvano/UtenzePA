@@ -19,6 +19,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
 import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
 import {TruncatePipe} from '../../core/pipes/truncate.pipe';
 import {ExportHelper} from '../../core/helpers/export.helper';
+import {partyName} from '../../core/helpers/party-name.helper';
 
 @Component({
   selector: 'app-data-table-invoices',
@@ -32,6 +33,7 @@ import {ExportHelper} from '../../core/helpers/export.helper';
   templateUrl: './data-table-invoices.component.html'
 })
 export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoice> {
+  readonly partyName = partyName;
 
   readonly allColumns: IColumnDef[] = [
     {field: 'invoice_id', header: 'ID Fattura', minWidth: '120px'},
@@ -40,7 +42,7 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
     {field: 'net_amount_excl_vat', header: 'Importo Netto', minWidth: '120px'},
     {field: 'last_invoice_arrears', header: 'Morosità', minWidth: '120px'},
     {field: 'contratto.cig_contract', header: 'Contratto (CIG)', minWidth: '200px'},
-    {field: 'contratto.supplier.supplier_id', header: 'Fornitore', minWidth: '150px'},
+    {field: 'contratto.supplier', header: 'Fornitore', minWidth: '150px'},
     {field: 'budget_chapters', header: 'Capitoli Associati', minWidth: '180px'},
     {field: 'is_paid', header: 'Stato Pagamento', minWidth: '120px'},
     {field: 'notes_on_invoices', header: 'Note', minWidth: '200px'},
@@ -48,7 +50,7 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
 
   private readonly defaultVisibleFields = new Set([
     'invoice_id', 'protocol_number', 'invoice_date', 'net_amount_excl_vat',
-    'last_invoice_arrears', 'contratto.cig_contract', 'contratto.supplier.supplier_id',
+    'last_invoice_arrears', 'contratto.cig_contract', 'contratto.supplier',
     'budget_chapters', 'is_paid',
   ]);
 
@@ -84,8 +86,10 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
       const direction = sort.direction;
       if (!active || direction === '') return data;
       const order = direction === 'asc' ? 1 : -1;
-      const getVal = (obj: any, path: string): any =>
-        path.split('.').reduce((acc: any, key: string) => acc?.[key], obj);
+      // Fornitore: si ordina per nome del soggetto, non per l'oggetto.
+      const getVal = (obj: any, path: string): any => path === 'contratto.supplier'
+        ? partyName(obj.contratto?.supplier) || null
+        : path.split('.').reduce((acc: any, key: string) => acc?.[key], obj);
       return [...data].sort((a, b) => {
         const v1 = getVal(a, active);
         const v2 = getVal(b, active);
@@ -114,6 +118,8 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
         return item.last_invoice_arrears != null
           ? item.last_invoice_arrears.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})
           : '';
+      case 'contratto.supplier':
+        return partyName(item.contratto?.supplier);
       case 'budget_chapters':
         return item.budget_chapters?.map(bc => bc.label).join(', ') ?? '';
       case 'is_paid':

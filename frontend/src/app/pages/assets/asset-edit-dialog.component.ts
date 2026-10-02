@@ -52,6 +52,7 @@ import {
 } from '../../core/helpers/entity-status';
 import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
+import {partyNames} from '../../core/helpers/party-name.helper';
 
 interface UtilitySection {
   type: HardType;
@@ -187,7 +188,7 @@ export class AssetEditDialogComponent implements OnInit {
   readonly grantColumns: LinkedColumn<UtilizerGrant>[] = [
     {label: 'Direzione', value: g => (g.direction ? DIRECTION_LABEL[g.direction] : '')},
     {label: 'Tipo', value: g => (g.kind ? KIND_LABEL[g.kind] : '')},
-    {label: 'Controparte', value: g => g.utilizer?.name ?? ''},
+    {label: 'Parti', value: g => partyNames(g.parties)},
     {label: 'Oggetto', value: g => g.subject ?? ''},
     {label: 'Canone annuo', value: g => formatEuro(g.annual_rent)},
     {label: 'Scadenza', value: g => dateIt(g.effective_end_date)},
@@ -354,7 +355,7 @@ export class AssetEditDialogComponent implements OnInit {
         this.grantPreview = rows
           .filter(g => g.computed_status === 'ACTIVE' || g.computed_status === 'EXPIRING')
           .map(g => ({
-            id: g.id, label: g.utilizer?.name ?? `#${g.id}`,
+            id: g.id, label: partyNames(g.parties) || `#${g.id}`,
             sublabel: [g.kind ? KIND_LABEL[g.kind] : null, g.subject].filter(Boolean).join(' · '),
             icon: 'real_estate_agent', color: 'var(--entity-grant)', status: grantStatus(g.computed_status),
           }));

@@ -16,6 +16,7 @@ import {Contract} from './entity/contract.entity';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {ContractEditDialogComponent} from './contract-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
+import {partyName} from '../../core/helpers/party-name.helper';
 
 @Component({
   selector: 'app-data-table-contracts',
@@ -29,6 +30,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
   templateUrl: './data-table-contracts.component.html'
 })
 export class DataTableContractsComponent extends AbstractDataTableComponent<Contract> {
+  readonly partyName = partyName;
 
   readonly allColumns: IColumnDef[] = [
     {field: 'id', header: 'ID', minWidth: '60px'},
