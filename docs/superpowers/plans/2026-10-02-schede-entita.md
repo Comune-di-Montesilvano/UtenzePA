@@ -4972,3 +4972,23 @@ gh pr create --title "feat(frontend): schede entità con riepilogo e tab per cat
 ```
 
 - [ ] **Step 4: CI** — `gh pr checks <N> --watch`. Expected: `backend` e `frontend` verdi.
+
+---
+
+## Seguiti aperti (dopo v1.7.1)
+
+Emersi dalla revisione finale del branch, non bloccanti. Da fare in un giro dedicato.
+
+- [ ] **Immobile → tab Impianti:** ripristinare la colonna "Posizione" (badge qualità posizione) che aveva il vecchio `AssetPlantsTabComponent`.
+- [ ] **Immobile → Riepilogo:** l'anteprima Utenze elenca le singole utenze; la spec chiede il conteggio per tipo con icona (es. ⚡ Luce 4, 💧 Acqua 1).
+- [ ] **Liste del padre non aggiornate dopo il salvataggio di una scheda figlia:**
+  - contratto immobiliare: `openAsset`/`openGrant` non ricaricano `assetRows`, `childRows`, `parentOptions`;
+  - tabella utenze: `navigateToAsset` non ricarica la tabella;
+  - immobile: la colonna "Utenze" del tab Impianti non si aggiorna dopo il salvataggio di un'utenza.
+- [ ] **Errori di salvataggio via `EntityNavigatorService`:** oggi `fail()` scrive solo in console e la scheda si chiude perdendo le modifiche. Mostrare un toast (`ToastService`) come fa il percorso da tabella.
+- [ ] **Contratto di fornitura con decorrenza futura:** il badge dice "In corso" (stessa regola di `Contract.isCurrent`), la barra di validità "Non ancora iniziato". Valutare un badge info "Non ancora iniziato".
+- [ ] **Titolo scheda impianto:** usa `this.plant` invece del form, non segue le modifiche a codice/nome (immobile e utenza invece le seguono).
+- [ ] **Permesso di modifica:** la scheda impianto lo ricava da `readOnly` del navigatore (tutti tranne Lettore), le altre da `isEditorRole` (Admin/Operatore). Oggi coincidono, ma vanno unificate.
+- [ ] **Layering:** `core/components/entity-sheet/sheet-utils.ts` e `core/helpers/entity-status.ts` importano `todayIso`/`toIsoDate` da `pages/`. Spostarli in un helper di `core/`.
+- [ ] **Riallineamento oltre il figlio diretto:** con catene di 2+ livelli (impianto → immobile → utenza), il Salva della scheda in fondo può ripristinare collegamenti cambiati più in alto. Oggi si riallinea solo il figlio diretto (`syncPlantLink`/`syncUtilityLink`).
+- [ ] **Verifica E2E** delle correzioni dell'ultimo commit (gruppi dati per tipo dell'impianto, rinnovo del contratto immobiliare, mappa in sola lettura per Lettore): verificate solo con compilazione e CI.
