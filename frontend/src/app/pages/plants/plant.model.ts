@@ -34,7 +34,7 @@ export const PLANT_TYPE_ICON: Record<PlantType, string> = {
   PHOTOVOLTAIC: 'solar_power',
   PUBLIC_LIGHTING: 'light',
   TRAFFIC_LIGHT: 'traffic',
-  LIFTING_PUMP: 'water_pump',
+  LIFTING_PUMP: 'waves',
   FOUNTAIN: 'water_drop',
   ELECTRICAL_CABIN: 'electrical_services',
   WATER_KIOSK: 'local_drink',
