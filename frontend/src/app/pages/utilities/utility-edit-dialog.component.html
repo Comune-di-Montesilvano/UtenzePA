@@ -11,13 +11,13 @@
   <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start">
     <mat-tab label="Dati">
 
-    @if (thermalPlants.length > 0) {
+    @if (selectedPlants().length > 0) {
       <div style="margin-bottom: 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 0.5rem 1rem;">
-        <mat-icon style="color: #c2410c;">local_fire_department</mat-icon>
-        <span>Alimenta:</span>
-        @for (p of thermalPlants; track p.id) {
-          <button mat-stroked-button type="button" (click)="navigateToAsset(p.asset_id_fk)" matTooltip="Apri l'immobile (tab Impianti termici)">
-            {{ p.name }}{{ p.power_kw !== null ? ' ' + p.power_kw.toLocaleString('it-IT') + ' kW' : '' }} — {{ p.asset?.asset_name }}
+        <mat-icon style="color: #c2410c;">settings_input_component</mat-icon>
+        <span>A servizio di:</span>
+        @for (p of selectedPlants(); track p.id) {
+          <button mat-stroked-button type="button" (click)="openPlant(p.id)" matTooltip="Apri l'impianto">
+            <mat-icon>{{ plantIcon(p.type) }}</mat-icon>{{ p.label }}
           </button>
         }
       </div>
@@ -61,9 +61,14 @@
           <div style="display: flex; align-items: flex-start; gap: 0.25rem;">
             <div style="flex: 1 1 auto;">
               <app-multi-select
-                label="Immobili associati *"
+                label="Immobili associati"
                 [options]="assetSelectOptions"
                 formControlName="asset_ids">
+              </app-multi-select>
+              <app-multi-select
+                label="Impianti a servizio"
+                [options]="plantSelectOptions"
+                formControlName="plant_ids">
               </app-multi-select>
             </div>
             <button mat-icon-button type="button" [disabled]="!resolveMapCoordsFromForm()"
@@ -74,8 +79,8 @@
               <mat-icon>location_on</mat-icon>
             </button>
           </div>
-          @if (form.controls.asset_ids.invalid && form.controls.asset_ids.touched) {
-            <mat-error style="font-size: 0.75rem;">Almeno un immobile obbligatorio</mat-error>
+          @if (form.hasError('noLink') && (form.controls.asset_ids.touched || form.controls.plant_ids.touched)) {
+            <mat-error style="font-size: 0.75rem;">Almeno un immobile o un impianto obbligatorio</mat-error>
           }
           <div style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
             @for (opt of selectedAssetOptions(); track opt.value) {

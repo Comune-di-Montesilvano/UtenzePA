@@ -1,6 +1,7 @@
 import { HardType } from '../utility-types/enum/hard-type.enum';
+import type { PlantType } from '../plants/plant.model';
 
-export type MapPointType = 'asset' | 'utility';
+export type MapPointType = 'asset' | 'utility' | 'plant';
 export type MapPointSource = 'gps' | 'geocoded';
 export type UngeolocatedReason = 'no_address' | 'geocode_failed';
 
@@ -20,6 +21,10 @@ export interface MapPoint {
   // Solo per type 'utility' — id dell'asset collegato, usato per il badge
   // "numero contatori" sul marker immobile.
   assetId?: number | null;
+  // Solo per type 'utility' posizionata tramite un impianto collegato.
+  plantId?: number | null;
+  // Solo per type 'plant' — pilota l'icona per tipo impianto.
+  plantType?: PlantType;
 }
 
 export interface UngeolocatedItem {

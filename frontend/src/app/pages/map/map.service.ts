@@ -8,6 +8,8 @@ import { MapPointsResponse } from './map-point.entity';
 export interface MapPointsFilters {
   showAssets?: boolean;
   showUtilities?: boolean;
+  showPlants?: boolean;
+  plantTypes?: string[] | null;
   assetAggregatorIds?: number[] | null;
   utilityTypeIds?: number[] | null;
   natureIds?: number[] | null;

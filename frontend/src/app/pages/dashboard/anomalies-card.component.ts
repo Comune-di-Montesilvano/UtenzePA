@@ -36,6 +36,7 @@ interface Anomalies {
   utilities_with_overlapping_contracts: AnomalyList<UtilityAnomaly>;
   duplicate_cigs: AnomalyList<{cig: string; contracts: number[]}>;
   real_estate_contracts_without_assets: AnomalyList<{id: number; counterparty: string | null; subject: string | null}>;
+  plants_without_position: AnomalyList<{id: number; code: string; name: string; type: string}>;
 }
 
 // Non estende AbstractService: header Authorization messo a mano (nessun
@@ -176,6 +177,24 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+            <mat-expansion-panel [disabled]="data.plants_without_position.count === 0">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count" [class.zero]="data.plants_without_position.count === 0">{{ data.plants_without_position.count }}</span>
+                  Impianti senza posizione
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <p style="margin: 0 0 0.5rem;">
+                <a href="javascript:void(0)" (click)="openPlantsWithoutPosition()">Apri l'elenco filtrato</a>
+              </p>
+              <ul class="anomaly-list">
+                @for (p of data.plants_without_position.items; track p.id) {
+                  <li>
+                    <a href="javascript:void(0)" (click)="openPlant(p.id)">{{ p.code }}</a> {{ p.name }}
+                  </li>
+                }
+              </ul>
+            </mat-expansion-panel>
           </mat-accordion>
         }
       </mat-card-content>
@@ -201,7 +220,8 @@ export class AnomaliesCardComponent implements OnInit {
     if (!this.data) return 0;
     return this.data.contracts_without_cig.count + this.data.active_utilities_without_cig_contract.count
       + this.data.active_utilities_without_contract.count + this.data.utilities_with_overlapping_contracts.count
-      + this.data.duplicate_cigs.count + this.data.real_estate_contracts_without_assets.count;
+      + this.data.duplicate_cigs.count + this.data.real_estate_contracts_without_assets.count
+      + this.data.plants_without_position.count;
   }
 
   ngOnInit(): void {
@@ -221,6 +241,14 @@ export class AnomaliesCardComponent implements OnInit {
 
   openRealEstateWithoutAssets(): void {
     this.router.navigate(['/utilizer-grant'], {queryParams: {alert: 'without_assets'}});
+  }
+
+  openPlantsWithoutPosition(): void {
+    this.router.navigate(['/plants'], {queryParams: {position: 'missing'}});
+  }
+
+  openPlant(id: number): void {
+    this.router.navigate(['/plants'], {queryParams: {selectedId: id}});
   }
 
   openRealEstateContract(id: number): void {

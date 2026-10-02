@@ -38,7 +38,7 @@ import {ASSET_AGGREGATOR_ICON_FALLBACK} from '../asset-aggregator/enum/asset-agg
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {UtilityType} from '../utility-types/entity/utility-type.entity';
 import {UtilityService} from '../utilities/utility.service';
-import {AssetThermalPlantsTabComponent} from './thermal-plants/asset-thermal-plants-tab.component';
+import {AssetPlantsTabComponent} from '../plants/asset-plants-tab.component';
 import {AssetRealEstateContractsTabComponent} from '../utilizer-grant/asset-real-estate-contracts-tab.component';
 
 // Stessa larghezza usata per il dialog immobile (vedi UtilityEditDialogComponent
@@ -69,7 +69,7 @@ const UTILITY_DIALOG_WIDTH = '1150px';
     LocationMapComponent,
     PhotoGalleryComponent,
     EntityHistoryComponent,
-    AssetThermalPlantsTabComponent,
+    AssetPlantsTabComponent,
     AssetRealEstateContractsTabComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
