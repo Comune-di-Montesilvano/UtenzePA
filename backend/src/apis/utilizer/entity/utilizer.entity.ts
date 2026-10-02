@@ -23,6 +23,14 @@ export class Utilizer {
   @Column({ length: 255, nullable: true })
   description: string;
 
+  // Codice fiscale o partita IVA della controparte (oscurato per il Lettore).
+  @Column({ length: 16, nullable: true })
+  tax_code: string | null;
+
+  // Telefoni, email, referente: testo libero come nelle fonti.
+  @Column({ type: 'text', nullable: true })
+  contacts: string | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   create_date: Date;
 

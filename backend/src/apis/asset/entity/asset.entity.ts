@@ -6,7 +6,6 @@ import {
   JoinColumn,
   ManyToMany,
   ManyToOne,
-  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -132,7 +131,7 @@ export class Asset {
   @ManyToMany(() => Utility, (utility) => utility.assets)
   utilities: Utility[];
 
-  @OneToMany(() => UtilizerGrant, (utilizerGrant) => utilizerGrant.asset)
+  @ManyToMany(() => UtilizerGrant, (utilizerGrant) => utilizerGrant.assets)
   utilizerGrants: UtilizerGrant[];
 
   @ManyToOne(() => AssetAggregator, (aggregator) => aggregator.assets)
