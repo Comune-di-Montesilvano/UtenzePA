@@ -25,7 +25,7 @@ export class Utility extends AbstractEntity implements IUtility {
   supply_active?: boolean;
   meter_removed?: boolean;
   // Deposito cauzionale del punto di fornitura (dato dell'utenza).
-  security_deposit?: number;
+  security_deposit?: number | null;
   reported_consumption_year?: number;
   // Calcolati dal backend (storico consumi): mai inviati in scrittura,
   // il DTO backend li rifiuterebbe (forbidNonWhitelisted).

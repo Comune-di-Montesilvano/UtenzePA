@@ -52,7 +52,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     {field: 'asset.asset_name', header: 'Fabbricato Associato', minWidth: '150px'},
     {field: 'cost_info', header: 'A carico di', minWidth: '170px'},
     {field: 'meter_number', header: 'Numero Contatore', minWidth: '120px'},
-    {field: 'utility_code', header: 'Codice Utenza o Cliente', minWidth: '150px'},
+    {field: 'utility_code', header: 'Codice cliente fornitore', minWidth: '150px'},
     {field: 'supplier_address', header: 'Indirizzo Fornitura', minWidth: '150px'},
     {field: 'utilityType.description', header: 'Tipo Uso Contatore', minWidth: '120px'},
     {field: 'consipAgreement.name', header: 'Convenzione CONSIP', minWidth: '120px'},

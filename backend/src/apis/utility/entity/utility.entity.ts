@@ -73,8 +73,9 @@ export class Utility {
 
   // Deposito cauzionale versato per questo punto di fornitura (es. ACA lo
   // chiede per contatore): dato dell'utenza, non del contratto.
-  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  security_deposit: number;
+  // null = non noto (prima 0 di default, indistinguibile da "nessun deposito").
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  security_deposit: number | null;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   power_kw_electric: number;

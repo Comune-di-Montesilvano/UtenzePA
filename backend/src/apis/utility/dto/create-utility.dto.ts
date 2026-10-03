@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsArray,
   IsNotEmpty,
@@ -72,10 +73,12 @@ export class CreateUtilityDto {
   @Min(0)
   estimated_annual_consumption?: number;
 
+  // Vuoto = non noto (null).
   @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value === null || value === undefined ? value : Number(value)))
   @IsNumber()
   @Min(0)
-  security_deposit?: number;
+  security_deposit?: number | null;
 
   @IsOptional()
   @IsNumber()

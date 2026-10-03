@@ -167,7 +167,7 @@ export class UtilityEditDialogComponent implements OnInit {
     notes: [this.data.item.notes ?? ''],
     phase_type_electric: [this.data.item.phase_type_electric ?? null],
     power_kw_electric: [this.data.item.power_kw_electric ?? null],
-    security_deposit: [this.data.item.security_deposit ?? 0],
+    security_deposit: [this.data.item.security_deposit ?? null as number | null],
     reported_consumption_year: [this.data.item.reported_consumption_year ?? 0, Validators.required],
     supplier_address: [this.data.item.supplier_address ?? ''],
     supply_active: [this.data.item.supply_active ?? null],
