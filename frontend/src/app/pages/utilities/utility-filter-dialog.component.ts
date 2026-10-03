@@ -52,9 +52,7 @@ export interface UtilityFilterValues {
   security_deposit: number | null;
   phase_type_electric: Phase | null;
   meter_verified: boolean | null;
-  specifications: string | null;
   notes: string | null;
-  additional_notes: string | null;
   latitude: string | null;
   longitude: string | null;
   party_id: number | null;
@@ -157,9 +155,7 @@ export class UtilityFilterDialogComponent implements OnInit {
     reported_consumption_year: [this.data.values.reported_consumption_year ?? ''],
     security_deposit: [this.data.values.security_deposit ?? null],
     party_id: [this.data.values.party_id ?? null],
-    specifications: [this.data.values.specifications ?? ''],
     notes: [this.data.values.notes ?? ''],
-    additional_notes: [this.data.values.additional_notes ?? ''],
   });
 
   // I 5 campi "_range" NON sono FormControl del form sopra: nell'originale PrimeNG erano array

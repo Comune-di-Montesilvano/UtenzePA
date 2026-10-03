@@ -207,10 +207,6 @@ export class SearchUtilityDto {
 
   @IsOptional()
   @IsString()
-  additional_notes?: string;
-
-  @IsOptional()
-  @IsString()
   wbs_gas_element?: string;
 
   @IsOptional()
@@ -224,10 +220,6 @@ export class SearchUtilityDto {
   @IsOptional()
   @IsIn(['true', 'false', 'unknown'])
   disconnectable?: 'true' | 'false' | 'unknown';
-
-  @IsOptional()
-  @IsString()
-  specifications?: string;
 
   @IsOptional()
   @IsString()

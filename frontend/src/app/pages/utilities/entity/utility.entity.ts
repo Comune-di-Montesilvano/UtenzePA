@@ -44,13 +44,11 @@ export class Utility extends AbstractEntity implements IUtility {
   latitude?: string;
   longitude?: string;
   notes?: string;
-  additional_notes?: string;
   wbs_gas_element?: string;
   meter_verified?: boolean;
   arera_category?: AreraCategory | null;
   gas_use_category?: GasUseCategory | null;
   disconnectable?: boolean | null;
-  specifications?: string;
   water_concession?: Date;
   utility_type_id_fk!: number;
   transferred_to_third_party_id?: number | null;

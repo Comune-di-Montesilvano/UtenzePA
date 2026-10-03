@@ -107,10 +107,6 @@ export class CreateUtilityDto {
 
   @IsOptional()
   @IsString()
-  additional_notes?: string;
-
-  @IsOptional()
-  @IsString()
   @MaxLength(255)
   wbs_gas_element?: string;
 
@@ -142,10 +138,6 @@ export class CreateUtilityDto {
   @IsOptional()
   @IsBoolean()
   disconnectable?: boolean | null;
-
-  @IsOptional()
-  @IsString()
-  specifications?: string;
 
   @IsOptional()
   @IsInt()

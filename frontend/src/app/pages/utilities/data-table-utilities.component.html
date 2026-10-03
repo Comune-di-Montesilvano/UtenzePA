@@ -253,14 +253,6 @@
     </td>
   </ng-container>
 
-  <ng-container matColumnDef="specifications">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Specifiche</th>
-    <td mat-cell *matCellDef="let item">
-      @if (item.specifications) {
-        <span [matTooltip]="item.specifications">{{ item.specifications | truncate: maxDescLength }}</span>
-      }
-    </td>
-  </ng-container>
 
   <ng-container matColumnDef="notes">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Note</th>
@@ -271,14 +263,6 @@
     </td>
   </ng-container>
 
-  <ng-container matColumnDef="additional_notes">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Note Aggiuntive</th>
-    <td mat-cell *matCellDef="let item">
-      @if (item.additional_notes) {
-        <span [matTooltip]="item.additional_notes">{{ item.additional_notes | truncate: maxDescLength }}</span>
-      }
-    </td>
-  </ng-container>
 
   <ng-container matColumnDef="expiryStatus">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Stato</th>

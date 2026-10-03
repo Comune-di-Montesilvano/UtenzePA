@@ -98,9 +98,6 @@ export class Utility {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
-  @Column({ type: 'text', nullable: true })
-  additional_notes: string;
-
   @Column({ length: 255, nullable: true })
   wbs_gas_element: string;
 
@@ -133,9 +130,6 @@ export class Utility {
 
   @Column({ type: 'date', nullable: true })
   transferred_on: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  specifications: string;
 
   @CreateDateColumn({ type: 'timestamp' })
   create_date: string;
