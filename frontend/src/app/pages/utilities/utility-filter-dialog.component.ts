@@ -57,7 +57,6 @@ export interface UtilityFilterValues {
   longitude: string | null;
   party_id: number | null;
   cig_contract: string | null;
-  order_number: string | null;
   supply_start_date_range: (string | null)[] | null;
   supply_expiry_date_range: (string | null)[] | null;
   management_expiry_date_range: (string | null)[] | null;
@@ -149,7 +148,6 @@ export class UtilityFilterDialogComponent implements OnInit {
     maintenance_status: [this.data.values.maintenance_status ?? null],
     cost_status: [this.data.values.cost_status ?? null],
     cig_contract: [this.data.values.cig_contract ?? ''],
-    order_number: [this.data.values.order_number ?? ''],
     budget_chapter_code_fk: [this.data.values.budget_chapter_code_fk ?? null],
     estimated_annual_consumption: [this.data.values.estimated_annual_consumption ?? ''],
     reported_consumption_year: [this.data.values.reported_consumption_year ?? ''],

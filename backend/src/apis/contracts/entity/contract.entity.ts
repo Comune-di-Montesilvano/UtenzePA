@@ -45,9 +45,6 @@ export class Contract {
   @Column({ type: 'boolean', default: false })
   closed: boolean;
 
-  @Column({ type: 'text', nullable: true })
-  order_number: string;
-
   @Column({ length: 100, nullable: true })
   consip_order: string;
 

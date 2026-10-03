@@ -262,7 +262,6 @@ describe('UtilitiesService', () => {
       await service.findAll({
         supplier_id_fk: 7,
         cig_contract: 'ABC',
-        order_number: 'ORD1',
         consip_order: 'CONSIP1',
         consip_agreement_id: 9,
       } as never);
@@ -274,10 +273,6 @@ describe('UtilitiesService', () => {
       expect(qb.andWhere).toHaveBeenCalledWith('currentContract.cig_contract LIKE :cf_cig_contract', {
         cf_cig_contract: '%ABC%',
       });
-      expect(qb.andWhere).toHaveBeenCalledWith(
-        'currentContract.order_number LIKE :cf_order_number',
-        { cf_order_number: '%ORD1%' },
-      );
       expect(qb.andWhere).toHaveBeenCalledWith(
         'currentContract.consip_order LIKE :cf_consip_order',
         { cf_consip_order: '%CONSIP1%' },
@@ -421,7 +416,6 @@ describe('UtilitiesService', () => {
           supplier: { id: 4, name: 'Fornitore SPA' },
           supplier_id_fk: 4,
           cig_contract: 'CIG1',
-          order_number: 'ORD1',
           consip_order: 'CONSIP1',
           consip_agreement_id: 9,
           consipAgreement: { id: 9, safeguard: true },

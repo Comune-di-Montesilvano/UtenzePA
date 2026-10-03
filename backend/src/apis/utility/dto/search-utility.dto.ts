@@ -251,10 +251,6 @@ export class SearchUtilityDto {
 
   @IsOptional()
   @IsString()
-  order_number?: string;
-
-  @IsOptional()
-  @IsString()
   cig_contract?: string;
 
   // Utenze che alimentano almeno un immobile con una di queste funzioni.

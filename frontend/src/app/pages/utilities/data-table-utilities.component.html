@@ -106,7 +106,7 @@
   </ng-container>
 
   <ng-container matColumnDef="consip_order">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Ordine CONSIP</th>
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Numero ordine (ODA)</th>
     <td mat-cell *matCellDef="let item">{{ item.consip_order }}</td>
   </ng-container>
 
@@ -115,10 +115,6 @@
     <td mat-cell *matCellDef="let item">{{ item.cig_contract }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="order_number">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Numero ordine</th>
-    <td mat-cell *matCellDef="let item">{{ item.order_number }}</td>
-  </ng-container>
 
   <ng-container matColumnDef="wbs_gas_element">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Elemento WBS Gas</th>

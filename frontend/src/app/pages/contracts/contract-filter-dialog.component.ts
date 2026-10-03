@@ -13,7 +13,7 @@ import {partyName} from '../../core/helpers/party-name.helper';
 
 export interface ContractFilterValues {
   cig_contract: string | null;
-  order_number: string | null;
+  consip_order: string | null;
   supplier_id_fk: number | null;
   supply_expiry_date_range: (string | null)[] | null;
 }
@@ -32,8 +32,8 @@ export interface ContractFilterValues {
           <input matInput formControlName="cig_contract">
         </mat-form-field>
         <mat-form-field style="flex: 1 1 45%;">
-          <mat-label>Numero Ordine</mat-label>
-          <input matInput formControlName="order_number">
+          <mat-label>Numero ordine (ODA)</mat-label>
+          <input matInput formControlName="consip_order">
         </mat-form-field>
         <div style="flex: 1 1 45%;">
           <app-filterable-select label="Fornitore" placeholder="Cerca fornitore..." [options]="supplierOptions" formControlName="supplier_id_fk"></app-filterable-select>
@@ -56,7 +56,7 @@ export class ContractFilterDialogComponent implements OnInit {
 
   form = this.fb.group({
     cig_contract: [this.data.values.cig_contract ?? ''],
-    order_number: [this.data.values.order_number ?? ''],
+    consip_order: [this.data.values.consip_order ?? ''],
     supplier_id_fk: [this.data.values.supplier_id_fk ?? null],
     supply_expiry_date_range: [this.data.values.supply_expiry_date_range ?? null],
   });

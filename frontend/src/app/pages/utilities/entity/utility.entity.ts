@@ -62,8 +62,6 @@ export class Utility extends AbstractEntity implements IUtility {
   plant_ids?: number[];
   budget_chapter_code_fk!: number;
   @Exclude({toPlainOnly: true})
-  order_number?: string;
-  @Exclude({toPlainOnly: true})
   cig_contract?: string;
 
   @Exclude({toPlainOnly: true})

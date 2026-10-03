@@ -63,7 +63,6 @@ export class SearchUtilitiesComponent extends AbstractSearchComponent {
       takeover_termination_date_range: [null],
       water_concession_range: [null],
       cig_contract: [''],
-      order_number: ['']
     });
   }
 

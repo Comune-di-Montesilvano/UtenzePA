@@ -108,7 +108,6 @@ export class ContractEditDialogComponent implements OnInit {
     cig_exempt: [this.data.item.cig_exempt ?? false],
     maintenance_included: [this.data.item.maintenance_included ?? false],
     closed: [this.data.item.closed ?? false],
-    order_number: [this.data.item.order_number ?? ''],
     consip_order: [this.data.item.consip_order ?? ''],
     consip_agreement_id: [this.data.item.consip_agreement_id ?? null],
     supplier_id_fk: [this.data.item.supplier_id_fk ?? null],

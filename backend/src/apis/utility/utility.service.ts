@@ -194,7 +194,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       supplier: current?.supplier ?? null,
       supplier_id_fk: current?.supplier_id_fk ?? null,
       cig_contract: current?.cig_contract ?? null,
-      order_number: current?.order_number ?? null,
       consip_order: current?.consip_order ?? null,
       consip_agreement_id: current?.consip_agreement_id ?? null,
       consipAgreement: current?.consipAgreement ?? null,
@@ -259,7 +258,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     const CONTRACT_FILTER_KEYS = [
       'supplier_id_fk',
       'cig_contract',
-      'order_number',
       'consip_order',
       'consip_agreement_id',
       'supply_start_date_range',
@@ -275,11 +273,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     if (filters.cig_contract) {
       qb.andWhere('currentContract.cig_contract LIKE :cf_cig_contract', {
         cf_cig_contract: `%${filters.cig_contract}%`,
-      });
-    }
-    if (filters.order_number) {
-      qb.andWhere('currentContract.order_number LIKE :cf_order_number', {
-        cf_order_number: `%${filters.order_number}%`,
       });
     }
     if (filters.consip_order) {
