@@ -21,14 +21,14 @@ I paganti sono le parti (`utilizer_grant_parties` → `third_parties`, non cance
 
 ## Approccio
 
-Calcolo a ogni lettura (scelto), non colonna salvata: con circa 660 utenze il costo è trascurabile e non servono agganci ai salvataggi di contratti, immobili e utenze.
+Calcolo a ogni lettura (scelto), non colonna salvata, sui contratti immobiliari già caricati con l'utenza: con circa 660 utenze il costo è trascurabile e non servono agganci ai salvataggi di contratti, immobili e utenze.
 
 ## Modifiche
 
 Backend:
 
-- `UtilityCostPayersService` (o metodo in `UtilityService`): data una lista di id utenza, una sola query (rooted su `utilizer_grant`, relazioni reali) restituisce per utenza `cost_payers: {grant_id, third_party_id, name}[]`; nome = ragione sociale o "cognome nome", come altrove per i soggetti terzi. Duplicati (stessa parte su due immobili dello stesso contratto) rimossi.
-- `findAll`/`search`/`findOne` di `UtilityService` aggiungono `cost_payers` (array vuoto = Comune) con la query batched, mai con `leftJoinAndSelect` sulla catena (vedi nota CLAUDE.md sui join "liberi").
+- funzione pura `costPayers(utility)` in `apis/utility/cost-payers.ts`: lavora sui dati che `findAll`/`findOne`/`findBySafeguard` già caricano (`assets.utilizerGrants.parties`, relazioni reali) e restituisce `cost_payers: {grant_id, third_party_id, name}[]`; nome con `partyName` (ragione sociale o "cognome nome"). Duplicati (stessa parte su due immobili dello stesso contratto) rimossi. Nessuna query in più.
+- `withCurrentContractFields` aggiunge `cost_payers` (array vuoto = Comune) a ogni utenza restituita.
 - Filtro di ricerca `cost_payer`: `COMUNE` (`NOT EXISTS` sulla catena) o `THIRD_PARTY` (`EXISTS`).
 - Rimossi: modulo `apis/costs-borne-by`, entity `shared/entities/utility_cost_borne_by.entity.ts`, `costs_borne_by_id_fk` da entity, DTO (era obbligatorio) e service, registrazione in `app.module.ts`.
 

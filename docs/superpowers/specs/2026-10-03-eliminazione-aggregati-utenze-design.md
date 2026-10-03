@@ -23,7 +23,8 @@ Intervento one-shot: SQL eseguito a mano sul DB locale, mai nel repo né dentro 
 
 - alle 10 utenze "sprar" fuori dal capitolo 15048 si aggiunge in coda alle note `Ex aggregato Access: SPRAR`;
 - l'elenco di queste 10 (id e POD) va alla ragioneria per l'eventuale capitolo: il capitolo non si assegna d'ufficio;
-- tutte le altre assegnazioni si scartano.
+- tutte le altre assegnazioni si scartano;
+- funzione immobile (`assets.function_id`, classificazione nuova) proposta per gli immobili che non l'hanno (125 su 190), partendo dal vecchio aggregato immobili (es. SCUOLE → Istruzione, SPORT → Sport, SPRAR → Accoglienza (SPRAR)), una lista con conferma: il filtro nuovo funziona solo se la funzione è valorizzata.
 
 ## Modifiche
 
@@ -32,7 +33,7 @@ Backend:
 - rimosso il modulo `apis/utility-aggregators` (controller, service, DTO, entity, spec) e la sua registrazione in `app.module.ts`;
 - `Utility`: rimossi `aggregator_id_fk` e la relazione; rimossi dai DTO create/update/search e da join e filtri di `UtilityService`;
 - nuovi filtri di ricerca utenze, a scelta multipla:
-  - `asset_type_ids`: utenze collegate (`utility_assets`) ad almeno un immobile non cancellato con `asset_type_id` nell'elenco;
+  - `asset_function_ids`: utenze collegate (`utility_assets`) ad almeno un immobile non cancellato con `function_id` nell'elenco (Funzione immobile, non il vecchio aggregato immobili, etichettato "(vecchio)" e destinato a sparire);
   - `plant_types`: utenze collegate (`utility_plants`) ad almeno un impianto non cancellato con `type` nell'elenco (enum `PlantType`);
   - implementati con `EXISTS`, mai con join `...AndSelect`.
 
@@ -40,7 +41,7 @@ Frontend:
 
 - rimossi pagina `pages/utility-aggregator/`, route e voce della sidebar;
 - scheda utenza: rimossa la select Aggregato;
-- elenco utenze: rimossi colonna e filtro Aggregato; aggiunti nel dialog filtri "Tipo immobile" (opzioni da `asset_aggregators`, label = `code`) e "Tipo impianto" (opzioni dai tipi d'impianto del frontend).
+- elenco utenze: rimossi colonna e filtro Aggregato; aggiunti nel dialog filtri "Funzione immobile" (opzioni da `asset_functions`, label = `name`) e "Tipo impianto" (opzioni dai tipi d'impianto del frontend).
 
 Migration `DropUtilityAggregators` (additiva solo in negativo, nessun dato spostato, quindi nessun controllo preliminare):
 
@@ -49,9 +50,9 @@ Migration `DropUtilityAggregators` (additiva solo in negativo, nessun dato spost
 
 ## Test
 
-- `UtilityService`: filtro `asset_type_ids` e `plant_types` generano la condizione `EXISTS` attesa; parametri vuoti = nessun filtro.
+- `UtilityService`: filtro `asset_function_ids` e `plant_types` generano la condizione `EXISTS` attesa; parametri vuoti = nessun filtro.
 - Migration: ciclo reale up → down → up sul DB locale.
-- E2E (Playwright): filtro Tipo immobile = SCUOLE restituisce le utenze delle scuole; la scheda utenza non mostra più Aggregato.
+- E2E (Playwright): filtro Funzione immobile = Istruzione restituisce le utenze delle scuole; la scheda utenza non mostra più Aggregato.
 
 ## Documentazione
 
