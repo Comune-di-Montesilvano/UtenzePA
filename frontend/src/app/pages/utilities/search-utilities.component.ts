@@ -38,6 +38,7 @@ export class SearchUtilitiesComponent extends AbstractSearchComponent {
       aggregator_id_fk: [null],
       supplier_address: [''],
       arera_category: [null],
+      gas_use_category: [null],
       consip_order: [''],
       safeguard: [null],
       wbs_gas_element: [''],

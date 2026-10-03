@@ -26,6 +26,31 @@ export enum AreraCategory {
 
 export const ARERA_NONE = 'NONE';
 
+// Categoria d'uso del gas (delibera 229/2012/R/gas), distinta dalla
+// tipologia di cliente TIVG. Gemello di GasUseCategory nel backend.
+export enum GasUseCategory {
+  C1 = 'C1',
+  C2 = 'C2',
+  C3 = 'C3',
+  C4 = 'C4',
+  C5 = 'C5',
+  T1 = 'T1',
+  T2 = 'T2',
+}
+
+export const GAS_USE_CATEGORY_LABEL: Record<GasUseCategory, string> = {
+  [GasUseCategory.C1]: 'C1 – Riscaldamento',
+  [GasUseCategory.C2]: 'C2 – Cottura cibi e/o acqua calda sanitaria',
+  [GasUseCategory.C3]: 'C3 – Riscaldamento + cottura e/o acqua calda',
+  [GasUseCategory.C4]: 'C4 – Condizionamento',
+  [GasUseCategory.C5]: 'C5 – Condizionamento + riscaldamento',
+  [GasUseCategory.T1]: 'T1 – Uso tecnologico (artigianale/industriale)',
+  [GasUseCategory.T2]: 'T2 – Uso tecnologico + riscaldamento',
+};
+
+export const GAS_USE_OPTIONS: TOption[] = Object.values(GasUseCategory)
+  .map(c => ({label: GAS_USE_CATEGORY_LABEL[c], value: c}));
+
 export const ARERA_CATEGORY_LABEL: Record<AreraCategory, string> = {
   [AreraCategory.EL_BT_DOMESTIC]: 'BT usi domestici',
   [AreraCategory.EL_BT_PUBLIC_LIGHTING]: 'BT illuminazione pubblica',

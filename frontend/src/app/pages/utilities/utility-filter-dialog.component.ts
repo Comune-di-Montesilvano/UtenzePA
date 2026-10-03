@@ -22,7 +22,7 @@ import {CostsBorneByService} from '../costs-borne-by/costs-borne-by.service';
 import {MaintenanceManagersService} from '../maintenance-managers/maintenance-managers.service';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {HardType} from '../utility-types/enum/hard-type.enum';
-import {ARERA_NONE, areraGroups, areraOptionsFor} from './arera-category';
+import {ARERA_NONE, areraGroups, areraOptionsFor, GAS_USE_OPTIONS} from './arera-category';
 
 export interface UtilityFilterValues {
   utility_id: string | null;
@@ -38,6 +38,7 @@ export interface UtilityFilterValues {
   aggregator_id_fk: number | null;
   supplier_address: string | null;
   arera_category: string | null;
+  gas_use_category: string | null;
   consip_order: string | null;
   safeguard: boolean | null;
   wbs_gas_element: string | null;
@@ -98,6 +99,7 @@ export class UtilityFilterDialogComponent implements OnInit {
   private hardTypeById = new Map<number, HardType>();
   readonly areraNone = ARERA_NONE;
   readonly areraGroups = areraGroups();
+  readonly gasUseOptions = GAS_USE_OPTIONS;
   readonly disconnectableFilterOptions: TOption[] = [
     {label: 'Sì', value: 'true'},
     {label: 'No', value: 'false'},
@@ -127,6 +129,7 @@ export class UtilityFilterDialogComponent implements OnInit {
     disconnectable: [this.data.values.disconnectable ?? null],
     wbs_gas_element: [this.data.values.wbs_gas_element ?? ''],
     arera_category: [this.data.values.arera_category ?? null],
+    gas_use_category: [this.data.values.gas_use_category ?? null],
     supply_active: [this.data.values.supply_active ?? null],
     meter_removed: [this.data.values.meter_removed ?? null],
     meter_verified: [this.data.values.meter_verified ?? null],

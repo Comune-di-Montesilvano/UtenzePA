@@ -133,6 +133,16 @@ Non è codice del repo: interventi one-off sul DB locale, una lista alla volta c
   - ciclo reale up → down → up sul DB locale confrontando i dati (non solo i conteggi).
 - Frontend: `ng build`; E2E Playwright (utente temporaneo, poi eliminato): select filtrato per tipo e svuotato al cambio tipo, salvataggio, filtri Tipologia ARERA e Disalimentabilità, anomalia in dashboard, pagina Finalità d'uso non più raggiungibile.
 
+## Integrazione: categoria d'uso del gas
+
+Dopo il merge l'utente ha chiarito che per il gas cercava la **categoria d'uso** (delibera 229/2012/R/gas), non solo la tipologia di cliente TIVG. Le due informazioni restano entrambe sull'utenza gas:
+
+- `utilities.gas_use_category` enum nullable: C1 riscaldamento, C2 cottura cibi e/o acqua calda sanitaria, C3 riscaldamento + cottura/acqua calda, C4 condizionamento, C5 condizionamento + riscaldamento, T1 uso tecnologico (artigianale/industriale), T2 uso tecnologico + riscaldamento;
+- ammessa solo per `hard_type = GAS` (400 "Categoria d'uso ammessa solo per le utenze gas."), anche al cambio di tipo dell'utenza; il cambio di tipo contatore di un tipo utenza è rifiutato se lascerebbe categorie d'uso fuori dal gas;
+- select nella scheda (solo gas), filtro nell'elenco (anche "Non assegnata"), anomalia "Utenze gas attive senza categoria d'uso";
+- migration additiva `1791700000000-GasUseCategory`;
+- luce: nessun equivalente ARERA; acqua: la tipologia TICSI è già una tipologia d'uso.
+
 ## Rilascio e documentazione
 
 - Rilasciata in v1.8.0 (la v1.8.0 non era mai stata taggata): bump di `softwareVersion`/`releaseDate` in `publiccode.yml` nella PR.

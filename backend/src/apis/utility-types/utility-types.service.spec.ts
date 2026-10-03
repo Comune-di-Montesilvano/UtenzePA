@@ -53,7 +53,7 @@ describe('UtilityTypesService', () => {
     repo.findOne.mockResolvedValue({ id: 33, name: 'acqua', hard_type: 'WATER' });
     repo.manager.query.mockResolvedValue([{ n: '3' }]);
     await expect(service.update(33, { hard_type: 'INTERNET' } as never, 5)).rejects.toThrow(
-      /3 utenze hanno una tipologia ARERA non compatibile/,
+      /3 utenze hanno una tipologia ARERA o una categoria d'uso non compatibile/,
     );
     expect(repo.save).not.toHaveBeenCalled();
     const [sql, params] = repo.manager.query.mock.calls[0];
@@ -71,5 +71,22 @@ describe('UtilityTypesService', () => {
     repo.manager.query.mockClear();
     await service.update(33, { name: 'Acqua' } as never, 5);
     expect(repo.manager.query).not.toHaveBeenCalled();
+  });
+
+  it("cambio di hard_type da gas ad altro conta anche le utenze con categoria d'uso", async () => {
+    repo.findOne.mockResolvedValue({ id: 34, name: 'gas', hard_type: 'GAS' });
+    repo.manager.query.mockResolvedValue([{ n: '2' }]);
+    await expect(service.update(34, { hard_type: 'WATER' } as never, 5)).rejects.toThrow(
+      /2 utenze hanno una tipologia ARERA o una categoria d'uso non compatibile/,
+    );
+    const [sql] = repo.manager.query.mock.calls[0];
+    expect(sql).toContain('gas_use_category IS NOT NULL');
+  });
+
+  it("verso il gas la categoria d'uso non blocca", async () => {
+    repo.findOne.mockResolvedValue({ id: 33, name: 'acqua', hard_type: 'WATER' });
+    await service.update(33, { hard_type: 'GAS' } as never, 5);
+    const [sql] = repo.manager.query.mock.calls[0];
+    expect(sql).not.toContain('gas_use_category');
   });
 });

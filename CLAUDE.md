@@ -240,7 +240,7 @@ Presidi antincendio (`plant_fire_equipment`): l'import una tantum (non nel repo)
 
 POD in fonti esterne (TINN, ordini CONSIP) a volte a 15 caratteri = 14 + cifra di controllo finale: normalizzare a 14 (`IT\d{3}E\d{8}`) prima di confrontare con il DB, altrimenti risultano "mancanti" o refusi.
 
-Disalimentabilità utenza: `utilities.disconnectable` (sì/no, null = non noto); il testo originale Access, quando diceva di più (es. "per E-DISTRIBUZIONE"), è nelle note dell'utenza. Tipologia contrattuale ARERA: `utilities.arera_category`, codici e regola codice ↔ tipo utenza in `apis/utility/arera-category.ts` (gemello frontend `pages/utilities/arera-category.ts`); le finalità d'uso (`purpose`) non esistono più. In generale: grep nell'entity prima di aggiungere una colonna "nuova".
+Disalimentabilità utenza: `utilities.disconnectable` (sì/no, null = non noto); il testo originale Access, quando diceva di più (es. "per E-DISTRIBUZIONE"), è nelle note dell'utenza. Tipologia contrattuale ARERA: `utilities.arera_category`, codici e regola codice ↔ tipo utenza in `apis/utility/arera-category.ts` (gemello frontend `pages/utilities/arera-category.ts`); per il gas c'è anche la categoria d'uso `utilities.gas_use_category` (C1–C5, T1, T2, delibera 229/2012: riscaldamento, cottura/acqua calda, uso tecnologico…), distinta dalla tipologia di cliente TIVG; le finalità d'uso (`purpose`) non esistono più. In generale: grep nell'entity prima di aggiungere una colonna "nuova".
 
 Capitoli di spesa rinumerati negli anni (es. 11201→11407, 11218→11408, 11188→14091, 14521/0→14521/20): dati contabili storici vanno abbinati per descrizione, non per codice — e confermati con la ragioneria (il capitolo è dato contabile, mai assegnarlo "provvisorio" a mano).
 
