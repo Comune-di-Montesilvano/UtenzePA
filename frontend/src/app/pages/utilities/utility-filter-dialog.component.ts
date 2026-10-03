@@ -182,6 +182,15 @@ export class UtilityFilterDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Tipologia non ammessa dal nuovo tipo: si svuota, altrimenti resterebbe
+    // applicata ma invisibile nel select (elenco vuoto senza motivo apparente).
+    this.form.controls.utility_type_id_fk.valueChanges.subscribe(() => {
+      const options = this.areraOptionsForFilter();
+      const current = this.form.controls.arera_category.value;
+      if (options && current && current !== this.areraNone && !options.some(o => o.value === current)) {
+        this.form.controls.arera_category.setValue(null);
+      }
+    });
     this.utilityTypeService.search({deleted: false}).subscribe({
       next: data => this.utilityTypeOptions = data
         .map((t: any) => {
