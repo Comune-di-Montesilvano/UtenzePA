@@ -10,7 +10,7 @@ import {
   Min,
 } from 'class-validator';
 import { Phase } from '../../shared/enum/user.enums';
-import { AreraCategory } from '../arera-category';
+import { AreraCategory, GasUseCategory } from '../arera-category';
 import { NormalizeDate } from '@/common/decorators/normalize-date.decorator';
 import { Transform } from 'class-transformer';
 
@@ -125,6 +125,10 @@ export class UpdateUtilityDto {
   @IsOptional()
   @IsEnum(AreraCategory, { message: 'Tipologia ARERA non valida.' })
   arera_category?: AreraCategory | null;
+
+  @IsOptional()
+  @IsEnum(GasUseCategory, { message: "Categoria d'uso gas non valida." })
+  gas_use_category?: GasUseCategory | null;
 
   @IsOptional()
   @IsBoolean()

@@ -94,6 +94,16 @@
             <input matInput formControlName="wbs_gas_element">
           </mat-form-field>
           <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Categoria d'uso gas</mat-label>
+            <mat-select formControlName="gas_use_category">
+              <mat-option [value]="null">Tutte</mat-option>
+              <mat-option [value]="areraNone">Non assegnata</mat-option>
+              @for (opt of gasUseOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
             <mat-label>Tipologia ARERA</mat-label>
             <mat-select formControlName="arera_category">
               <mat-option [value]="null">Tutte</mat-option>

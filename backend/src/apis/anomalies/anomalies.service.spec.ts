@@ -48,7 +48,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(11);
+    expect(query).toHaveBeenCalledTimes(12);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -144,5 +144,19 @@ describe('AnomaliesService', () => {
     expect(sql).toContain('u.supply_active = 1');
     expect(sql).toContain("t.hard_type <> 'INTERNET'");
     expect(sql).toContain('u.arera_category IS NULL');
+  });
+
+  it("elenca le utenze gas attive senza categoria d'uso", async () => {
+    for (let i = 0; i < 11; i++) query.mockResolvedValueOnce([]);
+    query.mockResolvedValueOnce([{ id: 22, utility_id: '0088', type: 'gas' }]);
+    const a = await service.getAnomalies();
+    expect(a.active_gas_utilities_without_use_category).toEqual({
+      count: 1,
+      items: [{ id: 22, utility_id: '0088', type: 'gas' }],
+    });
+    const sql = query.mock.calls[11][0] as string;
+    expect(sql).toContain('u.supply_active = 1');
+    expect(sql).toContain("t.hard_type = 'GAS'");
+    expect(sql).toContain('u.gas_use_category IS NULL');
   });
 });

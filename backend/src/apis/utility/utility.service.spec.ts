@@ -836,4 +836,50 @@ describe('UtilitiesService', () => {
       expect(qb.leftJoinAndSelect.mock.calls.some((c) => String(c[0]).includes('utilityTypePurposes'))).toBe(false);
     });
   });
+
+  describe("categoria d'uso gas", () => {
+    const typeIs = (hardType: string) =>
+      repo.manager.query.mockImplementation(async (sql: string) =>
+        sql.includes('FROM utility_types') ? [{ hard_type: hardType }] : [],
+      );
+
+    it("create accetta una categoria d'uso su un'utenza gas", async () => {
+      typeIs('GAS');
+      await service.create(
+        { utility_id: 'U1', utility_type_id_fk: 34, gas_use_category: 'C3', asset_ids: [1] } as never,
+        1,
+      );
+      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ gas_use_category: 'C3' }));
+    });
+
+    it("create rifiuta con 400 una categoria d'uso su un'utenza non gas", async () => {
+      typeIs('WATER');
+      await expect(
+        service.create(
+          { utility_id: 'U1', utility_type_id_fk: 33, gas_use_category: 'C1', asset_ids: [1] } as never,
+          1,
+        ),
+      ).rejects.toThrow("Categoria d'uso ammessa solo per le utenze gas.");
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('update che cambia tipo da gas ad acqua lasciando la categoria viene rifiutato', async () => {
+      typeIs('WATER');
+      repo.findOne.mockResolvedValue({ id: 5, utility_type_id_fk: 34, gas_use_category: 'C2', deleted: false });
+      await expect(service.update(5, { utility_type_id_fk: 33 } as never, 1)).rejects.toThrow(
+        "Categoria d'uso ammessa solo per le utenze gas.",
+      );
+    });
+
+    it("filtra per categoria d'uso e per non assegnata", async () => {
+      await service.findAll({ gas_use_category: 'T2' } as never);
+      expect(qb.andWhere).toHaveBeenCalledWith('Utility.gas_use_category = :gas_use_category', {
+        gas_use_category: 'T2',
+      });
+      qb.andWhere.mockClear();
+      await service.findAll({ gas_use_category: 'NONE' } as never);
+      expect(qb.andWhere).toHaveBeenCalledWith('Utility.gas_use_category IS NULL');
+      expect(qb.andWhere.mock.calls.some((c) => /gas_use_category LIKE/.test(String(c[0])))).toBe(false);
+    });
+  });
 });

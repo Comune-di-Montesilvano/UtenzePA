@@ -41,3 +41,15 @@ export const ARERA_CATEGORIES_BY_HARD_TYPE: Record<HardTypeEnum, AreraCategory[]
 export function isAreraCategoryAllowed(hardType: HardTypeEnum, category: AreraCategory): boolean {
   return ARERA_CATEGORIES_BY_HARD_TYPE[hardType]?.includes(category) ?? false;
 }
+
+// Categoria d'uso del gas (delibera 229/2012/R/gas): profilo di prelievo del
+// PDR, distinta dalla tipologia di cliente TIVG qui sopra. Solo utenze gas.
+export enum GasUseCategory {
+  C1 = 'C1',
+  C2 = 'C2',
+  C3 = 'C3',
+  C4 = 'C4',
+  C5 = 'C5',
+  T1 = 'T1',
+  T2 = 'T2',
+}

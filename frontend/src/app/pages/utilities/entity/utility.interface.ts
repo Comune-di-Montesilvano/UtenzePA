@@ -1,6 +1,6 @@
 import {ExpireState} from "../enum/expire-state.enum";
 import {Phase} from '../enum/phase.enum';
-import type {AreraCategory} from '../arera-category';
+import type {AreraCategory, GasUseCategory} from '../arera-category';
 import {IUtilityType} from '../../utility-types/entity/utility-type.interface';
 import {IConsipAgreement} from '../../consip-agreement/entity/consip-agreement.interface';
 import {ISystemUser} from '../../system-users/entity/system-user.interface';
@@ -29,6 +29,7 @@ export interface IUtility {
   created_by_user_id: number | null;
   deleted: boolean;
   arera_category?: AreraCategory | null;
+  gas_use_category?: GasUseCategory | null;
   disconnectable?: boolean | null;
   estimated_annual_consumption?: number | null;
   expiryStatus?: ExpireState | null;

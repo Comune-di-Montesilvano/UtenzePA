@@ -15,7 +15,7 @@ import { Plant } from '@apis/plants/entity/plant.entity';
 import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
 import { EstimateSource } from '@apis/utility-consumptions/enum/estimate-source.enum';
 import { findMeterConflict } from './meter-number.helper';
-import { AreraCategory, ARERA_NONE, isAreraCategoryAllowed } from './arera-category';
+import { AreraCategory, ARERA_NONE, GasUseCategory, isAreraCategoryAllowed } from './arera-category';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 
 @Injectable()
@@ -371,6 +371,15 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
         qb.andWhere('Utility.arera_category = :arera_category', { arera_category: filters.arera_category });
       }
     }
+    if (filters?.gas_use_category) {
+      if (filters.gas_use_category === ARERA_NONE) {
+        qb.andWhere('Utility.gas_use_category IS NULL');
+      } else {
+        qb.andWhere('Utility.gas_use_category = :gas_use_category', {
+          gas_use_category: filters.gas_use_category,
+        });
+      }
+    }
     if (filters?.disconnectable) {
       if (filters.disconnectable === 'unknown') {
         qb.andWhere('Utility.disconnectable IS NULL');
@@ -384,6 +393,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     this.applyFilters(qb, filters, 'Utility', [
       'deleted',
       'arera_category',
+      'gas_use_category',
       'disconnectable',
       'asset_id',
       'safeguard',
@@ -535,19 +545,23 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
   }
 
   // La tipologia ARERA deve appartenere al tipo dell'utenza (luce/acqua/gas;
-  // Internet nessuna). hard_type letto con una query diretta: il service non
-  // ha il repository dei tipi utenza.
+  // Internet nessuna); la categoria d'uso esiste solo per il gas. hard_type
+  // letto con una query diretta: il service non ha il repository dei tipi.
   private async assertAreraCategory(
     utilityTypeId: number | null | undefined,
     category: AreraCategory | null | undefined,
+    gasUse: GasUseCategory | null | undefined = null,
   ): Promise<void> {
-    if (!category) return;
+    if (!category && !gasUse) return;
     const rows: { hard_type: HardTypeEnum }[] = utilityTypeId
       ? await this.repo.manager.query('SELECT hard_type FROM utility_types WHERE id = ?', [utilityTypeId])
       : [];
     const hardType = rows[0]?.hard_type;
-    if (!hardType || !isAreraCategoryAllowed(hardType, category)) {
+    if (category && (!hardType || !isAreraCategoryAllowed(hardType, category))) {
       throw new BadRequestException('Tipologia ARERA non valida per il tipo di utenza.');
+    }
+    if (gasUse && hardType !== HardTypeEnum.GAS) {
+      throw new BadRequestException("Categoria d'uso ammessa solo per le utenze gas.");
     }
   }
 
@@ -556,7 +570,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
     if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
     await this.assertMeterAvailable(rest.meter_number, null);
-    await this.assertAreraCategory(rest.utility_type_id_fk, rest.arera_category);
+    await this.assertAreraCategory(rest.utility_type_id_fk, rest.arera_category, rest.gas_use_category);
     const estimate = Number(rest.estimated_annual_consumption ?? 0);
     const assets = await this.resolveAssets(asset_ids ?? []);
     const plants = await this.resolvePlants(plant_ids ?? []);
@@ -593,10 +607,15 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     if (!current) throw new BadRequestException('Utenza non trovata');
     // Valida se cambia la tipologia o il tipo: un cambio di tipo che lascia
     // la tipologia vecchia (non più ammessa) va rifiutato.
-    if (rest.arera_category !== undefined || rest.utility_type_id_fk !== undefined) {
+    if (
+      rest.arera_category !== undefined ||
+      rest.gas_use_category !== undefined ||
+      rest.utility_type_id_fk !== undefined
+    ) {
       await this.assertAreraCategory(
         rest.utility_type_id_fk ?? current.utility_type_id_fk,
         rest.arera_category !== undefined ? rest.arera_category : current.arera_category,
+        rest.gas_use_category !== undefined ? rest.gas_use_category : current.gas_use_category,
       );
     }
     if (linksChanged) {

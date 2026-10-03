@@ -58,6 +58,17 @@
               </mat-select>
             </mat-form-field>
           }
+          @if (selectedHardType === hardTypeGas) {
+            <mat-form-field>
+              <mat-label>Categoria d'uso gas</mat-label>
+              <mat-select formControlName="gas_use_category">
+                <mat-option [value]="null">Non assegnata</mat-option>
+                @for (opt of gasUseOptions; track opt.value) {
+                  <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
           <mat-form-field>
             <mat-label>Codice Utenza o Cliente</mat-label>
             <input matInput formControlName="utility_code">

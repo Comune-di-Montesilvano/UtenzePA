@@ -42,6 +42,7 @@ interface Anomalies {
   real_estate_contracts_without_parties: AnomalyList<{id: number; subject: string | null}>;
   third_parties_without_identifier: AnomalyList<{id: number; name: string; type: string}>;
   active_utilities_without_arera_category: AnomalyList<UtilityAnomaly>;
+  active_gas_utilities_without_use_category: AnomalyList<UtilityAnomaly>;
 }
 
 // Non estende AbstractService: header Authorization messo a mano (nessun
@@ -139,6 +140,20 @@ const formatDate = (iso: string | null): string => {
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
                 @for (u of data.active_utilities_without_arera_category.items; track u.id) {
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+
+            <mat-expansion-panel [disabled]="data.active_gas_utilities_without_use_category.count === 0">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count" [class.zero]="data.active_gas_utilities_without_use_category.count === 0">{{ data.active_gas_utilities_without_use_category.count }}</span>
+                  Utenze gas attive senza categoria d'uso
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (u of data.active_gas_utilities_without_use_category.items; track u.id) {
                   <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }}</li>
                 }
               </ul>
@@ -289,7 +304,8 @@ export class AnomaliesCardComponent implements OnInit {
       + this.data.duplicate_cigs.count + this.data.real_estate_contracts_without_assets.count
       + this.data.plants_without_position.count + this.data.plants_without_asset.count
       + this.data.real_estate_contracts_without_parties.count + this.data.third_parties_without_identifier.count
-      + this.data.active_utilities_without_arera_category.count;
+      + this.data.active_utilities_without_arera_category.count
+      + this.data.active_gas_utilities_without_use_category.count;
   }
 
   ngOnInit(): void {
