@@ -35,6 +35,10 @@ export class UpdateUtilizerGrantDto {
   utilities_to_be_taken_over?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  maintenance_by_counterparty?: boolean;
+
+  @IsOptional()
   @IsString()
   @MaxLength(100)
   usage_type?: string;

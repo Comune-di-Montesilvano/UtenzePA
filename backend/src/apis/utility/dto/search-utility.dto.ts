@@ -15,6 +15,7 @@ import { Phase } from '../../shared/enum/user.enums';
 import { AreraCategory, ARERA_NONE, GasUseCategory } from '../arera-category';
 import { PlantType } from '@apis/plants/enum/plant.enum';
 import { CostStatus } from '../cost-status';
+import { MaintenanceStatus } from '../maintenance-status';
 
 export class SearchUtilityDto {
   @IsOptional()
@@ -127,11 +128,6 @@ export class SearchUtilityDto {
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))
   @IsInt()
   supplier_id_fk?: number;
-
-  @IsOptional()
-  @Transform(({ value }) => (value === '' ? undefined : Number(value)))
-  @IsInt()
-  maintenance_management_id_fk?: number;
 
   // Utenze collegate a questo immobile (tra gli altri eventuali).
   @IsOptional()
@@ -296,6 +292,11 @@ export class SearchUtilityDto {
   @IsOptional()
   @IsEnum(CostStatus)
   cost_status?: CostStatus;
+
+  // Manutenzione a carico di (calcolata, maintenance-status.ts).
+  @IsOptional()
+  @IsEnum(MaintenanceStatus)
+  maintenance_status?: MaintenanceStatus;
 
   // Utenze collegate agli immobili di un contratto immobiliare (scheda contratto).
   @IsOptional()

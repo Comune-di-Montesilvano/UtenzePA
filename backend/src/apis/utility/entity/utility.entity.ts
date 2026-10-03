@@ -20,7 +20,6 @@ import { UtilityType } from '../../utility-types/entity/utility_type.entity';
 import { AreraCategory, GasUseCategory } from '../arera-category';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
 import { Phase } from '../../shared/enum/user.enums';
-import { MaintenanceManager } from '../../shared/entities/maintenanceManagers.entity';
 import { EstimateSource } from '@apis/utility-consumptions/enum/estimate-source.enum';
 
 @Entity('utilities')
@@ -162,9 +161,6 @@ export class Utility {
   @JoinColumn({ name: 'updated_by_user_id' })
   updated_by: SystemUser;
 
-  @Column({ type: 'int', nullable: true })
-  maintenance_management_id_fk: number;
-
   @Column({ type: 'int' })
   budget_chapter_code_fk: number;
 
@@ -192,10 +188,6 @@ export class Utility {
     inverseJoinColumn: { name: 'plant_id', referencedColumnName: 'id' },
   })
   plants: Plant[];
-
-  @ManyToOne(() => MaintenanceManager, (maintenance) => maintenance.id)
-  @JoinColumn({ name: 'maintenance_management_id_fk', referencedColumnName: 'id' })
-  maintenanceManager: MaintenanceManager;
 
   @ManyToOne(() => BudgetChapter, (chapter) => chapter.utilities)
   @JoinColumn({ name: 'budget_chapter_code_fk', referencedColumnName: 'id' })

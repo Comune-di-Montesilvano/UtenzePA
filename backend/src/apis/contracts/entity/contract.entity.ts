@@ -34,6 +34,11 @@ export class Contract {
   @Column({ type: 'boolean', default: false })
   cig_exempt: boolean;
 
+  // Manutenzione compresa nel contratto di fornitura (es. convenzione Consip
+  // Luce): le utenze collegate risultano "Manutenzione: Fornitore".
+  @Column({ type: 'boolean', default: false })
+  maintenance_included: boolean;
+
   // Contratto chiuso/scaduto: mai "corrente", qualunque siano le date (serve
   // per lo storico senza date di fornitura, che altrimenti risulterebbe
   // corrente per scadenza assente).

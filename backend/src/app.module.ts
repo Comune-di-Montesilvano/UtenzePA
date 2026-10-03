@@ -27,7 +27,6 @@ import { UtilityConsumptionsModule } from '@apis/utility-consumptions/utility-co
 import { BudgetChapterSpendingModule } from '@apis/budget-chapter-spending/budget-chapter-spending.module';
 import { PlantsModule } from '@apis/plants/plants.module';
 import { AnomaliesModule } from '@apis/anomalies/anomalies.module';
-import { MaintenanceManagersModule } from '@apis/maintenance-managers/maintenance-managers.module';
 import { InvoicesModule } from '@apis/invoices/invoie.module';
 import { ConsipAgreementModule } from '@apis/consip-agreement/consip-agreement.module';
 import { SettingsModule } from '@apis/settings/settings.module';
@@ -65,7 +64,6 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     BudgetChapterSpendingModule,
     PlantsModule,
     AnomaliesModule,
-    MaintenanceManagersModule,
     InvoicesModule,
     ConsipAgreementModule,
     SettingsModule,

@@ -23,6 +23,10 @@ export class UpdateContractDto {
 
   @IsOptional()
   @IsBoolean()
+  maintenance_included?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   closed?: boolean;
 
   @IsOptional()
