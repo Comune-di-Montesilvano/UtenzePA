@@ -1,6 +1,6 @@
 # Roadmap: estensione del perimetro di UtenzePA al patrimonio
 
-Aggiornata: 2026-10-02
+Aggiornata: 2026-10-03
 
 Obiettivo: portare UtenzePA da gestionale delle utenze a gestionale del **patrimonio** comunale (immobili, contratti, impianti, inventario), sfruttando i dati già presenti in `W:\PATRIMONIO`.
 
@@ -26,8 +26,8 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 8 | Permessi di scrittura granulari | da approfondire |
 | 9 | Soggetti terzi (controparti + fornitori) | fatto, v1.8.0 (pulizia dati fatta sul DB locale; restano CF delle persone, P.IVA Open Fiber, 2 locatori SPRAR) |
 | 10 | Tipologie contrattuali ARERA (al posto delle finalità d'uso) | fatto, v1.8.0 (valorizzazione delle tipologie sul DB locale da fare) |
-| 11 | Aggregati utenze (da eliminare) | da approfondire |
-| 12 | Costi a carico calcolato | da approfondire |
+| 11 | Aggregati utenze (da eliminare) | fatto, v1.9.0 (funzione assegnata a 118 immobili sul DB locale; 7 senza funzione, 10 utenze SPRAR senza capitolo SPRAR da girare alla ragioneria) |
+| 12 | Costi a carico calcolato | fatto, v1.9.0, con volture (26 utenze da volturare, 8 attive, da verificare dall'anomalia) |
 | 13 | Schede entità: rifiniture | da fare |
 | 14 | Schede di fornitori, capitoli, fatture | da fare |
 | 15 | UI e identità (elenchi, filtri, dark mode, sidebar, nome) | da approfondire |
@@ -179,9 +179,13 @@ Fatto in v1.8.0: spec `docs/superpowers/specs/2026-10-02-tipologie-arera-design.
 
 ## 11. Aggregati utenze (da eliminare)
 
+Fatto in v1.9.0: spec `docs/superpowers/specs/2026-10-03-eliminazione-aggregati-utenze-design.md`. Aggregati rimossi (tabella, colonna, pagina); nell'elenco utenze i filtri "Funzione immobile" e "Tipo impianto" sugli oggetti collegati. Dati sul DB locale (2026-10-03): funzione immobile assegnata a 118 immobili partendo dal vecchio aggregato immobili; ne restano 7 senza funzione (casi dubbi lasciati vuoti); le 10 utenze SPRAR fuori dal capitolo 15048 hanno la nota "Ex aggregato Access: SPRAR" e vanno girate alla ragioneria per il capitolo. Il testo sotto è il censimento di partenza.
+
 22 categorie libere ereditate da Access, assegnate a 632 utenze su ~664, che duplicano informazioni ora presenti altrove: cosa alimenta (scuole 106, fontane/casette 59, semafori 13, pompe 16, sport 29, colonnine 10 → classificazione immobile e tipi d'impianto), stato ("contatori non individuati / non attivi" 48 → fornitura attiva, contatore rimosso), finanziamento ("SPRAR" 38 → capitolo di spesa), residui generici ("punto presa diversi usi" 68, "appartamenti, garage…" 16). Usi nel codice: `aggregator_id_fk` (DTO utenza), filtro e colonna tabella utenze, select nella scheda utenza, pagina Aggregati, importatori. Passi: verificare che ogni informazione sia ricavabile altrove (es. utenze "fontane" collegate al loro impianto), trasferire ciò che manca, poi rimuovere tutto con una migration; decidere con cosa sostituire il filtro per categoria.
 
 ## 12. Costi a carico calcolato
+
+Fatto in v1.9.0: spec `docs/superpowers/specs/2026-10-03-costi-a-carico-calcolato-design.md`. Al posto della lista libera: sull'utenza "Volturata a/il" (soggetto terzo, data facoltativa), e uno stato calcolato dai contratti immobiliari attivi concessi dal Comune: Comune, Da volturare (contratto con "Utenze da volturare" ma voltura non fatta: paga il Comune), Volturata, Da riprendere (volturata a chi non ha più un contratto attivo). Anomalie "Utenze da volturare" e "Utenze volturate da riprendere" (solo forniture attive); tab Utenze nella scheda del contratto immobiliare; tab Controparti della scheda utenza rimosso. Dati: nessuna voltura registrata sul pregresso (le utenze "concessionario" con contratto erano tutte cessate; le 25 "concessionario" attive sono linee Open Fiber, convenzione gratuita, restano Comune). Restano da verificare le 8 utenze attive "Da volturare" (Azienda Speciale, Polisportiva palaroma). Il testo sotto è il censimento di partenza.
 
 `costs_borne_by` (7 valori: "comune" 471, "COMUNE C/O ENGIE" 129, "concessionario" 48, "azienda speciale" 7, "GUARDIA COSTIERA" 6, "asl" 2, un nominativo con "Il Comune rimborsa" 1) diventa un valore **calcolato**: paga il Comune, oppure il soggetto terzo se l'utenza è collegata a un immobile con contratto immobiliare attivo che gli assegna le utenze. Impianti tutti del Comune (da confermare): utenza solo su impianti = Comune. "C/O ENGIE" è un'informazione del contratto di fornitura (gestione calore); il caso "il Comune rimborsa" richiede una decisione (terzo stato o nota). Candidato flag: `utilities_to_be_taken_over` ("Utenze da volturare") del contratto immobiliare. Prima di migrare: mostrare le incoerenze (utenze "comune" su immobili con contratto attivo e viceversa).
 
