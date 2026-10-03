@@ -56,6 +56,16 @@ export function utilityFlags(meterRemoved: boolean | null | undefined, meterVeri
   return flags;
 }
 
+// "A carico di" (stato calcolato dal backend, cost-status.ts).
+export function costStatus(info: {status: string} | null | undefined): StatusInfo {
+  switch (info?.status) {
+    case 'TO_TRANSFER': return {tone: 'warn', label: 'Da volturare', icon: 'pending_actions'};
+    case 'TRANSFERRED': return {tone: 'info', label: 'Volturata', icon: 'swap_horiz'};
+    case 'TO_RECOVER': return {tone: 'danger', label: 'Da riprendere', icon: 'assignment_return'};
+    default: return {tone: 'ok', label: 'Comune', icon: 'account_balance'};
+  }
+}
+
 export function plantStatus(status: PlantStatus | null | undefined): StatusInfo {
   switch (status) {
     case 'ACTIVE': return {tone: 'ok', label: PLANT_STATUS_LABEL.ACTIVE, icon: 'check_circle'};

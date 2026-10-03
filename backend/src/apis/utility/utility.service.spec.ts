@@ -2,6 +2,7 @@ import { BadRequestException, HttpException } from '@nestjs/common';
 import { UtilitiesService } from './utility.service';
 import { Utility } from './entity/utility.entity';
 import { ExpiryStatus } from './enum/ExpiryStatus.enum';
+import { CostStatus, costStatusSql } from './cost-status';
 
 function daysFromToday(days: number): Date {
   const d = new Date();
@@ -194,6 +195,47 @@ describe('UtilitiesService', () => {
       );
     });
 
+    it('non carica più aggregati né costi a carico', async () => {
+      await service.findAll({} as never);
+      const joins = qb.leftJoinAndSelect.mock.calls.map((c) => String(c[0]));
+      expect(joins).not.toContain('Utility.utilityAggregator');
+      expect(joins).not.toContain('Utility.costsBorneBy');
+    });
+
+    it('filtro per funzione immobile con sotto-query', async () => {
+      await service.findAll({ asset_function_ids: [3, 5] } as never);
+      const call = qb.andWhere.mock.calls.find((c) =>
+        String(c[0]).includes('s.function_id IN (:...asset_function_ids)'),
+      );
+      expect(call?.[1]).toEqual({ asset_function_ids: [3, 5] });
+      expect(String(call?.[0])).toContain('s.deleted = 0');
+    });
+
+    it('filtro per tipo impianto con sotto-query', async () => {
+      await service.findAll({ plant_types: ['FOUNTAIN'] } as never);
+      const call = qb.andWhere.mock.calls.find((c) => String(c[0]).includes('p.type IN (:...plant_types)'));
+      expect(call?.[1]).toEqual({ plant_types: ['FOUNTAIN'] });
+      expect(String(call?.[0])).toContain('p.deleted = 0');
+    });
+
+    it('filtro a carico di usa costStatusSql', async () => {
+      await service.findAll({ cost_status: 'TO_TRANSFER' } as never);
+      expect(qb.andWhere).toHaveBeenCalledWith(costStatusSql(CostStatus.TO_TRANSFER));
+    });
+
+    it('filtro per contratto immobiliare con sotto-query', async () => {
+      await service.findAll({ grant_id: 12 } as never);
+      const call = qb.andWhere.mock.calls.find((c) => String(c[0]).includes('uga.utilizer_grant_id = :grant_id'));
+      expect(call?.[1]).toEqual({ grant_id: 12 });
+    });
+
+    it('liste vuote: nessun filtro', async () => {
+      await service.findAll({ asset_function_ids: [], plant_types: [] } as never);
+      const sql = qb.andWhere.mock.calls.map((c) => String(c[0])).join(' ');
+      expect(sql).not.toContain('function_id');
+      expect(sql).not.toContain('p.type');
+    });
+
     it('filtro per parte con sottoquery (elenco parti completo)', async () => {
       await service.findAll({ party_id: 3 } as never);
 
@@ -300,10 +342,38 @@ describe('UtilitiesService', () => {
       );
     });
 
+    it('aggiunge cost_info e carica il soggetto della voltura', async () => {
+      qb.getMany.mockResolvedValue([
+        {
+          id: 1,
+          assets: [
+            {
+              utilizerGrants: [
+                {
+                  id: 7,
+                  deleted: false,
+                  status: 'ACTIVE',
+                  direction: 'ACTIVE',
+                  utilities_to_be_taken_over: true,
+                  parties: [{ id: 3, type: 'LEGAL', company_name: 'Alfa Srl', deleted: false }],
+                },
+              ],
+            },
+          ],
+        },
+        { id: 2, assets: [] },
+      ]);
+
+      const result = (await service.findAll({} as never)) as unknown as { cost_info: { status: string } }[];
+
+      expect(result[0].cost_info.status).toBe('TO_TRANSFER');
+      expect(result[1].cost_info.status).toBe('COMUNE');
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('Utility.transferredTo', 'transferredTo');
+    });
+
     it('risolve il contratto corrente in una query batched separata e proietta i campi legacy', async () => {
       const utility = {
         id: 1,
-        utilityAggregator: { id: 2 },
         utilityType: null,
         security_deposit: '306.96',
       } as unknown as Utility;
@@ -342,14 +412,13 @@ describe('UtilitiesService', () => {
       expect(result).toHaveLength(1);
       const enriched = result[0] as unknown as {
         expiryStatus: ExpiryStatus;
-        aggregator: unknown;
         supplier: unknown;
         supplier_id_fk: number;
         cig_contract: string;
         security_deposit: number;
       };
       expect(enriched.expiryStatus).toBe(ExpiryStatus.EXPIRING30);
-      expect(enriched.aggregator).toEqual({ id: 2 });
+      expect(enriched).not.toHaveProperty('aggregator');
       expect(enriched.supplier).toEqual({ id: 4, name: 'Fornitore SPA' });
       expect(enriched.supplier_id_fk).toBe(4);
       expect(enriched.cig_contract).toBe('CIG1');
@@ -880,6 +949,62 @@ describe('UtilitiesService', () => {
       await service.findAll({ gas_use_category: 'NONE' } as never);
       expect(qb.andWhere).toHaveBeenCalledWith('Utility.gas_use_category IS NULL');
       expect(qb.andWhere.mock.calls.some((c) => /gas_use_category LIKE/.test(String(c[0])))).toBe(false);
+    });
+  });
+
+  describe('voltura', () => {
+    it('voltura a un soggetto inesistente o cancellato: 400', async () => {
+      repo.findOne.mockResolvedValue({ id: 5, transferred_to_third_party_id: null, deleted: false });
+      repo.manager.query.mockResolvedValue([]);
+      await expect(service.update(5, { transferred_to_third_party_id: 99 } as never, 1)).rejects.toThrow(
+        'Soggetto della voltura non trovato.',
+      );
+    });
+
+    it('data di voltura senza soggetto: 400', async () => {
+      repo.findOne.mockResolvedValue({ id: 5, transferred_to_third_party_id: null, deleted: false });
+      await expect(service.update(5, { transferred_on: '2026-05-01' } as never, 1)).rejects.toThrow(
+        "Indicare a chi è stata volturata l'utenza.",
+      );
+    });
+
+    it('voltura a un soggetto esistente: salvata', async () => {
+      repo.findOne.mockResolvedValue({ id: 5, transferred_to_third_party_id: null, deleted: false });
+      repo.manager.query.mockResolvedValue([{ id: 3 }]);
+      await expect(
+        service.update(5, { transferred_to_third_party_id: 3, transferred_on: '2026-05-01' } as never, 1),
+      ).resolves.not.toThrow();
+      expect(repo.manager.query).toHaveBeenCalledWith(
+        'SELECT id FROM third_parties WHERE id = ? AND deleted = 0',
+        [3],
+      );
+    });
+
+    it('ripresa dal Comune: soggetto null svuota anche la data, senza query', async () => {
+      repo.findOne.mockResolvedValue({ id: 5, transferred_to_third_party_id: 3, transferred_on: '2026-05-01', deleted: false });
+      await service.update(5, { transferred_to_third_party_id: null } as never, 1);
+      expect(repo.manager.query).not.toHaveBeenCalledWith(
+        expect.stringContaining('FROM third_parties'),
+        expect.anything(),
+      );
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ transferred_to_third_party_id: null, transferred_on: null }),
+      );
+    });
+
+    it('salvataggio con la stessa voltura a un soggetto poi cancellato: nessun 400', async () => {
+      repo.findOne.mockResolvedValue({ id: 5, transferred_to_third_party_id: 3, transferred_on: '2026-05-01', deleted: false });
+      repo.manager.query.mockResolvedValue([]);
+      await expect(
+        service.update(5, { transferred_to_third_party_id: 3, transferred_on: '2026-05-01', notes: 'x' } as never, 1),
+      ).resolves.not.toThrow();
+    });
+
+    it('create con voltura a soggetto inesistente: 400', async () => {
+      repo.manager.query.mockResolvedValue([]);
+      await expect(
+        service.create({ utility_id: 'U1', asset_ids: [1], transferred_to_third_party_id: 99 } as never, 1),
+      ).rejects.toThrow('Soggetto della voltura non trovato.');
     });
   });
 });

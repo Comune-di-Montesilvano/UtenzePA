@@ -72,21 +72,11 @@
     <td mat-cell *matCellDef="let item">{{ assetNames(item) }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="costsBorneBy.name">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Costi a Carico di</th>
+  <ng-container matColumnDef="cost_info">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>A carico di</th>
     <td mat-cell *matCellDef="let item">
-      @if (item.isHighlighted) {
-        <span class="status-badge status-badge-warn">{{ item.costsBorneBy?.name || 'N/D' }}</span>
-      } @else {
-        {{ item.costsBorneBy?.name || 'N/D' }}
-      }
-    </td>
-  </ng-container>
-
-  <ng-container matColumnDef="aggregator.description">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>ID Aggregato</th>
-    <td mat-cell *matCellDef="let item">
-      {{ (item.aggregator_id_fk != null && utilityAggregatorMap[item.aggregator_id_fk]) ? (utilityAggregatorMap[item.aggregator_id_fk].description | truncate: maxDescLength) : 'N/D' }}
+      <app-status-badge size="sm" [info]="costStatus(item.cost_info)"></app-status-badge>
+      {{ payerName(item) }}
     </td>
   </ng-container>
 

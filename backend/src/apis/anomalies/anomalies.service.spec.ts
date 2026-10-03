@@ -1,3 +1,4 @@
+import { CostStatus, costStatusSql } from '@apis/utility/cost-status';
 import { AnomaliesService } from './anomalies.service';
 
 describe('AnomaliesService', () => {
@@ -48,7 +49,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(12);
+    expect(query).toHaveBeenCalledTimes(14);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -101,7 +102,9 @@ describe('AnomaliesService', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ id: '9', code: 'ANT-57', name: 'Antincendio materna', type: 'FIRE_PROTECTION' }]);
+      .mockResolvedValueOnce([
+        { id: '9', code: 'ANT-57', name: 'Antincendio materna', type: 'FIRE_PROTECTION' },
+      ]);
     const a = await service.getAnomalies();
     expect(a.plants_without_asset).toEqual({
       count: 1,
@@ -158,5 +161,37 @@ describe('AnomaliesService', () => {
     expect(sql).toContain('u.supply_active = 1');
     expect(sql).toContain("t.hard_type = 'GAS'");
     expect(sql).toContain('u.gas_use_category IS NULL');
+  });
+
+  it('elenca le utenze da volturare e quelle da riprendere, solo forniture attive', async () => {
+    for (let i = 0; i < 12; i++) query.mockResolvedValueOnce([]);
+    query
+      .mockResolvedValueOnce([
+        {
+          id: 31,
+          utility_id: 'IT005',
+          type: 'luce',
+          contracts: 'Alfa Srl · dal 01/05/2026',
+          since: '2026-05-01',
+        },
+      ])
+      .mockResolvedValueOnce([
+        { id: 32, utility_id: 'IT006', type: 'luce', contracts: 'Beta Spa' },
+      ]);
+
+    const a = await service.getAnomalies();
+
+    expect(a.utilities_to_transfer).toEqual({
+      count: 1,
+      items: [
+        { id: 31, utility_id: 'IT005', type: 'luce', contracts: 'Alfa Srl · dal 01/05/2026' },
+      ],
+    });
+    expect(a.utilities_to_recover.items[0].contracts).toBe('Beta Spa');
+    const toTransfer = query.mock.calls[12][0] as string;
+    const toRecover = query.mock.calls[13][0] as string;
+    expect(toTransfer).toContain(costStatusSql(CostStatus.TO_TRANSFER, 'u'));
+    expect(toRecover).toContain(costStatusSql(CostStatus.TO_RECOVER, 'u'));
+    for (const sql of [toTransfer, toRecover]) expect(sql).toContain('u.supply_active = 1');
   });
 });

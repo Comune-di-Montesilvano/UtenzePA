@@ -156,6 +156,22 @@
         </app-linked-table>
       </mat-tab>
 
+      @if (!isNew) {
+        <mat-tab aria-label="Utenze">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="bolt" label="Utenze" [count]="utilityRows.length"></app-tab-label>
+          </ng-template>
+          <p class="sheet-hint">Utenze degli immobili del contratto. Le volture si segnano dalla scheda dell'utenza.</p>
+          <app-linked-table
+            [columns]="utilityColumns"
+            [rows]="utilityRows"
+            [rowStatus]="utilityStatusOf"
+            emptyText="Nessuna utenza sugli immobili del contratto."
+            (open)="openUtility($event.id)">
+          </app-linked-table>
+        </mat-tab>
+      }
+
       <mat-tab aria-label="Contratti collegati">
         <ng-template mat-tab-label>
           <app-tab-label icon="account_tree" label="Contratti collegati" [count]="linkedCount()"></app-tab-label>

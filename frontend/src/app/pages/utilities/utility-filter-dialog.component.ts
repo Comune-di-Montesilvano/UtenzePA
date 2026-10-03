@@ -13,12 +13,12 @@ import {Phase} from './enum/phase.enum';
 import {ExpireState} from './enum/expire-state.enum';
 import {TOption} from '../../core/types/option.interface';
 import {AssetService} from '../assets/asset.service';
-import {UtilityAggregatorsService} from '../utility-aggregator/utility-aggregator.service';
+import {AssetFunctionsService} from '../asset-function/asset-function.service';
+import {PLANT_TYPE_LABEL, PLANT_TYPES} from '../plants/plant.model';
 import {ThirdPartiesService} from '../third-parties/third-parties.service';
 import {PartyRole} from '../third-parties/third-party.model';
 import {partyName} from '../../core/helpers/party-name.helper';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
-import {CostsBorneByService} from '../costs-borne-by/costs-borne-by.service';
 import {MaintenanceManagersService} from '../maintenance-managers/maintenance-managers.service';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {HardType} from '../utility-types/enum/hard-type.enum';
@@ -33,9 +33,10 @@ export interface UtilityFilterValues {
   supplier_id_fk: number | null;
   meter_removed: boolean | null;
   utilityState: ExpireState | null;
-  costs_borne_by_id_fk: number | null;
+  cost_status: string | null;
   utility_code: string | null;
-  aggregator_id_fk: number | null;
+  asset_function_ids: number[] | null;
+  plant_types: string[] | null;
   supplier_address: string | null;
   arera_category: string | null;
   gas_use_category: string | null;
@@ -82,10 +83,9 @@ export class UtilityFilterDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<UtilityFilterDialogComponent, UtilityFilterValues | 'clear'>);
   private assetsService = inject(AssetService);
-  private utilityAggregatorService = inject(UtilityAggregatorsService);
+  private assetFunctionsService = inject(AssetFunctionsService);
   private thirdPartiesService = inject(ThirdPartiesService);
   private budgetChapterService = inject(BudgetChaptersService);
-  private costsBorneByService = inject(CostsBorneByService);
   private maintenanceManagerService = inject(MaintenanceManagersService);
   private utilityTypeService = inject(UtilityTypesService);
   protected data = inject<FilterDialogData<UtilityFilterValues>>(MAT_DIALOG_DATA);
@@ -105,10 +105,18 @@ export class UtilityFilterDialogComponent implements OnInit {
     {label: 'No', value: 'false'},
     {label: 'Non noto', value: 'unknown'},
   ];
-  costsBorneByOptions: TOption[] = [];
+  readonly costStatusOptions: TOption[] = [
+    {label: 'Comune', value: 'COMUNE'},
+    {label: 'Da volturare', value: 'TO_TRANSFER'},
+    {label: 'Volturata', value: 'TRANSFERRED'},
+    {label: 'Da riprendere', value: 'TO_RECOVER'},
+  ];
+  readonly plantTypeOptions: TOption[] = PLANT_TYPES
+    .map(t => ({label: PLANT_TYPE_LABEL[t], value: t}))
+    .sort((a, b) => a.label.localeCompare(b.label));
   managementOptions: TOption[] = [];
   assetOptions: TOption[] = [];
-  aggregatorOptions: TOption[] = [];
+  assetFunctionOptions: TOption[] = [];
   supplierOptions: TOption[] = [];
   budgetChapterOptions: TOption[] = [];
   partyOptions: TOption[] = [];
@@ -119,7 +127,8 @@ export class UtilityFilterDialogComponent implements OnInit {
     utility_code: [this.data.values.utility_code ?? ''],
     utility_type_id_fk: [this.data.values.utility_type_id_fk ?? null],
     asset_id: [this.data.values.asset_id ?? null],
-    aggregator_id_fk: [this.data.values.aggregator_id_fk ?? null],
+    asset_function_ids: [this.data.values.asset_function_ids ?? []],
+    plant_types: [this.data.values.plant_types ?? []],
     supplier_address: [this.data.values.supplier_address ?? ''],
     latitude: [this.data.values.latitude ?? ''],
     longitude: [this.data.values.longitude ?? ''],
@@ -138,7 +147,7 @@ export class UtilityFilterDialogComponent implements OnInit {
     consip_order: [this.data.values.consip_order ?? ''],
     supplier_id_fk: [this.data.values.supplier_id_fk ?? null],
     maintenance_management_id_fk: [this.data.values.maintenance_management_id_fk ?? null],
-    costs_borne_by_id_fk: [this.data.values.costs_borne_by_id_fk ?? null],
+    cost_status: [this.data.values.cost_status ?? null],
     cig_contract: [this.data.values.cig_contract ?? ''],
     order_number: [this.data.values.order_number ?? ''],
     budget_chapter_code_fk: [this.data.values.budget_chapter_code_fk ?? null],
@@ -204,12 +213,6 @@ export class UtilityFilterDialogComponent implements OnInit {
       error: err => console.error('Errore nel caricamento dei Tipi Utenza:', err)
     });
 
-    this.costsBorneByService.search().subscribe({
-      next: data => this.costsBorneByOptions = data
-        .map((c: any) => ({label: c.name, value: c.id}))
-        .sort((a: TOption, b: TOption) => a.label.localeCompare(b.label)),
-      error: err => console.error('Errore nel caricamento Costi a Carico di:', err)
-    });
 
     this.maintenanceManagerService.search().subscribe({
       next: data => this.managementOptions = data
@@ -225,11 +228,11 @@ export class UtilityFilterDialogComponent implements OnInit {
       error: err => console.error('Errore nel caricamento dei Fabbricati:', err)
     });
 
-    this.utilityAggregatorService.search({deleted: false}).subscribe({
-      next: data => this.aggregatorOptions = data
-        .map((a: any) => ({label: a.description ?? '', value: a.id}))
+    this.assetFunctionsService.search({deleted: false} as never).subscribe({
+      next: data => this.assetFunctionOptions = data
+        .map((f: any) => ({label: f.name, value: f.id}))
         .sort((a: TOption, b: TOption) => a.label.localeCompare(b.label)),
-      error: err => console.error('Errore nel caricamento degli Aggregati Utenza:', err)
+      error: err => console.error('Errore nel caricamento delle funzioni immobile:', err)
     });
 
     this.thirdPartiesService.search({deleted: false, roles: PartyRole.SUPPLIER} as never).subscribe({

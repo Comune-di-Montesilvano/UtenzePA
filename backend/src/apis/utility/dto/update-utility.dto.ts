@@ -44,10 +44,6 @@ export class UpdateUtilityDto {
 
   @IsOptional()
   @IsInt()
-  costs_borne_by_id_fk?: number;
-
-  @IsOptional()
-  @IsInt()
   maintenance_management_id_fk?: number;
 
   @IsOptional()
@@ -130,6 +126,15 @@ export class UpdateUtilityDto {
   @IsEnum(GasUseCategory, { message: "Categoria d'uso gas non valida." })
   gas_use_category?: GasUseCategory | null;
 
+  // Voltura (null = ripresa dal Comune).
+  @IsOptional()
+  @IsInt()
+  transferred_to_third_party_id?: number | null;
+
+  @IsOptional()
+  @NormalizeDate()
+  transferred_on?: string | null;
+
   @IsOptional()
   @IsBoolean()
   disconnectable?: boolean | null;
@@ -148,10 +153,6 @@ export class UpdateUtilityDto {
   @IsArray({ message: 'Gli impianti associati devono essere un array.' })
   @IsInt({ each: true, message: 'Ogni impianto associato deve essere un ID intero.' })
   plant_ids?: number[];
-
-  @IsOptional()
-  @IsInt()
-  aggregator_id_fk?: number | null;
 
   @IsOptional()
   @IsInt()

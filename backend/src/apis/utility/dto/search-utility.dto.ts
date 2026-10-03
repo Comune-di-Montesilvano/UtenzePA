@@ -13,6 +13,8 @@ import {
 import { ExpiryStatus } from '../enum/ExpiryStatus.enum';
 import { Phase } from '../../shared/enum/user.enums';
 import { AreraCategory, ARERA_NONE, GasUseCategory } from '../arera-category';
+import { PlantType } from '@apis/plants/enum/plant.enum';
+import { CostStatus } from '../cost-status';
 
 export class SearchUtilityDto {
   @IsOptional()
@@ -129,11 +131,6 @@ export class SearchUtilityDto {
   @IsOptional()
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))
   @IsInt()
-  costs_borne_by_id_fk?: number;
-
-  @IsOptional()
-  @Transform(({ value }) => (value === '' ? undefined : Number(value)))
-  @IsInt()
   maintenance_management_id_fk?: number;
 
   // Utenze collegate a questo immobile (tra gli altri eventuali).
@@ -141,11 +138,6 @@ export class SearchUtilityDto {
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))
   @IsInt()
   asset_id?: number;
-
-  @IsOptional()
-  @Transform(({ value }) => (value === '' ? undefined : Number(value)))
-  @IsInt()
-  aggregator_id_fk?: number;
 
   @IsOptional()
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))
@@ -276,4 +268,38 @@ export class SearchUtilityDto {
   @IsOptional()
   @IsString()
   cig_contract?: string;
+
+  // Utenze che alimentano almeno un immobile con una di queste funzioni.
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === '' || value === undefined || value === null) return undefined;
+    const list = Array.isArray(value) ? value : String(value).split(',');
+    return list
+      .map((v) => String(v).trim())
+      .filter((v) => v !== '')
+      .map(Number);
+  })
+  @IsInt({ each: true })
+  asset_function_ids?: number[];
+
+  // Utenze che alimentano almeno un impianto di uno di questi tipi.
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === '' || value === undefined || value === null) return undefined;
+    const list = Array.isArray(value) ? value : String(value).split(',');
+    return list.map((v) => String(v).trim()).filter((v) => v !== '');
+  })
+  @IsEnum(PlantType, { each: true })
+  plant_types?: PlantType[];
+
+  // A carico di (calcolato, cost-status.ts).
+  @IsOptional()
+  @IsEnum(CostStatus)
+  cost_status?: CostStatus;
+
+  // Utenze collegate agli immobili di un contratto immobiliare (scheda contratto).
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : Number(value)))
+  @IsInt()
+  grant_id?: number;
 }
