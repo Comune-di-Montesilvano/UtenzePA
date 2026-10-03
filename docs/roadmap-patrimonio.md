@@ -22,7 +22,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 4 | Complessi | da approfondire |
 | 5 | Aree verdi | da approfondire |
 | 6 | Fatture per utenza | da approfondire |
-| 7 | Contratti di servizio e manutenzione | da approfondire |
+| 7 | Contratti di servizio e manutenzione | in corso con la voce 18 (sostituiscono i gestori manutenzione) |
 | 8 | Permessi di scrittura granulari | da approfondire |
 | 9 | Soggetti terzi (controparti + fornitori) | fatto, v1.8.0 (pulizia dati fatta sul DB locale; restano CF delle persone, P.IVA Open Fiber, 2 locatori SPRAR) |
 | 10 | Tipologie contrattuali ARERA (al posto delle finalità d'uso) | fatto, v1.8.0 (valorizzazione delle tipologie sul DB locale da fare) |
@@ -33,7 +33,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 15 | UI e identità (elenchi, filtri, dark mode, sidebar, nome) | da approfondire |
 | 16 | Dashboard e mappa | per ultime |
 | 17 | Impegni di spesa (contratto ↔ capitolo) | da approfondire |
-| 18 | Pulizia entità e incongruenze del modello | analisi fatta, da approfondire |
+| 18 | Pulizia entità e incongruenze del modello | in corso (analisi fatta) |
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
 
@@ -124,6 +124,8 @@ In previsione delle **utility di importazione massiva** (fattura elettronica XML
 ## 7. Contratti di servizio e manutenzione
 
 Fonte: `W:\PATRIMONIO\2_ UTENZE\2_UFFICIO ASSOCIATO GESTIONE INTEGRATA ENERGIA\adempimenti servizi\costo storico\Attività di competenza e costo storico .xlsx`: per ambito (impianti elettrici, termici, idrosanitari, ascensori, fontane, semafori, illuminazione pubblica, sollevamenti, videosorveglianza) ditta, costo 2022–2024, scadenza, determina. Da collegare a impianti (voce 3) e immobili.
+
+Decisione utente (2026-10-03): i gestori manutenzione (voce 18) si sostituiscono con i contratti di manutenzione. La manutenzione può essere a carico del Comune (in proprio), del locatore o del conduttore (dal contratto immobiliare), oppure di una ditta esterna con contratto di manutenzione. Stesso schema di "A carico di" della voce 12: dato reale = contratto, stato calcolato.
 
 ## 8. Permessi di scrittura granulari
 
@@ -272,6 +274,16 @@ Analisi dello schema e dei dati sul DB locale (2026-10-03), ragionando su come a
 - contratto immobiliare: campi ereditati dalle concessioni poco usati (`usage_type` 6, `department` 22, `concession_act` 27 su 126); 62 contratti senza immobile (già in anomalia).
 
 **Sane, nessun intervento:** soggetti terzi, impianti e tabelle per tipo, consumi, foto (polimorfiche per tipo e id), impostazioni, audit log, utenze per contratto (lo storico dei rinnovi Consip spiega le utenze con 5–7 contratti).
+
+Decisione utente (2026-10-03): si parte da questa voce; i gestori manutenzione si sostituiscono con i contratti di manutenzione (voce 7, assorbita qui).
+
+Gotcha emersi dall'analisi:
+
+- `information_schema.TABLES.TABLE_ROWS` è una stima e conta anche le righe cancellate (es. `contracts` 662 righe, 42 non cancellate; `utilizer_grant` 567, 126; `assets` 477, 190 dopo il passaggio a impianti): contare sempre con `COUNT(*) ... WHERE deleted = 0`;
+- l'aggregato immobili sta nella colonna `assets.asset_type_id`, non in una `*_aggregator_id_fk`: il nome non dice cosa contiene;
+- `utilities.water_concession` è una colonna `date`: `NULLIF(col, '')` in MySQL dà errore 1525 ("Incorrect DATE value") e blocca l'intera query, usare `IS NOT NULL`;
+- `invoice_budget_chapter` non ha FK verso `invoices`: le righe restano orfane quando le fatture vengono rinumerate o cancellate (oggi puntano a id 1–2, le fatture partono da 741);
+- utenze collegate a 5–7 contratti di fornitura: non è un errore, sono i rinnovi Consip successivi (storico); per "il contratto attuale" va usato quello non chiuso.
 
 ## Fuori scope (decisioni prese)
 
