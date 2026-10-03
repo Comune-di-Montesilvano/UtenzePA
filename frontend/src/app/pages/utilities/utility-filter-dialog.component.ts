@@ -21,6 +21,8 @@ import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service'
 import {CostsBorneByService} from '../costs-borne-by/costs-borne-by.service';
 import {MaintenanceManagersService} from '../maintenance-managers/maintenance-managers.service';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
+import {HardType} from '../utility-types/enum/hard-type.enum';
+import {ARERA_NONE, areraGroups, areraOptionsFor, GAS_USE_OPTIONS} from './arera-category';
 
 export interface UtilityFilterValues {
   utility_id: string | null;
@@ -35,11 +37,12 @@ export interface UtilityFilterValues {
   utility_code: string | null;
   aggregator_id_fk: number | null;
   supplier_address: string | null;
-  meter_usage_type: string | null;
+  arera_category: string | null;
+  gas_use_category: string | null;
   consip_order: string | null;
   safeguard: boolean | null;
   wbs_gas_element: string | null;
-  disconnection_ability: string | null;
+  disconnectable: 'true' | 'false' | 'unknown' | null;
   maintenance_management_id_fk: number | null;
   budget_chapter_code_fk: number | null;
   power_kw_electric: string | null;
@@ -93,6 +96,15 @@ export class UtilityFilterDialogComponent implements OnInit {
   safeguardOptions: TOption[] = [{label: 'Sì', value: true}, {label: 'No', value: false}];
 
   utilityTypeOptions: TOption[] = [];
+  private hardTypeById = new Map<number, HardType>();
+  readonly areraNone = ARERA_NONE;
+  readonly areraGroups = areraGroups();
+  readonly gasUseOptions = GAS_USE_OPTIONS;
+  readonly disconnectableFilterOptions: TOption[] = [
+    {label: 'Sì', value: 'true'},
+    {label: 'No', value: 'false'},
+    {label: 'Non noto', value: 'unknown'},
+  ];
   costsBorneByOptions: TOption[] = [];
   managementOptions: TOption[] = [];
   assetOptions: TOption[] = [];
@@ -114,9 +126,10 @@ export class UtilityFilterDialogComponent implements OnInit {
     power_kw_electric: [this.data.values.power_kw_electric ?? ''],
     voltage_kw_electric: [this.data.values.voltage_kw_electric ?? ''],
     phase_type_electric: [this.data.values.phase_type_electric ?? null],
-    disconnection_ability: [this.data.values.disconnection_ability ?? ''],
+    disconnectable: [this.data.values.disconnectable ?? null],
     wbs_gas_element: [this.data.values.wbs_gas_element ?? ''],
-    meter_usage_type: [this.data.values.meter_usage_type ?? ''],
+    arera_category: [this.data.values.arera_category ?? null],
+    gas_use_category: [this.data.values.gas_use_category ?? null],
     supply_active: [this.data.values.supply_active ?? null],
     meter_removed: [this.data.values.meter_removed ?? null],
     meter_verified: [this.data.values.meter_verified ?? null],
@@ -164,10 +177,29 @@ export class UtilityFilterDialogComponent implements OnInit {
     return (from || to) ? [from, to] : null;
   }
 
+  // Tipologie del tipo filtrato; senza tipo, null = mostra i gruppi.
+  areraOptionsForFilter(): TOption[] | null {
+    const typeId = this.form.controls.utility_type_id_fk.value as number | null;
+    const hardType = typeId ? this.hardTypeById.get(typeId) ?? null : null;
+    return hardType ? areraOptionsFor(hardType) : null;
+  }
+
   ngOnInit(): void {
+    // Tipologia non ammessa dal nuovo tipo: si svuota, altrimenti resterebbe
+    // applicata ma invisibile nel select (elenco vuoto senza motivo apparente).
+    this.form.controls.utility_type_id_fk.valueChanges.subscribe(() => {
+      const options = this.areraOptionsForFilter();
+      const current = this.form.controls.arera_category.value;
+      if (options && current && current !== this.areraNone && !options.some(o => o.value === current)) {
+        this.form.controls.arera_category.setValue(null);
+      }
+    });
     this.utilityTypeService.search({deleted: false}).subscribe({
       next: data => this.utilityTypeOptions = data
-        .map((t: any) => ({label: t.name, value: t.id}))
+        .map((t: any) => {
+          this.hardTypeById.set(t.id, t.hard_type);
+          return {label: t.name, value: t.id};
+        })
         .sort((a: TOption, b: TOption) => a.label.localeCompare(b.label)),
       error: err => console.error('Errore nel caricamento dei Tipi Utenza:', err)
     });

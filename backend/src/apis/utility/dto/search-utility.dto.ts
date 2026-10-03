@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -11,6 +12,7 @@ import {
 } from 'class-validator';
 import { ExpiryStatus } from '../enum/ExpiryStatus.enum';
 import { Phase } from '../../shared/enum/user.enums';
+import { AreraCategory, ARERA_NONE, GasUseCategory } from '../arera-category';
 
 export class SearchUtilityDto {
   @IsOptional()
@@ -224,8 +226,16 @@ export class SearchUtilityDto {
   wbs_gas_element?: string;
 
   @IsOptional()
-  @IsString()
-  disconnection_ability?: string;
+  @IsIn([...Object.values(AreraCategory), ARERA_NONE])
+  arera_category?: string;
+
+  @IsOptional()
+  @IsIn([...Object.values(GasUseCategory), ARERA_NONE])
+  gas_use_category?: string;
+
+  @IsOptional()
+  @IsIn(['true', 'false', 'unknown'])
+  disconnectable?: 'true' | 'false' | 'unknown';
 
   @IsOptional()
   @IsString()

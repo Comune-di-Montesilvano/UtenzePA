@@ -1418,11 +1418,11 @@ Nello spec esistente, il mock di `dataSource.query` restituisce un array per chi
     expect(result.real_estate_contracts_without_parties).toEqual({ count: 1, items: [{ id: 12, subject: 'Chiosco' }] });
     expect(result.third_parties_without_identifier).toEqual({
       count: 1,
-      items: [{ id: 1207, name: 'Barone Alessio', type: 'LEGAL' }],
+      items: [{ id: 1207, name: 'Rossi Mario', type: 'LEGAL' }],
     });
 ```
 
-con i due mock `[{ id: '12', subject: 'Chiosco' }]` e `[{ id: '1207', name: 'Barone Alessio', type: 'LEGAL' }]` (stesso ordine delle query aggiunte allo Step 2). Run: `docker exec utenzepa-api-1 pnpm exec jest src/apis/anomalies --maxWorkers=2` → FAIL.
+con i due mock `[{ id: '12', subject: 'Chiosco' }]` e `[{ id: '1207', name: 'Rossi Mario', type: 'LEGAL' }]` (stesso ordine delle query aggiunte allo Step 2). Run: `docker exec utenzepa-api-1 pnpm exec jest src/apis/anomalies --maxWorkers=2` → FAIL.
 
 - [ ] **Step 2: Implementazione**
 

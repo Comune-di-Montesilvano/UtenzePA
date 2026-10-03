@@ -18,6 +18,7 @@ import { UtilityAggregator } from '../../utility-aggregators/entity/utility-aggr
 import { BudgetChapter } from '../../budget-chapters/entity/budgetChapter.entity';
 import { UtilityType } from '../../utility-types/entity/utility_type.entity';
 import { CostsBorneBy } from '../../shared/entities/utility_cost_borne_by.entity';
+import { AreraCategory, GasUseCategory } from '../arera-category';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
 import { Phase } from '../../shared/enum/user.enums';
 import { MaintenanceManager } from '../../shared/entities/maintenanceManagers.entity';
@@ -114,8 +115,16 @@ export class Utility {
   @Column({ type: 'boolean', default: false, nullable: true })
   meter_verified: boolean;
 
-  @Column({ length: 255, nullable: true })
-  disconnection_ability: string;
+  @Column({ type: 'enum', enum: AreraCategory, nullable: true })
+  arera_category: AreraCategory | null;
+
+  // Solo utenze gas: C1–C5, T1, T2.
+  @Column({ type: 'enum', enum: GasUseCategory, nullable: true })
+  gas_use_category: GasUseCategory | null;
+
+  // null = non noto.
+  @Column({ type: 'boolean', nullable: true })
+  disconnectable: boolean | null;
 
   @Column({ type: 'text', nullable: true })
   specifications: string;

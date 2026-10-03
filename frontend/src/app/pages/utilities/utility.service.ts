@@ -16,7 +16,6 @@ export class UtilityService extends AbstractService<Utility> {
     filters?: {
       utility_id?: string;
       utility_code?: string;
-      meter_usage_type?: string;
       deleted?: boolean;
       text?: string;
       safeguard?: boolean;

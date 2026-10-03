@@ -24,14 +24,16 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 6 | Fatture per utenza | da approfondire |
 | 7 | Contratti di servizio e manutenzione | da approfondire |
 | 8 | Permessi di scrittura granulari | da approfondire |
-| 9 | Soggetti terzi (controparti + fornitori) | fatto, v1.8.0 (pulizia dati sul DB locale da fare, poi in produzione) |
-| 10 | Tipologie contrattuali ARERA (al posto delle finalità d'uso) | da approfondire |
+| 9 | Soggetti terzi (controparti + fornitori) | fatto, v1.8.0 (pulizia dati fatta sul DB locale; restano CF delle persone, P.IVA Open Fiber, 2 locatori SPRAR) |
+| 10 | Tipologie contrattuali ARERA (al posto delle finalità d'uso) | fatto, v1.8.0 (valorizzazione delle tipologie sul DB locale da fare) |
 | 11 | Aggregati utenze (da eliminare) | da approfondire |
 | 12 | Costi a carico calcolato | da approfondire |
 | 13 | Schede entità: rifiniture | da fare |
 | 14 | Schede di fornitori, capitoli, fatture | da fare |
 | 15 | UI e identità (elenchi, filtri, dark mode, sidebar, nome) | da approfondire |
 | 16 | Dashboard e mappa | per ultime |
+
+I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
 
 Ordine di lavoro concordato (2026-10-02): prima i dati (9–12, 6), poi l'UI (13–15), poi complessi e catasto (4, 2), per ultime mappa e dashboard (16). La mappa non si tocca finché non ci sono i complessi.
 
@@ -41,7 +43,7 @@ Gli impianti (3) sono stati anticipati: circa 240 "immobili" Access sono in real
 
 Registro unico di locazioni, concessioni, comodati, assegnazioni di alloggi, occupazioni di suolo, attivi e passivi, con scadenzario, rinnovo tacito e preavviso. Unifica il modulo Concessioni (oggi misto di contratti, destinazioni d'uso e note di verifica). Dettagli nella spec.
 
-**Prossimo (richiesta utente 2026-10-02): contratti collegati agli impianti.** Un contratto immobiliare oggi si collega solo a immobili, ma l'oggetto può essere un impianto: esempio reale, un contratto con un condominio per un'antenna della Polizia Locale, senza l'antenna in anagrafe. Serve: tipo d'impianto "Antenna / ripetitore", collegamento contratto ↔ impianti N-N (come `utilizer_grant_assets`, tab nella scheda), anomalia in dashboard "Contratti immobiliari senza immobile né impianto" al posto di quella attuale (73 contratti senza immobile al 2026-10-02). PR separata dopo la v1.8.0.
+**Rimandato (richiesta utente 2026-10-02, da riprendere quando ci saranno dati da collegare): contratti collegati agli impianti.** Un contratto immobiliare oggi si collega solo a immobili, ma l'oggetto può essere un impianto: esempio reale, un contratto con un condominio per un'antenna della Polizia Locale, senza l'antenna in anagrafe. Serve: tipo d'impianto "Antenna / ripetitore", collegamento contratto ↔ impianti N-N (come `utilizer_grant_assets`, tab nella scheda), anomalia in dashboard "Contratti immobiliari senza immobile né impianto" al posto di quella attuale (73 contratti senza immobile al 2026-10-02). Caso reale già nei dati: contratto 2447 (locazione passiva di area condominiale per un ponte radio della Polizia Locale, senza immobile). PR separata; design già abbozzato (tipo `ANTENNA`, tabella `utilizer_grant_plants`, tab Impianti nella scheda contratto e Contratti nella scheda impianto).
 
 ## 2. Inventario patrimoniale e catasto
 
@@ -96,7 +98,7 @@ Rifiniture aperte (dalla revisione finale del codice, 2026-10-02, rimandate):
 - periodicità proposte nel tab Verifiche calcolate solo all'apertura del dialog (non seguono cambio tipo/potenza);
 - dialog utenza carica l'elenco impianti con tutte le relazioni solo per la select (endpoint leggero di opzioni);
 - codice impianto non ripulito dagli spazi in modifica via API diretta se uguale all'attuale;
-- **presidi antincendio spuri dall'import**: in ogni impianto antincendio la nota "(collaudo ogni 6 anni…)" è stata importata come 2 "estintori", più la tabella riassuntiva superfici/piani dell'impianto 354. Criterio: `equipment_type='EXTINGUISHER' AND (agent IS NULL OR agent NOT IN ('polvere','co2')) AND capacity IS NULL` (88 righe). Soft-deleted solo sul DB locale (2026-10-02): in produzione da verificare quando si portano i dati.
+- **presidi antincendio spuri dall'import**: in ogni impianto antincendio la nota "(collaudo ogni 6 anni…)" è stata importata come 2 "estintori", più la tabella riassuntiva superfici/piani dell'impianto 354. Criterio: `equipment_type='EXTINGUISHER' AND (agent IS NULL OR agent NOT IN ('polvere','co2')) AND capacity IS NULL` (88 righe). Soft-deleted sul DB locale (2026-10-02).
 
 ## 4. Complessi
 
@@ -131,11 +133,11 @@ Fatto in v1.8.0: spec `docs/superpowers/specs/2026-10-02-soggetti-terzi-design.m
 
 **Pulizia dati (DB locale, 2026-10-02)**: report per categoria generato in sola lettura (225 soggetti attivi dopo la migration). Fatto: soft delete dei 111 soggetti senza alcun collegamento (fontane, semafori, contatori, note di lavoro, `ACA_TERZI`, `comune`…), restano 114 attivi. Da fare, una lista alla volta con conferma:
 
-- 17 non-soggetti con contratto ("CANILE COMUNALE", "SPRAR", "LOCALI EX FEA", parchi "…E CONCESSIONARIO CHIOSCO", "mobilità elettrica" con 7 contratti…): testo nelle note del contratto, parte rimossa;
-- 3 soggetti nascosti nella descrizione → rinominare: Egenia S.a.s., Delfino Pescara 1936, Polisportiva SSD Roma Marconi;
-- tipo e nominativi: ~38 persone fisiche (attenzione ai cognomi "Di …": un'euristica li scambia per ditte "X di Y"), 4 ditte individuali da trattare come giuridiche, 6 righe con più persone da spezzare;
-- doppioni probabili: le due Vodafone, "carabinieri" / "Prefettura PE - Compagnia Carabinieri", le due associazioni Vincenziane; ambigui "Sagazio", "Primavera – Di Martino", "AB CASE";
-- fornitori: `TERZI` usato da 2 convenzioni CONSIP; ENEIDE, ENGIE, AGSM, DOLOMITI, Open Fiber senza P.IVA; Estra ed Enel Energia con CF a 10 cifre (zero iniziale perso da Excel).
+- ~~non-soggetti con contratto~~ (fatto 2026-10-02): 13 soggetti fittizi ("SPRAR", "mobilità elettrica", parchi, "CANILE COMUNALE", "LOCALI EX FEA"…) eliminati, testo nelle note dei contratti ("Controparte indicata nell'import: «…»"); i contratti restati senza parte sono nell'anomalia "senza controparte", da completare. Il parco gestito dall'Azienda Speciale ora ha lei come parte. Rinominati i soggetti nascosti nella descrizione (Delfino Pescara 1936, Polisportiva SSD Roma Marconi, Egenia, Questura di Pescara) e completato il locatore dell'autoparco di via Danubio (società, con P.IVA, da offerta MePA e determina di aggiudicazione 2023). "Centro sociale anziani" non è un soggetto: il contratto di via Marrone era un doppione della locazione passiva dal condominio (unito), quello di via Vittorio Emanuele II un uso diretto del Comune (eliminato). Ex autoparco di via Meno segnato dismesso;
+- ~~tipo e nominativi~~ (fatto 2026-10-02): 38 persone fisiche convertite (cognome/nome separati), 4 righe con due persone divise in due soggetti sullo stesso contratto; completati dai documenti in `W:` i soggetti 1023 (preliminare di locazione 2020, con CF), 1230 (tre persone, via Napoli 7), 1266 (impresa individuale; CF/P.IVA illeggibili nella scansione). Restano giuridiche le ditte individuali (La Playa, Mercato 25, Falù, Falg Sistem), F.lli Filippone Mezzopreti, Immobiliare Pianella. **Ancora da risolvere**: i soggetti 1233 e 1242, locatori SPRAR via Danubio 81 con soli cognomi, nessun contratto trovato in `W:`. Le persone fisiche non hanno CF: il Salva della loro scheda resta bloccato finché non si inserisce;
+- ~~doppioni~~ (fatto 2026-10-02): unite le due Vodafone (Vodafone Italia, ex Omnitel), i Carabinieri (con il comodato importato dal vecchio modulo Concessioni unito nella locazione dello stesso immobile) e le due Vincenziane (Gruppi di Volontariato Vincenziano: "Dame della Carità" è il nome storico; via Adige assegnata con delibera GC 19/2017 per la Casa della Mamma e del Bambino). "AB CASE" è un locatore SPRAR vero, resta. Restano 103 soggetti attivi;
+- da verificare nel registro contratti (emerso dalla pulizia): campo sportivo via Foscolo con due locazioni Vodafone (2441 dal 2000 senza scadenza, 2440 2005–2023, probabile rinnovo); diverse locazioni attive "in corso" con scadenza passata (2018–2023); immobile confiscato 2260 registrato in via Adige 12, i documenti dicono via Adige 14;
+- ~~fornitori~~ (fatto 2026-10-02): P.IVA, CF e sede da documenti in `W:` per ENEIDE, Engie Servizi (incorpora Conversion&Lighting dal 2024), AGSM AIM Energia, Dolomiti Energia; CF di Estra ed Enel Energia riportati a 11 cifre; `TERZI` eliminato con le convenzioni CONSIP 55 e 61 (usate solo da contratti già eliminati). **Resta**: Open Fiber senza P.IVA (nessun documento in `W:`), da inserire a mano. Restano 102 soggetti attivi.
 
 **Portare in produzione**: la migration controlla prima di ogni DDL P.IVA/CF duplicati, CF oltre 16 caratteri e riferimenti orfani e si ferma con l'elenco (le DDL MySQL fanno commit implicito: un errore a metà lascerebbe lo schema da sistemare a mano). Le FK verso `suppliers`/`utilizer` si leggono da `information_schema` perché `InitialSchema` ne crea alcune (CONSIP, fatture, utenze, contratti immobiliari) che il DB locale non ha; idem l'indice UNIQUE `REL_4865…` su `consip_agreement.supplier_id` (vecchio OneToOne), che la migration elimina. Prima del rilascio: backup, poi verificare i log di avvio.
 
@@ -157,12 +159,14 @@ Gotcha emersi:
 
 Proposta dell'utente: riunire controparti (`utilizer`) e fornitori (`suppliers`) in un'unica anagrafica **Soggetti terzi**, persona fisica o giuridica.
 
-- `utilizer` (212 attive su 314) è un minestrone: nel campo `name` convivono soggetti veri ("SIRIO S.r.l.", "Barone Alessio"), luoghi e impianti ("SEMAFORO INC. VIA CHIARINI…", "FONTANA IN AREA VERDE RECINTATA", "cabina enel su area comunale"), note di lavoro ("NO recenti fatture corrispondenti - verificare stato utenza…") e usi ("manifestazioni estive"). Campi: `name`, `description`, `tax_code`, `contacts` (testo libero).
+- `utilizer` (212 attive su 314) è un minestrone: nel campo `name` convivono soggetti veri ("SIRIO S.r.l.", persone fisiche), luoghi e impianti ("SEMAFORO INC. VIA CHIARINI…", "FONTANA IN AREA VERDE RECINTATA", "cabina enel su area comunale"), note di lavoro ("NO recenti fatture corrispondenti - verificare stato utenza…") e usi ("manifestazioni estive"). Campi: `name`, `description`, `tax_code`, `contacts` (testo libero).
 - `suppliers` (13): `supplier_id` (sigla inserita a mano, es. "ACA", "ACA_TERZI": è l'"id inserito dall'utente" segnalato), P.IVA, CF, ragione sociale, indirizzo, città, CAP, email, PEC. Usato da contratti di fornitura e convenzioni CONSIP.
 
 Schema indicativo: tipo (fisica/giuridica), denominazione o cognome+nome, CF, P.IVA (solo giuridica), indirizzo, contatti, note; ruoli (fornitore / controparte) derivati dai collegamenti, non da un flag; `supplier_id` diventa una "sigla" facoltativa. Da decidere prima: cosa è una controparte, dove vanno i valori che non sono soggetti (impianti/immobili, note), campi minimi. Poi censimento delle righe, migrazione con conferma dell'utente sui casi dubbi, migration che preservi gli id referenziati. La scheda Fornitori si rifà come scheda Soggetto terzo (voce 14).
 
 ## 10. Tipologie contrattuali ARERA (al posto delle finalità d'uso)
+
+Fatto in v1.8.0: spec `docs/superpowers/specs/2026-10-02-tipologie-arera-design.md`. Disalimentabilità diventata sì/no/non noto. Per il gas, oltre alla tipologia di cliente TIVG, la **categoria d'uso** C1–C5/T1–T2 (riscaldamento, cottura e acqua calda, uso tecnologico…: è quella del campo Access "tipologia uso contatore"), con anomalia "Utenze gas attive senza categoria d'uso". **Valorizzazione** sul DB locale, una lista alla volta con conferma. Fatto (2026-10-03): 230 valori da Access (luce 197: BT altri usi 119, BT illuminazione pubblica 77, MT altri usi 1; gas 28 come categoria d'uso: C3 20, C2 6, T2 1, C1 1; acqua 5 domestico residente); restano 9 utenze acqua con descrizioni del servizio o casette, da decidere con le bollette ACA. Da fare: proposte per gruppi sulle altre. Partenza: 239 valori dal campo Access "tipologia uso contatore" (i 28 del gas vanno nella categoria d'uso) (`UTENZE.accdb`, abbinati per `utility_id`), poi proposte per gruppi (impianti IP/colonnine, tensione, acqua non disalimentabile, fontane e casette, tipologia nelle bollette ACA); il resto resta nell'anomalia "Utenze attive senza tipologia ARERA". Il testo più sotto è il censimento di partenza.
 
 `purpose` (21 voci attive) è spazzatura: valori di test ("ACME", "ACME100", "LoremIpsum"), quasi-duplicati, descrizioni di impianto, un `use_type` GENERIC/SPECIFIC inutile; è legata al tipo utenza (`utility_type_purpose`), non all'utenza. Serve solo a indicare la tipologia contrattuale, che è definita da ARERA: diventa un **enum fisso per tipo utenza**, assegnato all'utenza.
 
@@ -179,7 +183,7 @@ Schema indicativo: tipo (fisica/giuridica), denominazione o cognome+nome, CF, P.
 
 ## 12. Costi a carico calcolato
 
-`costs_borne_by` (7 valori: "comune" 471, "COMUNE C/O ENGIE" 129, "concessionario" 48, "azienda speciale" 7, "GUARDIA COSTIERA" 6, "asl" 2, "Di Baldassarre Clara. Il Comune rimborsa" 1) diventa un valore **calcolato**: paga il Comune, oppure il soggetto terzo se l'utenza è collegata a un immobile con contratto immobiliare attivo che gli assegna le utenze. Impianti tutti del Comune (da confermare): utenza solo su impianti = Comune. "C/O ENGIE" è un'informazione del contratto di fornitura (gestione calore); il caso "il Comune rimborsa" richiede una decisione (terzo stato o nota). Candidato flag: `utilities_to_be_taken_over` ("Utenze da volturare") del contratto immobiliare. Prima di migrare: mostrare le incoerenze (utenze "comune" su immobili con contratto attivo e viceversa).
+`costs_borne_by` (7 valori: "comune" 471, "COMUNE C/O ENGIE" 129, "concessionario" 48, "azienda speciale" 7, "GUARDIA COSTIERA" 6, "asl" 2, un nominativo con "Il Comune rimborsa" 1) diventa un valore **calcolato**: paga il Comune, oppure il soggetto terzo se l'utenza è collegata a un immobile con contratto immobiliare attivo che gli assegna le utenze. Impianti tutti del Comune (da confermare): utenza solo su impianti = Comune. "C/O ENGIE" è un'informazione del contratto di fornitura (gestione calore); il caso "il Comune rimborsa" richiede una decisione (terzo stato o nota). Candidato flag: `utilities_to_be_taken_over` ("Utenze da volturare") del contratto immobiliare. Prima di migrare: mostrare le incoerenze (utenze "comune" su immobili con contratto attivo e viceversa).
 
 Di conseguenza sparisce il tab **Controparti** della scheda utenza (finalità → voce 10; controparti = stessa informazione del pagatore): al suo posto un riquadro "A carico di" nel Riepilogo con badge e link al contratto immobiliare che lo determina.
 

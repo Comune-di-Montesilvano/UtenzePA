@@ -18,7 +18,7 @@ import {UtilityType} from '../utility-types/entity/utility-type.entity';
 import {HardType, HardTypeColor, HardTypeMatIcon} from '../utility-types/enum/hard-type.enum';
 import {Phase} from './enum/phase.enum';
 import {Asset} from '../assets/entity/asset.entity';
-import {UseTypeDescription} from '../purpose/enum/use-type.enum';
+import {areraOptionsFor, DISCONNECTABLE_OPTIONS, GAS_USE_OPTIONS} from './arera-category';
 import {TOption} from '../../core/types/option.interface';
 import {AssetService} from '../assets/asset.service';
 import {UtilityAggregatorsService} from '../utility-aggregator/utility-aggregator.service';
@@ -107,7 +107,6 @@ export class UtilityEditDialogComponent implements OnInit {
   isNew = this.data.mode === 'create';
   readonly canEdit = isEditorRole(this.authService.getCurrentUser()?.role);
   readonly lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
-  readonly useTypeDescription = UseTypeDescription;
   readonly formatQty = formatQty;
   readonly HardType = HardType;
 
@@ -135,6 +134,10 @@ export class UtilityEditDialogComponent implements OnInit {
 
   // Dall'utilityType già presente sull'item (edit) o null (create).
   selectedHardType: HardType | null = this.data.item.utilityType?.hard_type ?? null;
+  readonly disconnectableOptions = DISCONNECTABLE_OPTIONS;
+  readonly gasUseOptions = GAS_USE_OPTIONS;
+  readonly hardTypeGas = HardType.GAS;
+  areraOptions = areraOptionsFor(this.selectedHardType);
 
   get showLightFields(): boolean { return this.selectedHardType === HardType.LIGHT; }
   get showGasFields(): boolean { return this.selectedHardType === HardType.GAS; }
@@ -156,7 +159,9 @@ export class UtilityEditDialogComponent implements OnInit {
     plant_ids: [(this.data.item.plants ?? []).map(p => p.id)],
     budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null, Validators.required],
     costs_borne_by_id_fk: [this.resolveOnRelation('costsBorneBy', 'costs_borne_by_id_fk', this.data.item) ?? null, Validators.required],
-    disconnection_ability: [this.data.item.disconnection_ability ?? ''],
+    arera_category: [this.data.item.arera_category ?? null],
+    gas_use_category: [this.data.item.gas_use_category ?? null],
+    disconnectable: [this.data.item.disconnectable ?? null],
     estimated_annual_consumption: [this.data.item.estimated_annual_consumption ?? 0, Validators.required],
     latitude: [this.data.item.latitude ?? ''],
     longitude: [this.data.item.longitude ?? ''],
@@ -432,6 +437,17 @@ export class UtilityEditDialogComponent implements OnInit {
   onUtilityTypeChange(event: MatSelectChange): void {
     const selected = this.utilityTypeOptions.find(t => t.id === event.value) ?? null;
     this.selectedHardType = selected?.hard_type ?? null;
+    this.areraOptions = areraOptionsFor(this.selectedHardType);
+    // Tipologia non più ammessa per il nuovo tipo: si svuota (il backend
+    // rifiuterebbe il salvataggio).
+    const current = this.form.controls.arera_category.value;
+    if (current && !this.areraOptions.some(o => o.value === current)) {
+      this.form.controls.arera_category.setValue(null);
+    }
+    // La categoria d'uso esiste solo per il gas.
+    if (this.selectedHardType !== HardType.GAS) {
+      this.form.controls.gas_use_category.setValue(null);
+    }
     this.buildBudgetChapterOptions();
   }
 
@@ -524,7 +540,7 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   counterpartCount(): number {
-    return this.grantsByAsset().reduce((n, g) => n + g.utilizers.length, 0) + (this.data.item.utilityType?.purposes?.length ?? 0);
+    return this.grantsByAsset().reduce((n, g) => n + g.utilizers.length, 0);
   }
 
   onPositionSelected(coords: { lat: string; lng: string }): void {

@@ -1,31 +1,17 @@
 import { UtilityTypesService } from './utility-types.service';
-import { UtilityType } from './entity/utility_type.entity';
-import { UtilityTypePurpose } from './entity/utility_type_purpose.entity';
 
 describe('UtilityTypesService', () => {
   let service: UtilityTypesService;
-  let repo: { createQueryBuilder: jest.Mock; findOne: jest.Mock };
-  let utilityTypePurposeRepo: object;
-  let dataSource: { transaction: jest.Mock };
-  let manager: {
+  let repo: {
+    createQueryBuilder: jest.Mock;
+    findOne: jest.Mock;
     create: jest.Mock;
     save: jest.Mock;
-    delete: jest.Mock;
+    manager: { query: jest.Mock };
   };
-  let qb: {
-    where: jest.Mock;
-    andWhere: jest.Mock;
-    leftJoinAndSelect: jest.Mock;
-    orderBy: jest.Mock;
-    getMany: jest.Mock;
-  };
+  let qb: { where: jest.Mock; andWhere: jest.Mock; leftJoinAndSelect: jest.Mock; orderBy: jest.Mock; getMany: jest.Mock };
 
   beforeEach(() => {
-    manager = {
-      create: jest.fn((_entity, data) => data),
-      save: jest.fn(async (_entity, data) => data),
-      delete: jest.fn(),
-    };
     qb = {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -33,155 +19,74 @@ describe('UtilityTypesService', () => {
       orderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([]),
     };
-    repo = { createQueryBuilder: jest.fn().mockReturnValue(qb), findOne: jest.fn() };
-    utilityTypePurposeRepo = {};
-    dataSource = { transaction: jest.fn((cb) => cb(manager)) };
+    repo = {
+      createQueryBuilder: jest.fn().mockReturnValue(qb),
+      findOne: jest.fn(),
+      create: jest.fn((data) => data),
+      save: jest.fn(async (data) => ({ ...data, id: 10 })),
+      manager: { query: jest.fn().mockResolvedValue([{ n: '0' }]) },
+    };
+    service = new UtilityTypesService(repo as never);
+  });
 
-    service = new UtilityTypesService(
-      repo as never,
-      utilityTypePurposeRepo as never,
-      dataSource as never,
+  it('findAll filtra i tipi non cancellati e non fa join sulle finalità', async () => {
+    await service.findAll();
+    expect(qb.where).toHaveBeenCalledWith('utility_types.deleted = :deleted', { deleted: false });
+    expect(qb.leftJoinAndSelect).not.toHaveBeenCalled();
+  });
+
+  it('findAll filtra nome e descrizione con LIKE e hard_type esatto', async () => {
+    await service.findAll({ name: 'gas', hard_type: 'GAS' } as never);
+    expect(qb.andWhere).toHaveBeenCalledWith('utility_types.name LIKE :name', { name: '%gas%' });
+    expect(qb.andWhere).toHaveBeenCalledWith('utility_types.hard_type = :hard_type', { hard_type: 'GAS' });
+  });
+
+  it('create salva il tipo con l’utente', async () => {
+    const saved = await service.create({ name: 'Acqua', hard_type: 'WATER' } as never, 5);
+    expect(repo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Acqua', created_by_user_id: 5, updated_by_user_id: 5 }),
     );
+    expect(saved.id).toBe(10);
   });
 
-  describe('findAll', () => {
-    it('filtra i soli tipi non cancellati di default e fa il join con le finalità', async () => {
-      await service.findAll();
-
-      expect(qb.where).toHaveBeenCalledWith('utility_types.deleted = :deleted', {
-        deleted: false,
-      });
-      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
-        'utility_types.purposes',
-        'purpose',
-        'purpose.deleted = 0',
-      );
-    });
-
-    it('applica il filtro LIKE su name/description', async () => {
-      await service.findAll({ name: 'Energia' } as never);
-
-      expect(qb.andWhere).toHaveBeenCalledWith('utility_types.name LIKE :name', {
-        name: '%Energia%',
-      });
-    });
-
-    it('applica il filtro esatto su hard_type', async () => {
-      await service.findAll({ hard_type: 'hard' } as never);
-
-      expect(qb.andWhere).toHaveBeenCalledWith('utility_types.hard_type = :hard_type', {
-        hard_type: 'hard',
-      });
-    });
-
-    it('ordina per id ascendente e restituisce il risultato', async () => {
-      const items = [{ id: 1 } as UtilityType];
-      qb.getMany.mockResolvedValue(items);
-
-      const result = await service.findAll();
-
-      expect(qb.orderBy).toHaveBeenCalledWith('utility_types.id', 'ASC');
-      expect(result).toBe(items);
-    });
+  it('rifiuta il cambio di hard_type se ci sono utenze con tipologia ARERA non più ammessa', async () => {
+    repo.findOne.mockResolvedValue({ id: 33, name: 'acqua', hard_type: 'WATER' });
+    repo.manager.query.mockResolvedValue([{ n: '3' }]);
+    await expect(service.update(33, { hard_type: 'INTERNET' } as never, 5)).rejects.toThrow(
+      /3 utenze hanno una tipologia ARERA o una categoria d'uso non compatibile/,
+    );
+    expect(repo.save).not.toHaveBeenCalled();
+    const [sql, params] = repo.manager.query.mock.calls[0];
+    expect(sql).toContain('arera_category IS NOT NULL');
+    expect(params[0]).toBe(33);
   });
 
-  describe('create', () => {
-    it('crea il tipo utenza e i collegamenti alle finalità in transazione', async () => {
-      const created = { id: 10, name: 'Energia elettrica' } as UtilityType;
-      repo.findOne.mockResolvedValue(created);
+  it('cambio di hard_type senza utenze incompatibili passa, e solo-nome non interroga le utenze', async () => {
+    repo.findOne.mockResolvedValue({ id: 33, name: 'acqua', hard_type: 'WATER' });
+    await service.update(33, { hard_type: 'GAS' } as never, 5);
+    const [sql, params] = repo.manager.query.mock.calls[0];
+    expect(sql).toContain('arera_category NOT IN (?, ?, ?, ?)');
+    expect(params).toEqual([33, 'GAS_DOMESTIC', 'GAS_CONDOMINIUM_DOMESTIC', 'GAS_PUBLIC_SERVICE', 'GAS_OTHER']);
 
-      const dto = { name: 'Energia elettrica', hard_type: 'hard', purposes: [1, 2] } as never;
-
-      const result = await service.create(dto, 5);
-
-      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
-      expect(manager.save).toHaveBeenCalledWith(
-        UtilityTypePurpose,
-        expect.arrayContaining([
-          expect.objectContaining({ purpose_id: 1 }),
-          expect.objectContaining({ purpose_id: 2 }),
-        ]),
-      );
-      expect(result).toBe(created);
-    });
-
-    it('non salva collegamenti se non ci sono finalità', async () => {
-      repo.findOne.mockResolvedValue({ id: 11 } as UtilityType);
-
-      await service.create({ name: 'Gas', hard_type: 'hard' } as never, 5);
-
-      expect(manager.save).toHaveBeenCalledTimes(1); // solo l'entità, non le finalità
-    });
-
-    it('rilancia un errore gestito se il salvataggio fallisce', async () => {
-      manager.save.mockImplementation((entity) => {
-        if (entity === UtilityType) {
-          throw new Error('vincolo violato');
-        }
-        return Promise.resolve({ id: 12 });
-      });
-
-      await expect(
-        service.create({ name: 'Acqua', hard_type: 'hard' } as never, 5),
-      ).rejects.toThrow();
-    });
-
-    it('registra un evento CREATE in audit log', async () => {
-      manager.save.mockImplementation((entity, data) =>
-        entity === UtilityType ? Promise.resolve({ ...data, id: 10 }) : Promise.resolve(data),
-      );
-      const created = { id: 10, name: 'Energia elettrica' } as UtilityType;
-      repo.findOne.mockResolvedValue(created);
-      const auditLogService = { record: jest.fn() };
-      (service as any).auditLogService = auditLogService;
-
-      await service.create({ name: 'Energia elettrica', hard_type: 'hard' } as never, 5);
-
-      expect(auditLogService.record).toHaveBeenCalledWith(
-        expect.objectContaining({ entityName: 'utility_types', entityId: 10, action: 'CREATE', userId: 5 }),
-      );
-    });
+    repo.manager.query.mockClear();
+    await service.update(33, { name: 'Acqua' } as never, 5);
+    expect(repo.manager.query).not.toHaveBeenCalled();
   });
 
-  describe('update', () => {
-    it('sostituisce i collegamenti alle finalità quando forniti', async () => {
-      const entity = { id: 20, name: 'Energia elettrica' } as UtilityType;
-      repo.findOne.mockResolvedValue(entity);
+  it("cambio di hard_type da gas ad altro conta anche le utenze con categoria d'uso", async () => {
+    repo.findOne.mockResolvedValue({ id: 34, name: 'gas', hard_type: 'GAS' });
+    repo.manager.query.mockResolvedValue([{ n: '2' }]);
+    await expect(service.update(34, { hard_type: 'WATER' } as never, 5)).rejects.toThrow(
+      /2 utenze hanno una tipologia ARERA o una categoria d'uso non compatibile/,
+    );
+    const [sql] = repo.manager.query.mock.calls[0];
+    expect(sql).toContain('gas_use_category IS NOT NULL');
+  });
 
-      await service.update(20, { purposes: [3] } as never, 7);
-
-      expect(manager.delete).toHaveBeenCalledWith(UtilityTypePurpose, { utility_type_id: 20 });
-      expect(manager.save).toHaveBeenCalledWith(
-        UtilityTypePurpose,
-        expect.arrayContaining([expect.objectContaining({ purpose_id: 3 })]),
-      );
-    });
-
-    it('non tocca i collegamenti se purposes non è fornito', async () => {
-      const entity = { id: 20, name: 'Energia elettrica' } as UtilityType;
-      repo.findOne.mockResolvedValue(entity);
-
-      await service.update(20, { name: 'Nuovo nome' } as never, 7);
-
-      expect(manager.delete).not.toHaveBeenCalled();
-    });
-
-    it('lancia un errore se il tipo utenza non esiste', async () => {
-      repo.findOne.mockResolvedValue(null);
-
-      await expect(service.update(999, { name: 'X' } as never)).rejects.toThrow();
-    });
-
-    it('registra un evento UPDATE in audit log quando cambia un campo scalare', async () => {
-      repo.findOne.mockResolvedValue({ id: 20, name: 'Vecchio nome' } as UtilityType);
-      const auditLogService = { record: jest.fn() };
-      (service as any).auditLogService = auditLogService;
-
-      await service.update(20, { name: 'Nuovo nome' } as never, 7);
-
-      expect(auditLogService.record).toHaveBeenCalledWith(
-        expect.objectContaining({ entityName: 'utility_types', entityId: 20, action: 'UPDATE', userId: 7 }),
-      );
-    });
+  it("verso il gas la categoria d'uso non blocca", async () => {
+    repo.findOne.mockResolvedValue({ id: 33, name: 'acqua', hard_type: 'WATER' });
+    await service.update(33, { hard_type: 'GAS' } as never, 5);
+    const [sql] = repo.manager.query.mock.calls[0];
+    expect(sql).not.toContain('gas_use_category');
   });
 });

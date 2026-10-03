@@ -82,15 +82,46 @@
           </mat-form-field>
           <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
             <mat-label>Disalimentabilità</mat-label>
-            <input matInput formControlName="disconnection_ability">
+            <mat-select formControlName="disconnectable">
+              <mat-option [value]="null">Tutte</mat-option>
+              @for (opt of disconnectableFilterOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
           </mat-form-field>
           <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
             <mat-label>WBS Gas</mat-label>
             <input matInput formControlName="wbs_gas_element">
           </mat-form-field>
           <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
-            <mat-label>Tipo uso contatore</mat-label>
-            <input matInput formControlName="meter_usage_type">
+            <mat-label>Categoria d'uso gas</mat-label>
+            <mat-select formControlName="gas_use_category">
+              <mat-option [value]="null">Tutte</mat-option>
+              <mat-option [value]="areraNone">Non assegnata</mat-option>
+              @for (opt of gasUseOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Tipologia ARERA</mat-label>
+            <mat-select formControlName="arera_category">
+              <mat-option [value]="null">Tutte</mat-option>
+              <mat-option [value]="areraNone">Non assegnata</mat-option>
+              @if (areraOptionsForFilter(); as options) {
+                @for (opt of options; track opt.value) {
+                  <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                }
+              } @else {
+                @for (group of areraGroups; track group.label) {
+                  <mat-optgroup [label]="group.label">
+                    @for (opt of group.options; track opt.value) {
+                      <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                    }
+                  </mat-optgroup>
+                }
+              }
+            </mat-select>
           </mat-form-field>
         </div>
       </mat-expansion-panel>

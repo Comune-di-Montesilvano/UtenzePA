@@ -222,9 +222,9 @@
     <td mat-cell *matCellDef="let item">{{ item.takeover_termination_date | date: 'dd/MM/yyyy' }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="disconnection_ability">
+  <ng-container matColumnDef="disconnectable">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Disalimentabilità</th>
-    <td mat-cell *matCellDef="let item">{{ item.disconnection_ability }}</td>
+    <td mat-cell *matCellDef="let item">{{ item.disconnectable === true ? 'Sì' : item.disconnectable === false ? 'No' : '' }}</td>
   </ng-container>
 
   <ng-container matColumnDef="maintenanceManager.code">

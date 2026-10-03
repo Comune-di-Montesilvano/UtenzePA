@@ -42,6 +42,8 @@ export interface Anomalies {
   plants_without_asset: AnomalyList<PlantAnomaly>;
   real_estate_contracts_without_parties: AnomalyList<{ id: number; subject: string | null }>;
   third_parties_without_identifier: AnomalyList<{ id: number; name: string; type: string }>;
+  active_utilities_without_arera_category: AnomalyList<UtilityAnomaly>;
+  active_gas_utilities_without_use_category: AnomalyList<UtilityAnomaly>;
 }
 
 export interface PlantAnomaly {
@@ -190,6 +192,20 @@ export class AnomaliesService {
           ORDER BY name`,
       );
 
+    // Tipologia contrattuale ARERA da assegnare (Internet non ne ha).
+    const withoutAreraCategory: UtilityAnomaly[] = await this.dataSource.query(
+      `SELECT ${utilityColumns} ${activeUtilities}
+       AND t.hard_type <> 'INTERNET' AND u.arera_category IS NULL
+       ORDER BY t.name, u.utility_id`,
+    );
+
+    // Categoria d'uso del gas (C1–C5, T1, T2) da assegnare.
+    const gasWithoutUseCategory: UtilityAnomaly[] = await this.dataSource.query(
+      `SELECT ${utilityColumns} ${activeUtilities}
+       AND t.hard_type = 'GAS' AND u.gas_use_category IS NULL
+       ORDER BY u.utility_id`,
+    );
+
     return {
       real_estate_contracts_without_parties: list(
         contractsWithoutParties.map((c) => ({ id: Number(c.id), subject: c.subject ?? null })),
@@ -225,6 +241,8 @@ export class AnomaliesService {
         })),
       ),
       active_utilities_without_contract: list(withoutContract),
+      active_utilities_without_arera_category: list(withoutAreraCategory),
+      active_gas_utilities_without_use_category: list(gasWithoutUseCategory),
       active_utilities_without_cig_contract: list(withoutCigContract),
       utilities_with_overlapping_contracts: list(overlapping),
       duplicate_cigs: list(

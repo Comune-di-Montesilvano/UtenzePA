@@ -31,7 +31,6 @@ export class UtilityTypesComponent extends AbstractComponent<UtilityType> {
       name: entity.name,
       description: entity.description,
       hard_type: entity.hard_type,
-      purposes: entity.purposes,
       created_by_user_id: this.userId,
       updated_by_user_id: this.userId
     };

@@ -1,5 +1,4 @@
 import {HardType} from '../enum/hard-type.enum';
-import {IPurpose} from '../../purpose/entity/purpose.interface';
 
 export interface IUtilityType {
   id: number;
@@ -11,5 +10,4 @@ export interface IUtilityType {
   created_by_user_id: number;
   updated_by_user_id: number;
   deleted: boolean;
-  purposes?: IPurpose[];
 }
