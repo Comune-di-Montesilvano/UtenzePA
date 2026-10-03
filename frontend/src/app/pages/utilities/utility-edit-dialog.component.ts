@@ -142,8 +142,14 @@ export class UtilityEditDialogComponent implements OnInit {
     return (data as any)?.[relation] != null ? ((data as any)?.[prop] ?? null) : null;
   }
 
+  // Data 'YYYY-MM-DD' letta come giorno locale (come plant-edit-dialog):
+  // new Date('YYYY-MM-DD') è mezzanotte UTC e, rimandata al backend
+  // (NormalizeDate +1 giorno), sposterebbe la data in avanti a ogni Salva.
   private toDate(v: unknown): Date | null {
-    return v ? new Date(v as string) : null;
+    if (!v) return null;
+    if (v instanceof Date) return v;
+    const [y, m, d] = String(v).slice(0, 10).split('-').map(Number);
+    return new Date(y, m - 1, d);
   }
 
   form = this.fb.group({
@@ -515,11 +521,11 @@ export class UtilityEditDialogComponent implements OnInit {
   // dopo Salva); la voltura si segna nei due campi del form.
   readonly costInfo = this.data.item.cost_info;
   readonly costStatusInfo = costStatus(this.data.item.cost_info);
-  // Soggetti a cui volturare: parti dei contratti con voltura più
+  // Soggetti a cui volturare: parti di tutti i contratti attivi più
   // l'intestatario attuale (anche se non ha più un contratto).
   readonly transferOptions: TOption[] = (() => {
     const opts = new Map<number, string>();
-    for (const p of this.costInfo?.parties ?? []) opts.set(p.third_party_id, p.name);
+    for (const p of this.costInfo?.active_parties ?? []) opts.set(p.third_party_id, p.name);
     if (this.costInfo?.transferred_to) opts.set(this.costInfo.transferred_to.id, this.costInfo.transferred_to.name);
     return [...opts].map(([value, label]) => ({value, label}));
   })();

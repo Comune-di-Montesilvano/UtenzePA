@@ -992,6 +992,14 @@ describe('UtilitiesService', () => {
       );
     });
 
+    it('salvataggio con la stessa voltura a un soggetto poi cancellato: nessun 400', async () => {
+      repo.findOne.mockResolvedValue({ id: 5, transferred_to_third_party_id: 3, transferred_on: '2026-05-01', deleted: false });
+      repo.manager.query.mockResolvedValue([]);
+      await expect(
+        service.update(5, { transferred_to_third_party_id: 3, transferred_on: '2026-05-01', notes: 'x' } as never, 1),
+      ).resolves.not.toThrow();
+    });
+
     it('create con voltura a soggetto inesistente: 400', async () => {
       repo.manager.query.mockResolvedValue([]);
       await expect(

@@ -15,6 +15,7 @@ export type CostStatus = 'COMUNE' | 'TO_TRANSFER' | 'TRANSFERRED' | 'TO_RECOVER'
 export interface CostInfo {
   status: CostStatus;
   parties: {grant_id: number; third_party_id: number; name: string}[];
+  active_parties: {grant_id: number; third_party_id: number; name: string}[];
   transferred_to: {id: number; name: string} | null;
   transferred_on: string | null;
 }

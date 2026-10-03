@@ -592,11 +592,12 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
   private async assertTransfer(
     thirdPartyId: number | null | undefined,
     transferredOn: string | null | undefined,
+    checkExists = true,
   ): Promise<void> {
     if (transferredOn && !thirdPartyId) {
       throw new BadRequestException("Indicare a chi è stata volturata l'utenza.");
     }
-    if (!thirdPartyId) return;
+    if (!thirdPartyId || !checkExists) return;
     const rows = await this.repo.manager.query('SELECT id FROM third_parties WHERE id = ? AND deleted = 0', [
       thirdPartyId,
     ]);
@@ -680,7 +681,13 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       // Ripresa dal Comune (soggetto tolto): si svuota anche la data.
       const recovered = rest.transferred_to_third_party_id === null;
       if (recovered) payload.transferred_on = null;
-      await this.assertTransfer(toId, recovered ? null : (rest.transferred_on ?? current.transferred_on));
+      // Soggetto invariato: non si ricontrolla (se nel frattempo è stato
+      // cancellato l'utenza è "da riprendere", ma resta salvabile).
+      await this.assertTransfer(
+        toId,
+        recovered ? null : (rest.transferred_on ?? current.transferred_on),
+        toId !== current.transferred_to_third_party_id,
+      );
     }
     if (
       rest.estimated_annual_consumption !== undefined &&

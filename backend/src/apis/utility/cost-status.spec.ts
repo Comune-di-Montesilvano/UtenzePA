@@ -41,9 +41,24 @@ describe('costInfo', () => {
     ).toEqual({
       status: CostStatus.COMUNE,
       parties: [],
+      active_parties: [{ grant_id: 7, third_party_id: 3, name: 'Alfa Srl' }],
       transferred_to: null,
       transferred_on: null,
     });
+  });
+
+  it('active_parties: parti di tutti i contratti attivi, con o senza voltura', () => {
+    const info = costInfo(
+      utility([
+        [
+          grant(7, [party(3, 'Alfa Srl')], { utilities_to_be_taken_over: false }),
+          grant(8, [party(4, 'Beta Spa'), party(5, 'Gamma', { deleted: true })]),
+          grant(9, [party(6, 'Delta')], { status: ContractStatus.TERMINATED }),
+        ],
+      ]),
+    );
+    expect(info.active_parties.map((p) => p.third_party_id)).toEqual([3, 4]);
+    expect(info.parties.map((p) => p.third_party_id)).toEqual([4]);
   });
 
   it('contratto con voltura, utenza non volturata: da volturare, con le parti', () => {

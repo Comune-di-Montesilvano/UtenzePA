@@ -27,7 +27,10 @@ export interface CostParty {
 
 export interface CostInfo {
   status: CostStatus;
+  // Parti dei contratti con voltura (chi deve volturare).
   parties: CostParty[];
+  // Parti di tutti i contratti attivi: a chi si può volturare.
+  active_parties: CostParty[];
   transferred_to: { id: number; name: string } | null;
   transferred_on: string | Date | null;
 }
@@ -59,16 +62,21 @@ const isActive = (g: GrantLike) =>
 
 export function costInfo(utility: CostInput): CostInfo {
   const grants = (utility.assets ?? []).flatMap((a) => a?.utilizerGrants ?? []).filter(isActive);
-  const parties: CostParty[] = [];
-  const seen = new Set<string>();
-  for (const grant of grants.filter((g) => !!g.utilities_to_be_taken_over)) {
-    for (const p of grant.parties ?? []) {
-      const key = `${grant.id}:${p.id}`;
-      if (p.deleted || seen.has(key)) continue;
-      seen.add(key);
-      parties.push({ grant_id: grant.id, third_party_id: p.id, name: partyName(p) });
+  const partiesOf = (list: GrantLike[]): CostParty[] => {
+    const result: CostParty[] = [];
+    const seen = new Set<string>();
+    for (const grant of list) {
+      for (const p of grant.parties ?? []) {
+        const key = `${grant.id}:${p.id}`;
+        if (p.deleted || seen.has(key)) continue;
+        seen.add(key);
+        result.push({ grant_id: grant.id, third_party_id: p.id, name: partyName(p) });
+      }
     }
-  }
+    return result;
+  };
+  const parties = partiesOf(grants.filter((g) => !!g.utilities_to_be_taken_over));
+  const activeParties = partiesOf(grants);
 
   const toId = utility.transferred_to_third_party_id ?? null;
   const transferredOn = utility.transferred_on ?? null;
@@ -76,14 +84,16 @@ export function costInfo(utility: CostInput): CostInfo {
     return {
       status: parties.length ? CostStatus.TO_TRANSFER : CostStatus.COMUNE,
       parties,
+      active_parties: activeParties,
       transferred_to: null,
       transferred_on: transferredOn,
     };
   }
-  const hasTitle = grants.some((g) => (g.parties ?? []).some((p) => p.id === toId && !p.deleted));
+  const hasTitle = activeParties.some((p) => p.third_party_id === toId);
   return {
     status: hasTitle ? CostStatus.TRANSFERRED : CostStatus.TO_RECOVER,
     parties,
+    active_parties: activeParties,
     transferred_to: {
       id: toId,
       name: utility.transferredTo ? partyName(utility.transferredTo) : '',
