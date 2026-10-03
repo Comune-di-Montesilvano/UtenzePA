@@ -32,6 +32,8 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 14 | Schede di fornitori, capitoli, fatture | da fare |
 | 15 | UI e identità (elenchi, filtri, dark mode, sidebar, nome) | da approfondire |
 | 16 | Dashboard e mappa | per ultime |
+| 17 | Impegni di spesa (contratto ↔ capitolo) | da approfondire |
+| 18 | Pulizia entità e incongruenze del modello | analisi fatta, da approfondire |
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
 
@@ -230,6 +232,46 @@ Stesso modello delle schede di v1.7.1: Fornitori fatto con la voce 9 (scheda Sog
 ## 16. Dashboard e mappa
 
 Per ultime, quando dati e UI sono a posto. **Mappa**: non si tocca finché non ci sono i complessi (voce 4) e i dati catastali (voce 2). **Dashboard**: oggi card indipendenti con stili propri (anomalie, contratti immobiliari, verifiche impianti…); ripensare indicatori per area (patrimonio, utenze, contratti, spesa), anomalie come lista di cose da fare con link alla scheda, coerenza con badge e colori delle schede, dark mode.
+
+## 17. Impegni di spesa (contratto ↔ capitolo)
+
+Oggi il capitolo sta solo sull'utenza (`utilities.budget_chapter_code_fk`); il contratto di fornitura non ne ha. Non si può spostare sul contratto e derivarlo: lo stesso contratto copre utenze su capitoli diversi (al 2026-10-03, utenze attive: un contratto da 160 utenze su 15 capitoli, uno da 105 su 7, uno da 36 su 13). Il capitolo dipende da cosa serve l'utenza (scuola, uffici, SPRAR, illuminazione), non dal fornitore.
+
+Nessuna entità "impegno" esiste nel codice. Le più vicine: `budget_chapter_spending` (spesa storica per capitolo e anno, senza contratto), fatture N-N con i capitoli (senza importo per capitolo).
+
+Decisione utente (2026-10-03): entrambe le cose.
+
+1. **Impegno di spesa** come entità: contratto di fornitura, capitolo, esercizio, numero impegno (della ragioneria), importo impegnato, note. Il capitolo dell'utenza si sceglie tra quelli impegnati sui suoi contratti (il dato resta sull'utenza, il contratto fa da vincolo). In futuro la fattura si aggancia all'impegno invece che al capitolo nudo (voce 6), e la spesa per impegno si calcola dalle fatture.
+2. **Riepilogo capitoli** nella scheda del contratto di fornitura: capitoli delle sue utenze, calcolato e mai salvato.
+
+Da chiarire prima del design: se i dati degli impegni (numero, anno, importo) sono disponibili dalla ragioneria o dal gestionale contabile, o se per ora basta l'elenco contratto ↔ capitoli. Da fare insieme o subito dopo la voce 6 (fatture): toccano lo stesso modello della spesa. Problema dati collegato: 254 utenze senza capitolo (125 attive del contratto 10, tutte senza), 25 utenze Open Fiber sul capitolo fittizio "N/A".
+
+## 18. Pulizia entità e incongruenze del modello
+
+Analisi dello schema e dei dati sul DB locale (2026-10-03), ragionando su come andrebbe modellato il dominio. Conteggi su righe non cancellate.
+
+**Da eliminare (morte o duplicate):**
+
+- tabella `fk_test`: vuota, nessuna entity, residuo di prove;
+- `aca_keys`: 0 righe, nessuna UI; salverebbe username e password del portale ACA in chiaro per utenza. Eliminare;
+- **aggregati immobili** (`asset_aggregators`, colonna `assets.asset_type_id`): duplicano la funzione dell'immobile (183 immobili su 190 hanno la funzione; 7 hanno solo l'aggregato). Usati ancora da icone mappa e filtri (~20 file frontend): passare a funzione/natura, poi rimuoverli come gli aggregati utenze (voce 11). Tocca la mappa (voce 16): solo sostituzione dell'icona, non ridisegno;
+- **gestori manutenzione** (`maintenance_managers`, `utilities.maintenance_management_id_fk`, 638 utenze): lista libera ereditata come i vecchi costi a carico. Valori: "comune" 409, "conversion e lighting" 125, ACA 69, "concessionario" 16, e soggetti veri (Engie, società sportive, bike sharing, EGAM). È un soggetto terzo, e il rapporto è un contratto di servizio/manutenzione (voce 7). Decidere se basta un soggetto terzo sull'utenza (o sull'impianto) o se aspettare la voce 7;
+- `invoice_budget_chapter`: 20 righe tutte orfane (fatture inesistenti, nessuna FK), nessuna fattura vera ha un capitolo. Collegamento da ripensare con le voci 6 e 17;
+- `utility_types`: tabella di 4 righe che rispecchia l'enum `hard_type` (acqua, gas, luce, connettività). Bassa priorità: tocca molto codice per poco guadagno.
+
+**Campi doppi o ambigui:**
+
+- utenza: `supplier_address` (328) è in realtà l'indirizzo di fornitura e duplica quello dell'immobile; coordinate proprie (119) oltre a quelle di immobile e impianto;
+- utenza: tre testi liberi (`notes` 523, `additional_notes` 107, `specifications` 81). Unificare o dare un significato a ciascuno;
+- utenza: `security_deposit` a 0,00 per 554 utenze (default): "nessun deposito" e "non noto" sono indistinguibili;
+- utenza: `utility_code` valorizzato per acqua (177/183) e connettività, quasi mai per gas e luce: verificare cosa rappresenta (codice cliente del fornitore?) e rinominarlo;
+- capitolo: `supply_type` mescola tipi di fornitura e finanziamento (`SPRAR_UTILITIES`);
+- immobile: `associated_building` valorizzato su tutti i 190 come testo libero ("Edificio con 6 alloggi…", "SPRAR", "Locali in affitto"): è un complesso in embrione (voce 4) mescolato a funzione e titolo di possesso;
+- catasto in due posti: immobile (foglio/particella/subalterno/categoria/rendita, 58 con foglio) e contratto immobiliare (`cadastral_ref` testo, 59). Da risolvere con la voce 2;
+- contratto di fornitura: `consip_order` (37) e `order_number` (1) per lo stesso concetto; date di fornitura valorizzate solo su 18 contratti su 42;
+- contratto immobiliare: campi ereditati dalle concessioni poco usati (`usage_type` 6, `department` 22, `concession_act` 27 su 126); 62 contratti senza immobile (già in anomalia).
+
+**Sane, nessun intervento:** soggetti terzi, impianti e tabelle per tipo, consumi, foto (polimorfiche per tipo e id), impostazioni, audit log, utenze per contratto (lo storico dei rinnovi Consip spiega le utenze con 5–7 contratti).
 
 ## Fuori scope (decisioni prese)
 
