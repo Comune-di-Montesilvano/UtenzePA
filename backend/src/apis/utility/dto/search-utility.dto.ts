@@ -131,11 +131,6 @@ export class SearchUtilityDto {
   @IsOptional()
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))
   @IsInt()
-  costs_borne_by_id_fk?: number;
-
-  @IsOptional()
-  @Transform(({ value }) => (value === '' ? undefined : Number(value)))
-  @IsInt()
   maintenance_management_id_fk?: number;
 
   // Utenze collegate a questo immobile (tra gli altri eventuali).
@@ -143,11 +138,6 @@ export class SearchUtilityDto {
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))
   @IsInt()
   asset_id?: number;
-
-  @IsOptional()
-  @Transform(({ value }) => (value === '' ? undefined : Number(value)))
-  @IsInt()
-  aggregator_id_fk?: number;
 
   @IsOptional()
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))

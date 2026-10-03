@@ -195,6 +195,13 @@ describe('UtilitiesService', () => {
       );
     });
 
+    it('non carica più aggregati né costi a carico', async () => {
+      await service.findAll({} as never);
+      const joins = qb.leftJoinAndSelect.mock.calls.map((c) => String(c[0]));
+      expect(joins).not.toContain('Utility.utilityAggregator');
+      expect(joins).not.toContain('Utility.costsBorneBy');
+    });
+
     it('filtro per funzione immobile con sotto-query', async () => {
       await service.findAll({ asset_function_ids: [3, 5] } as never);
       const call = qb.andWhere.mock.calls.find((c) =>
@@ -367,7 +374,6 @@ describe('UtilitiesService', () => {
     it('risolve il contratto corrente in una query batched separata e proietta i campi legacy', async () => {
       const utility = {
         id: 1,
-        utilityAggregator: { id: 2 },
         utilityType: null,
         security_deposit: '306.96',
       } as unknown as Utility;
@@ -406,14 +412,13 @@ describe('UtilitiesService', () => {
       expect(result).toHaveLength(1);
       const enriched = result[0] as unknown as {
         expiryStatus: ExpiryStatus;
-        aggregator: unknown;
         supplier: unknown;
         supplier_id_fk: number;
         cig_contract: string;
         security_deposit: number;
       };
       expect(enriched.expiryStatus).toBe(ExpiryStatus.EXPIRING30);
-      expect(enriched.aggregator).toEqual({ id: 2 });
+      expect(enriched).not.toHaveProperty('aggregator');
       expect(enriched.supplier).toEqual({ id: 4, name: 'Fornitore SPA' });
       expect(enriched.supplier_id_fk).toBe(4);
       expect(enriched.cig_contract).toBe('CIG1');

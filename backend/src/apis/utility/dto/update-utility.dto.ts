@@ -44,10 +44,6 @@ export class UpdateUtilityDto {
 
   @IsOptional()
   @IsInt()
-  costs_borne_by_id_fk?: number;
-
-  @IsOptional()
-  @IsInt()
   maintenance_management_id_fk?: number;
 
   @IsOptional()
@@ -157,10 +153,6 @@ export class UpdateUtilityDto {
   @IsArray({ message: 'Gli impianti associati devono essere un array.' })
   @IsInt({ each: true, message: 'Ogni impianto associato deve essere un ID intero.' })
   plant_ids?: number[];
-
-  @IsOptional()
-  @IsInt()
-  aggregator_id_fk?: number | null;
 
   @IsOptional()
   @IsInt()

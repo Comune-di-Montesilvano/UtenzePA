@@ -202,7 +202,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       management_expiry_date: current?.management_expiry_date ?? null,
       takeover_termination_date: current?.takeover_termination_date ?? null,
       expiryStatus: this.getExpiryStatus(this.toDate(current?.supply_expiry_date ?? null)),
-      aggregator: utility.utilityAggregator ?? null,
       utilityType: utility.utilityType ?? null,
       cost_info: costInfo(utility),
     } as Utility;
@@ -221,18 +220,12 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('Utility.plants', 'plants', 'plants.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
     qb.leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0');
-    qb.leftJoinAndSelect('Utility.costsBorneBy', 'costsBorneBy', 'costsBorneBy.deleted = 0');
     qb.leftJoinAndSelect(
       'Utility.maintenanceManager',
       'maintenanceManager',
       'maintenanceManager.deleted = 0',
     );
     qb.leftJoinAndSelect('Utility.budgetChapter', 'budgetChapter', 'budgetChapter.deleted = 0');
-    qb.leftJoinAndSelect(
-      'Utility.utilityAggregator',
-      'utilityAggregator',
-      'utilityAggregator.deleted = 0',
-    );
     qb.leftJoinAndSelect('Utility.contratti', 'contratti', 'contratti.deleted = 0');
     qb.leftJoinAndSelect('contratti.supplier', 'contrattiSupplier', 'contrattiSupplier.deleted = 0');
     qb.leftJoinAndSelect('contratti.consipAgreement', 'contrattiConsipAgreement', 'contrattiConsipAgreement.deleted = 0');
@@ -502,7 +495,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('Utility.plants', 'plants', 'plants.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
     qb.leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0');
-    qb.leftJoinAndSelect('Utility.costsBorneBy', 'costsBorneBy', 'costsBorneBy.deleted = 0');
     qb.leftJoinAndSelect(
       'Utility.maintenanceManager',
       'maintenanceManager',
@@ -532,16 +524,10 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
     qb.leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0');
     qb.leftJoinAndSelect('Utility.utilityType', 'utilityType', 'utilityType.deleted = 0');
-    qb.leftJoinAndSelect('Utility.costsBorneBy', 'costsBorneBy', 'costsBorneBy.deleted = 0');
     qb.leftJoinAndSelect(
       'Utility.maintenanceManager',
       'maintenanceManager',
       'maintenanceManager.deleted = 0',
-    );
-    qb.leftJoinAndSelect(
-      'Utility.utilityAggregator',
-      'utilityAggregator',
-      'utilityAggregator.deleted = 0',
     );
     qb.leftJoinAndSelect('Utility.budgetChapter', 'budgetChapter', 'budgetChapter.deleted = 0');
     qb.leftJoinAndSelect('Utility.created_by', 'created_by');

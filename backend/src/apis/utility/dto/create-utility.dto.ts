@@ -35,10 +35,6 @@ export class CreateUtilityDto {
   @IsInt({ each: true, message: 'Ogni impianto associato deve essere un ID intero.' })
   plant_ids?: number[];
 
-  @IsNotEmpty({ message: 'Il campo "Costi a carico di" è obbligatorio.' })
-  @IsInt()
-  costs_borne_by_id_fk: number;
-
   @IsNotEmpty({ message: 'Il capitolo di spesa è obbligatorio.' })
   @IsInt()
   budget_chapter_code_fk: number;
@@ -150,10 +146,6 @@ export class CreateUtilityDto {
   @IsOptional()
   @IsString()
   specifications?: string;
-
-  @IsOptional()
-  @IsInt()
-  aggregator_id_fk?: number;
 
   @IsOptional()
   @IsInt()

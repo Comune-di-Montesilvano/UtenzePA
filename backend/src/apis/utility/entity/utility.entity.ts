@@ -15,10 +15,8 @@ import { Contract } from '@apis/contracts/entity/contract.entity';
 import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
 import { Asset } from '../../asset/entity/asset.entity';
 import { Plant } from '@apis/plants/entity/plant.entity';
-import { UtilityAggregator } from '../../utility-aggregators/entity/utility-aggregator.entity';
 import { BudgetChapter } from '../../budget-chapters/entity/budgetChapter.entity';
 import { UtilityType } from '../../utility-types/entity/utility_type.entity';
-import { CostsBorneBy } from '../../shared/entities/utility_cost_borne_by.entity';
 import { AreraCategory, GasUseCategory } from '../arera-category';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
 import { Phase } from '../../shared/enum/user.enums';
@@ -44,9 +42,6 @@ export class Utility {
 
   @Column({ length: 255, nullable: true })
   supplier_address: string;
-
-  @Column()
-  costs_borne_by_id_fk: number;
 
   @Column({ type: 'boolean', default: false, nullable: true })
   supply_active: boolean;
@@ -167,15 +162,8 @@ export class Utility {
   @JoinColumn({ name: 'updated_by_user_id' })
   updated_by: SystemUser;
 
-  @ManyToOne(() => CostsBorneBy, { nullable: false })
-  @JoinColumn({ name: 'costs_borne_by_id_fk' })
-  costsBorneBy: CostsBorneBy;
-
   @Column({ type: 'int', nullable: true })
   maintenance_management_id_fk: number;
-
-  @Column({ type: 'int', nullable: true })
-  aggregator_id_fk: number;
 
   @Column({ type: 'int' })
   budget_chapter_code_fk: number;
@@ -204,10 +192,6 @@ export class Utility {
     inverseJoinColumn: { name: 'plant_id', referencedColumnName: 'id' },
   })
   plants: Plant[];
-
-  @ManyToOne(() => UtilityAggregator, (aggregator) => aggregator.utilities)
-  @JoinColumn({ name: 'aggregator_id_fk', referencedColumnName: 'id' })
-  utilityAggregator: UtilityAggregator;
 
   @ManyToOne(() => MaintenanceManager, (maintenance) => maintenance.id)
   @JoinColumn({ name: 'maintenance_management_id_fk', referencedColumnName: 'id' })

@@ -17,7 +17,6 @@ import { UtilityTypesModule } from '@apis/utility-types/utility-types.module';
 import { AssetAggregatorsModule } from '@apis/asset-aggregators/asset-aggregators.module';
 import { AssetNaturesModule } from '@apis/asset-natures/asset-natures.module';
 import { AssetFunctionsModule } from '@apis/asset-functions/asset-functions.module';
-import { UtilityAggregatorsModule } from '@apis/utility-aggregators/utility-aggregators.module';
 import { BudgetChaptersModule } from '@apis/budget-chapters/budget-chapters.module';
 import { AssetsModule } from '@apis/asset/assets.module';
 import { GeocodingModule } from '@apis/geocoding/geocoding.module';
@@ -28,7 +27,6 @@ import { UtilityConsumptionsModule } from '@apis/utility-consumptions/utility-co
 import { BudgetChapterSpendingModule } from '@apis/budget-chapter-spending/budget-chapter-spending.module';
 import { PlantsModule } from '@apis/plants/plants.module';
 import { AnomaliesModule } from '@apis/anomalies/anomalies.module';
-import { CostsBorneByModule } from '@apis/costs-borne-by/cost-borne-by.module';
 import { MaintenanceManagersModule } from '@apis/maintenance-managers/maintenance-managers.module';
 import { InvoicesModule } from '@apis/invoices/invoie.module';
 import { ConsipAgreementModule } from '@apis/consip-agreement/consip-agreement.module';
@@ -57,7 +55,6 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     AssetAggregatorsModule,
     AssetNaturesModule,
     AssetFunctionsModule,
-    UtilityAggregatorsModule,
     BudgetChaptersModule,
     AssetsModule,
     GeocodingModule,
@@ -68,7 +65,6 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     BudgetChapterSpendingModule,
     PlantsModule,
     AnomaliesModule,
-    CostsBorneByModule,
     MaintenanceManagersModule,
     InvoicesModule,
     ConsipAgreementModule,
