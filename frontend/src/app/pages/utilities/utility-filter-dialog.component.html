@@ -243,10 +243,10 @@
             </mat-form-field>
           </div>
           <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
-            <mat-label>Gestione Manutenzione</mat-label>
-            <mat-select formControlName="maintenance_management_id_fk">
+            <mat-label>Manutenzione</mat-label>
+            <mat-select formControlName="maintenance_status">
               <mat-option [value]="null">Tutti</mat-option>
-              @for (opt of managementOptions; track opt.value) {
+              @for (opt of maintenanceStatusOptions; track opt.value) {
                 <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
               }
             </mat-select>

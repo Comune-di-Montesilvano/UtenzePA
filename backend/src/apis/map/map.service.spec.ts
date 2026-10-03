@@ -79,7 +79,7 @@ describe('MapService', () => {
 
   it('un asset con gps reale produce un punto source=gps', async () => {
     assetRepo.find.mockResolvedValue([
-      { id: 1, asset_name: 'Scuola A', address: 'Via Roma 1', latitude: '42.5', longitude: '14.1', geocoded_latitude: null, geocoded_longitude: null, asset_type_id: 3 },
+      { id: 1, asset_name: 'Scuola A', address: 'Via Roma 1', latitude: '42.5', longitude: '14.1', geocoded_latitude: null, geocoded_longitude: null },
     ]);
     utilityRepo.find.mockResolvedValue([]);
 
@@ -93,7 +93,7 @@ describe('MapService', () => {
 
   it('un asset senza gps ma con geocoded produce un punto source=geocoded', async () => {
     assetRepo.find.mockResolvedValue([
-      { id: 2, asset_name: 'Scuola B', address: 'Via Milano 2', latitude: null, longitude: null, geocoded_latitude: '42.6', geocoded_longitude: '14.2', asset_type_id: 3 },
+      { id: 2, asset_name: 'Scuola B', address: 'Via Milano 2', latitude: null, longitude: null, geocoded_latitude: '42.6', geocoded_longitude: '14.2' },
     ]);
     utilityRepo.find.mockResolvedValue([]);
 
@@ -105,7 +105,7 @@ describe('MapService', () => {
 
   it('un asset senza indirizzo né gps finisce in ungeolocated con reason no_address', async () => {
     assetRepo.find.mockResolvedValue([
-      { id: 3, asset_name: 'Scuola C', address: null, latitude: null, longitude: null, geocoded_latitude: null, geocoded_longitude: null, asset_type_id: 3 },
+      { id: 3, asset_name: 'Scuola C', address: null, latitude: null, longitude: null, geocoded_latitude: null, geocoded_longitude: null },
     ]);
     utilityRepo.find.mockResolvedValue([]);
 
@@ -117,7 +117,7 @@ describe('MapService', () => {
 
   it('un asset con indirizzo ma geocoding fallito finisce in ungeolocated con reason geocode_failed', async () => {
     assetRepo.find.mockResolvedValue([
-      { id: 4, asset_name: 'Scuola D', address: 'Via Ignota 9', latitude: null, longitude: null, geocoded_latitude: null, geocoded_longitude: null, asset_type_id: 3 },
+      { id: 4, asset_name: 'Scuola D', address: 'Via Ignota 9', latitude: null, longitude: null, geocoded_latitude: null, geocoded_longitude: null },
     ]);
     utilityRepo.find.mockResolvedValue([]);
 
@@ -164,30 +164,6 @@ describe('MapService', () => {
     expect(ungeolocated).toEqual([{ id: 12, type: 'utility', name: 'UT-3', reason: 'no_address' }]);
   });
 
-  it('un asset con aggregato che ha un\'icona custom la espone sul punto', async () => {
-    assetRepo.find.mockResolvedValue([
-      { id: 5, asset_name: 'Scuola E', address: 'Via Torino 3', latitude: '42.5', longitude: '14.1', geocoded_latitude: null, geocoded_longitude: null, asset_type_id: 3, assetAggregator: { id: 3, icon: 'school' } },
-    ]);
-    utilityRepo.find.mockResolvedValue([]);
-
-    const { points } = await service.getPoints({});
-
-    expect(points[0].icon).toBe('school');
-  });
-
-  it('assetAggregatorIds filtra anche le utility tramite l\'asset collegato', async () => {
-    assetRepo.find.mockResolvedValue([]);
-    utilityRepo.find.mockResolvedValue([]);
-
-    await service.getPoints({ assetAggregatorIds: [3, 4] });
-
-    expect(utilityRepo.find).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ assets: { asset_type_id: In([3, 4]) } }),
-      }),
-    );
-  });
-
   it('utilityTypeIds filtra anche gli IMMOBILI, non solo le utenze — solo asset con almeno una utenza del tipo', async () => {
     utilityRepo.find
       // Prima chiamata: query dedicata id-immobili-qualificanti.
@@ -220,7 +196,7 @@ describe('MapService', () => {
 
   it('showAssets=false esclude gli asset dai risultati', async () => {
     assetRepo.find.mockResolvedValue([
-      { id: 1, asset_name: 'Scuola A', address: 'Via Roma 1', latitude: '42.5', longitude: '14.1', geocoded_latitude: null, geocoded_longitude: null, asset_type_id: 3 },
+      { id: 1, asset_name: 'Scuola A', address: 'Via Roma 1', latitude: '42.5', longitude: '14.1', geocoded_latitude: null, geocoded_longitude: null },
     ]);
     utilityRepo.find.mockResolvedValue([]);
 
@@ -229,16 +205,19 @@ describe('MapService', () => {
     expect(assetRepo.find).not.toHaveBeenCalled();
     expect(points).toEqual([]);
   });
-  it('icona immobile: funzione se presente, altrimenti vecchio aggregato', async () => {
+  it('icona immobile: solo dalla funzione', async () => {
     assetRepo.find.mockResolvedValue([
-      { id: 5, asset_name: 'A', address: 'x', latitude: '42.5', longitude: '14.1', assetFunction: { icon: 'sports_soccer' }, assetAggregator: { icon: 'school' } },
-      { id: 6, asset_name: 'B', address: 'x', latitude: '42.6', longitude: '14.2', assetFunction: null, assetAggregator: { icon: 'school' } },
+      { id: 5, asset_name: 'A', address: 'x', latitude: '42.5', longitude: '14.1', assetFunction: { icon: 'sports_soccer' } },
+      { id: 6, asset_name: 'B', address: 'x', latitude: '42.6', longitude: '14.2', assetFunction: null },
     ]);
     utilityRepo.find.mockResolvedValue([]);
 
     const { points } = await service.getPoints({});
 
-    expect(points.map((p) => p.icon)).toEqual(['sports_soccer', 'school']);
+    expect(points.map((p) => p.icon)).toEqual(['sports_soccer', null]);
+    expect(assetRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({ relations: { assetFunction: true } }),
+    );
   });
 
   it('natureIds/functionIds/statuses filtrano immobili e utenze (via immobili collegati)', async () => {

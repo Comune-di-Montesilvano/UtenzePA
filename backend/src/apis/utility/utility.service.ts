@@ -18,6 +18,7 @@ import { findMeterConflict } from './meter-number.helper';
 import { AreraCategory, ARERA_NONE, GasUseCategory, isAreraCategoryAllowed } from './arera-category';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { costInfo, costStatusSql } from './cost-status';
+import { maintenanceInfo, maintenanceStatusSql } from './maintenance-status';
 
 @Injectable()
 export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, UpdateUtilityDto> {
@@ -204,6 +205,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       expiryStatus: this.getExpiryStatus(this.toDate(current?.supply_expiry_date ?? null)),
       utilityType: utility.utilityType ?? null,
       cost_info: costInfo(utility),
+      maintenance_info: maintenanceInfo(utility),
     } as Utility;
   }
 
@@ -220,11 +222,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('Utility.plants', 'plants', 'plants.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
     qb.leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0');
-    qb.leftJoinAndSelect(
-      'Utility.maintenanceManager',
-      'maintenanceManager',
-      'maintenanceManager.deleted = 0',
-    );
     qb.leftJoinAndSelect('Utility.budgetChapter', 'budgetChapter', 'budgetChapter.deleted = 0');
     qb.leftJoinAndSelect('Utility.contratti', 'contratti', 'contratti.deleted = 0');
     qb.leftJoinAndSelect('contratti.supplier', 'contrattiSupplier', 'contrattiSupplier.deleted = 0');
@@ -387,6 +384,9 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     if (filters?.cost_status) {
       qb.andWhere(costStatusSql(filters.cost_status));
     }
+    if (filters?.maintenance_status) {
+      qb.andWhere(maintenanceStatusSql(filters.maintenance_status));
+    }
 
     if (filters?.arera_category) {
       if (filters.arera_category === ARERA_NONE) {
@@ -424,6 +424,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       'plant_types',
       'grant_id',
       'cost_status',
+      'maintenance_status',
       'safeguard',
       'party_id',
       'id',
@@ -495,11 +496,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('Utility.plants', 'plants', 'plants.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
     qb.leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0');
-    qb.leftJoinAndSelect(
-      'Utility.maintenanceManager',
-      'maintenanceManager',
-      'maintenanceManager.deleted = 0',
-    );
     qb.leftJoinAndSelect('Utility.budgetChapter', 'budgetChapter', 'budgetChapter.deleted = 0');
     qb.leftJoinAndSelect('Utility.contratti', 'contratti', 'contratti.deleted = 0');
     qb.leftJoinAndSelect('contratti.supplier', 'contrattiSupplier', 'contrattiSupplier.deleted = 0');
@@ -524,11 +520,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
     qb.leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0');
     qb.leftJoinAndSelect('Utility.utilityType', 'utilityType', 'utilityType.deleted = 0');
-    qb.leftJoinAndSelect(
-      'Utility.maintenanceManager',
-      'maintenanceManager',
-      'maintenanceManager.deleted = 0',
-    );
     qb.leftJoinAndSelect('Utility.budgetChapter', 'budgetChapter', 'budgetChapter.deleted = 0');
     qb.leftJoinAndSelect('Utility.created_by', 'created_by');
     qb.leftJoinAndSelect('Utility.updated_by', 'updated_by');

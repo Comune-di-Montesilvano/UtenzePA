@@ -22,7 +22,7 @@ import {ExportHelper} from '../../core/helpers/export.helper';
 import {TruncatePipe} from '../../core/pipes/truncate.pipe';
 import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
 import {partyName} from '../../core/helpers/party-name.helper';
-import {costStatus} from '../../core/helpers/entity-status';
+import {costStatus, maintenanceStatus} from '../../core/helpers/entity-status';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
 
 @Component({
@@ -39,6 +39,7 @@ import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-ba
 export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Utility> {
   readonly partyName = partyName;
   readonly costStatus = costStatus;
+  readonly maintenanceStatus = maintenanceStatus;
   private navigator = inject(EntityNavigatorService);
 
   maxDescLength = 50;
@@ -75,7 +76,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     {field: 'management_expiry_date', header: 'Scadenza Gestione', minWidth: '120px'},
     {field: 'takeover_termination_date', header: 'Data voltura/cessazione', minWidth: '120px'},
     {field: 'disconnectable', header: 'Disalimentabilità', minWidth: '120px'},
-    {field: 'maintenanceManager.code', header: 'Gestione Manutenzione', minWidth: '120px'},
+    {field: 'maintenance_info', header: 'Manutenzione', minWidth: '150px'},
     {field: 'budgetChapter.description', header: 'Capitolo di Spesa', minWidth: '200px'},
     {field: 'latitude', header: 'Latitudine', minWidth: '100px'},
     {field: 'longitude', header: 'Longitudine', minWidth: '100px'},
@@ -129,6 +130,12 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
         );
       }
 
+      if (active === 'maintenance_info') {
+        return [...data].sort((a, b) =>
+          order * this.maintenanceLabel(a).toLowerCase().localeCompare(this.maintenanceLabel(b).toLowerCase(), 'it')
+        );
+      }
+
       if (active === 'cost_info') {
         return [...data].sort((a, b) =>
           order * this.payerLabel(a).toLowerCase().localeCompare(this.payerLabel(b).toLowerCase(), 'it')
@@ -169,6 +176,17 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
 
   payerLabel(utility: Utility): string {
     return [costStatus(utility.cost_info).label, this.payerName(utility)].filter(Boolean).join(' · ');
+  }
+
+  // Manutenzione: stato calcolato + fornitore o parti.
+  maintenanceName(utility: Utility): string {
+    const info = utility.maintenance_info;
+    return [...(info?.contracts ?? []).map(c => c.name), ...(info?.parties ?? []).map(p => p.name)]
+      .filter(Boolean).join(', ');
+  }
+
+  maintenanceLabel(utility: Utility): string {
+    return [maintenanceStatus(utility.maintenance_info).label, this.maintenanceName(utility)].filter(Boolean).join(' · ');
   }
 
   // CRITICO: AbstractDataTableComponent.ngAfterViewInit() (frontend/src/app/core/components/
@@ -250,6 +268,8 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
           : '';
       case 'cost_info':
         return this.payerLabel(utility);
+      case 'maintenance_info':
+        return this.maintenanceLabel(utility);
       case 'budgetChapter.description':
         return utility.budgetChapter?.label ?? '';
       case 'asset.parties':

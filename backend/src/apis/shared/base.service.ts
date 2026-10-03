@@ -60,8 +60,8 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
   protected auditBlocklist: string[] = [];
 
   // Mappa esplicita campo → { repo, field } per risolvere un id FK a
-  // un'etichetta leggibile nel diff — MAI euristica automatica (vedi nota
-  // CLAUDE.md sul bug AssetAggregator.description vs .code). Campi non
+  // un'etichetta leggibile nel diff — MAI euristica automatica (bug reale:
+  // una colonna descrittiva quasi sempre vuota scelta come label). Campi non
   // mappati restano con solo il valore grezzo (id).
   protected auditLabelResolvers?: Partial<
     Record<string, { repo: Repository<ObjectLiteral>; field: string }>

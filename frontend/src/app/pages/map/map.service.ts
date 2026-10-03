@@ -10,7 +10,6 @@ export interface MapPointsFilters {
   showUtilities?: boolean;
   showPlants?: boolean;
   plantTypes?: string[] | null;
-  assetAggregatorIds?: number[] | null;
   utilityTypeIds?: number[] | null;
   natureIds?: number[] | null;
   functionIds?: number[] | null;

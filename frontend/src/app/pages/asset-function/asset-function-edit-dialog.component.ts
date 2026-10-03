@@ -12,8 +12,8 @@ import {EditDialogData} from '../../core/components/abstract-data-table.componen
 import {AuthService} from '../../services/auth.service';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
-import {AssetAggregatorIconOptions, ASSET_AGGREGATOR_ICON_FALLBACK} from '../asset-aggregator/enum/asset-aggregator-icon.enum';
-import {IconPickerDialogComponent} from '../asset-aggregator/icon-picker-dialog.component';
+import {ICON_OPTIONS, ICON_FALLBACK} from '../../core/helpers/material-icons';
+import {IconPickerDialogComponent} from '../../core/components/icon-picker-dialog.component';
 import {AssetFunction} from './entity/asset-function.entity';
 
 @Component({
@@ -34,27 +34,27 @@ export class AssetFunctionEditDialogComponent {
   protected data = inject<EditDialogData<AssetFunction>>(MAT_DIALOG_DATA);
 
   isNew = this.data.mode === 'create';
-  iconFallback = ASSET_AGGREGATOR_ICON_FALLBACK;
-  filteredIconOptions = AssetAggregatorIconOptions;
+  iconFallback = ICON_FALLBACK;
+  filteredIconOptions = ICON_OPTIONS;
 
   form = this.fb.group({
     name: [this.data.item.name ?? '', Validators.required],
-    icon: [this.data.item.icon ?? ASSET_AGGREGATOR_ICON_FALLBACK],
+    icon: [this.data.item.icon ?? ICON_FALLBACK],
   });
 
   constructor() {
     this.form.controls.icon.valueChanges.subscribe((term) => {
       const t = (term ?? '').trim().toLowerCase();
       this.filteredIconOptions = t
-        ? AssetAggregatorIconOptions.filter((o) => o.value.includes(t) || o.label.toLowerCase().includes(t))
-        : AssetAggregatorIconOptions;
+        ? ICON_OPTIONS.filter((o) => o.value.includes(t) || o.label.toLowerCase().includes(t))
+        : ICON_OPTIONS;
     });
     const role = this.authService.getCurrentUser()?.role;
     if (!role || role === 'Lettore') this.form.disable();
   }
 
   // Autocomplete limitato ai suggerimenti curati: per cercare su tutto il
-  // catalogo Material Icons apre il picker condiviso con gli aggregati.
+  // catalogo Material Icons apre il picker condiviso con le nature.
   openIconPicker(): void {
     this.dialog
       .open(IconPickerDialogComponent, {width: '480px', data: {currentIcon: this.form.controls.icon.value}})

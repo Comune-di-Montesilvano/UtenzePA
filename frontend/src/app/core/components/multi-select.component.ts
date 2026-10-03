@@ -144,7 +144,7 @@ export class MultiSelectComponent implements ControlValueAccessor {
 
   // Alcune icone in TOption sono classi Font Awesome (es. HardTypeIcon, "fa
   // fa-tint" — usate storicamente per acqua/luce/gas/internet), altre sono
-  // ligature Material Icons (es. AssetAggregator.icon, "school"): le prime
+  // ligature Material Icons (es. AssetFunction.icon, "school"): le prime
   // vanno in un <i class>, le seconde in <mat-icon>. Nessun nuovo campo su
   // TOption, si distingue dal contenuto della stringa.
   isFaIcon(icon: string): boolean {

@@ -115,6 +115,19 @@
               <mat-datepicker #transferredOnPicker></mat-datepicker>
             </mat-form-field>
           </div>
+
+          <div class="sheet-section-title"><mat-icon>build</mat-icon>Manutenzione</div>
+          <div class="sheet-grid">
+            <div class="span-all" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+              <app-status-badge [info]="maintenanceStatusInfo"></app-status-badge>
+              @for (c of maintenanceInfo?.contracts ?? []; track c.id) {
+                <a href="javascript:void(0)" (click)="openContract(c.id)" matTooltip="Apri il contratto di fornitura">{{ c.name || ('Contratto #' + c.id) }}</a>
+              }
+              @for (p of maintenanceInfo?.parties ?? []; track p.grant_id + '-' + p.third_party_id) {
+                <a href="javascript:void(0)" (click)="openGrant(p.grant_id)" matTooltip="Apri il contratto immobiliare">{{ p.name }}</a>
+              }
+            </div>
+          </div>
         }
 
         <div class="sheet-section-title">
@@ -241,15 +254,6 @@
 
         <div class="sheet-section-title">Gestione</div>
         <div class="sheet-grid">
-          <mat-form-field>
-            <mat-label>Fornitore Manutenzione</mat-label>
-            <mat-select formControlName="maintenance_management_id_fk">
-              <mat-option [value]="null">Nessuno</mat-option>
-              @for (opt of maintenanceOptions; track opt.value) {
-                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
           <mat-form-field>
             <mat-label>Concessione acqua</mat-label>
             <input matInput [matDatepicker]="waterConcessionPicker" formControlName="water_concession">

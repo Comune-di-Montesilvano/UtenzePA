@@ -149,10 +149,6 @@ export class CreateUtilityDto {
 
   @IsOptional()
   @IsInt()
-  maintenance_management_id_fk?: number;
-
-  @IsOptional()
-  @IsInt()
   created_by_user_id?: number;
 
   @IsOptional()

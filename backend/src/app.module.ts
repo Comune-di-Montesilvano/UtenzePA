@@ -14,7 +14,6 @@ import { AuthMysqlModule } from '@apis/auth/auth.module';
 import { SetupModule } from '@apis/setup/setup.module';
 import { SystemUsersModule } from '@apis/system-users/system-users.module';
 import { UtilityTypesModule } from '@apis/utility-types/utility-types.module';
-import { AssetAggregatorsModule } from '@apis/asset-aggregators/asset-aggregators.module';
 import { AssetNaturesModule } from '@apis/asset-natures/asset-natures.module';
 import { AssetFunctionsModule } from '@apis/asset-functions/asset-functions.module';
 import { BudgetChaptersModule } from '@apis/budget-chapters/budget-chapters.module';
@@ -27,7 +26,6 @@ import { UtilityConsumptionsModule } from '@apis/utility-consumptions/utility-co
 import { BudgetChapterSpendingModule } from '@apis/budget-chapter-spending/budget-chapter-spending.module';
 import { PlantsModule } from '@apis/plants/plants.module';
 import { AnomaliesModule } from '@apis/anomalies/anomalies.module';
-import { MaintenanceManagersModule } from '@apis/maintenance-managers/maintenance-managers.module';
 import { InvoicesModule } from '@apis/invoices/invoie.module';
 import { ConsipAgreementModule } from '@apis/consip-agreement/consip-agreement.module';
 import { SettingsModule } from '@apis/settings/settings.module';
@@ -52,7 +50,6 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     SetupModule,
     SystemUsersModule,
     UtilityTypesModule,
-    AssetAggregatorsModule,
     AssetNaturesModule,
     AssetFunctionsModule,
     BudgetChaptersModule,
@@ -65,7 +62,6 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     BudgetChapterSpendingModule,
     PlantsModule,
     AnomaliesModule,
-    MaintenanceManagersModule,
     InvoicesModule,
     ConsipAgreementModule,
     SettingsModule,

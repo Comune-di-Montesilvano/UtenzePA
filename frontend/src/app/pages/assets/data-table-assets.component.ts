@@ -38,7 +38,6 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
     {field: 'assetNature.name', header: 'Tipologia', minWidth: '120px'},
     {field: 'assetFunction.name', header: 'Funzione', minWidth: '150px'},
     {field: 'status', header: 'Stato', minWidth: '100px'},
-    {field: 'assetAggregator.code', header: 'Tipo precedente', minWidth: '150px'},
     {field: 'category', header: 'Categoria', minWidth: '120px'},
     {field: 'ownership', header: 'Proprietà', minWidth: '100px'},
     {field: 'toponym', header: 'Toponimo', minWidth: '100px'},
@@ -60,7 +59,7 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
   ];
 
   private readonly defaultVisibleFields = new Set([
-    'id', 'asset_name', 'assetNature.name', 'assetFunction.name', 'status', 'assetAggregator.code',
+    'id', 'asset_name', 'assetNature.name', 'assetFunction.name', 'status',
     'category', 'ownership', 'address', 'municipality'
   ]);
 
@@ -106,8 +105,6 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
         return item.cadastral_value != null
           ? item.cadastral_value.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})
           : '';
-      case 'assetAggregator.code':
-        return item.asset_type_id != null ? (item.assetAggregator?.code ?? '') : '';
       default:
         return String(this.getNestedValue(item, field) ?? '');
     }

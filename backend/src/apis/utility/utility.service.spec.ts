@@ -3,6 +3,7 @@ import { UtilitiesService } from './utility.service';
 import { Utility } from './entity/utility.entity';
 import { ExpiryStatus } from './enum/ExpiryStatus.enum';
 import { CostStatus, costStatusSql } from './cost-status';
+import { MaintenanceStatus, maintenanceStatusSql } from './maintenance-status';
 
 function daysFromToday(days: number): Date {
   const d = new Date();
@@ -223,6 +224,11 @@ describe('UtilitiesService', () => {
       expect(qb.andWhere).toHaveBeenCalledWith(costStatusSql(CostStatus.TO_TRANSFER));
     });
 
+    it('filtro manutenzione usa maintenanceStatusSql', async () => {
+      await service.findAll({ maintenance_status: 'SUPPLIER' } as never);
+      expect(qb.andWhere).toHaveBeenCalledWith(maintenanceStatusSql(MaintenanceStatus.SUPPLIER));
+    });
+
     it('filtro per contratto immobiliare con sotto-query', async () => {
       await service.findAll({ grant_id: 12 } as never);
       const call = qb.andWhere.mock.calls.find((c) => String(c[0]).includes('uga.utilizer_grant_id = :grant_id'));
@@ -369,6 +375,36 @@ describe('UtilitiesService', () => {
       expect(result[0].cost_info.status).toBe('TO_TRANSFER');
       expect(result[1].cost_info.status).toBe('COMUNE');
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('Utility.transferredTo', 'transferredTo');
+    });
+
+    it('aggiunge maintenance_info dai contratti di fornitura', async () => {
+      qb.getMany.mockResolvedValue([
+        {
+          id: 1,
+          assets: [],
+          contratti: [
+            {
+              id: 4,
+              deleted: false,
+              closed: false,
+              maintenance_included: true,
+              supplier: { id: 9, type: 'LEGAL', company_name: 'Luce Spa', deleted: false },
+            },
+          ],
+        },
+        { id: 2, assets: [], contratti: [] },
+      ]);
+
+      const result = (await service.findAll({} as never)) as unknown as {
+        maintenance_info: unknown;
+      }[];
+
+      expect(result[0].maintenance_info).toEqual({
+        status: 'SUPPLIER',
+        contracts: [{ id: 4, name: 'Luce Spa' }],
+        parties: [],
+      });
+      expect(result[1].maintenance_info).toEqual({ status: 'COMUNE', contracts: [], parties: [] });
     });
 
     it('risolve il contratto corrente in una query batched separata e proietta i campi legacy', async () => {

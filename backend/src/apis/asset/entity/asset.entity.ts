@@ -12,7 +12,6 @@ import {
 
 import { Utility } from '../../utility/entity/utility.entity';
 import { UtilizerGrant } from '@apis/utilizer-grant/entity/utilizer-grant.entity';
-import { AssetAggregator } from '../../asset-aggregators/entity/asset-aggregator.entity';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
 import { AssetNature } from '@apis/asset-natures/entity/asset-nature.entity';
 import { AssetFunction } from '@apis/asset-functions/entity/asset-function.entity';
@@ -89,12 +88,6 @@ export class Asset {
   @Column({ length: 100, nullable: true })
   category: string;
 
-  // Legacy (AssetAggregator): in sola lettura, azzerato quando l'immobile
-  // riceve natura + funzione (AssetsService.update). Colonna e tabella
-  // aggregatori vanno droppate quando nessun immobile lo valorizza più.
-  @Column({ type: 'int', nullable: true })
-  asset_type_id: number | null;
-
   @Column({ type: 'int', nullable: true })
   nature_id: number | null;
 
@@ -133,10 +126,6 @@ export class Asset {
 
   @ManyToMany(() => UtilizerGrant, (utilizerGrant) => utilizerGrant.assets)
   utilizerGrants: UtilizerGrant[];
-
-  @ManyToOne(() => AssetAggregator, (aggregator) => aggregator.assets)
-  @JoinColumn({ name: 'asset_type_id' })
-  assetAggregator: AssetAggregator;
 
   @ManyToOne(() => AssetNature)
   @JoinColumn({ name: 'nature_id' })

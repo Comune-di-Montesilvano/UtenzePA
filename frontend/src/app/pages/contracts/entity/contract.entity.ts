@@ -10,6 +10,8 @@ export class Contract extends AbstractEntity implements IContract {
   supplier_id_fk?: number | null;
   cig_contract?: string;
   cig_exempt?: boolean;
+  // Manutenzione compresa nel contratto (es. convenzione Consip Luce).
+  maintenance_included?: boolean;
   // Chiuso/scaduto esplicito: mai corrente, anche senza date.
   closed?: boolean;
   order_number?: string;

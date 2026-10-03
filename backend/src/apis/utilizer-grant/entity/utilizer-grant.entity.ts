@@ -36,6 +36,11 @@ export class UtilizerGrant {
   @Column({ type: 'boolean', default: false })
   utilities_to_be_taken_over: boolean;
 
+  // Manutenzione a carico dell'altra parte: conduttore/concessionario nei
+  // contratti attivi, locatore nei passivi.
+  @Column({ type: 'boolean', default: false })
+  maintenance_by_counterparty: boolean;
+
   @Column({ length: 100, nullable: true })
   usage_type: string;
 

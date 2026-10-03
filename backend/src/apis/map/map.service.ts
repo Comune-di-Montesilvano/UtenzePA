@@ -20,9 +20,8 @@ export interface MapPoint {
   // Solo per type 'utility' — pilota l'icona per tipologia (acqua/luce/gas/
   // internet) nella mappa frontend, vedi HardTypeIcon/HardTypeColor.
   hardType?: HardTypeEnum;
-  // Solo per type 'asset' — nome ligature Material Icons dell'aggregato
-  // immobile collegato (AssetAggregator.icon), null se l'aggregato non ne ha
-  // una custom (frontend applica un fallback).
+  // Solo per type 'asset' — nome ligature Material Icons della funzione
+  // dell'immobile, null se assente (frontend applica un fallback).
   icon?: string | null;
   // Solo per type 'utility' — id dell'asset collegato, usato dal frontend per
   // contare le utenze per edificio e mostrare un badge sul marker immobile
@@ -74,7 +73,7 @@ export class MapService {
     // contatori sparsi), indipendentemente dal checkbox "Utenze": un immobile
     // senza nessuna utenza di quel tipo non deve comparire. Query dedicata
     // (non riusa quella sotto per i punti-utenza, che applica anche il
-    // filtro aggregato — qui serve il solo filtro tipo, sull'intero parco).
+    // filtri di classificazione — qui serve il solo filtro tipo, sull'intero parco).
     // In([]) su MySQL/TypeORM genera "IN ()" non valido — [-1] sentinella
     // forza zero risultati quando nessuna utenza corrisponde, invece di
     // omettere per errore il filtro (un id immobile non è mai negativo).
@@ -92,7 +91,6 @@ export class MapService {
     // ManyToMany TypeORM idrata solo gli immobili che matchano: un'utenza
     // collegata a un immobile filtrato e a uno no compare solo sul primo.
     const assetClassWhere = {
-      ...(filters.assetAggregatorIds?.length ? { asset_type_id: In(filters.assetAggregatorIds) } : {}),
       ...(filters.natureIds?.length ? { nature_id: In(filters.natureIds) } : {}),
       ...(filters.functionIds?.length ? { function_id: In(filters.functionIds) } : {}),
       ...(filters.statuses?.length ? { status: In(filters.statuses) } : {}),
@@ -106,7 +104,7 @@ export class MapService {
           ...assetClassWhere,
           ...(qualifyingAssetIds !== null ? { id: In(qualifyingAssetIds.length ? qualifyingAssetIds : [-1]) } : {}),
         },
-        relations: { assetAggregator: true, assetFunction: true },
+        relations: { assetFunction: true },
       });
 
       for (const asset of assets) {
@@ -120,7 +118,7 @@ export class MapService {
             lat: position.lat,
             lng: position.lng,
             source: position.source,
-            icon: asset.assetFunction?.icon ?? asset.assetAggregator?.icon ?? null,
+            icon: asset.assetFunction?.icon ?? null,
           });
         } else {
           ungeolocated.push({

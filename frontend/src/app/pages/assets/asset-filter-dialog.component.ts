@@ -9,7 +9,6 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatCheckboxModule} from '@angular/material/checkbox';
 import {FilterDialogData} from '../../core/components/abstract-search.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
-import {AssetAggregatorsService} from '../asset-aggregator/asset-aggregator.service';
 import {AssetService} from './asset.service';
 import {AssetNaturesService} from '../asset-nature/asset-nature.service';
 import {AssetFunctionsService} from '../asset-function/asset-function.service';
@@ -18,7 +17,6 @@ import {TOption} from '../../core/types/option.interface';
 
 export interface AssetFilterValues {
   asset_name: string | null;
-  asset_type_id: number | null;
   nature_id: number | null;
   function_id: number | null;
   status: string | null;
@@ -56,7 +54,6 @@ export interface AssetFilterValues {
 export class AssetFilterDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<AssetFilterDialogComponent, AssetFilterValues | 'clear'>);
-  private assetAggregatorsService = inject(AssetAggregatorsService);
   private assetService = inject(AssetService);
   private naturesService = inject(AssetNaturesService);
   private functionsService = inject(AssetFunctionsService);
@@ -65,14 +62,12 @@ export class AssetFilterDialogComponent implements OnInit {
   categoryOptions: TOption[] = this.assetService.categoryOptions();
   toponomyOptions: TOption[] = this.assetService.toponymOptions();
 
-  assetAggregatorOptions: TOption[] = [];
   natureOptions: TOption[] = [];
   functionOptions: TOption[] = [];
   statusOptions: TOption[] = ASSET_STATUS_OPTIONS;
 
   form = this.fb.group({
     asset_name: [this.data.values.asset_name ?? ''],
-    asset_type_id: [this.data.values.asset_type_id ?? null],
     nature_id: [this.data.values.nature_id ?? null],
     function_id: [this.data.values.function_id ?? null],
     status: [this.data.values.status ?? null],
@@ -103,20 +98,6 @@ export class AssetFilterDialogComponent implements OnInit {
     });
     this.functionsService.search({deleted: false} as never).subscribe({
       next: data => this.functionOptions = data.map(f => ({label: f.name, value: f.id, icon: f.icon ?? undefined})),
-    });
-    this.assetAggregatorsService.search({deleted: false}).subscribe({
-      next: data => {
-        // a.code (es. "CASE", "SCUOLE"), non a.description — quest'ultimo è
-        // una nota libera facoltativa, vuota per la maggior parte degli
-        // aggregati: usarla come label produceva righe visibili ma senza
-        // testo nel picker (bug reale, non un problema di stile del
-        // componente — vedi FilterableSelectComponent per la stessa label
-        // usata correttamente altrove, es. filtro mappa).
-        this.assetAggregatorOptions = data
-          .map(a => ({label: a.code ?? '', value: a.id}))
-          .sort((a, b) => a.label.localeCompare(b.label));
-      },
-      error: err => console.error('Errore nel caricamento degli Asset Aggregator:', err)
     });
   }
 

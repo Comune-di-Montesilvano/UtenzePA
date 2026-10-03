@@ -4,7 +4,6 @@ import {LoginComponent} from "./pages/login/login.component";
 import {AuthGuard} from "./guards/auth.guard";
 import {SystemUsersComponent} from "./pages/system-users/system-users.component";
 import {UtilityTypesComponent} from "./pages/utility-types/utility-types.component";
-import {AssetAggregatorsComponent} from "./pages/asset-aggregator/asset-aggregator.component";
 import {AssetNatureComponent} from './pages/asset-nature/asset-nature.component';
 import {AssetFunctionComponent} from './pages/asset-function/asset-function.component';
 import {BudgetChaptersComponent} from "./pages/budget-chapters/budget-chapters.component";
@@ -12,7 +11,6 @@ import {AssetsComponent} from "./pages/assets/assets.component";
 import {UtilizerGrantComponent} from "./pages/utilizer-grant/utilizer-grant.component";
 import {PlantsComponent} from './pages/plants/plants.component';
 import {UtilitiesComponent} from "./pages/utilities/utilities.component";
-import {MaintenanceManagersComponent} from "./pages/maintenance-managers/maintenance-managers.component";
 import {InvoicesComponent} from "./pages/invoices/invoices.component";
 import {ContractsComponent} from "./pages/contracts/contracts.component";
 import {DashboardComponent} from "./pages/dashboard/dashboard.component";
@@ -39,7 +37,6 @@ export const routes: Routes = [
       {path: 'branding', component: BrandingSettingsComponent},
       {path: 'utility-types', component: UtilityTypesComponent},
       {path: 'third-parties', component: ThirdPartiesComponent},
-      {path: 'asset-aggregator', component: AssetAggregatorsComponent},
       {path: 'asset-nature', component: AssetNatureComponent},
       {path: 'asset-function', component: AssetFunctionComponent},
       {path: 'budget-chapter', component: BudgetChaptersComponent},
@@ -47,7 +44,6 @@ export const routes: Routes = [
       {path: 'utilizer-grant', component: UtilizerGrantComponent},
       {path: 'utilities', component: UtilitiesComponent},
       {path: 'plants', component: PlantsComponent},
-      {path: 'maintenance-managers', component: MaintenanceManagersComponent},
       {path: 'invoices', component: InvoicesComponent},
       {path: 'contracts', component: ContractsComponent},
       {path: 'consip-agreement', component: ConsipAgreementComponent},

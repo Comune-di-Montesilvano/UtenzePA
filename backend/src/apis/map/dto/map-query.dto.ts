@@ -32,21 +32,9 @@ export class MapQueryDto {
   @IsEnum(PlantType, { each: true })
   plantTypes?: PlantType[];
 
-  // Filtro multiselect lato frontend — arriva come stringa "1,2,3" (query
-  // param singolo, coerente con MapService.getPoints che serializza un array
-  // con String(), non "?assetAggregatorId=1&assetAggregatorId=2").
-  @IsOptional()
-  @Transform(({ value }) =>
-    value === '' || value === undefined
-      ? undefined
-      : String(value)
-          .split(',')
-          .map((v: string) => Number(v))
-          .filter((n: number) => !Number.isNaN(n)),
-  )
-  @IsInt({ each: true })
-  assetAggregatorIds?: number[];
-
+  // Filtri multiselect lato frontend — arrivano come stringa "1,2,3" (query
+  // param singolo, MapService.getPoints serializza l'array con String(), non
+  // "?functionIds=1&functionIds=2").
   @IsOptional()
   @Transform(({ value }) =>
     value === '' || value === undefined

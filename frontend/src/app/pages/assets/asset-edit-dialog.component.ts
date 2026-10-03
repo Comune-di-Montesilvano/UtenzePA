@@ -28,7 +28,7 @@ import {LocationMapComponent} from '../../core/components/location-map.component
 import {PhotoGalleryComponent} from '../../core/components/photo-gallery.component';
 import {EntityHistoryComponent} from '../../core/components/entity-history.component';
 import {PhotosService} from '../../services/photos.service';
-import {ASSET_AGGREGATOR_ICON_FALLBACK} from '../asset-aggregator/enum/asset-aggregator-icon.enum';
+import {ICON_FALLBACK} from '../../core/helpers/material-icons';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {UtilityType} from '../utility-types/entity/utility-type.entity';
 import {PlantService} from '../plants/plant.service';
@@ -45,7 +45,7 @@ import {
   assetStatus,
   grantStatus,
   inspectionStatusInfo,
-  legacyTypeStatus,
+  unclassifiedStatus,
   plantStatus,
   StatusInfo,
   utilityStatus,
@@ -117,10 +117,10 @@ export class AssetEditDialogComponent implements OnInit {
     `4. Altrimenti è una superficie scoperta (parco, piazza, parcheggio, rotatoria, campo, terreno) → Area`,
   ].join('\n');
 
-  // Obbligatori per immobili nuovi e per quelli già riclassificati (non
-  // devono poter tornare "vuoti"); un immobile legacy si salva anche senza
-  // riclassificarlo (tiene il vecchio tipo).
-  mustClassify = this.isNew || this.data.item.asset_type_id == null;
+  // Obbligatori per immobili nuovi e per quelli già classificati (non devono
+  // poter tornare vuoti); un immobile ancora incompleto si salva lo stesso
+  // (resta nell'anomalia "Immobili senza natura o funzione").
+  mustClassify = this.isNew || (this.data.item.nature_id != null && this.data.item.function_id != null);
   categoryOptions: TOption[] = this.assetService.categoryOptions();
   toponomyOptions: TOption[] = this.assetService.toponymOptions();
   ownershipOptions: TOption[] = [
@@ -249,12 +249,12 @@ export class AssetEditDialogComponent implements OnInit {
     }
   }
 
-  // Icona header: segue la funzione selezionata nel form; in transizione
-  // ricade sull'icona del vecchio aggregato, stesso fallback dei marker mappa.
+  // Icona header: segue la funzione selezionata nel form, stesso fallback dei
+  // marker mappa.
   currentAssetIcon(): string {
     const fid = this.form.controls.function_id.value;
     const fn = this.allFunctions.find(f => f.id === fid);
-    return fn?.icon || this.data.item.assetAggregator?.icon || ASSET_AGGREGATOR_ICON_FALLBACK;
+    return fn?.icon || ICON_FALLBACK;
   }
 
   functionOptions(): AssetFunction[] {
@@ -270,17 +270,13 @@ export class AssetEditDialogComponent implements OnInit {
     return this.allFunctions.find(f => f.id === this.form.controls.function_id.value);
   }
 
-  // Vecchio tipo ancora valorizzato = immobile da riclassificare.
-  legacyTypeLabel(): string | null {
-    return this.data.item.asset_type_id != null ? (this.data.item.assetAggregator?.code ?? null) : null;
-  }
-
   statusInfo(): StatusInfo {
     return assetStatus(this.form.controls.status.value);
   }
 
+  // Sui dati salvati, non sul form: sparisce dopo il Salva.
   legacyBadge(): StatusInfo | null {
-    return legacyTypeStatus(this.legacyTypeLabel());
+    return this.isNew ? null : unclassifiedStatus(this.data.item.nature_id, this.data.item.function_id);
   }
 
   titleText(): string {

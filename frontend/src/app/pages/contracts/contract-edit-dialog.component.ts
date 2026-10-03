@@ -106,6 +106,7 @@ export class ContractEditDialogComponent implements OnInit {
   form = this.fb.group({
     cig_contract: [this.data.item.cig_contract ?? ''],
     cig_exempt: [this.data.item.cig_exempt ?? false],
+    maintenance_included: [this.data.item.maintenance_included ?? false],
     closed: [this.data.item.closed ?? false],
     order_number: [this.data.item.order_number ?? ''],
     consip_order: [this.data.item.consip_order ?? ''],

@@ -33,13 +33,14 @@ export function assetStatus(status: string | null | undefined): StatusInfo {
   }
 }
 
-export function legacyTypeStatus(code: string | null): StatusInfo | null {
-  if (!code) return null;
+// Immobile senza tipologia o funzione (stesso criterio dell'anomalia in dashboard).
+export function unclassifiedStatus(natureId: number | null | undefined, functionId: number | null | undefined): StatusInfo | null {
+  if (natureId != null && functionId != null) return null;
   return {
     tone: 'warn',
-    label: `Tipo precedente: ${code}`,
-    icon: 'history',
-    tooltip: 'Classificazione precedente: sparisce dopo aver salvato tipologia e funzione',
+    label: 'Da classificare',
+    icon: 'help_outline',
+    tooltip: 'Mancano tipologia o funzione: sparisce dopo averle salvate',
   };
 }
 
@@ -54,6 +55,15 @@ export function utilityFlags(meterRemoved: boolean | null | undefined, meterVeri
   if (meterRemoved) flags.push({tone: 'off', label: 'Contatore rimosso', icon: 'remove_circle_outline'});
   if (meterVerified === false) flags.push({tone: 'warn', label: 'Contatore non verificato', icon: 'report'});
   return flags;
+}
+
+// "Manutenzione a carico di" (stato calcolato dal backend, maintenance-status.ts).
+export function maintenanceStatus(info: {status: string} | null | undefined): StatusInfo {
+  switch (info?.status) {
+    case 'SUPPLIER': return {tone: 'info', label: 'Fornitore', icon: 'local_shipping'};
+    case 'COUNTERPARTY': return {tone: 'info', label: 'Controparte', icon: 'handshake'};
+    default: return {tone: 'ok', label: 'Comune', icon: 'account_balance'};
+  }
 }
 
 // "A carico di" (stato calcolato dal backend, cost-status.ts).

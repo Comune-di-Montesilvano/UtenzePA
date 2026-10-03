@@ -52,18 +52,18 @@ describe('AuditLogService', () => {
       userId: 1,
       fields: [
         { fieldName: 'asset_name', oldValue: 'A', newValue: 'B' },
-        { fieldName: 'asset_type_id', oldValue: 1, newValue: 2, oldLabel: 'SCUOLE', newLabel: 'UFFICI' },
+        { fieldName: 'nature_id', oldValue: 1, newValue: 2, oldLabel: 'Fabbricato', newLabel: 'Area / terreno' },
       ],
     });
 
     expect(repo.save).toHaveBeenCalledWith([
       expect.objectContaining({ field_name: 'asset_name', old_value: 'A', new_value: 'B' }),
       expect.objectContaining({
-        field_name: 'asset_type_id',
+        field_name: 'nature_id',
         old_value: '1',
         new_value: '2',
-        old_label: 'SCUOLE',
-        new_label: 'UFFICI',
+        old_label: 'Fabbricato',
+        new_label: 'Area / terreno',
       }),
     ]);
   });

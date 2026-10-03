@@ -43,7 +43,7 @@ import { InfisicalConfigService } from '../../infisical/infisical-config.service
           // disponibile, verificato in OrmUtils/SelectQueryBuilder), quindi si
           // applica identica a ogni query dell'app: nessun altro punto emerso
           // dall'audit dipendeva dal comportamento 'ignore'. Un solo gap reale
-          // trovato e corretto nello stesso giro: CreateAssetAggregatorDto.code
+          // trovato e corretto nello stesso giro: CreateAssetAggregatorDto.code (modulo poi rimosso)
           // era @IsOptional() nonostante la colonna DB fosse
           // `nullable: false, unique: true`, ora è obbligatorio nel DTO.
           // Default TypeORM ('throw' su entrambi) non va quindi più aggirato.

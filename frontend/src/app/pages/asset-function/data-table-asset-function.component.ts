@@ -10,7 +10,7 @@ import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
-import {ASSET_AGGREGATOR_ICON_FALLBACK} from '../asset-aggregator/enum/asset-aggregator-icon.enum';
+import {ICON_FALLBACK} from '../../core/helpers/material-icons';
 import {AssetFunction} from './entity/asset-function.entity';
 import {AssetFunctionEditDialogComponent} from './asset-function-edit-dialog.component';
 
@@ -26,7 +26,7 @@ import {AssetFunctionEditDialogComponent} from './asset-function-edit-dialog.com
 })
 export class DataTableAssetFunctionComponent extends AbstractDataTableComponent<AssetFunction> {
   displayedColumns = ['actions', 'id', 'icon', 'name'];
-  iconFallback = ASSET_AGGREGATOR_ICON_FALLBACK;
+  iconFallback = ICON_FALLBACK;
 
   constructor(screen: ScreenSizeService) {
     super(screen);

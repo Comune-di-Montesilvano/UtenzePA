@@ -7,7 +7,6 @@ import { UpdateAssetDto } from './dto/update-asset.dto';
 import { SearchAssetDto } from './dto/search-asset.dto';
 import { BaseService } from '../shared/base.service';
 import { GeocodingService } from '@apis/geocoding/geocoding.service';
-import { AssetAggregator } from '@apis/asset-aggregators/entity/asset-aggregator.entity';
 import { AssetNature } from '@apis/asset-natures/entity/asset-nature.entity';
 
 const ADDRESS_FIELDS = ['toponym', 'address', 'civic_number', 'zip_code', 'municipality'] as const;
@@ -28,7 +27,6 @@ export interface RegeocodeAllStatus {
 export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAssetDto> {
   protected readonly entityName = 'assets';
   protected readonly relations = [
-    'assetAggregator',
     'assetNature',
     'assetFunction',
     'created_by',
@@ -58,29 +56,17 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     @InjectRepository(Asset)
     protected readonly repo: Repository<Asset>,
     private readonly geocodingService: GeocodingService,
-    @InjectRepository(AssetAggregator)
-    private readonly assetAggregatorRepo: Repository<AssetAggregator>,
     @InjectRepository(AssetNature)
     private readonly natureRepo: Repository<AssetNature>,
   ) {
     super();
-    // code è la label breve corretta mostrata ovunque (icone mappa/filtri);
-    // description è una nota libera quasi sempre vuota — MAI usarla come
-    // label (bug reale corretto altrove nel progetto, vedi
-    // asset-filter-dialog.component.ts).
     this.auditLabelResolvers = {
-      asset_type_id: { repo: this.assetAggregatorRepo, field: 'code' },
       nature_id: { repo: this.natureRepo, field: 'name' },
     };
   }
 
   async findAll(filters?: SearchAssetDto): Promise<Asset[]> {
     const qb = this.repo.createQueryBuilder('assets');
-    qb.leftJoinAndSelect(
-      'assets.assetAggregator',
-      'assetAggregator',
-      'assetAggregator.deleted = 0',
-    );
     qb.leftJoinAndSelect('assets.assetNature', 'assetNature', 'assetNature.deleted = 0');
     qb.leftJoinAndSelect('assets.assetFunction', 'assetFunction', 'assetFunction.deleted = 0');
     // Servono per mostrare "ultima modifica" nell'header del dialog aperto
@@ -102,8 +88,9 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
       qb.where('assets.deleted = :deleted_default', { deleted_default: 0 });
     }
 
+    // Immobili da classificare: senza natura o funzione (banner e filtro).
     if (filters?.legacy_only) {
-      qb.andWhere('assets.asset_type_id IS NOT NULL');
+      qb.andWhere('(assets.nature_id IS NULL OR assets.function_id IS NULL)');
     }
     if (filters?.status) {
       qb.andWhere('assets.status = :filter_status', { filter_status: filters.status });
@@ -117,7 +104,6 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
   findOne(id: number): Promise<Asset | null> {
     return this.repo
       .createQueryBuilder('assets')
-      .leftJoinAndSelect('assets.assetAggregator', 'assetAggregator', 'assetAggregator.deleted = 0')
       .leftJoinAndSelect('assets.assetNature', 'assetNature', 'assetNature.deleted = 0')
       .leftJoinAndSelect('assets.assetFunction', 'assetFunction', 'assetFunction.deleted = 0')
       .leftJoinAndSelect('assets.created_by', 'created_by')
@@ -148,14 +134,14 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     return this.repo
       .createQueryBuilder('assets')
       .where('assets.deleted = 0')
-      .andWhere('assets.asset_type_id IS NOT NULL')
+      .andWhere('(assets.nature_id IS NULL OR assets.function_id IS NULL)')
       .getCount();
   }
 
   // Coppia (natura, funzione) ammessa in asset_nature_functions. Funzione
   // senza natura non ha senso (le funzioni ammesse dipendono dalla natura).
-  // Natura senza funzione è ammessa: riclassificazione a metà di un immobile
-  // legacy, il vecchio tipo resta finché non ci sono entrambe.
+  // Natura senza funzione è ammessa: classificazione a metà, l'immobile resta
+  // tra quelli da classificare.
   private async assertClassification(
     natureId: number | null | undefined,
     functionId: number | null | undefined,
@@ -191,14 +177,7 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
       geocoded_latitude?: string | null;
       geocoded_longitude?: string | null;
       geocoded_at?: Date | null;
-      asset_type_id?: null;
     } = { ...updateDto };
-
-    // Immobile classificato con natura + funzione: il vecchio tipo
-    // (AssetAggregator) non serve più, azzerato (legacy in sola lettura).
-    if (natureId != null && functionId != null) {
-      payload.asset_type_id = null;
-    }
 
     if (shouldRegeocode) {
       payload.geocoded_latitude = null;

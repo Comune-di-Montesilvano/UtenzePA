@@ -43,10 +43,6 @@ export class UpdateUtilityDto {
   supplier_address?: string;
 
   @IsOptional()
-  @IsInt()
-  maintenance_management_id_fk?: number;
-
-  @IsOptional()
   @IsBoolean()
   supply_active?: boolean;
 

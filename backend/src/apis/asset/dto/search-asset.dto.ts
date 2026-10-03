@@ -102,11 +102,6 @@ export class SearchAssetDto {
   @IsOptional()
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))
   @IsInt()
-  asset_type_id?: number;
-
-  @IsOptional()
-  @Transform(({ value }) => (value === '' ? undefined : Number(value)))
-  @IsInt()
   nature_id?: number;
 
   @IsOptional()
@@ -118,8 +113,8 @@ export class SearchAssetDto {
   @IsEnum(AssetStatusEnum)
   status?: AssetStatusEnum;
 
-  // Solo immobili ancora col vecchio tipo (asset_type_id valorizzato): usato
-  // dal banner "N immobili da riclassificare".
+  // Solo immobili senza natura o funzione: usato dal banner "N immobili da
+  // classificare" (stesso criterio dell'anomalia in dashboard).
   @IsOptional()
   @IsBoolean()
   @Transform(({ value }) => value === true || value === 'true')

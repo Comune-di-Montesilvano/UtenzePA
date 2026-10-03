@@ -11,7 +11,7 @@ import { SystemUser } from '@apis/system-users/entity/system-user.entity';
 
 // Funzione di un immobile (a cosa serve: Istruzione, Sport, Illuminazione…).
 // Le combinazioni ammesse con la Natura stanno in asset_nature_functions
-// (vedi AssetNature.functions). Sostituisce progressivamente AssetAggregator.
+// (vedi AssetNature.functions).
 @Entity('asset_functions')
 export class AssetFunction {
   @PrimaryGeneratedColumn('increment')
@@ -20,8 +20,7 @@ export class AssetFunction {
   @Column({ length: 255, unique: true })
   name: string;
 
-  // Ligature Material Icons per i marker mappa (stesso uso di
-  // AssetAggregator.icon, che resta come fallback in transizione).
+  // Ligature Material Icons per i marker mappa e l'header della scheda.
   @Column({ type: 'varchar', length: 50, nullable: true })
   icon: string | null;
 

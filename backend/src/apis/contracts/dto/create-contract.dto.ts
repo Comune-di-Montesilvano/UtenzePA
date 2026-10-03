@@ -23,6 +23,10 @@ export class CreateContractDto {
 
   @IsOptional()
   @IsBoolean()
+  maintenance_included?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
   closed?: boolean;
 
   @IsOptional()

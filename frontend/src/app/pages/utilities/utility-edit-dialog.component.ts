@@ -22,7 +22,6 @@ import {areraOptionsFor, DISCONNECTABLE_OPTIONS, GAS_USE_OPTIONS} from './arera-
 import {TOption} from '../../core/types/option.interface';
 import {AssetService} from '../assets/asset.service';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
-import {MaintenanceManagersService} from '../maintenance-managers/maintenance-managers.service';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {LocationMapComponent} from '../../core/components/location-map.component';
 import {PhotoGalleryComponent} from '../../core/components/photo-gallery.component';
@@ -40,7 +39,7 @@ import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-ba
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
 import {PreviewCardComponent, PreviewItem} from '../../core/components/entity-sheet/preview-card.component';
 import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components/entity-sheet/linked-table.component';
-import {assetStatus, costStatus, plantStatus, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
+import {assetStatus, costStatus, maintenanceStatus, plantStatus, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
 import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {partyName} from '../../core/helpers/party-name.helper';
@@ -91,7 +90,6 @@ export class UtilityEditDialogComponent implements OnInit {
   private assetsService = inject(AssetService);
   private plantService = inject(PlantService);
   private budgetChapterService = inject(BudgetChaptersService);
-  private maintenanceManagerService = inject(MaintenanceManagersService);
   private utilityTypeService = inject(UtilityTypesService);
   private contractsService = inject(ContractsService);
   private navigator = inject(EntityNavigatorService);
@@ -113,7 +111,6 @@ export class UtilityEditDialogComponent implements OnInit {
   plantSelectOptions: TOption[] = [];
   budgetChapterOptions: TOption[] = [];
   private budgetChapters: BudgetChapter[] = [];
-  maintenanceOptions: TOption[] = [];
 
   booleanOptions: TOption[] = [
     {label: 'Sì', value: true},
@@ -165,7 +162,6 @@ export class UtilityEditDialogComponent implements OnInit {
     estimated_annual_consumption: [this.data.item.estimated_annual_consumption ?? 0, Validators.required],
     latitude: [this.data.item.latitude ?? ''],
     longitude: [this.data.item.longitude ?? ''],
-    maintenance_management_id_fk: [this.resolveOnRelation('maintenanceManager', 'maintenance_management_id_fk', this.data.item) ?? null],
     meter_number: [this.data.item.meter_number ?? ''],
     meter_removed: [this.data.item.meter_removed ?? null],
     meter_verified: [this.data.item.meter_verified ?? null],
@@ -231,12 +227,6 @@ export class UtilityEditDialogComponent implements OnInit {
         this.buildBudgetChapterOptions();
       },
       error: err => console.error('Errore nel caricamento dei Capitoli di Spesa:', err)
-    });
-    this.maintenanceManagerService.search().subscribe({
-      next: data => this.maintenanceOptions = data
-        .map(m => ({label: m.code ?? '', value: m.id}))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-      error: err => console.error('Errore nel caricamento Gestori Manutenzione:', err)
     });
     this.utilityTypeService.search().subscribe({
       next: data => this.utilityTypeOptions = data,
@@ -521,6 +511,9 @@ export class UtilityEditDialogComponent implements OnInit {
   // dopo Salva); la voltura si segna nei due campi del form.
   readonly costInfo = this.data.item.cost_info;
   readonly costStatusInfo = costStatus(this.data.item.cost_info);
+  // Manutenzione: calcolata dal backend sui contratti salvati (si aggiorna dopo il Salva).
+  readonly maintenanceInfo = this.data.item.maintenance_info;
+  readonly maintenanceStatusInfo = maintenanceStatus(this.data.item.maintenance_info);
   // Soggetti a cui volturare: parti di tutti i contratti attivi più
   // l'intestatario attuale (anche se non ha più un contratto).
   readonly transferOptions: TOption[] = (() => {

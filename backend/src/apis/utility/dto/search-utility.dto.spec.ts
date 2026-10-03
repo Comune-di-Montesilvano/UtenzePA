@@ -30,6 +30,13 @@ describe('SearchUtilityDto filtri nuovi', () => {
     expect((await parse({ cost_status: 'ALTRO' })).errors).not.toEqual([]);
   });
 
+  it('maintenance_status accetta solo i tre stati', async () => {
+    for (const s of ['COMUNE', 'SUPPLIER', 'COUNTERPARTY']) {
+      expect((await parse({ maintenance_status: s })).errors).toEqual([]);
+    }
+    expect((await parse({ maintenance_status: 'ALTRO' })).errors).not.toEqual([]);
+  });
+
   it('grant_id numerico', async () => {
     expect((await parse({ grant_id: '12' })).dto.grant_id).toBe(12);
   });

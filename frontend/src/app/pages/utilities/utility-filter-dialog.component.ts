@@ -19,7 +19,6 @@ import {ThirdPartiesService} from '../third-parties/third-parties.service';
 import {PartyRole} from '../third-parties/third-party.model';
 import {partyName} from '../../core/helpers/party-name.helper';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
-import {MaintenanceManagersService} from '../maintenance-managers/maintenance-managers.service';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {HardType} from '../utility-types/enum/hard-type.enum';
 import {ARERA_NONE, areraGroups, areraOptionsFor, GAS_USE_OPTIONS} from './arera-category';
@@ -44,7 +43,7 @@ export interface UtilityFilterValues {
   safeguard: boolean | null;
   wbs_gas_element: string | null;
   disconnectable: 'true' | 'false' | 'unknown' | null;
-  maintenance_management_id_fk: number | null;
+  maintenance_status: string | null;
   budget_chapter_code_fk: number | null;
   power_kw_electric: string | null;
   voltage_kw_electric: string | null;
@@ -86,7 +85,6 @@ export class UtilityFilterDialogComponent implements OnInit {
   private assetFunctionsService = inject(AssetFunctionsService);
   private thirdPartiesService = inject(ThirdPartiesService);
   private budgetChapterService = inject(BudgetChaptersService);
-  private maintenanceManagerService = inject(MaintenanceManagersService);
   private utilityTypeService = inject(UtilityTypesService);
   protected data = inject<FilterDialogData<UtilityFilterValues>>(MAT_DIALOG_DATA);
 
@@ -105,6 +103,11 @@ export class UtilityFilterDialogComponent implements OnInit {
     {label: 'No', value: 'false'},
     {label: 'Non noto', value: 'unknown'},
   ];
+  readonly maintenanceStatusOptions: TOption[] = [
+    {label: 'Comune', value: 'COMUNE'},
+    {label: 'Fornitore', value: 'SUPPLIER'},
+    {label: 'Controparte', value: 'COUNTERPARTY'},
+  ];
   readonly costStatusOptions: TOption[] = [
     {label: 'Comune', value: 'COMUNE'},
     {label: 'Da volturare', value: 'TO_TRANSFER'},
@@ -114,7 +117,6 @@ export class UtilityFilterDialogComponent implements OnInit {
   readonly plantTypeOptions: TOption[] = PLANT_TYPES
     .map(t => ({label: PLANT_TYPE_LABEL[t], value: t}))
     .sort((a, b) => a.label.localeCompare(b.label));
-  managementOptions: TOption[] = [];
   assetOptions: TOption[] = [];
   assetFunctionOptions: TOption[] = [];
   supplierOptions: TOption[] = [];
@@ -146,7 +148,7 @@ export class UtilityFilterDialogComponent implements OnInit {
     safeguard: [this.data.values.safeguard ?? null],
     consip_order: [this.data.values.consip_order ?? ''],
     supplier_id_fk: [this.data.values.supplier_id_fk ?? null],
-    maintenance_management_id_fk: [this.data.values.maintenance_management_id_fk ?? null],
+    maintenance_status: [this.data.values.maintenance_status ?? null],
     cost_status: [this.data.values.cost_status ?? null],
     cig_contract: [this.data.values.cig_contract ?? ''],
     order_number: [this.data.values.order_number ?? ''],
@@ -211,14 +213,6 @@ export class UtilityFilterDialogComponent implements OnInit {
         })
         .sort((a: TOption, b: TOption) => a.label.localeCompare(b.label)),
       error: err => console.error('Errore nel caricamento dei Tipi Utenza:', err)
-    });
-
-
-    this.maintenanceManagerService.search().subscribe({
-      next: data => this.managementOptions = data
-        .map((m: any) => ({label: m.code, value: m.id}))
-        .sort((a: TOption, b: TOption) => a.label.localeCompare(b.label)),
-      error: err => console.error('Errore nel caricamento Gestori Manutenzione:', err)
     });
 
     this.assetsService.search({deleted: false}).subscribe({

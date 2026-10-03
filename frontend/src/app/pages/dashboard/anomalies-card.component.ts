@@ -45,6 +45,7 @@ interface Anomalies {
   active_gas_utilities_without_use_category: AnomalyList<UtilityAnomaly>;
   utilities_to_transfer: AnomalyList<UtilityAnomaly>;
   utilities_to_recover: AnomalyList<UtilityAnomaly>;
+  assets_without_classification: AnomalyList<{id: number; asset_name: string; missing: string}>;
 }
 
 // Non estende AbstractService: header Authorization messo a mano (nessun
@@ -287,6 +288,19 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+            <mat-expansion-panel [disabled]="data.assets_without_classification.count === 0">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count" [class.zero]="data.assets_without_classification.count === 0">{{ data.assets_without_classification.count }}</span>
+                  Immobili senza natura o funzione
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (a of data.assets_without_classification.items; track a.id) {
+                  <li (click)="openAsset(a.id)">{{ a.asset_name }} · manca {{ a.missing }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
             <mat-expansion-panel [disabled]="data.plants_without_position.count === 0">
               <mat-expansion-panel-header>
                 <mat-panel-title>
@@ -369,6 +383,12 @@ export class AnomaliesCardComponent implements OnInit {
 
   openPlant(id: number): void {
     this.router.navigate(['/plants'], {queryParams: {selectedId: id}});
+  }
+
+  openAsset(id: number): void {
+    this.navigator.openAsset(id).subscribe(saved => {
+      if (saved) this.load();
+    });
   }
 
   openThirdParty(id: number): void {
