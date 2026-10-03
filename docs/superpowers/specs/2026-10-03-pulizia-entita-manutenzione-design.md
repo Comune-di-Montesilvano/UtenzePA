@@ -26,6 +26,7 @@ Modifiche:
 
 - mappa: il marker immobile usa solo l'icona della funzione (oggi funzione con fallback sull'aggregato); il filtro "Aggregati" della mappa diventa "Funzione" (`functionIds`, conteggio per funzione come oggi per aggregato);
 - elenco e filtri immobili, scheda immobile: tolti campo, colonna e filtro aggregato (la funzione c'è già);
+- dashboard: anomalia "Immobili senza natura o funzione" (natura e funzione diventano l'unica classificazione dell'immobile);
 - `AssetAggregatorIconOptions`, `ASSET_AGGREGATOR_ICON_FALLBACK`, `IconPickerDialogComponent` e il template di ricerca, oggi nella cartella `asset-aggregator` e usati anche da funzioni e nature, si spostano in una posizione condivisa (`core/`) con nomi neutri (`ICON_OPTIONS`, `ICON_FALLBACK`);
 - rimossi modulo backend `asset-aggregators`, entity, relazione e colonna su `Asset`, pagina, route e voce della sidebar;
 - migration `DropAssetAggregators`: drop FK, colonna `assets.asset_type_id`, tabella; `down()` ricrea tabella vuota e colonna nullable con FK.
@@ -73,12 +74,14 @@ Frontend:
 
 ## Dati (DB locale, one-shot, SQL nello scratchpad, mai nel repo)
 
-Prima delle migration di drop, una lista alla volta con conferma dell'utente:
+Prima delle migration di drop, una lista alla volta con conferma dell'utente. Esito (2026-10-03):
 
-1. 7 immobili con solo l'aggregato: funzione proposta per ciascuno, vuota dove c'è dubbio;
-2. utenze con gestore diverso da "comune": in coda alle note `Ex gestore manutenzione Access: <valore>`;
-3. `contracts.maintenance_included = 1` sul contratto del servizio luce (Engie, convenzione Luce 3): copre le 125 utenze "conversion e lighting";
-4. cancellazione delle 20 righe orfane di `invoice_budget_chapter`.
+1. natura ricavata dalla funzione dove la funzione ammette una sola natura (`asset_nature_functions`): 125 immobili;
+2. 47 immobili con funzione ambigua, decisi con l'utente: 34 Area pubblica attrezzata (parchi e giardini, campetti, campo Foscolo, polivalente outdoor, stazione autobus, mercato ittico, stadio Senna), 13 Fabbricato (bocciodromo, palazzetti, chioschi, auditorium, Stella Maris, museo, Villa Delfico, centro Trisi, canile, punto informazioni);
+3. 7 immobili con solo l'aggregato: 5 Fabbricato, uno con funzione Associazioni, gli altri senza funzione; 2 segnaposto "ex contatore disattivato" senza natura né funzione (restano nell'anomalia). Dopo l'intervento: 2 immobili senza natura, 6 senza funzione;
+4. 229 utenze con gestore diverso da "comune": in coda alle note `Ex gestore manutenzione Access: <valore>`;
+5. 20 righe orfane di `invoice_budget_chapter` cancellate;
+6. dopo `AddMaintenanceFlags`: `contracts.maintenance_included = 1` sul contratto del servizio luce (Engie, convenzione Luce 3), che copre le 125 utenze "conversion e lighting".
 
 Il bike sharing (7 utenze attive, progetto probabilmente chiuso) resta Comune con la nota; se si caricherà la concessione, si metterà la spunta sul contratto immobiliare.
 
@@ -87,6 +90,7 @@ Il bike sharing (7 utenze attive, progetto probabilmente chiuso) resta Comune co
 - `maintenanceInfo`: nessun contratto → Comune; fornitura aperta con flag → Fornitore con nome; fornitura chiusa o cancellata con flag → non conta; contratto immobiliare attivo con flag (attivo e passivo) → Controparte con parti; contratto immobiliare non attivo o cancellato, immobile cancellato, parti cancellate → non conta; entrambi → Fornitore; flag `1`/`0` da MySQL; stesso contratto su due immobili → una volta.
 - `maintenanceStatusSql`: per ogni stato, condizioni `EXISTS`/`NOT EXISTS` attese.
 - Map service: icona dalla funzione, filtro `functionIds`.
+- Anomalia immobili senza natura o funzione: conteggio ed elenco, esclusi i cancellati.
 - Migration: ciclo reale up → down → up sul DB locale; `InvoiceBudgetChapterFk` che si ferma con righe orfane presenti.
 - E2E: scheda utenza del servizio luce → Manutenzione "Fornitore"; spunta sul contratto immobiliare → utenza collegata diventa "Controparte"; filtro elenco utenze; mappa con filtro funzione e icone; salvataggio di immobile e utenza dopo la rimozione dei campi.
 
