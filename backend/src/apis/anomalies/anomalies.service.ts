@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ASSET_REQUIRED_TYPES } from '@apis/plants/plant.calc';
 import { DataSource } from 'typeorm';
 import { partyNameSql } from '@apis/third-parties/third-party.name';
+import { CostStatus, costStatusSql } from '@apis/utility/cost-status';
 
 // Contratto valido oggi: stessa definizione di "contratto corrente" usata in
 // UtilitiesService (scadenza assente o non ancora passata).
@@ -44,6 +45,8 @@ export interface Anomalies {
   third_parties_without_identifier: AnomalyList<{ id: number; name: string; type: string }>;
   active_utilities_without_arera_category: AnomalyList<UtilityAnomaly>;
   active_gas_utilities_without_use_category: AnomalyList<UtilityAnomaly>;
+  utilities_to_transfer: AnomalyList<UtilityAnomaly>;
+  utilities_to_recover: AnomalyList<UtilityAnomaly>;
 }
 
 export interface PlantAnomaly {
@@ -206,7 +209,41 @@ export class AnomaliesService {
        ORDER BY u.utility_id`,
     );
 
+    // Contratto immobiliare con voltura attivo, utenza non ancora volturata:
+    // paga il Comune finché il terzo non volta. Le più vecchie prima.
+    const toTransfer: (UtilityAnomaly & { since?: string | null })[] = await this.dataSource.query(
+      `SELECT ${utilityColumns}, x.since,
+              CONCAT(x.parties, IFNULL(CONCAT(' · dal ', DATE_FORMAT(x.since, '%d/%m/%Y')), '')) AS contracts
+       FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
+       JOIN (SELECT ua.utility_id,
+                    GROUP_CONCAT(DISTINCT ${partyNameSql('tp')} ORDER BY tp.id SEPARATOR ', ') AS parties,
+                    MIN(g.start_date) AS since
+               FROM utility_assets ua
+               JOIN assets sa ON sa.id = ua.asset_id AND sa.deleted = 0
+               JOIN utilizer_grant_assets uga ON uga.asset_id = ua.asset_id
+               JOIN utilizer_grant g ON g.id = uga.utilizer_grant_id AND g.deleted = 0
+                 AND g.status = 'ACTIVE' AND g.direction = 'ACTIVE' AND g.utilities_to_be_taken_over = 1
+               JOIN utilizer_grant_parties gp ON gp.utilizer_grant_id = g.id
+               JOIN third_parties tp ON tp.id = gp.third_party_id AND tp.deleted = 0
+              GROUP BY ua.utility_id) x ON x.utility_id = u.id
+       WHERE u.deleted = 0 AND u.supply_active = 1
+         AND ${costStatusSql(CostStatus.TO_TRANSFER, 'u')}
+       ORDER BY x.since IS NULL, x.since, u.utility_id`,
+    );
+
+    // Volturata a chi non ha più un contratto attivo sull'immobile.
+    const toRecover: UtilityAnomaly[] = await this.dataSource.query(
+      `SELECT ${utilityColumns}, ${partyNameSql('vt')} AS contracts
+       FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
+       LEFT JOIN third_parties vt ON vt.id = u.transferred_to_third_party_id
+       WHERE u.deleted = 0 AND u.supply_active = 1
+         AND ${costStatusSql(CostStatus.TO_RECOVER, 'u')}
+       ORDER BY u.utility_id`,
+    );
+
     return {
+      utilities_to_transfer: list(toTransfer.map(({ since: _since, ...u }) => u)),
+      utilities_to_recover: list(toRecover),
       real_estate_contracts_without_parties: list(
         contractsWithoutParties.map((c) => ({ id: Number(c.id), subject: c.subject ?? null })),
       ),
@@ -214,7 +251,12 @@ export class AnomaliesService {
         partiesWithoutIdentifier.map((p) => ({ id: Number(p.id), name: p.name, type: p.type })),
       ),
       plants_without_asset: list(
-        plantsWithoutAsset.map((p) => ({ id: Number(p.id), code: p.code, name: p.name, type: p.type })),
+        plantsWithoutAsset.map((p) => ({
+          id: Number(p.id),
+          code: p.code,
+          name: p.name,
+          type: p.type,
+        })),
       ),
       plants_without_position: list(
         plantsWithoutPosition.map((p) => ({

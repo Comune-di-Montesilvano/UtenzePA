@@ -1,5 +1,8 @@
 import { CostStatus, costInfo, costStatusSql } from './cost-status';
-import { ContractDirection, ContractStatus } from '@apis/utilizer-grant/enum/real-estate-contract.enum';
+import {
+  ContractDirection,
+  ContractStatus,
+} from '@apis/utilizer-grant/enum/real-estate-contract.enum';
 import { ThirdPartyType } from '@apis/third-parties/enum/third-party.enum';
 
 const party = (id: number, name: string, extra = {}) => ({
@@ -32,8 +35,15 @@ const transferred = (p: ReturnType<typeof party>, on: string | null = null) => (
 describe('costInfo', () => {
   it('nessun contratto con voltura: Comune', () => {
     expect(
-      costInfo(utility([[grant(7, [party(3, 'Alfa Srl')], { utilities_to_be_taken_over: false })]])),
-    ).toEqual({ status: CostStatus.COMUNE, parties: [], transferred_to: null, transferred_on: null });
+      costInfo(
+        utility([[grant(7, [party(3, 'Alfa Srl')], { utilities_to_be_taken_over: false })]]),
+      ),
+    ).toEqual({
+      status: CostStatus.COMUNE,
+      parties: [],
+      transferred_to: null,
+      transferred_on: null,
+    });
   });
 
   it('contratto con voltura, utenza non volturata: da volturare, con le parti', () => {
@@ -103,13 +113,21 @@ describe('costInfo', () => {
   it('due contratti: entrambe le parti; stesso contratto su due immobili: una volta', () => {
     const g = grant(7, [party(3, 'Alfa Srl')]);
     expect(
-      costInfo(utility([[g, grant(8, [party(4, 'Beta Spa')])]])).parties.map((p) => p.third_party_id),
+      costInfo(utility([[g, grant(8, [party(4, 'Beta Spa')])]])).parties.map(
+        (p) => p.third_party_id,
+      ),
     ).toEqual([3, 4]);
     expect(costInfo(utility([[g], [g]])).parties).toHaveLength(1);
   });
 
   it('persona fisica: cognome nome', () => {
-    const p = { id: 5, type: ThirdPartyType.NATURAL, last_name: 'Rossi', first_name: 'Mario', deleted: false };
+    const p = {
+      id: 5,
+      type: ThirdPartyType.NATURAL,
+      last_name: 'Rossi',
+      first_name: 'Mario',
+      deleted: false,
+    };
     expect(costInfo(utility([[grant(7, [p])]])).parties[0].name).toBe('Rossi Mario');
   });
 
@@ -131,8 +149,18 @@ describe('costStatusSql', () => {
   it.each([
     [CostStatus.COMUNE, 'IS NULL', 'NOT EXISTS', 'g.utilities_to_be_taken_over = 1'],
     [CostStatus.TO_TRANSFER, 'IS NULL', 'EXISTS', 'g.utilities_to_be_taken_over = 1'],
-    [CostStatus.TRANSFERRED, 'IS NOT NULL', 'EXISTS', 'tp.id = Utility.transferred_to_third_party_id'],
-    [CostStatus.TO_RECOVER, 'IS NOT NULL', 'NOT EXISTS', 'tp.id = Utility.transferred_to_third_party_id'],
+    [
+      CostStatus.TRANSFERRED,
+      'IS NOT NULL',
+      'EXISTS',
+      'tp.id = Utility.transferred_to_third_party_id',
+    ],
+    [
+      CostStatus.TO_RECOVER,
+      'IS NOT NULL',
+      'NOT EXISTS',
+      'tp.id = Utility.transferred_to_third_party_id',
+    ],
   ])('%s', (status, nullCheck, exists, extra) => {
     const sql = costStatusSql(status);
     expect(sql).toContain(`Utility.transferred_to_third_party_id ${nullCheck}`);

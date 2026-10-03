@@ -1,4 +1,7 @@
-import { ContractDirection, ContractStatus } from '@apis/utilizer-grant/enum/real-estate-contract.enum';
+import {
+  ContractDirection,
+  ContractStatus,
+} from '@apis/utilizer-grant/enum/real-estate-contract.enum';
 import { PartyFields, partyName } from '@apis/third-parties/third-party.name';
 
 // "A carico di" calcolato (roadmap voce 12). Contratto attivo = contratto
@@ -81,7 +84,10 @@ export function costInfo(utility: CostInput): CostInfo {
   return {
     status: hasTitle ? CostStatus.TRANSFERRED : CostStatus.TO_RECOVER,
     parties,
-    transferred_to: { id: toId, name: utility.transferredTo ? partyName(utility.transferredTo) : '' },
+    transferred_to: {
+      id: toId,
+      name: utility.transferredTo ? partyName(utility.transferredTo) : '',
+    },
     transferred_on: transferredOn,
   };
 }
