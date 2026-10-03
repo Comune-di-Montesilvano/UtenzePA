@@ -1,5 +1,5 @@
 import {AbstractEntity} from '../../../core/entities/abstract.entity';
-import {IUtility} from './utility.interface';
+import type {CostInfo, IUtility} from './utility.interface';
 import {Phase} from '../enum/phase.enum';
 import {ExpireState} from '../enum/expire-state.enum';
 import {ConsipAgreement} from '../../consip-agreement/entity/consip-agreement.entity';
@@ -11,8 +11,6 @@ import type {PlantType} from '../../plants/plant.model';
 import type {AreraCategory, GasUseCategory} from '../arera-category';
 import {BudgetChapter} from '../../budget-chapters/entity/budget-chapter.entity';
 import {MaintenanceManager} from '../../maintenance-managers/entity/maintenance-manager.entity';
-import {CostsBorneBy} from '../../costs-borne-by/entity/costs-borne-by.entity';
-import {UtilityAggregator} from '../../utility-aggregator/entity/utility-aggregator.entity';
 import {SystemUser} from '../../system-users/entity/system-user.entity';
 import {Contract} from '../../contracts/entity/contract.entity';
 
@@ -56,7 +54,8 @@ export class Utility extends AbstractEntity implements IUtility {
   specifications?: string;
   water_concession?: Date;
   utility_type_id_fk!: number;
-  costs_borne_by_id_fk!: number | null;
+  transferred_to_third_party_id?: number | null;
+  transferred_on?: Date | string | null;
   maintenance_management_id_fk!: number;
   @Exclude({toPlainOnly: true})
   supplier_id_fk?: number | null;
@@ -65,7 +64,6 @@ export class Utility extends AbstractEntity implements IUtility {
   asset_ids?: number[];
   // Inviato al backend (impianti a servizio); in lettura si ricava da `plants`.
   plant_ids?: number[];
-  aggregator_id_fk?: number;
   budget_chapter_code_fk!: number;
   @Exclude({toPlainOnly: true})
   order_number?: string;
@@ -76,7 +74,7 @@ export class Utility extends AbstractEntity implements IUtility {
   utilityType?: UtilityType;
 
   @Exclude({toPlainOnly: true})
-  costsBorneBy?: CostsBorneBy;
+  cost_info?: CostInfo;
 
   @Exclude({toPlainOnly: true})
   @Type(() => MaintenanceManager)
@@ -91,9 +89,6 @@ export class Utility extends AbstractEntity implements IUtility {
 
   @Exclude({toPlainOnly: true})
   plants?: {id: number; code: string; name: string; type: PlantType}[];
-
-  @Exclude({toPlainOnly: true})
-  aggregator?: UtilityAggregator;
 
   @Exclude({toPlainOnly: true})
   @Type(() => BudgetChapter)
@@ -188,10 +183,6 @@ export class Utility extends AbstractEntity implements IUtility {
     const expiry = new Date(this.supply_expiry_date);
     expiry.setHours(0, 0, 0, 0);
     return expiry < today;
-  }
-
-  get isHighlighted(): boolean {
-    return this.costsBorneBy?.id === 1 || this.costs_borne_by_id_fk === 1;
   }
 
   static create(data?: Partial<Utility>): Utility {

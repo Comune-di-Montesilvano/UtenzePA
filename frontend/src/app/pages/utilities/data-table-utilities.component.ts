@@ -17,13 +17,13 @@ import {AbstractDataTableComponent} from '../../core/components/abstract-data-ta
 import {UtilityEditDialogComponent} from './utility-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
-import {UtilityAggregatorsService} from '../utility-aggregator/utility-aggregator.service';
-import {UtilityAggregator} from '../utility-aggregator/entity/utility-aggregator.entity';
 import {ExpireState} from './enum/expire-state.enum';
 import {ExportHelper} from '../../core/helpers/export.helper';
 import {TruncatePipe} from '../../core/pipes/truncate.pipe';
 import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
 import {partyName} from '../../core/helpers/party-name.helper';
+import {costStatus} from '../../core/helpers/entity-status';
+import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
 
 @Component({
   selector: 'app-data-table-utilities',
@@ -31,13 +31,14 @@ import {partyName} from '../../core/helpers/party-name.helper';
   imports: [
     MatTableModule, MatSortModule, MatPaginatorModule, MatButtonModule, MatIconModule,
     MatTooltipModule, MatProgressBarModule, MatSelectModule, MatFormFieldModule, FormsModule,
-    HasRoleDirective, TruncatePipe, FormatAmountPipe, DatePipe
+    HasRoleDirective, TruncatePipe, FormatAmountPipe, DatePipe, StatusBadgeComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-utilities.component.html'
 })
 export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Utility> {
   readonly partyName = partyName;
+  readonly costStatus = costStatus;
   private navigator = inject(EntityNavigatorService);
 
   maxDescLength = 50;
@@ -48,8 +49,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     {field: 'utilityType.name', header: 'Tipo Utenza', minWidth: '150px'},
     {field: 'supplier', header: 'Fornitore', minWidth: '150px'},
     {field: 'asset.asset_name', header: 'Fabbricato Associato', minWidth: '150px'},
-    {field: 'costsBorneBy.name', header: 'Costi a Carico di', minWidth: '150px'},
-    {field: 'aggregator.description', header: 'ID Aggregato', minWidth: '200px'},
+    {field: 'cost_info', header: 'A carico di', minWidth: '170px'},
     {field: 'meter_number', header: 'Numero Contatore', minWidth: '120px'},
     {field: 'utility_code', header: 'Codice Utenza o Cliente', minWidth: '150px'},
     {field: 'supplier_address', header: 'Indirizzo Fornitura', minWidth: '150px'},
@@ -88,7 +88,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
 
   private readonly defaultVisibleFields = new Set([
     'id', 'utility_id', 'utilityType.name', 'supplier',
-    'asset.asset_name', 'costsBorneBy.name', 'supply_active', 'supply_expiry_date', 'expiryStatus',
+    'asset.asset_name', 'cost_info', 'supply_active', 'supply_expiry_date', 'expiryStatus',
   ]);
 
   private static readonly STORAGE_KEY = 'columns:utilities';
@@ -107,12 +107,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     this.saveColumnSelection(DataTableUtilitiesComponent.STORAGE_KEY, this.selectedColumns);
   }
 
-  utilityAggregatorMap: { [key: number]: UtilityAggregator } = {};
-
-  constructor(
-    screen: ScreenSizeService,
-    private readonly utilityAggregatorService: UtilityAggregatorsService
-  ) {
+  constructor(screen: ScreenSizeService) {
     super(screen);
     // Custom sort fedele all'originale PrimeNG customSort(event): path annidati (es.
     // "utilityType.name") + confronto stringhe con localeCompare('it') + fallback numerico, con
@@ -131,6 +126,12 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
       if (active === 'asset.asset_name') {
         return [...data].sort((a, b) =>
           order * this.assetNames(a).toLowerCase().localeCompare(this.assetNames(b).toLowerCase(), 'it')
+        );
+      }
+
+      if (active === 'cost_info') {
+        return [...data].sort((a, b) =>
+          order * this.payerLabel(a).toLowerCase().localeCompare(this.payerLabel(b).toLowerCase(), 'it')
         );
       }
 
@@ -160,17 +161,11 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     };
   }
 
-  override ngOnInit(): void {
-    super.ngOnInit();
-    this.utilityAggregatorService.search({deleted: false}).subscribe({
-      next: (data: UtilityAggregator[]) => {
-        this.utilityAggregatorMap = data.reduce((map, item) => {
-          map[item.id] = item;
-          return map;
-        }, {} as { [key: number]: UtilityAggregator });
-      },
-      error: err => console.error('Errore nel caricamento degli Aggregati Utenza:', err)
-    });
+  // A carico di: stato calcolato + intestatario (o parti del contratto con voltura).
+  payerLabel(utility: Utility): string {
+    const info = utility.cost_info;
+    const name = info?.transferred_to?.name || (info?.parties ?? []).map(p => p.name).join(', ');
+    return [costStatus(info).label, name].filter(Boolean).join(' · ');
   }
 
   // CRITICO: AbstractDataTableComponent.ngAfterViewInit() (frontend/src/app/core/components/
@@ -250,10 +245,8 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
         return utility.security_deposit != null
           ? utility.security_deposit.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})
           : '';
-      case 'aggregator.description':
-        return utility.aggregator_id_fk != null
-          ? (this.utilityAggregatorMap[utility.aggregator_id_fk]?.description ?? '')
-          : '';
+      case 'cost_info':
+        return this.payerLabel(utility);
       case 'budgetChapter.description':
         return utility.budgetChapter?.label ?? '';
       case 'asset.parties':

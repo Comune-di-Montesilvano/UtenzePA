@@ -21,9 +21,7 @@ import {Asset} from '../assets/entity/asset.entity';
 import {areraOptionsFor, DISCONNECTABLE_OPTIONS, GAS_USE_OPTIONS} from './arera-category';
 import {TOption} from '../../core/types/option.interface';
 import {AssetService} from '../assets/asset.service';
-import {UtilityAggregatorsService} from '../utility-aggregator/utility-aggregator.service';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
-import {CostsBorneByService} from '../costs-borne-by/costs-borne-by.service';
 import {MaintenanceManagersService} from '../maintenance-managers/maintenance-managers.service';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {LocationMapComponent} from '../../core/components/location-map.component';
@@ -42,7 +40,7 @@ import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-ba
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
 import {PreviewCardComponent, PreviewItem} from '../../core/components/entity-sheet/preview-card.component';
 import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components/entity-sheet/linked-table.component';
-import {assetStatus, plantStatus, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
+import {assetStatus, costStatus, plantStatus, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
 import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {partyName} from '../../core/helpers/party-name.helper';
@@ -92,9 +90,7 @@ export class UtilityEditDialogComponent implements OnInit {
   private authService = inject(AuthService);
   private assetsService = inject(AssetService);
   private plantService = inject(PlantService);
-  private utilityAggregatorService = inject(UtilityAggregatorsService);
   private budgetChapterService = inject(BudgetChaptersService);
-  private costsBorneByService = inject(CostsBorneByService);
   private maintenanceManagerService = inject(MaintenanceManagersService);
   private utilityTypeService = inject(UtilityTypesService);
   private contractsService = inject(ContractsService);
@@ -117,8 +113,6 @@ export class UtilityEditDialogComponent implements OnInit {
   plantSelectOptions: TOption[] = [];
   budgetChapterOptions: TOption[] = [];
   private budgetChapters: BudgetChapter[] = [];
-  aggregatorOptions: TOption[] = [];
-  costsBorneByOptions: TOption[] = [];
   maintenanceOptions: TOption[] = [];
 
   booleanOptions: TOption[] = [
@@ -154,11 +148,11 @@ export class UtilityEditDialogComponent implements OnInit {
 
   form = this.fb.group({
     additional_notes: [this.data.item.additional_notes ?? ''],
-    aggregator_id_fk: [this.resolveOnRelation('aggregator', 'aggregator_id_fk', this.data.item) ?? null],
     asset_ids: [(this.data.item.assets ?? []).map(a => a.id)],
     plant_ids: [(this.data.item.plants ?? []).map(p => p.id)],
     budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null, Validators.required],
-    costs_borne_by_id_fk: [this.resolveOnRelation('costsBorneBy', 'costs_borne_by_id_fk', this.data.item) ?? null, Validators.required],
+    transferred_to_third_party_id: [this.data.item.transferred_to_third_party_id ?? null],
+    transferred_on: [this.toDate(this.data.item.transferred_on)],
     arera_category: [this.data.item.arera_category ?? null],
     gas_use_category: [this.data.item.gas_use_category ?? null],
     disconnectable: [this.data.item.disconnectable ?? null],
@@ -225,24 +219,12 @@ export class UtilityEditDialogComponent implements OnInit {
     this.refreshLinks();
     this.loadPlants();
     this.loadAssets();
-    this.utilityAggregatorService.search({deleted: false}).subscribe({
-      next: data => this.aggregatorOptions = data
-        .map(a => ({label: a.description ?? '', value: a.id}))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-      error: err => console.error('Errore nel caricamento degli Aggregati Utenza:', err)
-    });
     this.budgetChapterService.search({deleted: false}).subscribe({
       next: data => {
         this.budgetChapters = data;
         this.buildBudgetChapterOptions();
       },
       error: err => console.error('Errore nel caricamento dei Capitoli di Spesa:', err)
-    });
-    this.costsBorneByService.search().subscribe({
-      next: data => this.costsBorneByOptions = data
-        .map(c => ({label: c.name ?? '', value: c.id}))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-      error: err => console.error('Errore nel caricamento Costi a Carico di:', err)
     });
     this.maintenanceManagerService.search().subscribe({
       next: data => this.maintenanceOptions = data
@@ -529,18 +511,33 @@ export class UtilityEditDialogComponent implements OnInit {
     return this.assetRows.find(a => (a.latitude ?? a.geocoded_latitude) && (a.longitude ?? a.geocoded_longitude)) ?? this.assetRows[0];
   }
 
-  // Concessioni raggruppate per immobile collegato.
-  grantsByAsset(): {assetName: string; utilizers: string[]}[] {
-    return (this.data.item.assets ?? [])
-      .map(a => ({
-        assetName: a.asset_name,
-        utilizers: (a.utilizerGrants ?? []).flatMap(g => (g.parties ?? []).map(partyName)).filter(n => !!n),
-      }))
-      .filter(g => g.utilizers.length > 0);
+  // A carico di: stato calcolato dal backend sui dati salvati (si aggiorna
+  // dopo Salva); la voltura si segna nei due campi del form.
+  readonly costInfo = this.data.item.cost_info;
+  readonly costStatusInfo = costStatus(this.data.item.cost_info);
+  // Soggetti a cui volturare: parti dei contratti con voltura più
+  // l'intestatario attuale (anche se non ha più un contratto).
+  readonly transferOptions: TOption[] = (() => {
+    const opts = new Map<number, string>();
+    for (const p of this.costInfo?.parties ?? []) opts.set(p.third_party_id, p.name);
+    if (this.costInfo?.transferred_to) opts.set(this.costInfo.transferred_to.id, this.costInfo.transferred_to.name);
+    return [...opts].map(([value, label]) => ({value, label}));
+  })();
+
+  markTransferredToday(): void {
+    const parties = this.costInfo?.parties ?? [];
+    if (parties.length !== 1) return;
+    this.form.patchValue({transferred_to_third_party_id: parties[0].third_party_id, transferred_on: new Date()});
+    this.form.markAsDirty();
   }
 
-  counterpartCount(): number {
-    return this.grantsByAsset().reduce((n, g) => n + g.utilizers.length, 0);
+  recoverToComune(): void {
+    this.form.patchValue({transferred_to_third_party_id: null, transferred_on: null});
+    this.form.markAsDirty();
+  }
+
+  openGrant(id: number): void {
+    this.navigator.openGrant(id).subscribe();
   }
 
   onPositionSelected(coords: { lat: string; lng: string }): void {

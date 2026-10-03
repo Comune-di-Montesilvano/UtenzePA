@@ -37,14 +37,22 @@
               formControlName="asset_id">
             </app-filterable-select>
           </div>
-          <div style="flex: 1 1 calc(25% - 0.75rem);">
-            <app-filterable-select
-              label="Aggregato"
-              placeholder="Cerca aggregato..."
-              [options]="aggregatorOptions"
-              formControlName="aggregator_id_fk">
-            </app-filterable-select>
-          </div>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Funzione immobile</mat-label>
+            <mat-select formControlName="asset_function_ids" multiple>
+              @for (opt of assetFunctionOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
+            <mat-label>Tipo impianto</mat-label>
+            <mat-select formControlName="plant_types" multiple>
+              @for (opt of plantTypeOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
           <mat-form-field style="flex: 2 1 calc(50% - 0.75rem);">
             <mat-label>Indirizzo Fornitura</mat-label>
             <input matInput formControlName="supplier_address">
@@ -272,10 +280,10 @@
             </mat-form-field>
           </div>
           <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
-            <mat-label>Costi a Carico di</mat-label>
-            <mat-select formControlName="costs_borne_by_id_fk">
+            <mat-label>A carico di</mat-label>
+            <mat-select formControlName="cost_status">
               <mat-option [value]="null">Tutti</mat-option>
-              @for (opt of costsBorneByOptions; track opt.value) {
+              @for (opt of costStatusOptions; track opt.value) {
                 <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
               }
             </mat-select>

@@ -43,6 +43,8 @@ interface Anomalies {
   third_parties_without_identifier: AnomalyList<{id: number; name: string; type: string}>;
   active_utilities_without_arera_category: AnomalyList<UtilityAnomaly>;
   active_gas_utilities_without_use_category: AnomalyList<UtilityAnomaly>;
+  utilities_to_transfer: AnomalyList<UtilityAnomaly>;
+  utilities_to_recover: AnomalyList<UtilityAnomaly>;
 }
 
 // Non estende AbstractService: header Authorization messo a mano (nessun
@@ -155,6 +157,34 @@ const formatDate = (iso: string | null): string => {
               <ul class="anomaly-list">
                 @for (u of data.active_gas_utilities_without_use_category.items; track u.id) {
                   <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+
+            <mat-expansion-panel [disabled]="data.utilities_to_transfer.count === 0">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count" [class.zero]="data.utilities_to_transfer.count === 0">{{ data.utilities_to_transfer.count }}</span>
+                  Utenze da volturare
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (u of data.utilities_to_transfer.items; track u.id) {
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · {{ u.contracts }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+
+            <mat-expansion-panel [disabled]="data.utilities_to_recover.count === 0">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count" [class.zero]="data.utilities_to_recover.count === 0">{{ data.utilities_to_recover.count }}</span>
+                  Utenze volturate da riprendere
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (u of data.utilities_to_recover.items; track u.id) {
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · {{ u.contracts }}</li>
                 }
               </ul>
             </mat-expansion-panel>
@@ -305,7 +335,9 @@ export class AnomaliesCardComponent implements OnInit {
       + this.data.plants_without_position.count + this.data.plants_without_asset.count
       + this.data.real_estate_contracts_without_parties.count + this.data.third_parties_without_identifier.count
       + this.data.active_utilities_without_arera_category.count
-      + this.data.active_gas_utilities_without_use_category.count;
+      + this.data.active_gas_utilities_without_use_category.count
+      + this.data.utilities_to_transfer.count
+      + this.data.utilities_to_recover.count;
   }
 
   ngOnInit(): void {

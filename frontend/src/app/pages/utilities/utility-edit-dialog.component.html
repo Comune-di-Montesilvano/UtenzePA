@@ -17,7 +17,7 @@
       <mat-tab aria-label="Riepilogo">
         <ng-template mat-tab-label>
           <app-tab-label icon="dashboard" label="Riepilogo"
-                         [error]="invalid('utility_id', 'utility_type_id_fk', 'budget_chapter_code_fk', 'costs_borne_by_id_fk')"></app-tab-label>
+                         [error]="invalid('utility_id', 'utility_type_id_fk', 'budget_chapter_code_fk')"></app-tab-label>
         </ng-template>
 
         @if (linkError()) {
@@ -73,25 +73,6 @@
             <mat-label>Codice Utenza o Cliente</mat-label>
             <input matInput formControlName="utility_code">
           </mat-form-field>
-          <div class="span-2">
-            <app-filterable-select
-              label="ID Aggregato"
-              placeholder="Cerca aggregato..."
-              [options]="aggregatorOptions"
-              formControlName="aggregator_id_fk">
-            </app-filterable-select>
-          </div>
-          <mat-form-field class="span-2">
-            <mat-label>Costi a Carico di</mat-label>
-            <mat-select formControlName="costs_borne_by_id_fk">
-              @for (opt of costsBorneByOptions; track opt.value) {
-                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-              }
-            </mat-select>
-            @if (form.controls.costs_borne_by_id_fk.invalid && form.controls.costs_borne_by_id_fk.touched) {
-              <mat-error>Obbligatorio</mat-error>
-            }
-          </mat-form-field>
           <div class="span-all">
             <app-filterable-select
               label="Capitolo di Spesa *"
@@ -102,6 +83,39 @@
             </app-filterable-select>
           </div>
         </div>
+
+        @if (!isNew) {
+          <div class="sheet-section-title"><mat-icon>payments</mat-icon>A carico di</div>
+          <div class="sheet-grid">
+            <div class="span-all" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+              <app-status-badge [info]="costStatusInfo"></app-status-badge>
+              @for (p of costInfo?.parties ?? []; track p.grant_id + '-' + p.third_party_id) {
+                <a href="javascript:void(0)" (click)="openGrant(p.grant_id)" matTooltip="Apri il contratto immobiliare">{{ p.name }}</a>
+              }
+              @if (canEdit && costInfo?.status === 'TO_TRANSFER' && costInfo?.parties?.length === 1) {
+                <button mat-stroked-button type="button" (click)="markTransferredToday()">Segna volturata oggi</button>
+              }
+              @if (canEdit && form.controls.transferred_to_third_party_id.value) {
+                <button mat-button type="button" (click)="recoverToComune()">Ripresa dal Comune</button>
+              }
+            </div>
+            <mat-form-field class="span-2">
+              <mat-label>Volturata a</mat-label>
+              <mat-select formControlName="transferred_to_third_party_id">
+                <mat-option [value]="null">Non volturata (Comune)</mat-option>
+                @for (opt of transferOptions; track opt.value) {
+                  <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Volturata il</mat-label>
+              <input matInput [matDatepicker]="transferredOnPicker" formControlName="transferred_on">
+              <mat-datepicker-toggle matSuffix [for]="transferredOnPicker"></mat-datepicker-toggle>
+              <mat-datepicker #transferredOnPicker></mat-datepicker>
+            </mat-form-field>
+          </div>
+        }
 
         <div class="sheet-section-title">
           <mat-icon>place</mat-icon>Indirizzo e posizione
@@ -342,25 +356,6 @@
             (summaryChanged)="onConsumptionSummary($event)">
           </app-utility-consumptions-tab>
         }
-      </mat-tab>
-
-      <mat-tab aria-label="Controparti" [disabled]="isNew">
-        <ng-template mat-tab-label>
-          <app-tab-label icon="groups" label="Controparti" [count]="isNew ? null : counterpartCount()"></app-tab-label>
-        </ng-template>
-        <ng-template matTabContent>
-          <div class="sheet-section-title">Controparti</div>
-          @for (group of grantsByAsset(); track group.assetName) {
-            <div style="font-weight: 500; margin-top: 0.25rem;">{{ group.assetName }}</div>
-            <ul class="sheet-list">
-              @for (name of group.utilizers; track name) {
-                <li>{{ name }}</li>
-              }
-            </ul>
-          } @empty {
-            <p class="sheet-empty">Nessuna concessione trovata.</p>
-          }
-        </ng-template>
       </mat-tab>
 
       <mat-tab aria-label="Note">

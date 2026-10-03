@@ -21,7 +21,9 @@ import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-ba
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
 import {LinkedColumn, LinkedTableComponent} from '../../core/components/entity-sheet/linked-table.component';
 import {ValidityBarComponent} from '../../core/components/entity-sheet/validity-bar.component';
-import {assetStatus, grantFlags, grantStatus, StatusInfo} from '../../core/helpers/entity-status';
+import {assetStatus, costStatus, grantFlags, grantStatus, StatusInfo} from '../../core/helpers/entity-status';
+import {UtilityService} from '../utilities/utility.service';
+import {Utility} from '../utilities/entity/utility.entity';
 import {hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {EntityHistoryComponent} from '../../core/components/entity-history.component';
@@ -97,6 +99,7 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
 
   readonly item = this.data.item;
   private navigator = inject(EntityNavigatorService);
+  private utilityService = inject(UtilityService);
 
   readonly canEdit = isEditorRole(this.authService.getCurrentUser()?.role);
   readonly lastModified = lastModifiedLabel(this.item.update_date, this.item.updated_by);
@@ -110,6 +113,16 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
     {label: 'Indirizzo', value: a => [a.toponym, a.address, a.civic_number].filter(Boolean).join(' ')},
   ];
   readonly assetStatusOf = (a: Asset): StatusInfo => assetStatus(a.status);
+
+  // Utenze degli immobili del contratto con lo stato "a carico di": la
+  // voltura si segna dalla scheda dell'utenza.
+  utilityRows: Utility[] = [];
+  readonly utilityColumns: LinkedColumn<Utility>[] = [
+    {label: 'POD/PDR', value: u => u.utility_id ?? ''},
+    {label: 'Tipo', value: u => u.utilityType?.name ?? ''},
+    {label: 'Volturata a', value: u => u.cost_info?.transferred_to?.name ?? ''},
+  ];
+  readonly utilityStatusOf = (u: Utility): StatusInfo => costStatus(u.cost_info);
 
   readonly childColumns: LinkedColumn<UtilizerGrant>[] = [
     {label: '#', value: c => String(c.id)},
@@ -191,6 +204,7 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
 
   ngOnInit(): void {
     this.refreshAssets();
+    this.loadUtilities();
     this.assetService.search({deleted: false}).subscribe({
       next: (data) => {
         this.allAssets = data;
@@ -271,6 +285,20 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
 
   openAsset(id: number): void {
     this.navigator.openAsset(id).subscribe();
+  }
+
+  private loadUtilities(): void {
+    if (this.isNew) return;
+    this.utilityService.search({grant_id: this.item.id, deleted: false} as never).subscribe({
+      next: rows => this.utilityRows = rows,
+      error: err => console.error('Errore nel caricamento delle utenze del contratto:', err),
+    });
+  }
+
+  openUtility(id: number): void {
+    this.navigator.openUtility(id).subscribe(saved => {
+      if (saved) this.loadUtilities();
+    });
   }
 
   openGrant(id: number | null | undefined): void {

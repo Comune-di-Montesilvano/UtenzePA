@@ -6,24 +6,31 @@ import {IConsipAgreement} from '../../consip-agreement/entity/consip-agreement.i
 import {ISystemUser} from '../../system-users/entity/system-user.interface';
 import {IAsset} from '../../assets/entity/asset.interface';
 import {IBudgetChapter} from '../../budget-chapters/entity/budget-chapter.interface';
-import {ICostsBorneBy} from '../../costs-borne-by/entity/costs-borne-by.interface';
-import {UtilityAggregator} from '../../utility-aggregator/entity/utility-aggregator.interface';
 import {IMaintenanceManager} from '../../maintenance-managers/entity/maintenance-manager.interface';
 import {Contract} from '../../contracts/entity/contract.entity';
+
+// "A carico di" calcolato dal backend (apis/utility/cost-status.ts).
+export type CostStatus = 'COMUNE' | 'TO_TRANSFER' | 'TRANSFERRED' | 'TO_RECOVER';
+
+export interface CostInfo {
+  status: CostStatus;
+  parties: {grant_id: number; third_party_id: number; name: string}[];
+  transferred_to: {id: number; name: string} | null;
+  transferred_on: string | null;
+}
 
 export interface IUtility {
   id: number;
   additional_notes?: string | null;
-  aggregator?: UtilityAggregator | null;
-  aggregator_id_fk?: number | null;
   assets?: IAsset[];
   asset_ids?: number[];
   budget_chapter_code_fk: number;
   budgetChapter?: IBudgetChapter;
   consipAgreement?: IConsipAgreement | null;
   contratti?: Contract[];
-  costs_borne_by_id_fk: number | null;
-  costsBorneBy?: ICostsBorneBy | null;
+  cost_info?: CostInfo;
+  transferred_to_third_party_id?: number | null;
+  transferred_on?: Date | string | null;
   create_date: Date | null;
   created_by?: ISystemUser | null;
   created_by_user_id: number | null;
