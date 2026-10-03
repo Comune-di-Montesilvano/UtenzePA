@@ -22,7 +22,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 4 | Complessi | da approfondire |
 | 5 | Aree verdi | da approfondire |
 | 6 | Fatture per utenza | da approfondire |
-| 7 | Contratti di servizio e manutenzione | in corso con la voce 18 (sostituiscono i gestori manutenzione) |
+| 7 | Contratti di servizio e manutenzione | da approfondire (ditte esterne sugli impianti; i gestori manutenzione sono stati sostituiti in v1.9.0) |
 | 8 | Permessi di scrittura granulari | da approfondire |
 | 9 | Soggetti terzi (controparti + fornitori) | fatto, v1.8.0 (pulizia dati fatta sul DB locale; restano CF delle persone, P.IVA Open Fiber, 2 locatori SPRAR) |
 | 10 | Tipologie contrattuali ARERA (al posto delle finalità d'uso) | fatto, v1.8.0 (valorizzazione delle tipologie sul DB locale da fare) |
@@ -33,7 +33,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 15 | UI e identità (elenchi, filtri, dark mode, sidebar, nome) | da approfondire |
 | 16 | Dashboard e mappa | per ultime |
 | 17 | Impegni di spesa (contratto ↔ capitolo) | da approfondire |
-| 18 | Pulizia entità e incongruenze del modello | in corso (analisi fatta) |
+| 18 | Pulizia entità e incongruenze del modello | parte 1 fatta, v1.9.0 (tabelle morte, aggregati immobili, gestori manutenzione → manutenzione calcolata); restano i campi doppi |
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
 
@@ -276,6 +276,8 @@ Analisi dello schema e dei dati sul DB locale (2026-10-03), ragionando su come a
 **Sane, nessun intervento:** soggetti terzi, impianti e tabelle per tipo, consumi, foto (polimorfiche per tipo e id), impostazioni, audit log, utenze per contratto (lo storico dei rinnovi Consip spiega le utenze con 5–7 contratti).
 
 Decisione utente (2026-10-03): si parte da questa voce; i gestori manutenzione si sostituiscono con i contratti di manutenzione (voce 7, assorbita qui).
+
+**Parte 1 fatta in v1.9.0** (spec `docs/superpowers/specs/2026-10-03-pulizia-entita-manutenzione-design.md`): eliminati `fk_test`, `aca_keys`, aggregati immobili (mappa e icone solo dalla funzione) e gestori manutenzione; FK su `invoice_budget_chapter` (aggiunte solo se mancano); "Manutenzione a carico di" calcolata dalle spunte "Manutenzione inclusa" (contratto di fornitura) e "Manutenzione a carico della controparte" (contratto immobiliare): Fornitore / Controparte / Comune; anomalia "Immobili senza natura o funzione". Dati sul DB locale (2026-10-03): natura assegnata a 177 immobili (125 ricavati dalla funzione, 47 decisi con l'utente, 5 dei 7 con solo l'aggregato), 229 utenze con la nota `Ex gestore manutenzione Access: <valore>`, spunta sul contratto Engie del servizio luce (125 utenze "Fornitore"), 20 righe orfane di `invoice_budget_chapter` cancellate. Restano 6 immobili da classificare (2 segnaposto "ex contatore disattivato" senza natura né funzione). Restano per la parte 2 i campi doppi elencati sopra.
 
 Gotcha emersi dall'analisi:
 
