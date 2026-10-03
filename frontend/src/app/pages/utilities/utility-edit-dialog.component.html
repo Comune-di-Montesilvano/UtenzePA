@@ -37,7 +37,7 @@
             <input matInput formControlName="meter_number">
           </mat-form-field>
           <mat-form-field>
-            <mat-label>Tipo Uso Contatore</mat-label>
+            <mat-label>Tipo utenza</mat-label>
             <mat-select formControlName="utility_type_id_fk" (selectionChange)="onUtilityTypeChange($event)">
               @for (opt of utilityTypeOptions; track opt.id) {
                 <mat-option [value]="opt.id">{{ opt.name }}</mat-option>
@@ -47,6 +47,17 @@
               <mat-error>Obbligatorio</mat-error>
             }
           </mat-form-field>
+          @if (areraOptions.length) {
+            <mat-form-field>
+              <mat-label>Tipologia ARERA</mat-label>
+              <mat-select formControlName="arera_category">
+                <mat-option [value]="null">Non assegnata</mat-option>
+                @for (opt of areraOptions; track opt.value) {
+                  <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          }
           <mat-form-field>
             <mat-label>Codice Utenza o Cliente</mat-label>
             <input matInput formControlName="utility_code">
@@ -164,7 +175,11 @@
           </mat-form-field>
           <mat-form-field>
             <mat-label>Disalimentabilità utenza</mat-label>
-            <input matInput formControlName="disconnection_ability">
+            <mat-select formControlName="disconnectable">
+              @for (opt of disconnectableOptions; track opt.label) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
           </mat-form-field>
         </div>
 
@@ -323,16 +338,6 @@
           <app-tab-label icon="groups" label="Controparti" [count]="isNew ? null : counterpartCount()"></app-tab-label>
         </ng-template>
         <ng-template matTabContent>
-          <div class="sheet-section-title">Finalità d'uso</div>
-          @if (data.item.utilityType?.purposes?.length) {
-            <ul class="sheet-list">
-              @for (purpose of data.item.utilityType!.purposes; track purpose.id) {
-                <li>{{ purpose.name }} ({{ useTypeDescription[purpose.use_type] }})</li>
-              }
-            </ul>
-          } @else {
-            <p class="sheet-empty">Nessuna finalità d'uso associata.</p>
-          }
           <div class="sheet-section-title">Controparti</div>
           @for (group of grantsByAsset(); track group.assetName) {
             <div style="font-weight: 500; margin-top: 0.25rem;">{{ group.assetName }}</div>

@@ -74,7 +74,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     {field: 'supply_expiry_date', header: 'Scadenza affidamento', minWidth: '120px'},
     {field: 'management_expiry_date', header: 'Scadenza Gestione', minWidth: '120px'},
     {field: 'takeover_termination_date', header: 'Data voltura/cessazione', minWidth: '120px'},
-    {field: 'disconnection_ability', header: 'Disalimentabilità', minWidth: '120px'},
+    {field: 'disconnectable', header: 'Disalimentabilità', minWidth: '120px'},
     {field: 'maintenanceManager.code', header: 'Gestione Manutenzione', minWidth: '120px'},
     {field: 'budgetChapter.description', header: 'Capitolo di Spesa', minWidth: '200px'},
     {field: 'latitude', header: 'Latitudine', minWidth: '100px'},

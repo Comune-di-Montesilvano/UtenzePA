@@ -384,20 +384,6 @@ describe('UtilitiesService', () => {
       expect(repo.manager.query).not.toHaveBeenCalled();
     });
 
-    it('espone le finalità del tipo utenza appiattite in utilityType.purposes', async () => {
-      const utility = {
-        id: 1,
-        utilityType: {
-          id: 1,
-          utilityTypePurposes: [{ purpose: { id: 5, name: 'Finalità 1' } }],
-        },
-      } as unknown as Utility;
-      qb.getMany.mockResolvedValue([utility]);
-
-      const result = await service.findAll({} as never);
-
-      expect(result[0].utilityType.purposes).toEqual([{ id: 5, name: 'Finalità 1' }]);
-    });
   });
 
   describe('findBySafeguard', () => {
@@ -763,6 +749,91 @@ describe('UtilitiesService', () => {
       const created = repo.create.mock.calls[0][0];
       expect(created.estimated_consumption_source).toBe('MANUAL');
       expect(created.estimated_consumption_set_at).toBeInstanceOf(Date);
+    });
+  });
+
+  describe('tipologia ARERA', () => {
+    // hard_type del tipo utenza letto con una query diretta.
+    const typeIs = (hardType: string | null) =>
+      repo.manager.query.mockImplementation(async (sql: string) =>
+        sql.includes('FROM utility_types') ? (hardType ? [{ hard_type: hardType }] : []) : [],
+      );
+
+    it('create accetta una tipologia del tipo giusto', async () => {
+      typeIs('WATER');
+      await service.create(
+        { utility_id: 'U1', utility_type_id_fk: 33, arera_category: 'WATER_OTHER', asset_ids: [1] } as never,
+        1,
+      );
+      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ arera_category: 'WATER_OTHER' }));
+    });
+
+    it('create rifiuta con 400 una tipologia di un altro tipo', async () => {
+      typeIs('GAS');
+      await expect(
+        service.create(
+          { utility_id: 'U1', utility_type_id_fk: 34, arera_category: 'WATER_OTHER', asset_ids: [1] } as never,
+          1,
+        ),
+      ).rejects.toThrow('Tipologia ARERA non valida per il tipo di utenza.');
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('create senza tipologia (o Internet con null) non interroga il tipo', async () => {
+      await service.create(
+        { utility_id: 'U1', utility_type_id_fk: 36, arera_category: null, asset_ids: [1] } as never,
+        1,
+      );
+      expect(repo.manager.query).not.toHaveBeenCalledWith(
+        expect.stringContaining('FROM utility_types'),
+        expect.anything(),
+      );
+    });
+
+    it('update che cambia solo il tipo e lascia una tipologia non più ammessa viene rifiutato', async () => {
+      typeIs('GAS');
+      repo.findOne.mockResolvedValue({ id: 5, utility_type_id_fk: 33, arera_category: 'WATER_OTHER', deleted: false });
+      await expect(service.update(5, { utility_type_id_fk: 34 } as never, 1)).rejects.toThrow(
+        'Tipologia ARERA non valida per il tipo di utenza.',
+      );
+    });
+
+    it('update che cambia tipo e svuota la tipologia passa', async () => {
+      repo.findOne.mockResolvedValue({ id: 5, utility_type_id_fk: 33, arera_category: 'WATER_OTHER', deleted: false });
+      await expect(
+        service.update(5, { utility_type_id_fk: 34, arera_category: null } as never, 1),
+      ).resolves.not.toThrow();
+    });
+
+    it('update senza tipo né tipologia non valida nulla', async () => {
+      repo.findOne.mockResolvedValue({ id: 5, utility_type_id_fk: 33, arera_category: null, deleted: false });
+      await service.update(5, { notes: 'x' } as never, 1);
+      expect(repo.manager.query).not.toHaveBeenCalledWith(
+        expect.stringContaining('FROM utility_types'),
+        expect.anything(),
+      );
+    });
+
+    it('filtra per tipologia, per "non assegnata" e per disalimentabilità, fuori dal filtro generico', async () => {
+      await service.findAll({ arera_category: 'GAS_OTHER', disconnectable: 'false' } as never);
+      expect(qb.andWhere).toHaveBeenCalledWith('Utility.arera_category = :arera_category', {
+        arera_category: 'GAS_OTHER',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('Utility.disconnectable = :disconnectable', {
+        disconnectable: 0,
+      });
+
+      qb.andWhere.mockClear();
+      await service.findAll({ arera_category: 'NONE', disconnectable: 'unknown' } as never);
+      expect(qb.andWhere).toHaveBeenCalledWith('Utility.arera_category IS NULL');
+      expect(qb.andWhere).toHaveBeenCalledWith('Utility.disconnectable IS NULL');
+      // Nessun LIKE generico sui due campi.
+      expect(qb.andWhere.mock.calls.some((c) => /arera_category LIKE|disconnectable LIKE/.test(String(c[0])))).toBe(false);
+    });
+
+    it('findAll non fa più join sulle finalità', async () => {
+      await service.findAll({} as never);
+      expect(qb.leftJoinAndSelect.mock.calls.some((c) => String(c[0]).includes('utilityTypePurposes'))).toBe(false);
     });
   });
 });

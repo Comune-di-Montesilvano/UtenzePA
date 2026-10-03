@@ -1,5 +1,6 @@
 import {ExpireState} from "../enum/expire-state.enum";
 import {Phase} from '../enum/phase.enum';
+import type {AreraCategory} from '../arera-category';
 import {IUtilityType} from '../../utility-types/entity/utility-type.interface';
 import {IConsipAgreement} from '../../consip-agreement/entity/consip-agreement.interface';
 import {ISystemUser} from '../../system-users/entity/system-user.interface';
@@ -27,7 +28,8 @@ export interface IUtility {
   created_by?: ISystemUser | null;
   created_by_user_id: number | null;
   deleted: boolean;
-  disconnection_ability?: string | null;
+  arera_category?: AreraCategory | null;
+  disconnectable?: boolean | null;
   estimated_annual_consumption?: number | null;
   expiryStatus?: ExpireState | null;
   latitude?: string | null;

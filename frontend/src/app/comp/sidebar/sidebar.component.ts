@@ -65,7 +65,6 @@ export class SidebarComponent implements OnInit {
         {label: 'Fornitori Manutenzione', icon: 'tune', route: '/maintenance-managers'},
         {label: 'Tipologie uso contatore', icon: 'sell', route: '/utility-types'},
         {label: 'Convenzioni CONSIP', icon: 'handshake', route: '/consip-agreement'},
-        {label: 'Finalità d\'uso', icon: 'radio_button_checked', route: '/purpose'},
         {label: 'Backup e manutenzione', icon: 'storage', route: '/backup-import'},
         {label: 'Branding', icon: 'palette', route: '/branding'},
         {label: 'Utenti e ruoli', icon: 'group', route: '/system-users'},

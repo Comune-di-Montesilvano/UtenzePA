@@ -10,6 +10,7 @@ import {
   Min,
 } from 'class-validator';
 import { Phase } from '../../shared/enum/user.enums';
+import { AreraCategory } from '../arera-category';
 import { NormalizeDate } from '@/common/decorators/normalize-date.decorator';
 import { Transform } from 'class-transformer';
 
@@ -62,7 +63,6 @@ export class UpdateUtilityDto {
   @IsNumber()
   @Min(0)
   reported_consumption_year?: number | null;
-
 
   @IsOptional()
   @Transform(({ value }) => (value === '' ? null : Number(value)))
@@ -123,9 +123,12 @@ export class UpdateUtilityDto {
   meter_verified?: boolean;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  disconnection_ability?: string;
+  @IsEnum(AreraCategory, { message: 'Tipologia ARERA non valida.' })
+  arera_category?: AreraCategory | null;
+
+  @IsOptional()
+  @IsBoolean()
+  disconnectable?: boolean | null;
 
   @IsOptional()
   @IsString()

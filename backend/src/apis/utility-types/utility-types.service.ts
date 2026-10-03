@@ -1,13 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { BaseService } from '@apis/shared/base.service';
 import { UtilityType } from './entity/utility_type.entity';
-import { UtilityTypePurpose } from './entity/utility_type_purpose.entity';
 import { CreateUtilityTypeDto } from './dto/create-utility-type.dto';
 import { UpdateUtilityTypeDto } from './dto/update-utility-type.dto';
 import { SearchUtilityTypeDto } from './dto/search-utility-type.dto';
-import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
+import { ARERA_CATEGORIES_BY_HARD_TYPE } from '@apis/utility/arera-category';
 
 @Injectable()
 export class UtilityTypesService extends BaseService<
@@ -21,9 +20,6 @@ export class UtilityTypesService extends BaseService<
   constructor(
     @InjectRepository(UtilityType)
     protected readonly repo: Repository<UtilityType>,
-    @InjectRepository(UtilityTypePurpose)
-    private readonly utilityTypePurposeRepo: Repository<UtilityTypePurpose>,
-    private readonly dataSource: DataSource,
   ) {
     super();
   }
@@ -32,7 +28,6 @@ export class UtilityTypesService extends BaseService<
     const alias = this.entityName;
     const qb = this.repo.createQueryBuilder(alias);
     qb.where(`${alias}.deleted = :deleted`, { deleted: filter?.deleted ?? false });
-    qb.leftJoinAndSelect(`${alias}.purposes`, 'purpose', 'purpose.deleted = 0');
 
     if (filter) {
       Object.entries(filter).forEach(([key, value]) => {
@@ -51,84 +46,25 @@ export class UtilityTypesService extends BaseService<
     return qb.orderBy(`${alias}.id`, 'ASC').getMany();
   }
 
-  async create(dto: CreateUtilityTypeDto, userId?: number): Promise<UtilityType> {
-    const { purposes, ...rest } = dto;
-
-    let savedId: number;
-    try {
-      savedId = await this.dataSource.transaction(async (manager) => {
-        const entity = manager.create(UtilityType, {
-          ...rest,
-          ...(userId !== undefined && { created_by_user_id: userId, updated_by_user_id: userId }),
-        });
-        const saved = await manager.save(UtilityType, entity);
-
-        if (purposes && purposes.length > 0) {
-          const rows = purposes.map((purposeId) =>
-            manager.create(UtilityTypePurpose, {
-              utility_type_id: saved.id,
-              purpose_id: purposeId,
-            }),
-          );
-          await manager.save(UtilityTypePurpose, rows);
-        }
-
-        return saved.id;
-      });
-    } catch (err) {
-      this.manageErrors(err, `Errore durante la creazione di ${this.entityName}`);
-    }
-
-    const created = await this.findOne(savedId);
-    await this.recordAudit(
-      AuditAction.CREATE,
-      savedId,
-      userId ?? created?.updated_by_user_id,
-      [],
-    );
-    return created;
-  }
-
-  async update(id: number, updateDto: UpdateUtilityTypeDto, userId?: number): Promise<UtilityType> {
-    const { purposes, ...rest } = updateDto;
-
-    const before = await this.repo.findOne({ where: { id } as never });
-    if (!before) throw new Error('elemento non trovato');
-    const beforeSnapshot: Record<string, unknown> = { ...before };
-
-    const result = await this.dataSource.transaction(async (manager) => {
-      const entity = await this.repo.findOne({ where: { id } as never });
-      if (!entity) throw new Error('elemento non trovato');
-      Object.assign(entity, rest);
-      if (userId !== undefined) entity.updated_by_user_id = userId;
-      await manager.save(UtilityType, entity);
-
-      if (purposes !== undefined) {
-        await manager.delete(UtilityTypePurpose, { utility_type_id: id });
-        if (purposes.length > 0) {
-          const rows = purposes.map((purposeId) =>
-            manager.create(UtilityTypePurpose, {
-              utility_type_id: id,
-              purpose_id: purposeId,
-            }),
-          );
-          await manager.save(UtilityTypePurpose, rows);
-        }
-      }
-
-      return this.findOne(id);
-    });
-
-    try {
-      const changes = await this.diffFields(
-        beforeSnapshot,
-        result as unknown as Record<string, unknown>,
-        rest as Record<string, unknown>,
+  // Cambiare il tipo contatore lascerebbe le utenze già classificate con una
+  // tipologia ARERA non più ammessa: la scheda utenza non riuscirebbe più a
+  // salvarle (campo nascosto ma valorizzato). Si chiede di svuotarle prima.
+  async update(id: number, dto: UpdateUtilityTypeDto, userId?: number): Promise<UtilityType> {
+    if (dto.hard_type) {
+      const allowed = ARERA_CATEGORIES_BY_HARD_TYPE[dto.hard_type] ?? [];
+      const notIn = allowed.length ? ` AND arera_category NOT IN (${allowed.map(() => '?').join(', ')})` : '';
+      const rows: { n: string | number }[] = await this.repo.manager.query(
+        `SELECT COUNT(*) AS n FROM utilities
+          WHERE utility_type_id_fk = ? AND deleted = 0 AND arera_category IS NOT NULL${notIn}`,
+        [id, ...allowed],
       );
-      await this.recordAudit(AuditAction.UPDATE, id, userId ?? result.updated_by_user_id, changes);
-    } catch (error) {
-      console.error(`[UtilityTypesService] Errore durante il calcolo/registrazione audit`, error);
+      const n = Number(rows[0]?.n ?? 0);
+      if (n > 0) {
+        throw new BadRequestException(
+          `Impossibile cambiare il tipo contatore: ${n} utenze hanno una tipologia ARERA non compatibile. Svuota prima la loro tipologia.`,
+        );
+      }
     }
-    return result;
+    return super.update(id, dto, userId);
   }
 }

@@ -20,7 +20,7 @@ Fuori scope: fatture per utenza (voce 6), pagatore calcolato e rimozione del tab
 - `utilizer`: 212 righe attive (102 soft-deleted), nessuna con codice fiscale, 35 con contatti in testo libero. Referenziata solo da `utilizer_grant.utilizer_id_fk` (129 contratti attivi, tutti con controparte).
   - 103 collegate a un contratto: quasi tutte soggetti veri; ~15 non lo sono ("CANILE COMUNALE", "SPRAR", "LOCALI EX FEA", "PUBBLICO PINETA E CONCESSIONARIO CHIOSCO", "appartamento locato da settore amministrativo", "Locatore autoparco via Danubio (da completare)"…).
   - 109 senza contratto: nessuna è un soggetto (fontane, semafori, pompe, casette dell'acqua, note di lavoro, usi), già coperte dalla voce 3 (impianti).
-  - Righe con più persone: "Mosca Marco e Giovanna", "Colangelo/Giancaterino", "De Flaviis Remo e Cicerone Angela", "Di Donato Maria Teresa e Cristina", "Ruffa/Pace", "Colazilli Giacinto e Teresa".
+  - 6 righe con più persone (es. "Cognome Nome e Nome", "Cognome1/Cognome2").
   - Doppioni: "VODAFONE (ex OMNITEL)" / "VODAFONE OMNITEL N. V.".
 - `suppliers`: 13 righe, 5 con P.IVA. `supplier_id` è una sigla inserita a mano, usata come etichetta in tutta la UI. Pseudo-fornitori: `TERZI` (2 convenzioni CONSIP), `ACA_TERZI` e `comune` (nessun uso).
 - FK: solo `contracts.supplier_id_fk` è dichiarata; `consip_agreement.supplier_id` punta a `suppliers` senza FK.

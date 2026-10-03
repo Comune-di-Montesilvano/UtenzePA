@@ -1,4 +1,4 @@
-import { IsArray, IsEnum, IsInt, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional } from 'class-validator';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 
 export class CreateUtilityTypeDto {
@@ -20,9 +20,4 @@ export class CreateUtilityTypeDto {
   @IsOptional()
   @IsInt()
   updated_by_user_id?: number;
-
-  @IsOptional()
-  @IsArray({ message: "ILe finalità d'uso devono essere forniti come un array." })
-  @IsInt({ each: true, message: "Ogni elemento delle finalità d'uso deve essere un ID intero." })
-  purposes?: number[];
 }

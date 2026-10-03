@@ -1,21 +1,8 @@
-import {
-  IsArray,
-  IsBoolean,
-  IsEnum,
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { Transform } from 'class-transformer';
 
 export class UpdateUtilityTypeDto {
-  @IsOptional()
-  @IsArray({ message: "ILe finalità d'uso devono essere forniti come un array." })
-  @IsInt({ each: true, message: "Ogni elemento delle finalità d'uso deve essere un ID intero." })
-  purposes?: number[];
-
   @IsNotEmpty({ message: 'Il nome è obbligatorio' })
   @IsString()
   name?: string;

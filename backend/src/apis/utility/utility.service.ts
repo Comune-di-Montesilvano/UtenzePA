@@ -15,6 +15,8 @@ import { Plant } from '@apis/plants/entity/plant.entity';
 import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
 import { EstimateSource } from '@apis/utility-consumptions/enum/estimate-source.enum';
 import { findMeterConflict } from './meter-number.helper';
+import { AreraCategory, ARERA_NONE, isAreraCategoryAllowed } from './arera-category';
+import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 
 @Injectable()
 export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, UpdateUtilityDto> {
@@ -78,7 +80,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
    * reale (qui è correlato via una sotto-query, non una @ManyToOne/@OneToOne)
    * non viene idratato da TypeORM nell'albero dell'entity risultante quando
    * convivono altri join one-to-many nella stessa query (es.
-   * utilityType.utilityTypePurposes, asset.utilizerGrants) — verificato con
+   * asset.utilizerGrants) — verificato con
    * una chiamata reale all'endpoint: nessun errore SQL, ma
    * `utility.currentContract` restituiva sempre `undefined`. Il contratto
    * corrente va quindi risolto con una query separata (`loadCurrentContracts`,
@@ -200,13 +202,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       takeover_termination_date: current?.takeover_termination_date ?? null,
       expiryStatus: this.getExpiryStatus(this.toDate(current?.supply_expiry_date ?? null)),
       aggregator: utility.utilityAggregator ?? null,
-      utilityType: utility.utilityType
-        ? {
-            ...utility.utilityType,
-            purposes: utility.utilityType.utilityTypePurposes?.map((utp) => utp.purpose) ?? [],
-            utilityTypePurposes: undefined,
-          }
-        : null,
+      utilityType: utility.utilityType ?? null,
     } as Utility;
   }
 
@@ -218,8 +214,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('Utility.created_by', 'created_by');
     qb.leftJoinAndSelect('Utility.updated_by', 'updated_by');
     qb.leftJoinAndSelect('Utility.utilityType', 'utilityType', 'utilityType.deleted = 0');
-    qb.leftJoinAndSelect('utilityType.utilityTypePurposes', 'utps');
-    qb.leftJoinAndSelect('utps.purpose', 'utpPurpose', 'utpPurpose.deleted = 0');
     qb.leftJoinAndSelect('Utility.assets', 'assets', 'assets.deleted = 0');
     qb.leftJoinAndSelect('Utility.plants', 'plants', 'plants.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
@@ -370,8 +364,27 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       );
     }
 
+    if (filters?.arera_category) {
+      if (filters.arera_category === ARERA_NONE) {
+        qb.andWhere('Utility.arera_category IS NULL');
+      } else {
+        qb.andWhere('Utility.arera_category = :arera_category', { arera_category: filters.arera_category });
+      }
+    }
+    if (filters?.disconnectable) {
+      if (filters.disconnectable === 'unknown') {
+        qb.andWhere('Utility.disconnectable IS NULL');
+      } else {
+        qb.andWhere('Utility.disconnectable = :disconnectable', {
+          disconnectable: filters.disconnectable === 'true' ? 1 : 0,
+        });
+      }
+    }
+
     this.applyFilters(qb, filters, 'Utility', [
       'deleted',
+      'arera_category',
+      'disconnectable',
       'asset_id',
       'safeguard',
       'party_id',
@@ -439,8 +452,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     const qb = this.repo.createQueryBuilder('Utility');
     this.joinCurrentContract(qb, { inner: true });
     qb.leftJoinAndSelect('Utility.utilityType', 'utilityType', 'utilityType.deleted = 0');
-    qb.leftJoinAndSelect('utilityType.utilityTypePurposes', 'utps');
-    qb.leftJoinAndSelect('utps.purpose', 'utpPurpose', 'utpPurpose.deleted = 0');
     qb.leftJoinAndSelect('Utility.assets', 'assets', 'assets.deleted = 0');
     qb.leftJoinAndSelect('Utility.plants', 'plants', 'plants.deleted = 0');
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
@@ -475,8 +486,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0');
     qb.leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0');
     qb.leftJoinAndSelect('Utility.utilityType', 'utilityType', 'utilityType.deleted = 0');
-    qb.leftJoinAndSelect('utilityType.utilityTypePurposes', 'utps');
-    qb.leftJoinAndSelect('utps.purpose', 'utpPurpose', 'utpPurpose.deleted = 0');
     qb.leftJoinAndSelect('Utility.costsBorneBy', 'costsBorneBy', 'costsBorneBy.deleted = 0');
     qb.leftJoinAndSelect(
       'Utility.maintenanceManager',
@@ -525,11 +534,29 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     }
   }
 
+  // La tipologia ARERA deve appartenere al tipo dell'utenza (luce/acqua/gas;
+  // Internet nessuna). hard_type letto con una query diretta: il service non
+  // ha il repository dei tipi utenza.
+  private async assertAreraCategory(
+    utilityTypeId: number | null | undefined,
+    category: AreraCategory | null | undefined,
+  ): Promise<void> {
+    if (!category) return;
+    const rows: { hard_type: HardTypeEnum }[] = utilityTypeId
+      ? await this.repo.manager.query('SELECT hard_type FROM utility_types WHERE id = ?', [utilityTypeId])
+      : [];
+    const hardType = rows[0]?.hard_type;
+    if (!hardType || !isAreraCategoryAllowed(hardType, category)) {
+      throw new BadRequestException('Tipologia ARERA non valida per il tipo di utenza.');
+    }
+  }
+
   async create(dto: CreateUtilityDto, userId?: number): Promise<Utility> {
     const { asset_ids, plant_ids, ...rest } = dto;
     // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
     if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
     await this.assertMeterAvailable(rest.meter_number, null);
+    await this.assertAreraCategory(rest.utility_type_id_fk, rest.arera_category);
     const estimate = Number(rest.estimated_annual_consumption ?? 0);
     const assets = await this.resolveAssets(asset_ids ?? []);
     const plants = await this.resolvePlants(plant_ids ?? []);
@@ -564,6 +591,14 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       ...(linksChanged ? { relations: { assets: true, plants: true } } : {}),
     });
     if (!current) throw new BadRequestException('Utenza non trovata');
+    // Valida se cambia la tipologia o il tipo: un cambio di tipo che lascia
+    // la tipologia vecchia (non più ammessa) va rifiutato.
+    if (rest.arera_category !== undefined || rest.utility_type_id_fk !== undefined) {
+      await this.assertAreraCategory(
+        rest.utility_type_id_fk ?? current.utility_type_id_fk,
+        rest.arera_category !== undefined ? rest.arera_category : current.arera_category,
+      );
+    }
     if (linksChanged) {
       // Il collegamento finale = quello inviato, altrimenti l'attuale.
       this.assertLinked(assets ?? current.assets ?? [], plants ?? current.plants ?? []);
