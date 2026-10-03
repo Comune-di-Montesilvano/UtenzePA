@@ -135,6 +135,6 @@ Non è codice del repo: interventi one-off sul DB locale, una lista alla volta c
 
 ## Rilascio e documentazione
 
-- v1.9.0 (minor): bump di `softwareVersion`/`releaseDate` in `publiccode.yml` nella PR.
+- Rilasciata in v1.8.0 (la v1.8.0 non era mai stata taggata): bump di `softwareVersion`/`releaseDate` in `publiccode.yml` nella PR.
 - CLAUDE.md: sostituire la nota "Disalimentabilità utenza: campo testo libero… non aggiungere flag nuovi" con il nuovo campo `disconnectable`; togliere `purpose` dall'elenco moduli.
 - Roadmap: voce 10 fatta; avanzamento della valorizzazione.

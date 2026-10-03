@@ -25,7 +25,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 7 | Contratti di servizio e manutenzione | da approfondire |
 | 8 | Permessi di scrittura granulari | da approfondire |
 | 9 | Soggetti terzi (controparti + fornitori) | fatto, v1.8.0 (pulizia dati fatta sul DB locale; restano CF delle persone, P.IVA Open Fiber, 2 locatori SPRAR) |
-| 10 | Tipologie contrattuali ARERA (al posto delle finalità d'uso) | fatto, v1.9.0 (valorizzazione delle tipologie sul DB locale da fare) |
+| 10 | Tipologie contrattuali ARERA (al posto delle finalità d'uso) | fatto, v1.8.0 (valorizzazione delle tipologie sul DB locale da fare) |
 | 11 | Aggregati utenze (da eliminare) | da approfondire |
 | 12 | Costi a carico calcolato | da approfondire |
 | 13 | Schede entità: rifiniture | da fare |
@@ -166,7 +166,7 @@ Schema indicativo: tipo (fisica/giuridica), denominazione o cognome+nome, CF, P.
 
 ## 10. Tipologie contrattuali ARERA (al posto delle finalità d'uso)
 
-Fatto in v1.9.0: spec `docs/superpowers/specs/2026-10-02-tipologie-arera-design.md`. Disalimentabilità diventata sì/no/non noto. **Da fare: valorizzazione** sul DB locale, una lista alla volta con conferma: 239 valori dal campo Access "tipologia uso contatore" (`UTENZE.accdb`, abbinati per `utility_id`), poi proposte per gruppi (impianti IP/colonnine, tensione, acqua non disalimentabile, fontane e casette, tipologia nelle bollette ACA); il resto resta nell'anomalia "Utenze attive senza tipologia ARERA". Il testo più sotto è il censimento di partenza.
+Fatto in v1.8.0: spec `docs/superpowers/specs/2026-10-02-tipologie-arera-design.md`. Disalimentabilità diventata sì/no/non noto. **Da fare: valorizzazione** sul DB locale, una lista alla volta con conferma: 239 valori dal campo Access "tipologia uso contatore" (`UTENZE.accdb`, abbinati per `utility_id`), poi proposte per gruppi (impianti IP/colonnine, tensione, acqua non disalimentabile, fontane e casette, tipologia nelle bollette ACA); il resto resta nell'anomalia "Utenze attive senza tipologia ARERA". Il testo più sotto è il censimento di partenza.
 
 `purpose` (21 voci attive) è spazzatura: valori di test ("ACME", "ACME100", "LoremIpsum"), quasi-duplicati, descrizioni di impianto, un `use_type` GENERIC/SPECIFIC inutile; è legata al tipo utenza (`utility_type_purpose`), non all'utenza. Serve solo a indicare la tipologia contrattuale, che è definita da ARERA: diventa un **enum fisso per tipo utenza**, assegnato all'utenza.
 
