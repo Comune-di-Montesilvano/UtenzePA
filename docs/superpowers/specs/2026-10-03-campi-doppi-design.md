@@ -13,7 +13,7 @@ Togliere i campi che duplicano un'informazione o la rendono ambigua, emersi dall
 3. **Note**: `additional_notes` (107) e `specifications` (81) confluiscono in `notes`, in coda con etichetta ("Note aggiuntive: …", "Specifiche: …"), sul DB locale; poi migration che fa drop delle due colonne; tolti da entity, DTO, scheda, elenco, export.
 4. **Deposito cauzionale** (`security_deposit`): colonna nullable senza default; sul DB locale gli 0,00 diventano NULL ("non noto"). UI: campo vuoto = non noto.
 5. **`utility_code`**: etichetta UI "Codice cliente fornitore" (scheda, elenco, filtri, export). Nessuna modifica di schema.
-6. **Ordini Consip**: l'unico `contracts.order_number` valorizzato passa in `consip_order` (se vuoto, altrimenti in coda) sul DB locale; migration drop di `order_number`; tolto da entity, DTO, scheda, elenco, export.
+6. **Numero ordine**: `consip_order` (37 contratti) e `order_number` (1, il contratto 640, errore di inserimento) sono lo stesso dato, il numero dell'ordine d'acquisto sul portale Consip/MePA (7 cifre). Sul DB locale il valore del 640 passa in `consip_order`; migration drop di `order_number`; tolto da entity, DTO, scheda, elenco, export. L'etichetta UI di `consip_order` diventa "Numero ordine (ODA)": 13 contratti hanno un ordine senza convenzione Consip (ordini MePA).
 7. **FK di `invoice_budget_chapter`**: `schema:log` propone di rifarle; verificare se nasce dalla doppia definizione (entity `InvoiceBudgetChapter` + `@JoinTable` su `Invoice`) e allineare, senza cambiare lo schema reale.
 
 Fuori: `budget_chapters.supply_type` (voce 17), `utility_types` (rimandato), `associated_building` (voce 4), catasto (voce 2).
