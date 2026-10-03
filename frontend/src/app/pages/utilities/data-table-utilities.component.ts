@@ -162,10 +162,13 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
   }
 
   // A carico di: stato calcolato + intestatario (o parti del contratto con voltura).
-  payerLabel(utility: Utility): string {
+  payerName(utility: Utility): string {
     const info = utility.cost_info;
-    const name = info?.transferred_to?.name || (info?.parties ?? []).map(p => p.name).join(', ');
-    return [costStatus(info).label, name].filter(Boolean).join(' · ');
+    return info?.transferred_to?.name || (info?.parties ?? []).map(p => p.name).join(', ');
+  }
+
+  payerLabel(utility: Utility): string {
+    return [costStatus(utility.cost_info).label, this.payerName(utility)].filter(Boolean).join(' · ');
   }
 
   // CRITICO: AbstractDataTableComponent.ngAfterViewInit() (frontend/src/app/core/components/
