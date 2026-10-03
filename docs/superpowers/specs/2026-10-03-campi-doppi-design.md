@@ -8,8 +8,8 @@ Togliere i campi che duplicano un'informazione o la rendono ambigua, emersi dall
 
 ## Modifiche
 
-1. **Indirizzo di fornitura** (`utilities.supplier_address`, 328 utenze): resta, serve per i contatori senza immobile. Sul DB locale si svuota dove l'utenza ha un immobile e l'indirizzo coincide con quello dell'immobile (confronto normalizzato: minuscole, senza "via"/"viale"/"piazza" e spazi doppi). Etichetta UI invariata ("Indirizzo Fornitura").
-2. **Coordinate dell'utenza**: restano (contatori fuori dall'immobile). Nessuna modifica.
+1. **Indirizzo di fornitura** (`utilities.supplier_address`, 328 utenze): resta, serve per i contatori senza immobile né impianto. Sul DB locale si svuota dove l'utenza è collegata a un immobile o a un impianto e l'indirizzo coincide con quello dell'immobile o dell'impianto (confronto normalizzato: minuscole, senza "via"/"viale"/"piazza" e spazi doppi). Etichetta UI invariata ("Indirizzo Fornitura").
+2. **Coordinate dell'utenza**: restano (contatori fuori da immobile e impianto). Nessuna modifica.
 3. **Note**: `additional_notes` (107) e `specifications` (81) confluiscono in `notes`, in coda con etichetta ("Note aggiuntive: …", "Specifiche: …"), sul DB locale; poi migration che fa drop delle due colonne; tolti da entity, DTO, scheda, elenco, export.
 4. **Deposito cauzionale** (`security_deposit`): colonna nullable senza default; sul DB locale gli 0,00 diventano NULL ("non noto"). UI: campo vuoto = non noto.
 5. **`utility_code`**: etichetta UI "Codice cliente fornitore" (scheda, elenco, filtri, export). Nessuna modifica di schema.
