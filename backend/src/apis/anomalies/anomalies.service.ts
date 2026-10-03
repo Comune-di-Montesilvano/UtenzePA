@@ -47,6 +47,7 @@ export interface Anomalies {
   active_gas_utilities_without_use_category: AnomalyList<UtilityAnomaly>;
   utilities_to_transfer: AnomalyList<UtilityAnomaly>;
   utilities_to_recover: AnomalyList<UtilityAnomaly>;
+  assets_without_classification: AnomalyList<{ id: number; asset_name: string; missing: string }>;
 }
 
 export interface PlantAnomaly {
@@ -241,7 +242,25 @@ export class AnomaliesService {
        ORDER BY u.utility_id`,
     );
 
+    // Natura e funzione sono l'unica classificazione dell'immobile.
+    const assetsWithoutClassification: { id: unknown; asset_name: string; missing: string }[] =
+      await this.dataSource.query(
+        `SELECT a.id, a.asset_name,
+                CASE WHEN a.nature_id IS NULL AND a.function_id IS NULL THEN 'natura e funzione'
+                     WHEN a.nature_id IS NULL THEN 'natura' ELSE 'funzione' END AS missing
+           FROM assets a
+          WHERE a.deleted = 0 AND (a.nature_id IS NULL OR a.function_id IS NULL)
+          ORDER BY a.asset_name`,
+      );
+
     return {
+      assets_without_classification: list(
+        assetsWithoutClassification.map((a) => ({
+          id: Number(a.id),
+          asset_name: a.asset_name,
+          missing: a.missing,
+        })),
+      ),
       utilities_to_transfer: list(toTransfer.map(({ since: _since, ...u }) => u)),
       utilities_to_recover: list(toRecover),
       real_estate_contracts_without_parties: list(
