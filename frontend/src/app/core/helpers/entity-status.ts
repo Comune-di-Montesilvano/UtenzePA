@@ -33,13 +33,14 @@ export function assetStatus(status: string | null | undefined): StatusInfo {
   }
 }
 
-export function legacyTypeStatus(code: string | null): StatusInfo | null {
-  if (!code) return null;
+// Immobile senza tipologia o funzione (stesso criterio dell'anomalia in dashboard).
+export function unclassifiedStatus(natureId: number | null | undefined, functionId: number | null | undefined): StatusInfo | null {
+  if (natureId != null && functionId != null) return null;
   return {
     tone: 'warn',
-    label: `Tipo precedente: ${code}`,
-    icon: 'history',
-    tooltip: 'Classificazione precedente: sparisce dopo aver salvato tipologia e funzione',
+    label: 'Da classificare',
+    icon: 'help_outline',
+    tooltip: 'Mancano tipologia o funzione: sparisce dopo averle salvate',
   };
 }
 

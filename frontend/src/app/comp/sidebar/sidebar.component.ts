@@ -60,7 +60,6 @@ export class SidebarComponent implements OnInit {
     {label: 'Impostazioni', icon: 'settings', submenu: [
         {label: 'Tipologie Immobili', icon: 'category', route: '/asset-nature'},
         {label: 'Funzioni Immobili', icon: 'widgets', route: '/asset-function'},
-        {label: 'Aggregati Immobili (vecchio)', icon: 'list', route: '/asset-aggregator'},
         {label: 'Fornitori Manutenzione', icon: 'tune', route: '/maintenance-managers'},
         {label: 'Tipologie uso contatore', icon: 'sell', route: '/utility-types'},
         {label: 'Convenzioni CONSIP', icon: 'handshake', route: '/consip-agreement'},

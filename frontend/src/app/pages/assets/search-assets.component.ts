@@ -21,7 +21,6 @@ export class SearchAssetsComponent extends AbstractSearchComponent {
     this.qSearch = this.fb.group({
       qsearch: [''],
       asset_name: [''],
-      asset_type_id: [null],
       nature_id: [null],
       function_id: [null],
       status: [null],

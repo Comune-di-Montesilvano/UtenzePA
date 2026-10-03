@@ -16,8 +16,6 @@ import { MapService } from './map.service';
 import { MapPoint, UngeolocatedItem, UNGEOLOCATED_REASON_LABELS } from './map-point.entity';
 import { FilterableSelectComponent } from '../../core/components/filterable-select.component';
 import { MultiSelectComponent } from '../../core/components/multi-select.component';
-import { AssetAggregatorsService } from '../asset-aggregator/asset-aggregator.service';
-import { AssetAggregator } from '../asset-aggregator/entity/asset-aggregator.entity';
 import { AssetNaturesService } from '../asset-nature/asset-nature.service';
 import { AssetNature } from '../asset-nature/entity/asset-nature.entity';
 import { AssetFunctionsService } from '../asset-function/asset-function.service';
@@ -35,16 +33,14 @@ import { TOption } from '../../core/types/option.interface';
 import { HardType, HardTypeIcon, HardTypeColor } from '../utility-types/enum/hard-type.enum';
 import { BrandingService } from '../../services/branding.service';
 import { AuthService } from '../../services/auth.service';
-import { ASSET_AGGREGATOR_ICON_FALLBACK } from '../asset-aggregator/enum/asset-aggregator-icon.enum';
+import { ICON_FALLBACK } from '../../core/helpers/material-icons';
 import { CoordinateHelper } from '../../core/helpers/coordinate.helper';
 import { StreetViewHelper } from '../../core/helpers/street-view.helper';
 import { ToastService } from '../../core/services/toast.service';
 import { PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PLANT_TYPES } from '../plants/plant.model';
 
-// Fallback per gli immobili senza icona custom sull'aggregato collegato (o
-// aggregato non ancora caricato) — Material Icons (vedi
-// AssetAggregatorIconOptions), non più Font Awesome fisso: ogni immobile
-// eredita ora l'icona del proprio AssetAggregator.icon.
+// Marker immobile: icona Material Icons della funzione dell'immobile,
+// ICON_FALLBACK se la funzione manca o non ha icona.
 const ASSET_COLOR = '#37474f';
 const PLANT_COLOR = '#0f766e';
 // Contatore senza tipologia associata (dato mancante) — icona neutra.
@@ -98,7 +94,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   private mapService = inject(MapService);
   private dialog = inject(MatDialog);
   private navigator = inject(EntityNavigatorService);
-  private assetAggregatorsService = inject(AssetAggregatorsService);
   private naturesService = inject(AssetNaturesService);
   private functionsService = inject(AssetFunctionsService);
   private utilityTypesService = inject(UtilityTypesService);
@@ -131,7 +126,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   showPlants = new FormControl(true, { nonNullable: true });
   plantTypes = new FormControl<string[]>([], {nonNullable: true});
   plantTypeOptions: TOption[] = PLANT_TYPES.map((t) => ({ label: PLANT_TYPE_LABEL[t], value: t, icon: PLANT_TYPE_ICON[t] }));
-  assetAggregatorIds = new FormControl<number[]>([], {nonNullable: true});
   utilityTypeIds = new FormControl<number[]>([], {nonNullable: true});
   natureIds = new FormControl<number[]>([], {nonNullable: true});
   functionIds = new FormControl<number[]>([], {nonNullable: true});
@@ -142,7 +136,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   // colpire un indirizzo qualsiasi anche senza nessun asset/utenza li'.
   addressSearch = new FormControl('', { nonNullable: true });
 
-  assetAggregatorOptions: TOption[] = [];
   utilityTypeOptions: TOption[] = [];
   natureOptions: TOption[] = [];
   functionOptions: TOption[] = [];
@@ -173,10 +166,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   // nello z-order, non c'è "fan out" automatico fuori dai cluster.
   private utilitiesByAsset = new Map<number, MapPoint[]>();
 
-  // Popolate dalle due subscribe indipendenti sotto (aggregatori/tipi e
+  // Popolate dalle subscribe indipendenti sotto (classificazioni/tipi e
   // asset/utenze possono arrivare in ordine qualsiasi) — rebuild*Options()
   // combina ciascuna coppia appena entrambe sono disponibili.
-  private assetAggregators: AssetAggregator[] = [];
   private natures: AssetNature[] = [];
   private functions: AssetFunction[] = [];
   private assetsForCount: Asset[] = [];
@@ -184,12 +176,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   private utilitiesForCount: Utility[] = [];
 
   ngOnInit(): void {
-    this.assetAggregatorsService.search({ deleted: false }).subscribe({
-      next: (data) => {
-        this.assetAggregators = data;
-        this.rebuildAssetAggregatorOptions();
-      },
-    });
     this.naturesService.search({ deleted: false } as never).subscribe({
       next: (data) => {
         this.natures = data;
@@ -216,7 +202,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
           label: a.address ? `${a.asset_name} — ${a.address}` : a.asset_name,
           value: a.id,
         }));
-        this.rebuildAssetAggregatorOptions();
       },
     });
     this.utilityService.search({ deleted: false }).subscribe({
@@ -230,7 +215,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     this.showUtilities.valueChanges.subscribe(() => this.reload());
     this.showPlants.valueChanges.subscribe(() => this.reload());
     this.plantTypes.valueChanges.subscribe(() => this.reload());
-    this.assetAggregatorIds.valueChanges.subscribe(() => this.reload());
     this.utilityTypeIds.valueChanges.subscribe(() => this.reload());
     this.natureIds.valueChanges.subscribe(() => this.reload());
     this.functionIds.valueChanges.subscribe(() => this.reload());
@@ -238,29 +222,10 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     this.assetSearch.valueChanges.subscribe((id) => this.goToAsset(id));
   }
 
-  // Icona per-aggregato (stessa usata sui marker immobile, ASSET_AGGREGATOR_ICON_FALLBACK
-  // se mancante) + conteggio immobili — quest'ultimo sempre sul totale non
+  // Icona (stessa dei marker immobile) + conteggio immobili sul totale non
   // filtrato (assetsForCount viene da una search indipendente dai filtri
-  // mappa correnti), altrimenti il numero cambierebbe ad ogni filtro attivo
-  // invece di rappresentare la dimensione reale dell'aggregato.
-  private rebuildAssetAggregatorOptions(): void {
-    if (this.assetAggregators.length === 0) return;
-    const countByAggregatorId = new Map<number, number>();
-    for (const a of this.assetsForCount) {
-      if (a.asset_type_id == null) continue;
-      countByAggregatorId.set(a.asset_type_id, (countByAggregatorId.get(a.asset_type_id) ?? 0) + 1);
-    }
-    this.assetAggregatorOptions = this.assetAggregators.map((a) => ({
-      label: a.code ?? '',
-      value: a.id,
-      icon: a.icon || ASSET_AGGREGATOR_ICON_FALLBACK,
-      count: countByAggregatorId.get(a.id) ?? 0,
-    }));
-  }
-
-  // Stesso pattern di rebuildAssetAggregatorOptions per natura/funzione:
-  // conteggi sul totale non filtrato (assetsForCount), ricostruite da
-  // qualunque delle tre subscribe arrivi per ultima.
+  // mappa correnti), altrimenti il numero cambierebbe ad ogni filtro attivo.
+  // Ricostruite da qualunque delle tre subscribe arrivi per ultima.
   private rebuildClassificationOptions(): void {
     const countBy = (key: 'nature_id' | 'function_id') => {
       const counts = new Map<number, number>();
@@ -281,12 +246,12 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     this.functionOptions = this.functions.map((f) => ({
       label: f.name,
       value: f.id,
-      icon: f.icon || ASSET_AGGREGATOR_ICON_FALLBACK,
+      icon: f.icon || ICON_FALLBACK,
       count: functionCounts.get(f.id) ?? 0,
     }));
   }
 
-  // Stesso pattern di rebuildAssetAggregatorOptions: icona per hard_type
+  // Stesso pattern di rebuildClassificationOptions: icona per hard_type
   // (HardTypeIcon, Font Awesome — stessa usata sui marker/legenda) + conteggio
   // utenze sul totale non filtrato.
   private rebuildUtilityTypeOptions(): void {
@@ -344,8 +309,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    // Asset non presente tra i punti mappati correnti (es. escluso dal filtro
-    // aggregato attivo, o non geolocalizzato) — apri comunque la scheda.
+    // Asset non presente tra i punti mappati correnti (es. escluso da un
+    // filtro attivo, o non geolocalizzato) — apri comunque la scheda.
     this.openDetail({ id, type: 'asset' } as UngeolocatedItem);
   }
 
@@ -446,7 +411,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         showUtilities: this.showUtilities.value,
         showPlants: this.showPlants.value,
         plantTypes: this.plantTypes.value,
-        assetAggregatorIds: this.assetAggregatorIds.value,
         natureIds: this.natureIds.value,
         functionIds: this.functionIds.value,
         statuses: this.statuses.value,
@@ -718,11 +682,11 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     const isAsset = point.type === 'asset';
     const color = isAsset ? ASSET_COLOR : (point.hardType ? HardTypeColor[point.hardType] : UNKNOWN_UTILITY_COLOR);
-    // Gli immobili usano l'icona Material dell'aggregato collegato
-    // (AssetAggregator.icon, personalizzabile in anagrafica aggregati); le
+    // Gli immobili usano l'icona Material della funzione (personalizzabile
+    // in anagrafica funzioni); le
     // utenze restano su Font Awesome (HardTypeIcon), invariato.
     const iconHtml = isAsset
-      ? `<span class="material-icons">${point.icon || ASSET_AGGREGATOR_ICON_FALLBACK}</span>`
+      ? `<span class="material-icons">${point.icon || ICON_FALLBACK}</span>`
       : `<i class="${point.hardType ? HardTypeIcon[point.hardType] : UNKNOWN_UTILITY_ICON}"></i>`;
     return { iconHtml, color };
   }

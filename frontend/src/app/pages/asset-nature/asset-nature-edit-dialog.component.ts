@@ -14,8 +14,8 @@ import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {MultiSelectComponent} from '../../core/components/multi-select.component';
 import {TOption} from '../../core/types/option.interface';
-import {AssetAggregatorIconOptions, ASSET_AGGREGATOR_ICON_FALLBACK} from '../asset-aggregator/enum/asset-aggregator-icon.enum';
-import {IconPickerDialogComponent} from '../asset-aggregator/icon-picker-dialog.component';
+import {ICON_OPTIONS, ICON_FALLBACK} from '../../core/helpers/material-icons';
+import {IconPickerDialogComponent} from '../../core/components/icon-picker-dialog.component';
 import {AssetFunctionsService} from '../asset-function/asset-function.service';
 import {AssetNature} from './entity/asset-nature.entity';
 
@@ -38,13 +38,13 @@ export class AssetNatureEditDialogComponent implements OnInit {
   protected data = inject<EditDialogData<AssetNature>>(MAT_DIALOG_DATA);
 
   isNew = this.data.mode === 'create';
-  iconFallback = ASSET_AGGREGATOR_ICON_FALLBACK;
-  filteredIconOptions = AssetAggregatorIconOptions;
+  iconFallback = ICON_FALLBACK;
+  filteredIconOptions = ICON_OPTIONS;
   functionOptions: TOption[] = [];
 
   form = this.fb.group({
     name: [this.data.item.name ?? '', Validators.required],
-    icon: [this.data.item.icon ?? ASSET_AGGREGATOR_ICON_FALLBACK],
+    icon: [this.data.item.icon ?? ICON_FALLBACK],
     function_ids: [(this.data.item.functions ?? []).map(f => f.id)],
   });
 
@@ -52,8 +52,8 @@ export class AssetNatureEditDialogComponent implements OnInit {
     this.form.controls.icon.valueChanges.subscribe((term) => {
       const t = (term ?? '').trim().toLowerCase();
       this.filteredIconOptions = t
-        ? AssetAggregatorIconOptions.filter((o) => o.value.includes(t) || o.label.toLowerCase().includes(t))
-        : AssetAggregatorIconOptions;
+        ? ICON_OPTIONS.filter((o) => o.value.includes(t) || o.label.toLowerCase().includes(t))
+        : ICON_OPTIONS;
     });
     const role = this.authService.getCurrentUser()?.role;
     if (!role || role === 'Lettore') this.form.disable();

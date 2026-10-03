@@ -8,15 +8,6 @@
         <input matInput formControlName="asset_name">
       </mat-form-field>
 
-      <div style="flex: 1 1 45%;">
-        <app-filterable-select
-          label="Tipo precedente"
-          placeholder="Cerca..."
-          [options]="assetAggregatorOptions"
-          formControlName="asset_type_id">
-        </app-filterable-select>
-      </div>
-
       <div style="flex: 1 1 calc(25% - 0.75rem);">
         <app-filterable-select label="Tipologia" placeholder="Cerca..." [options]="natureOptions" formControlName="nature_id"></app-filterable-select>
       </div>
@@ -35,7 +26,7 @@
         </mat-select>
       </mat-form-field>
 
-      <mat-checkbox formControlName="legacy_only" style="flex: 1 1 calc(25% - 0.75rem); align-self: center;">Solo da riclassificare</mat-checkbox>
+      <mat-checkbox formControlName="legacy_only" style="flex: 1 1 calc(25% - 0.75rem); align-self: center;">Solo da classificare</mat-checkbox>
 
       <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
         <mat-label>Categoria</mat-label>

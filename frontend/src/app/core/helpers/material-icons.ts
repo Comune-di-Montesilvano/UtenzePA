@@ -1,12 +1,12 @@
 // Sottoinsieme curato di Material Icons (font già caricato in index.html,
-// standard icone del progetto — vedi CLAUDE.md) per gli aggregati immobili,
+// standard icone del progetto — vedi CLAUDE.md) per funzioni e nature degli immobili,
 // non tutte le ~2500 icone del set. Stesso pattern di HardTypeIcon in
 // hard-type.enum.ts, ma qui il nome ligature è direttamente il valore
 // salvato (niente enum separato: il campo è libero lato DB, questa lista è
 // solo il set proposto nella UI).
-export const ASSET_AGGREGATOR_ICON_FALLBACK = 'apartment';
+export const ICON_FALLBACK = 'apartment';
 
-export const AssetAggregatorIconOptions: { value: string; label: string }[] = [
+export const ICON_OPTIONS: { value: string; label: string }[] = [
   {value: 'apartment', label: 'Condominio'},
   {value: 'location_city', label: 'Palazzo/città'},
   {value: 'domain', label: 'Edificio'},

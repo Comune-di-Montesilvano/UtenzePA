@@ -12,7 +12,7 @@ import {AssetFunctionFilterDialogComponent} from './asset-function-filter-dialog
   standalone: true,
   imports: [ReactiveFormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule],
   changeDetection: ChangeDetectionStrategy.Eager,
-  templateUrl: '../asset-aggregator/search-asset-aggregator.component.html',
+  templateUrl: '../../core/components/quick-search.component.html',
 })
 export class SearchAssetFunctionComponent extends AbstractSearchComponent {
   constructor(private fb: FormBuilder) {

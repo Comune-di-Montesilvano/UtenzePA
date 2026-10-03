@@ -1,5 +1,4 @@
 import {IUtilizerGrant} from '../../utilizer-grant/entity/utilizer-grant.interface';
-import {IAssetAggregator} from '../../asset-aggregator/entity/asset-aggregator.interface';
 
 export interface IAsset {
   id: number;
@@ -27,11 +26,9 @@ export interface IAsset {
   area_sqm?: number | null;
   cadastral_value?: number | null;
   category?: string | null;
-  asset_type_id?: number | null;
   nature_id?: number | null;
   function_id?: number | null;
   status?: string;
-  assetAggregator?: IAssetAggregator| null;
   created_by?: { id: number; name: string } | null;
   updated_by?: { id: number; firstName: string; lastName: string } | null;
 

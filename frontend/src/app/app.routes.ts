@@ -4,7 +4,6 @@ import {LoginComponent} from "./pages/login/login.component";
 import {AuthGuard} from "./guards/auth.guard";
 import {SystemUsersComponent} from "./pages/system-users/system-users.component";
 import {UtilityTypesComponent} from "./pages/utility-types/utility-types.component";
-import {AssetAggregatorsComponent} from "./pages/asset-aggregator/asset-aggregator.component";
 import {AssetNatureComponent} from './pages/asset-nature/asset-nature.component';
 import {AssetFunctionComponent} from './pages/asset-function/asset-function.component';
 import {BudgetChaptersComponent} from "./pages/budget-chapters/budget-chapters.component";
@@ -39,7 +38,6 @@ export const routes: Routes = [
       {path: 'branding', component: BrandingSettingsComponent},
       {path: 'utility-types', component: UtilityTypesComponent},
       {path: 'third-parties', component: ThirdPartiesComponent},
-      {path: 'asset-aggregator', component: AssetAggregatorsComponent},
       {path: 'asset-nature', component: AssetNatureComponent},
       {path: 'asset-function', component: AssetFunctionComponent},
       {path: 'budget-chapter', component: BudgetChaptersComponent},

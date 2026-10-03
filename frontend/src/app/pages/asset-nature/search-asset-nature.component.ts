@@ -12,7 +12,7 @@ import {AssetNatureFilterDialogComponent} from './asset-nature-filter-dialog.com
   standalone: true,
   imports: [ReactiveFormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule],
   changeDetection: ChangeDetectionStrategy.Eager,
-  templateUrl: '../asset-aggregator/search-asset-aggregator.component.html',
+  templateUrl: '../../core/components/quick-search.component.html',
 })
 export class SearchAssetNatureComponent extends AbstractSearchComponent {
   constructor(private fb: FormBuilder) {
