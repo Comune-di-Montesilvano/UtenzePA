@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Eliminare gli aggregati utenze e la lista "Costi a carico di"; il primo è sostituito da filtri su Funzione immobile/Tipo impianto, il secondo da "Volturata a/il" sull'utenza più uno stato calcolato dai contratti immobiliari (Comune / Da volturare / Volturata / Da riprendere), con anomalie in dashboard (release v1.9.0).
+**Goal:** Eliminare gli aggregati utenze e la lista "Costi a carico di"; il primo è sostituito da filtri su Funzione immobile/Tipo impianto, il secondo da "Volturata a/il" sull'utenza più uno stato calcolato dai contratti immobiliari (Comune / Da volturare / Volturata / Da riprendere), con anomalie in dashboard (release v1.8.1).
 
 **Architecture:** Lo stato è una funzione pura (`costInfo`) sui contratti immobiliari che `UtilitiesService` già carica con l'utenza, più una gemella SQL (`costStatusSql`) per filtro e anomalie. I filtri nuovi sono sotto-query (solo WHERE). Migration di solo schema: una additiva (colonne voltura), due di rimozione. Correzioni dati one-shot sul DB locale, con SQL nello scratchpad, nei punti in cui lo schema lo permette.
 
@@ -1193,12 +1193,12 @@ Utente temporaneo come da CLAUDE.md (creato via SQL, eliminato a fine test con `
 - [ ] **Step 2: Documentazione**
 
 - `CLAUDE.md`: dall'elenco moduli togliere `utility-aggregators` e `costs-borne-by`; nella nota "Disalimentabilità utenza…" aggiungere: "A carico di: `utilities.transferred_to_third_party_id`/`transferred_on` (voltura) + stato calcolato in `apis/utility/cost-status.ts` (`costInfo` su dati caricati, gemella SQL `costStatusSql` per filtro e anomalie: tenerle allineate). Aggregati utenze e lista costi a carico non esistono più."
-- Roadmap: righe 11 e 12 → "fatto, v1.9.0 (…esito liste dal ledger…)"; sezioni 11 e 12 con "Fatto in v1.9.0: spec …", esiti e residui (capitolo delle 10 SPRAR alla ragioneria, 7 immobili senza funzione, utenze "Da volturare" da verificare). "Aggiornata:" → 2026-10-03.
-- `publiccode.yml`: `softwareVersion: 1.9.0`, `releaseDate` = data di rilascio.
+- Roadmap: righe 11 e 12 → "fatto, v1.8.1 (…esito liste dal ledger…)"; sezioni 11 e 12 con "Fatto in v1.8.1: spec …", esiti e residui (capitolo delle 10 SPRAR alla ragioneria, 7 immobili senza funzione, utenze "Da volturare" da verificare). "Aggiornata:" → 2026-10-03.
+- `publiccode.yml`: `softwareVersion: 1.8.1`, `releaseDate` = data di rilascio.
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add CLAUDE.md docs/roadmap-patrimonio.md publiccode.yml
-git commit -m "docs: voci 11 e 12 della roadmap, v1.9.0"
+git commit -m "docs: voci 11 e 12 della roadmap, v1.8.1"
 ```

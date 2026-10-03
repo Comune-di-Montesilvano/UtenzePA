@@ -1,6 +1,6 @@
 # Eliminazione degli aggregati utenze (roadmap voce 11)
 
-Data: 2026-10-03. Release prevista: v1.9.0, insieme a "Costi a carico calcolato" (`2026-10-03-costi-a-carico-calcolato-design.md`).
+Data: 2026-10-03. Release prevista: v1.8.1, insieme a "Costi a carico calcolato" (`2026-10-03-costi-a-carico-calcolato-design.md`).
 
 ## Obiettivo
 
@@ -57,4 +57,4 @@ Migration `DropUtilityAggregators` (additiva solo in negativo, nessun dato spost
 ## Documentazione
 
 - `CLAUDE.md`: togliere `utility-aggregators` dall'elenco moduli.
-- Roadmap: voce 11 fatta (v1.9.0), con lo stato della lista SPRAR per la ragioneria.
+- Roadmap: voce 11 fatta (v1.8.1), con lo stato della lista SPRAR per la ragioneria.

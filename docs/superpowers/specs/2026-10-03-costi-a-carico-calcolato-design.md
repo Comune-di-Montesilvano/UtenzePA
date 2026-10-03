@@ -1,6 +1,6 @@
 # Costi a carico calcolato e volture (roadmap voce 12)
 
-Data: 2026-10-03. Release prevista: v1.9.0, insieme a "Eliminazione degli aggregati utenze" (`2026-10-03-eliminazione-aggregati-utenze-design.md`).
+Data: 2026-10-03. Release prevista: v1.8.1, insieme a "Eliminazione degli aggregati utenze" (`2026-10-03-eliminazione-aggregati-utenze-design.md`).
 
 ## Obiettivo
 
@@ -77,4 +77,4 @@ Intervento one-shot: SQL eseguito a mano sul DB locale, mai nel repo né dentro 
 ## Documentazione
 
 - `CLAUDE.md`: togliere `costs-borne-by` dall'elenco moduli; nota sulla regola (`cost-status.ts`, gemella SQL).
-- Roadmap: voce 12 fatta (v1.9.0), con l'esito delle liste dati.
+- Roadmap: voce 12 fatta (v1.8.1), con l'esito delle liste dati.
