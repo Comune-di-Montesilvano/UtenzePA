@@ -52,7 +52,7 @@ Se valgono entrambe prevale Fornitore. Gli impianti non contano (la manutenzione
 
 ### Codice
 
-- `apis/utility/maintenance-status.ts`, stesso schema di `cost-status.ts`: enum `MaintenanceStatus`; funzione pura `maintenanceInfo(utility)` sui dati già caricati (`contratti` con `supplier`, `assets.utilizerGrants.parties`) → `{status, contracts: [{id, name}], grants: [{grant_id, third_party_id, name}]}`; gemella SQL `maintenanceStatusSql(status, alias)` per il filtro.
+- `apis/utility/maintenance-status.ts`, stesso schema di `cost-status.ts`: enum `MaintenanceStatus`; funzione pura `maintenanceInfo(utility)` sui dati già caricati (`contratti` con `supplier`, `assets.utilizerGrants.parties`) → `{status, contracts: [{id, name}], parties: [{grant_id, third_party_id, name}]}`; gemella SQL `maintenanceStatusSql(status, alias)` per il filtro.
 - `UtilitiesService`: `maintenance_info` su ogni utenza restituita; `findAll`/`findOne`/`findBySafeguard` caricano `contratti.supplier` se non già caricato; filtro `maintenance_status`; tolti `maintenance_management_id_fk`, relazione e join.
 - DTO contratto di fornitura e contratto immobiliare: i due flag (`IsBoolean`, facoltativi).
 - Rimossi: modulo `maintenance-managers`, entity `shared/entities/maintenanceManagers.entity.ts`, `maintenance_management_id_fk` (entity, DTO, service), registrazione in `app.module.ts`.
@@ -67,7 +67,7 @@ Frontend:
 ### Migration (in quest'ordine)
 
 - `DropDeadTables`: drop `fk_test` e `aca_keys`; `down()` ricrea le tabelle vuote.
-- `InvoiceBudgetChapterFk`: controllo righe orfane, poi FK (sezione A); `down()` toglie la FK.
+- `InvoiceBudgetChapterFk`: controllo righe orfane, poi FK solo se mancano (sezione A); `down()` vuoto: le FK potevano esistere già prima.
 - `AddMaintenanceFlags` (additiva): le due colonne boolean.
 - `DropMaintenanceManagers`: drop FK, colonna `utilities.maintenance_management_id_fk`, tabella `maintenance_managers`; `down()` ricrea tabella vuota e colonna nullable con FK.
 - `DropAssetAggregators` (sezione B).

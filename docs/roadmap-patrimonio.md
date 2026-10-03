@@ -279,6 +279,13 @@ Decisione utente (2026-10-03): si parte da questa voce; i gestori manutenzione s
 
 **Parte 1 fatta in v1.9.0** (spec `docs/superpowers/specs/2026-10-03-pulizia-entita-manutenzione-design.md`): eliminati `fk_test`, `aca_keys`, aggregati immobili (mappa e icone solo dalla funzione) e gestori manutenzione; FK su `invoice_budget_chapter` (aggiunte solo se mancano); "Manutenzione a carico di" calcolata dalle spunte "Manutenzione inclusa" (contratto di fornitura) e "Manutenzione a carico della controparte" (contratto immobiliare): Fornitore / Controparte / Comune; anomalia "Immobili senza natura o funzione". Dati sul DB locale (2026-10-03): natura assegnata a 177 immobili (125 ricavati dalla funzione, 47 decisi con l'utente, 5 dei 7 con solo l'aggregato), 229 utenze con la nota `Ex gestore manutenzione Access: <valore>`, spunta sul contratto Engie del servizio luce (125 utenze "Fornitore"), 20 righe orfane di `invoice_budget_chapter` cancellate. Restano 6 immobili da classificare (2 segnaposto "ex contatore disattivato" senza natura né funzione). Restano per la parte 2 i campi doppi elencati sopra.
 
+Dalla revisione finale di v1.9.0, non bloccanti:
+
+- immobile con natura ma senza funzione: si può svuotare di nuovo la natura (né la scheda né `assertClassification` lo impediscono; preesistente);
+- immobile con funzione ma senza natura: non si salva (il controllo `function_id` disabilitato viene comunque inviato da `getRawValue()`, 400 "Selezionare la tipologia prima della funzione"); nessun immobile in questo stato oggi;
+- scheda utenza: il riquadro Manutenzione (come "A carico di") è un'istantanea, non si aggiorna dopo aver cambiato la spunta su un contratto aperto dalla scheda stessa;
+- `InvoiceBudgetChapterFk.down()` vuoto: in rollback le FK vanno tolte a mano se servisse.
+
 Gotcha emersi dall'analisi:
 
 - `information_schema.TABLES.TABLE_ROWS` è una stima e conta anche le righe cancellate (es. `contracts` 662 righe, 42 non cancellate; `utilizer_grant` 567, 126; `assets` 477, 190 dopo il passaggio a impianti): contare sempre con `COUNT(*) ... WHERE deleted = 0`;
