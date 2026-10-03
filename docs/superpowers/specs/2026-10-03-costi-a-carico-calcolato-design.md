@@ -47,6 +47,8 @@ Migration `DropCostsBorneBy` (nessun dato spostato, quindi nessun controllo prel
 
 Solo sul DB locale, una lista alla volta con conferma dell'utente:
 
+Intervento one-shot: SQL eseguito a mano sul DB locale, mai nel repo né dentro la migration (la migration tocca solo lo schema).
+
 1. utenze "comune" che il calcolo assegnerebbe a terzi (14, di cui 8 attive): correggere il flag "Utenze da volturare" del contratto o accettare il nuovo valore;
 2. utenze "concessionario" senza contratto attivo con voltura (33, di cui 25 attive): aggiungere o riattivare il contratto nel registro, oppure accettare Comune;
 3. utenze con valore "GUARDIA COSTIERA", "asl", "azienda speciale" o il caso "il Comune rimborsa" (16, tutte disattivate): in coda alle note `Ex costi a carico Access: <valore>`.

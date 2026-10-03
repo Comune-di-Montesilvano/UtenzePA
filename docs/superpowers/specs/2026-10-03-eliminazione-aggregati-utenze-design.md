@@ -19,6 +19,8 @@ Gli aggregati utenze (`utility_aggregators`, 22 categorie libere ereditate da Ac
 
 Solo sul DB locale (la produzione si allinea con export/import):
 
+Intervento one-shot: SQL eseguito a mano sul DB locale, mai nel repo né dentro la migration (la migration tocca solo lo schema).
+
 - alle 10 utenze "sprar" fuori dal capitolo 15048 si aggiunge in coda alle note `Ex aggregato Access: SPRAR`;
 - l'elenco di queste 10 (id e POD) va alla ragioneria per l'eventuale capitolo: il capitolo non si assegna d'ufficio;
 - tutte le altre assegnazioni si scartano.
