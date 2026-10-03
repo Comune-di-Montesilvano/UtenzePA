@@ -2,6 +2,7 @@ import { BadRequestException, HttpException } from '@nestjs/common';
 import { UtilitiesService } from './utility.service';
 import { Utility } from './entity/utility.entity';
 import { ExpiryStatus } from './enum/ExpiryStatus.enum';
+import { CostStatus, costStatusSql } from './cost-status';
 
 function daysFromToday(days: number): Date {
   const d = new Date();
@@ -192,6 +193,40 @@ describe('UtilitiesService', () => {
         'currentConsipAgreement.safeguard = :safeguard_filter',
         { safeguard_filter: 1 },
       );
+    });
+
+    it('filtro per funzione immobile con sotto-query', async () => {
+      await service.findAll({ asset_function_ids: [3, 5] } as never);
+      const call = qb.andWhere.mock.calls.find((c) =>
+        String(c[0]).includes('s.function_id IN (:...asset_function_ids)'),
+      );
+      expect(call?.[1]).toEqual({ asset_function_ids: [3, 5] });
+      expect(String(call?.[0])).toContain('s.deleted = 0');
+    });
+
+    it('filtro per tipo impianto con sotto-query', async () => {
+      await service.findAll({ plant_types: ['FOUNTAIN'] } as never);
+      const call = qb.andWhere.mock.calls.find((c) => String(c[0]).includes('p.type IN (:...plant_types)'));
+      expect(call?.[1]).toEqual({ plant_types: ['FOUNTAIN'] });
+      expect(String(call?.[0])).toContain('p.deleted = 0');
+    });
+
+    it('filtro a carico di usa costStatusSql', async () => {
+      await service.findAll({ cost_status: 'TO_TRANSFER' } as never);
+      expect(qb.andWhere).toHaveBeenCalledWith(costStatusSql(CostStatus.TO_TRANSFER));
+    });
+
+    it('filtro per contratto immobiliare con sotto-query', async () => {
+      await service.findAll({ grant_id: 12 } as never);
+      const call = qb.andWhere.mock.calls.find((c) => String(c[0]).includes('uga.utilizer_grant_id = :grant_id'));
+      expect(call?.[1]).toEqual({ grant_id: 12 });
+    });
+
+    it('liste vuote: nessun filtro', async () => {
+      await service.findAll({ asset_function_ids: [], plant_types: [] } as never);
+      const sql = qb.andWhere.mock.calls.map((c) => String(c[0])).join(' ');
+      expect(sql).not.toContain('function_id');
+      expect(sql).not.toContain('p.type');
     });
 
     it('filtro per parte con sottoquery (elenco parti completo)', async () => {

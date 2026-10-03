@@ -17,7 +17,7 @@ import { EstimateSource } from '@apis/utility-consumptions/enum/estimate-source.
 import { findMeterConflict } from './meter-number.helper';
 import { AreraCategory, ARERA_NONE, GasUseCategory, isAreraCategoryAllowed } from './arera-category';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
-import { costInfo } from './cost-status';
+import { costInfo, costStatusSql } from './cost-status';
 
 @Injectable()
 export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, UpdateUtilityDto> {
@@ -367,6 +367,34 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       );
     }
 
+    if (filters?.asset_function_ids?.length) {
+      qb.andWhere(
+        `Utility.id IN (SELECT ua.utility_id FROM utility_assets ua
+           JOIN assets s ON s.id = ua.asset_id AND s.deleted = 0
+           WHERE s.function_id IN (:...asset_function_ids))`,
+        { asset_function_ids: filters.asset_function_ids },
+      );
+    }
+    if (filters?.plant_types?.length) {
+      qb.andWhere(
+        `Utility.id IN (SELECT up.utility_id FROM utility_plants up
+           JOIN plants p ON p.id = up.plant_id AND p.deleted = 0
+           WHERE p.type IN (:...plant_types))`,
+        { plant_types: filters.plant_types },
+      );
+    }
+    if (filters?.grant_id) {
+      qb.andWhere(
+        `Utility.id IN (SELECT ua.utility_id FROM utility_assets ua
+           JOIN utilizer_grant_assets uga ON uga.asset_id = ua.asset_id
+           WHERE uga.utilizer_grant_id = :grant_id)`,
+        { grant_id: filters.grant_id },
+      );
+    }
+    if (filters?.cost_status) {
+      qb.andWhere(costStatusSql(filters.cost_status));
+    }
+
     if (filters?.arera_category) {
       if (filters.arera_category === ARERA_NONE) {
         qb.andWhere('Utility.arera_category IS NULL');
@@ -399,6 +427,10 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       'gas_use_category',
       'disconnectable',
       'asset_id',
+      'asset_function_ids',
+      'plant_types',
+      'grant_id',
+      'cost_status',
       'safeguard',
       'party_id',
       'id',
