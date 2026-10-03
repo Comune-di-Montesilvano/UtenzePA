@@ -37,7 +37,6 @@ describe('AssetsService', () => {
         buildQuery: jest.fn(),
         geocode: jest.fn(),
       } as never,
-      { createQueryBuilder: jest.fn() } as never,
       { createQueryBuilder: jest.fn().mockReturnValue(natureQb) } as never,
     );
   });
@@ -109,7 +108,6 @@ describe('AssetsService', () => {
         repo as never,
         geocodingService as never,
         { createQueryBuilder: jest.fn() } as never,
-        { createQueryBuilder: jest.fn() } as never,
       );
     });
 
@@ -157,18 +155,16 @@ describe('AssetsService', () => {
   });
 
   describe('AssetsService — audit label resolver', () => {
-    it('mappa asset_type_id su AssetAggregator.code, non su description', () => {
-      const assetAggregatorRepo = { createQueryBuilder: jest.fn() };
+    it('etichetta la natura col nome, nessun resolver per il vecchio tipo', () => {
       service = new AssetsService(
         repo as never,
         { buildQuery: jest.fn(), geocode: jest.fn() } as never,
-        assetAggregatorRepo as never,
         { createQueryBuilder: jest.fn() } as never,
       );
 
-      const resolver = (service as any).auditLabelResolvers?.asset_type_id;
-      expect(resolver).toBeDefined();
-      expect(resolver.field).toBe('code');
+      const resolvers = (service as any).auditLabelResolvers;
+      expect(resolvers.nature_id.field).toBe('name');
+      expect(resolvers.asset_type_id).toBeUndefined();
     });
   });
   describe('classificazione', () => {
@@ -176,22 +172,22 @@ describe('AssetsService', () => {
       (repo as any).save = jest.fn(async (d) => d);
     });
 
-    it('findAll e findOne joinano natura, funzione e vecchio aggregato', async () => {
+    it('findAll e findOne joinano natura e funzione, non il vecchio aggregato', async () => {
       await service.findAll();
       await service.findOne(1);
       for (const [path, alias] of [
         ['assets.assetNature', 'assetNature'],
         ['assets.assetFunction', 'assetFunction'],
-        ['assets.assetAggregator', 'assetAggregator'],
       ]) {
         const calls = qb.leftJoinAndSelect.mock.calls.filter((c) => c[0] === path && c[1] === alias);
         expect(calls).toHaveLength(2);
       }
+      expect(qb.leftJoinAndSelect.mock.calls.some((c) => c[0] === 'assets.assetAggregator')).toBe(false);
     });
 
-    it('findAll con legacy_only filtra asset_type_id non nullo e non lo passa ad applyFilters', async () => {
+    it('findAll con legacy_only filtra gli immobili senza natura o funzione e non lo passa ad applyFilters', async () => {
       await service.findAll({ legacy_only: true } as never);
-      expect(qb.andWhere).toHaveBeenCalledWith('assets.asset_type_id IS NOT NULL');
+      expect(qb.andWhere).toHaveBeenCalledWith('(assets.nature_id IS NULL OR assets.function_id IS NULL)');
       expect(qb.andWhere).not.toHaveBeenCalledWith(
         expect.stringContaining('legacy_only'),
         expect.anything(),
@@ -213,34 +209,10 @@ describe('AssetsService', () => {
       expect(repo.save).not.toHaveBeenCalled();
     });
 
-    it('update con tipologia e funzione valorizzate azzera il vecchio tipo', async () => {
-      (repo as any).findOne = jest
-        .fn()
-        .mockResolvedValue({ id: 5, asset_type_id: 3, nature_id: null, function_id: null });
-
-      await service.update(5, { nature_id: 1, function_id: 2 } as never, 1);
-
-      expect(repo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ asset_type_id: null, nature_id: 1, function_id: 2 }),
-      );
-    });
-
-    it('update con sola natura non azzera il vecchio tipo', async () => {
-      (repo as any).findOne = jest
-        .fn()
-        .mockResolvedValue({ id: 5, asset_type_id: 3, nature_id: null, function_id: null });
-
-      await service.update(5, { nature_id: 1 } as never, 1);
-
-      expect(repo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ asset_type_id: 3, nature_id: 1 }),
-      );
-    });
-
     it('update parziale (solo funzione) valida contro la natura già salvata', async () => {
       (repo as any).findOne = jest
         .fn()
-        .mockResolvedValue({ id: 5, asset_type_id: null, nature_id: 1, function_id: 2 });
+        .mockResolvedValue({ id: 5, nature_id: 1, function_id: 2 });
 
       await service.update(5, { function_id: 4 } as never, 1);
 
@@ -258,18 +230,18 @@ describe('AssetsService', () => {
     it('update con funzione senza natura rifiuta', async () => {
       (repo as any).findOne = jest
         .fn()
-        .mockResolvedValue({ id: 5, asset_type_id: 3, nature_id: null, function_id: null });
+        .mockResolvedValue({ id: 5, nature_id: null, function_id: null });
 
       await expect(service.update(5, { function_id: 2 } as never, 1)).rejects.toThrow(
         'Selezionare la tipologia prima della funzione.',
       );
     });
 
-    it('countLegacy conta gli immobili non cancellati con asset_type_id valorizzato', async () => {
+    it('countLegacy conta gli immobili non cancellati senza natura o funzione', async () => {
       qb.getCount.mockResolvedValue(42);
       await expect(service.countLegacy()).resolves.toBe(42);
       expect(qb.where).toHaveBeenCalledWith('assets.deleted = 0');
-      expect(qb.andWhere).toHaveBeenCalledWith('assets.asset_type_id IS NOT NULL');
+      expect(qb.andWhere).toHaveBeenCalledWith('(assets.nature_id IS NULL OR assets.function_id IS NULL)');
     });
   });
 });

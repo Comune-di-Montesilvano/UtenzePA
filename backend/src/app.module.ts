@@ -14,7 +14,6 @@ import { AuthMysqlModule } from '@apis/auth/auth.module';
 import { SetupModule } from '@apis/setup/setup.module';
 import { SystemUsersModule } from '@apis/system-users/system-users.module';
 import { UtilityTypesModule } from '@apis/utility-types/utility-types.module';
-import { AssetAggregatorsModule } from '@apis/asset-aggregators/asset-aggregators.module';
 import { AssetNaturesModule } from '@apis/asset-natures/asset-natures.module';
 import { AssetFunctionsModule } from '@apis/asset-functions/asset-functions.module';
 import { BudgetChaptersModule } from '@apis/budget-chapters/budget-chapters.module';
@@ -51,7 +50,6 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     SetupModule,
     SystemUsersModule,
     UtilityTypesModule,
-    AssetAggregatorsModule,
     AssetNaturesModule,
     AssetFunctionsModule,
     BudgetChaptersModule,
