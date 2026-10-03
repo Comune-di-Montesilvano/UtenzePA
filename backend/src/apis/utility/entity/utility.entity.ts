@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 
 import { Contract } from '@apis/contracts/entity/contract.entity';
+import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
 import { Asset } from '../../asset/entity/asset.entity';
 import { Plant } from '@apis/plants/entity/plant.entity';
 import { UtilityAggregator } from '../../utility-aggregators/entity/utility-aggregator.entity';
@@ -125,6 +126,19 @@ export class Utility {
   // null = non noto.
   @Column({ type: 'boolean', nullable: true })
   disconnectable: boolean | null;
+
+  // Voltura: a chi è intestata ora l'utenza (null = Comune). Lo stato
+  // "a carico di" si calcola confrontandola con i contratti immobiliari
+  // (cost-status.ts).
+  @Column({ type: 'int', nullable: true })
+  transferred_to_third_party_id: number | null;
+
+  @ManyToOne(() => ThirdParty, { nullable: true })
+  @JoinColumn({ name: 'transferred_to_third_party_id' })
+  transferredTo: ThirdParty | null;
+
+  @Column({ type: 'date', nullable: true })
+  transferred_on: string | null;
 
   @Column({ type: 'text', nullable: true })
   specifications: string;

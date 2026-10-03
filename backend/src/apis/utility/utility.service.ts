@@ -17,6 +17,7 @@ import { EstimateSource } from '@apis/utility-consumptions/enum/estimate-source.
 import { findMeterConflict } from './meter-number.helper';
 import { AreraCategory, ARERA_NONE, GasUseCategory, isAreraCategoryAllowed } from './arera-category';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
+import { costInfo } from './cost-status';
 
 @Injectable()
 export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, UpdateUtilityDto> {
@@ -203,6 +204,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       expiryStatus: this.getExpiryStatus(this.toDate(current?.supply_expiry_date ?? null)),
       aggregator: utility.utilityAggregator ?? null,
       utilityType: utility.utilityType ?? null,
+      cost_info: costInfo(utility),
     } as Utility;
   }
 
@@ -213,6 +215,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     // qui, presenti solo in findOne().
     qb.leftJoinAndSelect('Utility.created_by', 'created_by');
     qb.leftJoinAndSelect('Utility.updated_by', 'updated_by');
+    qb.leftJoinAndSelect('Utility.transferredTo', 'transferredTo');
     qb.leftJoinAndSelect('Utility.utilityType', 'utilityType', 'utilityType.deleted = 0');
     qb.leftJoinAndSelect('Utility.assets', 'assets', 'assets.deleted = 0');
     qb.leftJoinAndSelect('Utility.plants', 'plants', 'plants.deleted = 0');
@@ -461,6 +464,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
   async findBySafeguard(): Promise<Utility[]> {
     const qb = this.repo.createQueryBuilder('Utility');
     this.joinCurrentContract(qb, { inner: true });
+    qb.leftJoinAndSelect('Utility.transferredTo', 'transferredTo');
     qb.leftJoinAndSelect('Utility.utilityType', 'utilityType', 'utilityType.deleted = 0');
     qb.leftJoinAndSelect('Utility.assets', 'assets', 'assets.deleted = 0');
     qb.leftJoinAndSelect('Utility.plants', 'plants', 'plants.deleted = 0');
@@ -510,6 +514,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('Utility.budgetChapter', 'budgetChapter', 'budgetChapter.deleted = 0');
     qb.leftJoinAndSelect('Utility.created_by', 'created_by');
     qb.leftJoinAndSelect('Utility.updated_by', 'updated_by');
+    qb.leftJoinAndSelect('Utility.transferredTo', 'transferredTo');
     qb.leftJoinAndSelect('Utility.contratti', 'contratti', 'contratti.deleted = 0');
     qb.leftJoinAndSelect('contratti.supplier', 'contrattiSupplier', 'contrattiSupplier.deleted = 0');
     qb.leftJoinAndSelect('contratti.consipAgreement', 'contrattiConsipAgreement', 'contrattiConsipAgreement.deleted = 0');
@@ -565,12 +570,28 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     }
   }
 
+  // Voltura: soggetto esistente; la data senza soggetto non ha senso.
+  private async assertTransfer(
+    thirdPartyId: number | null | undefined,
+    transferredOn: string | null | undefined,
+  ): Promise<void> {
+    if (transferredOn && !thirdPartyId) {
+      throw new BadRequestException("Indicare a chi è stata volturata l'utenza.");
+    }
+    if (!thirdPartyId) return;
+    const rows = await this.repo.manager.query('SELECT id FROM third_parties WHERE id = ? AND deleted = 0', [
+      thirdPartyId,
+    ]);
+    if (!rows.length) throw new BadRequestException('Soggetto della voltura non trovato.');
+  }
+
   async create(dto: CreateUtilityDto, userId?: number): Promise<Utility> {
     const { asset_ids, plant_ids, ...rest } = dto;
     // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
     if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
     await this.assertMeterAvailable(rest.meter_number, null);
     await this.assertAreraCategory(rest.utility_type_id_fk, rest.arera_category, rest.gas_use_category);
+    await this.assertTransfer(rest.transferred_to_third_party_id, rest.transferred_on);
     const estimate = Number(rest.estimated_annual_consumption ?? 0);
     const assets = await this.resolveAssets(asset_ids ?? []);
     const plants = await this.resolvePlants(plant_ids ?? []);
@@ -633,6 +654,16 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     // del dialog marcherebbe la stima come manuale.
     let estimateReset = false;
     const payload: Record<string, unknown> = { ...rest };
+    if (rest.transferred_to_third_party_id !== undefined || rest.transferred_on !== undefined) {
+      const toId =
+        rest.transferred_to_third_party_id !== undefined
+          ? rest.transferred_to_third_party_id
+          : current.transferred_to_third_party_id;
+      // Ripresa dal Comune (soggetto tolto): si svuota anche la data.
+      const recovered = rest.transferred_to_third_party_id === null;
+      if (recovered) payload.transferred_on = null;
+      await this.assertTransfer(toId, recovered ? null : (rest.transferred_on ?? current.transferred_on));
+    }
     if (
       rest.estimated_annual_consumption !== undefined &&
       rest.estimated_annual_consumption !== null &&

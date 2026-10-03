@@ -134,6 +134,15 @@ export class CreateUtilityDto {
   @IsEnum(GasUseCategory, { message: "Categoria d'uso gas non valida." })
   gas_use_category?: GasUseCategory | null;
 
+  // Voltura (null = ripresa dal Comune).
+  @IsOptional()
+  @IsInt()
+  transferred_to_third_party_id?: number | null;
+
+  @IsOptional()
+  @NormalizeDate()
+  transferred_on?: string | null;
+
   @IsOptional()
   @IsBoolean()
   disconnectable?: boolean | null;
