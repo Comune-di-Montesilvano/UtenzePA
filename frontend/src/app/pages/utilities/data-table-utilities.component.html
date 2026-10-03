@@ -217,9 +217,12 @@
     <td mat-cell *matCellDef="let item">{{ item.disconnectable === true ? 'Sì' : item.disconnectable === false ? 'No' : '' }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="maintenanceManager.code">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Gestione Manutenzione</th>
-    <td mat-cell *matCellDef="let item">{{ item.maintenanceManager?.code }}</td>
+  <ng-container matColumnDef="maintenance_info">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Manutenzione</th>
+    <td mat-cell *matCellDef="let item">
+      <app-status-badge size="sm" [info]="maintenanceStatus(item.maintenance_info)"></app-status-badge>
+      {{ maintenanceName(item) }}
+    </td>
   </ng-container>
 
   <ng-container matColumnDef="budgetChapter.description">

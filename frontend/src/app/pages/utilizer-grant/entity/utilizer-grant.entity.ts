@@ -18,6 +18,7 @@ export class UtilizerGrant extends AbstractEntity implements IUtilizerGrant {
 
   concession_act?: string;
   utilities_to_be_taken_over?: boolean;
+  maintenance_by_counterparty?: boolean;
   usage_type?: string;
   asset_ids?: number[];
   party_ids?: number[];
@@ -81,6 +82,7 @@ export class UtilizerGrant extends AbstractEntity implements IUtilizerGrant {
       tacit_renewal: false,
       vat_applicable: false,
       utilities_to_be_taken_over: false,
+      maintenance_by_counterparty: false,
       deleted: false,
       ...data,
     });

@@ -182,6 +182,7 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
     renewal_months: [this.item.renewal_months ?? null as number | null, Validators.min(1)],
     notice_months: [this.item.notice_months ?? null as number | null, Validators.min(0)],
     utilities_to_be_taken_over: [this.item.utilities_to_be_taken_over ?? false],
+    maintenance_by_counterparty: [this.item.maintenance_by_counterparty ?? false],
     registration_ref: [this.item.registration_ref ?? ''],
     cadastral_ref: [this.item.cadastral_ref ?? ''],
     area_sqm: [this.item.area_sqm ?? null as number | null, Validators.min(0)],

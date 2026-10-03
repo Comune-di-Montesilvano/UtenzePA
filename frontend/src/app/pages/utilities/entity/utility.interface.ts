@@ -6,7 +6,6 @@ import {IConsipAgreement} from '../../consip-agreement/entity/consip-agreement.i
 import {ISystemUser} from '../../system-users/entity/system-user.interface';
 import {IAsset} from '../../assets/entity/asset.interface';
 import {IBudgetChapter} from '../../budget-chapters/entity/budget-chapter.interface';
-import {IMaintenanceManager} from '../../maintenance-managers/entity/maintenance-manager.interface';
 import {Contract} from '../../contracts/entity/contract.entity';
 
 // "A carico di" calcolato dal backend (apis/utility/cost-status.ts).
@@ -20,6 +19,13 @@ export interface CostInfo {
   transferred_on: string | null;
 }
 
+// "Manutenzione a carico di" calcolata dal backend (apis/utility/maintenance-status.ts).
+export interface MaintenanceInfo {
+  status: 'COMUNE' | 'SUPPLIER' | 'COUNTERPARTY';
+  contracts: {id: number; name: string}[];
+  parties: {grant_id: number; third_party_id: number; name: string}[];
+}
+
 export interface IUtility {
   id: number;
   additional_notes?: string | null;
@@ -30,6 +36,7 @@ export interface IUtility {
   consipAgreement?: IConsipAgreement | null;
   contratti?: Contract[];
   cost_info?: CostInfo;
+  maintenance_info?: MaintenanceInfo;
   transferred_to_third_party_id?: number | null;
   transferred_on?: Date | string | null;
   create_date: Date | null;
@@ -43,8 +50,6 @@ export interface IUtility {
   expiryStatus?: ExpireState | null;
   latitude?: string | null;
   longitude?: string | null;
-  maintenance_management_id_fk: number | null;
-  maintenanceManager?: IMaintenanceManager | null;
   management_expiry_date?: Date | null;
   meter_number?: string | null;
   meter_removed?: boolean | null;

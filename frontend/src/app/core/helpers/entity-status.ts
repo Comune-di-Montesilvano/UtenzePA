@@ -57,6 +57,15 @@ export function utilityFlags(meterRemoved: boolean | null | undefined, meterVeri
   return flags;
 }
 
+// "Manutenzione a carico di" (stato calcolato dal backend, maintenance-status.ts).
+export function maintenanceStatus(info: {status: string} | null | undefined): StatusInfo {
+  switch (info?.status) {
+    case 'SUPPLIER': return {tone: 'info', label: 'Fornitore', icon: 'local_shipping'};
+    case 'COUNTERPARTY': return {tone: 'info', label: 'Controparte', icon: 'handshake'};
+    default: return {tone: 'ok', label: 'Comune', icon: 'account_balance'};
+  }
+}
+
 // "A carico di" (stato calcolato dal backend, cost-status.ts).
 export function costStatus(info: {status: string} | null | undefined): StatusInfo {
   switch (info?.status) {

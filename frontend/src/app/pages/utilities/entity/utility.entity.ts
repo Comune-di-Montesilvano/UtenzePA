@@ -1,5 +1,5 @@
 import {AbstractEntity} from '../../../core/entities/abstract.entity';
-import type {CostInfo, IUtility} from './utility.interface';
+import type {CostInfo, IUtility, MaintenanceInfo} from './utility.interface';
 import {Phase} from '../enum/phase.enum';
 import {ExpireState} from '../enum/expire-state.enum';
 import {ConsipAgreement} from '../../consip-agreement/entity/consip-agreement.entity';
@@ -10,7 +10,6 @@ import {Asset} from '../../assets/entity/asset.entity';
 import type {PlantType} from '../../plants/plant.model';
 import type {AreraCategory, GasUseCategory} from '../arera-category';
 import {BudgetChapter} from '../../budget-chapters/entity/budget-chapter.entity';
-import {MaintenanceManager} from '../../maintenance-managers/entity/maintenance-manager.entity';
 import {SystemUser} from '../../system-users/entity/system-user.entity';
 import {Contract} from '../../contracts/entity/contract.entity';
 
@@ -56,7 +55,6 @@ export class Utility extends AbstractEntity implements IUtility {
   utility_type_id_fk!: number;
   transferred_to_third_party_id?: number | null;
   transferred_on?: Date | string | null;
-  maintenance_management_id_fk!: number;
   @Exclude({toPlainOnly: true})
   supplier_id_fk?: number | null;
   // Inviato al backend (sostituisce gli immobili collegati); in lettura si
@@ -77,8 +75,7 @@ export class Utility extends AbstractEntity implements IUtility {
   cost_info?: CostInfo;
 
   @Exclude({toPlainOnly: true})
-  @Type(() => MaintenanceManager)
-  maintenanceManager?: MaintenanceManager;
+  maintenance_info?: MaintenanceInfo;
 
   @Exclude({toPlainOnly: true})
   supplier?: ThirdParty;

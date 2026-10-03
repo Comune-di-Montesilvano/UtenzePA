@@ -11,6 +11,7 @@ export interface IUtilizerGrant {
   id: number;
   concession_act?: string;
   utilities_to_be_taken_over?: boolean;
+  maintenance_by_counterparty?: boolean;
   usage_type?: string;
   asset_ids?: number[];
   party_ids?: number[];

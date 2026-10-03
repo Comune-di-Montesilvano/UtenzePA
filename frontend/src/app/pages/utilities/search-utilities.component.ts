@@ -44,7 +44,7 @@ export class SearchUtilitiesComponent extends AbstractSearchComponent {
       safeguard: [null],
       wbs_gas_element: [''],
       disconnectable: [null],
-      maintenance_management_id_fk: [null],
+      maintenance_status: [null],
       budget_chapter_code_fk: [null],
       power_kw_electric: [''],
       voltage_kw_electric: [''],
