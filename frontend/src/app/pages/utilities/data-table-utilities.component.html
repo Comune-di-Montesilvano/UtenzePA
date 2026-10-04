@@ -86,7 +86,7 @@
   </ng-container>
 
   <ng-container matColumnDef="utility_code">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Codice Utenza o Cliente</th>
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Codice cliente fornitore</th>
     <td mat-cell *matCellDef="let item">{{ item.utility_code }}</td>
   </ng-container>
 
@@ -106,7 +106,7 @@
   </ng-container>
 
   <ng-container matColumnDef="consip_order">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Ordine CONSIP</th>
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Numero ordine (ODA)</th>
     <td mat-cell *matCellDef="let item">{{ item.consip_order }}</td>
   </ng-container>
 
@@ -115,10 +115,6 @@
     <td mat-cell *matCellDef="let item">{{ item.cig_contract }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="order_number">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Numero ordine</th>
-    <td mat-cell *matCellDef="let item">{{ item.order_number }}</td>
-  </ng-container>
 
   <ng-container matColumnDef="wbs_gas_element">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Elemento WBS Gas</th>
@@ -157,7 +153,7 @@
 
   <ng-container matColumnDef="security_deposit">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Deposito Cauzionale</th>
-    <td mat-cell *matCellDef="let item">{{ item.security_deposit | formatAmount }}</td>
+    <td mat-cell *matCellDef="let item">@if (item.security_deposit != null) { {{ item.security_deposit | formatAmount }} }</td>
   </ng-container>
 
   <ng-container matColumnDef="supply_active">
@@ -253,14 +249,6 @@
     </td>
   </ng-container>
 
-  <ng-container matColumnDef="specifications">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Specifiche</th>
-    <td mat-cell *matCellDef="let item">
-      @if (item.specifications) {
-        <span [matTooltip]="item.specifications">{{ item.specifications | truncate: maxDescLength }}</span>
-      }
-    </td>
-  </ng-container>
 
   <ng-container matColumnDef="notes">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Note</th>
@@ -271,14 +259,6 @@
     </td>
   </ng-container>
 
-  <ng-container matColumnDef="additional_notes">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Note Aggiuntive</th>
-    <td mat-cell *matCellDef="let item">
-      @if (item.additional_notes) {
-        <span [matTooltip]="item.additional_notes">{{ item.additional_notes | truncate: maxDescLength }}</span>
-      }
-    </td>
-  </ng-container>
 
   <ng-container matColumnDef="expiryStatus">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Stato</th>

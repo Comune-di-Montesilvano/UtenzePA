@@ -81,12 +81,4 @@ export class Invoice {
 
   @OneToMany(() => InvoiceBudgetChapter, (utp) => utp.invoice)
   invoiceBudgetChapters: InvoiceBudgetChapter[];
-
-  @ManyToMany(() => BudgetChapter)
-  @JoinTable({
-    name: 'invoice_budget_chapter',
-    joinColumn: { name: 'invoice_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'budget_chapter_id', referencedColumnName: 'id' },
-  })
-  budgetChapters: BudgetChapter[];
 }

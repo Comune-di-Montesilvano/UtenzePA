@@ -33,7 +33,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 15 | UI e identità (elenchi, filtri, dark mode, sidebar, nome) | da approfondire |
 | 16 | Dashboard e mappa | per ultime |
 | 17 | Impegni di spesa (contratto ↔ capitolo) | da approfondire |
-| 18 | Pulizia entità e incongruenze del modello | parte 1 fatta, v1.9.0 (tabelle morte, aggregati immobili, gestori manutenzione → manutenzione calcolata); restano i campi doppi |
+| 18 | Pulizia entità e incongruenze del modello | fatto: parte 1 v1.9.0 (tabelle morte, aggregati immobili, gestori manutenzione → manutenzione calcolata), parte 2 v1.9.1 (campi doppi) |
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
 
@@ -278,6 +278,10 @@ Analisi dello schema e dei dati sul DB locale (2026-10-03), ragionando su come a
 Decisione utente (2026-10-03): si parte da questa voce; i gestori manutenzione si sostituiscono con i contratti di manutenzione (voce 7, assorbita qui).
 
 **Parte 1 fatta in v1.9.0** (spec `docs/superpowers/specs/2026-10-03-pulizia-entita-manutenzione-design.md`): eliminati `fk_test`, `aca_keys`, aggregati immobili (mappa e icone solo dalla funzione) e gestori manutenzione; FK su `invoice_budget_chapter` (aggiunte solo se mancano); "Manutenzione a carico di" calcolata dalle spunte "Manutenzione inclusa" (contratto di fornitura) e "Manutenzione a carico della controparte" (contratto immobiliare): Fornitore / Controparte / Comune; anomalia "Immobili senza natura o funzione". Dati sul DB locale (2026-10-03): natura assegnata a 177 immobili (125 ricavati dalla funzione, 47 decisi con l'utente, 5 dei 7 con solo l'aggregato), 229 utenze con la nota `Ex gestore manutenzione Access: <valore>`, spunta sul contratto Engie del servizio luce (125 utenze "Fornitore"), 20 righe orfane di `invoice_budget_chapter` cancellate. Restano 6 immobili da classificare (2 segnaposto "ex contatore disattivato" senza natura né funzione). Restano per la parte 2 i campi doppi elencati sopra.
+
+**Parte 2 fatta in v1.9.1** (spec `docs/superpowers/specs/2026-10-03-campi-doppi-design.md`): note aggiuntive e specifiche unite in `notes` (177 utenze), deposito cauzionale nullable (554 zeri → non noto), `utility_code` → "Codice cliente fornitore", numero ordine unico (`order_number` eliminato, il contratto 640 spostato in `consip_order`, etichetta "Numero ordine (ODA)"), 91 indirizzi di fornitura uguali a quello di immobile/impianto svuotati, una sola relazione fattura-capitoli. Restano fuori: `budget_chapters.supply_type` (voce 17), `utility_types`, `associated_building` (voce 4), catasto (voce 2). `schema:log` propone ancora DROP/ADD delle FK di `invoice_budget_chapter` e due indici `IDX_…` (servirebbe una migration di soli indici).
+
+Dalla revisione finale di v1.9.1, non bloccanti: commento di `SecurityDepositNullable` ("gli 0 esistenti diventano null") impreciso, la conversione è stata un intervento sui dati; scheda soggetto terzo, colonna "Ordine" invece di "Numero ordine (ODA)"; righe vuote doppie nei template di elenco contratti e utenze; chi aveva salvato la colonna "Numero Ordine" nell'elenco contratti deve riattivare "Numero ordine (ODA)" a mano; export del deposito non formattato quando MySQL restituisce il decimale come stringa (preesistente).
 
 Dalla revisione finale di v1.9.0, non bloccanti:
 

@@ -31,10 +31,6 @@ export class UpdateContractDto {
 
   @IsOptional()
   @IsString()
-  order_number?: string;
-
-  @IsOptional()
-  @IsString()
   @MaxLength(100)
   consip_order?: string;
 

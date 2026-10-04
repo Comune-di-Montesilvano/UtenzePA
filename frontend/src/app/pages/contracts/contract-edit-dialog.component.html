@@ -38,10 +38,6 @@
             <app-filterable-select label="Fornitore" placeholder="Cerca fornitore..." [options]="supplierOptions" formControlName="supplier_id_fk"></app-filterable-select>
           </div>
           <mat-form-field class="span-2">
-            <mat-label>Numero Ordine</mat-label>
-            <input matInput formControlName="order_number">
-          </mat-form-field>
-          <mat-form-field class="span-2">
             <mat-label>Convenzione CONSIP</mat-label>
             <mat-select formControlName="consip_agreement_id" (selectionChange)="onConsipAgreementChange($event)">
               <mat-option [value]="null">Nessuna</mat-option>
@@ -51,7 +47,7 @@
             </mat-select>
           </mat-form-field>
           <mat-form-field class="span-2">
-            <mat-label>Ordine CONSIP</mat-label>
+            <mat-label>Numero ordine (ODA)</mat-label>
             <input matInput formControlName="consip_order">
           </mat-form-field>
         </div>

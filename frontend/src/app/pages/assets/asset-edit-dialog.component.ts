@@ -170,7 +170,7 @@ export class AssetEditDialogComponent implements OnInit {
 
   readonly utilityColumns: LinkedColumn<Utility>[] = [
     {label: 'POD/PDR', value: u => u.utility_id ?? ''},
-    {label: 'Codice cliente', value: u => u.utility_code ?? ''},
+    {label: 'Codice cliente fornitore', value: u => u.utility_code ?? ''},
     {label: 'Contatore', value: u => u.meter_number ?? ''},
     {label: 'Inizio fornitura', value: u => dateIt(u.supply_start_date)},
   ];

@@ -150,7 +150,6 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   form = this.fb.group({
-    additional_notes: [this.data.item.additional_notes ?? ''],
     asset_ids: [(this.data.item.assets ?? []).map(a => a.id)],
     plant_ids: [(this.data.item.plants ?? []).map(p => p.id)],
     budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null, Validators.required],
@@ -168,9 +167,8 @@ export class UtilityEditDialogComponent implements OnInit {
     notes: [this.data.item.notes ?? ''],
     phase_type_electric: [this.data.item.phase_type_electric ?? null],
     power_kw_electric: [this.data.item.power_kw_electric ?? null],
-    security_deposit: [this.data.item.security_deposit ?? 0],
+    security_deposit: [this.data.item.security_deposit ?? null as number | null],
     reported_consumption_year: [this.data.item.reported_consumption_year ?? 0, Validators.required],
-    specifications: [this.data.item.specifications ?? ''],
     supplier_address: [this.data.item.supplier_address ?? ''],
     supply_active: [this.data.item.supply_active ?? null],
     utility_code: [this.data.item.utility_code ?? ''],

@@ -53,9 +53,7 @@ export class SearchUtilitiesComponent extends AbstractSearchComponent {
       security_deposit: [''],
       phase_type_electric: [null],
       meter_verified: [null],
-      specifications: [''],
       notes: [''],
-      additional_notes: [''],
       latitude: [''],
       longitude: [''],
       party_id: [null],
@@ -65,7 +63,6 @@ export class SearchUtilitiesComponent extends AbstractSearchComponent {
       takeover_termination_date_range: [null],
       water_concession_range: [null],
       cig_contract: [''],
-      order_number: ['']
     });
   }
 
