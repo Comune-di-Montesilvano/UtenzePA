@@ -17,7 +17,7 @@
             <input matInput formControlName="meter_number">
           </mat-form-field>
           <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
-            <mat-label>Codice Utenza/Cliente</mat-label>
+            <mat-label>Codice cliente fornitore</mat-label>
             <input matInput formControlName="utility_code">
           </mat-form-field>
           <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
@@ -203,7 +203,7 @@
             </mat-select>
           </mat-form-field>
           <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
-            <mat-label>Ordine CONSIP</mat-label>
+            <mat-label>Numero ordine (ODA)</mat-label>
             <input matInput formControlName="consip_order">
           </mat-form-field>
           <div style="flex: 1 1 calc(25% - 0.75rem);">
@@ -292,10 +292,6 @@
             <mat-label>CIG Contratto</mat-label>
             <input matInput formControlName="cig_contract">
           </mat-form-field>
-          <mat-form-field style="flex: 1 1 calc(25% - 0.75rem);">
-            <mat-label>Numero Ordine</mat-label>
-            <input matInput formControlName="order_number">
-          </mat-form-field>
         </div>
       </mat-expansion-panel>
 
@@ -343,16 +339,8 @@
         <mat-expansion-panel-header><mat-panel-title>Ricerca Testuale Avanzata</mat-panel-title></mat-expansion-panel-header>
         <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
           <mat-form-field style="flex: 1 1 calc(33% - 0.75rem);">
-            <mat-label>Specifiche</mat-label>
-            <input matInput formControlName="specifications">
-          </mat-form-field>
-          <mat-form-field style="flex: 1 1 calc(33% - 0.75rem);">
             <mat-label>Note</mat-label>
             <input matInput formControlName="notes">
-          </mat-form-field>
-          <mat-form-field style="flex: 1 1 calc(33% - 0.75rem);">
-            <mat-label>Note Aggiuntive</mat-label>
-            <input matInput formControlName="additional_notes">
           </mat-form-field>
         </div>
       </mat-expansion-panel>

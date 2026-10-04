@@ -25,7 +25,7 @@ export class Utility extends AbstractEntity implements IUtility {
   supply_active?: boolean;
   meter_removed?: boolean;
   // Deposito cauzionale del punto di fornitura (dato dell'utenza).
-  security_deposit?: number;
+  security_deposit?: number | null;
   reported_consumption_year?: number;
   // Calcolati dal backend (storico consumi): mai inviati in scrittura,
   // il DTO backend li rifiuterebbe (forbidNonWhitelisted).
@@ -44,13 +44,11 @@ export class Utility extends AbstractEntity implements IUtility {
   latitude?: string;
   longitude?: string;
   notes?: string;
-  additional_notes?: string;
   wbs_gas_element?: string;
   meter_verified?: boolean;
   arera_category?: AreraCategory | null;
   gas_use_category?: GasUseCategory | null;
   disconnectable?: boolean | null;
-  specifications?: string;
   water_concession?: Date;
   utility_type_id_fk!: number;
   transferred_to_third_party_id?: number | null;
@@ -63,8 +61,6 @@ export class Utility extends AbstractEntity implements IUtility {
   // Inviato al backend (impianti a servizio); in lettura si ricava da `plants`.
   plant_ids?: number[];
   budget_chapter_code_fk!: number;
-  @Exclude({toPlainOnly: true})
-  order_number?: string;
   @Exclude({toPlainOnly: true})
   cig_contract?: string;
 

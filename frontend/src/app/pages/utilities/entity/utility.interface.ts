@@ -28,7 +28,6 @@ export interface MaintenanceInfo {
 
 export interface IUtility {
   id: number;
-  additional_notes?: string | null;
   assets?: IAsset[];
   asset_ids?: number[];
   budget_chapter_code_fk: number;
@@ -59,7 +58,6 @@ export interface IUtility {
   power_kw_electric?: number | null;
   reported_consumption_year?: number | null;
   actual_consumption?: number | null;
-  specifications?: string | null;
   supplier?: {type?: string | null; company_name?: string | null; last_name?: string | null; first_name?: string | null} | null;
   supplier_address?: string | null;
   supply_active?: boolean | null;

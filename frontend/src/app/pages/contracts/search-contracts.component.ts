@@ -21,7 +21,7 @@ export class SearchContractsComponent extends AbstractSearchComponent {
     this.qSearch = this.fb.group({
       qsearch: [''],
       cig_contract: [''],
-      order_number: [''],
+      consip_order: [''],
       supplier_id_fk: [null],
       supply_expiry_date_range: [null],
     });

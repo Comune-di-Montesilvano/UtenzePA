@@ -70,7 +70,7 @@
             </mat-form-field>
           }
           <mat-form-field>
-            <mat-label>Codice Utenza o Cliente</mat-label>
+            <mat-label>Codice cliente fornitore</mat-label>
             <input matInput formControlName="utility_code">
           </mat-form-field>
           <div class="span-all">
@@ -364,20 +364,12 @@
 
       <mat-tab aria-label="Note">
         <ng-template mat-tab-label>
-          <app-tab-label icon="notes" label="Note" [dot]="filled('specifications', 'notes', 'additional_notes')"></app-tab-label>
+          <app-tab-label icon="notes" label="Note" [dot]="filled('notes')"></app-tab-label>
         </ng-template>
         <div class="sheet-grid">
           <mat-form-field class="span-all">
-            <mat-label>Specifiche</mat-label>
-            <textarea matInput formControlName="specifications" rows="3"></textarea>
-          </mat-form-field>
-          <mat-form-field class="span-all">
             <mat-label>Note</mat-label>
-            <textarea matInput formControlName="notes" rows="3"></textarea>
-          </mat-form-field>
-          <mat-form-field class="span-all">
-            <mat-label>Note Aggiuntive</mat-label>
-            <textarea matInput formControlName="additional_notes" rows="3"></textarea>
+            <textarea matInput formControlName="notes" rows="8"></textarea>
           </mat-form-field>
         </div>
       </mat-tab>

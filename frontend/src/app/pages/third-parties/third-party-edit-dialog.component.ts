@@ -81,7 +81,7 @@ export class ThirdPartyEditDialogComponent implements OnInit {
   readonly grantStatusOf = (g: UtilizerGrant): StatusInfo => grantStatus(g.computed_status ?? g.status);
   readonly contractColumns: LinkedColumn<Contract>[] = [
     {label: 'CIG', value: c => c.cig_contract || 'CIG non specificato'},
-    {label: 'Ordine', value: c => c.order_number ?? ''},
+    {label: 'Ordine', value: c => c.consip_order ?? ''},
   ];
   readonly contractStatusOf = (c: Contract): StatusInfo => supplyContractStatus(c);
   readonly agreementColumns: LinkedColumn<ConsipAgreement>[] = [

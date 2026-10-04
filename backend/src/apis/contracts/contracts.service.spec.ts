@@ -159,7 +159,7 @@ describe('ContractsService', () => {
 
     it('update di un contratto senza CIG che non lo aggiunge → 400', async () => {
       repo.findOne.mockResolvedValue({ id: 30, cig_contract: null, cig_exempt: false });
-      await expect(service.update(30, { order_number: 'X' } as never, 1)).rejects.toThrow(/CIG obbligatorio/);
+      await expect(service.update(30, { consip_order: 'X' } as never, 1)).rejects.toThrow(/CIG obbligatorio/);
     });
 
     it('update che rimuove il CIG da un contratto non escluso → 400', async () => {
@@ -170,7 +170,7 @@ describe('ContractsService', () => {
     it('update di un contratto escluso senza CIG → ammesso', async () => {
       repo.findOne.mockResolvedValue({ id: 32, cig_contract: null, cig_exempt: true });
       manager.findOne.mockResolvedValue({ id: 32 });
-      await expect(service.update(32, { order_number: 'X' } as never, 1)).resolves.toBeDefined();
+      await expect(service.update(32, { consip_order: 'X' } as never, 1)).resolves.toBeDefined();
     });
   });
 

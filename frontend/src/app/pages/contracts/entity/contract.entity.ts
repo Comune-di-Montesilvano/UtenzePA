@@ -14,7 +14,6 @@ export class Contract extends AbstractEntity implements IContract {
   maintenance_included?: boolean;
   // Chiuso/scaduto esplicito: mai corrente, anche senza date.
   closed?: boolean;
-  order_number?: string;
   consip_order?: string;
   consip_agreement_id?: number | null;
   supply_start_date?: Date | null;

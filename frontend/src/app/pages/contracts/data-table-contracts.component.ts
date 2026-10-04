@@ -35,19 +35,18 @@ export class DataTableContractsComponent extends AbstractDataTableComponent<Cont
   readonly allColumns: IColumnDef[] = [
     {field: 'id', header: 'ID', minWidth: '60px'},
     {field: 'cig_contract', header: 'CIG', minWidth: '120px'},
-    {field: 'consip_order', header: 'Ordine CONSIP', minWidth: '120px'},
+    {field: 'consip_order', header: 'Numero ordine (ODA)', minWidth: '120px'},
     {field: 'consipAgreement', header: 'Convenzione CONSIP', minWidth: '180px'},
     {field: 'supplier', header: 'Fornitore', minWidth: '120px'},
     {field: 'supply_start_date', header: 'Decorrenza', minWidth: '110px'},
     {field: 'supply_expiry_date', header: 'Scadenza', minWidth: '130px'},
     {field: 'management_expiry_date', header: 'Scadenza gestione', minWidth: '130px'},
     {field: 'takeover_termination_date', header: 'Data voltura/cessazione', minWidth: '130px'},
-    {field: 'order_number', header: 'Numero Ordine', minWidth: '120px'},
     {field: 'utilities', header: 'Utenze coperte', minWidth: '100px'},
   ];
 
   private readonly defaultVisibleFields = new Set([
-    'id', 'cig_contract', 'supplier', 'supply_start_date', 'supply_expiry_date', 'order_number', 'utilities',
+    'id', 'cig_contract', 'supplier', 'supply_start_date', 'supply_expiry_date', 'consip_order', 'utilities',
   ]);
 
   private static readonly STORAGE_KEY = 'columns:contracts';
