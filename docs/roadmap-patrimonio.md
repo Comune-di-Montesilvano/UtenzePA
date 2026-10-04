@@ -281,6 +281,8 @@ Decisione utente (2026-10-03): si parte da questa voce; i gestori manutenzione s
 
 **Parte 2 fatta in v1.9.1** (spec `docs/superpowers/specs/2026-10-03-campi-doppi-design.md`): note aggiuntive e specifiche unite in `notes` (177 utenze), deposito cauzionale nullable (554 zeri → non noto), `utility_code` → "Codice cliente fornitore", numero ordine unico (`order_number` eliminato, il contratto 640 spostato in `consip_order`, etichetta "Numero ordine (ODA)"), 91 indirizzi di fornitura uguali a quello di immobile/impianto svuotati, una sola relazione fattura-capitoli. Restano fuori: `budget_chapters.supply_type` (voce 17), `utility_types`, `associated_building` (voce 4), catasto (voce 2). `schema:log` propone ancora DROP/ADD delle FK di `invoice_budget_chapter` e due indici `IDX_…` (servirebbe una migration di soli indici).
 
+Dalla revisione finale di v1.9.1, non bloccanti: commento di `SecurityDepositNullable` ("gli 0 esistenti diventano null") impreciso, la conversione è stata un intervento sui dati; scheda soggetto terzo, colonna "Ordine" invece di "Numero ordine (ODA)"; righe vuote doppie nei template di elenco contratti e utenze; chi aveva salvato la colonna "Numero Ordine" nell'elenco contratti deve riattivare "Numero ordine (ODA)" a mano; export del deposito non formattato quando MySQL restituisce il decimale come stringa (preesistente).
+
 Dalla revisione finale di v1.9.0, non bloccanti:
 
 - immobile con natura ma senza funzione: si può svuotare di nuovo la natura (né la scheda né `assertClassification` lo impediscono; preesistente);
