@@ -8,6 +8,7 @@
                     (selected)="onSignal($event)"></app-list-signals>
   <div style="margin-top: 1rem;">
     <app-data-table-third-parties
+      #dataTable
       [data]="list"
       [loading]="loading"
       (onSave)="onSave($event)"

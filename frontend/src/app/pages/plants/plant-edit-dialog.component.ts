@@ -101,7 +101,7 @@ export class PlantEditDialogComponent implements OnInit {
   private assetService = inject(AssetService);
   private utilityService = inject(UtilityService);
   private navigator = inject(EntityNavigatorService);
-  protected dialogRef = inject(MatDialogRef<PlantEditDialogComponent, boolean>);
+  protected dialogRef = inject(MatDialogRef<PlantEditDialogComponent, Plant | null>);
   protected data = inject<PlantEditDialogData>(MAT_DIALOG_DATA);
 
   @ViewChild(MatTabGroup) tabGroup?: MatTabGroup;

@@ -292,7 +292,7 @@ export class PlantsComponent implements OnInit, AfterViewInit {
 
   openDialog(item?: Plant, plantId?: number): void {
     const role = this.auth.getCurrentUser()?.role;
-    openSheet<PlantEditDialogComponent, PlantEditDialogData, boolean>(this.dialog, PlantEditDialogComponent, {
+    openSheet<PlantEditDialogComponent, PlantEditDialogData, Plant | null>(this.dialog, PlantEditDialogComponent, {
       plantId: item?.id ?? plantId ?? null,
       readOnly: !role || role === 'Lettore',
     }).afterClosed().subscribe(saved => {

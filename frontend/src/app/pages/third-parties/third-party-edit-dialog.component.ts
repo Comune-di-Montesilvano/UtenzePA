@@ -188,6 +188,14 @@ export class ThirdPartyEditDialogComponent implements OnInit {
     const raw = Object.fromEntries(
       Object.entries(this.form.getRawValue()).map(([k, v]) => [k, typeof v === 'string' && v.trim() === '' ? null : v]),
     );
+    // Campi del tipo non scelto (nascosti, es. ragione sociale precompilata da
+    // "Crea «…»" su una persona fisica): non si inviano.
+    if (this.isLegal()) {
+      raw['last_name'] = null;
+      raw['first_name'] = null;
+    } else {
+      raw['company_name'] = null;
+    }
     this.dialogRef.close(plainToInstance(ThirdParty, {id: this.data.item.id, ...raw}));
   }
 
