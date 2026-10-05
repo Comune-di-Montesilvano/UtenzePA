@@ -385,9 +385,10 @@ export class PlantEditDialogComponent implements OnInit {
   }
 
   openAsset(id: number): void {
+    // Riallineamento anche senza salvataggio qui: più in alto nella pila
+    // qualcosa può essere stato salvato.
     this.navigator.openAsset(id).subscribe(saved => {
-      if (!saved) return;
-      this.loadAssets();
+      if (saved) this.loadAssets();
       this.resyncUtilityLinks();
     });
   }
@@ -396,8 +397,7 @@ export class PlantEditDialogComponent implements OnInit {
   // utility_ids, altrimenti "Salva" qui sovrascriverebbe la modifica.
   openUtility(id: number): void {
     this.navigator.openUtility(id).subscribe(saved => {
-      if (!saved) return;
-      this.loadUtilities();
+      if (saved) this.loadUtilities();
       this.resyncUtilityLinks();
     });
   }

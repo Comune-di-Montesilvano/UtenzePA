@@ -163,8 +163,10 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   form = this.fb.group({
-    asset_ids: [(this.data.item.assets ?? []).map(a => a.id)],
-    plant_ids: [(this.data.item.plants ?? []).map(p => p.id)],
+    // Gli id precompilati (nuova utenza da contratto immobiliare o impianto)
+    // valgono anche senza le relazioni caricate.
+    asset_ids: [this.data.item.asset_ids ?? (this.data.item.assets ?? []).map(a => a.id)],
+    plant_ids: [this.data.item.plant_ids ?? (this.data.item.plants ?? []).map(p => p.id)],
     budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null, Validators.required],
     transferred_to_third_party_id: [this.data.item.transferred_to_third_party_id ?? null],
     transferred_on: [this.toDate(this.data.item.transferred_on)],
@@ -428,9 +430,10 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   openAsset(id: number): void {
+    // Riallineamento anche senza salvataggio qui: più in alto nella pila
+    // qualcosa può essere stato salvato.
     this.navigator.openAsset(id).subscribe(saved => {
-      if (!saved) return;
-      this.loadAssets();
+      if (saved) this.loadAssets();
       this.resyncPlantLinks();
     });
   }
@@ -440,8 +443,7 @@ export class UtilityEditDialogComponent implements OnInit {
   // la modifica fatta nella scheda impianto.
   openPlant(id: number): void {
     this.navigator.openPlant(id).subscribe(saved => {
-      if (!saved) return;
-      this.loadPlants();
+      if (saved) this.loadPlants();
       this.resyncPlantLinks();
     });
   }
@@ -478,8 +480,7 @@ export class UtilityEditDialogComponent implements OnInit {
 
   openContract(id: number): void {
     this.navigator.openSupplyContract(id).subscribe(saved => {
-      if (!saved) return;
-      this.reloadContracts();
+      if (saved) this.reloadContracts();
       this.resyncPlantLinks();
     });
   }
