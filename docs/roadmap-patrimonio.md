@@ -212,7 +212,7 @@ Dalla revisione finale di v1.7.1 (schede con Riepilogo e tab), non bloccanti:
 
 Dalla revisione finale di v1.8.1 (aggregati e volture), non bloccanti:
 
-- **da verificare subito**: `contract-edit-dialog` (contratti di fornitura) converte le date con `new Date('AAAA-MM-GG')` (mezzanotte UTC) come faceva la scheda utenza: con `NormalizeDate` (+1 giorno) lato backend le date del contratto potrebbero avanzare di un giorno a ogni Salva. Controllare salvando due volte un contratto; correzione = lettura come giorno locale, come in `plant-edit-dialog` e ora nella scheda utenza;
+- ~~date dei contratti di fornitura che avanzano di un giorno a ogni Salva~~ (confermato e corretto 2026-10-05: lettura come giorno locale in `contract-edit-dialog`). Stessa verifica su fatture e convenzioni CONSIP, che hanno il problema opposto: il backend tiene i primi 10 caratteri di `toISOString()`, e una data scelta dal datepicker veniva salvata il giorno prima; ora il frontend invia il giorno locale `AAAA-MM-GG`. Nessun contratto locale risulta già spostato (date coerenti, modifiche solo da import); per le fatture non è verificabile (audit log senza modifiche di data), le scadenze CONSIP sono vuote. Restano due convenzioni diverse nel backend (`NormalizeDate` +1 su contratti e utenze, `slice(0, 10)` su fatture e CONSIP): da unificare;
 - FK `FK_utilities_transferred_to` (migration `AddUtilityTransfer`) senza `foreignKeyConstraintName` nella `@JoinColumn` di `transferredTo`: `migration:generate` la proporrà come drift (drop + add);
 - filtro utenze `grant_id` (tab Utenze del contratto immobiliare) non esclude gli immobili cancellati;
 - "Segna volturata oggi" resta visibile dopo il clic fino al Salva;

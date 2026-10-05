@@ -2,16 +2,19 @@ import {IConsipAgreement} from './consip-agreement.interface';
 import {Exclude, plainToInstance, Transform, Type} from 'class-transformer';
 import {AbstractEntity} from '../../../core/entities/abstract.entity';
 import {ThirdParty} from '../../third-parties/entity/third-party.entity';
+import {toIsoDate} from '../../utilities/consumptions/consumption.model';
 
 export class ConsipAgreement extends AbstractEntity implements IConsipAgreement {
   name!: string;
   description?: string;
   cig_master!: string;
 
+  // Giorno locale 'AAAA-MM-GG', non toISOString(): il backend tiene i primi 10
+  // caratteri e una data del datepicker (mezzanotte locale) diventerebbe il giorno prima.
   @Type(() => Date)
   @Transform(({value, type}) => {
     if (type === 0 && value instanceof Date) {
-      return value.toISOString();
+      return toIsoDate(value);
     }
     return value;
   }, {toPlainOnly: true})
@@ -19,7 +22,7 @@ export class ConsipAgreement extends AbstractEntity implements IConsipAgreement 
 
   @Transform(({value}) => {
     if (Array.isArray(value)) {
-      return value.map(date => (date instanceof Date ? date.toISOString() : date));
+      return value.map(date => (date instanceof Date ? toIsoDate(date) : date));
     }
     return value;
   }, {toPlainOnly: true})
