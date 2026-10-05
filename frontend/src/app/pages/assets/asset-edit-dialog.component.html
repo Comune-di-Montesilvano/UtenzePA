@@ -85,15 +85,6 @@
               <mat-error>Obbligatorio</mat-error>
             }
           </mat-form-field>
-
-          <mat-form-field class="span-2">
-            <mat-label>Categoria (destinazione d'uso)</mat-label>
-            <mat-select formControlName="category">
-              @for (opt of categoryOptions; track opt.value) {
-                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
         </div>
 
         <div class="sheet-section-title"><mat-icon>place</mat-icon>Indirizzo e posizione</div>
@@ -180,9 +171,17 @@
       <mat-tab aria-label="Catasto">
         <ng-template mat-tab-label>
           <app-tab-label icon="map" label="Catasto"
-                         [dot]="filled('cadastral_value', 'sheet', 'parcel', 'subordinate', 'area_sqm', 'associated_building', 'services_and_artifacts')"></app-tab-label>
+                         [dot]="filled('category', 'cadastral_value', 'sheet', 'parcel', 'subordinate', 'area_sqm', 'associated_building', 'services_and_artifacts')"></app-tab-label>
         </ng-template>
         <div class="sheet-grid">
+          <mat-form-field class="span-2">
+            <mat-label>Categoria (destinazione d'uso)</mat-label>
+            <mat-select formControlName="category">
+              @for (opt of categoryOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
           <mat-form-field>
             <mat-label>Foglio</mat-label>
             <input matInput formControlName="sheet">

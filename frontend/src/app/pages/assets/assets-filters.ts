@@ -23,7 +23,6 @@ export function assetFilters(): FilterDef[] {
     {key: 'legacy_only', label: 'Da classificare', type: 'bool', group: 'Segnalazioni'},
 
     {key: 'asset_name', label: 'Nome immobile', type: 'text', group: 'Immobile'},
-    {key: 'category', label: 'Categoria', type: 'select', group: 'Immobile', options: assets.categoryOptions()},
     {key: 'ownership', label: 'Proprietà', type: 'select', group: 'Immobile',
       options: [{label: 'Sì', value: 1}, {label: 'No', value: 0}]},
     {key: 'services_and_artifacts', label: 'Servizi/manufatti', type: 'text', group: 'Immobile'},
@@ -37,6 +36,7 @@ export function assetFilters(): FilterDef[] {
     {key: 'latitude', label: 'Latitudine', type: 'text', group: 'Indirizzo'},
     {key: 'longitude', label: 'Longitudine', type: 'text', group: 'Indirizzo'},
 
+    {key: 'category', label: "Categoria (destinazione d'uso)", type: 'select', group: 'Catasto', options: assets.categoryOptions()},
     {key: 'sheet', label: 'Foglio', type: 'text', group: 'Catasto'},
     {key: 'parcel', label: 'Particella (mappale)', type: 'text', group: 'Catasto'},
     {key: 'subordinate', label: 'Subalterno', type: 'text', group: 'Catasto'},
