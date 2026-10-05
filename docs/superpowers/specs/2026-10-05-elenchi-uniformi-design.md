@@ -67,9 +67,9 @@ In `core/components/list/`:
 
 ## Record eliminati
 
-Filtro standard `deleted` in ogni configurazione, gruppo "Record": "Mostra: Attivi / Eliminati / Tutti", default Attivi (`deleted=false`). Non è in linea; il chip compare solo se diverso da Attivi.
+Filtro standard `deleted`, gruppo "Record": "Mostra: Attivi / Eliminati", default Attivi. Non è in linea; il chip compare solo per "Eliminati". Solo negli elenchi con il pulsante Ripristina (immobili, utenze, contratti immobiliari, soggetti terzi, capitoli, fatture, contratti di fornitura, CONSIP, tipologie, funzioni, tipi utenza); non in Utenti, Impianti, Log modifiche.
 
-Le API non si comportano tutte allo stesso modo (es. `ContractsService` filtra sempre `deleted = false`, `AssetsService` solo se il parametro è presente): nel piano si verifica entità per entità e si allinea il backend perché `deleted` assente = tutti, `true`/`false` = filtro. Il frontend lo invia sempre.
+Backend: `deleted` assente = solo attivi (comportamento attuale quasi ovunque). Da allineare perché rispettino `deleted=true`: `ContractsService`, `BudgetChaptersService`, `ConsipAgreementService` (oggi filtrano sempre gli attivi, quindi un contratto eliminato non si può più ripristinare dall'elenco).
 
 ## Viste coinvolte
 
@@ -95,7 +95,7 @@ Gli avanzati contengono tutti i campi filtrabili oggi nei dialog esistenti, senz
 
 Filtri nuovi:
 
-- **Contratti di fornitura, Stato**: parametro `closed` (bool) in `SearchContractDto` e nel service. Unico intervento backend oltre a `deleted`.
+- **Contratti di fornitura, Stato**: parametro `closed` (bool) in `SearchContractDto` e nel service. Nello stesso DTO manca `consip_order`, che il dialog filtri invia già (con `forbidNonWhitelisted` la ricerca risponde 400): si aggiunge, `LIKE`.
 - **Fatture, Anno**: solo frontend, select degli anni presenti; si traduce in `invoice_date_from`/`invoice_date_to` (1/1–31/12). Se l'utente imposta anche le date negli avanzati, vincono le date e il chip Anno sparisce.
 - **Soggetti terzi, Ruolo**: sostituisce i chip per ruolo (stesso parametro `roles`).
 
