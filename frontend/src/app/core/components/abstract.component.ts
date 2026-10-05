@@ -4,6 +4,7 @@ import {AuthService} from '../../services/auth.service';
 import {AbstractService} from '../services/abstract.service';
 import {AbstractEntity} from '../entities/abstract.entity';
 import {ActivatedRoute} from '@angular/router';
+import {Subscription} from 'rxjs';
 import {FilterDef, FilterValues} from './list/filter-def';
 import {fromQueryParams, initialValues, toSearchParams} from './list/filter-values';
 
@@ -24,6 +25,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   filterDefs: FilterDef[] = [];
   filterValues: FilterValues = {};
   private quickText = '';
+  private pendingSearch?: Subscription;
 
   protected authService = inject(AuthService);
   protected messageService = inject(ToastService);
@@ -40,13 +42,22 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
     this.loadAll();
   }
 
+  // Una sola ricerca alla volta: una risposta vecchia non deve sovrascrivere
+  // quella dei filtri correnti.
   loadAll(after?: (list: T[]) => void) {
+    this.pendingSearch?.unsubscribe();
     this.loading = true;
-    this.service.search(this.lastFilters).subscribe((result: T[]) => {
-      this.allItems = this.service.fromPlain(result);
-      this.applyQuick();
-      this.loading = false;
-      after?.(this.allItems);
+    this.pendingSearch = this.service.search(this.lastFilters).subscribe({
+      next: (result: T[]) => {
+        this.allItems = this.service.fromPlain(result);
+        this.applyQuick();
+        this.loading = false;
+        after?.(this.allItems);
+      },
+      error: (err: any) => {
+        this.loading = false;
+        this.handleError(err, 'Ricerca non riuscita: controllare i filtri');
+      },
     });
   }
 

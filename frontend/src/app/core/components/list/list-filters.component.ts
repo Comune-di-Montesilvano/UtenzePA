@@ -7,7 +7,7 @@ import {MatSelectModule} from '@angular/material/select';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatChipsModule} from '@angular/material/chips';
-import {Observable, Subject, debounceTime, forkJoin} from 'rxjs';
+import {Observable, Subject, catchError, debounceTime, of} from 'rxjs';
 import {FilterableSelectComponent} from '../filterable-select.component';
 import type {TOption} from '../../types/option.interface';
 import {BOOL_OPTIONS} from './filter-def';
@@ -95,16 +95,16 @@ export class ListFiltersComponent implements OnInit, OnChanges {
       if (d.type === 'bool') this.options[d.key] = BOOL_OPTIONS;
       else if (Array.isArray(d.options)) this.options[d.key] = d.options;
     }
-    const loaders = this.defs.filter(d => typeof d.options === 'function');
-    if (loaders.length) {
-      const calls: Record<string, Observable<TOption[]>> = {};
-      for (const d of loaders) calls[d.key] = (d.options as () => Observable<TOption[]>)();
-      forkJoin(calls).subscribe({
-        next: res => {
-          this.options = {...this.options, ...res};
-          this.refresh();
-        },
-        error: err => console.error('Errore nel caricamento delle opzioni dei filtri:', err),
+    // Ogni elenco di opzioni arriva per conto suo: uno lento o in errore non blocca gli altri.
+    for (const d of this.defs.filter(x => typeof x.options === 'function')) {
+      (d.options as () => Observable<TOption[]>)().pipe(
+        catchError(err => {
+          console.error(`Errore nel caricamento delle opzioni del filtro "${d.label}":`, err);
+          return of([] as TOption[]);
+        }),
+      ).subscribe(opts => {
+        this.options = {...this.options, [d.key]: opts};
+        this.refresh();
       });
     }
     this.refresh();
