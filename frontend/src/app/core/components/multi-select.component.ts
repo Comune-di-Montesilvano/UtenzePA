@@ -1,9 +1,11 @@
-import {Component, forwardRef, Input, ChangeDetectionStrategy} from '@angular/core';
+import {Component, EventEmitter, forwardRef, Input, Output, ChangeDetectionStrategy} from '@angular/core';
 import {ControlValueAccessor, FormControl, NG_VALUE_ACCESSOR, ReactiveFormsModule} from '@angular/forms';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatSelectModule} from '@angular/material/select';
 import {MatInputModule} from '@angular/material/input';
 import {MatIconModule} from '@angular/material/icon';
+import {MatButtonModule} from '@angular/material/button';
+import {MatTooltipModule} from '@angular/material/tooltip';
 import {TOption} from '../types/option.interface';
 
 /**
@@ -20,9 +22,10 @@ import {TOption} from '../types/option.interface';
 @Component({
   selector: 'app-multi-select',
   standalone: true,
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatSelectModule, MatInputModule, MatIconModule],
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatSelectModule, MatInputModule, MatIconModule, MatButtonModule, MatTooltipModule],
   template: `
-    <mat-form-field style="width: 100%;">
+    <div class="fs-row">
+    <mat-form-field class="fs-field">
       <mat-label>{{ label }}</mat-label>
       <mat-select [formControl]="selectControl" multiple [placeholder]="placeholder" (openedChange)="onOpenedChange($event)">
         <div class="multi-select-search" (click)="$event.stopPropagation()">
@@ -47,8 +50,20 @@ import {TOption} from '../types/option.interface';
         }
       </mat-select>
     </mat-form-field>
+    @if (createLabel) {
+      <button mat-stroked-button type="button" class="fs-add" [disabled]="selectControl.disabled"
+              [matTooltip]="createLabel" [attr.aria-label]="createLabel" (click)="create.emit('')">
+        <mat-icon>add</mat-icon>
+      </button>
+    }
+    </div>
   `,
   styles: [`
+    :host { display: block; }
+    .fs-row { display: flex; align-items: flex-start; gap: 8px; }
+    .fs-field { flex: 1 1 auto; min-width: 0; }
+    .fs-add { min-width: 0; width: 44px; height: 56px; padding: 0; flex: 0 0 auto; }
+    .fs-add .mat-icon { margin: 0; }
     .multi-select-filtered-out {
       display: none;
     }
@@ -80,6 +95,9 @@ import {TOption} from '../types/option.interface';
 export class MultiSelectComponent implements ControlValueAccessor {
   @Input() label = '';
   @Input() placeholder = '';
+  // Pulsante "+" a destra; null = assente.
+  @Input() createLabel: string | null = null;
+  @Output() create = new EventEmitter<string>();
 
   @Input()
   set options(value: TOption[]) {
