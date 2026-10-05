@@ -33,6 +33,9 @@ import {ValidityBarComponent} from '../../core/components/entity-sheet/validity-
 import {StatusInfo, supplyContractFlags, supplyContractStatus, utilityStatus} from '../../core/helpers/entity-status';
 import {isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
+import {ContractCommitmentsTabComponent} from './commitments/contract-commitments-tab.component';
+import {chapterLabel} from './commitments/commitment.model';
+import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
 
 /** Precompila l'associazione utenze quando aperto dal dettaglio Utenza ("Nuovo contratto"). */
 export interface ContractDialogExtra {
@@ -54,7 +57,7 @@ function cigRequiredUnlessExempt(group: AbstractControl): ValidationErrors | nul
     ReactiveFormsModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatDatepickerModule, MatButtonModule, MatCheckboxModule, MatTabsModule, MatIconModule, MatTooltipModule,
     FilterableSelectComponent, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, PreviewCardComponent,
-    LinkedTableComponent, ValidityBarComponent,
+    LinkedTableComponent, ValidityBarComponent, ContractCommitmentsTabComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './contract-edit-dialog.component.html'
@@ -67,6 +70,7 @@ export class ContractEditDialogComponent implements OnInit {
   private consipService = inject(ConsipAgreementService);
   private utilityService = inject(UtilityService);
   private navigator = inject(EntityNavigatorService);
+  private budgetChaptersService = inject(BudgetChaptersService);
   protected data = inject<EditDialogData<Contract> & ContractDialogExtra>(MAT_DIALOG_DATA);
 
   @ViewChild(MatTabGroup) tabGroup?: MatTabGroup;
@@ -77,6 +81,9 @@ export class ContractEditDialogComponent implements OnInit {
   readonly lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
 
   supplierOptions: TOption[] = [];
+  // Tab "Impegni e capitoli": capitoli selezionabili e numero di impegni.
+  chapterOptions: TOption[] = [];
+  commitmentCount: number | null = null;
   consipAgreementOptions: ConsipAgreement[] = [];
   // Tutte le utenze: quelle collegate sono form.utility_ids.
   private allUtilities: Utility[] = [];
@@ -144,6 +151,18 @@ export class ContractEditDialogComponent implements OnInit {
       next: data => this.consipAgreementOptions = data.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '')),
       error: err => console.error('Errore nel caricamento delle convenzioni CONSIP:', err)
     });
+    if (!this.isNew) {
+      this.budgetChaptersService.search({deleted: false}).subscribe({
+        next: data => this.chapterOptions = data
+          .map(c => ({
+            label: chapterLabel(c),
+            value: c.id,
+            searchText: `${c.chapter_code}/${c.article ?? 0} ${c.description ?? ''} ${c.pdc ?? ''}`,
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label)),
+        error: err => console.error('Errore nel caricamento dei capitoli:', err)
+      });
+    }
     this.loadUtilities();
   }
 
