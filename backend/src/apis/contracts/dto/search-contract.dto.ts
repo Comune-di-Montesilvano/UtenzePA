@@ -1,3 +1,4 @@
+import { DateRange } from '@common/decorators/date-range.decorator';
 import { Transform, Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString } from 'class-validator';
 
@@ -25,12 +26,8 @@ export class SearchContractDto {
   deleted?: boolean;
 
   @IsOptional()
-  @Transform(({ value }) => {
-    if (!value) return undefined;
-    if (Array.isArray(value)) return value;
-    return value.split(',').map((v: string) => v.trim()).filter((v: string) => v !== '');
-  })
-  supply_expiry_date_range?: string[];
+  @DateRange()
+  supply_expiry_date_range?: (string | null)[];
 
   @IsOptional()
   @Transform(({ value }) => {

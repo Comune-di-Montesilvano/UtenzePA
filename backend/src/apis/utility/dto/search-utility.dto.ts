@@ -1,7 +1,7 @@
+import { DateRange } from '@common/decorators/date-range.decorator';
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,
-  IsDateString,
   IsEnum,
   IsIn,
   IsInt,
@@ -19,64 +19,24 @@ import { MaintenanceStatus } from '../maintenance-status';
 
 export class SearchUtilityDto {
   @IsOptional()
-  @Transform(({ value }) => {
-    if (!value) return undefined;
-    if (Array.isArray(value)) return value;
-    return value
-      .split(',')
-      .map((v: string) => v.trim())
-      .filter((v: string) => v !== '');
-  })
-  @IsDateString({}, { each: true })
-  supply_start_date_range?: string[];
+  @DateRange()
+  supply_start_date_range?: (string | null)[];
 
   @IsOptional()
-  @Transform(({ value }) => {
-    if (!value) return undefined;
-    if (Array.isArray(value)) return value;
-    return value
-      .split(',')
-      .map((v: string) => v.trim())
-      .filter((v: string) => v !== '');
-  })
-  @IsDateString({}, { each: true })
-  supply_expiry_date_range?: string[];
+  @DateRange()
+  supply_expiry_date_range?: (string | null)[];
 
   @IsOptional()
-  @Transform(({ value }) => {
-    if (!value) return undefined;
-    if (Array.isArray(value)) return value;
-    return value
-      .split(',')
-      .map((v: string) => v.trim())
-      .filter((v: string) => v !== '');
-  })
-  @IsDateString({}, { each: true })
-  management_expiry_date_range?: string[];
+  @DateRange()
+  management_expiry_date_range?: (string | null)[];
 
   @IsOptional()
-  @Transform(({ value }) => {
-    if (!value) return undefined;
-    if (Array.isArray(value)) return value;
-    return value
-      .split(',')
-      .map((v: string) => v.trim())
-      .filter((v: string) => v !== '');
-  })
-  @IsDateString({}, { each: true })
-  takeover_termination_date_range?: string[];
+  @DateRange()
+  takeover_termination_date_range?: (string | null)[];
 
   @IsOptional()
-  @Transform(({ value }) => {
-    if (!value) return undefined;
-    if (Array.isArray(value)) return value;
-    return value
-      .split(',')
-      .map((v: string) => v.trim())
-      .filter((v: string) => v !== '');
-  })
-  @IsDateString({}, { each: true })
-  water_concession_range?: string[];
+  @DateRange()
+  water_concession_range?: (string | null)[];
 
   @IsOptional()
   @IsBoolean()
