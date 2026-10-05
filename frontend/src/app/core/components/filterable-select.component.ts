@@ -137,6 +137,7 @@ export class FilterableSelectComponent implements ControlValueAccessor {
 
   constructor() {
     this.searchControl.valueChanges.subscribe(v => {
+      if (typeof v === 'string') this.typed = v.trim();
       const term = typeof v === 'string' ? v.toLowerCase() : (v?.label ?? '').toLowerCase();
       this.filteredOptions = this._options.filter(o => (o.searchText ?? o.label).toLowerCase().includes(term));
 
@@ -164,9 +165,12 @@ export class FilterableSelectComponent implements ControlValueAccessor {
     this.userInteracted = true;
   }
 
+  // Ultimo testo digitato: alla scelta di "Crea «…»" l'autocomplete ha già
+  // scritto nel campo il valore dell'opzione, il testo va tenuto a parte.
+  private typed = '';
+
   searchText(): string {
-    const v = this.searchControl.value;
-    return typeof v === 'string' ? v.trim() : '';
+    return this.typed;
   }
 
   displayFn = (opt: TOption | string): string => {
@@ -179,9 +183,17 @@ export class FilterableSelectComponent implements ControlValueAccessor {
     const opt: TOption = event.option.value;
     if (opt === this.CREATE) {
       const text = this.searchText();
-      // Il valore resta com'era: arriva dalla scheda di creazione.
-      this.searchControl.setValue(text, {emitEvent: false});
-      this.create.emit(text);
+      // Il valore resta com'era (arriva dalla scheda di creazione): il campo
+      // torna a mostrarlo, anche se la creazione viene annullata.
+      this.searchControl.setValue('', {emitEvent: false});
+      this.syncDisplayFromValue();
+      // Dopo la scelta l'autocomplete rimette il fuoco sul campo: la scheda si
+      // apre al giro successivo, senza fuoco, così alla chiusura il pannello
+      // delle opzioni non si riapre sopra la scheda di partenza.
+      setTimeout(() => {
+        (document.activeElement as HTMLElement | null)?.blur();
+        this.create.emit(text);
+      });
       return;
     }
     this.value = opt.value;
