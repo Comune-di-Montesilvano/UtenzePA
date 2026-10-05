@@ -28,7 +28,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 10 | Tipologie contrattuali ARERA (al posto delle finalità d'uso) | fatto, v1.8.0 (valorizzazione delle tipologie sul DB locale da fare) |
 | 11 | Aggregati utenze (da eliminare) | fatto, v1.8.1 (funzione assegnata a 118 immobili sul DB locale; 7 senza funzione, 10 utenze SPRAR senza capitolo SPRAR da girare alla ragioneria) |
 | 12 | Costi a carico calcolato | fatto, v1.8.1, con volture (26 utenze da volturare, 8 attive, da verificare dall'anomalia) |
-| 13 | Schede entità: rifiniture | da fare |
+| 13 | Schede entità: rifiniture | fatto in v1.11.2 (restano 3 verifiche E2E) |
 | 14 | Schede di fornitori, capitoli, fatture | da fare |
 | 15 | UI e identità (elenchi, filtri, dark mode, sidebar, nome) | elenchi, filtri, segnalazioni e sidebar fatti in v1.11.0; creazione al volo dalle schede ("+" sulle select, "Nuovo …" sui collegamenti); dark mode e nome da approfondire |
 | 16 | Dashboard e mappa | mappa a livelli in v1.11.0 (filtri a perimetro, inattivi nascosti, ricerca nel Comune); dashboard per ultima |
@@ -217,41 +217,41 @@ Di conseguenza sparisce il tab **Controparti** della scheda utenza (finalità �
 
 Dalla revisione finale di v1.7.1 (schede con Riepilogo e tab), non bloccanti:
 
-- immobile → tab Impianti: ripristinare la colonna "Posizione";
-- immobile → Riepilogo: anteprima Utenze come conteggio per tipo, non elenco;
-- liste del padre non aggiornate dopo il salvataggio di una scheda figlia (contratto immobiliare `openAsset`/`openGrant`, tabella utenze `navigateToAsset`, colonna Utenze del tab Impianti dell'immobile);
+- ~~immobile → tab Impianti: ripristinare la colonna "Posizione"~~ (fatto in v1.11.2);
+- ~~immobile → Riepilogo: anteprima Utenze come conteggio per tipo, non elenco~~ (fatto in v1.11.2);
+- ~~liste del padre non aggiornate dopo il salvataggio di una scheda figlia (contratto immobiliare `openAsset`/`openGrant`, tabella utenze `navigateToAsset`, colonna Utenze del tab Impianti dell'immobile)~~ (fatto in v1.11.2);
 - ~~errori di salvataggio via `EntityNavigatorService` solo in console: mostrare un toast~~ (fatto in v1.8.0);
-- contratto con decorrenza futura: badge "In corso" vs barra "Non ancora iniziato";
-- titolo scheda impianto che non segue il form;
-- permesso di modifica dell'impianto da `readOnly` del navigatore, altre schede da `isEditorRole`: unificare;
-- `todayIso`/`toIsoDate` importati da `pages/` dentro `core/`: spostarli;
-- riallineamento solo sul figlio diretto: con catene di 2+ livelli il Salva della scheda in fondo può ripristinare collegamenti cambiati più in alto;
-- verifica E2E delle ultime correzioni (gruppi dati per tipo dell'impianto, rinnovo del contratto immobiliare, mappa in sola lettura per il Lettore), fatte con sola compilazione e CI.
+- ~~contratto con decorrenza futura: badge "In corso" vs barra "Non ancora iniziato"~~ (fatto in v1.11.2);
+- ~~titolo scheda impianto che non segue il form~~ (fatto in v1.11.2);
+- ~~permesso di modifica dell'impianto da `readOnly` del navigatore, altre schede da `isEditorRole`: unificare~~ (fatto in v1.11.2);
+- ~~`todayIso`/`toIsoDate` importati da `pages/` dentro `core/`: spostarli~~ (fatto in v1.11.2);
+- ~~riallineamento solo sul figlio diretto: con catene di 2+ livelli il Salva della scheda in fondo può ripristinare collegamenti cambiati più in alto~~ (fatto in v1.11.2: utenza e impianto rileggono dal server tutti i legami utenza ↔ impianto alla chiusura di qualsiasi scheda figlia, anche annullata; provato utenza → immobile → impianto);
+- verifica E2E delle ultime correzioni (gruppi dati per tipo dell'impianto, rinnovo del contratto immobiliare, mappa in sola lettura per il Lettore), fatte con sola compilazione e CI: ancora da fare.
 
 Dalla revisione finale di v1.8.1 (aggregati e volture), non bloccanti:
 
 - ~~date dei contratti di fornitura che avanzano di un giorno a ogni Salva~~ (confermato e corretto 2026-10-05: lettura come giorno locale in `contract-edit-dialog`). Stessa verifica su fatture e convenzioni CONSIP, che hanno il problema opposto: il backend tiene i primi 10 caratteri di `toISOString()`, e una data scelta dal datepicker veniva salvata il giorno prima; anche i filtri per intervallo spostavano gli estremi di un giorno. Convenzione unica: il frontend invia il giorno locale `AAAA-MM-GG` (`@DateOnly()` in `core/helpers/date.helper.ts`), il backend lo tiene così com'è (`@DateOnly()` nei DTO, `DateHelper.dateOnly` nei filtri; `NormalizeDate` eliminato). Nessun contratto locale risulta già spostato (date coerenti, modifiche solo da import); per le fatture non è verificabile (audit log senza modifiche di data), le scadenze CONSIP sono vuote;
-- FK `FK_utilities_transferred_to` (migration `AddUtilityTransfer`) senza `foreignKeyConstraintName` nella `@JoinColumn` di `transferredTo`: `migration:generate` la proporrà come drift (drop + add);
-- filtro utenze `grant_id` (tab Utenze del contratto immobiliare) non esclude gli immobili cancellati;
-- "Segna volturata oggi" resta visibile dopo il clic fino al Salva;
-- tab Utenze del contratto immobiliare: le utenze cessate risultano "Da volturare" (la dashboard conta solo le attive);
-- creazione di un'utenza dal form non provata in E2E dopo la rimozione di "Costi a carico" (provata solo via API).
+- ~~FK `FK_utilities_transferred_to` (migration `AddUtilityTransfer`) senza `foreignKeyConstraintName` nella `@JoinColumn` di `transferredTo`: `migration:generate` la proporrà come drift (drop + add)~~ (fatto in v1.11.2);
+- ~~filtro utenze `grant_id` (tab Utenze del contratto immobiliare) non esclude gli immobili cancellati~~ (fatto in v1.11.2);
+- ~~"Segna volturata oggi" resta visibile dopo il clic fino al Salva~~ (fatto in v1.11.2);
+- ~~tab Utenze del contratto immobiliare: le utenze cessate risultano "Da volturare" (la dashboard conta solo le attive)~~ (fatto in v1.11.2);
+- ~~creazione di un'utenza dal form non provata in E2E dopo la rimozione di "Costi a carico"~~ (provata in v1.11.2 dalla scheda impianto).
 
 Dal confronto `Utility` backend/frontend dopo v1.9.1 (2026-10-05; campi allineati, nessun residuo dei campi eliminati), non bloccanti:
 
-- `remainingDays` in `frontend/src/app/pages/utilities/entity/utility.entity.ts` dichiarato e mai usato: toglierlo;
-- `IUtility` (`utility.interface.ts`) più povero della classe `Utility` (mancano `security_deposit`, `plants`, `estimated_consumption_*`, `actual_consumption_coverage_days`) e usato solo da lei: completarlo o eliminarlo, tenendo `CostInfo`/`MaintenanceInfo`.
+- ~~`remainingDays` in `frontend/src/app/pages/utilities/entity/utility.entity.ts` dichiarato e mai usato: toglierlo~~ (fatto in v1.11.2);
+- ~~`IUtility` (`utility.interface.ts`) più povero della classe `Utility` e usato solo da lei~~ (eliminata in v1.11.2, restano `CostInfo`/`MaintenanceInfo`).
 
 Dalla revisione finale di v1.11.1 (creazione al volo dalle schede), non bloccanti:
 
-- contratto di fornitura: se la convenzione CONSIP creata dal "+" ha un fornitore creato a sua volta dentro la convenzione (o una persona fuori dall'elenco fornitori), il contratto prende quel fornitore ma la select mostra ancora l'etichetta del precedente finché non si ricarica; lo stesso, per un istante, in ogni `setValue` prima del ricaricamento delle opzioni. Ricaricare i fornitori anche dopo la convenzione, o svuotare l'etichetta se l'id non è tra le opzioni;
-- `FilterableSelect`: digitare testo libero azzera già il valore (`userInteracted`), quindi dopo "Crea «…»" e Annulla il campo resta vuoto, non "com'era"; il commento nel codice dice il contrario. Correggere il commento o salvare e ripristinare il valore;
-- `EntityNavigatorService.createAssetFunction`: se il PATCH della tipologia fallisce, la funzione resta creata ma orfana (toast d'errore, nessuna selezione); se la tipologia non si trova nell'elenco, il PATCH manda `function_ids` con la sola funzione nuova e toglierebbe le altre ammesse non usate. Uscire senza PATCH se la tipologia manca;
-- dialog impianto: `dialogRef` ancora tipizzato `boolean` ma chiude con `Plant | null` (anche `plants.component.ts`); funziona perché i chiamanti guardano solo la truthiness, allineare i tipi;
-- dialog impegno: il capitolo creato dal "+" finisce in fondo a `data.chapterOptions` (array del contratto, non riordinato): al prossimo impegno compare in coda;
-- soggetto creato con "Crea «testo»": il testo va in `company_name`; se si passa a persona fisica il campo nascosto resta valorizzato e viene inviato. Svuotarlo al cambio tipo;
-- `?selectedId` non apre la scheda su Soggetti terzi (E2E: aprire dalla riga);
-- non provati in E2E fino al salvataggio: nuova utenza da contratto/fattura/impianto (solo apertura), nuova fattura dall'utenza (fornitore lasciato vuoto, "dal contratto": da verificare che il backend lo ricavi).
+- ~~contratto di fornitura: se la convenzione CONSIP creata dal "+" ha un fornitore creato a sua volta dentro la convenzione (o una persona fuori dall'elenco fornitori), il contratto prende quel fornitore ma la select mostra ancora l'etichetta del precedente finché non si ricarica; lo stesso, per un istante, in ogni `setValue` prima del ricaricamento delle opzioni. Ricaricare i fornitori anche dopo la convenzione, o svuotare l'etichetta se l'id non è tra le opzioni~~ (fatto in v1.11.2: fornitori ricaricati anche dopo la convenzione);
+- ~~`FilterableSelect`: digitare testo libero azzera già il valore (`userInteracted`), quindi dopo "Crea «…»" e Annulla il campo resta vuoto, non "com'era"; il commento nel codice dice il contrario. Correggere il commento o salvare e ripristinare il valore~~ (fatto in v1.11.2: commento corretto);
+- ~~`EntityNavigatorService.createAssetFunction`: se il PATCH della tipologia fallisce, la funzione resta creata ma orfana (toast d'errore, nessuna selezione); se la tipologia non si trova nell'elenco, il PATCH manda `function_ids` con la sola funzione nuova e toglierebbe le altre ammesse non usate. Uscire senza PATCH se la tipologia manca~~ (fatto in v1.11.2: niente PATCH se la tipologia non c'è; resta il caso del PATCH fallito);
+- ~~dialog impianto: `dialogRef` ancora tipizzato `boolean` ma chiude con `Plant | null` (anche `plants.component.ts`); funziona perché i chiamanti guardano solo la truthiness, allineare i tipi~~ (fatto in v1.11.2: tipi allineati);
+- ~~dialog impegno: il capitolo creato dal "+" finisce in fondo a `data.chapterOptions` (array del contratto, non riordinato): al prossimo impegno compare in coda~~ (fatto in v1.11.2: elenco riordinato);
+- ~~soggetto creato con "Crea «testo»": il testo va in `company_name`; se si passa a persona fisica il campo nascosto resta valorizzato e viene inviato. Svuotarlo al cambio tipo~~ (fatto in v1.11.2: il Salva non invia i campi del tipo non scelto);
+- ~~`?selectedId` non apre la scheda su Soggetti terzi (E2E: aprire dalla riga)~~ (fatto in v1.11.2);
+- ~~non provati in E2E fino al salvataggio: nuova utenza dall'impianto, nuova fattura dall'utenza~~ (provati in v1.11.2: il backend ricava il fornitore dal contratto; la nuova utenza da contratto immobiliare e impianto partiva senza immobili/impianti, corretto).
 
 ## 14. Schede di fornitori, capitoli, fatture
 
