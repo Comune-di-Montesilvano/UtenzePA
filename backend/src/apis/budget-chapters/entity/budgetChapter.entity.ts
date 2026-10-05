@@ -4,7 +4,6 @@ import {
   Entity,
   Index,
   JoinColumn,
-  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -12,7 +11,6 @@ import {
 } from 'typeorm';
 import { Utility } from '../../utility/entity/utility.entity';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
-import { Invoice } from '../../invoices/entity/invoice.entity';
 import { SupplyTypeEnum } from '@apis/budget-chapters/enum/supply-type.enum';
 
 @Entity('budget_chapters')
@@ -65,6 +63,4 @@ export class BudgetChapter {
   @OneToMany(() => Utility, (utility) => utility.budget_chapter_code_fk)
   utilities: Utility[];
 
-  @ManyToMany(() => Invoice, (invoice) => invoice.budget_chapters)
-  invoices: Invoice[];
 }
