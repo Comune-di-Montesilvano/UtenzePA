@@ -77,6 +77,11 @@
   // Intestazione di sezione (groupLabel) — solo visiva, non cliccabile,
   // stesso pattern degli altri raggruppamenti dell'app (etichette maiuscole
   // discrete, non un vero livello di navigazione come i submenu).
+  .sidebar-divider {
+    margin: 12px 16px;
+    border-top: 1px solid #e0e0e0;
+  }
+
   .sidebar-group-label {
     padding: 14px 16px 4px;
     font-size: 11px;
