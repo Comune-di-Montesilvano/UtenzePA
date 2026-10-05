@@ -18,10 +18,12 @@ export interface MapPoint {
   // Solo per type 'asset' — nome ligature Material Icons della funzione
   // dell'immobile (null/assente = usa il fallback fisso).
   icon?: string | null;
-  // Solo per type 'utility' — id dell'asset collegato, usato per il badge
-  // "numero contatori" sul marker immobile.
+  // type 'utility': immobile collegato; type 'plant': immobile dell'impianto.
+  // Raggruppano i punti sotto il marker immobile (badge) e tracciano la linea
+  // quando stanno in un punto diverso.
   assetId?: number | null;
-  // Solo per type 'utility' posizionata tramite un impianto collegato.
+  // type 'utility': impianto da cui eredita la posizione o, con GPS proprio,
+  // il primo impianto collegato (linea verso l'impianto).
   plantId?: number | null;
   // Solo per type 'plant' — pilota l'icona per tipo impianto.
   plantType?: PlantType;
