@@ -18,7 +18,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   resetPagingCount = 0;
   qsearchFields: (keyof T)[] = [];
   loading = false;
-  /** Ultimi filtri (dialog filtro) applicati via onSearch, riusati da loadAll() dopo save/create/delete/restore. */
+  /** Parametri di ricerca dei filtri correnti, riusati da loadAll() dopo save/create/delete/restore. */
   protected lastFilters: any = {};
   /** Filtri dichiarati dalla pagina (barra app-list-filters) e loro valori correnti. */
   filterDefs: FilterDef[] = [];
@@ -97,28 +97,6 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
     if (Array.isArray(obj)) return obj.flatMap(item => this.flatValues(item));
     if (typeof obj === 'object') return Object.values(obj).flatMap(v => this.flatValues(v));
     return [];
-  }
-
-  onSearch(filters: any) {
-    // QUICK SEARCH
-    if (Object.keys(filters).length === 1 && filters.hasOwnProperty('qsearch')) {
-      if (filters.qsearch !== '' && filters.qsearch != null) {
-        const qsTerms: string = (filters.qsearch || '').toLowerCase();
-        this.list = [...this.allItems].filter(i =>
-                                                this.flatValues(i).some(v => String(v).toLowerCase().includes(qsTerms))
-        );
-      } else {
-        this.list = [...this.allItems];
-      }
-    } else {
-      this.lastFilters = filters;
-      this.service.search(filters).subscribe((result: T[]) => {
-        this.list = this.service.fromPlain(result);
-        this.allItems = [...this.list];
-      });
-    }
-
-    this.resetPagingCount++;
   }
 
   onSave(entity: T) {

@@ -60,7 +60,7 @@ export class AuditLogPageComponent implements OnInit {
   entries: AuditLogEntry[] = [];
   total = 0;
   page = 1;
-  pageSize = 20;
+  pageSize = 25;
   forbidden = false;
 
   filterForm = this.fb.group({
