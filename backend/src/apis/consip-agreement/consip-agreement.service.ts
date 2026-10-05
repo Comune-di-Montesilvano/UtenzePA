@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { DateHelper } from '@/helpers/date.helpers';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConsipAgreement } from '@apis/consip-agreement/entity/consip-agreement.entity';
@@ -37,12 +38,12 @@ export class ConsipAgreementService extends BaseService<
           const range = value as string[];
           if (range[0]) {
             qb.andWhere(`${alias}.expiration_date >= :expiration_date_start`, {
-              expiration_date_start: range[0],
+              expiration_date_start: DateHelper.dateOnly(range[0]),
             });
           }
           if (range[1]) {
             qb.andWhere(`${alias}.expiration_date <= :expiration_date_end`, {
-              expiration_date_end: range[1],
+              expiration_date_end: DateHelper.dateOnly(range[1]),
             });
           }
         } else if (key === 'name' || key === 'description' || key === 'cig_master') {

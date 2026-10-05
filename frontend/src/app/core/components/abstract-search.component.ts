@@ -2,6 +2,7 @@ import {Component, EventEmitter, inject, OnInit, Output, Type, ChangeDetectionSt
 import {FormGroup} from '@angular/forms';
 import {MatDialog} from '@angular/material/dialog';
 import {debounceTime, map, Observable} from 'rxjs';
+import {DateHelper} from '../helpers/date.helper';
 
 export interface FilterDialogData<V> {
   values: V;
@@ -94,7 +95,7 @@ export abstract class AbstractSearchComponent implements OnInit {
       if (Array.isArray(v)) {
         const isDateArray = v.some(el => el instanceof Date);
         if (isDateArray) {
-          const mapped = (v as (Date | null)[]).map(el => (el instanceof Date ? el.toISOString() : null));
+          const mapped = (v as (Date | null)[]).map(el => (el instanceof Date ? DateHelper.toLocalIsoString(el) : null));
           if (mapped.every(el => el === null)) {
             delete raw[key];
           } else {
@@ -114,7 +115,7 @@ export abstract class AbstractSearchComponent implements OnInit {
       }
 
       if (v instanceof Date) {
-        raw[key] = v.toISOString();
+        raw[key] = DateHelper.toLocalIsoString(v);
       }
     });
 

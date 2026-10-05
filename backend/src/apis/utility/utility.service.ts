@@ -289,12 +289,12 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       const [start, end] = filters.supply_start_date_range;
       if (start) {
         qb.andWhere('currentContract.supply_start_date >= :cf_supply_start_date_start', {
-          cf_supply_start_date_start: DateHelper.mysqlDate(new Date(start)),
+          cf_supply_start_date_start: DateHelper.dateOnly(start),
         });
       }
       if (end) {
         qb.andWhere('currentContract.supply_start_date <= :cf_supply_start_date_end', {
-          cf_supply_start_date_end: DateHelper.mysqlDate(new Date(end)),
+          cf_supply_start_date_end: DateHelper.dateOnly(end),
         });
       }
     }
@@ -302,12 +302,12 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       const [start, end] = filters.supply_expiry_date_range;
       if (start) {
         qb.andWhere('currentContract.supply_expiry_date >= :cf_supply_expiry_date_start', {
-          cf_supply_expiry_date_start: DateHelper.mysqlDate(new Date(start)),
+          cf_supply_expiry_date_start: DateHelper.dateOnly(start),
         });
       }
       if (end) {
         qb.andWhere('currentContract.supply_expiry_date <= :cf_supply_expiry_date_end', {
-          cf_supply_expiry_date_end: DateHelper.mysqlDate(new Date(end)),
+          cf_supply_expiry_date_end: DateHelper.dateOnly(end),
         });
       }
     }
@@ -315,12 +315,12 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       const [start, end] = filters.management_expiry_date_range;
       if (start) {
         qb.andWhere('currentContract.management_expiry_date >= :cf_management_expiry_date_start', {
-          cf_management_expiry_date_start: DateHelper.mysqlDate(new Date(start)),
+          cf_management_expiry_date_start: DateHelper.dateOnly(start),
         });
       }
       if (end) {
         qb.andWhere('currentContract.management_expiry_date <= :cf_management_expiry_date_end', {
-          cf_management_expiry_date_end: DateHelper.mysqlDate(new Date(end)),
+          cf_management_expiry_date_end: DateHelper.dateOnly(end),
         });
       }
     }
@@ -329,13 +329,13 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       if (start) {
         qb.andWhere(
           'currentContract.takeover_termination_date >= :cf_takeover_termination_date_start',
-          { cf_takeover_termination_date_start: DateHelper.mysqlDate(new Date(start)) },
+          { cf_takeover_termination_date_start: DateHelper.dateOnly(start) },
         );
       }
       if (end) {
         qb.andWhere(
           'currentContract.takeover_termination_date <= :cf_takeover_termination_date_end',
-          { cf_takeover_termination_date_end: DateHelper.mysqlDate(new Date(end)) },
+          { cf_takeover_termination_date_end: DateHelper.dateOnly(end) },
         );
       }
     }

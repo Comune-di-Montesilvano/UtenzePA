@@ -185,12 +185,12 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
         const column = key.replace(/_range$/, '');
         if (range[0]) {
           qb.andWhere(`${alias}.${column} >= :${column}_range_start`, {
-            [`${column}_range_start`]: DateHelper.mysqlDate(new Date(range[0])),
+            [`${column}_range_start`]: DateHelper.dateOnly(range[0]),
           });
         }
         if (range[1]) {
           qb.andWhere(`${alias}.${column} <= :${column}_range_end`, {
-            [`${column}_range_end`]: DateHelper.mysqlDate(new Date(range[1])),
+            [`${column}_range_end`]: DateHelper.dateOnly(range[1]),
           });
         }
         continue;

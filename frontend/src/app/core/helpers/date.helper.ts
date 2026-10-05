@@ -1,3 +1,5 @@
+import {Transform} from 'class-transformer';
+
 export class DateHelper {
   static isoToLocalDate(value: string | null | undefined): Date | null {
     if (!value) return null;
@@ -15,4 +17,12 @@ export class DateHelper {
     const d = String(date.getDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   }
+}
+
+// Campo data di un'entity inviato come giorno locale 'AAAA-MM-GG' (anche negli
+// intervalli dei filtri): il backend lo salva così com'è. toISOString() di una
+// data del datepicker (mezzanotte locale) darebbe il giorno prima.
+export function DateOnly() {
+  const toDay = (v: unknown) => (v instanceof Date ? DateHelper.toLocalIsoString(v) : v);
+  return Transform(({value}) => (Array.isArray(value) ? value.map(toDay) : toDay(value)), {toPlainOnly: true});
 }

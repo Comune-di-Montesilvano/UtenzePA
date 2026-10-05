@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { DateHelper } from '@/helpers/date.helpers';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Contract } from '@apis/contracts/entity/contract.entity';
@@ -41,8 +42,8 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
       }
       if (filters.supply_expiry_date_range) {
         const range = filters.supply_expiry_date_range;
-        if (range[0]) qb.andWhere(`${alias}.supply_expiry_date >= :expiry_start`, { expiry_start: range[0] });
-        if (range[1]) qb.andWhere(`${alias}.supply_expiry_date <= :expiry_end`, { expiry_end: range[1] });
+        if (range[0]) qb.andWhere(`${alias}.supply_expiry_date >= :expiry_start`, { expiry_start: DateHelper.dateOnly(range[0]) });
+        if (range[1]) qb.andWhere(`${alias}.supply_expiry_date <= :expiry_end`, { expiry_end: DateHelper.dateOnly(range[1]) });
       }
       if (filters.supplier_id_fk) {
         qb.andWhere(`${alias}.supplier_id_fk = :supplier_id_fk`, { supplier_id_fk: filters.supplier_id_fk });

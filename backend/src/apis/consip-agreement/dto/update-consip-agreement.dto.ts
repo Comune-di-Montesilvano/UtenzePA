@@ -1,6 +1,5 @@
 import {
   IsBoolean,
-  IsDateString,
   IsIn,
   IsInt,
   IsOptional,
@@ -8,6 +7,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { DateOnly } from '@/common/decorators/date-only.decorator';
 
 export class UpdateConsipAgreementDto {
   @IsOptional()
@@ -25,8 +25,7 @@ export class UpdateConsipAgreementDto {
   cig_master: string;
 
   @IsOptional()
-  @Transform(({ value }) => (value ? (value as string).slice(0, 10) : value))
-  @IsDateString()
+  @DateOnly()
   expiration_date: string;
 
   @IsOptional()

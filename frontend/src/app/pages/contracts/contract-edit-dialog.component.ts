@@ -99,8 +99,13 @@ export class ContractEditDialogComponent implements OnInit {
   };
   readonly utilityStatusOf = (u: Utility): StatusInfo => utilityStatus(u.supply_active);
 
+  // 'AAAA-MM-GG' letta come giorno locale: con new Date(v) (mezzanotte UTC)
+  // NormalizeDate del backend (+1 giorno) farebbe avanzare la data a ogni Salva.
   private toDate(v: unknown): Date | null {
-    return v ? new Date(v as string) : null;
+    if (!v) return null;
+    if (v instanceof Date) return v;
+    const [y, m, d] = String(v).slice(0, 10).split('-').map(Number);
+    return new Date(y, m - 1, d);
   }
 
   form = this.fb.group({

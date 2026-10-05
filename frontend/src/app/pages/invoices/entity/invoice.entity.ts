@@ -3,6 +3,7 @@ import {AbstractEntity} from '../../../core/entities/abstract.entity';
 import {IInvoice} from './invoice.interface';
 import {BudgetChapter} from '../../budget-chapters/entity/budget-chapter.entity';
 import {Contract} from '../../contracts/entity/contract.entity';
+import {DateOnly} from '../../../core/helpers/date.helper';
 
 export class Invoice extends AbstractEntity implements IInvoice {
   invoice_id!: string;
@@ -18,6 +19,7 @@ export class Invoice extends AbstractEntity implements IInvoice {
   contratto_id_fk!: number;
 
   @Type(() => Date)
+  @DateOnly()
   invoice_date!: Date;
 
   @Exclude({toPlainOnly: true})
