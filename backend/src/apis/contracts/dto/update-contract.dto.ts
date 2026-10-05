@@ -6,7 +6,7 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
-import { NormalizeDate } from '@/common/decorators/normalize-date.decorator';
+import { DateOnly } from '@/common/decorators/date-only.decorator';
 
 export class UpdateContractDto {
   @IsOptional()
@@ -39,19 +39,19 @@ export class UpdateContractDto {
   consip_agreement_id?: number;
 
   @IsOptional()
-  @NormalizeDate()
+  @DateOnly()
   supply_start_date?: string;
 
   @IsOptional()
-  @NormalizeDate()
+  @DateOnly()
   supply_expiry_date?: string;
 
   @IsOptional()
-  @NormalizeDate()
+  @DateOnly()
   management_expiry_date?: string;
 
   @IsOptional()
-  @NormalizeDate()
+  @DateOnly()
   takeover_termination_date?: string;
 
   @IsOptional()

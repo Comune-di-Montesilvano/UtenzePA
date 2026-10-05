@@ -11,7 +11,7 @@ import {
 } from 'class-validator';
 import { Phase } from '../../shared/enum/user.enums';
 import { AreraCategory, GasUseCategory } from '../arera-category';
-import { NormalizeDate } from '@/common/decorators/normalize-date.decorator';
+import { DateOnly } from '@/common/decorators/date-only.decorator';
 import { Transform } from 'class-transformer';
 
 export class UpdateUtilityDto {
@@ -103,7 +103,7 @@ export class UpdateUtilityDto {
   wbs_gas_element?: string;
 
   @IsOptional()
-  @NormalizeDate()
+  @DateOnly()
   water_concession?: string;
 
   @IsOptional()
@@ -124,7 +124,7 @@ export class UpdateUtilityDto {
   transferred_to_third_party_id?: number | null;
 
   @IsOptional()
-  @NormalizeDate()
+  @DateOnly()
   transferred_on?: string | null;
 
   @IsOptional()

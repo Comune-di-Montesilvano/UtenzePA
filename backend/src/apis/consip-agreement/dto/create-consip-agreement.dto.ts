@@ -1,5 +1,4 @@
 import {
-  IsDateString,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -7,7 +6,7 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { DateOnly } from '@/common/decorators/date-only.decorator';
 
 export class CreateConsipAgreementDto {
   @IsNotEmpty({ message: 'Il campo nome è obbligatorio' })
@@ -25,8 +24,7 @@ export class CreateConsipAgreementDto {
   cig_master: string;
 
   @IsNotEmpty({ message: 'Il campo scadenza è obbligatorio' })
-  @Transform(({ value }) => (value ? (value as string).slice(0, 10) : value))
-  @IsDateString()
+  @DateOnly()
   expiration_date: string;
 
   @IsOptional()

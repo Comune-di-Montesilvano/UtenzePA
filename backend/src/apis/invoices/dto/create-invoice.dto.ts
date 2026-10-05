@@ -8,7 +8,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { DateOnly } from '@/common/decorators/date-only.decorator';
 
 export class CreateInvoiceDto {
   @IsOptional()
@@ -17,7 +17,7 @@ export class CreateInvoiceDto {
   invoice_id?: string;
 
   @IsNotEmpty({ message: 'La data della fattura è obbligatoria.' })
-  @Transform(({ value }) => (value ? (value as string).slice(0, 10) : value))
+  @DateOnly()
   invoice_date: string;
 
   @IsNotEmpty({ message: 'Il numero di protocollo è obbligatorio.' })

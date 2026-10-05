@@ -5,6 +5,7 @@ import { ThirdParty } from '../../third-parties/entity/third-party.entity';
 import { ConsipAgreement } from '../../consip-agreement/entity/consip-agreement.entity';
 import { Utility } from '../../utilities/entity/utility.entity';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
+import { DateOnly } from '../../../core/helpers/date.helper';
 
 export class Contract extends AbstractEntity implements IContract {
   supplier_id_fk?: number | null;
@@ -16,9 +17,13 @@ export class Contract extends AbstractEntity implements IContract {
   closed?: boolean;
   consip_order?: string;
   consip_agreement_id?: number | null;
+  @DateOnly()
   supply_start_date?: Date | null;
+  @DateOnly()
   supply_expiry_date?: Date | null;
+  @DateOnly()
   management_expiry_date?: Date | null;
+  @DateOnly()
   takeover_termination_date?: Date | null;
   utility_ids?: number[];
 

@@ -4,12 +4,13 @@ import {Phase} from '../enum/phase.enum';
 import {ExpireState} from '../enum/expire-state.enum';
 import {ConsipAgreement} from '../../consip-agreement/entity/consip-agreement.entity';
 import {UtilityType} from '../../utility-types/entity/utility-type.entity';
-import {Exclude, plainToInstance, Transform, Type} from 'class-transformer';
+import {Exclude, plainToInstance, Type} from 'class-transformer';
 import {ThirdParty} from '../../third-parties/entity/third-party.entity';
 import {Asset} from '../../assets/entity/asset.entity';
 import type {PlantType} from '../../plants/plant.model';
 import type {AreraCategory, GasUseCategory} from '../arera-category';
 import {BudgetChapter} from '../../budget-chapters/entity/budget-chapter.entity';
+import {DateOnly} from '../../../core/helpers/date.helper';
 import {SystemUser} from '../../system-users/entity/system-user.entity';
 import {Contract} from '../../contracts/entity/contract.entity';
 
@@ -49,9 +50,11 @@ export class Utility extends AbstractEntity implements IUtility {
   arera_category?: AreraCategory | null;
   gas_use_category?: GasUseCategory | null;
   disconnectable?: boolean | null;
+  @DateOnly()
   water_concession?: Date;
   utility_type_id_fk!: number;
   transferred_to_third_party_id?: number | null;
+  @DateOnly()
   transferred_on?: Date | string | null;
   @Exclude({toPlainOnly: true})
   supplier_id_fk?: number | null;
@@ -96,44 +99,19 @@ export class Utility extends AbstractEntity implements IUtility {
   @Exclude({toPlainOnly: true})
   management_expiry_date?: Date | null;
 
-  @Transform(({value}) => {
-    if (Array.isArray(value)) {
-      return value.map(date => (date instanceof Date ? date.toISOString() : date));
-    }
-    return value;
-  }, {toPlainOnly: true})
+  @DateOnly()
   supply_start_date_range?: string[];
 
-  @Transform(({value}) => {
-    if (Array.isArray(value)) {
-      return value.map(date => (date instanceof Date ? date.toISOString() : date));
-    }
-    return value;
-  }, {toPlainOnly: true})
+  @DateOnly()
   supply_expiry_date_range?: string[];
 
-  @Transform(({value}) => {
-    if (Array.isArray(value)) {
-      return value.map(date => (date instanceof Date ? date.toISOString() : date));
-    }
-    return value;
-  }, {toPlainOnly: true})
+  @DateOnly()
   management_expiry_date_range?: string[];
 
-  @Transform(({value}) => {
-    if (Array.isArray(value)) {
-      return value.map(date => (date instanceof Date ? date.toISOString() : date));
-    }
-    return value;
-  }, {toPlainOnly: true})
+  @DateOnly()
   takeover_termination_date_range?: string[];
 
-  @Transform(({value}) => {
-    if (Array.isArray(value)) {
-      return value.map(date => (date instanceof Date ? date.toISOString() : date));
-    }
-    return value;
-  }, {toPlainOnly: true})
+  @DateOnly()
   water_concession_range?: string[];
 
   @Exclude({toPlainOnly: true})

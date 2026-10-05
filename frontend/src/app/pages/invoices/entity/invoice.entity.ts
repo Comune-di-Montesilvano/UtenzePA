@@ -3,7 +3,7 @@ import {AbstractEntity} from '../../../core/entities/abstract.entity';
 import {IInvoice} from './invoice.interface';
 import {BudgetChapter} from '../../budget-chapters/entity/budget-chapter.entity';
 import {Contract} from '../../contracts/entity/contract.entity';
-import {toIsoDate} from '../../utilities/consumptions/consumption.model';
+import {DateOnly} from '../../../core/helpers/date.helper';
 
 export class Invoice extends AbstractEntity implements IInvoice {
   invoice_id!: string;
@@ -18,11 +18,8 @@ export class Invoice extends AbstractEntity implements IInvoice {
   notes_on_invoices?: string;
   contratto_id_fk!: number;
 
-  // Inviata come giorno locale 'AAAA-MM-GG': il backend tiene i primi 10
-  // caratteri, e toISOString() di una data scelta dal datepicker (mezzanotte
-  // locale) darebbe il giorno prima.
   @Type(() => Date)
-  @Transform(({value}) => (value instanceof Date ? toIsoDate(value) : value), {toPlainOnly: true})
+  @DateOnly()
   invoice_date!: Date;
 
   @Exclude({toPlainOnly: true})
