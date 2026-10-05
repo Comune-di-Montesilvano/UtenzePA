@@ -235,6 +235,12 @@ describe('UtilitiesService', () => {
       expect(call?.[1]).toEqual({ grant_id: 12 });
     });
 
+    it('filtro per contratto immobiliare: esclude gli immobili eliminati', async () => {
+      await service.findAll({ grant_id: 12 } as never);
+      const call = qb.andWhere.mock.calls.find((c) => String(c[0]).includes('uga.utilizer_grant_id = :grant_id'));
+      expect(String(call?.[0])).toMatch(/JOIN assets a ON a\.id = ua\.asset_id AND a\.deleted = 0/);
+    });
+
     it('liste vuote: nessun filtro', async () => {
       await service.findAll({ asset_function_ids: [], plant_types: [] } as never);
       const sql = qb.andWhere.mock.calls.map((c) => String(c[0])).join(' ');

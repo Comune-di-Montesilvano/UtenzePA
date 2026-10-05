@@ -106,12 +106,16 @@ export function inspectionStatusInfo(s: InspectionStatus | null | undefined): St
 // Stesso criterio di Contract.isCurrent: chiuso = mai corrente; senza
 // scadenza = in corso; scadenza uguale a oggi = ancora in corso.
 export function supplyContractStatus(
-  c: {closed?: boolean | null; supply_expiry_date?: Date | string | null},
+  c: {closed?: boolean | null; supply_start_date?: Date | string | null; supply_expiry_date?: Date | string | null},
   today = todayIso(),
 ): StatusInfo {
   if (c.closed) return {tone: 'off', label: 'Chiuso', icon: 'lock'};
   if (c.supply_expiry_date && isoOf(c.supply_expiry_date) < today) {
     return {tone: 'danger', label: 'Scaduto', icon: 'event_busy'};
+  }
+  // Decorrenza futura: come la barra di validità, non ancora il contratto corrente.
+  if (c.supply_start_date && isoOf(c.supply_start_date) > today) {
+    return {tone: 'info', label: 'Non ancora iniziato', icon: 'schedule'};
   }
   return {tone: 'ok', label: 'In corso', icon: 'check_circle'};
 }

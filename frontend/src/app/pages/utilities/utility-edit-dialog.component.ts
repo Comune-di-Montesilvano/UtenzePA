@@ -615,7 +615,7 @@ export class UtilityEditDialogComponent implements OnInit {
   markTransferredToday(): void {
     const parties = this.costInfo?.parties ?? [];
     if (parties.length !== 1) return;
-    // Mezzanotte locale, come il datepicker: il backend (NormalizeDate) corregge lo scarto UTC.
+    // Mezzanotte locale, come il datepicker: in invio vale il giorno locale (@DateOnly).
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     this.form.patchValue({transferred_to_third_party_id: parties[0].third_party_id, transferred_on: today});

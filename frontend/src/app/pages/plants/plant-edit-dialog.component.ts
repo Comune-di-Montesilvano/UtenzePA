@@ -269,9 +269,11 @@ export class PlantEditDialogComponent implements OnInit {
   }
 
   // Header
+  // Segue il form, come le altre schede (non il record salvato).
   title(): string {
-    if (!this.plant) return 'Nuovo impianto';
-    return `${this.plant.code} — ${this.plant.name}`;
+    const v = this.form.getRawValue();
+    const text = [v.code, v.name].map(x => (x ?? '').toString().trim()).filter(Boolean).join(' — ');
+    return text || (this.plant ? `Impianto #${this.plant.id}` : 'Nuovo impianto');
   }
 
   subtitle(): string {

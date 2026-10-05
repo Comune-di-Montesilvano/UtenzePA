@@ -369,6 +369,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     if (filters?.grant_id) {
       qb.andWhere(
         `Utility.id IN (SELECT ua.utility_id FROM utility_assets ua
+           JOIN assets a ON a.id = ua.asset_id AND a.deleted = 0
            JOIN utilizer_grant_assets uga ON uga.asset_id = ua.asset_id
            WHERE uga.utilizer_grant_id = :grant_id)`,
         { grant_id: filters.grant_id },

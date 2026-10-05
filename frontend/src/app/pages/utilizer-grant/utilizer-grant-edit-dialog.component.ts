@@ -21,7 +21,7 @@ import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-ba
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
 import {LinkedColumn, LinkedTableComponent} from '../../core/components/entity-sheet/linked-table.component';
 import {ValidityBarComponent} from '../../core/components/entity-sheet/validity-bar.component';
-import {assetStatus, costStatus, grantFlags, grantStatus, StatusInfo} from '../../core/helpers/entity-status';
+import {assetStatus, costStatus, grantFlags, grantStatus, StatusInfo, utilityStatus} from '../../core/helpers/entity-status';
 import {UtilityService} from '../utilities/utility.service';
 import {Utility} from '../utilities/entity/utility.entity';
 import {hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel} from '../../core/components/entity-sheet/sheet-utils';
@@ -122,7 +122,9 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
     {label: 'Tipo', value: u => u.utilityType?.name ?? ''},
     {label: 'Volturata a', value: u => u.cost_info?.transferred_to?.name ?? ''},
   ];
-  readonly utilityStatusOf = (u: Utility): StatusInfo => costStatus(u.cost_info);
+  // Utenza cessata: niente stato di voltura (come la dashboard, che conta solo le attive).
+  readonly utilityStatusOf = (u: Utility): StatusInfo =>
+    u.supply_active === false ? utilityStatus(false) : costStatus(u.cost_info);
 
   readonly childColumns: LinkedColumn<UtilizerGrant>[] = [
     {label: '#', value: c => String(c.id)},

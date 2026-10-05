@@ -90,7 +90,7 @@
               @for (p of costInfo?.parties ?? []; track p.grant_id + '-' + p.third_party_id) {
                 <a href="javascript:void(0)" (click)="openGrant(p.grant_id)" matTooltip="Apri il contratto immobiliare">{{ p.name }}</a>
               }
-              @if (canEdit && costInfo?.status === 'TO_TRANSFER' && costInfo?.parties?.length === 1) {
+              @if (canEdit && costInfo?.status === 'TO_TRANSFER' && costInfo?.parties?.length === 1 && !form.controls.transferred_to_third_party_id.value) {
                 <button mat-stroked-button type="button" (click)="markTransferredToday()">Segna volturata oggi</button>
               }
               @if (canEdit && form.controls.transferred_to_third_party_id.value) {
