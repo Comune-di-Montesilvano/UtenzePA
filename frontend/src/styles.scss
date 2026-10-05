@@ -326,6 +326,34 @@ p-paginator.p-component.p-paginator {
   background: #f59e0b;
 }
 
+// Badge impianti (sopra il pin): sul marker immobile o di gruppo.
+.map-pin-badge--plants {
+  top: -24px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  background: #0f766e;
+}
+
+// Più elementi uguali nello stesso punto (es. due contatori acqua): il pin
+// si "impila" (due dischi sfalsati dello stesso colore) e l'icona è doppia.
+.map-pin--stack {
+  box-shadow: 3px -3px 0 -1px #fff, 3px -3px 0 0 var(--pin-color, #888), 0 0 2px rgba(0, 0, 0, 0.5);
+}
+
+.map-pin-stack-icons {
+  position: relative;
+  display: inline-flex;
+
+  > :last-child {
+    position: absolute;
+    left: 5px;
+    top: -4px;
+    opacity: 0.75;
+    transform: scale(0.8);
+  }
+}
+
 .map-pin-badge--utilities {
   top: auto;
   bottom: -24px;

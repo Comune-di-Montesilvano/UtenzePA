@@ -37,6 +37,22 @@ describe('MapService', () => {
       expect(points[0]).toEqual(expect.objectContaining({ id: 3, lat: '42.6', source: 'geocoded', address: 'via Y' }));
     });
 
+    it('impianto collegato a un immobile: assetId dell’immobile localizzabile', async () => {
+      plantRepo.find.mockResolvedValue([
+        { id: 3, code: 'T1', name: 'Centrale', type: 'THERMAL', address: null, ...noCoords, latitude: '42.7', longitude: '14.3', assets: [{ id: 8, ...noCoords, latitude: '42.6', longitude: '14.2' }] },
+      ]);
+      const { points } = await service.getPoints({ showAssets: false, showUtilities: false });
+      expect(points[0]).toEqual(expect.objectContaining({ id: 3, assetId: 8, lat: '42.7' }));
+    });
+
+    it('utenza con gps proprio collegata a un impianto: plantId per la linea', async () => {
+      utilityRepo.find.mockResolvedValue([
+        { id: 9, utility_id: 'IT001', latitude: '42.9', longitude: '14.9', assets: [], plants: [{ id: 5, deleted: false, ...noCoords, assets: [] }], utilityType: {} },
+      ]);
+      const { points } = await service.getPoints({ showAssets: false, showPlants: false });
+      expect(points[0]).toEqual(expect.objectContaining({ id: 9, source: 'gps', assetId: null, plantId: 5 }));
+    });
+
     it('showPlants=false e filtro plantTypes', async () => {
       await service.getPoints({ showAssets: false, showUtilities: false, plantTypes: ['FOUNTAIN'] } as never);
       expect(plantRepo.find).toHaveBeenCalledWith(

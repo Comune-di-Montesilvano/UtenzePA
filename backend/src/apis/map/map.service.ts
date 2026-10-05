@@ -29,7 +29,10 @@ export interface MapPoint {
   // all'asset, coprono/nascondono a vicenda: il conteggio resta visibile
   // comunque).
   assetId?: number | null;
-  // Solo per type 'utility' posizionata tramite un impianto collegato.
+  // type 'utility': impianto da cui eredita la posizione, oppure (con GPS
+  // proprio) il primo impianto collegato, per la linea verso l'impianto.
+  // type 'plant': immobile dell'impianto (primo localizzabile), per
+  // raggrupparlo sotto il marker immobile o tracciare la linea.
   plantId?: number | null;
   // Solo per type 'plant' — pilota l'icona per tipo impianto.
   plantType?: PlantType;
@@ -152,6 +155,7 @@ export class MapService {
             lng: position.lng,
             source: position.quality === PositionQuality.PRECISE ? 'gps' : 'geocoded',
             plantType: plant.type,
+            ...(asset?.id ? { assetId: asset.id } : {}),
           });
         } else {
           ungeolocated.push({
@@ -189,6 +193,7 @@ export class MapService {
           hardType: utility.utilityType?.hard_type,
         };
 
+        const firstPlant = (utility.plants ?? []).find((p) => !p.deleted);
         // Contatore con GPS proprio: è fisicamente in un punto solo.
         if (isSet(utility.latitude) && isSet(utility.longitude)) {
           points.push({
@@ -198,6 +203,7 @@ export class MapService {
             lng: utility.longitude,
             source: 'gps',
             assetId: linked[0]?.id ?? null,
+            ...(firstPlant ? { plantId: firstPlant.id } : {}),
           });
           continue;
         }
