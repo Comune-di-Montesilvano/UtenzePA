@@ -42,6 +42,7 @@ import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components
 import {assetStatus, costStatus, maintenanceStatus, plantStatus, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
 import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
+import {UtilityService} from './utility.service';
 import {partyName} from '../../core/helpers/party-name.helper';
 import {UtilityInvoicesTabComponent} from './utility-invoices-tab.component';
 import {CommitmentService} from '../contracts/commitments/commitment.service';
@@ -98,6 +99,7 @@ export class UtilityEditDialogComponent implements OnInit {
   private utilityTypeService = inject(UtilityTypesService);
   private contractsService = inject(ContractsService);
   private navigator = inject(EntityNavigatorService);
+  private utilityService = inject(UtilityService);
   protected data = inject<EditDialogData<Utility>>(MAT_DIALOG_DATA);
 
   @ViewChild(MatTabGroup) tabGroup?: MatTabGroup;
@@ -427,7 +429,9 @@ export class UtilityEditDialogComponent implements OnInit {
 
   openAsset(id: number): void {
     this.navigator.openAsset(id).subscribe(saved => {
-      if (saved) this.loadAssets();
+      if (!saved) return;
+      this.loadAssets();
+      this.resyncPlantLinks();
     });
   }
 
@@ -438,8 +442,21 @@ export class UtilityEditDialogComponent implements OnInit {
     this.navigator.openPlant(id).subscribe(saved => {
       if (!saved) return;
       this.loadPlants();
-      if (this.isNew) return;
-      this.plantService.get(id).subscribe(plant => this.syncPlantLink(id, plant.utilities.some(u => u.id === this.data.item.id)));
+      this.resyncPlantLinks();
+    });
+  }
+
+  // Catene di schede (utenza → impianto → utenza…): una scheda più in alto può
+  // aver cambiato i legami di questa utenza con gli impianti. Si rileggono tutti
+  // dal server; le modifiche fatte qui e non salvate vincono.
+  private resyncPlantLinks(): void {
+    if (this.isNew) return;
+    this.utilityService.getById(this.data.item.id).subscribe({
+      next: u => {
+        const server = new Set((u.plants ?? []).map(p => p.id));
+        for (const pid of new Set([...this.savedPlantIds, ...server])) this.syncPlantLink(pid, server.has(pid));
+      },
+      error: err => console.error('Errore nel riallineamento degli impianti:', err),
     });
   }
 
@@ -461,7 +478,9 @@ export class UtilityEditDialogComponent implements OnInit {
 
   openContract(id: number): void {
     this.navigator.openSupplyContract(id).subscribe(saved => {
-      if (saved) this.reloadContracts();
+      if (!saved) return;
+      this.reloadContracts();
+      this.resyncPlantLinks();
     });
   }
 

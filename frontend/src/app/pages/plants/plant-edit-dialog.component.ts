@@ -386,7 +386,9 @@ export class PlantEditDialogComponent implements OnInit {
 
   openAsset(id: number): void {
     this.navigator.openAsset(id).subscribe(saved => {
-      if (saved) this.loadAssets();
+      if (!saved) return;
+      this.loadAssets();
+      this.resyncUtilityLinks();
     });
   }
 
@@ -396,7 +398,21 @@ export class PlantEditDialogComponent implements OnInit {
     this.navigator.openUtility(id).subscribe(saved => {
       if (!saved) return;
       this.loadUtilities();
-      if (this.plant) this.syncUtilityLink(id, (saved.plants ?? []).some(p => p.id === this.plant!.id));
+      this.resyncUtilityLinks();
+    });
+  }
+
+  // Catene di schede (impianto → utenza → impianto…): una scheda più in alto
+  // può aver cambiato legami di questo impianto. Si rileggono tutti dal server,
+  // non solo quello del figlio diretto; le modifiche fatte qui e non salvate vincono.
+  private resyncUtilityLinks(): void {
+    if (!this.plant) return;
+    this.service.get(this.plant.id).subscribe({
+      next: p => {
+        const server = new Set((p.utilities ?? []).map(u => u.id));
+        for (const id of new Set([...this.savedUtilityIds, ...server])) this.syncUtilityLink(id, server.has(id));
+      },
+      error: err => console.error('Errore nel riallineamento delle utenze:', err),
     });
   }
 
