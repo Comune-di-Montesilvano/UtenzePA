@@ -117,10 +117,28 @@ Da approfondire: area verde come tipo di bene con superfici per tipologia, legam
 
 ## 6. Fatture per utenza
 
-Fatto in v1.10.0 insieme alla voce 17: spec `docs/superpowers/specs/2026-10-05-fatture-per-utenza-impegni-design.md`. Fattura = testata (fornitore, totale documento IVA inclusa, imponibile facoltativo) + righe per utenza (importo IVA inclusa, impegno, periodo, consumo, codice fornitura, tutto facoltativo tranne l'importo); spesa calcolata per utenza, immobile e capitolo; anomalie "Fatture su utenze cessate", "Utenze con capitolo non impegnato sul contratto", "Righe fattura senza utenza". Dati sul DB locale (2026-10-05): 490 fatture ACA 2025–2026 con una riga ciascuna (utenza dal codice servizio, impegno da capitolo e anno della fattura; 324 totali a 3 decimali arrotondati a 2), fornitore valorizzato sulle 185 fatture esistenti. Restano: import FatturaPA/tracciati dei fornitori (anteprima, abbinamento per P.IVA e POD/PDR, deduplica), consumi da fattura nel tab Consumi (`ConsumptionSource.INVOICE`), righe delle 185 fatture storiche (2019–2023, solo testata). Il testo sotto è il censimento di partenza.
+Fatto in v1.10.0 insieme alla voce 17: spec `docs/superpowers/specs/2026-10-05-fatture-per-utenza-impegni-design.md`. Fattura = testata (fornitore, totale documento IVA inclusa, imponibile facoltativo) + righe per utenza (importo IVA inclusa, impegno, periodo, consumo, codice fornitura, tutto facoltativo tranne l'importo); spesa calcolata per utenza, immobile e capitolo; anomalie "Fatture su utenze cessate", "Utenze con capitolo non impegnato sul contratto", "Righe fattura senza utenza". Dati sul DB locale (2026-10-05): 490 fatture ACA 2025–2026 con una riga ciascuna (utenza dal codice servizio, impegno da capitolo e anno della fattura; 324 totali a 3 decimali arrotondati a 2), fornitore valorizzato sulle 185 fatture esistenti. Restano: import FatturaPA/tracciati dei fornitori (anteprima, abbinamento per P.IVA e POD/PDR, deduplica), consumi da fattura nel tab Consumi (`ConsumptionSource.INVOICE`), righe delle 185 fatture storiche (2019–2023, solo testata). 
 
+Gotcha per l'import FatturaPA (da una fattura elettronica A2A luce, 2026-10-05):
 
-Oggi le fatture si legano a contratto e capitolo, non all'utenza. Fonte pronta: fatture ACA 2025–2026 (490 fatture, `.audit-w/aca_fatture_2025_2026.json`). Serve `utility_id_fk` sulla fattura per avere spesa reale per utenza/immobile e anomalie "fattura su utenza cessata". Rimandata dall'utente (si è fatta solo la pulizia dati).
+- una fattura = un POD e un mese, con 4 `DettaglioLinee` (vendita energia, uso rete, oneri di sistema, imposte), tutte con periodo e POD in `AltriDatiGestionali` (`TipoDato` = POD): diventano 4 righe sulla stessa utenza, descrizione dalla linea;
+- importi di riga **senza IVA** (`PrezzoTotale` + `AliquotaIVA`), le nostre righe sono IVA inclusa: moltiplicare riga per riga può scostarsi di qualche centesimo dal totale documento (la scheda mostra la differenza). Valutare imponibile e aliquota sulla riga quando si fa l'import;
+- split payment (`EsigibilitaIVA` = S): il fornitore incassa l'imponibile (`ImportoPagamento`), il Comune versa l'IVA all'Erario: il costo per l'ente resta IVA inclusa (conferma della scelta);
+- abbinamenti che funzionano già sul DB locale: P.IVA del cedente → soggetto terzo; `CodiceCIG` → contratto (`cig_contract`); le ultime 7 cifre di `CodiceCommessaConvenzione` = numero ordine ODA (`consip_order`), utile come controllo; POD → utenza (`utility_id`);
+- consumo (kWh) e matricola del contatore solo nel testo di `Causale`: serve un parser per fornitore, non c'è un campo strutturato;
+- l'impegno (contratto + capitolo dell'utenza + esercizio) può non esistere ancora: l'import deve crearlo o segnalarlo, mai inventare il capitolo;
+- il PDF della fattura è allegato in base64 (quasi tutto il peso del file): da decidere se conservarlo collegato alla fattura.
+
+Rifiniture rimandate dalla revisione finale di v1.10.0, non bloccanti:
+
+- id di utenza inesistente su una riga, o `null` su capitolo/esercizio in PATCH di un impegno: 500 invece di 400 (la UI non li invia);
+- "costi del mese" in dashboard calcolati con l'ora del container (UTC): nelle prime ore del giorno 1 mostra ancora il mese prima;
+- un impegno usato solo da fatture eliminate non si può eliminare (il conteggio include le fatture cancellate);
+- anomalia "Utenze con capitolo non impegnato sul contratto": usa i contratti non chiusi, mentre la colonna contratti mostra quelli correnti (scadenza);
+- scheda utenza: i capitoli impegnati non si azzerano se l'utenza non ha più contratti aperti;
+- manca un test di rollback della transazione delle righe fattura.
+
+ a contratto e capitolo, non all'utenza. Fonte pronta: fatture ACA 2025–2026 (490 fatture, `.audit-w/aca_fatture_2025_2026.json`). Serve `utility_id_fk` sulla fattura per avere spesa reale per utenza/immobile e anomalie "fattura su utenza cessata". Rimandata dall'utente (si è fatta solo la pulizia dati).
 
 In previsione delle **utility di importazione massiva** (fattura elettronica XML FatturaPA o tracciati dei fornitori), il modello va ripensato: oggi `invoices` ha numero, data, protocollo, imponibile, morosità, FK al contratto di fornitura e N-N con i capitoli, ma non utenza e periodo. Servono righe fattura per POD/PDR (una fattura del fornitore copre molte utenze) con periodo dal/al, consumo e importo; aggancio a consumi (`utility_consumptions`) e spesa per capitolo; abbinamento del fornitore per P.IVA (voce 9) invece che per `supplier_id`; POD normalizzato a 14 caratteri; deduplica per numero fattura + fornitore; anteprima con errori prima del salvataggio.
 
