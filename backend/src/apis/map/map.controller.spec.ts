@@ -33,15 +33,31 @@ describe('MapController', () => {
     expect(result).toBeNull();
   });
 
-  it('cerca prima vicino al Comune (coordinate di default), poi ovunque', async () => {
-    settings.getBrandingSummary.mockResolvedValue({ default_latitude: '42.51', default_longitude: '14.14' });
-    geocodingService.geocode.mockResolvedValueOnce(null).mockResolvedValueOnce({ lat: '41.9', lon: '12.5' });
+  it('cerca prima nel Comune (nome dal branding), poi vicino, poi ovunque', async () => {
+    settings.getBrandingSummary.mockResolvedValue({
+      entity_name: 'Comune di Montesilvano', default_latitude: '42.51', default_longitude: '14.14',
+    });
+    geocodingService.geocode
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ lat: '41.9', lon: '12.5' });
 
     const result = await controller.geocode({ q: 'Via Roma' });
 
-    expect(geocodingService.geocode).toHaveBeenNthCalledWith(1, 'Via Roma', { viewbox: [14.04, 42.61, 14.24, 42.41] });
-    expect(geocodingService.geocode).toHaveBeenNthCalledWith(2, 'Via Roma', undefined);
+    expect(geocodingService.geocode).toHaveBeenNthCalledWith(1, 'Via Roma, Montesilvano', undefined);
+    expect(geocodingService.geocode).toHaveBeenNthCalledWith(2, 'Via Roma', { viewbox: [14.04, 42.61, 14.24, 42.41] });
+    expect(geocodingService.geocode).toHaveBeenNthCalledWith(3, 'Via Roma', undefined);
     expect(result).toEqual({ lat: '41.9', lng: '12.5' });
+  });
+
+  it('la città già nella ricerca non viene ripetuta', async () => {
+    settings.getBrandingSummary.mockResolvedValue({ entity_name: 'Comune di Montesilvano' });
+    geocodingService.geocode.mockResolvedValue({ lat: '42.5', lon: '14.15' });
+
+    await controller.geocode({ q: 'via Roma 3, montesilvano' });
+
+    expect(geocodingService.geocode).toHaveBeenCalledTimes(1);
+    expect(geocodingService.geocode).toHaveBeenCalledWith('via Roma 3, montesilvano', undefined);
   });
 
   it('trovato vicino al Comune: una sola ricerca', async () => {

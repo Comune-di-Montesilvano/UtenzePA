@@ -27,6 +27,8 @@ export interface MapPoint {
   plantId?: number | null;
   // Solo per type 'plant' — pilota l'icona per tipo impianto.
   plantType?: PlantType;
+  // Immobile o impianto dismesso, utenza cessata: marker sbiadito.
+  inactive?: boolean;
 }
 
 export interface UngeolocatedItem {

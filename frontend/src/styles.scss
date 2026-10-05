@@ -533,3 +533,15 @@ p-paginator.p-component.p-paginator {
 
 // Sottotitolo delle pagine elenco (sotto l'h1).
 .list-subtitle { color: #6A7282; margin: -0.5rem 0 1rem; }
+
+// Marker mappa di immobile/impianto dismesso o utenza cessata (inclusi dai filtri).
+.map-pin--inactive {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+// Mappa: marker collegati a quello sotto il mouse (ingranditi insieme a lui).
+.map-marker--related .map-pin {
+  transform: scale(1.35);
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.6);
+}
