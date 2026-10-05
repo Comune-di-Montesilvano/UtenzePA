@@ -22,7 +22,6 @@ Analisi delle schede (2026-10-05):
 | Contratto immobiliare | tab Immobili, tab Utenze | nuovo immobile, nuova utenza |
 | Utenza | Tipo utenza (`mat-select`) | nuovo tipo |
 | Utenza | Capitolo di spesa | nuovo capitolo |
-| Utenza | Volturata a (`mat-select`) | nuovo soggetto terzo |
 | Utenza | tab Immobili, tab Impianti | nuovo immobile, nuovo impianto |
 | Utenza | tab Fatture | nuova fattura con la riga dell'utenza |
 | Immobile | Tipologia, Funzione (`mat-select`) | nuova tipologia, nuova funzione |
@@ -65,7 +64,7 @@ Scelta utente (2026-10-05): un'opzione in fondo al pannello è troppo nascosta. 
 
 Il componente si impagina come riga flessibile (campo che si allarga + pulsante); senza `createLabel` resta identico a oggi. Il pulsante non cambia il valore del controllo; "Crea «…»" chiude il pannello senza selezionare. La scheda di partenza chiama il navigatore e, al ritorno, aggiunge il record alle proprie opzioni (array nuovo, campo cache — vedi gotcha dei getter in CLAUDE.md) e lo imposta come valore (multi: lo aggiunge alla selezione), `markAsDirty()`. Il testo digitato precompila il campo nome dell'entità creata (ragione sociale, nome, descrizione), dove ha senso.
 
-Le `mat-select` semplici di Tipo utenza, Convenzione CONSIP, Tipologia, Funzione e Volturata a passano ad `app-filterable-select` per avere lo stesso pulsante (comportamento uguale, con ricerca). La logica oggi su `(selectionChange)` (`onUtilityTypeChange`, `onConsipAgreementChange`) passa a `valueChanges` del controllo.
+Le `mat-select` semplici di Tipo utenza, Convenzione CONSIP, Tipologia e Funzione passano ad `app-filterable-select` per avere lo stesso pulsante (comportamento uguale, con ricerca). La logica oggi su `(selectionChange)` (`onUtilityTypeChange`, `onConsipAgreementChange`) passa a `valueChanges` del controllo.
 
 Stessa sorgente di opzioni per più campi della stessa scheda (es. fattura: fornitore della testata e contratto): dopo una creazione si aggiornano tutte le liste della scheda che contengono quel tipo.
 
@@ -77,11 +76,11 @@ Stessa sorgente di opzioni per più campi della stessa scheda (es. fattura: forn
 |---|---|---|
 | Contratto di fornitura → Utenze | Nuova utenza | `createUtility({})`, poi collegata come "Collega" |
 | Contratto immobiliare → Immobili | Nuovo immobile | `createAsset()`, poi collegato |
-| Contratto immobiliare → Utenze | Nuova utenza | `createUtility({})`, poi collegata |
+| Contratto immobiliare → Utenze | Nuova utenza | `createUtility({asset_ids: immobili del contratto})`: il tab mostra le utenze degli immobili, il legame è nel payload; disabilitato senza immobili salvati |
 | Utenza → Immobili | Nuovo immobile | `createAsset()`, poi collegato |
 | Utenza → Impianti | Nuovo impianto | `createPlant(null)`, poi collegato |
 | Impianto → Immobili | Nuovo immobile | `createAsset()`, poi collegato |
-| Impianto → Utenze | Nuova utenza | `createUtility({plant_ids: [id]})` (legame nel payload, come da Immobile) |
+| Impianto → Utenze | Nuova utenza | `createUtility({plant_ids: [id]})` se l'impianto è salvato (un'utenza senza immobile né impianto non si salva), poi aggiunta anche a `utility_ids` del form impianto |
 | Utenza → Fatture | Nuova fattura | `createInvoice` con una riga sull'utenza e il contratto aperto dell'utenza, se unico |
 | Soggetto terzo → Contratti immobiliari | Nuovo contratto immobiliare | `createGrant` con il soggetto tra le parti |
 | Soggetto terzo → Forniture | Nuovo contratto di fornitura | `createSupplyContract` con il fornitore impostato |
@@ -91,6 +90,8 @@ Dopo la creazione, la tabella della scheda di partenza si ricarica come oggi dop
 ### 4. Righe della fattura
 
 `invoice-lines-tab`: "+" su Utenza (`createUtility`) e su Impegno (`createCommitment` sul contratto della fattura; disabilitato con tooltip se la fattura non ha contratto). Le nuove opzioni risalgono alla scheda fattura (`utilityOptions`/`commitmentOptions` sono input del tab: evento verso il padre che aggiorna l'array).
+
+Fuori scope: **Volturata a** dell'utenza. Le opzioni sono le parti dei contratti immobiliari attivi sugli immobili dell'utenza (`cost_info.active_parties`): un soggetto creato lì non sarebbe parte di nessun contratto. Si crea dal contratto immobiliare.
 
 ## Gotcha noti da rispettare
 
