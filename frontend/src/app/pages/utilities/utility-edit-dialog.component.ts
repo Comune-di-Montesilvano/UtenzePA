@@ -3,7 +3,7 @@ import {AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Val
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
-import {MatSelectChange, MatSelectModule} from '@angular/material/select';
+import {MatSelectModule} from '@angular/material/select';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
@@ -41,7 +41,7 @@ import {PreviewCardComponent, PreviewItem} from '../../core/components/entity-sh
 import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components/entity-sheet/linked-table.component';
 import {assetStatus, costStatus, maintenanceStatus, plantStatus, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
 import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
-import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
+import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import {partyName} from '../../core/helpers/party-name.helper';
 import {UtilityInvoicesTabComponent} from './utility-invoices-tab.component';
 import {CommitmentService} from '../contracts/commitments/commitment.service';
@@ -115,6 +115,7 @@ export class UtilityEditDialogComponent implements OnInit {
   private allPlants: PlantRow[] = [];
   plantSelectOptions: TOption[] = [];
   budgetChapterOptions: TOption[] = [];
+  utilityTypeSelectOptions: TOption[] = [];
   private budgetChapters: BudgetChapter[] = [];
   // Capitoli impegnati sui contratti aperti dell'utenza: in cima al select.
   private committedChapterIds = new Set<number>();
@@ -229,6 +230,15 @@ export class UtilityEditDialogComponent implements OnInit {
     this.refreshLinks();
     this.loadPlants();
     this.loadAssets();
+    this.loadBudgetChapters();
+    this.loadCommittedChapters();
+    this.loadUtilityTypes();
+    if (this.canEdit) {
+      this.form.controls.utility_type_id_fk.valueChanges.subscribe(id => this.onUtilityTypeChange(id));
+    }
+  }
+
+  private loadBudgetChapters(): void {
     this.budgetChapterService.search({deleted: false}).subscribe({
       next: data => {
         this.budgetChapters = data;
@@ -236,11 +246,58 @@ export class UtilityEditDialogComponent implements OnInit {
       },
       error: err => console.error('Errore nel caricamento dei Capitoli di Spesa:', err)
     });
-    this.loadCommittedChapters();
+  }
+
+  private loadUtilityTypes(after?: () => void): void {
     this.utilityTypeService.search().subscribe({
-      next: data => this.utilityTypeOptions = data,
+      next: data => {
+        this.utilityTypeOptions = data;
+        this.utilityTypeSelectOptions = data
+          .map(t => ({label: t.name, value: t.id, sublabel: t.description || undefined}))
+          .sort((a, b) => a.label.localeCompare(b.label));
+        after?.();
+      },
       error: err => console.error('Errore nel caricamento dei Tipi Utenza:', err)
     });
+  }
+
+  newUtilityType(text: string): void {
+    this.navigator.createUtilityType({name: nameFrom(text)}).subscribe(t => {
+      if (!t) return;
+      this.loadUtilityTypes(() => this.form.controls.utility_type_id_fk.setValue(t.id));
+      this.form.controls.utility_type_id_fk.markAsDirty();
+    });
+  }
+
+  newChapter(): void {
+    this.navigator.createBudgetChapter().subscribe(c => {
+      if (!c) return;
+      this.form.controls.budget_chapter_code_fk.setValue(c.id);
+      this.form.controls.budget_chapter_code_fk.markAsDirty();
+      this.loadBudgetChapters();
+    });
+  }
+
+  newAsset(): void {
+    this.navigator.createAsset().subscribe(a => {
+      if (!a) return;
+      this.loadAssets();
+      this.addAsset(a.id);
+    });
+  }
+
+  newPlant(): void {
+    this.navigator.createPlant(null).subscribe(p => {
+      if (!p) return;
+      this.loadPlants();
+      this.addPlant(p.id);
+    });
+  }
+
+  // Contratto aperto dell'utenza, solo se uno: precompila la nuova fattura.
+  currentContractId(): number | null {
+    const open = this.contracts.filter(c => !c.closed);
+    return open.length === 1 ? open[0].id : null;
   }
 
   private loadAssets(): void {
@@ -423,8 +480,8 @@ export class UtilityEditDialogComponent implements OnInit {
     });
   }
 
-  onUtilityTypeChange(event: MatSelectChange): void {
-    const selected = this.utilityTypeOptions.find(t => t.id === event.value) ?? null;
+  private onUtilityTypeChange(id: number | null): void {
+    const selected = this.utilityTypeOptions.find(t => t.id === id) ?? null;
     this.selectedHardType = selected?.hard_type ?? null;
     this.areraOptions = areraOptionsFor(this.selectedHardType);
     // Tipologia non più ammessa per il nuovo tipo: si svuota (il backend
