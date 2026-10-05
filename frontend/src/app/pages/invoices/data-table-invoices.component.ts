@@ -39,19 +39,21 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
     {field: 'invoice_id', header: 'ID Fattura', minWidth: '120px'},
     {field: 'protocol_number', header: 'N. Protocollo', minWidth: '120px'},
     {field: 'invoice_date', header: 'Data Fattura', minWidth: '120px'},
+    {field: 'total_amount', header: 'Totale documento', minWidth: '120px'},
     {field: 'net_amount_excl_vat', header: 'Importo Netto', minWidth: '120px'},
     {field: 'last_invoice_arrears', header: 'Morosità', minWidth: '120px'},
     {field: 'contratto.cig_contract', header: 'Contratto (CIG)', minWidth: '200px'},
     {field: 'contratto.supplier', header: 'Fornitore', minWidth: '150px'},
-    {field: 'budget_chapters', header: 'Capitoli Associati', minWidth: '180px'},
+    {field: 'chapters', header: 'Capitoli (da impegni)', minWidth: '180px'},
+    {field: 'utilities_count', header: 'Utenze', minWidth: '80px'},
     {field: 'is_paid', header: 'Stato Pagamento', minWidth: '120px'},
     {field: 'notes_on_invoices', header: 'Note', minWidth: '200px'},
   ];
 
   private readonly defaultVisibleFields = new Set([
-    'invoice_id', 'protocol_number', 'invoice_date', 'net_amount_excl_vat',
+    'invoice_id', 'protocol_number', 'invoice_date', 'total_amount', 'net_amount_excl_vat',
     'last_invoice_arrears', 'contratto.cig_contract', 'contratto.supplier',
-    'budget_chapters', 'is_paid',
+    'chapters', 'utilities_count', 'is_paid',
   ]);
 
   private static readonly STORAGE_KEY = 'columns:invoices';
@@ -88,7 +90,7 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
       const order = direction === 'asc' ? 1 : -1;
       // Fornitore: si ordina per nome del soggetto, non per l'oggetto.
       const getVal = (obj: any, path: string): any => path === 'contratto.supplier'
-        ? partyName(obj.contratto?.supplier) || null
+        ? this.supplierOf(obj) || null
         : path.split('.').reduce((acc: any, key: string) => acc?.[key], obj);
       return [...data].sort((a, b) => {
         const v1 = getVal(a, active);
@@ -118,10 +120,16 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
         return item.last_invoice_arrears != null
           ? item.last_invoice_arrears.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})
           : '';
+      case 'total_amount':
+        return item.total_amount != null
+          ? Number(item.total_amount).toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+          : '';
       case 'contratto.supplier':
-        return partyName(item.contratto?.supplier);
-      case 'budget_chapters':
-        return item.budget_chapters?.map(bc => bc.label).join(', ') ?? '';
+        return this.supplierOf(item);
+      case 'chapters':
+        return this.chaptersOf(item);
+      case 'utilities_count':
+        return String(this.utilitiesCountOf(item));
       case 'is_paid':
         return ExportHelper.boolData(item.is_paid);
       default:
@@ -139,6 +147,29 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
 
   override editDialogComponent(): Type<unknown> {
     return InvoiceEditDialogComponent;
+  }
+
+  // La fattura è una scheda (shell entity-sheet), non un dialog a larghezza fissa.
+  protected override useSheet(): boolean {
+    return true;
+  }
+
+  // Fornitore della fattura, altrimenti quello del contratto.
+  supplierOf(item: Invoice): string {
+    return partyName(item.supplier ?? item.contratto?.supplier);
+  }
+
+  // Capitoli degli impegni delle righe (distinti).
+  chaptersOf(item: Invoice): string {
+    const labels = new Set((item.lines ?? [])
+      .map(l => l.commitment?.budgetChapter)
+      .filter(c => !!c)
+      .map(c => `${c!.chapter_code}/${c!.article ?? 0}`));
+    return [...labels].join(', ');
+  }
+
+  utilitiesCountOf(item: Invoice): number {
+    return new Set((item.lines ?? []).map(l => l.utility_id_fk).filter(v => v !== null && v !== undefined)).size;
   }
 
   protected override entityLabel(): string {

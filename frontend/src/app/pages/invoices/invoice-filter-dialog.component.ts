@@ -10,6 +10,7 @@ import {FilterDialogData} from '../../core/components/abstract-search.component'
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
 import {ContractsService} from '../contracts/contract.service';
+import {UtilityService} from '../utilities/utility.service';
 import {TOption} from '../../core/types/option.interface';
 
 export interface InvoiceFilterValues {
@@ -19,6 +20,8 @@ export interface InvoiceFilterValues {
   last_invoice_arrears: number | null;
   contratto_id_fk: number | null;
   budget_chapter_ids: number[] | null;
+  // Fatture con almeno una riga su questa utenza.
+  utility_id: number | null;
   // In input (data.values) puo' arrivare un Date (prima apertura, dal form)
   // o una stringa locale YYYY-MM-DD (riapertura dopo una ricerca gia' applicata,
   // vedi apply()). In output (dialogRef.close()) e' sempre una stringa locale,
@@ -43,10 +46,12 @@ export class InvoiceFilterDialogComponent implements OnInit {
   private dialogRef = inject(MatDialogRef<InvoiceFilterDialogComponent, InvoiceFilterValues | 'clear'>);
   private contractsService = inject(ContractsService);
   private budgetChapterService = inject(BudgetChaptersService);
+  private utilityService = inject(UtilityService);
   protected data = inject<FilterDialogData<InvoiceFilterValues>>(MAT_DIALOG_DATA);
 
   contractOptions: TOption[] = [];
   budgetChapterOptions: TOption[] = [];
+  utilityOptions: TOption[] = [];
 
   form = this.fb.group({
     invoice_id: [this.data.values.invoice_id ?? ''],
@@ -55,6 +60,7 @@ export class InvoiceFilterDialogComponent implements OnInit {
     last_invoice_arrears: [this.data.values.last_invoice_arrears ?? null],
     contratto_id_fk: [this.data.values.contratto_id_fk ?? null],
     budget_chapter_ids: [this.data.values.budget_chapter_ids ?? null],
+    utility_id: [this.data.values.utility_id ?? null],
     invoice_date_from: [this.data.values.invoice_date_from ?? null],
     invoice_date_to: [this.data.values.invoice_date_to ?? null],
     notes_on_invoices: [this.data.values.notes_on_invoices ?? ''],
@@ -72,6 +78,12 @@ export class InvoiceFilterDialogComponent implements OnInit {
         .map(b => ({label: `${b.chapter_code} - ${b.description}`, value: b.id}))
         .sort((a, b) => a.label.localeCompare(b.label)),
       error: err => console.error('Errore nel caricamento dei Capitoli di Spesa:', err)
+    });
+    this.utilityService.search({deleted: false}).subscribe({
+      next: data => this.utilityOptions = data
+        .map(u => ({label: u.utility_id, value: u.id, sublabel: u.utilityType?.name, searchText: `${u.utility_id} ${u.utility_code ?? ''}`}))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+      error: err => console.error('Errore nel caricamento delle utenze:', err)
     });
   }
 

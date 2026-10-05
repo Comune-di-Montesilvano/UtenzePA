@@ -26,6 +26,7 @@ export class SearchInvoicesComponent extends AbstractSearchComponent {
       last_invoice_arrears: [null],
       contratto_id_fk: [null],
       budget_chapter_ids: [null],
+      utility_id: [null],
       invoice_date_from: [null],
       invoice_date_to: [null],
       notes_on_invoices: [''],

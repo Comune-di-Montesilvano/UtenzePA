@@ -5,6 +5,7 @@ import {ThirdParty} from '../../third-parties/entity/third-party.entity';
 import {InvoiceLine, toLinePayload} from './invoice-line.model';
 import {Contract} from '../../contracts/entity/contract.entity';
 import {DateOnly} from '../../../core/helpers/date.helper';
+import {SystemUser} from '../../system-users/entity/system-user.entity';
 
 export class Invoice extends AbstractEntity implements IInvoice {
   invoice_id!: string;
@@ -36,6 +37,10 @@ export class Invoice extends AbstractEntity implements IInvoice {
   @Exclude({toPlainOnly: true})
   @Type(() => ThirdParty)
   supplier?: ThirdParty | null;
+
+  // Popolato dal GET (relations del service backend), mai inviato.
+  @Exclude({toPlainOnly: true})
+  updated_by?: SystemUser | null;
 
   // In invio solo i campi della riga (toLinePayload), mai le relazioni.
   @Transform(({value}) => (Array.isArray(value) ? value.map(toLinePayload) : value), {toPlainOnly: true})
