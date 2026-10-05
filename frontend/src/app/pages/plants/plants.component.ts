@@ -35,6 +35,18 @@ import type {FilterValues} from '../../core/components/list/filter-def';
 import {fromQueryParams, toSearchParams} from '../../core/components/list/filter-values';
 import {plantFilters} from './plants-filters';
 
+// Colonne visibili ricordate (tutte, se nessuna scelta salvata).
+const COLUMNS_KEY = 'columns:plants';
+const readColumns = (all: IColumnDef[]): IColumnDef[] => {
+  try {
+    const fields: string[] = JSON.parse(localStorage.getItem(COLUMNS_KEY) ?? '[]');
+    const cols = all.filter(c => fields.includes(c.field));
+    return cols.length ? cols : all;
+  } catch {
+    return all;
+  }
+};
+
 // Righe per pagina ricordate, come negli elenchi su AbstractDataTableComponent.
 const PAGE_SIZE_KEY = 'list-page-size:Impianti';
 const readPageSize = (): number => {
@@ -68,6 +80,8 @@ const readPageSize = (): number => {
 
       <div style="margin-top: 1rem;">
         <app-list-toolbar [count]="dataSource.filteredData.length" createLabel="Nuovo impianto"
+                          [columns]="allColumns" [selectedColumns]="selectedColumns"
+                          (selectedColumnsChange)="onColumnsChange($event)"
                           [exportable]="true" (export)="exportCsv()" (create)="openDialog()"></app-list-toolbar>
         @if (typeCounts().length > 1) {
           <div style="margin-bottom: 0.5rem; color: #6b7280; font-size: 0.85rem;">
@@ -168,7 +182,25 @@ export class PlantsComponent implements OnInit, AfterViewInit {
   @ViewChild(MatSort) sort!: MatSort;
   @ViewChild(MatPaginator) paginator!: MatPaginator;
 
-  readonly columns = ['actions', 'type', 'code', 'name', 'asset', 'utilities', 'position', 'inspection', 'status'];
+  readonly allColumns: IColumnDef[] = [
+    {field: 'type', header: 'Tipo'}, {field: 'code', header: 'Codice'}, {field: 'name', header: 'Nome'},
+    {field: 'asset', header: 'Immobili'}, {field: 'utilities', header: 'Utenze'}, {field: 'position', header: 'Posizione'},
+    {field: 'inspection', header: 'Verifiche'}, {field: 'status', header: 'Stato'},
+  ];
+  selectedColumns: IColumnDef[] = readColumns(this.allColumns);
+
+  get columns(): string[] {
+    return ['actions', ...this.selectedColumns.map(c => c.field)];
+  }
+
+  onColumnsChange(cols: IColumnDef[]): void {
+    this.selectedColumns = cols;
+    try {
+      localStorage.setItem(COLUMNS_KEY, JSON.stringify(cols.map(c => c.field)));
+    } catch {
+      // storage non disponibile: vale solo per questa sessione
+    }
+  }
   readonly typeLabel = PLANT_TYPE_LABEL;
   readonly typeIcon = PLANT_TYPE_ICON;
   readonly statusLabel = PLANT_STATUS_LABEL;

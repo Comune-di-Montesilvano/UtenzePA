@@ -33,7 +33,7 @@ const LONG_LIST = 12;
       </mat-form-field>
       @for (d of inlineDefs; track d.key) {
         @if (d.type === 'select' && opts(d).length > LONG_LIST) {
-          <app-filterable-select class="lf-inline" [label]="d.label" [options]="opts(d)"
+          <app-filterable-select class="lf-inline" [label]="d.label" [options]="opts(d)" subscriptSizing="dynamic"
                                  [ngModel]="values[d.key] ?? null" (ngModelChange)="set(d.key, $event)"></app-filterable-select>
         } @else {
           <mat-form-field class="lf-inline" subscriptSizing="dynamic">

@@ -33,7 +33,30 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
 })
 export class DataTableBudgetChaptersComponent extends AbstractDataTableComponent<BudgetChapter> {
 
-  displayedColumns = ['actions', 'id', 'chapter_code', 'article', 'pdc', 'description', 'supply_type'];
+  private static readonly STORAGE_KEY = 'columns:budget-chapters';
+
+  readonly allColumns: IColumnDef[] = [
+    {field: 'id', header: 'ID'},
+    {field: 'chapter_code', header: 'Cod. Capitolo'},
+    {field: 'article', header: 'Articolo'},
+    {field: 'pdc', header: 'PDC'},
+    {field: 'description', header: 'Descrizione'},
+    {field: 'supply_type', header: 'Tipo Fornitura'},
+  ];
+
+  selectedColumns: IColumnDef[] = this.loadColumnSelection(
+    DataTableBudgetChaptersComponent.STORAGE_KEY, this.allColumns, new Set(['id', 'chapter_code', 'article', 'pdc', 'description', 'supply_type'])
+  );
+
+  get displayedColumns(): string[] {
+    return ['actions', ...this.selectedColumns.map(c => c.field)];
+  }
+
+  compareColumns = (a: IColumnDef, b: IColumnDef): boolean => a?.field === b?.field;
+
+  onColumnsChange(): void {
+    this.saveColumnSelection(DataTableBudgetChaptersComponent.STORAGE_KEY, this.selectedColumns);
+  }
   supplyTypeDescription = SupplyTypeDescription;
 
   constructor(screen: ScreenSizeService) {

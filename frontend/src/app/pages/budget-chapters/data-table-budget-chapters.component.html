@@ -1,5 +1,9 @@
 <app-list-toolbar [count]="data.length"
                   createLabel="Nuovo capitolo"
+                  [columns]="allColumns"
+                  [selectedColumns]="selectedColumns"
+                  [compareColumns]="compareColumns"
+                  (selectedColumnsChange)="selectedColumns = $event; onColumnsChange()"
                   (create)="openCreateDialog()"></app-list-toolbar>
 
 @if (loading) {

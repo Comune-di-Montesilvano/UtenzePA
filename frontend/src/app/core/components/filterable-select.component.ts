@@ -20,7 +20,7 @@ import {TOption} from '../types/option.interface';
   standalone: true,
   imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatAutocompleteModule, MatIconModule],
   template: `
-    <mat-form-field style="width: 100%;">
+    <mat-form-field style="width: 100%;" [subscriptSizing]="subscriptSizing">
       <mat-label>{{ label }}</mat-label>
       <input matInput
              [formControl]="searchControl"
@@ -68,6 +68,8 @@ export class FilterableSelectComponent implements ControlValueAccessor {
   @Input() label = '';
   @Input() placeholder = 'Cerca...';
   @Input() errorMessage: string | null = null;
+  // 'dynamic' nelle barre (filtri elenco): niente spazio riservato sotto, allineata alle altre select.
+  @Input() subscriptSizing: 'fixed' | 'dynamic' = 'fixed';
 
   errorMatcher: ErrorStateMatcher = {
     isErrorState: (): boolean => !!this.errorMessage,

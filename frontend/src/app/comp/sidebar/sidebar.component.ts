@@ -57,11 +57,11 @@ export class SidebarComponent implements OnInit {
     {label: 'Capitoli di Spesa', icon: 'attach_money', route: '/budget-chapter'},
     {label: 'Fatture', icon: 'receipt_long', route: '/invoices'},
     {label: 'Contratti di fornitura', icon: 'description', route: '/contracts'},
+    {label: 'Convenzioni CONSIP', icon: 'handshake', route: '/consip-agreement'},
     {label: 'Impostazioni', icon: 'settings', submenu: [
         {label: 'Tipologie Immobili', icon: 'category', route: '/asset-nature'},
         {label: 'Funzioni Immobili', icon: 'widgets', route: '/asset-function'},
         {label: 'Tipologie uso contatore', icon: 'sell', route: '/utility-types'},
-        {label: 'Convenzioni CONSIP', icon: 'handshake', route: '/consip-agreement'},
         {label: 'Backup e manutenzione', icon: 'storage', route: '/backup-import'},
         {label: 'Branding', icon: 'palette', route: '/branding'},
         {label: 'Utenti e ruoli', icon: 'group', route: '/system-users'},

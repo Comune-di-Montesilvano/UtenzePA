@@ -37,7 +37,29 @@ import {ThirdPartyEditDialogComponent} from './third-party-edit-dialog.component
 })
 export class DataTableThirdPartiesComponent extends AbstractDataTableComponent<ThirdParty> {
 
-  displayedColumns = ['actions', 'name', 'type', 'identifier', 'roles', 'city'];
+  private static readonly STORAGE_KEY = 'columns:third-parties';
+
+  readonly allColumns: IColumnDef[] = [
+    {field: 'name', header: 'Nome'},
+    {field: 'type', header: 'Tipo'},
+    {field: 'identifier', header: 'P.IVA / CF'},
+    {field: 'roles', header: 'Ruoli'},
+    {field: 'city', header: 'Città'},
+  ];
+
+  selectedColumns: IColumnDef[] = this.loadColumnSelection(
+    DataTableThirdPartiesComponent.STORAGE_KEY, this.allColumns, new Set(['name', 'type', 'identifier', 'roles', 'city'])
+  );
+
+  get displayedColumns(): string[] {
+    return ['actions', ...this.selectedColumns.map(c => c.field)];
+  }
+
+  compareColumns = (a: IColumnDef, b: IColumnDef): boolean => a?.field === b?.field;
+
+  onColumnsChange(): void {
+    this.saveColumnSelection(DataTableThirdPartiesComponent.STORAGE_KEY, this.selectedColumns);
+  }
   readonly partyName = partyName;
   readonly partyIdentifier = partyIdentifier;
   readonly typeText = (p: ThirdParty): string => TYPE_LABEL[p.type] ?? '';
