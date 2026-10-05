@@ -218,7 +218,8 @@ export class AssetEditDialogComponent implements OnInit {
       this.form.controls.nature_id.valueChanges.subscribe(() => {
         this.refreshFunctionOptions();
         const fid = this.form.controls.function_id.value;
-        if (fid != null && !this.functionOptions().some(f => f.id === fid)) {
+        // Tipologia svuotata (testo digitato): la funzione resta, torna valida riscegliendola.
+        if (fid != null && this.form.controls.nature_id.value != null && !this.functionOptions().some(f => f.id === fid)) {
           this.form.controls.function_id.setValue(null);
         }
         this.syncFunctionEnabled();

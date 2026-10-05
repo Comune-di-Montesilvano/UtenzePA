@@ -186,6 +186,8 @@ export class FilterableSelectComponent implements ControlValueAccessor {
       // Il valore resta com'era (arriva dalla scheda di creazione): il campo
       // torna a mostrarlo, anche se la creazione viene annullata.
       this.searchControl.setValue('', {emitEvent: false});
+      this.typed = '';
+      this.filteredOptions = this._options;
       this.syncDisplayFromValue();
       // Dopo la scelta l'autocomplete rimette il fuoco sul campo: la scheda si
       // apre al giro successivo, senza fuoco, così alla chiusura il pannello

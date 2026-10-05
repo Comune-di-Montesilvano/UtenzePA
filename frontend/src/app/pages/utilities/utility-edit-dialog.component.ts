@@ -480,7 +480,10 @@ export class UtilityEditDialogComponent implements OnInit {
     });
   }
 
+  // Campo vuoto (es. testo digitato senza scegliere): nessun reset, altrimenti
+  // un tasto premuto per sbaglio azzererebbe tipologia ARERA e categoria gas.
   private onUtilityTypeChange(id: number | null): void {
+    if (id == null) return;
     const selected = this.utilityTypeOptions.find(t => t.id === id) ?? null;
     this.selectedHardType = selected?.hard_type ?? null;
     this.areraOptions = areraOptionsFor(this.selectedHardType);
