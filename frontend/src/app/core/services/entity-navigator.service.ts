@@ -86,7 +86,7 @@ export class EntityNavigatorService {
     return this.contracts.getById(id).pipe(
       switchMap(item => this.sheet<EditDialogData<Contract>, Contract>(CONTRACT_DIALOG, {mode: 'edit', item})),
       switchMap(r => (r ? this.contracts.update(r.id, r) : of(null))),
-      catchError(err => this.fail('Errore apertura/salvataggio del contratto', err)),
+      catchError(err => this.fail('Errore apertura/salvataggio del contratto di fornitura', err)),
     );
   }
 
@@ -95,7 +95,7 @@ export class EntityNavigatorService {
       CONTRACT_DIALOG, {mode: 'create', item: Contract.create(), preselectedUtilityIds: utilityIds},
     ).pipe(
       switchMap(r => (r ? this.contracts.create(r) : of(null))),
-      catchError(err => this.fail('Errore nella creazione del contratto', err)),
+      catchError(err => this.fail('Errore nella creazione del contratto di fornitura', err)),
     );
   }
 

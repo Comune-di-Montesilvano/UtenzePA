@@ -36,10 +36,10 @@ export class ContractsComponent extends AbstractComponent<Contract> {
         this.allItems = [...this.list];
         this.loading = false;
         if (params['missing_cig'] === 'true') {
-          this.messageService.add({severity: 'info', summary: 'Filtro applicato', detail: 'Contratti senza CIG.'});
+          this.messageService.add({severity: 'info', summary: 'Filtro applicato', detail: 'Contratti di fornitura senza CIG.'});
         }
         if (params['supply_expiry_date_range']) {
-          this.messageService.add({severity: 'info', summary: 'Filtro applicato', detail: 'Contratti in scadenza.'});
+          this.messageService.add({severity: 'info', summary: 'Filtro applicato', detail: 'Contratti di fornitura in scadenza.'});
         }
         const selected = selectedId ? this.list.find(c => c.id === selectedId) : undefined;
         if (selected) setTimeout(() => this.dataTable?.openEditDialog(selected));
@@ -52,6 +52,6 @@ export class ContractsComponent extends AbstractComponent<Contract> {
   }
 
   protected override entityLabel(): string {
-    return 'Contratto';
+    return 'Contratto di fornitura';
   }
 }

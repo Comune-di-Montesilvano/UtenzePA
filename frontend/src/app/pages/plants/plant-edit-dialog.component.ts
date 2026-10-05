@@ -22,6 +22,8 @@ import {Utility} from '../utilities/entity/utility.entity';
 import {HardTypeColor, HardTypeMatIcon} from '../utility-types/enum/hard-type.enum';
 import {toIsoDate} from '../utilities/consumptions/consumption.model';
 import {PlantService} from './plant.service';
+import {LatitudeInputDirective} from '../../core/directives/latitude-input.directive';
+import {LongitudeInputDirective} from '../../core/directives/longitude-input.directive';
 import {
   certificationStatus,
   inspectionStatusOf,

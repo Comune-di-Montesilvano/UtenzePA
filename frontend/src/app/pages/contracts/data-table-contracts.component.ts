@@ -83,14 +83,14 @@ export class DataTableContractsComponent extends AbstractDataTableComponent<Cont
 
 
   protected override entityLabel(): string {
-    return 'contratto';
+    return 'contratto di fornitura';
   }
 
   override openDeleteDialog(entity: Contract): void {
     this.dialog.open(ConfirmDialogComponent, {
       width: '350px',
       data: {
-        title: 'Elimina contratto',
+        title: 'Elimina contratto di fornitura',
         message: `Disattiva il contratto ${entity.cig_contract ?? 'senza CIG specificato'}?`,
         confirmLabel: 'Elimina',
         danger: true
@@ -104,7 +104,7 @@ export class DataTableContractsComponent extends AbstractDataTableComponent<Cont
     this.dialog.open(ConfirmDialogComponent, {
       width: '350px',
       data: {
-        title: 'Ripristina contratto',
+        title: 'Ripristina contratto di fornitura',
         message: `Riattiva il contratto ${entity.cig_contract ?? 'senza CIG specificato'}?`,
         confirmLabel: 'Ripristina'
       }

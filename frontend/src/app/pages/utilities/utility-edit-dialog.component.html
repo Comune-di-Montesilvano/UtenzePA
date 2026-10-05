@@ -169,9 +169,9 @@
                             [items]="plantPreview" emptyText="Nessun impianto"
                             (seeAll)="goTo('Impianti')" (open)="openPlant($event.id)"></app-preview-card>
           @if (!isNew) {
-            <app-preview-card title="Contratto corrente" icon="description" color="var(--entity-supply-contract)"
+            <app-preview-card title="Contratto di fornitura corrente" icon="description" color="var(--entity-supply-contract)"
                               [items]="contractPreview" emptyText="Nessun contratto corrente"
-                              (seeAll)="goTo('Contratti')" (open)="openContract($event.id)"></app-preview-card>
+                              (seeAll)="goTo('Contratti di fornitura')" (open)="openContract($event.id)"></app-preview-card>
             <div class="sheet-stat">
               <span class="sheet-hint">Consumo effettivo 12 mesi</span>
               <span class="sheet-stat-value">{{ formatQty(data.item.actual_consumption, consumptionUnit) }}</span>
@@ -306,9 +306,9 @@
         </app-linked-table>
       </mat-tab>
 
-      <mat-tab aria-label="Contratti" [disabled]="isNew">
+      <mat-tab aria-label="Contratti di fornitura" [disabled]="isNew">
         <ng-template mat-tab-label>
-          <app-tab-label icon="description" label="Contratti"
+          <app-tab-label icon="description" label="Contratti di fornitura"
                          [count]="isNew ? null : contracts.length" [tone]="hasCurrentContract() ? 'ok' : 'warn'"></app-tab-label>
         </ng-template>
         <ng-template matTabContent>
@@ -316,7 +316,7 @@
             [columns]="contractColumns"
             [rows]="contracts"
             [rowStatus]="contractStatusOf"
-            [createLabel]="canEdit ? 'Nuovo contratto' : null"
+            [createLabel]="canEdit ? 'Nuovo contratto di fornitura' : null"
             emptyText="Nessun contratto associato."
             (create)="newContract()"
             (open)="openContract($event.id)">
