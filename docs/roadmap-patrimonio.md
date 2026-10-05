@@ -1,6 +1,6 @@
 # Roadmap: estensione del perimetro di UtenzePA al patrimonio
 
-Aggiornata: 2026-10-03
+Aggiornata: 2026-10-05
 
 Obiettivo: portare UtenzePA da gestionale delle utenze a gestionale del **patrimonio** comunale (immobili, contratti, impianti, inventario), sfruttando i dati già presenti in `W:\PATRIMONIO`.
 
@@ -21,7 +21,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 3 | Impianto unificato | fatto, v1.7.0 (immobili convertiti in impianti e consistenze 2025 importate sul DB locale, da portare in produzione) |
 | 4 | Complessi | da approfondire |
 | 5 | Aree verdi | da approfondire |
-| 6 | Fatture per utenza | da approfondire |
+| 6 | Fatture per utenza | fatto, v1.10.0 (fatture ACA 2025–2026 caricate sul DB locale, da portare in produzione; import FatturaPA in un giro successivo) |
 | 7 | Contratti di servizio e manutenzione | da approfondire (ditte esterne sugli impianti; i gestori manutenzione sono stati sostituiti in v1.9.0) |
 | 8 | Permessi di scrittura granulari | da approfondire |
 | 9 | Soggetti terzi (controparti + fornitori) | fatto, v1.8.0 (pulizia dati fatta sul DB locale; restano CF delle persone, P.IVA Open Fiber, 2 locatori SPRAR) |
@@ -32,7 +32,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 14 | Schede di fornitori, capitoli, fatture | da fare |
 | 15 | UI e identità (elenchi, filtri, dark mode, sidebar, nome) | da approfondire |
 | 16 | Dashboard e mappa | per ultime |
-| 17 | Impegni di spesa (contratto ↔ capitolo) | da approfondire |
+| 17 | Impegni di spesa (contratto ↔ capitolo) | fatto, v1.10.0 (impegni ACA 2025–2026 senza numero né importo, da completare con la ragioneria) |
 | 18 | Pulizia entità e incongruenze del modello | fatto: parte 1 v1.9.0 (tabelle morte, aggregati immobili, gestori manutenzione → manutenzione calcolata), parte 2 v1.9.1 (campi doppi) |
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
@@ -116,6 +116,9 @@ Fonti (`03_AREE_STRADE_e_P.ILL/1_AREE VERDI/MANUTENZIONE VERDE/`):
 Da approfondire: area verde come tipo di bene con superfici per tipologia, legame con il contratto di manutenzione del verde.
 
 ## 6. Fatture per utenza
+
+Fatto in v1.10.0 insieme alla voce 17: spec `docs/superpowers/specs/2026-10-05-fatture-per-utenza-impegni-design.md`. Fattura = testata (fornitore, totale documento IVA inclusa, imponibile facoltativo) + righe per utenza (importo IVA inclusa, impegno, periodo, consumo, codice fornitura, tutto facoltativo tranne l'importo); spesa calcolata per utenza, immobile e capitolo; anomalie "Fatture su utenze cessate", "Utenze con capitolo non impegnato sul contratto", "Righe fattura senza utenza". Dati sul DB locale (2026-10-05): 490 fatture ACA 2025–2026 con una riga ciascuna (utenza dal codice servizio, impegno da capitolo e anno della fattura; 324 totali a 3 decimali arrotondati a 2), fornitore valorizzato sulle 185 fatture esistenti. Restano: import FatturaPA/tracciati dei fornitori (anteprima, abbinamento per P.IVA e POD/PDR, deduplica), consumi da fattura nel tab Consumi (`ConsumptionSource.INVOICE`), righe delle 185 fatture storiche (2019–2023, solo testata). Il testo sotto è il censimento di partenza.
+
 
 Oggi le fatture si legano a contratto e capitolo, non all'utenza. Fonte pronta: fatture ACA 2025–2026 (490 fatture, `.audit-w/aca_fatture_2025_2026.json`). Serve `utility_id_fk` sulla fattura per avere spesa reale per utenza/immobile e anomalie "fattura su utenza cessata". Rimandata dall'utente (si è fatta solo la pulizia dati).
 
@@ -241,6 +244,9 @@ Stesso modello delle schede di v1.7.1: Fornitori fatto con la voce 9 (scheda Sog
 Per ultime, quando dati e UI sono a posto. **Mappa**: non si tocca finché non ci sono i complessi (voce 4) e i dati catastali (voce 2). **Dashboard**: oggi card indipendenti con stili propri (anomalie, contratti immobiliari, verifiche impianti…); ripensare indicatori per area (patrimonio, utenze, contratti, spesa), anomalie come lista di cose da fare con link alla scheda, coerenza con badge e colori delle schede, dark mode.
 
 ## 17. Impegni di spesa (contratto ↔ capitolo)
+
+Fatto in v1.10.0 con la voce 6: impegno = contratto di fornitura + capitolo + esercizio, numero e importo facoltativi; tab "Impegni e capitoli" nella scheda contratto (riepilogo calcolato per capitolo: utenze, impegnato, speso); nella scheda utenza i capitoli impegnati sui contratti aperti compaiono in cima al select (nessun blocco), con anomalia per i contratti che hanno impegni. Sul DB locale 12 impegni ACA (6 capitoli × 2025–2026) senza numero né importo: da completare con la ragioneria. Il testo sotto è il censimento di partenza.
+
 
 Oggi il capitolo sta solo sull'utenza (`utilities.budget_chapter_code_fk`); il contratto di fornitura non ne ha. Non si può spostare sul contratto e derivarlo: lo stesso contratto copre utenze su capitoli diversi (al 2026-10-03, utenze attive: un contratto da 160 utenze su 15 capitoli, uno da 105 su 7, uno da 36 su 13). Il capitolo dipende da cosa serve l'utenza (scuola, uffici, SPRAR, illuminazione), non dal fornitore.
 
