@@ -3,6 +3,9 @@ import {ToastService} from '../services/toast.service';
 import {AuthService} from '../../services/auth.service';
 import {AbstractService} from '../services/abstract.service';
 import {AbstractEntity} from '../entities/abstract.entity';
+import {ActivatedRoute} from '@angular/router';
+import {FilterDef, FilterValues} from './list/filter-def';
+import {fromQueryParams, initialValues, toSearchParams} from './list/filter-values';
 
 @Component({
              changeDetection: ChangeDetectionStrategy.Eager,
@@ -17,6 +20,10 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   loading = false;
   /** Ultimi filtri (dialog filtro) applicati via onSearch, riusati da loadAll() dopo save/create/delete/restore. */
   protected lastFilters: any = {};
+  /** Filtri dichiarati dalla pagina (barra app-list-filters) e loro valori correnti. */
+  filterDefs: FilterDef[] = [];
+  filterValues: FilterValues = {};
+  private quickText = '';
 
   protected authService = inject(AuthService);
   protected messageService = inject(ToastService);
@@ -28,15 +35,59 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   }
 
   ngOnInit() {
+    this.filterValues = initialValues(this.filterDefs);
+    this.lastFilters = this.mapSearchParams(toSearchParams(this.filterDefs, this.filterValues));
     this.loadAll();
   }
 
-  loadAll() {
+  loadAll(after?: (list: T[]) => void) {
     this.loading = true;
     this.service.search(this.lastFilters).subscribe((result: T[]) => {
-      this.list = this.service.fromPlain(result);
-      this.allItems = [...this.list];
+      this.allItems = this.service.fromPlain(result);
+      this.applyQuick();
       this.loading = false;
+      after?.(this.allItems);
+    });
+  }
+
+  // Hook: le pagine possono tradurre filtri di sola UI in parametri dell'API (es. Anno delle fatture).
+  protected mapSearchParams(p: Record<string, unknown>): Record<string, unknown> {
+    return p;
+  }
+
+  onFiltersChange(values: FilterValues): void {
+    this.filterValues = values;
+    this.lastFilters = this.mapSearchParams(toSearchParams(this.filterDefs, values));
+    this.loadAll();
+    this.resetPagingCount++;
+  }
+
+  onQuickSearch(text: string): void {
+    this.quickText = (text ?? '').toLowerCase();
+    this.applyQuick();
+    this.resetPagingCount++;
+  }
+
+  // Ricerca libera sui dati già caricati con i filtri correnti.
+  protected applyQuick(): void {
+    const q = this.quickText;
+    this.list = q
+      ? this.allItems.filter(i => this.flatValues(i).some(v => String(v).toLowerCase().includes(q)))
+      : [...this.allItems];
+  }
+
+  // Link dalla dashboard: query param con il nome di un filtro lo valorizzano;
+  // ?selectedId=N apre la scheda dopo il caricamento.
+  protected initFromRoute(route: ActivatedRoute, open?: (item: T) => void): void {
+    route.queryParams.subscribe(params => {
+      this.filterValues = {...initialValues(this.filterDefs), ...fromQueryParams(this.filterDefs, params)};
+      this.lastFilters = this.mapSearchParams(toSearchParams(this.filterDefs, this.filterValues));
+      const selectedId = params['selectedId'] ? Number(params['selectedId']) : null;
+      this.loadAll(items => {
+        if (!selectedId || !open) return;
+        const item = items.find(i => i.id === selectedId);
+        if (item) setTimeout(() => open(item));
+      });
     });
   }
 
