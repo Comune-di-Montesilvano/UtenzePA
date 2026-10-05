@@ -242,6 +242,17 @@ Dal confronto `Utility` backend/frontend dopo v1.9.1 (2026-10-05; campi allineat
 - `remainingDays` in `frontend/src/app/pages/utilities/entity/utility.entity.ts` dichiarato e mai usato: toglierlo;
 - `IUtility` (`utility.interface.ts`) più povero della classe `Utility` (mancano `security_deposit`, `plants`, `estimated_consumption_*`, `actual_consumption_coverage_days`) e usato solo da lei: completarlo o eliminarlo, tenendo `CostInfo`/`MaintenanceInfo`.
 
+Dalla revisione finale di v1.11.1 (creazione al volo dalle schede), non bloccanti:
+
+- contratto di fornitura: se la convenzione CONSIP creata dal "+" ha un fornitore creato a sua volta dentro la convenzione (o una persona fuori dall'elenco fornitori), il contratto prende quel fornitore ma la select mostra ancora l'etichetta del precedente finché non si ricarica; lo stesso, per un istante, in ogni `setValue` prima del ricaricamento delle opzioni. Ricaricare i fornitori anche dopo la convenzione, o svuotare l'etichetta se l'id non è tra le opzioni;
+- `FilterableSelect`: digitare testo libero azzera già il valore (`userInteracted`), quindi dopo "Crea «…»" e Annulla il campo resta vuoto, non "com'era"; il commento nel codice dice il contrario. Correggere il commento o salvare e ripristinare il valore;
+- `EntityNavigatorService.createAssetFunction`: se il PATCH della tipologia fallisce, la funzione resta creata ma orfana (toast d'errore, nessuna selezione); se la tipologia non si trova nell'elenco, il PATCH manda `function_ids` con la sola funzione nuova e toglierebbe le altre ammesse non usate. Uscire senza PATCH se la tipologia manca;
+- dialog impianto: `dialogRef` ancora tipizzato `boolean` ma chiude con `Plant | null` (anche `plants.component.ts`); funziona perché i chiamanti guardano solo la truthiness, allineare i tipi;
+- dialog impegno: il capitolo creato dal "+" finisce in fondo a `data.chapterOptions` (array del contratto, non riordinato): al prossimo impegno compare in coda;
+- soggetto creato con "Crea «testo»": il testo va in `company_name`; se si passa a persona fisica il campo nascosto resta valorizzato e viene inviato. Svuotarlo al cambio tipo;
+- `?selectedId` non apre la scheda su Soggetti terzi (E2E: aprire dalla riga);
+- non provati in E2E fino al salvataggio: nuova utenza da contratto/fattura/impianto (solo apertura), nuova fattura dall'utenza (fornitore lasciato vuoto, "dal contratto": da verificare che il backend lo ricavi).
+
 ## 14. Schede di fornitori, capitoli, fatture
 
 Stesso modello delle schede di v1.7.1: Fornitori fatto con la voce 9 (scheda Soggetto terzo); Capitoli di spesa (51, 105 righe di spesa storica) → Riepilogo + tab Utenze, Spesa storica, Fatture; Fatture (185) → Riepilogo + collegamenti navigabili, in vista del nuovo modello per l'import massivo (voce 6).
@@ -271,6 +282,8 @@ Decisione utente (2026-10-03): entrambe le cose.
 2. **Riepilogo capitoli** nella scheda del contratto di fornitura: capitoli delle sue utenze, calcolato e mai salvato.
 
 Da chiarire prima del design: se i dati degli impegni (numero, anno, importo) sono disponibili dalla ragioneria o dal gestionale contabile, o se per ora basta l'elenco contratto ↔ capitoli. Da fare insieme o subito dopo la voce 6 (fatture): toccano lo stesso modello della spesa. Problema dati collegato: 254 utenze senza capitolo (125 attive del contratto 10, tutte senza), 25 utenze Open Fiber sul capitolo fittizio "N/A".
+
+**Gotcha, forniture gratuite (Open Fiber)**: il contratto di fornitura con Open Fiber (id 615, senza CIG, 25 utenze, linee in convenzione gratuita) non ha costi per il Comune, ma il capitolo è obbligatorio sull'utenza (`budget_chapter_code_fk` richiesto da DTO e scheda). Per salvarle è stato creato un capitolo fittizio: `budget_chapters` id 254, codice "N/A", articolo 0, "CONCESSIONE GRATUITA - NESSUN COSTO A CARICO DEL COMUNE", tipo fornitura `SPRAR_UTILITIES` (l'unico compatibile con ogni tipo di utenza nella regola capitolo ↔ tipo, non perché siano SPRAR); al 2026-10-05 lo usano 26 utenze. Conseguenze: il capitolo compare negli elenchi, nei filtri e nei riepiloghi di spesa come se fosse vero, e "tipo fornitura SPRAR" è falso. Da fare: flag "a titolo gratuito" sul contratto di fornitura (o sull'utenza) che rende il capitolo facoltativo e lo esclude da spesa, impegni e anomalie; poi togliere il capitolo fittizio dalle utenze e dal DB (sul DB locale, produzione via export). Non trattare "N/A" come capitolo reale nei report.
 
 ## 18. Pulizia entità e incongruenze del modello
 
