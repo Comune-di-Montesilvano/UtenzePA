@@ -417,7 +417,7 @@ export class AssetEditDialogComponent implements OnInit {
   }
 
   createGrant(): void {
-    this.navigator.createGrant([this.data.item.id]).subscribe(saved => {
+    this.navigator.createGrant({asset_ids: [this.data.item.id]}).subscribe(saved => {
       if (saved) this.loadGrants();
     });
   }

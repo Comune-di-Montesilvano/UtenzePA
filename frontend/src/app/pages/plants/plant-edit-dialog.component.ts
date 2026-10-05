@@ -409,6 +409,11 @@ export class PlantEditDialogComponent implements OnInit {
     this.refreshLinks();
   }
 
+  // Al chiamante: l'impianto se qualcosa è stato salvato, altrimenti null.
+  close(): void {
+    this.dialogRef.close(this.saved ? this.plant : null);
+  }
+
   reloadPlant(): void {
     this.saved = true;
     if (this.plant) this.load(this.plant.id, false);
@@ -555,7 +560,8 @@ export class PlantEditDialogComponent implements OnInit {
           this.plant = plant;
           this.patch(plant);
         } else {
-          this.dialogRef.close(true);
+          this.plant = plant;
+          this.close();
         }
       },
       error: (err: HttpErrorResponse) => {

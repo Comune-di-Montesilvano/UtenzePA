@@ -338,7 +338,7 @@
     @if (error) {
       <p class="sheet-error">{{ error }}</p>
     }
-    <button mat-stroked-button type="button" (click)="dialogRef.close(saved)">{{ data.readOnly ? 'Chiudi' : 'Annulla' }}</button>
+    <button mat-stroked-button type="button" (click)="close()">{{ data.readOnly ? 'Chiudi' : 'Annulla' }}</button>
     @if (!data.readOnly) {
       <button mat-flat-button type="button" (click)="save()" [disabled]="saving || loading">Salva</button>
     }
