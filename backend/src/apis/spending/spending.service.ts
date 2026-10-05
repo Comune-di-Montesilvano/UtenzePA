@@ -87,12 +87,13 @@ export class SpendingService {
       [contractId],
     );
     const spent: Record<string, unknown>[] = await this.dataSource.query(
-      `SELECT COALESCE(bcm.budget_chapter_id_fk, u.budget_chapter_code_fk) AS budget_chapter_id,
+      `SELECT b.id AS budget_chapter_id, b.chapter_code, b.article, b.description,
               ${YEAR} AS year, SUM(il.amount) AS total
        ${LINES}
        LEFT JOIN utilities u ON u.id = il.utility_id_fk
+       LEFT JOIN budget_chapters b ON b.id = COALESCE(bcm.budget_chapter_id_fk, u.budget_chapter_code_fk)
        WHERE i.contratto_id_fk = ?
-       GROUP BY budget_chapter_id, year ORDER BY year DESC`,
+       GROUP BY b.id, b.chapter_code, b.article, b.description, year ORDER BY year DESC`,
       [contractId],
     );
 

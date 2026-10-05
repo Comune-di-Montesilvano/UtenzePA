@@ -120,12 +120,18 @@ export class InvoiceEditDialogComponent implements OnInit {
       error: err => console.error('Errore nel caricamento delle utenze:', err)
     });
     this.loadCommitments(this.form.controls.contratto_id_fk.value);
+    let previousContractId = this.form.controls.contratto_id_fk.value;
     this.form.controls.contratto_id_fk.valueChanges.subscribe(id => {
+      const previous = this.contracts.find(c => c.id === previousContractId);
       const contract = this.contracts.find(c => c.id === id);
-      if (!this.form.controls.supplier_id_fk.value) {
+      previousContractId = id;
+      // Il fornitore segue il contratto se era quello del vecchio o non c'era.
+      const supplier = this.form.controls.supplier_id_fk;
+      if (!supplier.value || supplier.value === previous?.supplier_id_fk) {
+        supplier.setValue(contract?.supplier_id_fk ?? null);
         this.supplierLabel = partyName(contract?.supplier) || null;
       }
-      this.loadCommitments(id);
+      this.loadCommitments(id, true);
     });
   }
 
@@ -134,18 +140,36 @@ export class InvoiceEditDialogComponent implements OnInit {
   }
 
   // Impegni selezionabili sulle righe: solo quelli del contratto della fattura.
-  private loadCommitments(contractId: number | null): void {
+  // contractChanged: le righe con impegni di un altro contratto li perdono
+  // (altrimenti il select li mostrerebbe vuoti e il Salva darebbe 400).
+  private loadCommitments(contractId: number | null, contractChanged = false): void {
     if (!contractId) {
       this.commitmentOptions = [];
+      if (contractChanged) this.dropForeignCommitments(new Set());
       return;
     }
     this.commitmentService.list(contractId).subscribe({
-      next: list => this.commitmentOptions = list.map(c => ({
-        label: `${c.fiscal_year} · ${chapterLabel(c.budgetChapter)}`,
-        value: c.id,
-        sublabel: c.commitment_number ? `impegno n. ${c.commitment_number}` : undefined,
-      })),
+      next: list => {
+        this.commitmentOptions = list.map(c => ({
+          label: `${c.fiscal_year} · ${chapterLabel(c.budgetChapter)}`,
+          value: c.id,
+          sublabel: c.commitment_number ? `impegno n. ${c.commitment_number}` : undefined,
+        }));
+        if (contractChanged) this.dropForeignCommitments(new Set(list.map(c => c.id)));
+      },
       error: err => console.error('Errore nel caricamento degli impegni:', err)
+    });
+  }
+
+  private dropForeignCommitments(allowed: Set<number>): void {
+    const foreign = this.lines.filter(l => l.commitment_id_fk && !allowed.has(l.commitment_id_fk)).length;
+    if (!foreign) return;
+    this.lines = this.lines.map(l =>
+      l.commitment_id_fk && !allowed.has(l.commitment_id_fk) ? {...l, commitment_id_fk: null, commitment: null} : l);
+    this.toast.add({
+      severity: 'warn',
+      summary: 'Impegni rimossi dalle righe',
+      detail: `${foreign} righe avevano un impegno del contratto precedente: sceglierne uno del nuovo contratto.`,
     });
   }
 

@@ -153,6 +153,11 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       if (lines !== undefined) {
         await this.checkLines(manager, lines, contractId ?? null);
         previousLines = await manager.find(InvoiceLine, { where: { invoice_id_fk: id } });
+      } else if ((contractId ?? null) !== (before.contratto_id_fk ?? null)) {
+        // Contratto cambiato senza reinviare le righe: gli impegni esistenti
+        // devono restare coerenti col nuovo contratto.
+        const existing = await manager.find(InvoiceLine, { where: { invoice_id_fk: id } });
+        await this.checkLines(manager, existing as unknown as InvoiceLineDto[], contractId ?? null);
       }
       const entity = await manager.findOne(Invoice, { where: { id } });
       Object.assign(entity, header);
@@ -220,6 +225,13 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     });
     const ids = [...new Set(lines.map((l) => l.commitment_id_fk).filter((v): v is number => !!v))];
     if (!ids.length) return;
+    // Senza contratto l'impegno non ha un contratto con cui essere coerente.
+    if (!contractId) {
+      const i = lines.findIndex((l) => !!l.commitment_id_fk);
+      throw new BadRequestException(
+        `La riga ${i + 1} ha un impegno ma la fattura non ha un contratto`,
+      );
+    }
     const found = await manager.find(BudgetCommitment, { where: { id: In(ids), deleted: false } });
     lines.forEach((l, i) => {
       if (!l.commitment_id_fk) return;

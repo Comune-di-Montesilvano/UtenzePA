@@ -83,4 +83,18 @@ describe('SpendingService', () => {
       }),
     ]);
   });
+
+  it('riepilogo capitoli: capitolo con sola spesa ha codice e descrizione', async () => {
+    query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { budget_chapter_id: 9, chapter_code: '12193', article: 0, description: 'Gas', year: 2026, total: '5' },
+      ]);
+    const rows = await service.chaptersSummary(1);
+    expect(rows).toEqual([
+      expect.objectContaining({ budget_chapter_id: 9, chapter_code: '12193', description: 'Gas', spent: [{ year: 2026, total: 5 }] }),
+    ]);
+    expect(query.mock.calls[2][0]).toContain('LEFT JOIN budget_chapters');
+  });
 });

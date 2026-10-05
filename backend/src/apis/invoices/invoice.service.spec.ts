@@ -76,6 +76,7 @@ describe('InvoicesService', () => {
           {
             invoice_id: 'F-1',
             invoice_date: '2025-03-15',
+            contratto_id_fk: 1,
             lines: [{ amount: 10, commitment_id_fk: 99 }],
           } as never,
           3,
@@ -149,6 +150,32 @@ describe('InvoicesService', () => {
           ]),
         }),
       );
+    });
+  });
+
+  describe('impegni e contratto (review)', () => {
+    it('riga con impegno su fattura senza contratto: 400', async () => {
+      manager.find.mockResolvedValue([{ id: 5, contract_id_fk: 1 }]);
+      await expect(
+        service.create(
+          { invoice_id: 'F-1', invoice_date: '2025-03-15', lines: [{ amount: 1, commitment_id_fk: 5 }] } as never,
+          3,
+        ),
+      ).rejects.toThrow("La riga 1 ha un impegno ma la fattura non ha un contratto");
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('cambio contratto senza lines: ricontrolla gli impegni delle righe esistenti', async () => {
+      repo.findOne.mockResolvedValue({ id: 20, invoice_id: 'F', contratto_id_fk: 1, deleted: false });
+      manager.find.mockImplementation(async (entity: unknown) =>
+        entity === InvoiceLine
+          ? [{ amount: '10.00', commitment_id_fk: 5 }]
+          : [{ id: 5, contract_id_fk: 1 }],
+      );
+      await expect(service.update(20, { contratto_id_fk: 2 } as never, 7)).rejects.toThrow(
+        "L'impegno della riga 1 non è del contratto della fattura",
+      );
+      expect(manager.save).not.toHaveBeenCalled();
     });
   });
 
