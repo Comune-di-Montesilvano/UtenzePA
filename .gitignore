@@ -33,3 +33,8 @@ backend/.local/
 
 # SDD scratch (subagent-driven-development ledgers/briefs)
 .superpowers/
+
+# graphify: file locali (path macchina, cache rigenerabile)
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/cache/

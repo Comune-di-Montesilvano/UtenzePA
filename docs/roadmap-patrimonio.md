@@ -219,6 +219,11 @@ Dalla revisione finale di v1.8.1 (aggregati e volture), non bloccanti:
 - tab Utenze del contratto immobiliare: le utenze cessate risultano "Da volturare" (la dashboard conta solo le attive);
 - creazione di un'utenza dal form non provata in E2E dopo la rimozione di "Costi a carico" (provata solo via API).
 
+Dal confronto `Utility` backend/frontend dopo v1.9.1 (2026-10-05; campi allineati, nessun residuo dei campi eliminati), non bloccanti:
+
+- `remainingDays` in `frontend/src/app/pages/utilities/entity/utility.entity.ts` dichiarato e mai usato: toglierlo;
+- `IUtility` (`utility.interface.ts`) più povero della classe `Utility` (mancano `security_deposit`, `plants`, `estimated_consumption_*`, `actual_consumption_coverage_days`) e usato solo da lei: completarlo o eliminarlo, tenendo `CostInfo`/`MaintenanceInfo`.
+
 ## 14. Schede di fornitori, capitoli, fatture
 
 Stesso modello delle schede di v1.7.1: Fornitori fatto con la voce 9 (scheda Soggetto terzo); Capitoli di spesa (51, 105 righe di spesa storica) → Riepilogo + tab Utenze, Spesa storica, Fatture; Fatture (185) → Riepilogo + collegamenti navigabili, in vista del nuovo modello per l'import massivo (voce 6).
