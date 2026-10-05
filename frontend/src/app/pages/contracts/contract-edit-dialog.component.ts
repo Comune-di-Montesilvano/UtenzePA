@@ -3,7 +3,7 @@ import {AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, Validati
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
-import {MatSelectChange, MatSelectModule} from '@angular/material/select';
+import {MatSelectModule} from '@angular/material/select';
 import {MatDatepickerModule} from '@angular/material/datepicker';
 import {MatButtonModule} from '@angular/material/button';
 import {MatCheckboxModule} from '@angular/material/checkbox';
@@ -32,7 +32,7 @@ import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components
 import {ValidityBarComponent} from '../../core/components/entity-sheet/validity-bar.component';
 import {StatusInfo, supplyContractFlags, supplyContractStatus, utilityStatus} from '../../core/helpers/entity-status';
 import {isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
-import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
+import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import {ContractCommitmentsTabComponent} from './commitments/contract-commitments-tab.component';
 import {chapterLabel} from './commitments/commitment.model';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
@@ -85,6 +85,7 @@ export class ContractEditDialogComponent implements OnInit {
   chapterOptions: TOption[] = [];
   commitmentCount: number | null = null;
   consipAgreementOptions: ConsipAgreement[] = [];
+  consipOptions: TOption[] = [];
   // Tutte le utenze: quelle collegate sono form.utility_ids.
   private allUtilities: Utility[] = [];
   utilityOptions: TOption[] = [];
@@ -140,17 +141,11 @@ export class ContractEditDialogComponent implements OnInit {
 
   ngOnInit(): void {
     this.refreshLinks();
-    this.thirdPartiesService.search({deleted: false}).subscribe({
-      next: data => this.supplierOptions = data
-        .filter(p => p.type === 'LEGAL' || p.roles?.includes(PartyRole.SUPPLIER) || p.id === this.data.item.supplier_id_fk)
-        .map(p => ({label: partyName(p), value: p.id, sublabel: p.vat_number ?? undefined}))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-      error: err => console.error('Errore nel caricamento dei fornitori:', err)
-    });
-    this.consipService.search({deleted: false}).subscribe({
-      next: data => this.consipAgreementOptions = data.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '')),
-      error: err => console.error('Errore nel caricamento delle convenzioni CONSIP:', err)
-    });
+    this.loadSuppliers();
+    this.loadConsip();
+    if (this.canEdit) {
+      this.form.controls.consip_agreement_id.valueChanges.subscribe(id => this.onConsipAgreementChange(id));
+    }
     if (!this.isNew) {
       this.budgetChaptersService.search({deleted: false}).subscribe({
         next: data => this.chapterOptions = data
@@ -164,6 +159,57 @@ export class ContractEditDialogComponent implements OnInit {
       });
     }
     this.loadUtilities();
+  }
+
+  // Il fornitore corrente resta tra le opzioni anche se non risulta fornitore
+  // (es. persona appena creata dal "+").
+  private loadSuppliers(): void {
+    this.thirdPartiesService.search({deleted: false}).subscribe({
+      next: data => this.supplierOptions = data
+        .filter(p => p.type === 'LEGAL' || p.roles?.includes(PartyRole.SUPPLIER) || p.id === this.form.controls.supplier_id_fk.value)
+        .map(p => ({label: partyName(p), value: p.id, sublabel: p.vat_number ?? undefined}))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+      error: err => console.error('Errore nel caricamento dei fornitori:', err)
+    });
+  }
+
+  private loadConsip(after?: () => void): void {
+    this.consipService.search({deleted: false}).subscribe({
+      next: data => {
+        this.consipAgreementOptions = data.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+        this.consipOptions = this.consipAgreementOptions.map(a => ({
+          label: a.name ?? `#${a.id}`, value: a.id, sublabel: a.cig_master ?? undefined,
+        }));
+        after?.();
+      },
+      error: err => console.error('Errore nel caricamento delle convenzioni CONSIP:', err)
+    });
+  }
+
+  newSupplier(text: string): void {
+    this.navigator.createThirdParty({company_name: nameFrom(text)}).subscribe(p => {
+      if (!p) return;
+      this.form.controls.supplier_id_fk.setValue(p.id);
+      this.form.controls.supplier_id_fk.markAsDirty();
+      this.loadSuppliers();
+    });
+  }
+
+  newConsip(text: string): void {
+    const supplier = this.form.controls.supplier_id_fk.value;
+    this.navigator.createConsipAgreement({name: nameFrom(text), ...(supplier ? {supplier_id: supplier} : {})}).subscribe(a => {
+      if (!a) return;
+      this.loadConsip(() => this.form.controls.consip_agreement_id.setValue(a.id));
+      this.form.controls.consip_agreement_id.markAsDirty();
+    });
+  }
+
+  newUtility(): void {
+    this.navigator.createUtility(Utility.create()).subscribe(u => {
+      if (!u) return;
+      this.loadUtilities();
+      this.addUtility(u.id);
+    });
   }
 
   private loadUtilities(): void {
@@ -238,8 +284,7 @@ export class ContractEditDialogComponent implements OnInit {
     selectTab(this.tabGroup, this.tabList, label);
   }
 
-  onConsipAgreementChange(event: MatSelectChange): void {
-    const selectedAgreementId: number | null = event.value;
+  private onConsipAgreementChange(selectedAgreementId: number | null): void {
     if (selectedAgreementId) {
       const agreement = this.consipAgreementOptions.find(a => a.id === selectedAgreementId);
       if (agreement?.supplier_id) {
