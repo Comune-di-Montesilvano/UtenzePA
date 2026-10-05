@@ -30,13 +30,7 @@ export class UtilityTypesComponent extends AbstractComponent<UtilityType> {
   }
 
   protected override entityToPayload(entity: UtilityType): Partial<UtilityType> {
-    return {
-      name: entity.name,
-      description: entity.description,
-      hard_type: entity.hard_type,
-      created_by_user_id: this.userId,
-      updated_by_user_id: this.userId
-    };
+    return {...UtilityType.toPayload(entity), created_by_user_id: this.userId, updated_by_user_id: this.userId};
   }
 
   override onCreate(entity: UtilityType) {

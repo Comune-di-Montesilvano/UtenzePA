@@ -97,6 +97,7 @@
             <app-tab-label icon="real_estate_agent" label="Contratti immobiliari" [count]="grants.length"></app-tab-label>
           </ng-template>
           <app-linked-table [columns]="grantColumns" [rows]="grants" [rowStatus]="grantStatusOf"
+                            [createLabel]="canEdit ? 'Nuovo contratto immobiliare' : null" (create)="newGrant()"
                             emptyText="Nessun contratto immobiliare." (open)="openGrant($event.id)"></app-linked-table>
         </mat-tab>
 
@@ -106,6 +107,7 @@
           </ng-template>
           <div class="sheet-section-title"><mat-icon>description</mat-icon>Contratti di fornitura</div>
           <app-linked-table [columns]="contractColumns" [rows]="contracts" [rowStatus]="contractStatusOf"
+                            [createLabel]="canEdit ? 'Nuovo contratto di fornitura' : null" (create)="newContract()"
                             emptyText="Nessun contratto di fornitura." (open)="openContract($event.id)"></app-linked-table>
           <div class="sheet-section-title"><mat-icon>handshake</mat-icon>Convenzioni CONSIP</div>
           <app-linked-table [columns]="agreementColumns" [rows]="agreements"

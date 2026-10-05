@@ -114,9 +114,25 @@ export class ThirdPartyEditDialogComponent implements OnInit {
   ngOnInit(): void {
     if (this.isNew) return;
     this.loadGrants();
+    this.loadContracts();
     const id = this.data.item.id;
-    this.contractsService.search({deleted: false, supplier_id_fk: id} as never).subscribe(c => this.contracts = c);
     this.consipService.search({deleted: false, supplier_id: id} as never).subscribe(a => this.agreements = a);
+  }
+
+  private loadContracts(): void {
+    this.contractsService.search({deleted: false, supplier_id_fk: this.data.item.id} as never).subscribe(c => this.contracts = c);
+  }
+
+  newGrant(): void {
+    this.navigator.createGrant({party_ids: [this.data.item.id]}).subscribe(g => {
+      if (g) this.loadGrants();
+    });
+  }
+
+  newContract(): void {
+    this.navigator.createSupplyContract([], {supplier_id_fk: this.data.item.id}).subscribe(c => {
+      if (c) this.loadContracts();
+    });
   }
 
   private loadGrants(): void {

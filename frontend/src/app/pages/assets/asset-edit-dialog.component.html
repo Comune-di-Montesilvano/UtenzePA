@@ -47,44 +47,19 @@
             </mat-select>
           </mat-form-field>
 
-          <mat-form-field>
-            <mat-label>Tipologia</mat-label>
-            <mat-select formControlName="nature_id">
-              <!-- Trigger esplicito: senza, la select chiusa mostrerebbe il testo
-                   completo dell'opzione, ligatura icona inclusa ("apartmentFabbricato"). -->
-              <mat-select-trigger>{{ selectedNature()?.name }}</mat-select-trigger>
-              <mat-option [value]="null">—</mat-option>
-              @for (opt of natures; track opt.id) {
-                <mat-option [value]="opt.id">
-                  <span><mat-icon style="vertical-align: middle; margin-right: 4px; font-size: 18px; height: 18px; width: 18px;">{{ opt.icon || 'category' }}</mat-icon>{{ opt.name }}</span>
-                </mat-option>
-              }
-            </mat-select>
-            <mat-icon matSuffix class="classification-help" [matTooltip]="classificationRule" matTooltipClass="tooltip-multiline"
-                      (click)="$event.stopPropagation()">help_outline</mat-icon>
-            @if (form.controls.nature_id.invalid && form.controls.nature_id.touched) {
-              <mat-error>Obbligatorio</mat-error>
-            }
-          </mat-form-field>
+          <div class="classification-field">
+            <app-filterable-select label="Tipologia" placeholder="Cerca tipologia..." [options]="natureSelectOptions"
+              formControlName="nature_id" [createLabel]="canEdit ? 'Nuova tipologia' : null" (create)="newNature($event)"
+              [errorMessage]="form.controls.nature_id.invalid && form.controls.nature_id.touched ? 'Obbligatorio' : null">
+            </app-filterable-select>
+            <mat-icon class="classification-help" [matTooltip]="classificationRule" matTooltipClass="tooltip-multiline">help_outline</mat-icon>
+          </div>
 
-          <mat-form-field>
-            <mat-label>Funzione</mat-label>
-            <mat-select formControlName="function_id">
-              <mat-select-trigger>{{ selectedFunction()?.name }}</mat-select-trigger>
-              <mat-option [value]="null">—</mat-option>
-              @for (opt of functionOptions(); track opt.id) {
-                <mat-option [value]="opt.id">
-                  <span><mat-icon style="vertical-align: middle; margin-right: 4px; font-size: 18px; height: 18px; width: 18px;">{{ opt.icon || 'apartment' }}</mat-icon>{{ opt.name }}</span>
-                </mat-option>
-              }
-            </mat-select>
-            @if (form.controls.nature_id.value == null) {
-              <mat-hint>Scegliere prima la tipologia</mat-hint>
-            }
-            @if (form.controls.function_id.invalid && form.controls.function_id.touched) {
-              <mat-error>Obbligatorio</mat-error>
-            }
-          </mat-form-field>
+          <app-filterable-select label="Funzione" [options]="functionSelectOptions" formControlName="function_id"
+            [placeholder]="form.controls.nature_id.value == null ? 'Scegliere prima la tipologia' : 'Cerca funzione...'"
+            [createLabel]="canEdit ? 'Nuova funzione' : null" (create)="newFunction($event)"
+            [errorMessage]="form.controls.function_id.invalid && form.controls.function_id.touched ? 'Obbligatorio' : null">
+          </app-filterable-select>
         </div>
 
         <div class="sheet-section-title"><mat-icon>place</mat-icon>Indirizzo e posizione</div>

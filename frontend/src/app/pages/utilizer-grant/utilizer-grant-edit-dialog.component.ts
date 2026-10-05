@@ -206,29 +206,8 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   ngOnInit(): void {
     this.refreshAssets();
     this.loadUtilities();
-    this.assetService.search({deleted: false}).subscribe({
-      next: (data) => {
-        this.allAssets = data;
-        this.assetOptions = data
-          .map(a => ({label: a.asset_name, value: a.id}))
-          .sort((a, b) => a.label.localeCompare(b.label));
-        this.refreshAssets();
-      },
-      error: (err) => console.error('Errore nel caricamento degli immobili:', err),
-    });
-
-    this.thirdPartiesService.search({deleted: false}).subscribe({
-      next: (data) => {
-        this.partyOptions = data
-          .map(p => ({
-            label: StringHelper.truncateAt(partyName(p), 100),
-            value: p.id,
-            sublabel: TYPE_LABEL[p.type as ThirdPartyType],
-          }))
-          .sort((a, b) => a.label.localeCompare(b.label));
-      },
-      error: (err) => console.error('Errore nel caricamento dei soggetti:', err),
-    });
+    this.loadAssets();
+    this.loadParties();
 
     // Candidati padre: non sé stesso, non un contratto che ha già un padre.
     this.grantService.search({} as never).subscribe({
@@ -243,6 +222,61 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
           .sort((a, b) => a.label.localeCompare(b.label));
       },
       error: (err) => console.error('Errore nel caricamento dei contratti:', err),
+    });
+  }
+
+  // Immobili salvati del contratto: una nuova utenza dal tab Utenze nasce su questi.
+  readonly savedAssetIds: number[] = this.item.asset_ids ?? (this.item.assets ?? []).map(a => a.id);
+
+  private loadAssets(): void {
+    this.assetService.search({deleted: false}).subscribe({
+      next: (data) => {
+        this.allAssets = data;
+        this.assetOptions = data
+          .map(a => ({label: a.asset_name, value: a.id}))
+          .sort((a, b) => a.label.localeCompare(b.label));
+        this.refreshAssets();
+      },
+      error: (err) => console.error('Errore nel caricamento degli immobili:', err),
+    });
+  }
+
+  private loadParties(): void {
+    this.thirdPartiesService.search({deleted: false}).subscribe({
+      next: (data) => {
+        this.partyOptions = data
+          .map(p => ({
+            label: StringHelper.truncateAt(partyName(p), 100),
+            value: p.id,
+            sublabel: TYPE_LABEL[p.type as ThirdPartyType],
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+      },
+      error: (err) => console.error('Errore nel caricamento dei soggetti:', err),
+    });
+  }
+
+  newParty(): void {
+    this.navigator.createThirdParty().subscribe(p => {
+      if (!p) return;
+      const c = this.form.controls.party_ids;
+      c.setValue([...(c.value ?? []), p.id]);
+      c.markAsDirty();
+      this.loadParties();
+    });
+  }
+
+  newAsset(): void {
+    this.navigator.createAsset().subscribe(a => {
+      if (!a) return;
+      this.loadAssets();
+      this.addAsset(a.id);
+    });
+  }
+
+  newUtility(): void {
+    this.navigator.createUtility(Utility.create({asset_ids: this.savedAssetIds})).subscribe(u => {
+      if (u) this.loadUtilities();
     });
   }
 

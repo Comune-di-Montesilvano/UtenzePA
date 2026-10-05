@@ -10,6 +10,7 @@ import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {ConsipAgreement} from './entity/consip-agreement.entity';
 import {AuthService} from '../../services/auth.service';
+import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
@@ -41,6 +42,7 @@ export class ConsipAgreementEditDialogComponent implements OnInit {
   private dialogRef = inject(MatDialogRef<ConsipAgreementEditDialogComponent, ConsipAgreement | undefined>);
   private authService = inject(AuthService);
   private thirdPartiesService = inject(ThirdPartiesService);
+  private navigator = inject(EntityNavigatorService);
   protected data = inject<EditDialogData<ConsipAgreement>>(MAT_DIALOG_DATA);
 
   isNew = this.data.mode === 'create';
@@ -73,10 +75,24 @@ export class ConsipAgreementEditDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.loadSuppliers();
+  }
+
+  newSupplier(text: string): void {
+    this.navigator.createThirdParty({company_name: nameFrom(text)}).subscribe(p => {
+      if (!p) return;
+      this.form.controls.supplier_id.setValue(p.id);
+      this.form.controls.supplier_id.markAsDirty();
+      this.loadSuppliers();
+    });
+  }
+
+  // Il fornitore corrente resta tra le opzioni anche se non risulta fornitore.
+  private loadSuppliers(): void {
     this.thirdPartiesService.search({deleted: false}).subscribe({
       next: (data) => {
         this.supplierOptions = data
-          .filter(p => p.type === 'LEGAL' || p.roles?.includes(PartyRole.SUPPLIER) || p.id === this.data.item.supplier_id)
+          .filter(p => p.type === 'LEGAL' || p.roles?.includes(PartyRole.SUPPLIER) || p.id === this.form.controls.supplier_id.value)
           .map(p => ({label: partyName(p), value: p.id, sublabel: p.vat_number ?? undefined}))
           .sort((a, b) => a.label.localeCompare(b.label));
       },

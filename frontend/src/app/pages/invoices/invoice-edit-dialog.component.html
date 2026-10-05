@@ -34,11 +34,13 @@
           </mat-form-field>
           <div class="span-2">
             <app-filterable-select label="Contratto di fornitura" placeholder="Cerca contratto..." [options]="contractOptions"
-              formControlName="contratto_id_fk"></app-filterable-select>
+              formControlName="contratto_id_fk"
+              [createLabel]="canEdit ? 'Nuovo contratto di fornitura' : null" (create)="newContract()"></app-filterable-select>
           </div>
           <div class="span-2">
             <app-filterable-select label="Fornitore" placeholder="Dal contratto, se vuoto" [options]="supplierOptions"
-              formControlName="supplier_id_fk"></app-filterable-select>
+              formControlName="supplier_id_fk"
+              [createLabel]="canEdit ? 'Nuovo soggetto terzo' : null" (create)="newSupplier($event)"></app-filterable-select>
           </div>
           <mat-form-field>
             <mat-label>Totale documento IVA inclusa (€)</mat-label>
@@ -69,6 +71,8 @@
           [utilityOptions]="utilityOptions"
           [commitmentOptions]="commitmentOptions"
           [readOnly]="!canEdit"
+          [contractId]="form.controls.contratto_id_fk.value"
+          (optionsStale)="onOptionsStale($event)"
           (linesChange)="lines = $event">
         </app-invoice-lines-tab>
       </mat-tab>

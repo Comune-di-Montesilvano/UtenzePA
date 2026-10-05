@@ -17,6 +17,11 @@ export class BudgetChapter extends AbstractEntity implements IBudgetChapter {
     return `${this.chapter_code}/${this.article} - ${this.description ?? ''}`.trim().replace(/ - $/, '');
   }
 
+  // Campi inviati in creazione/modifica (senza autore): elenco e navigatore.
+  static toPayload(e: BudgetChapter): Partial<BudgetChapter> {
+    return {chapter_code: e.chapter_code, article: e.article, description: e.description, pdc: e.pdc, supply_type: e.supply_type};
+  }
+
   static create(data?: Partial<BudgetChapter>): BudgetChapter {
     return plainToInstance(BudgetChapter, {
       id: 0,

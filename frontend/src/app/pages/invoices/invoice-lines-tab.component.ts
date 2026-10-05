@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
@@ -8,6 +8,8 @@ import {MatDatepickerModule} from '@angular/material/datepicker';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import type {TOption} from '../../core/types/option.interface';
 import {InvoiceLine} from './entity/invoice-line.model';
+import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
+import {Utility} from '../utilities/entity/utility.entity';
 import {toIsoDate} from '../utilities/consumptions/consumption.model';
 
 // Riga in modifica: date come Date locali per il datepicker, convertite in
@@ -46,11 +48,16 @@ const eur = (n: number | null | undefined): string =>
         <span class="line-n">{{ i + 1 }}</span>
         <div class="f-utility">
           <app-filterable-select label="Utenza" placeholder="POD/PDR o codice cliente..." [options]="utilityOptions"
-            [ngModel]="l.utility_id_fk" [ngModelOptions]="{standalone: true}" (ngModelChange)="set(l, 'utility_id_fk', $event)" [disabled]="readOnly"></app-filterable-select>
+            [ngModel]="l.utility_id_fk" [ngModelOptions]="{standalone: true}" (ngModelChange)="set(l, 'utility_id_fk', $event)" [disabled]="readOnly"
+            [createLabel]="readOnly ? null : 'Nuova utenza'" (create)="newUtility(l)"></app-filterable-select>
         </div>
         <div class="f-commitment">
           <app-filterable-select label="Impegno" placeholder="Esercizio o capitolo..." [options]="commitmentOptions"
-            [ngModel]="l.commitment_id_fk" [ngModelOptions]="{standalone: true}" (ngModelChange)="set(l, 'commitment_id_fk', $event)" [disabled]="readOnly"></app-filterable-select>
+            [ngModel]="l.commitment_id_fk" [ngModelOptions]="{standalone: true}" (ngModelChange)="set(l, 'commitment_id_fk', $event)" [disabled]="readOnly"
+            [createLabel]="readOnly || !contractId ? null : 'Nuovo impegno'" (create)="newCommitment(l)"></app-filterable-select>
+          @if (!readOnly && !contractId) {
+            <span class="line-hint">Impegni disponibili scegliendo il contratto.</span>
+          }
         </div>
         <mat-form-field class="f-date">
           <mat-label>Dal</mat-label>
@@ -110,6 +117,7 @@ const eur = (n: number | null | undefined): string =>
     .f-num { width: 120px; }
     .f-code { width: 160px; }
     .f-desc { flex: 1 1 220px; }
+    .line-hint { display: block; font-size: 0.75rem; color: var(--sheet-muted); margin-top: -12px; }
   `],
 })
 export class InvoiceLinesTabComponent implements OnChanges {
@@ -118,7 +126,13 @@ export class InvoiceLinesTabComponent implements OnChanges {
   @Input() utilityOptions: TOption[] = [];
   @Input() commitmentOptions: TOption[] = [];
   @Input() readOnly = false;
+  // Contratto della fattura: serve a creare un impegno dalla riga.
+  @Input() contractId: number | null = null;
   @Output() linesChange = new EventEmitter<InvoiceLine[]>();
+  // Elemento creato da una riga: il padre ricarica quelle opzioni.
+  @Output() optionsStale = new EventEmitter<'utilities' | 'commitments'>();
+
+  private navigator = inject(EntityNavigatorService);
 
   rows: EditableLine[] = [];
   sum = 0;
@@ -153,6 +167,23 @@ export class InvoiceLinesTabComponent implements OnChanges {
     if (key === 'start') l.period_start = iso;
     else l.period_end = iso;
     this.emit();
+  }
+
+  newUtility(l: EditableLine): void {
+    this.navigator.createUtility(Utility.create()).subscribe(u => {
+      if (!u) return;
+      this.optionsStale.emit('utilities');
+      this.set(l, 'utility_id_fk', u.id);
+    });
+  }
+
+  newCommitment(l: EditableLine): void {
+    if (!this.contractId) return;
+    this.navigator.createCommitment(this.contractId).subscribe(c => {
+      if (!c) return;
+      this.optionsStale.emit('commitments');
+      this.set(l, 'commitment_id_fk', c.id);
+    });
   }
 
   add(): void {

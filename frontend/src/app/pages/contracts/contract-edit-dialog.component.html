@@ -35,17 +35,14 @@
           <mat-checkbox formControlName="closed" style="align-self: center;"
                         matTooltip="Chiuso/scaduto: non è mai il contratto corrente delle utenze, anche senza date">Contratto chiuso</mat-checkbox>
           <div class="span-2">
-            <app-filterable-select label="Fornitore" placeholder="Cerca fornitore..." [options]="supplierOptions" formControlName="supplier_id_fk"></app-filterable-select>
+            <app-filterable-select label="Fornitore" placeholder="Cerca fornitore..." [options]="supplierOptions" formControlName="supplier_id_fk"
+              [createLabel]="canEdit ? 'Nuovo soggetto terzo' : null" (create)="newSupplier($event)"></app-filterable-select>
           </div>
-          <mat-form-field class="span-2">
-            <mat-label>Convenzione CONSIP</mat-label>
-            <mat-select formControlName="consip_agreement_id" (selectionChange)="onConsipAgreementChange($event)">
-              <mat-option [value]="null">Nessuna</mat-option>
-              @for (opt of consipAgreementOptions; track opt.id) {
-                <mat-option [value]="opt.id">{{ opt.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <div class="span-2">
+            <app-filterable-select label="Convenzione CONSIP" placeholder="Cerca convenzione..." [options]="consipOptions"
+              formControlName="consip_agreement_id" [createLabel]="canEdit ? 'Nuova convenzione CONSIP' : null"
+              (create)="newConsip($event)"></app-filterable-select>
+          </div>
           <mat-form-field class="span-2">
             <mat-label>Numero ordine (ODA)</mat-label>
             <input matInput formControlName="consip_order">
@@ -107,6 +104,8 @@
           itemLabel="l'utenza"
           [unlinkable]="canEdit"
           emptyText="Nessuna utenza collegata."
+          [createLabel]="canEdit ? 'Nuova utenza' : null"
+          (create)="newUtility()"
           (add)="addUtility($event)"
           (unlink)="removeUtility($event)"
           (open)="openUtility($event.id)">

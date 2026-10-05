@@ -22,6 +22,7 @@ import {AssetFunction} from '../asset-function/entity/asset-function.entity';
 import {ASSET_STATUS_OPTIONS, AssetStatus} from './enum/asset-status.enum';
 import {AssetService} from './asset.service';
 import {TOption} from '../../core/types/option.interface';
+import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {HardType, HardTypeMatIcon} from '../utility-types/enum/hard-type.enum';
 import {Utility} from '../utilities/entity/utility.entity';
 import {LocationMapComponent} from '../../core/components/location-map.component';
@@ -51,7 +52,7 @@ import {
   utilityStatus,
 } from '../../core/helpers/entity-status';
 import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
-import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
+import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import {partyNames} from '../../core/helpers/party-name.helper';
 import {SpendingService} from '../spending/spending.service';
 import type {AssetSpending} from '../spending/spending.model';
@@ -78,10 +79,15 @@ interface UtilityTypeButton {
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
     MatTabsModule, MatTooltipModule, MatIconModule, OnlyNumbersDirective, LatitudeInputDirective,
     LongitudeInputDirective, LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
-    EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, PreviewCardComponent, LinkedTableComponent,
+    EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, PreviewCardComponent, LinkedTableComponent, FilterableSelectComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
-  templateUrl: './asset-edit-dialog.component.html'
+  templateUrl: './asset-edit-dialog.component.html',
+  styles: [`
+    .classification-field { display: flex; align-items: flex-start; gap: 4px; }
+    .classification-field app-filterable-select { flex: 1 1 auto; min-width: 0; }
+    .classification-help { margin-top: 16px; color: var(--sheet-muted); cursor: help; }
+  `],
 })
 export class AssetEditDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
@@ -110,6 +116,8 @@ export class AssetEditDialogComponent implements OnInit {
 
   natures: AssetNature[] = [];
   private allFunctions: AssetFunction[] = [];
+  natureSelectOptions: TOption[] = [];
+  functionSelectOptions: TOption[] = [];
   statusOptions = ASSET_STATUS_OPTIONS;
 
   // Regola di classificazione in ordine fisso: la prima risposta "sì"
@@ -208,8 +216,10 @@ export class AssetEditDialogComponent implements OnInit {
       this.syncFunctionEnabled();
       // Cambio natura: la funzione scelta potrebbe non essere più ammessa.
       this.form.controls.nature_id.valueChanges.subscribe(() => {
+        this.refreshFunctionOptions();
         const fid = this.form.controls.function_id.value;
-        if (fid != null && !this.functionOptions().some(f => f.id === fid)) {
+        // Tipologia svuotata (testo digitato): la funzione resta, torna valida riscegliendola.
+        if (fid != null && this.form.controls.nature_id.value != null && !this.functionOptions().some(f => f.id === fid)) {
           this.form.controls.function_id.setValue(null);
         }
         this.syncFunctionEnabled();
@@ -232,14 +242,8 @@ export class AssetEditDialogComponent implements OnInit {
         error: err => console.error('Errore nel caricamento della spesa da fatture:', err)
       });
     }
-    this.naturesService.search({deleted: false} as never).subscribe({
-      next: data => this.natures = data,
-      error: err => console.error('Errore nel caricamento delle tipologie immobile:', err)
-    });
-    this.functionsService.search({deleted: false} as never).subscribe({
-      next: data => this.allFunctions = data,
-      error: err => console.error('Errore nel caricamento delle funzioni immobile:', err)
-    });
+    this.loadNatures();
+    this.loadFunctions();
     this.utilityTypesService.search({deleted: false}).subscribe({
       next: (data: UtilityType[]) => {
         this.utilityTypeIdByHardType.clear();
@@ -267,6 +271,54 @@ export class AssetEditDialogComponent implements OnInit {
     const fid = this.form.controls.function_id.value;
     const fn = this.allFunctions.find(f => f.id === fid);
     return fn?.icon || ICON_FALLBACK;
+  }
+
+  private loadNatures(after?: () => void): void {
+    this.naturesService.search({deleted: false} as never).subscribe({
+      next: data => {
+        this.natures = data;
+        this.natureSelectOptions = data
+          .map(n => ({label: n.name, value: n.id, icon: n.icon || 'category'}))
+          .sort((a, b) => a.label.localeCompare(b.label));
+        this.refreshFunctionOptions();
+        after?.();
+      },
+      error: err => console.error('Errore nel caricamento delle tipologie immobile:', err)
+    });
+  }
+
+  private loadFunctions(): void {
+    this.functionsService.search({deleted: false} as never).subscribe({
+      next: data => this.allFunctions = data,
+      error: err => console.error('Errore nel caricamento delle funzioni immobile:', err)
+    });
+  }
+
+  // Funzioni ammesse dalla tipologia scelta, come opzioni della select (cache).
+  private refreshFunctionOptions(): void {
+    this.functionSelectOptions = this.functionOptions()
+      .map(f => ({label: f.name, value: f.id, icon: f.icon || 'apartment'}))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  newNature(text: string): void {
+    this.navigator.createAssetNature({name: nameFrom(text)}).subscribe(n => {
+      if (!n) return;
+      this.loadNatures(() => this.form.controls.nature_id.setValue(n.id));
+      this.form.controls.nature_id.markAsDirty();
+    });
+  }
+
+  // La funzione nuova entra tra le ammesse della tipologia (navigatore): prima
+  // si ricaricano le tipologie, poi si imposta, altrimenti verrebbe azzerata.
+  newFunction(text: string): void {
+    const natureId = this.form.controls.nature_id.value;
+    this.navigator.createAssetFunction(natureId, {name: nameFrom(text)}).subscribe(f => {
+      if (!f) return;
+      this.loadFunctions();
+      this.loadNatures(() => this.form.controls.function_id.setValue(f.id));
+      this.form.controls.function_id.markAsDirty();
+    });
   }
 
   functionOptions(): AssetFunction[] {
@@ -417,7 +469,7 @@ export class AssetEditDialogComponent implements OnInit {
   }
 
   createGrant(): void {
-    this.navigator.createGrant([this.data.item.id]).subscribe(saved => {
+    this.navigator.createGrant({asset_ids: [this.data.item.id]}).subscribe(saved => {
       if (saved) this.loadGrants();
     });
   }

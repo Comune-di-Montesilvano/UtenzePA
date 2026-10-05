@@ -282,6 +282,8 @@
           itemLabel="l'immobile"
           [unlinkable]="canEdit"
           emptyText="Nessun immobile collegato (es. fontana in piazza)."
+          [createLabel]="canEdit ? 'Nuovo immobile' : null"
+          (create)="newAsset()"
           (add)="addAsset($event)"
           (unlink)="unlinkAsset($event)"
           (open)="openAsset($event.id)">
@@ -302,6 +304,8 @@
           itemLabel="l'utenza"
           [unlinkable]="canEdit"
           emptyText="Nessuna utenza a servizio dell'impianto."
+          [createLabel]="canEdit && plant ? 'Nuova utenza' : null"
+          (create)="newUtility()"
           (add)="addUtility($event)"
           (unlink)="unlinkUtility($event)"
           (open)="openUtility($event.id)">
@@ -338,7 +342,7 @@
     @if (error) {
       <p class="sheet-error">{{ error }}</p>
     }
-    <button mat-stroked-button type="button" (click)="dialogRef.close(saved)">{{ data.readOnly ? 'Chiudi' : 'Annulla' }}</button>
+    <button mat-stroked-button type="button" (click)="close()">{{ data.readOnly ? 'Chiudi' : 'Annulla' }}</button>
     @if (!data.readOnly) {
       <button mat-flat-button type="button" (click)="save()" [disabled]="saving || loading">Salva</button>
     }

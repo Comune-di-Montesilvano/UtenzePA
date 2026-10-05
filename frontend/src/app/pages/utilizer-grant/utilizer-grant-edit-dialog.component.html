@@ -55,7 +55,9 @@
               label="Parti del contratto *"
               placeholder="Uno o più soggetti"
               [options]="partyOptions"
-              formControlName="party_ids">
+              formControlName="party_ids"
+              [createLabel]="canEdit ? 'Nuovo soggetto terzo' : null"
+              (create)="newParty()">
             </app-multi-select>
             @if (form.controls.party_ids.invalid && form.controls.party_ids.touched) {
               <mat-error>Indicare almeno una parte</mat-error>
@@ -150,6 +152,8 @@
           itemLabel="l'immobile"
           [unlinkable]="canEdit"
           emptyText="Nessun immobile collegato."
+          [createLabel]="canEdit ? 'Nuovo immobile' : null"
+          (create)="newAsset()"
           (add)="addAsset($event)"
           (unlink)="unlinkAsset($event)"
           (open)="openAsset($event.id)">
@@ -161,11 +165,14 @@
           <ng-template mat-tab-label>
             <app-tab-label icon="bolt" label="Utenze" [count]="utilityRows.length"></app-tab-label>
           </ng-template>
-          <p class="sheet-hint">Utenze degli immobili del contratto. Le volture si segnano dalla scheda dell'utenza.</p>
+          <p class="sheet-hint">Utenze degli immobili del contratto. Le volture si segnano dalla scheda dell'utenza.
+            Una nuova utenza nasce su tutti gli immobili salvati del contratto.</p>
           <app-linked-table
             [columns]="utilityColumns"
             [rows]="utilityRows"
             [rowStatus]="utilityStatusOf"
+            [createLabel]="canEdit && savedAssetIds.length ? 'Nuova utenza' : null"
+            (create)="newUtility()"
             emptyText="Nessuna utenza sugli immobili del contratto."
             (open)="openUtility($event.id)">
           </app-linked-table>

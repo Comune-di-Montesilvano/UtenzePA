@@ -38,17 +38,11 @@
               <input matInput formControlName="meter_number">
             </mat-form-field>
           }
-          <mat-form-field>
-            <mat-label>Tipo utenza</mat-label>
-            <mat-select formControlName="utility_type_id_fk" (selectionChange)="onUtilityTypeChange($event)">
-              @for (opt of utilityTypeOptions; track opt.id) {
-                <mat-option [value]="opt.id">{{ opt.name }}</mat-option>
-              }
-            </mat-select>
-            @if (form.controls.utility_type_id_fk.invalid && form.controls.utility_type_id_fk.touched) {
-              <mat-error>Obbligatorio</mat-error>
-            }
-          </mat-form-field>
+          <app-filterable-select label="Tipo utenza *" placeholder="Cerca tipo..." [options]="utilityTypeSelectOptions"
+            formControlName="utility_type_id_fk" [createLabel]="canEdit ? 'Nuovo tipo utenza' : null"
+            (create)="newUtilityType($event)"
+            [errorMessage]="form.controls.utility_type_id_fk.invalid && form.controls.utility_type_id_fk.touched ? 'Obbligatorio' : null">
+          </app-filterable-select>
           @if (areraOptions.length) {
             <mat-form-field>
               <mat-label>Tipologia ARERA</mat-label>
@@ -81,6 +75,8 @@
               placeholder="Cerca per codice, descrizione o PDC..."
               [options]="budgetChapterOptions"
               formControlName="budget_chapter_code_fk"
+              [createLabel]="canEdit ? 'Nuovo capitolo' : null"
+              (create)="newChapter()"
               [errorMessage]="form.controls.budget_chapter_code_fk.invalid && form.controls.budget_chapter_code_fk.touched ? 'Obbligatorio' : null">
             </app-filterable-select>
           </div>
@@ -287,6 +283,8 @@
           itemLabel="l'immobile"
           [unlinkable]="canEdit"
           emptyText="Nessun immobile collegato."
+          [createLabel]="canEdit ? 'Nuovo immobile' : null"
+          (create)="newAsset()"
           (add)="addAsset($event)"
           (unlink)="unlinkAsset($event)"
           (open)="openAsset($event.id)">
@@ -307,6 +305,8 @@
           itemLabel="l'impianto"
           [unlinkable]="canEdit"
           emptyText="Nessun impianto servito da questa utenza."
+          [createLabel]="canEdit ? 'Nuovo impianto' : null"
+          (create)="newPlant()"
           (add)="addPlant($event)"
           (unlink)="unlinkPlant($event)"
           (open)="openPlant($event.id)">
@@ -376,7 +376,7 @@
           <ng-template mat-tab-label>
             <app-tab-label icon="receipt_long" label="Fatture"></app-tab-label>
           </ng-template>
-          <app-utility-invoices-tab [utilityId]="data.item.id"></app-utility-invoices-tab>
+          <app-utility-invoices-tab [utilityId]="data.item.id" [canEdit]="canEdit" [contractId]="currentContractId()"></app-utility-invoices-tab>
         </mat-tab>
       }
 

@@ -1,4 +1,6 @@
 import {ChangeDetectionStrategy, Component, inject, Input, OnInit} from '@angular/core';
+import {MatButtonModule} from '@angular/material/button';
+import {MatIconModule} from '@angular/material/icon';
 import {forkJoin} from 'rxjs';
 import {InvoicesService} from '../invoices/invoices.service';
 import {Invoice} from '../invoices/entity/invoice.entity';
@@ -29,8 +31,14 @@ const isoOf = (v: Date | string | null | undefined): string =>
 @Component({
   selector: 'app-utility-invoices-tab',
   standalone: true,
+  imports: [MatButtonModule, MatIconModule],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
+    @if (canEdit) {
+      <div class="invoices-actions">
+        <button mat-stroked-button type="button" (click)="newInvoice()"><mat-icon>add</mat-icon> Nuova fattura</button>
+      </div>
+    }
     @if (years.length) {
       <p class="spending-years">
         @for (y of years; track y.year) {
@@ -58,10 +66,16 @@ const isoOf = (v: Date | string | null | undefined): string =>
       </table>
     }
   `,
-  styles: [`.spending-years { display: flex; gap: 24px; flex-wrap: wrap; margin: 0 0 12px; }`],
+  styles: [`
+    .spending-years { display: flex; gap: 24px; flex-wrap: wrap; margin: 0 0 12px; }
+    .invoices-actions { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+  `],
 })
 export class UtilityInvoicesTabComponent implements OnInit {
   @Input({required: true}) utilityId!: number;
+  @Input() canEdit = false;
+  // Contratto aperto dell'utenza (se uno solo): precompila la nuova fattura.
+  @Input() contractId: number | null = null;
 
   private invoices = inject(InvoicesService);
   private spending = inject(SpendingService);
@@ -96,6 +110,16 @@ export class UtilityInvoicesTabComponent implements OnInit {
             })))
           .sort((a, b) => b.iso.localeCompare(a.iso));
       });
+  }
+
+  newInvoice(): void {
+    this.navigator.createInvoice({
+      contratto_id_fk: this.contractId,
+      lines: [{amount: 0, utility_id_fk: this.utilityId, commitment_id_fk: null, period_start: null, period_end: null,
+        consumption: null, supply_code: null, description: null}],
+    }).subscribe(inv => {
+      if (inv) this.load();
+    });
   }
 
   open(id: number): void {
