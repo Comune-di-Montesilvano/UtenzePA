@@ -33,8 +33,12 @@ const formatDate = (iso: string | null): string => {
         @if (!data) {
           <p style="color: #6b7280;">Caricamento…</p>
         } @else {
+          @if (!hasAnomalies()) {
+            <p class="no-anomalies">Nessuna anomalia: i dati sono in ordine.</p>
+          }
           <mat-accordion multi>
-            <mat-expansion-panel [disabled]="data.contracts_without_cig.count === 0">
+            @if (data.contracts_without_cig.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.contracts_without_cig.count === 0">{{ data.contracts_without_cig.count }}</span>
@@ -50,8 +54,10 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+            }
 
-            <mat-expansion-panel [disabled]="data.active_utilities_without_cig_contract.count === 0">
+            @if (data.active_utilities_without_cig_contract.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.active_utilities_without_cig_contract.count === 0">{{ data.active_utilities_without_cig_contract.count }}</span>
@@ -64,8 +70,10 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+            }
 
-            <mat-expansion-panel [disabled]="data.active_utilities_without_contract.count === 0">
+            @if (data.active_utilities_without_contract.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.active_utilities_without_contract.count === 0">{{ data.active_utilities_without_contract.count }}</span>
@@ -78,8 +86,10 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+            }
 
-            <mat-expansion-panel [disabled]="data.active_utilities_without_arera_category.count === 0">
+            @if (data.active_utilities_without_arera_category.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.active_utilities_without_arera_category.count === 0">{{ data.active_utilities_without_arera_category.count }}</span>
@@ -92,8 +102,10 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+            }
 
-            <mat-expansion-panel [disabled]="data.active_gas_utilities_without_use_category.count === 0">
+            @if (data.active_gas_utilities_without_use_category.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.active_gas_utilities_without_use_category.count === 0">{{ data.active_gas_utilities_without_use_category.count }}</span>
@@ -106,8 +118,10 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+            }
 
-            <mat-expansion-panel [disabled]="data.utilities_to_transfer.count === 0">
+            @if (data.utilities_to_transfer.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.utilities_to_transfer.count === 0">{{ data.utilities_to_transfer.count }}</span>
@@ -120,8 +134,10 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+            }
 
-            <mat-expansion-panel [disabled]="data.utilities_to_recover.count === 0">
+            @if (data.utilities_to_recover.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.utilities_to_recover.count === 0">{{ data.utilities_to_recover.count }}</span>
@@ -134,8 +150,10 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+            }
 
-            <mat-expansion-panel [disabled]="data.utilities_with_overlapping_contracts.count === 0">
+            @if (data.utilities_with_overlapping_contracts.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.utilities_with_overlapping_contracts.count === 0">{{ data.utilities_with_overlapping_contracts.count }}</span>
@@ -148,8 +166,10 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+            }
 
-            <mat-expansion-panel [disabled]="data.duplicate_cigs.count === 0">
+            @if (data.duplicate_cigs.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.duplicate_cigs.count === 0">{{ data.duplicate_cigs.count }}</span>
@@ -167,8 +187,10 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+            }
 
-            <mat-expansion-panel [disabled]="data.real_estate_contracts_without_assets.count === 0">
+            @if (data.real_estate_contracts_without_assets.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.real_estate_contracts_without_assets.count === 0">{{ data.real_estate_contracts_without_assets.count }}</span>
@@ -187,7 +209,9 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
-            <mat-expansion-panel [disabled]="data.real_estate_contracts_without_parties.count === 0">
+            }
+            @if (data.real_estate_contracts_without_parties.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.real_estate_contracts_without_parties.count === 0">{{ data.real_estate_contracts_without_parties.count }}</span>
@@ -203,7 +227,9 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
-            <mat-expansion-panel [disabled]="data.third_parties_without_identifier.count === 0">
+            }
+            @if (data.third_parties_without_identifier.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.third_parties_without_identifier.count === 0">{{ data.third_parties_without_identifier.count }}</span>
@@ -218,7 +244,9 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
-            <mat-expansion-panel [disabled]="data.plants_without_asset.count === 0">
+            }
+            @if (data.plants_without_asset.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.plants_without_asset.count === 0">{{ data.plants_without_asset.count }}</span>
@@ -233,7 +261,9 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
-            <mat-expansion-panel [disabled]="data.assets_without_classification.count === 0">
+            }
+            @if (data.assets_without_classification.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.assets_without_classification.count === 0">{{ data.assets_without_classification.count }}</span>
@@ -246,7 +276,9 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
-            <mat-expansion-panel [disabled]="data.invoices_on_ceased_utilities.count === 0">
+            }
+            @if (data.invoices_on_ceased_utilities.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.invoices_on_ceased_utilities.count === 0">{{ data.invoices_on_ceased_utilities.count }}</span>
@@ -259,7 +291,9 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
-            <mat-expansion-panel [disabled]="data.utilities_with_uncommitted_chapter.count === 0">
+            }
+            @if (data.utilities_with_uncommitted_chapter.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.utilities_with_uncommitted_chapter.count === 0">{{ data.utilities_with_uncommitted_chapter.count }}</span>
@@ -272,7 +306,9 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
-            <mat-expansion-panel [disabled]="data.invoice_lines_without_utility.count === 0">
+            }
+            @if (data.invoice_lines_without_utility.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.invoice_lines_without_utility.count === 0">{{ data.invoice_lines_without_utility.count }}</span>
@@ -285,7 +321,9 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
-            <mat-expansion-panel [disabled]="data.plants_without_position.count === 0">
+            }
+            @if (data.plants_without_position.count > 0) {
+            <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.plants_without_position.count === 0">{{ data.plants_without_position.count }}</span>
@@ -303,12 +341,14 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+            }
           </mat-accordion>
         }
       </mat-card-content>
     </mat-card>
   `,
   styles: [`
+    .no-anomalies { margin: 0.5rem 0; color: #15803d; }
     .anomaly-count { display: inline-block; min-width: 2.25rem; text-align: center; margin-right: 0.75rem;
       padding: 1px 8px; border-radius: 10px; background: #fee2e2; color: #991b1b; font-weight: 600; }
     .anomaly-count.zero { background: #dcfce7; color: #166534; }
@@ -323,6 +363,11 @@ export class AnomaliesCardComponent implements OnInit {
   private navigator = inject(EntityNavigatorService);
 
   data: Anomalies | null = null;
+
+  // Le anomalie a zero non si mostrano: se sono tutte a zero, un messaggio.
+  hasAnomalies(): boolean {
+    return !!this.data && Object.values(this.data).some(a => a.count > 0);
+  }
   readonly fmt = formatDate;
 
   get total(): number {
