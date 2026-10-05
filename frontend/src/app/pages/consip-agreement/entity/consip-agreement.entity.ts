@@ -24,6 +24,18 @@ export class ConsipAgreement extends AbstractEntity implements IConsipAgreement 
   @Exclude({toPlainOnly: true})
   supplier?: ThirdParty;
 
+  // Campi inviati in creazione/modifica (senza autore): elenco e navigatore.
+  static toPayload(e: ConsipAgreement): Partial<ConsipAgreement> {
+    return {
+      supplier_id: e.supplier_id,
+      name: e.name,
+      description: e.description,
+      cig_master: e.cig_master,
+      safeguard: e.safeguard,
+      expiration_date: e.expiration_date,
+    };
+  }
+
   static create(data?: Partial<ConsipAgreement>): ConsipAgreement {
     return plainToInstance(ConsipAgreement, {
       id: 0,

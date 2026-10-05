@@ -30,12 +30,6 @@ export class AssetNatureComponent extends AbstractComponent<AssetNature> {
   }
 
   protected override entityToPayload(entity: AssetNature): Partial<AssetNature> {
-    return {
-      name: entity.name,
-      icon: entity.icon,
-      function_ids: entity.function_ids ?? [],
-      created_by_user_id: this.userId,
-      updated_by_user_id: this.userId,
-    };
+    return {...AssetNature.toPayload(entity), created_by_user_id: this.userId, updated_by_user_id: this.userId};
   }
 }

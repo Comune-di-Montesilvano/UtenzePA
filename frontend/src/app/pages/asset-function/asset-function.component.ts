@@ -30,6 +30,6 @@ export class AssetFunctionComponent extends AbstractComponent<AssetFunction> {
   }
 
   protected override entityToPayload(entity: AssetFunction): Partial<AssetFunction> {
-    return {name: entity.name, icon: entity.icon, created_by_user_id: this.userId, updated_by_user_id: this.userId};
+    return {...AssetFunction.toPayload(entity), created_by_user_id: this.userId, updated_by_user_id: this.userId};
   }
 }

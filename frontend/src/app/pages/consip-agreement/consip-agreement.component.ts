@@ -40,15 +40,6 @@ export class ConsipAgreementComponent extends AbstractComponent<ConsipAgreement>
   }
 
   protected override entityToPayload(entity: ConsipAgreement): Partial<ConsipAgreement> {
-    return {
-      supplier_id: entity.supplier_id,
-      name: entity.name,
-      description: entity.description,
-      cig_master: entity.cig_master,
-      safeguard: entity.safeguard,
-      expiration_date: entity.expiration_date,
-      created_by_user_id: this.userId,
-      updated_by_user_id: this.userId
-    };
+    return {...ConsipAgreement.toPayload(entity), created_by_user_id: this.userId, updated_by_user_id: this.userId};
   }
 }

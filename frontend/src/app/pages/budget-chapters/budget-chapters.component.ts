@@ -29,15 +29,7 @@ export class BudgetChaptersComponent extends AbstractComponent<BudgetChapter> {
   }
 
   protected override entityToPayload(entity: BudgetChapter): Partial<BudgetChapter> {
-    return {
-      chapter_code: entity.chapter_code,
-      article: entity.article,
-      description: entity.description,
-      pdc: entity.pdc,
-      supply_type: entity.supply_type,
-      created_by_user_id: this.userId,
-      updated_by_user_id: this.userId
-    };
+    return {...BudgetChapter.toPayload(entity), created_by_user_id: this.userId, updated_by_user_id: this.userId};
   }
 
   protected override entityLabel(): string {
