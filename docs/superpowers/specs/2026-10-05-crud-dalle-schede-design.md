@@ -36,7 +36,7 @@ Già presenti (base da riusare): da Immobile "Aggiungi utenza", "Nuovo impianto"
 
 ## Decisioni
 
-- **Permessi**: il "+" segue i permessi del backend, che per tutte queste entità ammette `Admin` e `Operatore` sul `POST` (anche tipi utenza, tipologie e funzioni, pur stando sotto Impostazioni). Visibile solo se la scheda è modificabile (`canEdit`); mai per il Lettore. Nessuna modifica backend.
+- **Permessi**: il pulsante "+" segue i permessi del backend, che per tutte queste entità ammette `Admin` e `Operatore` sul `POST` (anche tipi utenza, tipologie e funzioni, pur stando sotto Impostazioni). Visibile solo se la scheda è modificabile (`canEdit`); mai per il Lettore. Nessuna modifica backend.
 - **Scheda in pila**: la creazione apre la scheda dell'entità sopra quella corrente (`openSheet`, offset di pila già gestito) o, per le anagrafiche semplici, il loro dialog attuale. Alla chiusura con salvataggio il record è già creato sul server; la scheda di partenza lo riceve e lo seleziona/collega. Annulla = nessun effetto.
 - **Il collegamento resta della scheda di partenza**: il nuovo record si crea subito (serve l'id), ma il legame con la scheda di partenza segue la regola di oggi — si salva con il Salva della scheda di partenza (come "Collega"). Eccezione: dove la creazione ha già il legame nel proprio payload (es. contratto di fornitura creato dall'utenza con `preselectedUtilityIds`, impianto creato dall'immobile), resta come oggi.
 
@@ -54,16 +54,18 @@ Si aggiungono, con la stessa forma di quelli esistenti (scheda/dialog → `servi
 
 **Funzione dell'immobile**: le funzioni ammesse dipendono dalla tipologia (`asset_nature_functions`). Una funzione creata dalla scheda immobile con una tipologia già scelta viene aggiunta anche alle funzioni ammesse di quella tipologia (PATCH della tipologia con `function_ids` + la nuova), altrimenti non comparirebbe tra le opzioni. Senza tipologia scelta il "+" della funzione è disabilitato (come oggi il campo).
 
-### 2. Select con "+ Nuovo …"
+### 2. Pulsante "+" accanto alle select
+
+Scelta utente (2026-10-05): un'opzione in fondo al pannello è troppo nascosta. Il tasto è un **pulsante "+" sempre visibile a destra del campo** (icon button `add`, bordo come i pulsanti stroked, allineato al campo), con tooltip e `aria-label` = l'etichetta (es. "Nuovo soggetto terzo"). In più, quando la ricerca non trova nulla, il pannello mostra "Nessun risultato" e l'opzione **"+ Crea «testo digitato»"**, che fa la stessa cosa passando il testo come nome iniziale.
 
 `app-filterable-select` e `app-multi-select` ricevono:
 
-- `@Input() createLabel: string | null` (es. "Nuovo soggetto terzo"); `null` = nessuna opzione;
-- `@Output() create = new EventEmitter<string>()` con il testo digitato (utile come prefill del nome).
+- `@Input() createLabel: string | null` (es. "Nuovo soggetto terzo"); `null` = nessun pulsante, nessuna opzione "Crea";
+- `@Output() create = new EventEmitter<string>()` con il testo digitato ('' dal pulsante).
 
-L'opzione è l'ultima del pannello, sempre visibile anche col filtro attivo, con icona `add` e stile distinto; selezionarla non cambia il valore del controllo e chiude il pannello. La scheda di partenza chiama il navigatore e, al ritorno, aggiunge il record alle proprie opzioni (array nuovo, campo cache — vedi gotcha dei getter in CLAUDE.md) e lo imposta come valore (multi: lo aggiunge alla selezione), `markAsDirty()`.
+Il componente si impagina come riga flessibile (campo che si allarga + pulsante); senza `createLabel` resta identico a oggi. Il pulsante non cambia il valore del controllo; "Crea «…»" chiude il pannello senza selezionare. La scheda di partenza chiama il navigatore e, al ritorno, aggiunge il record alle proprie opzioni (array nuovo, campo cache — vedi gotcha dei getter in CLAUDE.md) e lo imposta come valore (multi: lo aggiunge alla selezione), `markAsDirty()`. Il testo digitato precompila il campo nome dell'entità creata (ragione sociale, nome, descrizione), dove ha senso.
 
-Le `mat-select` semplici di Tipo utenza, Convenzione CONSIP, Tipologia, Funzione e Volturata a passano ad `app-filterable-select` per avere lo stesso "+" (comportamento uguale, con ricerca). La logica oggi su `(selectionChange)` (`onUtilityTypeChange`, `onConsipAgreementChange`) passa a `valueChanges` del controllo.
+Le `mat-select` semplici di Tipo utenza, Convenzione CONSIP, Tipologia, Funzione e Volturata a passano ad `app-filterable-select` per avere lo stesso pulsante (comportamento uguale, con ricerca). La logica oggi su `(selectionChange)` (`onUtilityTypeChange`, `onConsipAgreementChange`) passa a `valueChanges` del controllo.
 
 Stessa sorgente di opzioni per più campi della stessa scheda (es. fattura: fornitore della testata e contratto): dopo una creazione si aggiornano tutte le liste della scheda che contengono quel tipo.
 
