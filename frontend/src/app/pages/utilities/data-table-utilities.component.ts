@@ -1,4 +1,4 @@
-import {Component, Type, ChangeDetectionStrategy, inject} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy, EventEmitter, inject, Output} from '@angular/core';
 import {DatePipe} from '@angular/common';
 import {MatTableModule} from '@angular/material/table';
 import {MatSort, MatSortModule} from '@angular/material/sort';
@@ -38,6 +38,8 @@ import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-ba
   templateUrl: './data-table-utilities.component.html'
 })
 export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Utility> {
+  // Una scheda collegata (es. immobile) salvata dalla riga: l'elenco va ricaricato.
+  @Output() changed = new EventEmitter<void>();
   readonly partyName = partyName;
   readonly costStatus = costStatus;
   readonly maintenanceStatus = maintenanceStatus;
@@ -237,7 +239,9 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
 
   navigateToAsset(assetId: number | null | undefined): void {
     if (!assetId) return;
-    this.navigator.openAsset(assetId).subscribe();
+    this.navigator.openAsset(assetId).subscribe(saved => {
+      if (saved) this.changed.emit();
+    });
   }
 
   protected override exportCellValue(utility: Utility, field: string): string {

@@ -258,6 +258,15 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
     });
   }
 
+  // Un contratto figlio salvato può aver cambiato padre: si rilegge l'elenco.
+  private reloadChildren(): void {
+    if (this.isNew) return;
+    this.grantService.getById(this.item.id).subscribe({
+      next: g => this.childRows = (g.children ?? []).filter(c => !c.deleted),
+      error: err => console.error('Errore nel caricamento dei contratti collegati:', err),
+    });
+  }
+
   newParty(): void {
     this.navigator.createThirdParty().subscribe(p => {
       if (!p) return;
@@ -321,7 +330,9 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   }
 
   openAsset(id: number): void {
-    this.navigator.openAsset(id).subscribe();
+    this.navigator.openAsset(id).subscribe(saved => {
+      if (saved) this.loadAssets();
+    });
   }
 
   private loadUtilities(): void {
@@ -339,7 +350,10 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   }
 
   openGrant(id: number | null | undefined): void {
-    if (id) this.navigator.openGrant(id).subscribe();
+    if (!id) return;
+    this.navigator.openGrant(id).subscribe(saved => {
+      if (saved) this.reloadChildren();
+    });
   }
 
   partyLabel(id: number): string {

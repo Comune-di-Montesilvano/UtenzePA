@@ -452,6 +452,8 @@ export class AssetEditDialogComponent implements OnInit {
       const others = (this.data.item.utilities ?? []).filter(u => u.id !== saved.id);
       this.data.item.utilities = stillLinked ? [...others, saved] : others;
       this.refreshUtilities();
+      // L'utenza può aver cambiato i suoi impianti: colonna Utenze del tab Impianti.
+      this.loadPlants();
     });
   }
 
