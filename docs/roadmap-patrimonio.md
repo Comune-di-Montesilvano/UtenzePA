@@ -34,6 +34,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 16 | Dashboard e mappa | mappa a livelli in v1.11.0 (filtri a perimetro, inattivi nascosti, ricerca nel Comune); dashboard per ultima |
 | 17 | Impegni di spesa (contratto ↔ capitolo) | fatto, v1.10.0 (impegni ACA 2025–2026 senza numero né importo, da completare con la ragioneria) |
 | 18 | Pulizia entità e incongruenze del modello | fatto: parte 1 v1.9.0 (tabelle morte, aggregati immobili, gestori manutenzione → manutenzione calcolata), parte 2 v1.9.1 (campi doppi) |
+| 19 | Allegati di contratti, immobili e impianti | da approfondire |
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
 
@@ -320,6 +321,21 @@ Gotcha emersi dall'analisi:
 - `utilities.water_concession` è una colonna `date`: `NULLIF(col, '')` in MySQL dà errore 1525 ("Incorrect DATE value") e blocca l'intera query, usare `IS NOT NULL`;
 - `invoice_budget_chapter` non ha FK verso `invoices`: le righe restano orfane quando le fatture vengono rinumerate o cancellate (oggi puntano a id 1–2, le fatture partono da 741);
 - utenze collegate a 5–7 contratti di fornitura: non è un errore, sono i rinnovi Consip successivi (storico); per "il contratto attuale" va usato quello non chiuso.
+
+## 19. Allegati di contratti, immobili e impianti
+
+Richiesta utente (2026-10-05): caricare allegati generici (contratto firmato, determina, ordine ODA, verbali, planimetrie, corrispondenza) sulle schede dei contratti di fornitura e dei contratti immobiliari, con un tab "Allegati" nella scheda. Estesa (2026-10-05) a immobili e impianti: certificazioni (agibilità, prevenzione incendi, conformità impianti), verbali di verifica e manutenzione, planimetrie, visure e atti catastali, schede tecniche.
+
+Base esistente: le foto (`apis/photos/`) sono già polimorfiche (`entity_type` + `entity_id`, oggi immobile, utenza, impianto), salvate su disco nel volume `photos_data` e già incluse in backup e ripristino (`BackupService`). Da approfondire:
+
+- entità nuova `attachments` con lo stesso schema polimorfico (`entity_type` = `contract` / `utilizer_grant` / `asset` / `plant`, poi estendibile) invece di allargare le foto: tipi di file diversi (PDF, documenti, fogli di calcolo, immagini, email `.eml`/`.msg`), nessuna conversione HEIC, nessun limite "10 per entità";
+- metadati: nome originale, descrizione, categoria facoltativa per tipo di entità (contratti: contratto, determina, ordine, verbale; immobili e impianti: certificazione, verbale di verifica, planimetria, visura, scheda tecnica; sempre "altro"), data del documento, chi e quando ha caricato;
+- limiti: dimensione massima configurabile (le foto hanno `PHOTO_MAX_SIZE_MB`), tipi ammessi (whitelist MIME + estensione), body-parser e proxy di produzione da dimensionare;
+- archiviazione: stessa cartella/volume delle foto o volume dedicato; backup e ripristino da estendere, dimensione dei backup;
+- permessi: caricamento e cancellazione per Admin/Operatore, lettura per tutti; cancellazione logica come le foto;
+- scadenze: certificazioni e verifiche periodiche degli impianti hanno una validità; valutare una data di scadenza facoltativa sull'allegato e un'anomalia "documento scaduto" (dashboard e segnalazioni degli elenchi);
+- tab "Allegati" con lo stesso componente in tutte e quattro le schede; nelle schede immobile e impianto convive con il tab Foto;
+- eventuale estensione futura a fatture (PDF allegato della fattura elettronica, vedi gotcha FatturaPA della voce 6) e utenze.
 
 ## Fuori scope (decisioni prese)
 
