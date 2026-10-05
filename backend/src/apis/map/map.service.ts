@@ -6,7 +6,8 @@ import { Utility } from '@apis/utility/entity/utility.entity';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { MapQueryDto } from './dto/map-query.dto';
 import { Plant } from '@apis/plants/entity/plant.entity';
-import { PlantType, PositionQuality } from '@apis/plants/enum/plant.enum';
+import { PlantStatus, PlantType, PositionQuality } from '@apis/plants/enum/plant.enum';
+import { AssetStatusEnum } from '@apis/asset/enum/asset-status.enum';
 import { firstLocatedAsset, resolvePlantPosition } from '@apis/plants/plant.calc';
 
 export interface MapPoint {
@@ -17,6 +18,8 @@ export interface MapPoint {
   lat: string;
   lng: string;
   source: 'gps' | 'geocoded';
+  // Immobile dismesso, utenza cessata, impianto dismesso: marker sbiadito.
+  inactive?: boolean;
   // Solo per type 'utility' — pilota l'icona per tipologia (acqua/luce/gas/
   // internet) nella mappa frontend, vedi HardTypeIcon/HardTypeColor.
   hardType?: HardTypeEnum;
@@ -71,41 +74,23 @@ export class MapService {
     const points: MapPoint[] = [];
     const ungeolocated: UngeolocatedItem[] = [];
 
-    // Id degli immobili con almeno un'utenza del/i tipo/i selezionato/i — il
-    // filtro "Tipo utenza" deve restringere anche gli IMMOBILI (non solo i
-    // contatori sparsi), indipendentemente dal checkbox "Utenze": un immobile
-    // senza nessuna utenza di quel tipo non deve comparire. Query dedicata
-    // (non riusa quella sotto per i punti-utenza, che applica anche il
-    // filtri di classificazione — qui serve il solo filtro tipo, sull'intero parco).
-    // In([]) su MySQL/TypeORM genera "IN ()" non valido — [-1] sentinella
-    // forza zero risultati quando nessuna utenza corrisponde, invece di
-    // omettere per errore il filtro (un id immobile non è mai negativo).
-    let qualifyingAssetIds: number[] | null = null;
-    if (filters.utilityTypeIds?.length) {
-      const rows = await this.utilityRepo.find({
-        where: { deleted: false, utility_type_id_fk: In(filters.utilityTypeIds) },
-        relations: { assets: true },
-      });
-      qualifyingAssetIds = [...new Set(rows.flatMap((r) => (r.assets ?? []).map((a) => a.id)))];
-    }
-
-    // Filtri classificazione immobile — stessi criteri sugli immobili e sulle
-    // utenze (tramite gli immobili collegati). Con where su una relazione
-    // ManyToMany TypeORM idrata solo gli immobili che matchano: un'utenza
-    // collegata a un immobile filtrato e a uno no compare solo sul primo.
-    const assetClassWhere = {
+    // Perimetro: tipologia e funzione dell'immobile delimitano immobili,
+    // utenze e impianti collegati (es. Funzione=Scuole → scuole, loro contatori
+    // e loro impianti). Lo stato filtra solo il livello immobili, altrimenti
+    // "solo attivi" nasconderebbe utenze e impianti senza immobile collegato.
+    // I filtri di utenze e impianti restringono solo il proprio livello.
+    const perimeter = {
       ...(filters.natureIds?.length ? { nature_id: In(filters.natureIds) } : {}),
       ...(filters.functionIds?.length ? { function_id: In(filters.functionIds) } : {}),
-      ...(filters.statuses?.length ? { status: In(filters.statuses) } : {}),
     };
-    const hasAssetClassFilter = Object.keys(assetClassWhere).length > 0;
+    const hasPerimeter = Object.keys(perimeter).length > 0;
 
     if (showAssets) {
       const assets = await this.assetRepo.find({
         where: {
           deleted: false,
-          ...assetClassWhere,
-          ...(qualifyingAssetIds !== null ? { id: In(qualifyingAssetIds.length ? qualifyingAssetIds : [-1]) } : {}),
+          ...perimeter,
+          ...(filters.statuses?.length ? { status: In(filters.statuses) } : {}),
         },
         relations: { assetFunction: true },
       });
@@ -122,6 +107,7 @@ export class MapService {
             lng: position.lng,
             source: position.source,
             icon: asset.assetFunction?.icon ?? null,
+            ...(asset.status === AssetStatusEnum.DISMESSO ? { inactive: true } : {}),
           });
         } else {
           ungeolocated.push({
@@ -139,6 +125,8 @@ export class MapService {
         where: {
           deleted: false,
           ...(filters.plantTypes?.length ? { type: In(filters.plantTypes) } : {}),
+          ...(filters.plantStatuses?.length ? { status: In(filters.plantStatuses) } : {}),
+          ...(hasPerimeter ? { assets: perimeter } : {}),
         },
         relations: { assets: true },
       });
@@ -156,6 +144,7 @@ export class MapService {
             source: position.quality === PositionQuality.PRECISE ? 'gps' : 'geocoded',
             plantType: plant.type,
             ...(asset?.id ? { assetId: asset.id } : {}),
+            ...(plant.status === PlantStatus.DECOMMISSIONED ? { inactive: true } : {}),
           });
         } else {
           ungeolocated.push({
@@ -172,15 +161,16 @@ export class MapService {
     }
 
     if (showUtilities) {
+      const utilityWhere = {
+        deleted: false,
+        ...(filters.utilityTypeIds?.length ? { utility_type_id_fk: In(filters.utilityTypeIds) } : {}),
+        ...(filters.includeInactiveUtilities === false ? { supply_active: true } : {}),
+      };
+      // Nel perimetro: collegata a un immobile del perimetro o a un impianto di uno di questi.
       const utilities = await this.utilityRepo.find({
-        where: {
-          deleted: false,
-          ...(filters.utilityTypeIds?.length ? { utility_type_id_fk: In(filters.utilityTypeIds) } : {}),
-          // I filtri immobile vanno applicati anche alle utenze (tramite gli
-          // immobili collegati) — altrimenti col checkbox "Contatori" attivo i
-          // contatori restano sempre tutti visibili, filtro senza effetto visibile.
-          ...(hasAssetClassFilter ? { assets: assetClassWhere } : {}),
-        },
+        where: hasPerimeter
+          ? [{ ...utilityWhere, assets: perimeter }, { ...utilityWhere, plants: { assets: perimeter } }]
+          : utilityWhere,
         relations: { assets: true, plants: { assets: true }, utilityType: true },
       });
 
@@ -191,6 +181,7 @@ export class MapService {
           type: 'utility' as const,
           name: utility.utility_id,
           hardType: utility.utilityType?.hard_type,
+          ...(utility.supply_active === false ? { inactive: true } : {}),
         };
 
         const firstPlant = (utility.plants ?? []).find((p) => !p.deleted);

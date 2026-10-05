@@ -180,34 +180,14 @@ describe('MapService', () => {
     expect(ungeolocated).toEqual([{ id: 12, type: 'utility', name: 'UT-3', reason: 'no_address' }]);
   });
 
-  it('utilityTypeIds filtra anche gli IMMOBILI, non solo le utenze — solo asset con almeno una utenza del tipo', async () => {
-    utilityRepo.find
-      // Prima chiamata: query dedicata id-immobili-qualificanti.
-      .mockResolvedValueOnce([{ assets: [{ id: 7 }] }, { assets: [{ id: 7 }] }, { assets: [{ id: 9 }] }])
-      // Seconda chiamata: utenze per i punti mappa (stesso filtro, irrilevante qui).
-      .mockResolvedValueOnce([]);
+  it('utilityTypeIds non restringe più gli immobili (solo il livello utenze)', async () => {
     assetRepo.find.mockResolvedValue([]);
+    utilityRepo.find.mockResolvedValue([]);
 
     await service.getPoints({ utilityTypeIds: [5] });
 
-    expect(assetRepo.find).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ id: In([7, 9]) }),
-      }),
-    );
-  });
-
-  it('utilityTypeIds senza nessuna utenza corrispondente esclude tutti gli immobili (sentinella, non "IN ()")', async () => {
-    utilityRepo.find.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
-    assetRepo.find.mockResolvedValue([]);
-
-    await service.getPoints({ utilityTypeIds: [999] });
-
-    expect(assetRepo.find).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ id: In([-1]) }),
-      }),
-    );
+    expect(assetRepo.find.mock.calls[0][0].where).not.toHaveProperty('id');
+    expect(utilityRepo.find).toHaveBeenCalledTimes(1);
   });
 
   it('showAssets=false esclude gli asset dai risultati', async () => {
@@ -236,21 +216,59 @@ describe('MapService', () => {
     );
   });
 
-  it('natureIds/functionIds/statuses filtrano immobili e utenze (via immobili collegati)', async () => {
+  it('tipologia e funzione fanno da perimetro: immobili, utenze e impianti collegati', async () => {
     assetRepo.find.mockResolvedValue([]);
     utilityRepo.find.mockResolvedValue([]);
 
-    await service.getPoints({ natureIds: [1], functionIds: [2], statuses: ['Attivo'] as never });
+    await service.getPoints({ natureIds: [1], functionIds: [2] });
 
-    const assetWhere = { nature_id: In([1]), function_id: In([2]), status: In(['Attivo']) };
-    expect(assetRepo.find).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining(assetWhere) }),
-    );
-    expect(utilityRepo.find).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ assets: expect.objectContaining(assetWhere) }),
-      }),
-    );
+    const perimeter = { nature_id: In([1]), function_id: In([2]) };
+    expect(assetRepo.find.mock.calls[0][0].where).toEqual(expect.objectContaining(perimeter));
+    expect(plantRepo.find.mock.calls[0][0].where).toEqual(expect.objectContaining({ assets: perimeter }));
+    // Utenza nel perimetro se collegata a un immobile o a un impianto di un immobile del perimetro.
+    expect(utilityRepo.find.mock.calls[0][0].where).toEqual([
+      expect.objectContaining({ assets: perimeter }),
+      expect.objectContaining({ plants: { assets: perimeter } }),
+    ]);
+  });
+
+  it('lo stato filtra solo gli immobili, non il perimetro di utenze e impianti', async () => {
+    assetRepo.find.mockResolvedValue([]);
+    utilityRepo.find.mockResolvedValue([]);
+
+    await service.getPoints({ statuses: ['Attivo'] as never });
+
+    expect(assetRepo.find.mock.calls[0][0].where).toEqual(expect.objectContaining({ status: In(['Attivo']) }));
+    expect(plantRepo.find.mock.calls[0][0].where).not.toHaveProperty('assets');
+    expect(utilityRepo.find.mock.calls[0][0].where).not.toHaveProperty('assets');
+  });
+
+  it('utenze cessate escluse con includeInactiveUtilities=false, stati impianto filtrati', async () => {
+    assetRepo.find.mockResolvedValue([]);
+    utilityRepo.find.mockResolvedValue([]);
+
+    await service.getPoints({ includeInactiveUtilities: false, plantStatuses: ['ACTIVE'] as never });
+
+    expect(utilityRepo.find.mock.calls[0][0].where).toEqual(expect.objectContaining({ supply_active: true }));
+    expect(plantRepo.find.mock.calls[0][0].where).toEqual(expect.objectContaining({ status: In(['ACTIVE']) }));
+  });
+
+  it('segna inactive immobili dismessi, utenze cessate e impianti dismessi', async () => {
+    assetRepo.find.mockResolvedValue([
+      { id: 1, asset_name: 'A', address: 'x', latitude: '42.5', longitude: '14.1', status: 'Dismesso' },
+      { id: 2, asset_name: 'B', address: 'x', latitude: '42.6', longitude: '14.2', status: 'Attivo' },
+    ]);
+    plantRepo.find.mockResolvedValue([
+      { id: 3, name: 'P', type: 'FOUNTAIN', status: 'DECOMMISSIONED', latitude: '42.7', longitude: '14.3', assets: [] },
+    ]);
+    utilityRepo.find.mockResolvedValue([
+      { id: 4, utility_id: 'U', latitude: '42.8', longitude: '14.4', supply_active: false, assets: [], plants: [] },
+    ]);
+
+    const { points } = await service.getPoints({});
+
+    const flags = Object.fromEntries(points.map((p) => [`${p.type}${p.id}`, p.inactive ?? false]));
+    expect(flags).toEqual({ asset1: true, asset2: false, plant3: true, utility4: true });
   });
 
   it('utenza senza gps collegata a due immobili produce un punto per ciascuno', async () => {

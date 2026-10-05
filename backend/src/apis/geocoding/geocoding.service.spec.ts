@@ -61,6 +61,16 @@ describe('GeocodingService', () => {
       expect(options.headers['User-Agent']).toContain('UtenzePA');
     });
 
+    it('con viewbox limita la ricerca a quel riquadro (bounded)', async () => {
+      fetchMock.mockResolvedValue({ ok: true, json: async () => [{ lat: '42.51', lon: '14.14' }] });
+
+      await service.geocode('Via Roma', { viewbox: [14.04, 42.61, 14.24, 42.41] });
+
+      const [url] = fetchMock.mock.calls[0];
+      expect(url).toContain('viewbox=14.04,42.61,14.24,42.41');
+      expect(url).toContain('bounded=1');
+    });
+
     it('ritorna null se Nominatim non trova nulla', async () => {
       fetchMock.mockResolvedValue({ ok: true, json: async () => [] });
 
