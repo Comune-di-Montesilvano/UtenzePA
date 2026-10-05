@@ -43,6 +43,9 @@ import {assetStatus, costStatus, maintenanceStatus, plantStatus, StatusInfo, sup
 import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {partyName} from '../../core/helpers/party-name.helper';
+import {UtilityInvoicesTabComponent} from './utility-invoices-tab.component';
+import {CommitmentService} from '../contracts/commitments/commitment.service';
+import {forkJoin} from 'rxjs';
 
 // Tipi fornitura capitolo compatibili col tipo utenza; SPRAR sempre
 // compatibile (capitolo multi-utenza). Solo ordinamento, nessun blocco.
@@ -70,6 +73,7 @@ interface PlantRow {
   status?: PlantStatus;
 }
 
+
 @Component({
   selector: 'app-utility-edit-dialog',
   standalone: true,
@@ -78,7 +82,7 @@ interface PlantRow {
     MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatTabsModule,
     FilterableSelectComponent, LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
     UtilityConsumptionsTabComponent, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent,
-    PreviewCardComponent, LinkedTableComponent,
+    PreviewCardComponent, LinkedTableComponent, UtilityInvoicesTabComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-edit-dialog.component.html'
@@ -90,6 +94,7 @@ export class UtilityEditDialogComponent implements OnInit {
   private assetsService = inject(AssetService);
   private plantService = inject(PlantService);
   private budgetChapterService = inject(BudgetChaptersService);
+  private commitmentService = inject(CommitmentService);
   private utilityTypeService = inject(UtilityTypesService);
   private contractsService = inject(ContractsService);
   private navigator = inject(EntityNavigatorService);
@@ -111,6 +116,8 @@ export class UtilityEditDialogComponent implements OnInit {
   plantSelectOptions: TOption[] = [];
   budgetChapterOptions: TOption[] = [];
   private budgetChapters: BudgetChapter[] = [];
+  // Capitoli impegnati sui contratti aperti dell'utenza: in cima al select.
+  private committedChapterIds = new Set<number>();
 
   booleanOptions: TOption[] = [
     {label: 'Sì', value: true},
@@ -226,6 +233,7 @@ export class UtilityEditDialogComponent implements OnInit {
       },
       error: err => console.error('Errore nel caricamento dei Capitoli di Spesa:', err)
     });
+    this.loadCommittedChapters();
     this.utilityTypeService.search().subscribe({
       next: data => this.utilityTypeOptions = data,
       error: err => console.error('Errore nel caricamento dei Tipi Utenza:', err)
@@ -407,6 +415,7 @@ export class UtilityEditDialogComponent implements OnInit {
       this.contracts = contracts;
       this.data.item.contratti = contracts;
       this.refreshLinks();
+      this.loadCommittedChapters();
     });
   }
 
@@ -427,16 +436,33 @@ export class UtilityEditDialogComponent implements OnInit {
     this.buildBudgetChapterOptions();
   }
 
+  private loadCommittedChapters(): void {
+    const open = this.contracts.filter(c => !c.closed);
+    if (!open.length) return;
+    forkJoin(open.map(c => this.commitmentService.list(c.id))).subscribe({
+      next: lists => {
+        this.committedChapterIds = new Set(lists.flat().map(c => c.budget_chapter_id_fk));
+        this.buildBudgetChapterOptions();
+      },
+      error: err => console.error('Errore nel caricamento degli impegni:', err)
+    });
+  }
+
   private buildBudgetChapterOptions(): void {
     const compatible = (c: BudgetChapter) =>
       this.selectedHardType === null ||
       c.supply_type === SupplyType.SPRAR_UTILITIES ||
       CHAPTER_COMPATIBILITY[this.selectedHardType].includes(c.supply_type);
     const label = (c: BudgetChapter) => `${c.chapter_code}/${c.article ?? 0} — ${c.description ?? ''}`.trim();
+    const committed = (c: BudgetChapter) => this.committedChapterIds.has(c.id);
     this.budgetChapterOptions = [...this.budgetChapters]
-      .sort((a, b) => Number(compatible(b)) - Number(compatible(a)) || label(a).localeCompare(label(b)))
+      .sort((a, b) =>
+        Number(committed(b)) - Number(committed(a)) ||
+        Number(compatible(b)) - Number(compatible(a)) ||
+        label(a).localeCompare(label(b)))
       .map(c => {
         const parts = [
+          committed(c) ? 'impegnato sui contratti dell’utenza' : null,
           c.pdc ? `PDC ${c.pdc}` : null,
           SupplyTypeDescription[c.supply_type] ?? null,
           compatible(c) ? null : 'tipo fornitura diverso dall’utenza',
@@ -444,6 +470,7 @@ export class UtilityEditDialogComponent implements OnInit {
         return {
           label: label(c),
           value: c.id,
+          icon: committed(c) ? 'verified' : undefined,
           sublabel: parts.join(' · '),
           searchText: `${label(c)} ${c.pdc ?? ''}`,
         };

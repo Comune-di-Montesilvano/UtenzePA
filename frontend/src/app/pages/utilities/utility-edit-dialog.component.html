@@ -362,6 +362,15 @@
         }
       </mat-tab>
 
+      @if (!isNew) {
+        <mat-tab aria-label="Fatture">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="receipt_long" label="Fatture"></app-tab-label>
+          </ng-template>
+          <app-utility-invoices-tab [utilityId]="data.item.id"></app-utility-invoices-tab>
+        </mat-tab>
+      }
+
       <mat-tab aria-label="Note">
         <ng-template mat-tab-label>
           <app-tab-label icon="notes" label="Note" [dot]="filled('notes')"></app-tab-label>

@@ -163,6 +163,17 @@
                               [items]="grantPreview" emptyText="Nessun contratto attivo"
                               (seeAll)="goTo('Contratti immobiliari')" (open)="openGrant($event.id)"></app-preview-card>
           </div>
+          @if (assetSpending?.years?.length) {
+            <div class="sheet-stat" style="margin-top: 16px;">
+              <span class="sheet-section-title" style="margin: 0;">Spesa da fatture (IVA inclusa)</span>
+              @for (y of assetSpending!.years; track y.year) {
+                <span><strong>{{ y.year }}</strong>: {{ eur(y.total) }} ({{ y.invoices }} {{ y.invoices === 1 ? 'fattura' : 'fatture' }})</span>
+              }
+              @if (assetSpending!.shared_utilities > 0) {
+                <p class="sheet-hint">{{ assetSpending!.shared_utilities }} utenze sono collegate anche ad altri immobili: la loro spesa è contata intera anche qui.</p>
+              }
+            </div>
+          }
         }
       </mat-tab>
 
