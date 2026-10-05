@@ -11,6 +11,7 @@ import {EditDialogData} from '../../core/components/abstract-data-table.componen
 import {Invoice} from './entity/invoice.entity';
 import {InvoiceLine} from './entity/invoice-line.model';
 import {AuthService} from '../../services/auth.service';
+import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {ContractsService} from '../contracts/contract.service';
 import {Contract} from '../contracts/entity/contract.entity';
@@ -52,6 +53,7 @@ export class InvoiceEditDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<InvoiceEditDialogComponent, Invoice | undefined>);
   private authService = inject(AuthService);
+  private navigator = inject(EntityNavigatorService);
   private contractsService = inject(ContractsService);
   private thirdPartiesService = inject(ThirdPartiesService);
   private utilityService = inject(UtilityService);
@@ -92,33 +94,9 @@ export class InvoiceEditDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.contractsService.search({deleted: false}).subscribe({
-      next: data => {
-        this.contracts = data;
-        this.contractOptions = data
-          .map(c => ({label: c.cig_contract || `Contratto senza CIG (id ${c.id})`, value: c.id, sublabel: partyName(c.supplier) || undefined}))
-          .sort((a, b) => (a.label ?? '').localeCompare(b.label ?? ''));
-      },
-      error: err => console.error('Errore nel caricamento dei contratti:', err)
-    });
-    this.thirdPartiesService.search({deleted: false}).subscribe({
-      next: data => this.supplierOptions = data
-        .filter(p => p.type === 'LEGAL' || p.roles?.includes(PartyRole.SUPPLIER) || p.id === this.data.item.supplier_id_fk)
-        .map(p => ({label: partyName(p), value: p.id, sublabel: p.vat_number ?? undefined}))
-        .sort((a, b) => a.label.localeCompare(b.label)),
-      error: err => console.error('Errore nel caricamento dei fornitori:', err)
-    });
-    this.utilityService.search({deleted: false}).subscribe({
-      next: data => this.utilityOptions = data
-        .sort((a, b) => a.utility_id.localeCompare(b.utility_id))
-        .map(u => ({
-          label: u.utility_id,
-          value: u.id,
-          sublabel: [u.utilityType?.name, u.utility_code ? `cod. ${u.utility_code}` : null].filter(Boolean).join(' · '),
-          searchText: `${u.utility_id} ${u.utility_code ?? ''} ${u.meter_number ?? ''}`,
-        })),
-      error: err => console.error('Errore nel caricamento delle utenze:', err)
-    });
+    this.loadContracts();
+    this.loadSuppliers();
+    this.loadUtilities();
     this.loadCommitments(this.form.controls.contratto_id_fk.value);
     let previousContractId = this.form.controls.contratto_id_fk.value;
     this.form.controls.contratto_id_fk.valueChanges.subscribe(id => {
@@ -132,6 +110,69 @@ export class InvoiceEditDialogComponent implements OnInit {
         this.supplierLabel = partyName(contract?.supplier) || null;
       }
       this.loadCommitments(id, true);
+    });
+  }
+
+  private loadContracts(after?: () => void): void {
+    this.contractsService.search({deleted: false}).subscribe({
+      next: data => {
+        this.contracts = data;
+        this.contractOptions = data
+          .map(c => ({label: c.cig_contract || `Contratto senza CIG (id ${c.id})`, value: c.id, sublabel: partyName(c.supplier) || undefined}))
+          .sort((a, b) => (a.label ?? '').localeCompare(b.label ?? ''));
+        after?.();
+      },
+      error: err => console.error('Errore nel caricamento dei contratti:', err)
+    });
+  }
+
+  // Il fornitore corrente resta tra le opzioni anche se non risulta fornitore
+  // (es. persona appena creata dal "+").
+  private loadSuppliers(): void {
+    this.thirdPartiesService.search({deleted: false}).subscribe({
+      next: data => this.supplierOptions = data
+        .filter(p => p.type === 'LEGAL' || p.roles?.includes(PartyRole.SUPPLIER) || p.id === this.form.controls.supplier_id_fk.value)
+        .map(p => ({label: partyName(p), value: p.id, sublabel: p.vat_number ?? undefined}))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+      error: err => console.error('Errore nel caricamento dei fornitori:', err)
+    });
+  }
+
+  newContract(): void {
+    const supplier = this.form.controls.supplier_id_fk.value;
+    this.navigator.createSupplyContract([], supplier ? {supplier_id_fk: supplier} : {}).subscribe(c => {
+      if (!c) return;
+      // Il fornitore segue il contratto (valueChanges): serve il contratto tra quelli caricati.
+      this.loadContracts(() => this.form.controls.contratto_id_fk.setValue(c.id));
+      this.form.controls.contratto_id_fk.markAsDirty();
+    });
+  }
+
+  newSupplier(text: string): void {
+    this.navigator.createThirdParty({company_name: nameFrom(text)}).subscribe(p => {
+      if (!p) return;
+      this.form.controls.supplier_id_fk.setValue(p.id);
+      this.form.controls.supplier_id_fk.markAsDirty();
+      this.loadSuppliers();
+    });
+  }
+
+  onOptionsStale(kind: 'utilities' | 'commitments'): void {
+    if (kind === 'utilities') this.loadUtilities();
+    else this.loadCommitments(this.form.controls.contratto_id_fk.value);
+  }
+
+  private loadUtilities(): void {
+    this.utilityService.search({deleted: false}).subscribe({
+      next: data => this.utilityOptions = data
+        .sort((a, b) => a.utility_id.localeCompare(b.utility_id))
+        .map(u => ({
+          label: u.utility_id,
+          value: u.id,
+          sublabel: [u.utilityType?.name, u.utility_code ? `cod. ${u.utility_code}` : null].filter(Boolean).join(' · '),
+          searchText: `${u.utility_id} ${u.utility_code ?? ''} ${u.meter_number ?? ''}`,
+        })),
+      error: err => console.error('Errore nel caricamento delle utenze:', err)
     });
   }
 
