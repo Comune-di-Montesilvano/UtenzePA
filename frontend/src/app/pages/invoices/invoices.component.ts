@@ -4,14 +4,15 @@ import type {FilterValues} from '../../core/components/list/filter-def';
 import {InvoicesService} from './invoices.service';
 import {DataTableInvoicesComponent} from './data-table-invoices.component';
 import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
-import {invoiceFilters} from './invoices-filters';
+import {invoiceFilters, INVOICE_SIGNALS} from './invoices-filters';
+import {ListSignalsComponent} from '../../core/components/list/list-signals.component';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {Invoice} from './entity/invoice.entity';
 
 @Component({
   selector: 'app-invoices',
   standalone: true,
-  imports: [DataTableInvoicesComponent, ListFiltersComponent],
+  imports: [DataTableInvoicesComponent, ListFiltersComponent, ListSignalsComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './invoices.component.html'
 })
@@ -22,6 +23,7 @@ export class InvoicesComponent extends AbstractComponent<Invoice> {
   }
 
   override filterDefs = invoiceFilters();
+  readonly signals = INVOICE_SIGNALS;
   private route = inject(ActivatedRoute);
 
   override ngOnInit(): void {

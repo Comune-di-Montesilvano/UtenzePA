@@ -5,7 +5,8 @@ import {AbstractService} from '../services/abstract.service';
 import {AbstractEntity} from '../entities/abstract.entity';
 import {ActivatedRoute} from '@angular/router';
 import {Subscription} from 'rxjs';
-import {FilterDef, FilterValues} from './list/filter-def';
+import {FilterChip, FilterDef, FilterValues} from './list/filter-def';
+import type {ActiveSignal} from './list/list-signals.component';
 import {fromQueryParams, initialValues, toSearchParams} from './list/filter-values';
 
 @Component({
@@ -26,6 +27,11 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   filterValues: FilterValues = {};
   private quickText = '';
   private pendingSearch?: Subscription;
+  /** Segnalazione scelta nel pannello (filtro lato client sugli id) e suo chip. */
+  signal: ActiveSignal | null = null;
+  signalChips: FilterChip[] = [];
+  /** Cresce a ogni salvataggio: il pannello segnalazioni ricalcola le anomalie. */
+  signalsToken = 0;
 
   protected authService = inject(AuthService);
   protected messageService = inject(ToastService);
@@ -79,12 +85,27 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
     this.resetPagingCount++;
   }
 
-  // Ricerca libera sui dati già caricati con i filtri correnti.
+  onSignal(s: ActiveSignal): void {
+    this.signal = s;
+    this.signalChips = [{key: 'signal', text: `Segnalazione: ${s.label}`}];
+    this.applyQuick();
+    this.resetPagingCount++;
+  }
+
+  clearSignal(): void {
+    this.signal = null;
+    this.signalChips = [];
+    this.applyQuick();
+    this.resetPagingCount++;
+  }
+
+  // Ricerca libera e segnalazione sui dati già caricati con i filtri correnti.
   protected applyQuick(): void {
     const q = this.quickText;
-    this.list = q
-      ? this.allItems.filter(i => this.flatValues(i).some(v => String(v).toLowerCase().includes(q)))
-      : [...this.allItems];
+    const ids = this.signal?.ids;
+    this.list = this.allItems.filter(i =>
+      (!ids || ids.has(i.id)) &&
+      (!q || this.flatValues(i).some(v => String(v).toLowerCase().includes(q))));
   }
 
   // Link dalla dashboard: query param con il nome di un filtro lo valorizzano;
@@ -117,6 +138,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
           const index = this.list.findIndex(u => u.id === item.id);
           if (index !== -1) this.list[index] = item;
           this.loadAll();
+          this.signalsToken++;
           this.messageService.add(
             {
               key: 'global',
@@ -144,6 +166,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
               key: 'global'
             });
           this.loadAll();
+          this.signalsToken++;
         },
         error: (err: any) => {
           // handleError mostra il messaggio del backend (es. 409 "Tipologia
@@ -157,6 +180,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
     this.service.update(entity.id, {deleted: false, updated_by_user_id: this.userId} as any)
         .subscribe(() => {
           this.loadAll();
+          this.signalsToken++;
         });
   }
 
@@ -174,6 +198,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
               key: 'global'
             });
           this.loadAll();
+          this.signalsToken++;
         },
         error: (err: any) => {
           this.handleError(err, 'Errore generico nella creazione');

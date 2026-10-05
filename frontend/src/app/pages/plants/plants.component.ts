@@ -33,7 +33,9 @@ import {ListFiltersComponent} from '../../core/components/list/list-filters.comp
 import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
 import type {FilterValues} from '../../core/components/list/filter-def';
 import {fromQueryParams, toSearchParams} from '../../core/components/list/filter-values';
-import {plantFilters} from './plants-filters';
+import {PLANT_SIGNALS, plantFilters} from './plants-filters';
+import {ActiveSignal, ListSignalsComponent} from '../../core/components/list/list-signals.component';
+import type {FilterChip} from '../../core/components/list/filter-def';
 
 // Colonne visibili ricordate (tutte, se nessuna scelta salvata).
 const COLUMNS_KEY = 'columns:plants';
@@ -68,7 +70,7 @@ const readPageSize = (): number => {
   imports: [
     FormsModule, MatTableModule, MatSortModule, MatPaginatorModule, MatButtonModule, MatIconModule,
     MatTooltipModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatProgressBarModule, HasRoleDirective,
-    ListFiltersComponent, ListToolbarComponent,
+    ListFiltersComponent, ListToolbarComponent, ListSignalsComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
@@ -76,7 +78,10 @@ const readPageSize = (): number => {
       <h1>Impianti</h1>
       <p class="list-subtitle">Impianti tecnologici degli immobili e del territorio: dati tecnici, verifiche periodiche, utenze collegate.</p>
       <app-list-filters [defs]="filterDefs" [values]="filterValues" placeholder="Cerca codice, nome, indirizzo, immobile, utenza..."
-                        (valuesChange)="onFilters($event)" (quickSearch)="query = $event; applyFilter()"></app-list-filters>
+                        (valuesChange)="onFilters($event)" (quickSearch)="query = $event; applyFilter()"
+                        [extraChips]="signalChips" (extraChipRemoved)="setSignal(null)"></app-list-filters>
+      <app-list-signals [signals]="signals" [reloadToken]="signalsToken" [activeKey]="signal?.key ?? null"
+                        (selected)="setSignal($event)"></app-list-signals>
 
       <div style="margin-top: 1rem;">
         <app-list-toolbar [count]="dataSource.filteredData.length" createLabel="Nuovo impianto"
@@ -210,6 +215,11 @@ export class PlantsComponent implements OnInit, AfterViewInit {
   loading = false;
   query = '';
   readonly filterDefs = plantFilters();
+  readonly signals = PLANT_SIGNALS;
+  signal: ActiveSignal | null = null;
+  signalChips: FilterChip[] = [];
+  signalsToken = 0;
+  private rows: Plant[] = [];
   filterValues: FilterValues = {};
   pageSize = readPageSize();
 
@@ -286,7 +296,10 @@ export class PlantsComponent implements OnInit, AfterViewInit {
       plantId: item?.id ?? plantId ?? null,
       readOnly: !role || role === 'Lettore',
     }).afterClosed().subscribe(saved => {
-      if (saved) this.reload();
+      if (saved) {
+        this.reload();
+        this.signalsToken++;
+      }
     });
   }
 
@@ -297,7 +310,10 @@ export class PlantsComponent implements OnInit, AfterViewInit {
     }).afterClosed().subscribe(confirmed => {
       if (!confirmed) return;
       this.service.delete(p.id).subscribe({
-        next: () => this.reload(),
+        next: () => {
+          this.reload();
+          this.signalsToken++;
+        },
         error: err => console.error('Errore eliminazione impianto:', err),
       });
     });
@@ -336,12 +352,25 @@ export class PlantsComponent implements OnInit, AfterViewInit {
     }
   }
 
+  // Segnalazione scelta nel pannello: filtro lato client sugli id.
+  setSignal(s: ActiveSignal | null): void {
+    this.signal = s;
+    this.signalChips = s ? [{key: 'signal', text: `Segnalazione: ${s.label}`}] : [];
+    this.showRows();
+  }
+
+  private showRows(): void {
+    const ids = this.signal?.ids;
+    this.dataSource.data = ids ? this.rows.filter(p => ids.has(p.id)) : this.rows;
+    this.applyFilter();
+  }
+
   reload(): void {
     this.loading = true;
     this.service.list(toSearchParams(this.filterDefs, this.filterValues) as PlantFilters).subscribe({
       next: rows => {
-        this.dataSource.data = rows;
-        this.applyFilter();
+        this.rows = rows;
+        this.showRows();
         this.loading = false;
       },
       error: err => {

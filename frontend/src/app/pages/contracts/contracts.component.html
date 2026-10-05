@@ -2,7 +2,10 @@
   <h1>Contratti di fornitura</h1>
   <p class="list-subtitle">Contratti di fornitura e utenze che coprono.</p>
   <app-list-filters [defs]="filterDefs" [values]="filterValues" placeholder="Cerca CIG, fornitore, convenzione..."
-                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"></app-list-filters>
+                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"
+                    [extraChips]="signalChips" (extraChipRemoved)="clearSignal()"></app-list-filters>
+  <app-list-signals [signals]="signals" [reloadToken]="signalsToken" [activeKey]="signal?.key ?? null"
+                    (selected)="onSignal($event)"></app-list-signals>
   <div style="margin-top: 1rem;">
     <app-data-table-contracts
       #dataTable

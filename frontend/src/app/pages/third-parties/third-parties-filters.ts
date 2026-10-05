@@ -1,3 +1,4 @@
+import type {SignalDef} from '../../core/components/list/list-signals.component';
 import {DELETED_FILTER, FilterDef} from '../../core/components/list/filter-def';
 import {PartyRole, ROLE_LABEL, ThirdPartyType, TYPE_LABEL} from './third-party.model';
 import {ContractKind, KIND_LABEL} from '../utilizer-grant/real-estate-contract.model';
@@ -15,3 +16,8 @@ export function thirdPartyFilters(): FilterDef[] {
     DELETED_FILTER,
   ];
 }
+
+// Segnalazioni dell'elenco (anomalie della dashboard).
+export const THIRD_PARTY_SIGNALS: SignalDef[] = [
+  {key: 'third_parties_without_identifier', label: 'Senza P.IVA o codice fiscale'},
+];

@@ -3,7 +3,10 @@
   <p class="list-subtitle">Fatture dei fornitori, righe per utenza e impegni.</p>
 
   <app-list-filters [defs]="filterDefs" [values]="filterValues" placeholder="Cerca numero, protocollo, note..."
-                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"></app-list-filters>
+                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"
+                    [extraChips]="signalChips" (extraChipRemoved)="clearSignal()"></app-list-filters>
+  <app-list-signals [signals]="signals" [reloadToken]="signalsToken" [activeKey]="signal?.key ?? null"
+                    (selected)="onSignal($event)"></app-list-signals>
 
   <div style="margin-top: 1rem;">
     <app-data-table-invoices

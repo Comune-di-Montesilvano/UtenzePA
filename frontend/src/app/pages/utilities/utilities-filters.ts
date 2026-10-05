@@ -1,3 +1,4 @@
+import type {SignalDef} from '../../core/components/list/list-signals.component';
 import {inject} from '@angular/core';
 import {map} from 'rxjs';
 import {DELETED_FILTER, FilterDef} from '../../core/components/list/filter-def';
@@ -87,3 +88,15 @@ export function utilityFilters(): FilterDef[] {
     DELETED_FILTER,
   ];
 }
+
+// Segnalazioni dell'elenco (anomalie della dashboard).
+export const UTILITY_SIGNALS: SignalDef[] = [
+  {key: 'active_utilities_without_contract', label: 'Attive senza contratto di fornitura valido'},
+  {key: 'active_utilities_without_cig_contract', label: 'Attive coperte solo da contratti senza CIG'},
+  {key: 'utilities_with_overlapping_contracts', label: 'Con contratti di fornitura sovrapposti'},
+  {key: 'active_utilities_without_arera_category', label: 'Attive senza tipologia ARERA'},
+  {key: 'active_gas_utilities_without_use_category', label: "Gas attive senza categoria d'uso"},
+  {key: 'utilities_to_transfer', label: 'Da volturare'},
+  {key: 'utilities_to_recover', label: 'Volturate da riprendere'},
+  {key: 'utilities_with_uncommitted_chapter', label: 'Capitolo non impegnato sul contratto di fornitura'},
+];

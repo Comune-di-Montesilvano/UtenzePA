@@ -1,3 +1,4 @@
+import type {SignalDef} from '../../core/components/list/list-signals.component';
 import {FilterDef} from '../../core/components/list/filter-def';
 import {PLANT_STATUS_LABEL, PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PLANT_TYPES, PlantStatus} from './plant.model';
 
@@ -15,3 +16,9 @@ export function plantFilters(): FilterDef[] {
         {label: 'Stimata', value: 'estimated'}, {label: 'Assente', value: 'missing'}]},
   ];
 }
+
+// Segnalazioni dell'elenco (anomalie della dashboard).
+export const PLANT_SIGNALS: SignalDef[] = [
+  {key: 'plants_without_position', label: 'Senza posizione'},
+  {key: 'plants_without_asset', label: 'Senza immobile'},
+];

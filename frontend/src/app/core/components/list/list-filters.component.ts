@@ -49,9 +49,15 @@ const LONG_LIST = 12;
         <mat-icon>filter_list</mat-icon> Filtri avanzati{{ advancedCount ? ' (' + advancedCount + ')' : '' }}
       </button>
     </div>
-    @if (chips.length) {
+    @if (chips.length || extraChips.length) {
       <div class="lf-chips">
         <mat-chip-set aria-label="Filtri attivi">
+          @for (c of extraChips; track c.key) {
+            <mat-chip class="lf-extra" (removed)="extraChipRemoved.emit(c.key)">
+              {{ c.text }}
+              <button matChipRemove [attr.aria-label]="'Togli ' + c.text"><mat-icon>cancel</mat-icon></button>
+            </mat-chip>
+          }
           @for (c of chips; track c.key) {
             <mat-chip (removed)="remove(c.key)">
               {{ c.text }}
@@ -69,6 +75,7 @@ const LONG_LIST = 12;
     .lf-search { flex: 1 1 260px; }
     .lf-inline { flex: 0 1 220px; min-width: 160px; }
     .lf-adv { height: 56px; }
+    .lf-extra { --mdc-chip-elevated-container-color: #fef3c7; }
     .lf-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
   `],
 })
@@ -78,6 +85,9 @@ export class ListFiltersComponent implements OnInit, OnChanges {
   @Input() placeholder = 'Cerca...';
   @Output() valuesChange = new EventEmitter<FilterValues>();
   @Output() quickSearch = new EventEmitter<string>();
+  // Chip gestiti dalla pagina, fuori dai FilterDef (es. la segnalazione scelta).
+  @Input() extraChips: FilterChip[] = [];
+  @Output() extraChipRemoved = new EventEmitter<string>();
 
   private dialog = inject(MatDialog);
   readonly text$ = new Subject<string>();
@@ -128,6 +138,7 @@ export class ListFiltersComponent implements OnInit, OnChanges {
   }
 
   reset(): void {
+    for (const c of this.extraChips) this.extraChipRemoved.emit(c.key);
     this.emit(initialValues(this.defs));
   }
 

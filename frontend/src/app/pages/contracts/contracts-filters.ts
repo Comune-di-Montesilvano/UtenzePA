@@ -1,3 +1,4 @@
+import type {SignalDef} from '../../core/components/list/list-signals.component';
 import {inject} from '@angular/core';
 import {map} from 'rxjs';
 import {DELETED_FILTER, FilterDef} from '../../core/components/list/filter-def';
@@ -21,3 +22,9 @@ export function contractFilters(): FilterDef[] {
     DELETED_FILTER,
   ];
 }
+
+// Segnalazioni dell'elenco (anomalie della dashboard).
+export const CONTRACT_SIGNALS: SignalDef[] = [
+  {key: 'contracts_without_cig', label: 'Senza CIG (non esclusi)'},
+  {key: 'duplicate_cigs', label: 'CIG duplicati', ids: items => items.flatMap(i => i.contracts)},
+];

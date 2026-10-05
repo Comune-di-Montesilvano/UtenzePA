@@ -1,3 +1,4 @@
+import type {SignalDef} from '../../core/components/list/list-signals.component';
 import {inject} from '@angular/core';
 import {map} from 'rxjs';
 import {DELETED_FILTER, FilterDef} from '../../core/components/list/filter-def';
@@ -42,3 +43,9 @@ export function grantFilters(): FilterDef[] {
     DELETED_FILTER,
   ];
 }
+
+// Segnalazioni dell'elenco (anomalie della dashboard).
+export const GRANT_SIGNALS: SignalDef[] = [
+  {key: 'real_estate_contracts_without_assets', label: 'Senza immobile'},
+  {key: 'real_estate_contracts_without_parties', label: 'Senza parti'},
+];

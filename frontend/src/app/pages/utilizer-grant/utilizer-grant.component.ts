@@ -2,7 +2,8 @@ import {Component, ChangeDetectionStrategy, ViewChild} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
 import {DataTableUtilizerGrantComponent} from './data-table-utilizer-grant.component';
 import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
-import {grantFilters} from './utilizer-grant-filters';
+import {grantFilters, GRANT_SIGNALS} from './utilizer-grant-filters';
+import {ListSignalsComponent} from '../../core/components/list/list-signals.component';
 import {UtilizerGrantService} from './utilizer-grant.service';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {UtilizerGrant} from './entity/utilizer-grant.entity';
@@ -13,7 +14,7 @@ import {formatEuro} from './real-estate-contract.model';
   standalone: true,
   imports: [
     DataTableUtilizerGrantComponent,
-    ListFiltersComponent
+    ListFiltersComponent, ListSignalsComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utilizer-grant.component.html',
@@ -29,6 +30,7 @@ export class UtilizerGrantComponent extends AbstractComponent<UtilizerGrant> {
   }
 
   override filterDefs = grantFilters();
+  readonly signals = GRANT_SIGNALS;
 
   // Link dalla dashboard: ?alert=notice|expiring|expired_active|without_assets
   // filtra l'elenco, ?selectedId=N apre il contratto.

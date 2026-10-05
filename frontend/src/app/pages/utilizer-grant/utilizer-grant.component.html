@@ -2,7 +2,10 @@
   <h1>Contratti immobiliari</h1>
   <p class="list-subtitle">Locazioni, concessioni, comodati e assegnazioni degli immobili comunali, attivi e passivi.</p>
   <app-list-filters [defs]="filterDefs" [values]="filterValues" placeholder="Cerca oggetto, parte, atto..."
-                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"></app-list-filters>
+                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"
+                    [extraChips]="signalChips" (extraChipRemoved)="clearSignal()"></app-list-filters>
+  <app-list-signals [signals]="signals" [reloadToken]="signalsToken" [activeKey]="signal?.key ?? null"
+                    (selected)="onSignal($event)"></app-list-signals>
   @let t = totals();
   <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; margin-top: 0.75rem; color: #374151;">
     <span>Entrate annue: <strong>{{ euro(t.income) }}</strong></span>

@@ -1,3 +1,4 @@
+import type {SignalDef} from '../../core/components/list/list-signals.component';
 import {inject} from '@angular/core';
 import {map} from 'rxjs';
 import {DELETED_FILTER, FilterDef} from '../../core/components/list/filter-def';
@@ -48,3 +49,8 @@ export function assetFilters(): FilterDef[] {
     DELETED_FILTER,
   ];
 }
+
+// Segnalazioni dell'elenco (anomalie della dashboard).
+export const ASSET_SIGNALS: SignalDef[] = [
+  {key: 'assets_without_classification', label: 'Da classificare (tipologia o funzione mancanti)'},
+];

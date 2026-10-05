@@ -3,14 +3,15 @@ import {ActivatedRoute} from '@angular/router';
 import {UtilityService} from './utility.service';
 import {DataTableUtilitiesComponent} from './data-table-utilities.component';
 import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
-import {utilityFilters} from './utilities-filters';
+import {utilityFilters, UTILITY_SIGNALS} from './utilities-filters';
+import {ListSignalsComponent} from '../../core/components/list/list-signals.component';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {Utility} from './entity/utility.entity';
 
 @Component({
   selector: 'app-utilities',
   standalone: true,
-  imports: [DataTableUtilitiesComponent, ListFiltersComponent],
+  imports: [DataTableUtilitiesComponent, ListFiltersComponent, ListSignalsComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utilities.component.html'
 })
@@ -19,6 +20,7 @@ export class UtilitiesComponent extends AbstractComponent<Utility> {
   @ViewChild('dataTable') dataTable!: DataTableUtilitiesComponent;
 
   override filterDefs = utilityFilters();
+  readonly signals = UTILITY_SIGNALS;
 
   constructor(
     protected override service: UtilityService,

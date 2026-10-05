@@ -1,3 +1,4 @@
+import type {SignalDef} from '../../core/components/list/list-signals.component';
 import {inject} from '@angular/core';
 import {map} from 'rxjs';
 import {DELETED_FILTER, FilterDef} from '../../core/components/list/filter-def';
@@ -38,3 +39,9 @@ export function invoiceFilters(): FilterDef[] {
     DELETED_FILTER,
   ];
 }
+
+// Segnalazioni dell'elenco (anomalie della dashboard).
+export const INVOICE_SIGNALS: SignalDef[] = [
+  {key: 'invoices_on_ceased_utilities', label: 'Su utenze cessate', ids: items => items.map(i => i.invoice_id)},
+  {key: 'invoice_lines_without_utility', label: 'Con righe senza utenza', ids: items => items.map(i => i.invoice_id)},
+];
