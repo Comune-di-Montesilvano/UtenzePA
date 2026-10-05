@@ -77,7 +77,7 @@ Spostare/cancellare un file `.ts` sotto `nest start --watch` non ripulisce sempr
 
 Nota: gli script `docker:dev*` in `backend/package.json` referenziano `docker-compose-development.yml`, che non esiste nel repo — non funzionanti allo stato attuale, usare il `docker-compose.yml` di root o `pnpm run start:dev` in locale.
 
-Alcuni sorgenti hanno fine riga CRLF (es. `backend/src/app.module.ts`): `sed` con `;$` non matcha. Per modifiche via script usare Python preservando `
+Alcuni sorgenti hanno fine riga CRLF (es. `backend/src/app.module.ts`): `sed` con `;$` non matcha. Per modifiche via script usare Python preservando `
 `, e ricontrollare doppioni.
 
 `docker exec -u root utenzepa-api-1 pnpm ...` (necessario a volte, es. store `.pnpm-store` readonly da un run precedente) lascia `node_modules`/`.pnpm-store` root-owned — rompe subito dopo il watch `nest start --watch` (gira come 1000:1000): sempre `chown -R 1000:1000 node_modules .pnpm-store` dopo qualunque comando pnpm lanciato come root nel container dev, poi `docker restart utenzepa-api-1` se il watch era già andato in errore.
