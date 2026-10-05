@@ -6,10 +6,9 @@ import {
   PlantStatus,
   POSITION_LABEL,
   PositionQuality,
-  todayIso,
 } from '../../pages/plants/plant.model';
 import {ContractStatus, DisplayStatus, STATUS_LABEL} from '../../pages/utilizer-grant/real-estate-contract.model';
-import {toIsoDate} from '../../pages/utilities/consumptions/consumption.model';
+import {todayIso, toIsoDate} from './date.helper';
 
 // Badge di stato delle schede entità: tono semantico + testo. Funzioni pure,
 // riusabili in header, tabelle collegamenti e anteprime.

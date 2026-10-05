@@ -77,9 +77,5 @@ export function formatDateIt(iso: string | null | undefined): string {
   return `${d}/${m}/${y}`;
 }
 
-// Data locale (non UTC): un Date del datepicker a mezzanotte locale con
-// toISOString() slitterebbe al giorno prima.
-export function toIsoDate(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
+// Spostata in core (usata anche dalle schede): resta esportata da qui.
+export {toIsoDate} from '../../../core/helpers/date.helper';

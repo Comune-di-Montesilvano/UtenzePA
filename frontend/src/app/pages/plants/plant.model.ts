@@ -136,11 +136,9 @@ const addDaysIso = (iso: string, days: number): string => {
   return date.toISOString().slice(0, 10);
 };
 
-export const todayIso = (): string => {
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-};
+// Spostata in core (usata anche dalle schede): resta esportata da qui.
+import {todayIso} from '../../core/helpers/date.helper';
+export {todayIso};
 
 // Stessa regola del backend (inspectionStatus, 60 giorni).
 export function inspectionStatusOf(nextDate: string | null, today = todayIso()): InspectionStatus {
