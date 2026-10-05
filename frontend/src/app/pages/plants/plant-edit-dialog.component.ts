@@ -414,6 +414,27 @@ export class PlantEditDialogComponent implements OnInit {
     this.dialogRef.close(this.saved ? this.plant : null);
   }
 
+  newAsset(): void {
+    this.navigator.createAsset().subscribe(a => {
+      if (!a) return;
+      this.loadAssets();
+      this.addAsset(a.id);
+    });
+  }
+
+  // Solo con impianto salvato: un'utenza senza immobile né impianto non si
+  // salva. Il legame è già sul server: va tra i salvati, non tra le modifiche.
+  newUtility(): void {
+    if (!this.plant) return;
+    this.navigator.createUtility(Utility.create({plant_ids: [this.plant.id]})).subscribe(u => {
+      if (!u) return;
+      this.loadUtilities();
+      this.savedUtilityIds.add(u.id);
+      this.addUtility(u.id);
+      this.saved = true;
+    });
+  }
+
   reloadPlant(): void {
     this.saved = true;
     if (this.plant) this.load(this.plant.id, false);
