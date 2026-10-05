@@ -53,6 +53,8 @@
         placeholder="Cerca fornitore..."
         [options]="supplierOptions"
         formControlName="supplier_id"
+        [createLabel]="form.disabled ? null : 'Nuovo soggetto terzo'"
+        (create)="newSupplier($event)"
         [errorMessage]="form.controls.supplier_id.invalid && form.controls.supplier_id.touched ? 'Obbligatorio' : null">
       </app-filterable-select>
     </div>
