@@ -56,7 +56,7 @@ export class SidebarComponent implements OnInit {
     {label: 'Soggetti terzi', icon: 'groups', route: '/third-parties', groupLabel: 'Gestione economica'},
     {label: 'Capitoli di Spesa', icon: 'attach_money', route: '/budget-chapter'},
     {label: 'Fatture', icon: 'receipt_long', route: '/invoices'},
-    {label: 'Contratti', icon: 'description', route: '/contracts'},
+    {label: 'Contratti di fornitura', icon: 'description', route: '/contracts'},
     {label: 'Impostazioni', icon: 'settings', submenu: [
         {label: 'Tipologie Immobili', icon: 'category', route: '/asset-nature'},
         {label: 'Funzioni Immobili', icon: 'widgets', route: '/asset-function'},

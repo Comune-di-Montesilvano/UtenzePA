@@ -72,6 +72,14 @@
             <mat-label>Civico</mat-label>
             <input matInput formControlName="civic_number">
           </mat-form-field>
+          <mat-form-field>
+            <mat-label>Latitudine</mat-label>
+            <input matInput formControlName="latitude" placeholder="Es. 42.5125" geoLatitude>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Longitudine</mat-label>
+            <input matInput formControlName="longitude" placeholder="Es. 14.1450" geoLongitude>
+          </mat-form-field>
         </div>
         <app-location-map
           [latitude]="form.controls.latitude.value"

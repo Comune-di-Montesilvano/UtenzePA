@@ -26,7 +26,7 @@ import { Observable } from 'rxjs';
 const ENTITY_OPTIONS: TOption[] = [
   { label: 'Immobili', value: 'assets' },
   { label: 'Utenze', value: 'utilities' },
-  { label: 'Contratti', value: 'contract' },
+  { label: 'Contratti di fornitura', value: 'contract' },
   { label: 'Fatture', value: 'Invoice' },
   { label: 'Fornitori', value: 'suppliers' },
   { label: 'Utenti', value: 'user' },

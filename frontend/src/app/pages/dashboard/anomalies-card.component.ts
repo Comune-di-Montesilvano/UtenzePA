@@ -85,7 +85,7 @@ const formatDate = (iso: string | null): string => {
           <mat-icon [style.color]="total > 0 ? '#dc2626' : '#16a34a'">{{ total > 0 ? 'report_problem' : 'verified' }}</mat-icon>
           Anomalie dati contrattuali
         </mat-card-title>
-        <mat-card-subtitle>Un contratto senza CIG, e non escluso, è considerato inesistente.</mat-card-subtitle>
+        <mat-card-subtitle>Un contratto di fornitura senza CIG, e non escluso, è considerato inesistente.</mat-card-subtitle>
       </mat-card-header>
       <mat-card-content>
         @if (!data) {
@@ -96,10 +96,10 @@ const formatDate = (iso: string | null): string => {
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.contracts_without_cig.count === 0">{{ data.contracts_without_cig.count }}</span>
-                  Contratti senza CIG
+                  Contratti di fornitura senza CIG
                 </mat-panel-title>
               </mat-expansion-panel-header>
-              <button mat-stroked-button (click)="openContracts()" style="margin-bottom: 0.5rem;">Apri elenco contratti</button>
+              <button mat-stroked-button (click)="openContracts()" style="margin-bottom: 0.5rem;">Apri elenco contratti di fornitura</button>
               <ul class="anomaly-list">
                 @for (c of data.contracts_without_cig.items; track c.id) {
                   <li (click)="openContract(c.id)">
@@ -113,7 +113,7 @@ const formatDate = (iso: string | null): string => {
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.active_utilities_without_cig_contract.count === 0">{{ data.active_utilities_without_cig_contract.count }}</span>
-                  Utenze attive coperte solo da contratti senza CIG
+                  Utenze attive coperte solo da contratti di fornitura senza CIG
                 </mat-panel-title>
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
@@ -127,7 +127,7 @@ const formatDate = (iso: string | null): string => {
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.active_utilities_without_contract.count === 0">{{ data.active_utilities_without_contract.count }}</span>
-                  Utenze attive senza contratto valido
+                  Utenze attive senza contratto di fornitura valido
                 </mat-panel-title>
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
@@ -197,7 +197,7 @@ const formatDate = (iso: string | null): string => {
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.utilities_with_overlapping_contracts.count === 0">{{ data.utilities_with_overlapping_contracts.count }}</span>
-                  Utenze con contratti sovrapposti
+                  Utenze con contratti di fornitura sovrapposti
                 </mat-panel-title>
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
@@ -321,7 +321,7 @@ const formatDate = (iso: string | null): string => {
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.utilities_with_uncommitted_chapter.count === 0">{{ data.utilities_with_uncommitted_chapter.count }}</span>
-                  Utenze con capitolo non impegnato sul contratto
+                  Utenze con capitolo non impegnato sul contratto di fornitura
                 </mat-panel-title>
               </mat-expansion-panel-header>
               <ul class="anomaly-list">

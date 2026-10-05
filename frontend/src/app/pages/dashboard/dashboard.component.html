@@ -69,12 +69,12 @@
       <mat-card>
         <mat-card-header style="display: flex; flex-direction: row; padding: 1.25rem 1.25rem;">
           <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-            <mat-card-title style="font-size: 1.1rem;">Contratti in scadenza</mat-card-title>
-            <mat-card-subtitle>Contratti in scadenza nei prossimi {{ expireMonths }} mesi.</mat-card-subtitle>
+            <mat-card-title style="font-size: 1.1rem;">Contratti di fornitura in scadenza</mat-card-title>
+            <mat-card-subtitle>Contratti di fornitura in scadenza nei prossimi {{ expireMonths }} mesi.</mat-card-subtitle>
           </div>
           <div style="display: flex; flex-direction: row; gap: 1rem; align-items: center; margin-left: auto;">
             <button mat-stroked-button (click)="navigateToExpiringContracts()">
-              Vedi tutti i contratti in scadenza
+              Vedi tutti i contratti di fornitura in scadenza
             </button>
           </div>
         </mat-card-header>
@@ -123,7 +123,7 @@
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="5" style="text-align: center; padding: 1rem;">Nessun contratto in scadenza nei prossimi {{ expireMonths }} mesi.</td>
+                    <td colspan="5" style="text-align: center; padding: 1rem;">Nessun contratto di fornitura in scadenza nei prossimi {{ expireMonths }} mesi.</td>
                   </tr>
                 }
               </tbody>
