@@ -318,6 +318,7 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   flags(): StatusInfo[] {
+    if (!this.isMetered) return [];
     return utilityFlags(this.form.controls.meter_removed.value, this.form.controls.meter_verified.value);
   }
 
