@@ -13,6 +13,7 @@ import {MatSelectModule} from '@angular/material/select';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {Contract} from './entity/contract.entity';
+import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {ContractEditDialogComponent} from './contract-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
@@ -21,7 +22,7 @@ import {partyName} from '../../core/helpers/party-name.helper';
 @Component({
   selector: 'app-data-table-contracts',
   standalone: true,
-  imports: [
+  imports: [ListToolbarComponent, 
     MatTableModule, MatSortModule, MatPaginatorModule, MatButtonModule, MatIconModule,
     MatTooltipModule, MatProgressBarModule, DatePipe, HasRoleDirective,
     FormsModule, MatFormFieldModule, MatSelectModule
