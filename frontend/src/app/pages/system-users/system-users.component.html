@@ -1,12 +1,9 @@
 <div style="padding: 1rem;">
-  <div>
-    <h1>Utenti e ruoli</h1>
-    <p style="color: #6A7282;">Gestisci gli utenti del sistema e i loro ruoli</p>
-  </div>
+  <h1>Utenti e ruoli</h1>
+  <p class="list-subtitle">Utenti del sistema e loro ruoli.</p>
+  <app-list-filters [defs]="filterDefs" [values]="filterValues" placeholder="Cerca nome, email..."
+                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"></app-list-filters>
   <div style="margin-top: 1rem;">
-    <app-search-users (search)="onSearch($event)"></app-search-users>
-  </div>
-  <div style="margin-top: 1.5rem;">
     <app-data-table-users
       [data]="list"
       [loading]="loading"

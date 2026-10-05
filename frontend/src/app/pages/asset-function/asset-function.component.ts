@@ -3,16 +3,19 @@ import {AbstractComponent} from '../../core/components/abstract.component';
 import {AssetFunction} from './entity/asset-function.entity';
 import {AssetFunctionsService} from './asset-function.service';
 import {DataTableAssetFunctionComponent} from './data-table-asset-function.component';
-import {SearchAssetFunctionComponent} from './search-asset-function.component';
+import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
+import {assetFunctionFilters} from './asset-function-filters';
 
 @Component({
   selector: 'app-asset-function',
   standalone: true,
-  imports: [DataTableAssetFunctionComponent, SearchAssetFunctionComponent],
+  imports: [DataTableAssetFunctionComponent, ListFiltersComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './asset-function.component.html'
 })
 export class AssetFunctionComponent extends AbstractComponent<AssetFunction> {
+  override filterDefs = assetFunctionFilters();
+
   constructor(protected override service: AssetFunctionsService) {
     super();
     this.qsearchFields = ['name'];

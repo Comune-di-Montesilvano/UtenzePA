@@ -3,19 +3,22 @@ import {UtilityTypesService} from './utility-types.service';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {UtilityType} from './entity/utility-type.entity';
 import {DataTableUtilityTypesComponent} from './data-table-utility-types.component';
-import {SearchFormUtilityTypes} from './search-utility-types.component';
+import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
+import {utilityTypeFilters} from './utility-types-filters';
 
 @Component({
   selector: 'app-utilityTypes',
   standalone: true,
   imports: [
     DataTableUtilityTypesComponent,
-    SearchFormUtilityTypes
+    ListFiltersComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-types.component.html'
 })
 export class UtilityTypesComponent extends AbstractComponent<UtilityType> {
+
+  override filterDefs = utilityTypeFilters();
 
   constructor(protected override service: UtilityTypesService) {
     super();

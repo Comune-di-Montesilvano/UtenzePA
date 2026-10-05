@@ -10,6 +10,7 @@ import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {BudgetChapter} from './entity/budget-chapter.entity';
 import {SupplyType, SupplyTypeDescription} from './enum/supply-type.enum';
+import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {BudgetChapterEditDialogComponent} from './budget-chapter-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
@@ -17,7 +18,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
 @Component({
   selector: 'app-data-table-budget-chapters',
   standalone: true,
-  imports: [
+  imports: [ListToolbarComponent, 
     MatTableModule,
     MatSortModule,
     MatPaginatorModule,

@@ -3,16 +3,19 @@ import {AbstractComponent} from '../../core/components/abstract.component';
 import {AssetNature} from './entity/asset-nature.entity';
 import {AssetNaturesService} from './asset-nature.service';
 import {DataTableAssetNatureComponent} from './data-table-asset-nature.component';
-import {SearchAssetNatureComponent} from './search-asset-nature.component';
+import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
+import {assetNatureFilters} from './asset-nature-filters';
 
 @Component({
   selector: 'app-asset-nature',
   standalone: true,
-  imports: [DataTableAssetNatureComponent, SearchAssetNatureComponent],
+  imports: [DataTableAssetNatureComponent, ListFiltersComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './asset-nature.component.html'
 })
 export class AssetNatureComponent extends AbstractComponent<AssetNature> {
+  override filterDefs = assetNatureFilters();
+
   constructor(protected override service: AssetNaturesService) {
     super();
     this.qsearchFields = ['name'];

@@ -1,10 +1,6 @@
-<div style="display: flex; justify-content: space-between; align-items: center;">
-  <h3>Elenco utenti ({{ data.length }})</h3>
-  <button mat-flat-button (click)="openCreateDialog()" [appHasRole]="['Admin', 'Operatore']">
-    <mat-icon>add</mat-icon>
-    Aggiungi utente
-  </button>
-</div>
+<app-list-toolbar [count]="data.length"
+                  createLabel="Nuovo utente"
+                  (create)="openCreateDialog()"></app-list-toolbar>
 
 @if (loading) {
   <mat-progress-bar mode="indeterminate"></mat-progress-bar>
@@ -76,4 +72,4 @@
   </tr>
 </table>
 
-<mat-paginator #paginator [pageSizeOptions]="rowsPerPageOptions" [pageSize]="10"></mat-paginator>
+<mat-paginator #paginator [pageSizeOptions]="rowsPerPageOptions" [pageSize]="pageSize" showFirstLastButtons (page)="onPage($event)"></mat-paginator>
