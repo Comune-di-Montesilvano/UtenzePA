@@ -3,7 +3,8 @@ import {ActivatedRoute} from '@angular/router';
 import {Asset} from './entity/asset.entity';
 import {AssetService} from './asset.service';
 import {DataTableAssetsComponent} from './data-table-assets.component';
-import {SearchAssetsComponent} from './search-assets.component';
+import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
+import {assetFilters} from './assets-filters';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {MatIconModule} from '@angular/material/icon';
 import {MatButtonModule} from '@angular/material/button';
@@ -11,7 +12,7 @@ import {MatButtonModule} from '@angular/material/button';
 @Component({
   selector: 'app-assets',
   standalone: true,
-  imports: [DataTableAssetsComponent, SearchAssetsComponent, MatIconModule, MatButtonModule],
+  imports: [DataTableAssetsComponent, ListFiltersComponent, MatIconModule, MatButtonModule],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './assets.component.html'
 })
@@ -19,7 +20,7 @@ export class AssetsComponent extends AbstractComponent<Asset> {
 
   @ViewChild('dataTable') dataTable!: DataTableAssetsComponent;
 
-  private selectedId?: number | null;
+  override filterDefs = assetFilters();
 
   legacyCount = 0;
 
@@ -39,24 +40,11 @@ export class AssetsComponent extends AbstractComponent<Asset> {
   }
 
   override ngOnInit() {
-    this.route.queryParams.subscribe(params => {
-      this.selectedId = params['selectedId'] ? Number(params['selectedId']) : null;
-      this.loadAll();
-    });
+    this.initFromRoute(this.route, item => this.dataTable?.openEditDialog(item));
   }
 
-  override loadAll() {
-    this.loading = true;
-    this.service.search(this.lastFilters).subscribe((result: Asset[]) => {
-      this.list = this.service.fromPlain(result);
-      this.allItems = [...this.list];
-
-      if (this.selectedId) {
-        const asset = this.list.find(a => a.id === this.selectedId);
-        if (asset) setTimeout(() => this.dataTable?.openEditDialog(asset));
-      }
-      this.loading = false;
-    });
+  override loadAll(after?: (list: Asset[]) => void) {
+    super.loadAll(after);
     this.service.legacyCount().subscribe({
       next: n => this.legacyCount = n,
       error: () => this.legacyCount = 0
@@ -64,6 +52,6 @@ export class AssetsComponent extends AbstractComponent<Asset> {
   }
 
   showLegacyOnly(): void {
-    this.onSearch({legacy_only: true});
+    this.onFiltersChange({...this.filterValues, legacy_only: true});
   }
 }

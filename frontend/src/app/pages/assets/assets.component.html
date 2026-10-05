@@ -1,8 +1,6 @@
 <div style="padding: 1rem;">
-  <div>
-    <h1>Gestione Immobili</h1>
-    <p style="color: #6A7282;">Gestisci le anagrafiche degli immobili comunali</p>
-  </div>
+  <h1>Immobili</h1>
+  <p class="list-subtitle">Immobili comunali: classificazione, indirizzo, catasto, utenze e impianti collegati.</p>
 
   @if (legacyCount > 0) {
     <div style="margin-top: 1rem; padding: 0.75rem 1rem; border-radius: 6px; background: #fef3c7; color: #92400e; display: flex; align-items: center; gap: 0.75rem;">
@@ -12,11 +10,10 @@
     </div>
   }
 
-  <div style="margin-top: 1rem;">
-    <app-search-assets (search)="onSearch($event)"></app-search-assets>
-  </div>
+  <app-list-filters [defs]="filterDefs" [values]="filterValues" placeholder="Cerca nome, indirizzo, toponimo..."
+                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"></app-list-filters>
 
-  <div style="margin-top: 1.5rem;">
+  <div style="margin-top: 1rem;">
     <app-data-table-assets
       #dataTable
       [data]="list"

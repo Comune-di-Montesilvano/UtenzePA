@@ -1,25 +1,19 @@
 import {Component, ChangeDetectionStrategy, ViewChild} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
 import {DataTableUtilizerGrantComponent} from './data-table-utilizer-grant.component';
-import {SearchUtilizerGrantComponent} from './search-utilizer-grant.component';
+import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
+import {grantFilters} from './utilizer-grant-filters';
 import {UtilizerGrantService} from './utilizer-grant.service';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {UtilizerGrant} from './entity/utilizer-grant.entity';
-import {ContractAlert, formatEuro} from './real-estate-contract.model';
-
-const ALERT_LABEL: Record<ContractAlert, string> = {
-  notice: 'Disdette da inviare entro 60 giorni.',
-  expiring: 'Contratti in scadenza entro 4 mesi.',
-  expired_active: 'Contratti scaduti ancora attivi.',
-  without_assets: 'Contratti senza immobile.',
-};
+import {formatEuro} from './real-estate-contract.model';
 
 @Component({
   selector: 'app-utilizer-grant',
   standalone: true,
   imports: [
     DataTableUtilizerGrantComponent,
-    SearchUtilizerGrantComponent
+    ListFiltersComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utilizer-grant.component.html',
@@ -34,25 +28,12 @@ export class UtilizerGrantComponent extends AbstractComponent<UtilizerGrant> {
     super();
   }
 
+  override filterDefs = grantFilters();
+
   // Link dalla dashboard: ?alert=notice|expiring|expired_active|without_assets
   // filtra l'elenco, ?selectedId=N apre il contratto.
   override ngOnInit(): void {
-    this.route.queryParams.subscribe(params => {
-      const alert = params['alert'] as ContractAlert | undefined;
-      const selectedId = params['selectedId'] ? Number(params['selectedId']) : null;
-      this.lastFilters = alert && ALERT_LABEL[alert] ? {alert} : {};
-      this.loading = true;
-      this.service.search(this.lastFilters).subscribe(result => {
-        this.list = this.service.fromPlain(result);
-        this.allItems = [...this.list];
-        this.loading = false;
-        if (alert && ALERT_LABEL[alert]) {
-          this.messageService.add({severity: 'info', summary: 'Filtro applicato', detail: ALERT_LABEL[alert]});
-        }
-        const selected = selectedId ? this.list.find(c => c.id === selectedId) : undefined;
-        if (selected) setTimeout(() => this.dataTable?.openEditDialog(selected));
-      });
-    });
+    this.initFromRoute(this.route, item => this.dataTable?.openEditDialog(item));
   }
 
   // Totali annui sui contratti visibili, solo attivi o in scadenza.

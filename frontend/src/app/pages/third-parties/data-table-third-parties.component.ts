@@ -8,6 +8,7 @@ import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
+import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
@@ -20,7 +21,7 @@ import {ThirdPartyEditDialogComponent} from './third-party-edit-dialog.component
 @Component({
   selector: 'app-data-table-third-parties',
   standalone: true,
-  imports: [
+  imports: [ListToolbarComponent, 
     MatTableModule,
     MatSortModule,
     MatPaginatorModule,
