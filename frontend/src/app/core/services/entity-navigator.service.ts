@@ -218,9 +218,11 @@ export class EntityNavigatorService {
       switchMap(r => (r ? this.functions.create({...AssetFunction.toPayload(r), ...this.authorship()}) : of(null))),
       switchMap(fn => {
         if (!fn || natureId == null) return of(fn);
-        return this.natures.getById(natureId).pipe(
+        // Nessun GET /asset-natures/:id: la tipologia si prende dall'elenco.
+        return this.natures.search({deleted: false} as never).pipe(
+          map(list => list.find(n => n.id === natureId)),
           switchMap(n => this.natures.update(natureId, {
-            function_ids: [...(n.functions ?? []).map(f => f.id), fn.id],
+            function_ids: [...(n?.functions ?? []).map(f => f.id), fn.id],
             updated_by_user_id: this.authorship().updated_by_user_id,
           } as Partial<AssetNature>)),
           map(() => fn),
