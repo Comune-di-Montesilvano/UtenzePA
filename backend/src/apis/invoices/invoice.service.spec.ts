@@ -1,123 +1,105 @@
-import { BadRequestException } from '@nestjs/common';
 import { InvoicesService } from './invoice.service';
 import { Invoice } from './entity/invoice.entity';
-import { InvoiceBudgetChapter } from './entity/invoice_budget_chapter.entity';
+import { InvoiceLine } from './entity/invoice-line.entity';
 
 describe('InvoicesService', () => {
   let service: InvoicesService;
   let repo: { createQueryBuilder: jest.Mock; findOne: jest.Mock };
-  let budgetChapterRepo: object;
-  let invoiceBudgetChapterRepo: object;
+  let contractRepo: { findOne: jest.Mock };
   let dataSource: { transaction: jest.Mock };
   let manager: {
     create: jest.Mock;
     save: jest.Mock;
     findOne: jest.Mock;
     delete: jest.Mock;
+    find: jest.Mock;
+    count: jest.Mock;
   };
 
   beforeEach(() => {
     manager = {
-      create: jest.fn((_entity, data) => data),
-      save: jest.fn(async (_entity, data) => data),
-      findOne: jest.fn(),
+      create: jest.fn((_e, data) => data),
+      save: jest.fn(async (_e, data) => (Array.isArray(data) ? data : { id: 10, ...data })),
+      findOne: jest.fn().mockResolvedValue({ id: 10 }),
       delete: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
     };
-
     repo = { createQueryBuilder: jest.fn(), findOne: jest.fn() };
-    budgetChapterRepo = {};
-    invoiceBudgetChapterRepo = {};
+    contractRepo = { findOne: jest.fn().mockResolvedValue({ id: 1, supplier_id_fk: 44 }) };
     dataSource = { transaction: jest.fn((cb) => cb(manager)) };
-
-    service = new InvoicesService(
-      repo as never,
-      budgetChapterRepo as never,
-      invoiceBudgetChapterRepo as never,
-      dataSource as never,
-    );
-  });
-
-  describe('getMonthlyCosts', () => {
-    it('somma il netto delle fatture del mese/anno corrente', async () => {
-      const qb = {
-        select: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getRawOne: jest.fn().mockResolvedValue({ total_net_amount: '1234.56' }),
-      };
-      repo.createQueryBuilder.mockReturnValue(qb);
-
-      const result = await service.getMonthlyCosts();
-
-      expect(result).toBe(1234.56);
-    });
-
-    it('restituisce 0 se non ci sono fatture nel mese', async () => {
-      const qb = {
-        select: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getRawOne: jest.fn().mockResolvedValue({ total_net_amount: null }),
-      };
-      repo.createQueryBuilder.mockReturnValue(qb);
-
-      const result = await service.getMonthlyCosts();
-
-      expect(result).toBe(0);
-    });
+    service = new InvoicesService(repo as never, contractRepo as never, dataSource as never);
   });
 
   describe('create', () => {
-    it('crea la fattura e i collegamenti ai capitoli di spesa in transazione', async () => {
-      manager.findOne.mockResolvedValue({ id: 10 } as Invoice);
-
-      const dto = {
-        invoice_id: 'F-2026-001',
-        invoice_date: '2026-01-15',
-        budget_chapters: [1, 2],
-      } as never;
-
-      const result = await service.create(dto, 5);
-
-      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
-      expect(manager.save).toHaveBeenCalledWith(
-        InvoiceBudgetChapter,
-        expect.arrayContaining([
-          expect.objectContaining({ budget_chapter_id: 1 }),
-          expect.objectContaining({ budget_chapter_id: 2 }),
-        ]),
+    it('salva testata e righe in transazione, fornitore preso dal contratto', async () => {
+      manager.find.mockResolvedValue([{ id: 5, contract_id_fk: 1 }]);
+      await service.create(
+        {
+          invoice_id: 'F-1',
+          invoice_date: '2025-03-15',
+          contratto_id_fk: 1,
+          lines: [{ amount: 10, commitment_id_fk: 5 }, { amount: 2 }],
+        } as never,
+        3,
       );
-      expect(result).toEqual({ id: 10 });
+      expect(manager.save).toHaveBeenCalledWith(
+        Invoice,
+        expect.objectContaining({ supplier_id_fk: 44 }),
+      );
+      expect(manager.save).toHaveBeenCalledWith(InvoiceLine, [
+        expect.objectContaining({ invoice_id_fk: 10, amount: 10, commitment_id_fk: 5 }),
+        expect.objectContaining({ amount: 2 }),
+      ]);
     });
 
-    it('non salva collegamenti se non ci sono budget_chapters', async () => {
-      manager.findOne.mockResolvedValue({ id: 11 } as Invoice);
-
-      await service.create({ invoice_id: 'F-2026-002', invoice_date: '2026-01-16' } as never, 5);
-
-      expect(manager.save).toHaveBeenCalledTimes(1); // solo l'invoice, non i budget_chapters
-    });
-
-    it('rilancia un BadRequestException se il salvataggio dei capitoli fallisce', async () => {
-      manager.save.mockImplementation((entity) => {
-        if (entity === InvoiceBudgetChapter) {
-          throw new Error('vincolo FK violato');
-        }
-        return Promise.resolve({ id: 12 });
-      });
-
+    it('rifiuta un impegno di un altro contratto, indicando la riga (Review Focus 3)', async () => {
+      manager.find.mockResolvedValue([{ id: 5, contract_id_fk: 2 }]);
       await expect(
-        service.create({ invoice_id: 'F-2026-003', invoice_date: '2026-01-17', budget_chapters: [1] } as never, 5),
-      ).rejects.toThrow(BadRequestException);
+        service.create(
+          {
+            invoice_id: 'F-1',
+            invoice_date: '2025-03-15',
+            contratto_id_fk: 1,
+            lines: [{ amount: 1 }, { amount: 10, commitment_id_fk: 5 }],
+          } as never,
+          3,
+        ),
+      ).rejects.toThrow("L'impegno della riga 2 non è del contratto della fattura");
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('rifiuta un impegno inesistente o cancellato', async () => {
+      manager.find.mockResolvedValue([]);
+      await expect(
+        service.create(
+          {
+            invoice_id: 'F-1',
+            invoice_date: '2025-03-15',
+            lines: [{ amount: 10, commitment_id_fk: 99 }],
+          } as never,
+          3,
+        ),
+      ).rejects.toThrow("L'impegno della riga 1 non esiste");
+    });
+
+    it('rifiuta un periodo con fine prima dell’inizio', async () => {
+      await expect(
+        service.create(
+          {
+            invoice_id: 'F-1',
+            invoice_date: '2025-03-15',
+            lines: [{ amount: 1, period_start: '2025-03-01', period_end: '2025-02-01' }],
+          } as never,
+          3,
+        ),
+      ).rejects.toThrow('Riga 1: la fine del periodo è prima dell’inizio');
     });
 
     it('registra un evento CREATE in audit log', async () => {
-      manager.findOne.mockResolvedValue({ id: 10 } as Invoice);
       const auditLogService = { record: jest.fn() };
       (service as any).auditLogService = auditLogService;
-
-      await service.create({ invoice_id: 'F-2026-004', invoice_date: '2026-01-18' } as never, 5);
-
+      await service.create({ invoice_id: 'F-4', invoice_date: '2026-01-18' } as never, 5);
       expect(auditLogService.record).toHaveBeenCalledWith(
         expect.objectContaining({ entityName: 'Invoice', entityId: 10, action: 'CREATE', userId: 5 }),
       );
@@ -125,30 +107,79 @@ describe('InvoicesService', () => {
   });
 
   describe('update', () => {
-    it('sostituisce i collegamenti ai capitoli di spesa quando forniti', async () => {
-      repo.findOne.mockResolvedValue({ id: 20, deleted: false } as Invoice);
-      manager.findOne.mockResolvedValue({ id: 20 } as Invoice);
-
-      await service.update(20, { budget_chapters: [3] } as never, 7);
-
-      expect(manager.delete).toHaveBeenCalledWith(InvoiceBudgetChapter, { invoice_id: 20 });
-      expect(manager.save).toHaveBeenCalledWith(
-        InvoiceBudgetChapter,
-        expect.arrayContaining([expect.objectContaining({ budget_chapter_id: 3 })]),
-      );
+    beforeEach(() => {
+      repo.findOne.mockResolvedValue({
+        id: 20,
+        invoice_id: 'OLD',
+        contratto_id_fk: 1,
+        deleted: false,
+      });
+      manager.findOne.mockResolvedValue({ id: 20, invoice_id: 'OLD', contratto_id_fk: 1 });
     });
 
-    it('registra un evento UPDATE in audit log quando cambia un campo scalare', async () => {
-      repo.findOne.mockResolvedValue({ id: 20, deleted: false, invoice_id: 'OLD' } as Invoice);
-      manager.findOne.mockResolvedValue({ id: 20, invoice_id: 'NEW' } as Invoice);
+    it('senza lines non tocca le righe (Review Focus 2)', async () => {
+      await service.update(20, { notes_on_invoices: 'nota' } as never, 7);
+      expect(manager.delete).not.toHaveBeenCalled();
+      expect(manager.save).not.toHaveBeenCalledWith(InvoiceLine, expect.anything());
+    });
+
+    it('con lines sostituisce le righe in blocco', async () => {
+      await service.update(20, { lines: [{ amount: 5 }] } as never, 7);
+      expect(manager.delete).toHaveBeenCalledWith(InvoiceLine, { invoice_id_fk: 20 });
+      expect(manager.save).toHaveBeenCalledWith(InvoiceLine, [
+        expect.objectContaining({ invoice_id_fk: 20, amount: 5 }),
+      ]);
+    });
+
+    it('lines vuoto cancella tutte le righe', async () => {
+      await service.update(20, { lines: [] } as never, 7);
+      expect(manager.delete).toHaveBeenCalledWith(InvoiceLine, { invoice_id_fk: 20 });
+      expect(manager.save).not.toHaveBeenCalledWith(InvoiceLine, expect.anything());
+    });
+
+    it('registra in audit il numero di righe prima/dopo', async () => {
+      manager.count.mockResolvedValue(3);
       const auditLogService = { record: jest.fn() };
       (service as any).auditLogService = auditLogService;
-
-      await service.update(20, { invoice_id: 'NEW' } as never, 7);
-
+      await service.update(20, { lines: [{ amount: 5 }] } as never, 7);
       expect(auditLogService.record).toHaveBeenCalledWith(
-        expect.objectContaining({ entityName: 'Invoice', entityId: 20, action: 'UPDATE', userId: 7 }),
+        expect.objectContaining({
+          fields: expect.arrayContaining([
+            expect.objectContaining({ fieldName: 'lines', oldValue: 3, newValue: 1 }),
+          ]),
+        }),
       );
+    });
+  });
+
+  describe('getMonthlyCosts (Review Focus 4)', () => {
+    it('somma il totale documento (o l’imponibile) del mese corrente, mese 1-based', async () => {
+      const qb = {
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ total: '1234.56' }),
+      };
+      repo.createQueryBuilder.mockReturnValue(qb);
+      expect(await service.getMonthlyCosts()).toBe(1234.56);
+      expect(qb.select).toHaveBeenCalledWith(
+        'SUM(COALESCE(Invoice.total_amount, Invoice.net_amount_excl_vat))',
+        'total',
+      );
+      expect(qb.andWhere).toHaveBeenCalledWith('MONTH(Invoice.invoice_date) = :month', {
+        month: new Date().getMonth() + 1,
+      });
+    });
+
+    it('restituisce 0 se non ci sono fatture nel mese', async () => {
+      const qb = {
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getRawOne: jest.fn().mockResolvedValue({ total: null }),
+      };
+      repo.createQueryBuilder.mockReturnValue(qb);
+      expect(await service.getMonthlyCosts()).toBe(0);
     });
   });
 });

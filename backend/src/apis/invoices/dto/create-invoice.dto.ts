@@ -7,32 +7,38 @@ import {
   IsString,
   MaxLength,
   Min,
+  ValidateIf,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { InvoiceLineDto } from './invoice-line.dto';
 import { DateOnly } from '@/common/decorators/date-only.decorator';
 
 export class CreateInvoiceDto {
-  @IsOptional()
+  @IsNotEmpty({ message: 'Il numero della fattura è obbligatorio.' })
   @IsString()
   @MaxLength(255)
-  invoice_id?: string;
+  invoice_id: string;
 
   @IsNotEmpty({ message: 'La data della fattura è obbligatoria.' })
   @DateOnly()
   invoice_date: string;
 
-  @IsNotEmpty({ message: 'Il numero di protocollo è obbligatorio.' })
+  @IsOptional()
   @IsString()
   @MaxLength(100)
-  protocol_number: string;
+  protocol_number?: string | null;
 
-  @IsNotEmpty({ message: "L'importo netto è obbligatorio." })
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
   @IsNumber({}, { message: "L'importo netto deve essere un numero valido." })
   @Min(0, { message: "L'importo netto non può essere negativo." })
-  net_amount_excl_vat: number;
+  net_amount_excl_vat?: number | null;
 
-  @IsNotEmpty({ message: 'Il contratto di riferimento è obbligatorio.' })
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
   @IsInt()
-  contratto_id_fk: number;
+  contratto_id_fk?: number | null;
 
   @IsOptional()
   @IsNumber({}, { message: 'La morosità deve essere un numero valido.' })
@@ -44,9 +50,20 @@ export class CreateInvoiceDto {
   notes_on_invoices?: string;
 
   @IsOptional()
-  @IsArray({ message: 'I capitoli di spesa devono essere forniti come un array.' })
-  @IsInt({ each: true, message: 'Ogni elemento dei capitoli di spesa deve essere un ID intero.' })
-  budget_chapters?: number[];
+  @ValidateIf((_o, v) => v !== null)
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Il totale documento deve essere un numero valido.' })
+  total_amount?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsInt()
+  supplier_id_fk?: number | null;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => InvoiceLineDto)
+  lines?: InvoiceLineDto[];
 
   @IsOptional()
   @IsInt()

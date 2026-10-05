@@ -9,8 +9,10 @@ import {
   MaxLength,
   Min,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+import { InvoiceLineDto } from './invoice-line.dto';
 import { DateOnly } from '@/common/decorators/date-only.decorator';
 
 export class UpdateInvoiceDto {
@@ -26,12 +28,12 @@ export class UpdateInvoiceDto {
   @DateOnly()
   invoice_date?: string;
 
-  @IsNotEmpty({ message: 'Il numero di protocollo è obbligatorio.' })
+  @IsOptional()
   @IsString()
   @MaxLength(100)
-  protocol_number?: string;
+  protocol_number?: string | null;
 
-  @IsNotEmpty({ message: "L'importo netto è obbligatorio." })
+  @IsOptional()
   @ValidateIf((object, value) => value !== null && value !== undefined)
   @IsNumber()
   @Min(0)
@@ -48,8 +50,9 @@ export class UpdateInvoiceDto {
   notes_on_invoices?: string;
 
   @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
   @IsInt()
-  contratto_id_fk?: number;
+  contratto_id_fk?: number | null;
 
   @IsOptional()
   create_date?: Date;
@@ -76,7 +79,18 @@ export class UpdateInvoiceDto {
   deleted?: number;
 
   @IsOptional()
-  @IsArray({ message: 'I capitoli di spesa devono essere forniti come un array.' })
-  @IsInt({ each: true, message: 'Ogni elemento dei capitoli di spesa deve essere un ID intero.' })
-  budget_chapters?: number[];
+  @ValidateIf((_o, v) => v !== null)
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Il totale documento deve essere un numero valido.' })
+  total_amount?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsInt()
+  supplier_id_fk?: number | null;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => InvoiceLineDto)
+  lines?: InvoiceLineDto[];
 }
