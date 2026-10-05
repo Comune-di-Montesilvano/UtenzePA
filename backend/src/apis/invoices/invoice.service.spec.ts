@@ -138,7 +138,7 @@ describe('InvoicesService', () => {
     });
 
     it('registra in audit il numero di righe prima/dopo', async () => {
-      manager.count.mockResolvedValue(3);
+      manager.find.mockResolvedValue([{ amount: '1.00' }, { amount: '2.00' }, { amount: '3.00' }]);
       const auditLogService = { record: jest.fn() };
       (service as any).auditLogService = auditLogService;
       await service.update(20, { lines: [{ amount: 5 }] } as never, 7);
@@ -147,6 +147,39 @@ describe('InvoicesService', () => {
           fields: expect.arrayContaining([
             expect.objectContaining({ fieldName: 'lines', oldValue: 3, newValue: 1 }),
           ]),
+        }),
+      );
+    });
+  });
+
+  describe('audit delle righe', () => {
+    beforeEach(() => {
+      repo.findOne.mockResolvedValue({ id: 20, invoice_id: 'F', contratto_id_fk: null, deleted: false });
+      manager.findOne.mockResolvedValue({ id: 20, invoice_id: 'F', contratto_id_fk: null });
+    });
+
+    it('righe reinviate identiche: nessuna voce lines in audit', async () => {
+      manager.find.mockResolvedValue([
+        { amount: '100.00', utility_id_fk: 3, commitment_id_fk: null, period_start: '2026-01-01', period_end: null, consumption: '12.500', supply_code: null, description: null },
+      ]);
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+      await service.update(
+        20,
+        { lines: [{ amount: 100, utility_id_fk: 3, period_start: '2026-01-01', consumption: 12.5 }] } as never,
+        7,
+      );
+      expect(auditLogService.record).not.toHaveBeenCalled();
+    });
+
+    it('stesso numero di righe ma importo diverso: voce lines in audit', async () => {
+      manager.find.mockResolvedValue([{ amount: '100.00', utility_id_fk: 3 }]);
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+      await service.update(20, { lines: [{ amount: 90, utility_id_fk: 3 }] } as never, 7);
+      expect(auditLogService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fields: [expect.objectContaining({ fieldName: 'lines', oldValue: 1, newValue: 1 })],
         }),
       );
     });

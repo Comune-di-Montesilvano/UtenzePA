@@ -12,6 +12,21 @@ import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { Contract } from '@apis/contracts/entity/contract.entity';
 import { BudgetCommitment } from '@apis/budget-commitments/entity/budget-commitment.entity';
 
+// Confronto righe per l'audit: stessi valori normalizzati, stesso ordine.
+const lineKey = (l: Partial<InvoiceLine>): string =>
+  JSON.stringify([
+    Number(l.amount).toFixed(2),
+    l.utility_id_fk ?? null,
+    l.commitment_id_fk ?? null,
+    l.period_start ? String(l.period_start).slice(0, 10) : null,
+    l.period_end ? String(l.period_end).slice(0, 10) : null,
+    l.consumption === null || l.consumption === undefined ? null : Number(l.consumption).toFixed(3),
+    l.supply_code ?? null,
+    l.description ?? null,
+  ]);
+const sameLines = (a: Partial<InvoiceLine>[], b: Partial<InvoiceLine>[]): boolean =>
+  a.length === b.length && a.every((l, i) => lineKey(l) === lineKey(b[i]));
+
 @Injectable()
 export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, UpdateInvoiceDto> {
   protected readonly entityName = 'Invoice';
@@ -132,12 +147,12 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     const contractId =
       rest.contratto_id_fk !== undefined ? rest.contratto_id_fk : before.contratto_id_fk;
     const header = await this.withSupplier({ ...rest, contratto_id_fk: contractId });
-    let linesBefore = 0;
+    let previousLines: InvoiceLine[] = [];
 
     const result = await this.dataSource.transaction(async (manager) => {
       if (lines !== undefined) {
         await this.checkLines(manager, lines, contractId ?? null);
-        linesBefore = await manager.count(InvoiceLine, { where: { invoice_id_fk: id } });
+        previousLines = await manager.find(InvoiceLine, { where: { invoice_id_fk: id } });
       }
       const entity = await manager.findOne(Invoice, { where: { id } });
       Object.assign(entity, header);
@@ -159,8 +174,9 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
         result as unknown as Record<string, unknown>,
         rest as Record<string, unknown>,
       );
-      if (lines !== undefined) {
-        changes.push({ fieldName: 'lines', oldValue: linesBefore, newValue: lines.length });
+      // Righe reinviate identiche (Salva senza modifiche) non sono un cambiamento.
+      if (lines !== undefined && !sameLines(previousLines, this.toRows(id, lines))) {
+        changes.push({ fieldName: 'lines', oldValue: previousLines.length, newValue: lines.length });
       }
       await this.recordAudit(AuditAction.UPDATE, id, userId ?? result.updated_by_user_id, changes);
     } catch (error) {

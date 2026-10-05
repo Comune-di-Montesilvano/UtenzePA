@@ -44,41 +44,41 @@ const eur = (n: number | null | undefined): string =>
     @for (l of rows; track $index; let i = $index) {
       <div class="line-row">
         <span class="line-n">{{ i + 1 }}</span>
-        <div>
+        <div class="f-utility">
           <app-filterable-select label="Utenza" placeholder="POD/PDR o codice cliente..." [options]="utilityOptions"
-            [ngModel]="l.utility_id_fk" (ngModelChange)="set(l, 'utility_id_fk', $event)" [disabled]="readOnly"></app-filterable-select>
+            [ngModel]="l.utility_id_fk" [ngModelOptions]="{standalone: true}" (ngModelChange)="set(l, 'utility_id_fk', $event)" [disabled]="readOnly"></app-filterable-select>
         </div>
-        <div>
+        <div class="f-commitment">
           <app-filterable-select label="Impegno" placeholder="Esercizio o capitolo..." [options]="commitmentOptions"
-            [ngModel]="l.commitment_id_fk" (ngModelChange)="set(l, 'commitment_id_fk', $event)" [disabled]="readOnly"></app-filterable-select>
+            [ngModel]="l.commitment_id_fk" [ngModelOptions]="{standalone: true}" (ngModelChange)="set(l, 'commitment_id_fk', $event)" [disabled]="readOnly"></app-filterable-select>
         </div>
-        <mat-form-field>
+        <mat-form-field class="f-date">
           <mat-label>Dal</mat-label>
-          <input matInput [matDatepicker]="dp1" [ngModel]="l.start" (ngModelChange)="setDate(l, 'start', $event)" [disabled]="readOnly" placeholder="GG/MM/AAAA">
+          <input matInput [matDatepicker]="dp1" [ngModel]="l.start" [ngModelOptions]="{standalone: true}" (ngModelChange)="setDate(l, 'start', $event)" [disabled]="readOnly" placeholder="GG/MM/AAAA">
           <mat-datepicker-toggle matIconSuffix [for]="dp1"></mat-datepicker-toggle>
           <mat-datepicker #dp1></mat-datepicker>
         </mat-form-field>
-        <mat-form-field>
+        <mat-form-field class="f-date">
           <mat-label>Al</mat-label>
-          <input matInput [matDatepicker]="dp2" [ngModel]="l.end" (ngModelChange)="setDate(l, 'end', $event)" [disabled]="readOnly" placeholder="GG/MM/AAAA">
+          <input matInput [matDatepicker]="dp2" [ngModel]="l.end" [ngModelOptions]="{standalone: true}" (ngModelChange)="setDate(l, 'end', $event)" [disabled]="readOnly" placeholder="GG/MM/AAAA">
           <mat-datepicker-toggle matIconSuffix [for]="dp2"></mat-datepicker-toggle>
           <mat-datepicker #dp2></mat-datepicker>
         </mat-form-field>
-        <mat-form-field>
+        <mat-form-field class="f-num">
           <mat-label>Consumo</mat-label>
-          <input matInput type="number" [ngModel]="l.consumption" (ngModelChange)="set(l, 'consumption', $event)" [disabled]="readOnly">
+          <input matInput type="number" [ngModel]="l.consumption" [ngModelOptions]="{standalone: true}" (ngModelChange)="set(l, 'consumption', $event)" [disabled]="readOnly">
         </mat-form-field>
-        <mat-form-field>
+        <mat-form-field class="f-num">
           <mat-label>Importo €</mat-label>
-          <input matInput type="number" step="0.01" [ngModel]="l.amount" (ngModelChange)="set(l, 'amount', $event)" [disabled]="readOnly" required>
+          <input matInput type="number" step="0.01" [ngModel]="l.amount" [ngModelOptions]="{standalone: true}" (ngModelChange)="set(l, 'amount', $event)" [disabled]="readOnly" required>
         </mat-form-field>
-        <mat-form-field>
+        <mat-form-field class="f-code">
           <mat-label>Codice fornitura</mat-label>
-          <input matInput [ngModel]="l.supply_code" (ngModelChange)="set(l, 'supply_code', $event)" [disabled]="readOnly">
+          <input matInput [ngModel]="l.supply_code" [ngModelOptions]="{standalone: true}" (ngModelChange)="set(l, 'supply_code', $event)" [disabled]="readOnly">
         </mat-form-field>
-        <mat-form-field>
+        <mat-form-field class="f-desc">
           <mat-label>Descrizione</mat-label>
-          <input matInput [ngModel]="l.description" (ngModelChange)="set(l, 'description', $event)" [disabled]="readOnly">
+          <input matInput [ngModel]="l.description" [ngModelOptions]="{standalone: true}" (ngModelChange)="set(l, 'description', $event)" [disabled]="readOnly">
         </mat-form-field>
         @if (!readOnly) {
           <button mat-icon-button type="button" aria-label="Rimuovi riga" (click)="removeAt(i)"><mat-icon>delete</mat-icon></button>
@@ -95,12 +95,21 @@ const eur = (n: number | null | undefined): string =>
     .lines-total { margin: 0 0 12px; }
     .lines-diff { color: var(--tone-warn-fg); }
     .line-row {
-      display: grid;
-      grid-template-columns: 1.5rem minmax(180px, 2fr) minmax(160px, 2fr) 9.5rem 9.5rem 7rem 8rem 9rem minmax(140px, 2fr) 40px;
+      display: flex;
+      flex-wrap: wrap;
       gap: 0 8px;
-      align-items: start;
+      align-items: flex-start;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--sheet-border);
     }
-    .line-n { padding-top: 18px; color: var(--sheet-muted); }
+    .line-row > * { flex: 0 0 auto; }
+    .line-n { width: 1.5rem; padding-top: 18px; color: var(--sheet-muted); }
+    .f-utility { width: 260px; }
+    .f-commitment { width: 240px; }
+    .f-date { width: 150px; }
+    .f-num { width: 120px; }
+    .f-code { width: 160px; }
+    .f-desc { flex: 1 1 220px; }
   `],
 })
 export class InvoiceLinesTabComponent implements OnChanges {
