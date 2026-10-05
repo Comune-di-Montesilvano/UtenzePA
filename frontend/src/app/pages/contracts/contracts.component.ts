@@ -1,7 +1,9 @@
 import {Component, ChangeDetectionStrategy, ViewChild} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
 import {DataTableContractsComponent} from './data-table-contracts.component';
-import {SearchContractsComponent} from './search-contracts.component';
+import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
+import {contractFilters, CONTRACT_SIGNALS} from './contracts-filters';
+import {ListSignalsComponent} from '../../core/components/list/list-signals.component';
 import {ContractsService} from './contract.service';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {Contract} from './entity/contract.entity';
@@ -9,7 +11,7 @@ import {Contract} from './entity/contract.entity';
 @Component({
   selector: 'app-contracts',
   standalone: true,
-  imports: [DataTableContractsComponent, SearchContractsComponent],
+  imports: [DataTableContractsComponent, ListFiltersComponent, ListSignalsComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './contracts.component.html'
 })
@@ -21,30 +23,13 @@ export class ContractsComponent extends AbstractComponent<Contract> {
     super();
   }
 
-  // Link dalla card anomalie della dashboard: ?missing_cig=true filtra i
-  // contratti senza CIG (non esclusi), ?selectedId=N apre il contratto.
+  override filterDefs = contractFilters();
+  readonly signals = CONTRACT_SIGNALS;
+
+  // Link dalla dashboard: query param dei filtri (missing_cig, supply_expiry_date_range),
+  // ?selectedId=N apre il contratto.
   override ngOnInit(): void {
-    this.route.queryParams.subscribe(params => {
-      const selectedId = params['selectedId'] ? Number(params['selectedId']) : null;
-      this.lastFilters = params['missing_cig'] === 'true' ? {missing_cig: true} : {};
-      if (params['supply_expiry_date_range']) {
-        this.lastFilters = {supply_expiry_date_range: params['supply_expiry_date_range']};
-      }
-      this.loading = true;
-      this.service.search(this.lastFilters).subscribe(result => {
-        this.list = this.service.fromPlain(result);
-        this.allItems = [...this.list];
-        this.loading = false;
-        if (params['missing_cig'] === 'true') {
-          this.messageService.add({severity: 'info', summary: 'Filtro applicato', detail: 'Contratti di fornitura senza CIG.'});
-        }
-        if (params['supply_expiry_date_range']) {
-          this.messageService.add({severity: 'info', summary: 'Filtro applicato', detail: 'Contratti di fornitura in scadenza.'});
-        }
-        const selected = selectedId ? this.list.find(c => c.id === selectedId) : undefined;
-        if (selected) setTimeout(() => this.dataTable?.openEditDialog(selected));
-      });
-    });
+    this.initFromRoute(this.route, item => this.dataTable?.openEditDialog(item));
   }
 
   protected override getEntityIdentifier(entity: Contract): string {

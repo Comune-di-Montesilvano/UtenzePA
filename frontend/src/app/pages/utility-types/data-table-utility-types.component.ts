@@ -9,6 +9,7 @@ import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {UtilityType} from './entity/utility-type.entity';
+import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {UtilityTypeEditDialogComponent} from './utility-type-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
@@ -17,7 +18,7 @@ import {HardType, HardTypeDescription} from './enum/hard-type.enum';
 @Component({
   selector: 'app-data-table-utility-types',
   standalone: true,
-  imports: [
+  imports: [ListToolbarComponent, 
     MatTableModule,
     MatSortModule,
     MatPaginatorModule,

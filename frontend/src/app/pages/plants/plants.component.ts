@@ -4,7 +4,7 @@ import {ActivatedRoute, Router} from '@angular/router';
 import {MatDialog} from '@angular/material/dialog';
 import {MatTableDataSource, MatTableModule} from '@angular/material/table';
 import {MatSort, MatSortModule} from '@angular/material/sort';
-import {MatPaginator, MatPaginatorModule} from '@angular/material/paginator';
+import {MatPaginator, MatPaginatorModule, PageEvent} from '@angular/material/paginator';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
@@ -15,7 +15,7 @@ import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ConfirmDialogComponent, ConfirmDialogData} from '../../core/components/confirm-dialog.component';
 import {AuthService} from '../../services/auth.service';
-import {PlantService} from './plant.service';
+import {PlantFilters, PlantService} from './plant.service';
 import {
   INSPECTION_LABEL,
   inspectionBadge,
@@ -23,17 +23,43 @@ import {
   PLANT_STATUS_LABEL,
   PLANT_TYPE_ICON,
   PLANT_TYPE_LABEL,
-  PLANT_TYPES,
-  PlantStatus,
   PlantType,
   POSITION_LABEL,
   positionBadge,
 } from './plant.model';
 import {PlantEditDialogComponent, PlantEditDialogData} from './plant-edit-dialog.component';
 import {openSheet} from '../../core/components/entity-sheet/sheet-utils';
+import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
+import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
+import type {FilterValues} from '../../core/components/list/filter-def';
+import {fromQueryParams, toSearchParams} from '../../core/components/list/filter-values';
+import {PLANT_SIGNALS, plantFilters} from './plants-filters';
+import {ActiveSignal, ListSignalsComponent} from '../../core/components/list/list-signals.component';
+import type {FilterChip} from '../../core/components/list/filter-def';
 
-type InspectionFilter = '' | 'overdue' | 'due_soon';
-type PositionFilter = '' | 'precise' | 'from_asset' | 'estimated' | 'missing';
+// Colonne visibili ricordate (tutte, se nessuna scelta salvata).
+const COLUMNS_KEY = 'columns:plants';
+const readColumns = (all: IColumnDef[]): IColumnDef[] => {
+  try {
+    const fields: string[] = JSON.parse(localStorage.getItem(COLUMNS_KEY) ?? '[]');
+    const cols = all.filter(c => fields.includes(c.field));
+    return cols.length ? cols : all;
+  } catch {
+    return all;
+  }
+};
+
+// Righe per pagina ricordate, come negli elenchi su AbstractDataTableComponent.
+const PAGE_SIZE_KEY = 'list-page-size:Impianti';
+const readPageSize = (): number => {
+  try {
+    const n = Number(localStorage.getItem(PAGE_SIZE_KEY));
+    return [25, 50, 100].includes(n) ? n : 25;
+  } catch {
+    return 25;
+  }
+};
+
 
 // Impianti di ogni tipo (termici, ascensori, antincendio, fontane, punti luce…).
 // Filtri lato server (tipo/stato/verifiche/posizione), ricerca libera lato
@@ -44,69 +70,30 @@ type PositionFilter = '' | 'precise' | 'from_asset' | 'estimated' | 'missing';
   imports: [
     FormsModule, MatTableModule, MatSortModule, MatPaginatorModule, MatButtonModule, MatIconModule,
     MatTooltipModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatProgressBarModule, HasRoleDirective,
+    ListFiltersComponent, ListToolbarComponent, ListSignalsComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div style="padding: 1rem;">
-      <div>
-        <h1>Impianti</h1>
-        <p style="color: #6A7282;">Impianti tecnologici degli immobili e del territorio: dati tecnici, verifiche periodiche, utenze collegate</p>
-      </div>
+      <h1>Impianti</h1>
+      <p class="list-subtitle">Impianti tecnologici degli immobili e del territorio: dati tecnici, verifiche periodiche, utenze collegate.</p>
+      <app-list-filters [defs]="filterDefs" [values]="filterValues" placeholder="Cerca codice, nome, indirizzo, immobile, utenza..."
+                        (valuesChange)="onFilters($event)" (quickSearch)="query = $event; applyFilter()"
+                        [extraChips]="signalChips" (extraChipRemoved)="setSignal(null)"></app-list-filters>
+      <app-list-signals [signals]="signals" [reloadToken]="signalsToken" [activeKey]="signal?.key ?? null"
+                        (selected)="setSignal($event)"></app-list-signals>
 
-      <div style="margin-top: 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;">
-        <mat-form-field style="flex: 1 1 260px;" subscriptSizing="dynamic">
-          <input matInput placeholder="Cerca codice, nome, indirizzo, immobile, utenza..." [(ngModel)]="query" (ngModelChange)="applyFilter()">
-        </mat-form-field>
-        <mat-form-field style="flex: 0 1 240px;" subscriptSizing="dynamic">
-          <mat-label>Tipo</mat-label>
-          <mat-select [(ngModel)]="type" (ngModelChange)="reload()">
-            <mat-select-trigger>{{ type ? typeLabel[type] : 'Tutti i tipi' }}</mat-select-trigger>
-            <mat-option value="">Tutti i tipi</mat-option>
-            @for (t of types; track t) {
-              <mat-option [value]="t"><span><mat-icon style="vertical-align: middle; margin-right: 6px;">{{ typeIcon[t] }}</mat-icon>{{ typeLabel[t] }}</span></mat-option>
+      <div style="margin-top: 1rem;">
+        <app-list-toolbar [count]="dataSource.filteredData.length" createLabel="Nuovo impianto"
+                          [columns]="allColumns" [selectedColumns]="selectedColumns"
+                          (selectedColumnsChange)="onColumnsChange($event)"
+                          [exportable]="true" (export)="exportCsv()" (create)="openDialog()"></app-list-toolbar>
+        @if (typeCounts().length > 1) {
+          <div style="margin-bottom: 0.5rem; color: #6b7280; font-size: 0.85rem;">
+            @for (c of typeCounts(); track c.type; let first = $first) {
+              {{ first ? '' : ' · ' }}{{ c.count }} {{ typeLabel[c.type].toLowerCase() }}
             }
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field style="flex: 0 1 170px;" subscriptSizing="dynamic">
-          <mat-label>Stato</mat-label>
-          <mat-select [(ngModel)]="status" (ngModelChange)="reload()">
-            <mat-option value="">Tutti</mat-option>
-            @for (s of statuses; track s) {
-              <mat-option [value]="s">{{ statusLabel[s] }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field style="flex: 0 1 200px;" subscriptSizing="dynamic">
-          <mat-label>Verifiche</mat-label>
-          <mat-select [(ngModel)]="inspection" (ngModelChange)="reload()">
-            <mat-option value="">Tutte</mat-option>
-            <mat-option value="overdue">Scadute</mat-option>
-            <mat-option value="due_soon">Entro 60 giorni</mat-option>
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field style="flex: 0 1 190px;" subscriptSizing="dynamic">
-          <mat-label>Posizione</mat-label>
-          <mat-select [(ngModel)]="position" (ngModelChange)="reload()">
-            <mat-option value="">Tutte</mat-option>
-            <mat-option value="precise">Precisa</mat-option>
-            <mat-option value="from_asset">Dall'immobile</mat-option>
-            <mat-option value="estimated">Stimata</mat-option>
-            <mat-option value="missing">Assente</mat-option>
-          </mat-select>
-        </mat-form-field>
-        <span style="flex: 1;"></span>
-        <button mat-stroked-button (click)="exportCsv()" style="height: 3.5rem;">
-          <mat-icon>ios_share</mat-icon> Esporta CSV
-        </button>
-        <button mat-flat-button (click)="openDialog()" [appHasRole]="['Admin','Operatore']" style="height: 3.5rem;">
-          <mat-icon>add</mat-icon> Nuovo impianto
-        </button>
-      </div>
-
-      <div style="margin-top: 0.75rem; color: #6b7280; font-size: 0.85rem;">
-        {{ dataSource.filteredData.length }} impianti
-        @for (c of typeCounts(); track c.type) {
-          · {{ c.count }} {{ typeLabel[c.type].toLowerCase() }}
+          </div>
         }
       </div>
 
@@ -181,7 +168,7 @@ type PositionFilter = '' | 'precise' | 'from_asset' | 'estimated' | 'missing';
           </tr>
         </table>
       </div>
-      <mat-paginator [pageSizeOptions]="[25, 50, 100]" [pageSize]="50" showFirstLastButtons></mat-paginator>
+      <mat-paginator [pageSizeOptions]="[25, 50, 100]" [pageSize]="pageSize" showFirstLastButtons (page)="onPage($event)"></mat-paginator>
     </div>
   `,
   styles: [`
@@ -200,21 +187,41 @@ export class PlantsComponent implements OnInit, AfterViewInit {
   @ViewChild(MatSort) sort!: MatSort;
   @ViewChild(MatPaginator) paginator!: MatPaginator;
 
-  readonly columns = ['actions', 'type', 'code', 'name', 'asset', 'utilities', 'position', 'inspection', 'status'];
-  readonly types = PLANT_TYPES;
+  readonly allColumns: IColumnDef[] = [
+    {field: 'type', header: 'Tipo'}, {field: 'code', header: 'Codice'}, {field: 'name', header: 'Nome'},
+    {field: 'asset', header: 'Immobili'}, {field: 'utilities', header: 'Utenze'}, {field: 'position', header: 'Posizione'},
+    {field: 'inspection', header: 'Verifiche'}, {field: 'status', header: 'Stato'},
+  ];
+  selectedColumns: IColumnDef[] = readColumns(this.allColumns);
+
+  get columns(): string[] {
+    return ['actions', ...this.selectedColumns.map(c => c.field)];
+  }
+
+  onColumnsChange(cols: IColumnDef[]): void {
+    this.selectedColumns = cols;
+    try {
+      localStorage.setItem(COLUMNS_KEY, JSON.stringify(cols.map(c => c.field)));
+    } catch {
+      // storage non disponibile: vale solo per questa sessione
+    }
+  }
   readonly typeLabel = PLANT_TYPE_LABEL;
   readonly typeIcon = PLANT_TYPE_ICON;
-  readonly statuses = Object.keys(PLANT_STATUS_LABEL) as PlantStatus[];
   readonly statusLabel = PLANT_STATUS_LABEL;
   readonly positionLabel = POSITION_LABEL;
 
   dataSource = new MatTableDataSource<Plant>([]);
   loading = false;
   query = '';
-  type: PlantType | '' = '';
-  status: PlantStatus | '' = '';
-  inspection: InspectionFilter = '';
-  position: PositionFilter = '';
+  readonly filterDefs = plantFilters();
+  readonly signals = PLANT_SIGNALS;
+  signal: ActiveSignal | null = null;
+  signalChips: FilterChip[] = [];
+  signalsToken = 0;
+  private rows: Plant[] = [];
+  filterValues: FilterValues = {};
+  pageSize = readPageSize();
 
   ngOnInit(): void {
     this.dataSource.sortingDataAccessor = (p, column) => {
@@ -232,12 +239,10 @@ export class PlantsComponent implements OnInit, AfterViewInit {
         ...(p.utilities ?? []).map(u => u.utility_id), p.notes].join(' ').toLowerCase();
       return haystack.includes(q);
     };
-    const params = this.route.snapshot.queryParamMap;
-    this.type = (params.get('type') as PlantType) ?? '';
-    this.inspection = (params.get('inspection') as InspectionFilter) ?? '';
-    this.position = (params.get('position') as PositionFilter) ?? '';
+    // Link dalla dashboard: ?type=, ?inspection=, ?position= valorizzano i filtri.
+    this.filterValues = fromQueryParams(this.filterDefs, this.route.snapshot.queryParams);
     this.reload();
-    const selectedId = Number(params.get('selectedId'));
+    const selectedId = Number(this.route.snapshot.queryParamMap.get('selectedId'));
     if (selectedId) this.openDialog(undefined, selectedId);
   }
 
@@ -291,7 +296,10 @@ export class PlantsComponent implements OnInit, AfterViewInit {
       plantId: item?.id ?? plantId ?? null,
       readOnly: !role || role === 'Lettore',
     }).afterClosed().subscribe(saved => {
-      if (saved) this.reload();
+      if (saved) {
+        this.reload();
+        this.signalsToken++;
+      }
     });
   }
 
@@ -302,7 +310,10 @@ export class PlantsComponent implements OnInit, AfterViewInit {
     }).afterClosed().subscribe(confirmed => {
       if (!confirmed) return;
       this.service.delete(p.id).subscribe({
-        next: () => this.reload(),
+        next: () => {
+          this.reload();
+          this.signalsToken++;
+        },
         error: err => console.error('Errore eliminazione impianto:', err),
       });
     });
@@ -326,12 +337,40 @@ export class PlantsComponent implements OnInit, AfterViewInit {
     URL.revokeObjectURL(url);
   }
 
+  onFilters(values: FilterValues): void {
+    this.filterValues = values;
+    this.reload();
+  }
+
+  onPage(e: PageEvent): void {
+    if (e.pageSize === this.pageSize) return;
+    this.pageSize = e.pageSize;
+    try {
+      localStorage.setItem(PAGE_SIZE_KEY, String(e.pageSize));
+    } catch {
+      // storage non disponibile: vale solo per questa sessione
+    }
+  }
+
+  // Segnalazione scelta nel pannello: filtro lato client sugli id.
+  setSignal(s: ActiveSignal | null): void {
+    this.signal = s;
+    this.signalChips = s ? [{key: 'signal', text: `Segnalazione: ${s.label}`}] : [];
+    this.showRows();
+  }
+
+  private showRows(): void {
+    const ids = this.signal?.ids;
+    this.dataSource.data = ids ? this.rows.filter(p => ids.has(p.id)) : this.rows;
+    this.applyFilter();
+  }
+
   reload(): void {
     this.loading = true;
-    this.service.list({type: this.type, status: this.status, inspection: this.inspection, position: this.position}).subscribe({
+    this.service.list(toSearchParams(this.filterDefs, this.filterValues) as PlantFilters).subscribe({
       next: rows => {
-        this.dataSource.data = rows;
-        this.applyFilter();
+        this.rows = rows;
+        this.showRows();
         this.loading = false;
       },
       error: err => {

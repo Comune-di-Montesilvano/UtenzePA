@@ -10,6 +10,7 @@ import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {ConsipAgreement} from './entity/consip-agreement.entity';
+import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {ConsipAgreementEditDialogComponent} from './consip-agreement-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
@@ -19,7 +20,7 @@ import {partyName} from '../../core/helpers/party-name.helper';
 @Component({
   selector: 'app-data-table-consip-agreement',
   standalone: true,
-  imports: [
+  imports: [ListToolbarComponent, 
     DatePipe,
     MatTableModule,
     MatSortModule,
@@ -37,7 +38,30 @@ import {partyName} from '../../core/helpers/party-name.helper';
 export class DataTableConsipAgreementComponent extends AbstractDataTableComponent<ConsipAgreement> {
   readonly partyName = partyName;
 
-  displayedColumns = ['actions', 'id', 'name', 'supplier', 'cig_master', 'expiration_date', 'safeguard'];
+  private static readonly STORAGE_KEY = 'columns:consip-agreement';
+
+  readonly allColumns: IColumnDef[] = [
+    {field: 'id', header: 'ID'},
+    {field: 'name', header: 'Nome'},
+    {field: 'supplier', header: 'Fornitore'},
+    {field: 'cig_master', header: 'CIG Master'},
+    {field: 'expiration_date', header: 'Scadenza'},
+    {field: 'safeguard', header: 'Salvaguardia'},
+  ];
+
+  selectedColumns: IColumnDef[] = this.loadColumnSelection(
+    DataTableConsipAgreementComponent.STORAGE_KEY, this.allColumns, new Set(['id', 'name', 'supplier', 'cig_master', 'expiration_date', 'safeguard'])
+  );
+
+  get displayedColumns(): string[] {
+    return ['actions', ...this.selectedColumns.map(c => c.field)];
+  }
+
+  compareColumns = (a: IColumnDef, b: IColumnDef): boolean => a?.field === b?.field;
+
+  onColumnsChange(): void {
+    this.saveColumnSelection(DataTableConsipAgreementComponent.STORAGE_KEY, this.selectedColumns);
+  }
 
   constructor(screen: ScreenSizeService) {
     super(screen);

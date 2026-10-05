@@ -28,7 +28,7 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
   async findAll(filters?: SearchContractDto): Promise<Contract[]> {
     const alias = this.entityName;
     const qb = this.repo.createQueryBuilder(alias);
-    qb.where(`${alias}.deleted = :deleted`, { deleted: false });
+    qb.where(`${alias}.deleted = :deleted`, { deleted: filters?.deleted ?? false });
     qb.leftJoinAndSelect(`${alias}.supplier`, 'supplier');
     qb.leftJoinAndSelect(`${alias}.utilities`, 'utilities');
     // Mostrata in tabella contratti (colonna Convenzione CONSIP).
@@ -50,6 +50,12 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
       }
       if (filters.missing_cig) {
         qb.andWhere(`TRIM(IFNULL(${alias}.cig_contract, '')) = '' AND ${alias}.cig_exempt = 0`);
+      }
+      if (filters.closed !== undefined) {
+        qb.andWhere(`${alias}.closed = :closed`, { closed: filters.closed });
+      }
+      if (filters.consip_order) {
+        qb.andWhere(`${alias}.consip_order LIKE :consip_order`, { consip_order: `%${filters.consip_order}%` });
       }
       if (filters.cig_contract) {
         qb.andWhere(`${alias}.cig_contract LIKE :cig_contract`, { cig_contract: `%${filters.cig_contract}%` });

@@ -1,11 +1,11 @@
 <div style="padding: 1rem;">
-  <div>
-    <h1>Contratti immobiliari</h1>
-    <p style="color: #6A7282;">Locazioni, concessioni, comodati e assegnazioni degli immobili comunali, attivi e passivi.</p>
-  </div>
-  <div style="margin-top: 1rem;">
-    <app-search-utilizer-grant (search)="onSearch($event)"></app-search-utilizer-grant>
-  </div>
+  <h1>Contratti immobiliari</h1>
+  <p class="list-subtitle">Locazioni, concessioni, comodati e assegnazioni degli immobili comunali, attivi e passivi.</p>
+  <app-list-filters [defs]="filterDefs" [values]="filterValues" placeholder="Cerca oggetto, parte, atto..."
+                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"
+                    [extraChips]="signalChips" (extraChipRemoved)="clearSignal()"></app-list-filters>
+  <app-list-signals [signals]="signals" [reloadToken]="signalsToken" [activeKey]="signal?.key ?? null"
+                    (selected)="onSignal($event)"></app-list-signals>
   @let t = totals();
   <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; margin-top: 0.75rem; color: #374151;">
     <span>Entrate annue: <strong>{{ euro(t.income) }}</strong></span>
@@ -13,7 +13,7 @@
     <span>Saldo: <strong>{{ euro(t.income - t.expense) }}</strong></span>
     <span style="color: #6b7280; font-size: 0.85rem;">(contratti attivi o in scadenza tra quelli in elenco)</span>
   </div>
-  <div style="margin-top: 1.5rem;">
+  <div style="margin-top: 1rem;">
     <app-data-table-utilizer-grant
       #dataTable
       [data]="list"

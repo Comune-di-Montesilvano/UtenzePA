@@ -3,6 +3,11 @@ import {ToastService} from '../services/toast.service';
 import {AuthService} from '../../services/auth.service';
 import {AbstractService} from '../services/abstract.service';
 import {AbstractEntity} from '../entities/abstract.entity';
+import {ActivatedRoute} from '@angular/router';
+import {Subscription} from 'rxjs';
+import {FilterChip, FilterDef, FilterValues} from './list/filter-def';
+import type {ActiveSignal} from './list/list-signals.component';
+import {fromQueryParams, initialValues, toSearchParams} from './list/filter-values';
 
 @Component({
              changeDetection: ChangeDetectionStrategy.Eager,
@@ -15,8 +20,18 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   resetPagingCount = 0;
   qsearchFields: (keyof T)[] = [];
   loading = false;
-  /** Ultimi filtri (dialog filtro) applicati via onSearch, riusati da loadAll() dopo save/create/delete/restore. */
+  /** Parametri di ricerca dei filtri correnti, riusati da loadAll() dopo save/create/delete/restore. */
   protected lastFilters: any = {};
+  /** Filtri dichiarati dalla pagina (barra app-list-filters) e loro valori correnti. */
+  filterDefs: FilterDef[] = [];
+  filterValues: FilterValues = {};
+  private quickText = '';
+  private pendingSearch?: Subscription;
+  /** Segnalazione scelta nel pannello (filtro lato client sugli id) e suo chip. */
+  signal: ActiveSignal | null = null;
+  signalChips: FilterChip[] = [];
+  /** Cresce a ogni salvataggio: il pannello segnalazioni ricalcola le anomalie. */
+  signalsToken = 0;
 
   protected authService = inject(AuthService);
   protected messageService = inject(ToastService);
@@ -28,15 +43,83 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   }
 
   ngOnInit() {
+    this.filterValues = initialValues(this.filterDefs);
+    this.lastFilters = this.mapSearchParams(toSearchParams(this.filterDefs, this.filterValues));
     this.loadAll();
   }
 
-  loadAll() {
+  // Una sola ricerca alla volta: una risposta vecchia non deve sovrascrivere
+  // quella dei filtri correnti.
+  loadAll(after?: (list: T[]) => void) {
+    this.pendingSearch?.unsubscribe();
     this.loading = true;
-    this.service.search(this.lastFilters).subscribe((result: T[]) => {
-      this.list = this.service.fromPlain(result);
-      this.allItems = [...this.list];
-      this.loading = false;
+    this.pendingSearch = this.service.search(this.lastFilters).subscribe({
+      next: (result: T[]) => {
+        this.allItems = this.service.fromPlain(result);
+        this.applyQuick();
+        this.loading = false;
+        after?.(this.allItems);
+      },
+      error: (err: any) => {
+        this.loading = false;
+        this.handleError(err, 'Ricerca non riuscita: controllare i filtri');
+      },
+    });
+  }
+
+  // Hook: le pagine possono tradurre filtri di sola UI in parametri dell'API (es. Anno delle fatture).
+  protected mapSearchParams(p: Record<string, unknown>): Record<string, unknown> {
+    return p;
+  }
+
+  onFiltersChange(values: FilterValues): void {
+    this.filterValues = values;
+    this.lastFilters = this.mapSearchParams(toSearchParams(this.filterDefs, values));
+    this.loadAll();
+    this.resetPagingCount++;
+  }
+
+  onQuickSearch(text: string): void {
+    this.quickText = (text ?? '').toLowerCase();
+    this.applyQuick();
+    this.resetPagingCount++;
+  }
+
+  onSignal(s: ActiveSignal): void {
+    this.signal = s;
+    this.signalChips = [{key: 'signal', text: `Segnalazione: ${s.label}`}];
+    this.applyQuick();
+    this.resetPagingCount++;
+  }
+
+  clearSignal(): void {
+    this.signal = null;
+    this.signalChips = [];
+    this.applyQuick();
+    this.resetPagingCount++;
+  }
+
+  // Ricerca libera e segnalazione sui dati già caricati con i filtri correnti.
+  protected applyQuick(): void {
+    const q = this.quickText;
+    const ids = this.signal?.ids;
+    this.list = this.allItems.filter(i =>
+      (!ids || ids.has(i.id)) &&
+      (!q || this.flatValues(i).some(v => String(v).toLowerCase().includes(q))));
+  }
+
+  // Link dalla dashboard: query param con il nome di un filtro lo valorizzano;
+  // ?selectedId=N apre la scheda dopo il caricamento.
+  protected initFromRoute(route: ActivatedRoute, open?: (item: T) => void): void {
+    route.queryParams.subscribe(params => {
+      this.filterValues = {...initialValues(this.filterDefs), ...fromQueryParams(this.filterDefs, params)};
+      this.lastFilters = this.mapSearchParams(toSearchParams(this.filterDefs, this.filterValues));
+      const selectedId = params['selectedId'] ? Number(params['selectedId']) : null;
+      this.loadAll(items => {
+        if (!selectedId || !open) return;
+        const item = items.find(i => i.id === selectedId);
+        if (item) setTimeout(() => open(item));
+      });
     });
   }
 
@@ -48,28 +131,6 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
     return [];
   }
 
-  onSearch(filters: any) {
-    // QUICK SEARCH
-    if (Object.keys(filters).length === 1 && filters.hasOwnProperty('qsearch')) {
-      if (filters.qsearch !== '' && filters.qsearch != null) {
-        const qsTerms: string = (filters.qsearch || '').toLowerCase();
-        this.list = [...this.allItems].filter(i =>
-                                                this.flatValues(i).some(v => String(v).toLowerCase().includes(qsTerms))
-        );
-      } else {
-        this.list = [...this.allItems];
-      }
-    } else {
-      this.lastFilters = filters;
-      this.service.search(filters).subscribe((result: T[]) => {
-        this.list = this.service.fromPlain(result);
-        this.allItems = [...this.list];
-      });
-    }
-
-    this.resetPagingCount++;
-  }
-
   onSave(entity: T) {
     this.service.update(entity.id, entity).subscribe(
       {
@@ -77,6 +138,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
           const index = this.list.findIndex(u => u.id === item.id);
           if (index !== -1) this.list[index] = item;
           this.loadAll();
+          this.signalsToken++;
           this.messageService.add(
             {
               key: 'global',
@@ -104,6 +166,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
               key: 'global'
             });
           this.loadAll();
+          this.signalsToken++;
         },
         error: (err: any) => {
           // handleError mostra il messaggio del backend (es. 409 "Tipologia
@@ -117,6 +180,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
     this.service.update(entity.id, {deleted: false, updated_by_user_id: this.userId} as any)
         .subscribe(() => {
           this.loadAll();
+          this.signalsToken++;
         });
   }
 
@@ -134,6 +198,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
               key: 'global'
             });
           this.loadAll();
+          this.signalsToken++;
         },
         error: (err: any) => {
           this.handleError(err, 'Errore generico nella creazione');

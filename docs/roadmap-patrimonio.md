@@ -30,8 +30,8 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 12 | Costi a carico calcolato | fatto, v1.8.1, con volture (26 utenze da volturare, 8 attive, da verificare dall'anomalia) |
 | 13 | Schede entità: rifiniture | da fare |
 | 14 | Schede di fornitori, capitoli, fatture | da fare |
-| 15 | UI e identità (elenchi, filtri, dark mode, sidebar, nome) | da approfondire |
-| 16 | Dashboard e mappa | per ultime |
+| 15 | UI e identità (elenchi, filtri, dark mode, sidebar, nome) | elenchi, filtri, segnalazioni e sidebar fatti in v1.11.0; dark mode e nome da approfondire |
+| 16 | Dashboard e mappa | mappa a livelli in v1.11.0 (filtri a perimetro, inattivi nascosti, ricerca nel Comune); dashboard per ultima |
 | 17 | Impegni di spesa (contratto ↔ capitolo) | fatto, v1.10.0 (impegni ACA 2025–2026 senza numero né importo, da completare con la ragioneria) |
 | 18 | Pulizia entità e incongruenze del modello | fatto: parte 1 v1.9.0 (tabelle morte, aggregati immobili, gestori manutenzione → manutenzione calcolata), parte 2 v1.9.1 (campi doppi) |
 
@@ -137,10 +137,6 @@ Rifiniture rimandate dalla revisione finale di v1.10.0, non bloccanti:
 - anomalia "Utenze con capitolo non impegnato sul contratto": usa i contratti non chiusi, mentre la colonna contratti mostra quelli correnti (scadenza);
 - scheda utenza: i capitoli impegnati non si azzerano se l'utenza non ha più contratti aperti;
 - manca un test di rollback della transazione delle righe fattura.
-
- a contratto e capitolo, non all'utenza. Fonte pronta: fatture ACA 2025–2026 (490 fatture, `.audit-w/aca_fatture_2025_2026.json`). Serve `utility_id_fk` sulla fattura per avere spesa reale per utenza/immobile e anomalie "fattura su utenza cessata". Rimandata dall'utente (si è fatta solo la pulizia dati).
-
-In previsione delle **utility di importazione massiva** (fattura elettronica XML FatturaPA o tracciati dei fornitori), il modello va ripensato: oggi `invoices` ha numero, data, protocollo, imponibile, morosità, FK al contratto di fornitura e N-N con i capitoli, ma non utenza e periodo. Servono righe fattura per POD/PDR (una fattura del fornitore copre molte utenze) con periodo dal/al, consumo e importo; aggancio a consumi (`utility_consumptions`) e spesa per capitolo; abbinamento del fornitore per P.IVA (voce 9) invece che per `supplier_id`; POD normalizzato a 14 caratteri; deduplica per numero fattura + fornitore; anteprima con errori prima del salvataggio.
 
 ## 7. Contratti di servizio e manutenzione
 
@@ -251,8 +247,7 @@ Stesso modello delle schede di v1.7.1: Fornitori fatto con la voce 9 (scheda Sog
 
 ## 15. UI e identità
 
-- **Elenchi uniformi**: oggi titoli, ricerca, filtri, conteggio risultati, paginazione, azioni ed export cambiano da pagina a pagina; quasi tutte estendono `AbstractDataTableComponent`, Impianti ha tabella e filtri propri. Un unico layout lista per tutte le entità.
-- **Filtri coerenti**: stessi controlli per lo stesso tipo di dato, filtri attivi visibili e rimovibili.
+- ~~**Elenchi uniformi** e **filtri coerenti**~~ (fatto in v1.11.0, con segnalazioni per elenco e filtri avanzati a sezioni; spec `docs/superpowers/specs/2026-10-05-elenchi-uniformi-design.md`): filtri dichiarati per pagina, max 3 in linea, "Filtri avanzati" generico, chip dei filtri attivi, righe 25/50/100 ricordate, toolbar uguale. Resta: Impianti con tabella propria (stessa barra e paginatore); filtro "Stato utenza" del vecchio dialog mai funzionante, non riportato.
 - **Dark mode automatico** (`prefers-color-scheme`): tema Material scuro, token colore (già presenti per le schede) ridefiniti, via i colori inline (39 file) e gli esadecimali fissi in `styles.scss` (~40); attenzione a Leaflet.
 - **Sidebar**: gruppi, voci, icone, voce attiva, versione compressa.
 - **Nuovo nome**: "UtenzePA" non rappresenta più il patrimonio. Candidati (convenzione team: suffisso "PA"): **PatrimonioPA** (consigliato; rischio confusione con la rilevazione MEF "Patrimonio della PA"), **BeniComuniPA** (più distintivo), ImmobiliPA (troppo stretto). Cercare omonimi su Developers Italia e GitHub. Impatti: `publiccode.yml`, immagini GHCR e `release.yml`, `docker-compose*.yml` (`name: utenzepa`, nomi container usati in CLAUDE.md), branding, README, repo GitHub, nomi file dei backup. Decidere il nome prima di toccare l'UI.
@@ -264,7 +259,6 @@ Per ultime, quando dati e UI sono a posto. **Mappa**: non si tocca finché non c
 ## 17. Impegni di spesa (contratto ↔ capitolo)
 
 Fatto in v1.10.0 con la voce 6: impegno = contratto di fornitura + capitolo + esercizio, numero e importo facoltativi; tab "Impegni e capitoli" nella scheda contratto (riepilogo calcolato per capitolo: utenze, impegnato, speso); nella scheda utenza i capitoli impegnati sui contratti aperti compaiono in cima al select (nessun blocco), con anomalia per i contratti che hanno impegni. Sul DB locale 12 impegni ACA (6 capitoli × 2025–2026) senza numero né importo: da completare con la ragioneria. Il testo sotto è il censimento di partenza.
-
 
 Oggi il capitolo sta solo sull'utenza (`utilities.budget_chapter_code_fk`); il contratto di fornitura non ne ha. Non si può spostare sul contratto e derivarlo: lo stesso contratto copre utenze su capitoli diversi (al 2026-10-03, utenze attive: un contratto da 160 utenze su 15 capitoli, uno da 105 su 7, uno da 36 su 13). Il capitolo dipende da cosa serve l'utenza (scuola, uffici, SPRAR, illuminazione), non dal fornitore.
 

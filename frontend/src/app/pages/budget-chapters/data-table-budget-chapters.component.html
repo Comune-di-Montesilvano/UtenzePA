@@ -1,10 +1,10 @@
-<div style="display: flex; justify-content: space-between; align-items: center;">
-  <h3>Elenco ({{data.length}})</h3>
-  <button mat-flat-button (click)="openCreateDialog()" [appHasRole]="['Admin', 'Operatore']">
-    <mat-icon>add</mat-icon>
-    Aggiungi Capitolo Di Spesa
-  </button>
-</div>
+<app-list-toolbar [count]="data.length"
+                  createLabel="Nuovo capitolo"
+                  [columns]="allColumns"
+                  [selectedColumns]="selectedColumns"
+                  [compareColumns]="compareColumns"
+                  (selectedColumnsChange)="selectedColumns = $event; onColumnsChange()"
+                  (create)="openCreateDialog()"></app-list-toolbar>
 
 @if (loading) {
   <mat-progress-bar mode="indeterminate"></mat-progress-bar>
@@ -71,4 +71,4 @@
   </tr>
 </table>
 
-<mat-paginator #paginator [pageSizeOptions]="rowsPerPageOptions" [pageSize]="10"></mat-paginator>
+<mat-paginator #paginator [pageSizeOptions]="rowsPerPageOptions" [pageSize]="pageSize" showFirstLastButtons (page)="onPage($event)"></mat-paginator>

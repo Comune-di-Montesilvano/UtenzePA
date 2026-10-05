@@ -1,3 +1,4 @@
+import { SettingsModule } from '@apis/settings/settings.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Asset } from '@apis/asset/entity/asset.entity';
@@ -11,7 +12,7 @@ import { MapController } from './map.controller';
   // GeocodingModule esporta GeocodingService — riusato dall'endpoint
   // /map/geocode (ricerca libera indirizzo) invece di duplicare il client
   // Nominatim/throttle/backoff qui.
-  imports: [TypeOrmModule.forFeature([Asset, Utility, Plant]), GeocodingModule],
+  imports: [TypeOrmModule.forFeature([Asset, Utility, Plant]), GeocodingModule, SettingsModule],
   providers: [MapService],
   controllers: [MapController],
 })

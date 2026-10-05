@@ -13,6 +13,7 @@ import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {UtilizerGrant} from './entity/utilizer-grant.entity';
 import {partyNames} from '../../core/helpers/party-name.helper';
+import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {UtilizerGrantEditDialogComponent} from './utilizer-grant-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
@@ -30,7 +31,7 @@ import {
 @Component({
   selector: 'app-data-table-utilizer-grant',
   standalone: true,
-  imports: [
+  imports: [ListToolbarComponent, 
     FormsModule,
     MatTableModule,
     MatSortModule,

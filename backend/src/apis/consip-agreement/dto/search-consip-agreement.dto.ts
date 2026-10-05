@@ -1,4 +1,5 @@
-import { IsBoolean, IsDateString, IsInt, IsOptional } from 'class-validator';
+import { DateRange } from '@common/decorators/date-range.decorator';
+import { IsBoolean, IsInt, IsOptional } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class SearchConsipAgreementDto {
@@ -12,16 +13,8 @@ export class SearchConsipAgreementDto {
   cig_master: string;
 
   @IsOptional()
-  @Transform(({ value }) => {
-    if (!value) return undefined;
-    if (Array.isArray(value)) return value;
-    return value
-      .split(',')
-      .map((v: string) => v.trim())
-      .filter((v: string) => v !== '');
-  })
-  @IsDateString({}, { each: true })
-  expiration_date_range?: string[];
+  @DateRange()
+  expiration_date_range?: (string | null)[];
 
   @IsOptional()
   @IsBoolean()

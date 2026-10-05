@@ -27,12 +27,12 @@ export class ConsipAgreementService extends BaseService<
   async findAll(filters?: SearchConsipAgreementDto): Promise<ConsipAgreement[]> {
     const alias = this.entityName;
     const qb = this.repo.createQueryBuilder(alias);
-    qb.where(`${alias}.deleted = :deleted`, { deleted: false });
+    qb.where(`${alias}.deleted = :deleted`, { deleted: filters?.deleted ?? false });
     qb.leftJoinAndSelect(`${alias}.supplier`, 'supplier');
 
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
-        if (value === undefined || value === null || value === '') return;
+        if (key === 'deleted' || value === undefined || value === null || value === '') return;
 
         if (key === 'expiration_date_range') {
           const range = value as string[];

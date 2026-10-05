@@ -10,6 +10,7 @@ import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {SystemUser} from './entity/system-user.entity';
+import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {SystemUserEditDialogComponent} from './system-user-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
@@ -17,7 +18,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
 @Component({
   selector: 'app-data-table-users',
   standalone: true,
-  imports: [
+  imports: [ListToolbarComponent, 
     DatePipe,
     MatTableModule,
     MatSortModule,

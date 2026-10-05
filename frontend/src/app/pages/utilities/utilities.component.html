@@ -1,14 +1,14 @@
 <div style="padding: 1rem;">
-  <div>
-    <h1>Gestione Utenze</h1>
-    <p style="color: #6A7282;">Gestisci le anagrafiche delle utenze</p>
-  </div>
+  <h1>Utenze</h1>
+  <p class="list-subtitle">Contatori di acqua, luce, gas e connettività.</p>
+
+  <app-list-filters [defs]="filterDefs" [values]="filterValues" placeholder="Cerca POD/PDR, matricola, immobile..."
+                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"
+                    [extraChips]="signalChips" (extraChipRemoved)="clearSignal()"></app-list-filters>
+  <app-list-signals [signals]="signals" [reloadToken]="signalsToken" [activeKey]="signal?.key ?? null"
+                    (selected)="onSignal($event)"></app-list-signals>
 
   <div style="margin-top: 1rem;">
-    <app-search-utilities (search)="onSearch($event)"></app-search-utilities>
-  </div>
-
-  <div style="margin-top: 1.5rem;">
     <app-data-table-utilities
       #dataTable
       [data]="list"

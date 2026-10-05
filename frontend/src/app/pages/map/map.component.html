@@ -1,76 +1,125 @@
 <div class="map-page">
-  <aside class="map-sidebar">
-    <h3>Cerca indirizzo</h3>
-    <mat-form-field appearance="outline" class="map-address-search">
-      <input matInput placeholder="Via, civico, comune..." [formControl]="addressSearch" (keyup.enter)="searchAddress()">
-      <button mat-icon-button matSuffix type="button" (click)="searchAddress()">
-        <mat-icon>search</mat-icon>
-      </button>
-    </mat-form-field>
-
-    <h3>Cerca edificio</h3>
-    <app-filterable-select
-      label="Immobile"
-      placeholder="Nome o indirizzo..."
-      [options]="assetSearchOptions"
-      [formControl]="assetSearch">
-    </app-filterable-select>
-
-    <h3>Filtri</h3>
-    <mat-checkbox [formControl]="showAssets">Immobili</mat-checkbox>
-    <mat-checkbox [formControl]="showUtilities">Utenze</mat-checkbox>
-    <mat-checkbox [formControl]="showPlants">Impianti</mat-checkbox>
-
-    <app-multi-select label="Tipologia" [options]="natureOptions" [formControl]="natureIds"></app-multi-select>
-    <app-multi-select label="Funzione" [options]="functionOptions" [formControl]="functionIds"></app-multi-select>
-    <app-multi-select label="Stato" [options]="statusOptions" [formControl]="statuses"></app-multi-select>
-
-    <app-multi-select
-      label="Tipo utenza"
-      [options]="utilityTypeOptions"
-      [formControl]="utilityTypeIds">
-    </app-multi-select>
-
-    <app-multi-select
-      label="Tipo impianto"
-      [options]="plantTypeOptions"
-      [formControl]="plantTypes">
-    </app-multi-select>
-
-    <div class="map-legend">
-      <div><span class="map-pin" style="background:#37474f"><span class="material-icons">apartment</span></span> Immobile (icona varia per funzione)</div>
-      @for (t of hardTypeLegend; track t.value) {
-        <div><span class="map-pin" [style.background]="t.color"><i [class]="t.icon"></i></span> {{ t.label }}</div>
-      }
-      <div><span class="map-pin" style="background:#0f766e"><span class="material-icons">settings_input_component</span></span> Impianto (icona varia per tipo)</div>
-      <div>
-        <span class="map-pin" style="background:#7c3aed"><span class="material-icons">layers</span></span>
-        Piu' elementi nello stesso punto — badge <span class="material-icons map-legend-inline-icon">holiday_village</span> immobili,
-        <span class="material-icons map-legend-inline-icon">speed</span> utenze
+  @if (panelOpen) {
+    <aside class="map-panel">
+      <div class="mp-head">
+        <h2>Mappa</h2>
+        <button mat-icon-button type="button" (click)="panelOpen = false" matTooltip="Chiudi pannello" aria-label="Chiudi pannello">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
       </div>
-      <div class="map-legend-note">
-        <span class="map-pin map-pin--legend-sample" style="background:#757575;border-style:solid"></span> posizione GPS reale
-        &nbsp;
-        <span class="map-pin map-pin--legend-sample" style="background:#757575;border-style:dashed"></span> stimata da indirizzo
-      </div>
-    </div>
 
-    @if (ungeolocated.length > 0) {
-      <mat-expansion-panel class="map-ungeolocated-panel">
-        <mat-expansion-panel-header>
-          <mat-panel-title>Non geolocalizzabili ({{ ungeolocated.length }})</mat-panel-title>
-        </mat-expansion-panel-header>
-        <ul class="map-ungeolocated-list">
-          @for (item of ungeolocated; track item.id + item.type) {
-            <li (click)="openDetail(item)">
-              {{ item.name }}
-              <span class="map-reason">{{ reasonLabels[item.reason] }}</span>
-            </li>
+      <mat-form-field class="mp-search" subscriptSizing="dynamic">
+        <mat-icon matIconPrefix>search</mat-icon>
+        <input matInput placeholder="Immobile o indirizzo..." [formControl]="search" [matAutocomplete]="searchAuto"
+               (keyup.enter)="searchAddress()">
+        <mat-autocomplete #searchAuto="matAutocomplete" (optionSelected)="onSearchSelected($event)">
+          @for (o of searchMatches; track o.value) {
+            <mat-option [value]="o.value"><span><mat-icon>apartment</mat-icon>{{ o.label }}</span></mat-option>
           }
-        </ul>
-      </mat-expansion-panel>
-    }
-  </aside>
+          @if (searchText.length >= 3) {
+            <mat-option [value]="null"><span><mat-icon>place</mat-icon>Cerca indirizzo «{{ searchText }}»</span></mat-option>
+          }
+        </mat-autocomplete>
+      </mat-form-field>
+
+      <div class="mp-section">Livelli</div>
+
+      <!-- Immobili -->
+      <div class="mp-layer" [class.off]="!showAssets.value">
+        <div class="mp-layer-row">
+          <mat-checkbox [formControl]="showAssets" aria-label="Mostra immobili"></mat-checkbox>
+          <span class="map-pin mp-sample" style="background:#37474f"><span class="material-icons">apartment</span></span>
+          <span class="mp-name">Immobili</span>
+          <span class="mp-count" matTooltip="Punti visibili">{{ layerCounts.asset }}</span>
+          <button mat-icon-button type="button" class="mp-toggle" (click)="expanded.asset = !expanded.asset"
+                  [attr.aria-expanded]="expanded.asset" aria-label="Filtri immobili">
+            <mat-icon [class.mp-filtered]="activeFilters('asset')">{{ expanded.asset ? 'expand_less' : 'tune' }}</mat-icon>
+          </button>
+        </div>
+        @if (expanded.asset) {
+          <div class="mp-filters">
+            <p class="mp-hint">Tipologia e funzione valgono anche per utenze e impianti collegati.</p>
+            <app-multi-select label="Tipologia" [options]="natureOptions" [formControl]="natureIds"></app-multi-select>
+            <app-multi-select label="Funzione" [options]="functionOptions" [formControl]="functionIds"></app-multi-select>
+            <app-multi-select label="Stato" [options]="statusOptions" [formControl]="statuses"></app-multi-select>
+          </div>
+        }
+      </div>
+
+      <!-- Utenze -->
+      <div class="mp-layer" [class.off]="!showUtilities.value">
+        <div class="mp-layer-row">
+          <mat-checkbox [formControl]="showUtilities" aria-label="Mostra utenze"></mat-checkbox>
+          <span class="mp-samples">
+            @for (t of hardTypeLegend; track t.value) {
+              <span class="map-pin mp-sample mp-sample--small" [style.background]="t.color" [matTooltip]="t.label"><i [class]="t.icon"></i></span>
+            }
+          </span>
+          <span class="mp-name">Utenze</span>
+          <span class="mp-count" matTooltip="Punti visibili">{{ layerCounts.utility }}</span>
+          <button mat-icon-button type="button" class="mp-toggle" (click)="expanded.utility = !expanded.utility"
+                  [attr.aria-expanded]="expanded.utility" aria-label="Filtri utenze">
+            <mat-icon [class.mp-filtered]="activeFilters('utility')">{{ expanded.utility ? 'expand_less' : 'tune' }}</mat-icon>
+          </button>
+        </div>
+        @if (expanded.utility) {
+          <div class="mp-filters">
+            <app-multi-select label="Tipo utenza" [options]="utilityTypeOptions" [formControl]="utilityTypeIds"></app-multi-select>
+            <mat-checkbox [formControl]="includeInactiveUtilities">Includi utenze cessate</mat-checkbox>
+          </div>
+        }
+      </div>
+
+      <!-- Impianti -->
+      <div class="mp-layer" [class.off]="!showPlants.value">
+        <div class="mp-layer-row">
+          <mat-checkbox [formControl]="showPlants" aria-label="Mostra impianti"></mat-checkbox>
+          <span class="map-pin mp-sample" style="background:#0f766e"><span class="material-icons">settings_input_component</span></span>
+          <span class="mp-name">Impianti</span>
+          <span class="mp-count" matTooltip="Punti visibili">{{ layerCounts.plant }}</span>
+          <button mat-icon-button type="button" class="mp-toggle" (click)="expanded.plant = !expanded.plant"
+                  [attr.aria-expanded]="expanded.plant" aria-label="Filtri impianti">
+            <mat-icon [class.mp-filtered]="activeFilters('plant')">{{ expanded.plant ? 'expand_less' : 'tune' }}</mat-icon>
+          </button>
+        </div>
+        @if (expanded.plant) {
+          <div class="mp-filters">
+            <app-multi-select label="Tipo impianto" [options]="plantTypeOptions" [formControl]="plantTypes"></app-multi-select>
+            <app-multi-select label="Stato" [options]="plantStatusOptions" [formControl]="plantStatuses"></app-multi-select>
+          </div>
+        }
+      </div>
+
+      <div class="mp-section">Simboli</div>
+      <ul class="mp-legend">
+        <li><span class="map-pin mp-sample mp-sample--small mp-neutral" style="border-style:solid"></span>Posizione GPS</li>
+        <li><span class="map-pin mp-sample mp-sample--small mp-neutral" style="border-style:dashed"></span>Stimata da indirizzo</li>
+        <li><span class="map-pin mp-sample mp-sample--small" style="background:#7c3aed"><span class="material-icons">layers</span></span>Più elementi nello stesso punto</li>
+        <li><span class="map-pin mp-sample mp-sample--small mp-neutral map-pin--inactive"></span>Dismesso o cessato</li>
+        <li><span class="mp-line"></span>Collegamento a un altro punto</li>
+      </ul>
+
+      @if (ungeolocated.length > 0) {
+        <mat-expansion-panel class="mp-ungeo">
+          <mat-expansion-panel-header>
+            <mat-panel-title><mat-icon class="mp-warn">location_off</mat-icon>Non geolocalizzati ({{ ungeolocated.length }})</mat-panel-title>
+          </mat-expansion-panel-header>
+          <ul class="map-ungeolocated-list">
+            @for (item of ungeolocated; track item.id + item.type) {
+              <li (click)="openDetail(item)">
+                {{ item.name }}
+                <span class="map-reason">{{ reasonLabels[item.reason] }}</span>
+              </li>
+            }
+          </ul>
+        </mat-expansion-panel>
+      }
+    </aside>
+  } @else {
+    <button mat-flat-button type="button" class="mp-open" (click)="panelOpen = true">
+      <mat-icon>tune</mat-icon> Livelli e filtri
+    </button>
+  }
 
   <div id="map-canvas" class="map-canvas"></div>
 </div>

@@ -1,75 +1,171 @@
 .map-page {
   display: flex;
-  // height:100% di .content (main-layout.component.scss), non più un calc
-  // hardcoded sul viewport: quel calc(100vh - 64px) non teneva conto del
-  // padding di .content (1rem = 16px top+bottom) né usava l'altezza vera
-  // dell'header (61px con bordo, non 64) — .map-page risultava sempre più
-  // alto dello spazio realmente disponibile, tagliato in fondo. height:100%
-  // funziona perché .content ora ha box-sizing:border-box (vedi
-  // main-layout.component.scss) e un'altezza definita via flex — resta
-  // corretto anche se l'header cambia altezza in futuro, nessun numero
-  // magico da tenere sincronizzato a mano.
+  position: relative;
+  // height:100% di .content (main-layout.component.scss): .content ha
+  // box-sizing:border-box e un'altezza definita via flex, quindi resta
+  // corretto anche se l'header cambia altezza (nessun calc sul viewport).
   height: 100%;
-}
-
-.map-sidebar {
-  width: 280px;
-  padding: 1rem;
-  overflow-y: auto;
-  border-right: 1px solid #e5e7eb;
 }
 
 .map-canvas {
   flex: 1;
 }
 
-.map-address-search {
-  width: 100%;
-  // Toglie il padding verticale extra di default del subscript wrapper
-  // Material (riservato ai messaggi errore) — qui non serve, il campo non
-  // ha validazione, solo un submit su invio/click.
-  ::ng-deep .mat-mdc-form-field-subscript-wrapper {
-    display: none;
+// Pannello livelli/filtri: stretto, richiudibile (mp-open lo riapre).
+.map-panel {
+  width: 300px;
+  flex: none;
+  padding: 0.75rem 1rem 1rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-right: 1px solid #e5e7eb;
+  box-sizing: border-box;
+}
+
+.mp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  h2 {
+    margin: 0;
+    font-size: 1.25rem;
   }
 }
 
-.map-legend {
-  margin-top: 1rem;
-  font-size: 0.85rem;
+.mp-search {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.mp-section {
+  margin: 1rem 0 0.25rem;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9e9e9e;
+}
+
+.mp-layer {
+  border-bottom: 1px solid #f0f0f0;
+
+  &.off .mp-samples,
+  &.off > .mp-layer-row > .mp-sample,
+  &.off .mp-name,
+  &.off .mp-count {
+    opacity: 0.4;
+  }
+}
+
+.mp-layer-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+}
+
+// .map-pin globale è display:flex (blocco): nella legenda va in linea.
+.mp-sample {
+  display: inline-flex;
+  flex: none;
+}
+
+.mp-sample--small {
+  width: 18px;
+  height: 18px;
+  border-width: 1px;
+  font-size: 9px;
+
+  .material-icons {
+    font-size: 12px;
+  }
+}
+
+.mp-neutral {
+  background: #9e9e9e;
+}
+
+.mp-samples {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.mp-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.mp-count {
+  min-width: 28px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: #f3f4f6;
+  color: #374151;
+  font-size: 0.75rem;
+  line-height: 20px;
+  text-align: center;
+}
+
+.mp-toggle .mp-filtered {
+  color: #1d4ed8;
+}
+
+.mp-filters {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 8px;
+  padding: 4px 0 12px 8px;
+}
 
-  // Riga "Bordo pieno/tratteggiato": prima solo testo, ora due pin di
-  // esempio (colore neutro, nessuna icona dentro) cosi' la differenza si
-  // vede davvero invece di doverla immaginare leggendo la frase.
-  .map-legend-note {
-    margin-top: 0.25rem;
-    color: #9e9e9e;
-    font-size: 0.75rem;
+.mp-hint {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.mp-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #4b5563;
+
+  li {
     display: flex;
     align-items: center;
-    gap: 0.35rem;
-    flex-wrap: wrap;
-  }
-
-  .map-pin--legend-sample {
-    width: 14px;
-    height: 14px;
-  }
-
-  // Icona Material inline dentro il testo della legenda (badge immobili/
-  // contatori del marker gruppo) — piu' piccola del default 24px del
-  // foglio Material Icons, altrimenti sballa l'altezza della riga.
-  .map-legend-inline-icon {
-    font-size: 14px;
-    vertical-align: middle;
-    line-height: 1;
+    gap: 8px;
   }
 }
 
-.map-ungeolocated-panel {
+.mp-line {
+  width: 18px;
+  border-top: 2px dashed #ea580c;
+}
+
+.mp-ungeo {
   margin-top: 1rem;
+  box-shadow: none !important;
+  border: 1px solid #e5e7eb;
+}
+
+.mp-warn {
+  color: #b45309;
+  margin-right: 6px;
+  font-size: 20px;
+  height: 20px;
+  width: 20px;
+}
+
+// Pulsante che riapre il pannello, sopra la mappa (dopo lo zoom di Leaflet).
+.mp-open {
+  position: absolute;
+  top: 12px;
+  left: 56px;
+  z-index: 1000;
 }
 
 .map-ungeolocated-list {
@@ -77,9 +173,7 @@
   padding: 0;
   margin: 0;
   font-size: 0.85rem;
-  // Puo' arrivare a 100+ voci — dentro un collapse gia' aiuta, ma da
-  // espanso una lista cosi' lunga spingerebbe comunque il resto della
-  // sidebar fuori vista, quindi scroll interno con un tetto ragionevole.
+  // Può arrivare a 100+ voci: scroll interno con un tetto ragionevole.
   max-height: 320px;
   overflow-y: auto;
 

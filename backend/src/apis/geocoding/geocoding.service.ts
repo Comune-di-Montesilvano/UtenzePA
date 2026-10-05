@@ -48,7 +48,11 @@ export class GeocodingService {
     return parts.join(', ');
   }
 
-  async geocode(query: string): Promise<GeocodeResult | null> {
+  // viewbox [lon1, lat1, lon2, lat2]: limita la ricerca a quel riquadro (bounded).
+  async geocode(
+    query: string,
+    opts?: { viewbox: [number, number, number, number] },
+  ): Promise<GeocodeResult | null> {
     const rateLimitDeadline = Date.now() + MAX_RATE_LIMIT_RETRY_MS;
     let attempt = 0;
 
@@ -56,7 +60,8 @@ export class GeocodingService {
       await this.throttle();
 
       try {
-        const url = `${NOMINATIM_URL}?format=json&limit=1&q=${encodeURIComponent(query)}`;
+        const bounds = opts ? `&viewbox=${opts.viewbox.join(',')}&bounded=1` : '';
+        const url = `${NOMINATIM_URL}?format=json&limit=1&q=${encodeURIComponent(query)}${bounds}`;
         const response = await fetch(url, {
           headers: { 'User-Agent': USER_AGENT },
         });

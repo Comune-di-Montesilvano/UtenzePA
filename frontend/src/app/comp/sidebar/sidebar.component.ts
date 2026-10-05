@@ -16,6 +16,8 @@ interface MenuItem {
   // raggruppare per assonanza (es. "PATRIMONIO") senza aggiungere livelli di
   // click come i submenu (vedi Impostazioni, che resta un submenu vero).
   groupLabel?: string;
+  // Linea di separazione sopra questa voce (es. Impostazioni, staccate dalle sezioni operative).
+  divider?: boolean;
 }
 
 @Component({
@@ -54,18 +56,18 @@ export class SidebarComponent implements OnInit {
       route: '/utilizer-grant',
     },
     {label: 'Soggetti terzi', icon: 'groups', route: '/third-parties', groupLabel: 'Gestione economica'},
-    {label: 'Capitoli di Spesa', icon: 'attach_money', route: '/budget-chapter'},
+    {label: 'Capitoli di spesa', icon: 'attach_money', route: '/budget-chapter'},
     {label: 'Fatture', icon: 'receipt_long', route: '/invoices'},
     {label: 'Contratti di fornitura', icon: 'description', route: '/contracts'},
-    {label: 'Impostazioni', icon: 'settings', submenu: [
-        {label: 'Tipologie Immobili', icon: 'category', route: '/asset-nature'},
-        {label: 'Funzioni Immobili', icon: 'widgets', route: '/asset-function'},
+    {label: 'Convenzioni CONSIP', icon: 'handshake', route: '/consip-agreement'},
+    {label: 'Impostazioni', icon: 'settings', divider: true, submenu: [
+        {label: 'Tipologie immobili', icon: 'category', route: '/asset-nature'},
+        {label: 'Funzioni immobili', icon: 'widgets', route: '/asset-function'},
         {label: 'Tipologie uso contatore', icon: 'sell', route: '/utility-types'},
-        {label: 'Convenzioni CONSIP', icon: 'handshake', route: '/consip-agreement'},
-        {label: 'Backup e manutenzione', icon: 'storage', route: '/backup-import'},
-        {label: 'Branding', icon: 'palette', route: '/branding'},
         {label: 'Utenti e ruoli', icon: 'group', route: '/system-users'},
         {label: 'Log modifiche', icon: 'history', route: '/audit-log'},
+        {label: 'Backup e manutenzione', icon: 'storage', route: '/backup-import'},
+        {label: 'Branding', icon: 'palette', route: '/branding'},
       ]},
   ];
 

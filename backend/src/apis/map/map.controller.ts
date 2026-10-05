@@ -5,6 +5,11 @@ import { GeocodingService } from '@apis/geocoding/geocoding.service';
 import { MapService } from './map.service';
 import { MapQueryDto } from './dto/map-query.dto';
 import { MapGeocodeQueryDto } from './dto/map-geocode-query.dto';
+import { SettingsService } from '@apis/settings/settings.service';
+
+// Mezza ampiezza (gradi) del riquadro attorno al Comune per la ricerca indirizzi.
+const AREA_DELTA = 0.1;
+const round = (n: number) => Math.round(n * 100) / 100;
 
 @Controller('map')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -12,6 +17,7 @@ export class MapController {
   constructor(
     private readonly service: MapService,
     private readonly geocodingService: GeocodingService,
+    private readonly settings: SettingsService,
   ) {}
 
   @Get('points')
@@ -25,7 +31,23 @@ export class MapController {
   // lat/lng string (coerente con MapPoint) o null se nessun match.
   @Get('geocode')
   async geocode(@Query() query: MapGeocodeQueryDto): Promise<{ lat: string; lng: string } | null> {
-    const result = await this.geocodingService.geocode(query.q);
+    // "via Roma" senza città resta nel Comune: prima con il nome del Comune
+    // (dal branding, "Comune di X" → "X"), poi nel riquadro attorno alle sue
+    // coordinate di default, infine ovunque.
+    const { entity_name, default_latitude, default_longitude } = await this.settings.getBrandingSummary();
+    const city = String(entity_name ?? '').replace(/^comune di\s+/i, '').trim();
+    const lat = parseFloat(String(default_latitude ?? '').replace(',', '.'));
+    const lng = parseFloat(String(default_longitude ?? '').replace(',', '.'));
+    let result = null;
+    if (city && !query.q.toLowerCase().includes(city.toLowerCase())) {
+      result = await this.geocodingService.geocode(`${query.q}, ${city}`, undefined);
+    }
+    if (!result && Number.isFinite(lat) && Number.isFinite(lng)) {
+      result = await this.geocodingService.geocode(query.q, {
+        viewbox: [round(lng - AREA_DELTA), round(lat + AREA_DELTA), round(lng + AREA_DELTA), round(lat - AREA_DELTA)],
+      });
+    }
+    result ??= await this.geocodingService.geocode(query.q, undefined);
     return result ? { lat: result.lat, lng: result.lon } : null;
   }
 }

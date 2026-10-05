@@ -1,6 +1,7 @@
 import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {DataTableBudgetChaptersComponent} from './data-table-budget-chapters.component';
-import {SearchBudgetChapters} from './search-budget-chapters.component';
+import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
+import {budgetChapterFilters} from './budget-chapters-filters';
 import {BudgetChaptersService} from './budget-chapters.service';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {BudgetChapter} from './entity/budget-chapter.entity';
@@ -10,12 +11,14 @@ import {BudgetChapter} from './entity/budget-chapter.entity';
   standalone: true,
   imports: [
     DataTableBudgetChaptersComponent,
-    SearchBudgetChapters
+    ListFiltersComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './budget-chapters.component.html'
 })
 export class BudgetChaptersComponent extends AbstractComponent<BudgetChapter> {
+
+  override filterDefs = budgetChapterFilters();
 
   constructor(protected override service: BudgetChaptersService) {
     super();

@@ -32,10 +32,12 @@
               <mat-error>Obbligatorio</mat-error>
             }
           </mat-form-field>
-          <mat-form-field>
-            <mat-label>Numero Contatore</mat-label>
-            <input matInput formControlName="meter_number">
-          </mat-form-field>
+          @if (isMetered) {
+            <mat-form-field>
+              <mat-label>Numero Contatore</mat-label>
+              <input matInput formControlName="meter_number">
+            </mat-form-field>
+          }
           <mat-form-field>
             <mat-label>Tipo utenza</mat-label>
             <mat-select formControlName="utility_type_id_fk" (selectionChange)="onUtilityTypeChange($event)">
@@ -195,6 +197,7 @@
               }
             </mat-select>
           </mat-form-field>
+          @if (isMetered) {
           <mat-form-field>
             <mat-label>Contatore Rimosso</mat-label>
             <mat-select formControlName="meter_removed">
@@ -219,8 +222,10 @@
               }
             </mat-select>
           </mat-form-field>
+          }
         </div>
 
+        @if (showLightFields || showGasFields) {
         <div class="sheet-section-title">Caratteristiche tecniche</div>
         <div class="sheet-grid">
           @if (showLightFields) {
@@ -247,24 +252,26 @@
               <input matInput formControlName="wbs_gas_element">
             </mat-form-field>
           }
-          @if (!showLightFields && !showGasFields) {
-            <p class="sheet-empty span-all">Nessun dato tecnico specifico per questo tipo di utenza.</p>
-          }
         </div>
+        }
 
+        @if (isMetered) {
         <div class="sheet-section-title">Gestione</div>
         <div class="sheet-grid">
-          <mat-form-field>
-            <mat-label>Concessione acqua</mat-label>
-            <input matInput [matDatepicker]="waterConcessionPicker" formControlName="water_concession">
-            <mat-datepicker-toggle matSuffix [for]="waterConcessionPicker"></mat-datepicker-toggle>
-            <mat-datepicker #waterConcessionPicker></mat-datepicker>
-          </mat-form-field>
+          @if (isWater) {
+            <mat-form-field>
+              <mat-label>Concessione acqua</mat-label>
+              <input matInput [matDatepicker]="waterConcessionPicker" formControlName="water_concession">
+              <mat-datepicker-toggle matSuffix [for]="waterConcessionPicker"></mat-datepicker-toggle>
+              <mat-datepicker #waterConcessionPicker></mat-datepicker>
+            </mat-form-field>
+          }
           <mat-form-field>
             <mat-label>Deposito cauzionale (€)</mat-label>
             <input matInput type="number" step="0.01" min="0" formControlName="security_deposit">
           </mat-form-field>
         </div>
+        }
       </mat-tab>
 
       <mat-tab aria-label="Immobili">
@@ -324,6 +331,7 @@
         </ng-template>
       </mat-tab>
 
+      @if (isMetered) {
       <mat-tab aria-label="Consumi">
         <ng-template mat-tab-label>
           <app-tab-label icon="insights" label="Consumi"
@@ -361,6 +369,7 @@
           </app-utility-consumptions-tab>
         }
       </mat-tab>
+      }
 
       @if (!isNew) {
         <mat-tab aria-label="Fatture">

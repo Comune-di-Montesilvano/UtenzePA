@@ -14,6 +14,8 @@ export interface MapPointsFilters {
   natureIds?: number[] | null;
   functionIds?: number[] | null;
   statuses?: string[] | null;
+  plantStatuses?: string[] | null;
+  includeInactiveUtilities?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })

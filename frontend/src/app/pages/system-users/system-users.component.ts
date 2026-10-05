@@ -1,7 +1,8 @@
 import {Component, ChangeDetectionStrategy} from '@angular/core';
 import {SystemUsersService} from './system-users.service';
 import {DataTableUsersComponent} from './data-table-users.component';
-import {SearchUsersComponent} from './search-users.component';
+import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
+import {systemUserFilters} from './system-users-filters';
 import {SystemUser} from './entity/system-user.entity';
 import {AbstractComponent} from '../../core/components/abstract.component';
 
@@ -10,12 +11,14 @@ import {AbstractComponent} from '../../core/components/abstract.component';
   standalone: true,
   imports: [
     DataTableUsersComponent,
-    SearchUsersComponent,
+    ListFiltersComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './system-users.component.html'
 })
 export class SystemUsersComponent extends AbstractComponent<SystemUser> {
+
+  override filterDefs = systemUserFilters();
 
   constructor(protected override service: SystemUsersService) {
     super();

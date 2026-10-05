@@ -1,7 +1,7 @@
 import {AfterViewInit, Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, Type, ViewChild, ChangeDetectionStrategy} from '@angular/core';
 import {MatTableDataSource} from '@angular/material/table';
 import {MatSort} from '@angular/material/sort';
-import {MatPaginator} from '@angular/material/paginator';
+import {MatPaginator, PageEvent} from '@angular/material/paginator';
 import {MatDialog} from '@angular/material/dialog';
 import {ConfirmDialogComponent, ConfirmDialogData} from './confirm-dialog.component';
 import {ScreenSizeService} from '../../services/screen-size.service';
@@ -44,7 +44,8 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
 
   private _resetPagingTrigger: number = 0;
 
-  rowsPerPageOptions: number[] = [10, 20, 50];
+  readonly rowsPerPageOptions: number[] = [25, 50, 100];
+  pageSize = 25;
 
   @Input()
   set resetPagingTrigger(value: number) {
@@ -58,6 +59,7 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
   }
 
   ngOnInit() {
+    this.pageSize = this.readPageSize();
     this.screen.screenHeight$.subscribe(h => {
       this.height = h;
       this.rowHeight = this.height / 10;
@@ -71,6 +73,30 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
   ngAfterViewInit() {
     if (this.sort) this.dataSource.sort = this.sort;
     if (this.paginator) this.dataSource.paginator = this.paginator;
+  }
+
+  // Chiave dell'elenco per le preferenze salvate (righe per pagina).
+  protected listKey(): string {
+    return this.entityLabel();
+  }
+
+  private readPageSize(): number {
+    try {
+      const n = Number(localStorage.getItem(`list-page-size:${this.listKey()}`));
+      return this.rowsPerPageOptions.includes(n) ? n : 25;
+    } catch {
+      return 25;
+    }
+  }
+
+  onPage(e: PageEvent): void {
+    if (e.pageSize === this.pageSize) return;
+    this.pageSize = e.pageSize;
+    try {
+      localStorage.setItem(`list-page-size:${this.listKey()}`, String(e.pageSize));
+    } catch {
+      // storage non disponibile: vale solo per questa sessione
+    }
   }
 
   restoreItem(entity: T): void {

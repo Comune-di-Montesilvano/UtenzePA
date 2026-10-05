@@ -13,6 +13,7 @@ import {FormsModule} from '@angular/forms';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {Utility} from './entity/utility.entity';
+import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {UtilityEditDialogComponent} from './utility-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
@@ -28,7 +29,7 @@ import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-ba
 @Component({
   selector: 'app-data-table-utilities',
   standalone: true,
-  imports: [
+  imports: [ListToolbarComponent, 
     MatTableModule, MatSortModule, MatPaginatorModule, MatButtonModule, MatIconModule,
     MatTooltipModule, MatProgressBarModule, MatSelectModule, MatFormFieldModule, FormsModule,
     HasRoleDirective, TruncatePipe, FormatAmountPipe, DatePipe, StatusBadgeComponent

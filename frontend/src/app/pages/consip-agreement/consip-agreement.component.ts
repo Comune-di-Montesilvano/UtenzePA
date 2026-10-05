@@ -1,6 +1,8 @@
-import {Component, ChangeDetectionStrategy} from '@angular/core';
+import {Component, ChangeDetectionStrategy, inject} from '@angular/core';
+import {ActivatedRoute} from '@angular/router';
 import {DataTableConsipAgreementComponent} from './data-table-consip-agreement.component';
-import {SearchConsipAgreementComponent} from './search-consip-agreement.component';
+import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
+import {consipAgreementFilters} from './consip-agreement-filters';
 import {ConsipAgreementService} from './consip-agreement.service';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {ConsipAgreement} from './entity/consip-agreement.entity';
@@ -10,7 +12,7 @@ import {ConsipAgreement} from './entity/consip-agreement.entity';
   standalone: true,
   imports: [
     DataTableConsipAgreementComponent,
-    SearchConsipAgreementComponent
+    ListFiltersComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './consip-agreement.component.html'
@@ -20,6 +22,13 @@ export class ConsipAgreementComponent extends AbstractComponent<ConsipAgreement>
   constructor(protected override service: ConsipAgreementService) {
     super();
     this.qsearchFields = ['name', 'description', 'cig_master'];
+  }
+
+  override filterDefs = consipAgreementFilters();
+  private route = inject(ActivatedRoute);
+
+  override ngOnInit(): void {
+    this.initFromRoute(this.route);
   }
 
   protected override entityLabel(): string {

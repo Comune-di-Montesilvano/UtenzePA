@@ -12,6 +12,7 @@ import {FormsModule} from '@angular/forms';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {Asset} from './entity/asset.entity';
+import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {AssetEditDialogComponent} from './asset-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
@@ -22,7 +23,7 @@ import {TruncatePipe} from '../../core/pipes/truncate.pipe';
 @Component({
   selector: 'app-data-table-assets',
   standalone: true,
-  imports: [
+  imports: [ListToolbarComponent, 
     MatTableModule, MatSortModule, MatPaginatorModule, MatButtonModule, MatIconModule,
     MatTooltipModule, MatProgressBarModule, MatSelectModule, MatFormFieldModule, FormsModule,
     HasRoleDirective, FormatAmountPipe, TruncatePipe

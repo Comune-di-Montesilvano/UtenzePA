@@ -1,29 +1,16 @@
-<div style="display: flex; justify-content: space-between; align-items: center;">
-  <h3>Elenco ({{ data.length }})</h3>
-  <button mat-flat-button (click)="openCreateDialog()" [appHasRole]="['Admin', 'Operatore']">
-    <mat-icon>add</mat-icon>
-    Aggiungi Utenza
-  </button>
-</div>
+<app-list-toolbar [count]="data.length"
+                  createLabel="Nuova utenza"
+                  [columns]="allColumns"
+                  [selectedColumns]="selectedColumns"
+                  [compareColumns]="compareColumns"
+                  (selectedColumnsChange)="selectedColumns = $event; onColumnsChange()"
+                  [exportable]="true"
+                  (export)="exportToCSV()"
+                  (create)="openCreateDialog()"></app-list-toolbar>
 
 @if (loading) {
   <mat-progress-bar mode="indeterminate"></mat-progress-bar>
 }
-
-<div style="display: flex; justify-content: space-between; margin: 0.75rem 0;">
-  <mat-form-field subscriptSizing="dynamic" style="min-width: 220px;">
-    <mat-label>Colonne visibili</mat-label>
-    <mat-select multiple [(ngModel)]="selectedColumns" [compareWith]="compareColumns" (selectionChange)="onColumnsChange()">
-      @for (col of allColumns; track col.field) {
-        <mat-option [value]="col">{{ col.header }}</mat-option>
-      }
-    </mat-select>
-  </mat-form-field>
-  <button mat-stroked-button (click)="exportToCSV()">
-    <mat-icon>ios_share</mat-icon>
-    Esporta CSV
-  </button>
-</div>
 
 <div style="overflow-x: auto;">
 <table mat-table [dataSource]="dataSource" matSort #sort="matSort" class="mat-elevation-z1">
@@ -274,7 +261,7 @@
 </table>
 </div>
 
-<mat-paginator #paginator [pageSizeOptions]="rowsPerPageOptions" [pageSize]="10"></mat-paginator>
+<mat-paginator #paginator [pageSizeOptions]="rowsPerPageOptions" [pageSize]="pageSize" showFirstLastButtons (page)="onPage($event)"></mat-paginator>
 
 <style>
   .row-deleted {

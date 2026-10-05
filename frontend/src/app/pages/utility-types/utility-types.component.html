@@ -1,12 +1,9 @@
 <div style="padding: 1rem;">
-  <div>
-    <h1>Tipologie Uso Contatore</h1>
-    <p style="color: #6A7282;">Gestisci le Tipologie Uso Contatore per le utenze</p>
-  </div>
+  <h1>Tipologie uso contatore</h1>
+  <p class="list-subtitle">Tipi di utenza (acqua, luce, gas, connettività).</p>
+  <app-list-filters [defs]="filterDefs" [values]="filterValues" placeholder="Cerca..."
+                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"></app-list-filters>
   <div style="margin-top: 1rem;">
-    <app-search-utility-type (search)="onSearch($event)"></app-search-utility-type>
-  </div>
-  <div style="margin-top: 1.5rem;">
     <app-data-table-utility-types [data]="list"
       [loading]="loading"
       (onSave)="onSave($event)"

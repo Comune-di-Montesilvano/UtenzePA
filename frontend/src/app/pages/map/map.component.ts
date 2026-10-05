@@ -7,14 +7,15 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { openSheet } from '../../core/components/entity-sheet/sheet-utils';
 import { EntityNavigatorService } from '../../core/services/entity-navigator.service';
 import { MatDialog } from '@angular/material/dialog';
-import { Observable } from 'rxjs';
+import { Observable, Subject, catchError, debounceTime, of, switchMap } from 'rxjs';
 import * as L from 'leaflet';
 import { MapService } from './map.service';
 import { MapPoint, UngeolocatedItem, UNGEOLOCATED_REASON_LABELS } from './map-point.entity';
-import { FilterableSelectComponent } from '../../core/components/filterable-select.component';
 import { MultiSelectComponent } from '../../core/components/multi-select.component';
 import { AssetNaturesService } from '../asset-nature/asset-nature.service';
 import { AssetNature } from '../asset-nature/entity/asset-nature.entity';
@@ -37,7 +38,7 @@ import { ICON_FALLBACK } from '../../core/helpers/material-icons';
 import { CoordinateHelper } from '../../core/helpers/coordinate.helper';
 import { StreetViewHelper } from '../../core/helpers/street-view.helper';
 import { ToastService } from '../../core/services/toast.service';
-import { PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PLANT_TYPES } from '../plants/plant.model';
+import { PLANT_STATUS_LABEL, PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PLANT_TYPES, PlantStatus } from '../plants/plant.model';
 
 // Marker immobile: icona Material Icons della funzione dell'immobile,
 // ICON_FALLBACK se la funzione manca o non ha icona.
@@ -69,6 +70,11 @@ const SEARCH_MARKER_ICON = L.divIcon({
 // Fallback usato se le coordinate di default salvate in branding sono
 // malformate/non numeriche (es. DTO backend con un vecchio valore invalido) —
 // stesse coordinate del seed di migrazione CreateAppSettings (Montesilvano).
+// Linee tratteggiate verso il punto collegato (ben visibili su stradale e satellite).
+const LINK_COLOR = '#ea580c';
+const LINK_STYLE: L.PolylineOptions = { dashArray: '6,4', weight: 2.5, color: LINK_COLOR, opacity: 0.9, interactive: false };
+const LINK_STYLE_HL: L.PolylineOptions = { ...LINK_STYLE, weight: 5, opacity: 1, dashArray: undefined };
+
 const SAFE_DEFAULT_CENTER: L.LatLngExpression = [42.5083, 14.15];
 
 @Component({
@@ -83,7 +89,8 @@ const SAFE_DEFAULT_CENTER: L.LatLngExpression = [42.5083, 14.15];
     MatInputModule,
     MatIconModule,
     MatButtonModule,
-    FilterableSelectComponent,
+    MatAutocompleteModule,
+    MatTooltipModule,
     MultiSelectComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -129,12 +136,23 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   utilityTypeIds = new FormControl<number[]>([], {nonNullable: true});
   natureIds = new FormControl<number[]>([], {nonNullable: true});
   functionIds = new FormControl<number[]>([], {nonNullable: true});
-  statuses = new FormControl<string[]>([], {nonNullable: true});
-  assetSearch = new FormControl<number | null>(null);
-  // Ricerca libera indirizzo (geocode Nominatim) — separata da assetSearch:
-  // quest'ultimo cerca solo tra gli immobili gia' in anagrafica, questo va a
-  // colpire un indirizzo qualsiasi anche senza nessun asset/utenza li'.
-  addressSearch = new FormControl('', { nonNullable: true });
+  // Di default niente dismessi/cessati: si includono dai filtri del livello.
+  statuses = new FormControl<string[]>(['Attivo', 'Da verificare'], {nonNullable: true});
+  plantStatuses = new FormControl<string[]>(['ACTIVE', 'TO_VERIFY'], {nonNullable: true});
+  plantStatusOptions: TOption[] = (Object.keys(PLANT_STATUS_LABEL) as PlantStatus[])
+    .map((s) => ({ label: PLANT_STATUS_LABEL[s], value: s }));
+  includeInactiveUtilities = new FormControl(false, { nonNullable: true });
+  // Ricerca unica: un immobile in anagrafica (suggerimenti) oppure, con
+  // Invio o "Cerca indirizzo", un indirizzo qualsiasi (geocodifica).
+  search = new FormControl<string>('', { nonNullable: true });
+  searchMatches: TOption[] = [];
+  // Ultimo testo digitato (il controllo può contenere l'id dell'opzione scelta).
+  searchText = '';
+  // Pannello e livelli (sezioni aperte), conteggi dei punti visibili per livello.
+  panelOpen = true;
+  expanded: Record<'asset' | 'utility' | 'plant', boolean> = { asset: false, utility: false, plant: false };
+  layerCounts: Record<'asset' | 'utility' | 'plant', number> = { asset: 0, utility: 0, plant: 0 };
+  private reload$ = new Subject<void>();
 
   utilityTypeOptions: TOption[] = [];
   natureOptions: TOption[] = [];
@@ -218,15 +236,30 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       },
     });
 
-    this.showAssets.valueChanges.subscribe(() => this.reload());
-    this.showUtilities.valueChanges.subscribe(() => this.reload());
-    this.showPlants.valueChanges.subscribe(() => this.reload());
-    this.plantTypes.valueChanges.subscribe(() => this.reload());
-    this.utilityTypeIds.valueChanges.subscribe(() => this.reload());
-    this.natureIds.valueChanges.subscribe(() => this.reload());
-    this.functionIds.valueChanges.subscribe(() => this.reload());
-    this.statuses.valueChanges.subscribe(() => this.reload());
-    this.assetSearch.valueChanges.subscribe((id) => this.goToAsset(id));
+    // Una richiesta alla volta (switchMap): una risposta vecchia non
+    // sovrascrive quella dei filtri correnti; debounce per le multi-select.
+    this.reload$
+      .pipe(
+        debounceTime(150),
+        switchMap(() =>
+          this.mapService.getPoints(this.currentFilters()).pipe(
+            catchError((err) => {
+              console.error('Errore nel caricamento dei punti mappa:', err);
+              return of(null);
+            }),
+          ),
+        ),
+      )
+      .subscribe((response) => {
+        if (!response) return;
+        this.renderPoints(response.points);
+        this.ungeolocated = response.ungeolocated;
+      });
+    for (const c of [this.showAssets, this.showUtilities, this.showPlants, this.plantTypes, this.plantStatuses,
+      this.utilityTypeIds, this.includeInactiveUtilities, this.natureIds, this.functionIds, this.statuses]) {
+      (c.valueChanges as Observable<unknown>).subscribe(() => this.reload());
+    }
+    this.search.valueChanges.subscribe((text) => this.updateSearchMatches(text));
   }
 
   // Icona (stessa dei marker immobile) + conteggio immobili sul totale non
@@ -281,8 +314,38 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   // sul risultato con un marker temporaneo. Nessun match: toast, nessun
   // errore rumoroso in console (indirizzo-non-trovato e' normale, non un
   // guasto).
+  // L'autocomplete scrive per un attimo il valore dell'opzione (id o null):
+  // conta solo il testo digitato.
+  private updateSearchMatches(text: unknown): void {
+    if (typeof text !== 'string') return;
+    this.searchText = text.trim();
+    const q = this.searchText.toLowerCase();
+    this.searchMatches = q.length < 2 ? [] : this.assetSearchOptions
+      .filter((o) => o.label.toLowerCase().includes(q))
+      .slice(0, 8);
+  }
+
+  // Suggerimento scelto: un immobile (id) oppure "Cerca indirizzo" (null).
+  onSearchSelected(event: MatAutocompleteSelectedEvent): void {
+    const value = event.option.value as number | null;
+    if (value == null) {
+      this.search.setValue(this.searchText, { emitEvent: false });
+      this.searchAddress();
+      return;
+    }
+    const label = this.assetSearchOptions.find((o) => o.value === value)?.label ?? '';
+    this.search.setValue(label, { emitEvent: false });
+    this.goToAsset(value);
+  }
+
+  activeFilters(layer: 'asset' | 'utility' | 'plant'): number {
+    if (layer === 'asset') return [this.natureIds, this.functionIds].filter((c) => c.value.length).length;
+    if (layer === 'utility') return (this.utilityTypeIds.value.length ? 1 : 0) + (this.includeInactiveUtilities.value ? 1 : 0);
+    return this.plantTypes.value.length ? 1 : 0;
+  }
+
   searchAddress(): void {
-    const q = this.addressSearch.value.trim();
+    const q = this.searchText;
     if (!q || !this.map) return;
 
     this.mapService.geocode(q).subscribe({
@@ -421,8 +484,11 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private reload(): void {
-    this.mapService
-      .getPoints({
+    this.reload$.next();
+  }
+
+  private currentFilters() {
+    return {
         showAssets: this.showAssets.value,
         showUtilities: this.showUtilities.value,
         showPlants: this.showPlants.value,
@@ -431,14 +497,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         functionIds: this.functionIds.value,
         statuses: this.statuses.value,
         utilityTypeIds: this.utilityTypeIds.value,
-      })
-      .subscribe({
-        next: (response) => {
-          this.renderPoints(response.points);
-          this.ungeolocated = response.ungeolocated;
-        },
-        error: (err) => console.error('Errore nel caricamento dei punti mappa:', err),
-      });
+        plantStatuses: this.plantStatuses.value,
+        includeInactiveUtilities: this.includeInactiveUtilities.value,
+    };
   }
 
   private renderPoints(points: MapPoint[]): void {
@@ -448,6 +509,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     this.assetMarkers.clear();
     this.utilityMarkers.clear();
     this.plantMarkers.clear();
+    const countOf = (t: MapPoint['type']) => new Set(points.filter((p) => p.type === t).map((p) => p.id)).size;
+    this.layerCounts = { asset: countOf('asset'), utility: countOf('utility'), plant: countOf('plant') };
 
     // Posizioni di immobili e impianti, per le linee tratteggiate verso i
     // collegati che stanno in un punto diverso (un'utenza che eredita la
@@ -486,6 +549,13 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       if (p.type === 'utility' && p.plantId != null) push(this.utilitiesByPlant, p.plantId, p);
       if (p.type === 'plant' && p.assetId != null) push(this.plantsByAsset, p.assetId, p);
     }
+
+    // Hover: marker e linee per chiave "tipo:id", per evidenziare i collegati.
+    const keyOf = (p: { type: MapPoint['type']; id: number }) => `${p.type}:${p.id}`;
+    const markersByKey = new Map<string, L.Marker[]>();
+    const linesByKey = new Map<string, L.Polyline[]>();
+    const relations: { marker: L.Marker; keys: Set<string> }[] = [];
+    const addTo = <T>(map: Map<string, T[]>, key: string, v: T) => map.set(key, [...(map.get(key) ?? []), v]);
 
     // Tutti i punti sulla stessa coordinata diventano un solo marker.
     const pointsByCoord = new Map<string, MapPoint[]>();
@@ -566,6 +636,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         ? [[34, 34], [17, 17]]
         : [[26, 26], [13, 13]];
       const borderStyle = (principal ?? group[0]).source === 'gps' ? 'solid' : 'dashed';
+      if ((principal ?? group[0]).inactive && (principal || group.every((g) => g.inactive))) pinClass += ' map-pin--inactive';
       const icon = L.divIcon({
         className: '',
         html: `<span class="map-marker-wrap${wrapClass}"><span class="map-pin${pinClass}" style="background:${color};border-style:${borderStyle};--pin-color:${color}" title="${this.escapeAttr(pinTitle)}">${iconHtml}</span>${badgeHtml}</span>`,
@@ -593,6 +664,14 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       });
       this.clusterGroup.addLayer(marker);
+      // Collegati: il gruppo, i membri del principale e i "padri" (immobile/impianto).
+      const keys = new Set<string>([...group, ...members].map(keyOf));
+      for (const p of group) {
+        if (p.assetId != null) keys.add(`asset:${p.assetId}`);
+        if (p.plantId != null) keys.add(`plant:${p.plantId}`);
+      }
+      group.forEach((p) => addTo(markersByKey, keyOf(p), marker));
+      relations.push({ marker, keys });
       for (const p of group) {
         if (p.type === 'asset') this.assetMarkers.set(p.id, marker);
         else if (p.type === 'plant') this.plantMarkers.set(p.id, marker);
@@ -602,15 +681,17 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Linee tratteggiate verso il "padre" quando sta in un punto diverso:
     // utenza → immobile (o, senza immobile, → impianto), impianto → immobile.
-    const line = (from: { lat: number; lng: number }, to: { lat: number; lng: number }) => {
+    const line = (from: { lat: number; lng: number }, to: { lat: number; lng: number }, a: string, b: string) => {
       if (!this.linksLayer || (from.lat === to.lat && from.lng === to.lng)) return;
-      L.polyline(
+      const pl = L.polyline(
         [
           [from.lat, from.lng],
           [to.lat, to.lng],
         ],
-        { dashArray: '4,4', weight: 1, color: '#94a3b8', interactive: false },
+        { ...LINK_STYLE },
       ).addTo(this.linksLayer);
+      addTo(linesByKey, a, pl);
+      addTo(linesByKey, b, pl);
     };
     for (const p of points) {
       const ll = latLngOf(p);
@@ -618,12 +699,27 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       if (p.type === 'utility') {
         const asset = p.assetId != null ? assetLatLngById.get(p.assetId) : undefined;
         const plant = p.plantId != null ? plantLatLngById.get(p.plantId) : undefined;
-        if (asset) line(asset, ll);
-        else if (plant) line(plant, ll);
+        if (asset) line(asset, ll, `asset:${p.assetId}`, keyOf(p));
+        else if (plant) line(plant, ll, `plant:${p.plantId}`, keyOf(p));
       } else if (p.type === 'plant' && p.assetId != null) {
         const asset = assetLatLngById.get(p.assetId);
-        if (asset) line(asset, ll);
+        if (asset) line(asset, ll, `asset:${p.assetId}`, keyOf(p));
       }
+    }
+
+    // Mouse su un marker: si ingrandiscono anche i marker collegati e si
+    // evidenziano le linee (i marker dentro un cluster chiuso non hanno DOM).
+    for (const { marker, keys } of relations) {
+      const highlight = (on: boolean) => {
+        for (const k of keys) {
+          for (const m of markersByKey.get(k) ?? []) {
+            if (m !== marker) m.getElement()?.classList.toggle('map-marker--related', on);
+          }
+          for (const pl of linesByKey.get(k) ?? []) pl.setStyle(on ? LINK_STYLE_HL : LINK_STYLE);
+        }
+      };
+      marker.on('mouseover', () => highlight(true));
+      marker.on('mouseout', () => highlight(false));
     }
   }
 

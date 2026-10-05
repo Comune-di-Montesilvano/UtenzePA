@@ -13,6 +13,7 @@ import {DatePipe} from '@angular/common';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {Invoice} from './entity/invoice.entity';
+import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {InvoiceEditDialogComponent} from './invoice-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
@@ -24,7 +25,7 @@ import {partyName} from '../../core/helpers/party-name.helper';
 @Component({
   selector: 'app-data-table-invoices',
   standalone: true,
-  imports: [
+  imports: [ListToolbarComponent, 
     MatTableModule, MatSortModule, MatPaginatorModule, MatButtonModule, MatIconModule,
     MatTooltipModule, MatProgressBarModule, MatSelectModule, MatFormFieldModule, FormsModule,
     DatePipe, HasRoleDirective, FormatAmountPipe, TruncatePipe

@@ -1,3 +1,4 @@
+import { DateRange } from '@common/decorators/date-range.decorator';
 import { Transform, Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString } from 'class-validator';
 
@@ -25,12 +26,20 @@ export class SearchContractDto {
   deleted?: boolean;
 
   @IsOptional()
+  @DateRange()
+  supply_expiry_date_range?: (string | null)[];
+
+  @IsOptional()
   @Transform(({ value }) => {
-    if (!value) return undefined;
-    if (Array.isArray(value)) return value;
-    return value.split(',').map((v: string) => v.trim()).filter((v: string) => v !== '');
+    if (value === true || value === 'true' || value === 1 || value === '1') return true;
+    if (value === false || value === 'false' || value === 0 || value === '0') return false;
+    return undefined;
   })
-  supply_expiry_date_range?: string[];
+  closed?: boolean;
+
+  @IsOptional()
+  @IsString()
+  consip_order?: string;
 
   // Solo contratti senza CIG e non esclusi (anomalia).
   @IsOptional()

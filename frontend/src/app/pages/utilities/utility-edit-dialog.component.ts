@@ -139,6 +139,9 @@ export class UtilityEditDialogComponent implements OnInit {
 
   get showLightFields(): boolean { return this.selectedHardType === HardType.LIGHT; }
   get showGasFields(): boolean { return this.selectedHardType === HardType.GAS; }
+  // Internet: niente contatore, consumi, disalimentabilità né deposito cauzionale.
+  get isMetered(): boolean { return this.selectedHardType !== HardType.INTERNET; }
+  get isWater(): boolean { return this.selectedHardType === HardType.WATER; }
 
   // Se la relazione non è popolata (FK orfana o non caricata), il campo FK
   // parte null invece di mostrare un id non risolvibile nella select.
@@ -315,6 +318,7 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   flags(): StatusInfo[] {
+    if (!this.isMetered) return [];
     return utilityFlags(this.form.controls.meter_removed.value, this.form.controls.meter_verified.value);
   }
 

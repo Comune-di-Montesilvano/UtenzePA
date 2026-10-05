@@ -36,6 +36,12 @@ describe('ConsipAgreementService', () => {
   });
 
   describe('findAll', () => {
+    it('con deleted=true elenca gli eliminati, senza ripetere deleted tra i filtri generici', async () => {
+      await service.findAll({ deleted: true } as never);
+      expect(qb.where).toHaveBeenCalledWith('consip_agreement.deleted = :deleted', { deleted: true });
+      expect(qb.andWhere).not.toHaveBeenCalledWith(expect.stringContaining('.deleted'), expect.anything());
+    });
+
     it('filtra le sole convenzioni non cancellate e fa il join col fornitore', async () => {
       await service.findAll();
 
