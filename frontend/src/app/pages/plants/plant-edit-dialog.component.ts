@@ -56,7 +56,8 @@ import {
   StatusInfo,
   utilityStatus,
 } from '../../core/helpers/entity-status';
-import {dateIt, hasInvalid, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
+import {dateIt, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
+import {AuthService} from '../../services/auth.service';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 
 export interface PlantEditDialogData {
@@ -64,7 +65,6 @@ export interface PlantEditDialogData {
   plantId: number | null;
   // Immobile precompilato (nuovo impianto dal dialog immobile).
   assetId?: number | null;
-  readOnly: boolean;
 }
 
 const COUNT_FIELDS: {key: 'outdoor_units' | 'indoor_units' | 'fan_coils' | 'air_handling_units' | 'chillers_heat_pumps'; label: string}[] = [
@@ -114,7 +114,8 @@ export class PlantEditDialogComponent implements OnInit {
   readonly statusLabel = PLANT_STATUS_LABEL;
   readonly countFields = COUNT_FIELDS;
   readonly cert = certificationStatus;
-  readonly canEdit = !this.data.readOnly;
+  // Stessa regola delle altre schede (Admin, Operatore).
+  readonly canEdit = isEditorRole(inject(AuthService).getCurrentUser()?.role);
 
   plant: Plant | null = null;
   private allAssets: Asset[] = [];
@@ -196,7 +197,7 @@ export class PlantEditDialogComponent implements OnInit {
   private savedUtilityIds = new Set<number>();
 
   ngOnInit(): void {
-    if (this.data.readOnly) this.form.disable();
+    if (!this.canEdit) this.form.disable();
     else {
       this.syncTypeGroups();
       this.form.controls.type.valueChanges.subscribe(() => this.syncTypeGroups());
@@ -505,7 +506,7 @@ export class PlantEditDialogComponent implements OnInit {
       },
     });
     this.savedUtilityIds = new Set((p.utilities ?? []).map(u => u.id));
-    if (!this.data.readOnly) this.syncTypeGroups();
+    if (this.canEdit) this.syncTypeGroups();
     this.form.markAsPristine();
     this.refreshLinks();
   }

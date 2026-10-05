@@ -14,7 +14,6 @@ import {MatSelectModule} from '@angular/material/select';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ConfirmDialogComponent, ConfirmDialogData} from '../../core/components/confirm-dialog.component';
-import {AuthService} from '../../services/auth.service';
 import {PlantFilters, PlantService} from './plant.service';
 import {
   INSPECTION_LABEL,
@@ -180,7 +179,6 @@ const readPageSize = (): number => {
 export class PlantsComponent implements OnInit, AfterViewInit {
   private service = inject(PlantService);
   private dialog = inject(MatDialog);
-  private auth = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
@@ -291,10 +289,8 @@ export class PlantsComponent implements OnInit, AfterViewInit {
   }
 
   openDialog(item?: Plant, plantId?: number): void {
-    const role = this.auth.getCurrentUser()?.role;
     openSheet<PlantEditDialogComponent, PlantEditDialogData, Plant | null>(this.dialog, PlantEditDialogComponent, {
       plantId: item?.id ?? plantId ?? null,
-      readOnly: !role || role === 'Lettore',
     }).afterClosed().subscribe(saved => {
       if (saved) {
         this.reload();

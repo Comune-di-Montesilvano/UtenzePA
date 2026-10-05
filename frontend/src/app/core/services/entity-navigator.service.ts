@@ -100,15 +100,15 @@ export class EntityNavigatorService {
 
   // Il dialog impianto salva da sé e chiude con true se ha salvato qualcosa.
   openPlant(id: number): Observable<boolean> {
-    return this.sheet<{plantId: number; readOnly: boolean}, boolean>(PLANT_DIALOG, {plantId: id, readOnly: this.readOnly()}).pipe(
+    return this.sheet<{plantId: number}, Plant | null>(PLANT_DIALOG, {plantId: id}).pipe(
       map(saved => !!saved),
     );
   }
 
   // Restituisce l'impianto salvato (il dialog resta aperto dopo la creazione).
   createPlant(assetId: number | null): Observable<Plant | null> {
-    return this.sheet<{plantId: null; assetId: number | null; readOnly: boolean}, Plant | null>(
-      PLANT_DIALOG, {plantId: null, assetId, readOnly: this.readOnly()},
+    return this.sheet<{plantId: null; assetId: number | null}, Plant | null>(
+      PLANT_DIALOG, {plantId: null, assetId},
     ).pipe(map(p => p ?? null));
   }
 
@@ -258,11 +258,6 @@ export class EntityNavigatorService {
     return from(load()).pipe(
       switchMap(component => this.dialog.open<unknown, D, R>(component, {width, maxWidth: width, position: EDIT_DIALOG_POSITION, data}).afterClosed()),
     );
-  }
-
-  private readOnly(): boolean {
-    const role = this.auth.getCurrentUser()?.role;
-    return !role || role === 'Lettore';
   }
 
   private authorship(): {created_by_user_id?: number; updated_by_user_id?: number} {
