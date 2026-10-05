@@ -10,6 +10,7 @@ import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {ConsipAgreement} from './entity/consip-agreement.entity';
+import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {ConsipAgreementEditDialogComponent} from './consip-agreement-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
@@ -19,7 +20,7 @@ import {partyName} from '../../core/helpers/party-name.helper';
 @Component({
   selector: 'app-data-table-consip-agreement',
   standalone: true,
-  imports: [
+  imports: [ListToolbarComponent, 
     DatePipe,
     MatTableModule,
     MatSortModule,

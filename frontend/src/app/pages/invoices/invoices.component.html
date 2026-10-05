@@ -1,14 +1,11 @@
 <div style="padding: 1rem;">
-  <div>
-    <h1>Gestione Fatture</h1>
-    <p style="color: #6A7282;">Gestisci le anagrafiche e i dettagli delle fatture.</p>
-  </div>
+  <h1>Fatture</h1>
+  <p class="list-subtitle">Fatture dei fornitori, righe per utenza e impegni.</p>
+
+  <app-list-filters [defs]="filterDefs" [values]="filterValues" placeholder="Cerca numero, protocollo, note..."
+                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"></app-list-filters>
 
   <div style="margin-top: 1rem;">
-    <app-search-invoices (search)="onSearch($event)"></app-search-invoices>
-  </div>
-
-  <div style="margin-top: 1.5rem;">
     <app-data-table-invoices
       [data]="list"
       [loading]="loading"

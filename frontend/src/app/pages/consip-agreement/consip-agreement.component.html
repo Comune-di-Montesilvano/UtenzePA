@@ -1,12 +1,9 @@
 <div style="padding: 1rem;">
-  <div>
-    <h1>Convenzioni CONSIP</h1>
-    <p style="color: #6A7282;">Gestisci le anagrafiche delle convenzioni CONSIP</p>
-  </div>
+  <h1>Convenzioni CONSIP</h1>
+  <p class="list-subtitle">Convenzioni quadro CONSIP e fornitori aggiudicatari.</p>
+  <app-list-filters [defs]="filterDefs" [values]="filterValues" placeholder="Cerca nome, CIG master, descrizione..."
+                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"></app-list-filters>
   <div style="margin-top: 1rem;">
-    <app-search-consip-agreement (search)="onSearch($event)"></app-search-consip-agreement>
-  </div>
-  <div style="margin-top: 1.5rem;">
     <app-data-table-consip-agreement [data]="list"
       [loading]="loading"
       (onSave)="onSave($event)"
