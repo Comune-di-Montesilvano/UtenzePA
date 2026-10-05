@@ -39,6 +39,23 @@ describe('ContractsService', () => {
   });
 
   describe('findAll', () => {
+    it('con deleted=true elenca i contratti eliminati', async () => {
+      await service.findAll({ deleted: true } as never);
+      expect(qb.where).toHaveBeenCalledWith('contract.deleted = :deleted', { deleted: true });
+    });
+
+    it('filtra per stato chiuso/aperto', async () => {
+      await service.findAll({ closed: false } as never);
+      expect(qb.andWhere).toHaveBeenCalledWith('contract.closed = :closed', { closed: false });
+    });
+
+    it('filtra per numero ordine (ODA) con LIKE', async () => {
+      await service.findAll({ consip_order: '9029' } as never);
+      expect(qb.andWhere).toHaveBeenCalledWith('contract.consip_order LIKE :consip_order', {
+        consip_order: '%9029%',
+      });
+    });
+
     it('filtra i soli contratti non cancellati e fa il join col fornitore e le utenze', async () => {
       await service.findAll();
 

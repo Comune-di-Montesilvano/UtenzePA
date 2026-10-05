@@ -42,11 +42,11 @@ export class BudgetChaptersService extends BaseService<
   async findAll(filter?: SearchBudgetChapterDto): Promise<BudgetChapter[]> {
     const alias = this.entityName;
     const qb = this.repo.createQueryBuilder(alias);
-    qb.where(`${alias}.deleted = :deleted`, { deleted: false });
+    qb.where(`${alias}.deleted = :deleted`, { deleted: filter?.deleted ?? false });
 
     if (filter) {
       Object.entries(filter).forEach(([key, value]) => {
-        if (value === undefined || value === null || value === '') return;
+        if (key === 'deleted' || value === undefined || value === null || value === '') return;
 
         if (LIKE_FIELDS.includes(key)) {
           qb.andWhere(`${alias}.${key} LIKE :${key}`, { [key]: `%${value}%` });

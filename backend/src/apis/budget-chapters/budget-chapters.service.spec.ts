@@ -36,6 +36,12 @@ describe('BudgetChaptersService', () => {
   });
 
   describe('findAll', () => {
+    it('con deleted=true elenca gli eliminati, senza ripetere deleted tra i filtri generici', async () => {
+      await service.findAll({ deleted: true } as never);
+      expect(qb.where).toHaveBeenCalledWith('budget_chapters.deleted = :deleted', { deleted: true });
+      expect(qb.andWhere).not.toHaveBeenCalledWith(expect.stringContaining('.deleted'), expect.anything());
+    });
+
     it('filtra i soli capitoli non cancellati', async () => {
       await service.findAll();
 
