@@ -79,16 +79,22 @@
 
     <ng-container matColumnDef="contratto.supplier">
       <th mat-header-cell *matHeaderCellDef mat-sort-header>Fornitore</th>
-      <td mat-cell *matCellDef="let item">{{ partyName(item.contratto?.supplier) || 'N/D' }}</td>
+      <td mat-cell *matCellDef="let item">{{ supplierOf(item) || 'N/D' }}</td>
     </ng-container>
 
-    <ng-container matColumnDef="budget_chapters">
-      <th mat-header-cell *matHeaderCellDef>Capitoli Associati</th>
-      <td mat-cell *matCellDef="let item">
-        @for (bc of item.budget_chapters; track bc.id) {
-          <div>{{ bc.label | truncate: 40 }}</div>
-        }
-      </td>
+    <ng-container matColumnDef="chapters">
+      <th mat-header-cell *matHeaderCellDef>Capitoli (da impegni)</th>
+      <td mat-cell *matCellDef="let item">{{ chaptersOf(item) }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="utilities_count">
+      <th mat-header-cell *matHeaderCellDef>Utenze</th>
+      <td mat-cell *matCellDef="let item">{{ utilitiesCountOf(item) || '' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="total_amount">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Totale documento</th>
+      <td mat-cell *matCellDef="let item">{{ item.total_amount != null ? (item.total_amount | formatAmount) : '' }}</td>
     </ng-container>
 
     <ng-container matColumnDef="is_paid">

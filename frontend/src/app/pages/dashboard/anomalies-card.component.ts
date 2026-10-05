@@ -46,6 +46,9 @@ interface Anomalies {
   utilities_to_transfer: AnomalyList<UtilityAnomaly>;
   utilities_to_recover: AnomalyList<UtilityAnomaly>;
   assets_without_classification: AnomalyList<{id: number; asset_name: string; missing: string}>;
+  invoices_on_ceased_utilities: AnomalyList<{invoice_id: number; number: string; invoice_date: string; utility_id: number; utility_code: string}>;
+  utilities_with_uncommitted_chapter: AnomalyList<UtilityAnomaly & {chapter: string}>;
+  invoice_lines_without_utility: AnomalyList<{invoice_id: number; number: string; supply_code: string | null; amount: number}>;
 }
 
 // Non estende AbstractService: header Authorization messo a mano (nessun
@@ -301,6 +304,45 @@ const formatDate = (iso: string | null): string => {
                 }
               </ul>
             </mat-expansion-panel>
+            <mat-expansion-panel [disabled]="data.invoices_on_ceased_utilities.count === 0">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count" [class.zero]="data.invoices_on_ceased_utilities.count === 0">{{ data.invoices_on_ceased_utilities.count }}</span>
+                  Fatture su utenze cessate (ultimi 12 mesi)
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (a of data.invoices_on_ceased_utilities.items; track a.invoice_id + '-' + a.utility_id) {
+                  <li (click)="openInvoice(a.invoice_id)">{{ a.number }} del {{ dateIt(a.invoice_date) }} · {{ a.utility_code }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            <mat-expansion-panel [disabled]="data.utilities_with_uncommitted_chapter.count === 0">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count" [class.zero]="data.utilities_with_uncommitted_chapter.count === 0">{{ data.utilities_with_uncommitted_chapter.count }}</span>
+                  Utenze con capitolo non impegnato sul contratto
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (u of data.utilities_with_uncommitted_chapter.items; track u.id) {
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · capitolo {{ u.chapter }} · {{ u.contracts }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            <mat-expansion-panel [disabled]="data.invoice_lines_without_utility.count === 0">
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count" [class.zero]="data.invoice_lines_without_utility.count === 0">{{ data.invoice_lines_without_utility.count }}</span>
+                  Righe fattura senza utenza
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (r of data.invoice_lines_without_utility.items; track $index) {
+                  <li (click)="openInvoice(r.invoice_id)">{{ r.number }} · {{ r.supply_code || 'senza codice' }} · {{ eur(r.amount) }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
             <mat-expansion-panel [disabled]="data.plants_without_position.count === 0">
               <mat-expansion-panel-header>
                 <mat-panel-title>
@@ -399,6 +441,20 @@ export class AnomaliesCardComponent implements OnInit {
 
   openRealEstateContract(id: number): void {
     this.router.navigate(['/utilizer-grant'], {queryParams: {selectedId: id}});
+  }
+
+  openInvoice(id: number): void {
+    this.navigator.openInvoice(id).subscribe(saved => {
+      if (saved) this.load();
+    });
+  }
+
+  dateIt(iso: string): string {
+    return iso.split('-').reverse().join('/');
+  }
+
+  eur(n: number): string {
+    return n.toLocaleString('it-IT', {style: 'currency', currency: 'EUR'});
   }
 
   openUtility(id: number): void {

@@ -53,6 +53,8 @@ import {
 import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {partyNames} from '../../core/helpers/party-name.helper';
+import {SpendingService} from '../spending/spending.service';
+import type {AssetSpending} from '../spending/spending.model';
 
 interface UtilitySection {
   type: HardType;
@@ -99,6 +101,10 @@ export class AssetEditDialogComponent implements OnInit {
   @ViewChildren(MatTab) tabList?: QueryList<MatTab>;
 
   isNew = this.data.mode === 'create';
+  private spendingService = inject(SpendingService);
+  // Spesa da fatture per anno (Riepilogo).
+  assetSpending: AssetSpending | null = null;
+  readonly eur = (n: number): string => n.toLocaleString('it-IT', {style: 'currency', currency: 'EUR'});
   readonly canEdit = isEditorRole(this.authService.getCurrentUser()?.role);
   readonly lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
 
@@ -220,6 +226,12 @@ export class AssetEditDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    if (!this.isNew) {
+      this.spendingService.asset(this.data.item.id).subscribe({
+        next: s => this.assetSpending = s,
+        error: err => console.error('Errore nel caricamento della spesa da fatture:', err)
+      });
+    }
     this.naturesService.search({deleted: false} as never).subscribe({
       next: data => this.natures = data,
       error: err => console.error('Errore nel caricamento delle tipologie immobile:', err)

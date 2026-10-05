@@ -24,6 +24,8 @@ import { UtilizerGrantModule } from '@apis/utilizer-grant/utilizer-grant.module'
 import { UtilitiesModule } from '@apis/utility/utility.module';
 import { UtilityConsumptionsModule } from '@apis/utility-consumptions/utility-consumptions.module';
 import { BudgetChapterSpendingModule } from '@apis/budget-chapter-spending/budget-chapter-spending.module';
+import { BudgetCommitmentsModule } from '@apis/budget-commitments/budget-commitments.module';
+import { SpendingModule } from '@apis/spending/spending.module';
 import { PlantsModule } from '@apis/plants/plants.module';
 import { AnomaliesModule } from '@apis/anomalies/anomalies.module';
 import { InvoicesModule } from '@apis/invoices/invoie.module';
@@ -60,6 +62,8 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     UtilitiesModule,
     UtilityConsumptionsModule,
     BudgetChapterSpendingModule,
+    BudgetCommitmentsModule,
+    SpendingModule,
     PlantsModule,
     AnomaliesModule,
     InvoicesModule,

@@ -4,8 +4,6 @@ import {
   Entity,
   Index,
   JoinColumn,
-  JoinTable,
-  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -13,8 +11,8 @@ import {
 } from 'typeorm';
 
 import { SystemUser } from '../../system-users/entity/system-user.entity';
-import { BudgetChapter } from '../../budget-chapters/entity/budgetChapter.entity';
-import { InvoiceBudgetChapter } from '@apis/invoices/entity/invoice_budget_chapter.entity';
+import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
+import { InvoiceLine } from './invoice-line.entity';
 import { Contract } from '@apis/contracts/entity/contract.entity';
 
 @Entity('invoices')
@@ -31,8 +29,17 @@ export class Invoice {
   @Column({ length: 100, nullable: true })
   protocol_number: string;
 
-  @Column({ type: 'decimal', precision: 18, scale: 2, default: 0 })
-  net_amount_excl_vat: number;
+  @Column({ type: 'decimal', precision: 18, scale: 2, nullable: true })
+  net_amount_excl_vat: number | null;
+
+  // Totale documento IVA inclusa (es. fatture ACA, dove l'imponibile non c'è).
+  @Column({ type: 'decimal', precision: 18, scale: 2, nullable: true })
+  total_amount: number | null;
+
+  // Fornitore della fattura: per l'import si abbina per P.IVA anche senza
+  // contratto; se manca, il service lo prende dal contratto.
+  @Column({ type: 'int', nullable: true })
+  supplier_id_fk: number | null;
 
   @Column({ type: 'decimal', precision: 18, scale: 2, default: 0 })
   last_invoice_arrears: number;
@@ -63,14 +70,6 @@ export class Invoice {
   @JoinColumn({ name: 'contratto_id_fk', referencedColumnName: 'id' })
   contratto: Contract;
 
-  @ManyToMany(() => BudgetChapter, (chapter) => chapter.invoices)
-  @JoinTable({
-    name: 'invoice_budget_chapter',
-    joinColumns: [{ name: 'invoice_id' }],
-    inverseJoinColumns: [{ name: 'budget_chapter_id' }],
-  })
-  budget_chapters: BudgetChapter[];
-
   @ManyToOne(() => SystemUser)
   @JoinColumn({ name: 'created_by_user_id' })
   created_by: SystemUser;
@@ -79,6 +78,10 @@ export class Invoice {
   @JoinColumn({ name: 'updated_by_user_id' })
   updated_by: SystemUser;
 
-  @OneToMany(() => InvoiceBudgetChapter, (utp) => utp.invoice)
-  invoiceBudgetChapters: InvoiceBudgetChapter[];
+  @ManyToOne(() => ThirdParty)
+  @JoinColumn({ name: 'supplier_id_fk', foreignKeyConstraintName: 'FK_invoices_supplier' })
+  supplier: ThirdParty | null;
+
+  @OneToMany(() => InvoiceLine, (l) => l.invoice)
+  lines: InvoiceLine[];
 }

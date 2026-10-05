@@ -46,7 +46,12 @@ export class SearchInvoiceDto {
   @IsOptional()
   @IsInt()
   @Type(() => Number)
-  budget_chapter_id?: number;
+  utility_id?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  supplier_id_fk?: number;
 
   @IsOptional()
   @IsBoolean()

@@ -65,7 +65,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(15);
+    expect(query).toHaveBeenCalledTimes(18);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -209,5 +209,51 @@ describe('AnomaliesService', () => {
     expect(toTransfer).toContain(costStatusSql(CostStatus.TO_TRANSFER, 'u'));
     expect(toRecover).toContain(costStatusSql(CostStatus.TO_RECOVER, 'u'));
     for (const sql of [toTransfer, toRecover]) expect(sql).toContain('u.supply_active = 1');
+  });
+
+  it('fatture dell’ultimo anno su utenze cessate', async () => {
+    query.mockImplementation(async (sql: string) =>
+      sql.includes('u.supply_active = 0')
+        ? [{ invoice_id: '741', number: 'F-1', invoice_date: '2026-01-10', utility_id: '3', utility_code: 'ACQ1' }]
+        : [],
+    );
+    const result = await service.getAnomalies();
+    expect(result.invoices_on_ceased_utilities).toEqual({
+      count: 1,
+      items: [{ invoice_id: 741, number: 'F-1', invoice_date: '2026-01-10', utility_id: 3, utility_code: 'ACQ1' }],
+    });
+    const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('u.supply_active = 0'));
+    expect(sql).toContain('INTERVAL 12 MONTH');
+    expect(sql).toContain('i.deleted = 0');
+  });
+
+  it('utenze con capitolo non impegnato: solo contratti con almeno un impegno', async () => {
+    query.mockImplementation(async (sql: string) =>
+      sql.includes('NOT EXISTS (SELECT 1 FROM budget_commitments')
+        ? [{ id: '5', utility_id: 'IT01', type: 'acqua', contracts: '#1 ACA', chapter: '11428/0' }]
+        : [],
+    );
+    const result = await service.getAnomalies();
+    expect(result.utilities_with_uncommitted_chapter.items).toEqual([
+      { id: 5, utility_id: 'IT01', type: 'acqua', contracts: '#1 ACA', chapter: '11428/0' },
+    ]);
+    const sql = query.mock.calls
+      .map(([s]) => String(s))
+      .find((s) => s.includes('NOT EXISTS (SELECT 1 FROM budget_commitments'));
+    expect(sql).toContain(
+      'EXISTS (SELECT 1 FROM budget_commitments any_c WHERE any_c.contract_id_fk = c.id AND any_c.deleted = 0)',
+    );
+  });
+
+  it('righe fattura senza utenza', async () => {
+    query.mockImplementation(async (sql: string) =>
+      sql.includes('il.utility_id_fk IS NULL')
+        ? [{ invoice_id: '9', number: 'F-9', supply_code: 'POD-PROVA', amount: '12.30' }]
+        : [],
+    );
+    const result = await service.getAnomalies();
+    expect(result.invoice_lines_without_utility.items).toEqual([
+      { invoice_id: 9, number: 'F-9', supply_code: 'POD-PROVA', amount: 12.3 },
+    ]);
   });
 });

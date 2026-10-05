@@ -15,6 +15,8 @@ import {UtilizerGrantService} from '../../pages/utilizer-grant/utilizer-grant.se
 import {UtilizerGrant} from '../../pages/utilizer-grant/entity/utilizer-grant.entity';
 import {ThirdPartiesService} from '../../pages/third-parties/third-parties.service';
 import {ThirdParty} from '../../pages/third-parties/entity/third-party.entity';
+import {InvoicesService} from '../../pages/invoices/invoices.service';
+import {Invoice} from '../../pages/invoices/entity/invoice.entity';
 import {ToastService} from './toast.service';
 
 // Import dinamici: i dialog iniettano questo servizio, un import statico dei
@@ -24,6 +26,7 @@ const UTILITY_DIALOG = () => import('../../pages/utilities/utility-edit-dialog.c
 const PLANT_DIALOG = () => import('../../pages/plants/plant-edit-dialog.component').then(m => m.PlantEditDialogComponent);
 const CONTRACT_DIALOG = () => import('../../pages/contracts/contract-edit-dialog.component').then(m => m.ContractEditDialogComponent);
 const GRANT_DIALOG = () => import('../../pages/utilizer-grant/utilizer-grant-edit-dialog.component').then(m => m.UtilizerGrantEditDialogComponent);
+const INVOICE_DIALOG = () => import('../../pages/invoices/invoice-edit-dialog.component').then(m => m.InvoiceEditDialogComponent);
 const THIRD_PARTY_DIALOG = () => import('../../pages/third-parties/third-party-edit-dialog.component').then(m => m.ThirdPartyEditDialogComponent);
 
 // Apre le schede collegate (impilate sopra quella corrente) e persiste il
@@ -40,6 +43,7 @@ export class EntityNavigatorService {
   private contracts = inject(ContractsService);
   private grants = inject(UtilizerGrantService);
   private thirdParties = inject(ThirdPartiesService);
+  private invoices = inject(InvoicesService);
   private toast = inject(ToastService);
 
   openAsset(id: number): Observable<Asset | null> {
@@ -92,6 +96,14 @@ export class EntityNavigatorService {
     ).pipe(
       switchMap(r => (r ? this.contracts.create(r) : of(null))),
       catchError(err => this.fail('Errore nella creazione del contratto', err)),
+    );
+  }
+
+  openInvoice(id: number): Observable<Invoice | null> {
+    return this.invoices.getById(id).pipe(
+      switchMap(item => this.sheet<EditDialogData<Invoice>, Invoice>(INVOICE_DIALOG, {mode: 'edit', item})),
+      switchMap(r => (r ? this.invoices.update(r.id, r) : of(null))),
+      catchError(err => this.fail('Errore apertura/salvataggio della fattura', err)),
     );
   }
 

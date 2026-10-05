@@ -22,8 +22,13 @@ import { Invoice } from './entity/invoice.entity';
 import { DeleteInvoiceDto } from '@apis/invoices/dto/delete-invoice.dto';
 import { maskSupplierOf } from '@apis/third-parties/third-party.privacy';
 
-const maskInvoice = (i: Invoice, role?: string): Invoice =>
-  i?.contratto ? { ...i, contratto: maskSupplierOf(i.contratto, role) } : i;
+// Fornitore persona fisica (della fattura o del contratto): CF e telefono
+// oscurati per il Lettore.
+const maskInvoice = (i: Invoice, role?: string): Invoice => {
+  if (!i) return i;
+  const masked = maskSupplierOf(i, role);
+  return masked.contratto ? { ...masked, contratto: maskSupplierOf(masked.contratto, role) } : masked;
+};
 
 @Controller('invoices')
 @UseGuards(JwtAuthGuard, RolesGuard)

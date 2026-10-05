@@ -112,6 +112,20 @@
           (open)="openUtility($event.id)">
         </app-linked-table>
       </mat-tab>
+
+      @if (!isNew) {
+        <mat-tab aria-label="Impegni e capitoli">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="account_balance" label="Impegni e capitoli" [count]="commitmentCount"></app-tab-label>
+          </ng-template>
+          <app-contract-commitments-tab
+            [contractId]="data.item.id"
+            [canEdit]="canEdit"
+            [chapterOptions]="chapterOptions"
+            (changed)="commitmentCount = $event">
+          </app-contract-commitments-tab>
+        </mat-tab>
+      }
     </mat-tab-group>
   </form>
 

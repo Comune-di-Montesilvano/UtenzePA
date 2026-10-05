@@ -31,8 +31,17 @@
       </app-filterable-select>
     </div>
 
+    <div style="flex: 1 1 calc(33.333% - 0.66rem);">
+      <app-filterable-select
+        label="Utenza"
+        placeholder="POD/PDR o codice cliente..."
+        [options]="utilityOptions"
+        formControlName="utility_id">
+      </app-filterable-select>
+    </div>
+
     <mat-form-field style="flex: 1 1 100%;">
-      <mat-label>Capitoli di Spesa Associati</mat-label>
+      <mat-label>Capitoli (da impegni delle righe)</mat-label>
       <mat-select formControlName="budget_chapter_ids" multiple>
         @for (opt of budgetChapterOptions; track opt.value) {
           <mat-option [value]="opt.value">{{ opt.label }}</mat-option>

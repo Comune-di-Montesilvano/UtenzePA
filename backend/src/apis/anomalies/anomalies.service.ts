@@ -48,6 +48,20 @@ export interface Anomalies {
   utilities_to_transfer: AnomalyList<UtilityAnomaly>;
   utilities_to_recover: AnomalyList<UtilityAnomaly>;
   assets_without_classification: AnomalyList<{ id: number; asset_name: string; missing: string }>;
+  invoices_on_ceased_utilities: AnomalyList<{
+    invoice_id: number;
+    number: string;
+    invoice_date: string;
+    utility_id: number;
+    utility_code: string;
+  }>;
+  utilities_with_uncommitted_chapter: AnomalyList<UtilityAnomaly & { chapter: string }>;
+  invoice_lines_without_utility: AnomalyList<{
+    invoice_id: number;
+    number: string;
+    supply_code: string | null;
+    amount: number;
+  }>;
 }
 
 export interface PlantAnomaly {
@@ -253,7 +267,69 @@ export class AnomaliesService {
           ORDER BY a.asset_name`,
       );
 
+    const onCeased: Record<string, unknown>[] = await this.dataSource.query(
+      `SELECT DISTINCT i.id AS invoice_id, i.invoice_id AS number,
+              DATE_FORMAT(i.invoice_date, '%Y-%m-%d') AS invoice_date,
+              u.id AS utility_id, u.utility_id AS utility_code
+       FROM invoice_lines il
+       JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0
+       JOIN utilities u ON u.id = il.utility_id_fk AND u.deleted = 0
+       WHERE u.supply_active = 0 AND i.invoice_date >= CURDATE() - INTERVAL 12 MONTH
+       ORDER BY invoice_date DESC, invoice_id`,
+    );
+
+    // Solo contratti che hanno almeno un impegno censito: finché gli impegni
+    // sono vuoti segnalerebbe tutte le utenze.
+    const uncommitted: Record<string, unknown>[] = await this.dataSource.query(
+      `SELECT ${utilityColumns}, ${currentContractsList},
+              CONCAT(b.chapter_code, '/', b.article) AS chapter
+       FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
+       JOIN budget_chapters b ON b.id = u.budget_chapter_code_fk
+       WHERE u.deleted = 0 AND u.supply_active = 1
+       AND EXISTS (
+         SELECT 1 FROM contract_utilities cu JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
+         WHERE cu.utility_id = u.id AND c.closed = 0
+           AND EXISTS (SELECT 1 FROM budget_commitments any_c WHERE any_c.contract_id_fk = c.id AND any_c.deleted = 0)
+           AND NOT EXISTS (SELECT 1 FROM budget_commitments bc
+                           WHERE bc.contract_id_fk = c.id AND bc.deleted = 0
+                             AND bc.budget_chapter_id_fk = u.budget_chapter_code_fk))
+       ORDER BY t.name, u.utility_id`,
+    );
+
+    const withoutUtility: Record<string, unknown>[] = await this.dataSource.query(
+      `SELECT i.id AS invoice_id, i.invoice_id AS number, il.supply_code, il.amount
+       FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0
+       WHERE il.utility_id_fk IS NULL
+       ORDER BY i.invoice_date DESC, i.id`,
+    );
+
     return {
+      invoices_on_ceased_utilities: list(
+        onCeased.map((r) => ({
+          invoice_id: Number(r.invoice_id),
+          number: String(r.number),
+          invoice_date: String(r.invoice_date),
+          utility_id: Number(r.utility_id),
+          utility_code: String(r.utility_code),
+        })),
+      ),
+      utilities_with_uncommitted_chapter: list(
+        uncommitted.map((r) => ({
+          id: Number(r.id),
+          utility_id: String(r.utility_id),
+          type: (r.type as string) ?? null,
+          contracts: (r.contracts as string) ?? null,
+          chapter: String(r.chapter),
+        })),
+      ),
+      invoice_lines_without_utility: list(
+        withoutUtility.map((r) => ({
+          invoice_id: Number(r.invoice_id),
+          number: String(r.number),
+          supply_code: (r.supply_code as string) ?? null,
+          amount: Number(r.amount),
+        })),
+      ),
       assets_without_classification: list(
         assetsWithoutClassification.map((a) => ({
           id: Number(a.id),

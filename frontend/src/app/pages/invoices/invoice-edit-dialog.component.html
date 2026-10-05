@@ -1,87 +1,84 @@
-<h2 mat-dialog-title>
-  {{ isNew ? 'Aggiungi Fattura' : 'Modifica Fattura: ' + data.item.invoice_id }}
-</h2>
+<app-entity-sheet
+  icon="receipt_long"
+  color="var(--entity-supply-contract)"
+  [title]="isNew ? 'Nuova fattura' : 'Fattura ' + (form.controls.invoice_id.value || '')"
+  [subtitle]="supplierLabel"
+  [lastModified]="lastModified">
 
-<mat-dialog-content>
-  <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+  <form [formGroup]="form">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
+      <mat-tab aria-label="Riepilogo">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="dashboard" label="Riepilogo" [error]="invalid('invoice_id', 'invoice_date')"></app-tab-label>
+        </ng-template>
+        <div class="sheet-grid">
+          <mat-form-field>
+            <mat-label>Numero fattura</mat-label>
+            <input matInput formControlName="invoice_id">
+            @if (form.controls.invoice_id.invalid && form.controls.invoice_id.touched) {
+              <mat-error>Obbligatorio</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Data fattura</mat-label>
+            <input matInput [matDatepicker]="invoiceDatePicker" formControlName="invoice_date" placeholder="GG/MM/AAAA">
+            <mat-datepicker-toggle matIconSuffix [for]="invoiceDatePicker"></mat-datepicker-toggle>
+            <mat-datepicker #invoiceDatePicker></mat-datepicker>
+            @if (form.controls.invoice_date.invalid && form.controls.invoice_date.touched) {
+              <mat-error>Obbligatoria</mat-error>
+            }
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Numero protocollo</mat-label>
+            <input matInput formControlName="protocol_number">
+          </mat-form-field>
+          <div class="span-2">
+            <app-filterable-select label="Contratto" placeholder="Cerca contratto..." [options]="contractOptions"
+              formControlName="contratto_id_fk"></app-filterable-select>
+          </div>
+          <div class="span-2">
+            <app-filterable-select label="Fornitore" placeholder="Dal contratto, se vuoto" [options]="supplierOptions"
+              formControlName="supplier_id_fk"></app-filterable-select>
+          </div>
+          <mat-form-field>
+            <mat-label>Totale documento IVA inclusa (€)</mat-label>
+            <input matInput type="number" step="0.01" formControlName="total_amount">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Imponibile (€)</mat-label>
+            <input matInput type="number" step="0.01" formControlName="net_amount_excl_vat">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Morosità (€)</mat-label>
+            <input matInput type="number" step="0.01" formControlName="last_invoice_arrears">
+          </mat-form-field>
+          <mat-form-field class="span-all">
+            <mat-label>Note</mat-label>
+            <textarea matInput formControlName="notes_on_invoices" rows="3"></textarea>
+          </mat-form-field>
+        </div>
+      </mat-tab>
 
-    <mat-form-field style="flex: 1 1 21%;">
-      <mat-label>ID Fattura *</mat-label>
-      <input matInput formControlName="invoice_id">
-      @if (form.controls.invoice_id.invalid && form.controls.invoice_id.touched) {
-        <mat-error>Obbligatorio</mat-error>
-      }
-    </mat-form-field>
-
-    <mat-form-field style="flex: 1 1 21%;">
-      <mat-label>Numero Protocollo *</mat-label>
-      <input matInput formControlName="protocol_number">
-      @if (form.controls.protocol_number.invalid && form.controls.protocol_number.touched) {
-        <mat-error>Obbligatorio</mat-error>
-      }
-    </mat-form-field>
-
-    <mat-form-field style="flex: 1 1 21%;">
-      <mat-label>Data Fattura *</mat-label>
-      <input matInput [matDatepicker]="invoiceDatePicker" formControlName="invoice_date" placeholder="GG/MM/AAAA">
-      <mat-datepicker-toggle matIconSuffix [for]="invoiceDatePicker"></mat-datepicker-toggle>
-      <mat-datepicker #invoiceDatePicker></mat-datepicker>
-      @if (form.controls.invoice_date.invalid && form.controls.invoice_date.touched) {
-        <mat-error>Obbligatorio</mat-error>
-      }
-    </mat-form-field>
-
-    <mat-form-field style="flex: 1 1 21%;">
-      <mat-label>Importo Netto (IVA Esclusa) * (€)</mat-label>
-      <input matInput type="number" step="0.01" formControlName="net_amount_excl_vat">
-      @if (form.controls.net_amount_excl_vat.invalid && form.controls.net_amount_excl_vat.touched) {
-        <mat-error>Obbligatorio</mat-error>
-      }
-    </mat-form-field>
-
-    <div style="flex: 1 1 21%;">
-      <app-filterable-select
-        label="Contratto *"
-        placeholder="Cerca contratto..."
-        [options]="contractOptions"
-        formControlName="contratto_id_fk"
-        [errorMessage]="form.controls.contratto_id_fk.invalid && form.controls.contratto_id_fk.touched ? 'Obbligatorio' : null">
-      </app-filterable-select>
-    </div>
-
-    <mat-form-field style="flex: 1 1 21%;">
-      <mat-label>Fornitore</mat-label>
-      <input matInput [value]="selectedContractSupplierLabel || 'N/D'" disabled>
-    </mat-form-field>
-
-    <mat-form-field style="flex: 1 1 21%;">
-      <mat-label>Capitoli di Spesa Associati</mat-label>
-      <mat-select formControlName="budget_chapter_ids" multiple>
-        @for (opt of budgetChapterOptions; track opt.id) {
-          <mat-option [value]="opt.id">{{ opt.label }}</mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
-
-    <mat-form-field style="flex: 1 1 21%;">
-      <mat-label>Morosità Ultima Fattura * (€)</mat-label>
-      <input matInput type="number" step="0.01" formControlName="last_invoice_arrears">
-      @if (form.controls.last_invoice_arrears.invalid && form.controls.last_invoice_arrears.touched) {
-        <mat-error>Obbligatorio</mat-error>
-      }
-    </mat-form-field>
-
-    <mat-form-field style="flex: 1 1 100%;">
-      <mat-label>Note</mat-label>
-      <textarea matInput formControlName="notes_on_invoices" rows="3"></textarea>
-    </mat-form-field>
-
+      <mat-tab aria-label="Righe">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="list" label="Righe" [count]="lines.length"></app-tab-label>
+        </ng-template>
+        <app-invoice-lines-tab
+          [lines]="lines"
+          [total]="form.controls.total_amount.value"
+          [utilityOptions]="utilityOptions"
+          [commitmentOptions]="commitmentOptions"
+          [readOnly]="!canEdit"
+          (linesChange)="lines = $event">
+        </app-invoice-lines-tab>
+      </mat-tab>
+    </mat-tab-group>
   </form>
-</mat-dialog-content>
 
-<mat-dialog-actions align="end">
-  <button mat-stroked-button (click)="cancel()">Annulla</button>
-  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">
-    {{ isNew ? 'Crea Fattura' : 'Salva Fattura' }}
-  </button>
-</mat-dialog-actions>
+  <ng-container sheetActions>
+    <button mat-stroked-button type="button" (click)="cancel()">{{ canEdit ? 'Annulla' : 'Chiudi' }}</button>
+    @if (canEdit) {
+      <button mat-flat-button type="button" (click)="save()">{{ isNew ? 'Crea fattura' : 'Salva fattura' }}</button>
+    }
+  </ng-container>
+</app-entity-sheet>
