@@ -252,6 +252,13 @@ Dalla revisione finale di v1.11.1 (creazione al volo dalle schede), non bloccant
 - ~~dialog impegno: il capitolo creato dal "+" finisce in fondo a `data.chapterOptions` (array del contratto, non riordinato): al prossimo impegno compare in coda~~ (fatto in v1.11.2: elenco riordinato);
 - ~~soggetto creato con "Crea «testo»": il testo va in `company_name`; se si passa a persona fisica il campo nascosto resta valorizzato e viene inviato. Svuotarlo al cambio tipo~~ (fatto in v1.11.2: il Salva non invia i campi del tipo non scelto);
 - ~~`?selectedId` non apre la scheda su Soggetti terzi (E2E: aprire dalla riga)~~ (fatto in v1.11.2);
+Emerse in v1.12.0–v1.14.0 (2026-10-06), non bloccanti:
+
+- elenco Fatture: `?selectedId` non apre la scheda (`initFromRoute` senza callback di apertura); negli E2E aprire la fattura dalla scheda capitolo o dalla riga;
+- elenco Capitoli: verificare se i filtri da query param (es. `?utility_type_id=36`) vengono applicati (in v1.12.0 no; dalla v1.14.0 l'elenco usa `initFromRoute`);
+- scheda capitolo aperta dal navigatore (`GET /budget-chapters/:id`): `findOne` non filtra i tipi utenza cancellati come fa `findAll`; un tipo eliminato resterebbe tra i selezionati;
+- collegamenti al capitolo dalle altre schede (campo capitolo dell'utenza, riga fattura, impegni del contratto): oggi la scheda capitolo si apre solo da elenco, Log modifiche e dashboard.
+
 - ~~non provati in E2E fino al salvataggio: nuova utenza dall'impianto, nuova fattura dall'utenza~~ (provati in v1.11.2: il backend ricava il fornitore dal contratto; la nuova utenza da contratto immobiliare e impianto partiva senza immobili/impianti, corretto).
 
 ## 14. Schede di fornitori, capitoli, fatture
@@ -270,6 +277,8 @@ Stesso modello delle schede di v1.7.1: Fornitori fatto con la voce 9 (scheda Sog
 ## 16. Dashboard e mappa
 
 Per ultime, quando dati e UI sono a posto. **Mappa**: non si tocca finché non ci sono i complessi (voce 4) e i dati catastali (voce 2). **Dashboard**: oggi card indipendenti con stili propri (anomalie, contratti immobiliari, verifiche impianti…); ripensare indicatori per area (patrimonio, utenze, contratti, spesa), anomalie come lista di cose da fare con link alla scheda, coerenza con badge e colori delle schede, dark mode.
+
+Dalla v1.14.0 il totale del riquadro anomalie somma tutte le voci (prima una somma a mano che dimenticava quelle aggiunte via via, es. fatture su utenze cessate, utenze senza capitolo): il numero in dashboard è salito, da dire agli utenti.
 
 ## 17. Impegni di spesa (contratto ↔ capitolo)
 
@@ -338,6 +347,13 @@ Gotcha emersi dall'analisi:
 - `invoice_budget_chapter` non ha FK verso `invoices`: le righe restano orfane quando le fatture vengono rinumerate o cancellate (oggi puntano a id 1–2, le fatture partono da 741);
 - utenze collegate a 5–7 contratti di fornitura: non è un errore, sono i rinnovi Consip successivi (storico); per "il contratto attuale" va usato quello non chiuso.
 
+Dati da verificare (2026-10-06, dopo v1.12.0–v1.14.0):
+
+- capitoli "servizio calore" con utenze elettriche: 14837/0 (12 utenze di energia elettrica; esiste 14837/1 "ENERGIA ELETTRICA LOCALI ASSOCIAZIONI", probabile articolo sbagliato) e 14017/0 (4 utenze elettriche): da girare alla ragioneria;
+- 11425/0 "CONDIZIONAMENTO E RISCALDAMENTO" lasciato senza tipi utenza (= tutti i tipi): condizionamento elettrico, riscaldamento gas; decidere con la ragioneria;
+- 125 utenze attive senza capitolo (segnalazione "Utenze attive senza capitolo di spesa", tutte del contratto 10);
+- utenze di connettività aggiunte il 2026-10-06: 3199–3201 attive senza contratto di fornitura, 3198 con "Fornitura attiva" non indicata; date di attivazione e dati della linea (tecnologia, velocità, modem, IP statico) da compilare per tutte le linee.
+
 ## 19. Allegati di contratti, immobili e impianti
 
 Richiesta utente (2026-10-05): caricare allegati generici (contratto firmato, determina, ordine ODA, verbali, planimetrie, corrispondenza) sulle schede dei contratti di fornitura e dei contratti immobiliari, con un tab "Allegati" nella scheda. Estesa (2026-10-05) a immobili e impianti: certificazioni (agibilità, prevenzione incendi, conformità impianti), verbali di verifica e manutenzione, planimetrie, visure e atti catastali, schede tecniche.
@@ -355,7 +371,7 @@ Base esistente: le foto (`apis/photos/`) sono già polimorfiche (`entity_type` +
 
 ## 20. Assestato dei capitoli e disponibilità
 
-Fatto in v1.14.0 (stessa spec della voce 14): assestato e stanziamento iniziale sulla riga dell'anno, segnalazioni "oltre l'assestato" e "senza assestato", avviso nella scheda fattura. Resta da decidere: mandati (numero e importo). Testo originale sotto.
+Fatto in v1.14.0 (stessa spec della voce 14): assestato e stanziamento iniziale sulla riga dell'anno, segnalazioni "oltre l'assestato" e "senza assestato", avviso nella scheda fattura. Resta da decidere: mandati (numero e importo). Da fare sui dati: inserire gli assestati 2026 (al rilascio 35 capitoli usati senza assestato) e completare l'importo dei 12 impegni (senza importo il disponibile è solo un massimo). Testo originale sotto.
 
 Richiesta utente (2026-10-06), partendo dalla schermata "Competenza" del gestionale di contabilità (per capitolo ed esercizio). Dati da riportare, inseriti a mano per capitolo + esercizio:
 
