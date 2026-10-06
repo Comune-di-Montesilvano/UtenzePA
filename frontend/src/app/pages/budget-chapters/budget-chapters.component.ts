@@ -1,4 +1,5 @@
-import {Component, ChangeDetectionStrategy} from '@angular/core';
+import {Component, ChangeDetectionStrategy, ViewChild} from '@angular/core';
+import {ActivatedRoute} from '@angular/router';
 import {DataTableBudgetChaptersComponent} from './data-table-budget-chapters.component';
 import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
 import {budgetChapterFilters} from './budget-chapters-filters';
@@ -18,10 +19,17 @@ import {BudgetChapter} from './entity/budget-chapter.entity';
 })
 export class BudgetChaptersComponent extends AbstractComponent<BudgetChapter> {
 
+  @ViewChild('dataTable') dataTable?: DataTableBudgetChaptersComponent;
+
   override filterDefs = budgetChapterFilters();
 
-  constructor(protected override service: BudgetChaptersService) {
+  constructor(protected override service: BudgetChaptersService, private route: ActivatedRoute) {
     super();
+  }
+
+  // ?selectedId=N apre la scheda del capitolo.
+  override ngOnInit(): void {
+    this.initFromRoute(this.route, item => this.dataTable?.openEditDialog(item));
   }
 
   protected override getEntityIdentifier(entity: BudgetChapter): string {

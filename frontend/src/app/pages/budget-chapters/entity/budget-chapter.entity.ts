@@ -2,6 +2,7 @@ import {AbstractEntity} from '../../../core/entities/abstract.entity';
 import {plainToInstance, Type} from 'class-transformer';
 import {IBudgetChapter} from './budget-chapter.interface';
 import {UtilityType} from '../../utility-types/entity/utility-type.entity';
+import {SystemUser} from '../../system-users/entity/system-user.entity';
 
 export class BudgetChapter extends AbstractEntity implements IBudgetChapter {
 
@@ -16,6 +17,7 @@ export class BudgetChapter extends AbstractEntity implements IBudgetChapter {
   utilityTypes?: UtilityType[];
   // Solo in invio: sostituisce i tipi del capitolo.
   utility_type_ids?: number[];
+  updated_by?: SystemUser | null;
 
   get utilityTypesLabel(): string {
     const names = (this.utilityTypes ?? []).map(t => t.name).sort((a, b) => a.localeCompare(b, 'it'));

@@ -110,6 +110,7 @@ export class AuditLogPageComponent implements OnInit {
     utilizer_grant: id => this.navigator.openGrant(id),
     Invoice: id => this.navigator.openInvoice(id),
     third_parties: id => this.navigator.openThirdParty(id),
+    budget_chapters: id => this.navigator.openBudgetChapter(id),
   };
 
   hasDetailLink(entry: AuditLogEntry): boolean {

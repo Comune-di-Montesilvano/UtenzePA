@@ -65,6 +65,11 @@ export class DataTableBudgetChaptersComponent extends AbstractDataTableComponent
     return BudgetChapter.create();
   }
 
+  // Scheda capitolo (entity-sheet): dialog ad altezza fissa.
+  protected override useSheet(): boolean {
+    return true;
+  }
+
   override editDialogComponent(): Type<unknown> {
     return BudgetChapterEditDialogComponent;
   }

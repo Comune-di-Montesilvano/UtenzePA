@@ -5,6 +5,7 @@
                     (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"></app-list-filters>
   <div style="margin-top: 1rem;">
     <app-data-table-budget-chapters
+      #dataTable
       [data]="list"
       [loading]="loading"
       (onSave)="onSave($event)"

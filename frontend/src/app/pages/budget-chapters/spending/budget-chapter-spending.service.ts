@@ -8,13 +8,17 @@ export interface BudgetChapterSpending {
   id: number;
   budget_chapter_id_fk: number;
   year: number;
-  amount: number;
+  amount: number | null;
+  initial_budget: number | null;
+  adjusted_budget: number | null;
   notes: string | null;
 }
 
 export interface BudgetChapterSpendingPayload {
   year: number;
-  amount: number;
+  amount: number | null;
+  initial_budget: number | null;
+  adjusted_budget: number | null;
   notes: string | null;
 }
 

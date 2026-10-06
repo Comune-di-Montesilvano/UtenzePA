@@ -120,6 +120,18 @@ export function supplyContractStatus(
   return {tone: 'ok', label: 'In corso', icon: 'check_circle'};
 }
 
+const euro = (v: number | null | undefined): string =>
+  Number(v ?? 0).toLocaleString('it-IT', {style: 'currency', currency: 'EUR'});
+
+// Esercizio in corso del capitolo di spesa (badge della scheda).
+export function chapterBudgetStatus(
+  y: {adjusted_budget: number | null; available: number | null; over_budget: boolean} | null | undefined,
+): StatusInfo {
+  if (!y || y.adjusted_budget === null) return {tone: 'off', label: 'Assestato non indicato', icon: 'help_outline'};
+  if (y.over_budget) return {tone: 'danger', label: "Oltre l'assestato", icon: 'report'};
+  return {tone: 'ok', label: `Disponibile ${euro(y.available)}`, icon: 'check_circle'};
+}
+
 // Stessa regola del validatore cigRequiredUnlessExempt del dialog.
 export function supplyContractFlags(c: {cig_contract?: string | null; contract_kind?: ContractKind | null; closed?: boolean | null}): StatusInfo[] {
   if (c.contract_kind === ContractKind.FREE) return [{tone: 'info', label: 'A titolo gratuito', icon: 'volunteer_activism'}];

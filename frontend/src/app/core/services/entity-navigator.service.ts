@@ -183,8 +183,16 @@ export class EntityNavigatorService {
     );
   }
 
+  openBudgetChapter(id: number): Observable<BudgetChapter | null> {
+    return this.chapters.getById(id).pipe(
+      switchMap(item => this.sheet<EditDialogData<BudgetChapter>, BudgetChapter>(BUDGET_CHAPTER_DIALOG, {mode: 'edit', item})),
+      switchMap(r => (r ? this.chapters.update(r.id, BudgetChapter.toPayload(r)) : of(null))),
+      catchError(err => this.fail('Errore apertura/salvataggio del capitolo', err)),
+    );
+  }
+
   createBudgetChapter(): Observable<BudgetChapter | null> {
-    return this.simple<EditDialogData<BudgetChapter>, BudgetChapter>(BUDGET_CHAPTER_DIALOG, {mode: 'create', item: BudgetChapter.create()}).pipe(
+    return this.sheet<EditDialogData<BudgetChapter>, BudgetChapter>(BUDGET_CHAPTER_DIALOG, {mode: 'create', item: BudgetChapter.create()}).pipe(
       switchMap(r => (r ? this.chapters.create({...BudgetChapter.toPayload(r), ...this.authorship()}) : of(null))),
       catchError(err => this.fail('Errore nella creazione del capitolo', err)),
     );
