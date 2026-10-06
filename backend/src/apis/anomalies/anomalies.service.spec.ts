@@ -27,6 +27,21 @@ describe('AnomaliesService', () => {
     expect(sql).toContain('a.nature_id IS NULL OR a.function_id IS NULL');
   });
 
+  it('immobili attivi non di proprietà senza contratto passivo attivo', async () => {
+    query.mockImplementation(async (sql: string) =>
+      sql.includes('a.ownership = 0') ? [{ id: '8', asset_name: 'Locale in affitto' }] : [],
+    );
+    const result = await service.getAnomalies();
+    expect(result.rented_assets_without_passive_contract).toEqual({
+      count: 1,
+      items: [{ id: 8, asset_name: 'Locale in affitto' }],
+    });
+    const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('a.ownership = 0'));
+    expect(sql).toContain("a.status = 'Attivo'");
+    expect(sql).toContain("g.direction = 'PASSIVE'");
+    expect(sql).toContain("g.status = 'ACTIVE'");
+  });
+
   it('aggrega le 5 categorie con conteggio ed elenco, numeri convertiti', async () => {
     query
       .mockResolvedValueOnce([
@@ -65,7 +80,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(23);
+    expect(query).toHaveBeenCalledTimes(24);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"

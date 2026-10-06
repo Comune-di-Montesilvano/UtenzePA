@@ -49,6 +49,7 @@ export interface Anomalies {
   utilities_to_transfer: AnomalyList<UtilityAnomaly>;
   utilities_to_recover: AnomalyList<UtilityAnomaly>;
   assets_without_classification: AnomalyList<{ id: number; asset_name: string; missing: string }>;
+  rented_assets_without_passive_contract: AnomalyList<{ id: number; asset_name: string }>;
   invoices_on_ceased_utilities: AnomalyList<{
     invoice_id: number;
     number: string;
@@ -277,6 +278,18 @@ export class AnomaliesService {
           ORDER BY a.asset_name`,
       );
 
+    // Immobile attivo non di proprietà: il Comune lo usa a un titolo, quindi
+    // serve un contratto immobiliare passivo attivo che lo copra.
+    const rentedWithoutPassive: { id: unknown; asset_name: string }[] = await this.dataSource.query(
+      `SELECT a.id, a.asset_name FROM assets a
+        WHERE a.deleted = 0 AND a.ownership = 0 AND a.status = 'Attivo'
+          AND NOT EXISTS (SELECT 1 FROM utilizer_grant_assets uga
+                          JOIN utilizer_grant g ON g.id = uga.utilizer_grant_id AND g.deleted = 0
+                           AND g.status = 'ACTIVE' AND g.direction = 'PASSIVE'
+                          WHERE uga.asset_id = a.id)
+        ORDER BY a.asset_name`,
+    );
+
     const onCeased: Record<string, unknown>[] = await this.dataSource.query(
       `SELECT DISTINCT i.id AS invoice_id, i.invoice_id AS number,
               DATE_FORMAT(i.invoice_date, '%Y-%m-%d') AS invoice_date,
@@ -401,6 +414,9 @@ export class AnomaliesService {
           asset_name: a.asset_name,
           missing: a.missing,
         })),
+      ),
+      rented_assets_without_passive_contract: list(
+        rentedWithoutPassive.map((a) => ({ id: Number(a.id), asset_name: a.asset_name })),
       ),
       utilities_to_transfer: list(toTransfer.map(({ since: _since, ...u }) => u)),
       utilities_to_recover: list(toRecover),

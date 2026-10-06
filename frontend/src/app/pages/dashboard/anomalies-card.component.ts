@@ -277,6 +277,21 @@ const formatDate = (iso: string | null): string => {
               </ul>
             </mat-expansion-panel>
             }
+            @if (data.rented_assets_without_passive_contract.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.rented_assets_without_passive_contract.count }}</span>
+                  Immobili non di proprietà senza contratto passivo attivo
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (a of data.rented_assets_without_passive_contract.items; track a.id) {
+                  <li (click)="openAsset(a.id)">{{ a.asset_name }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
             @if (data.invoices_on_ceased_utilities.count > 0) {
             <mat-expansion-panel>
               <mat-expansion-panel-header>

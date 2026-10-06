@@ -59,38 +59,40 @@
         </div>
 
         <div class="sheet-section-title"><mat-icon>place</mat-icon>Indirizzo e posizione</div>
-        <div class="sheet-grid">
-          <mat-form-field>
-            <mat-label>Toponimo</mat-label>
-            <input matInput formControlName="toponym" placeholder="es. Via, Piazza">
-          </mat-form-field>
-          <mat-form-field class="span-2">
-            <mat-label>Indirizzo</mat-label>
-            <input matInput formControlName="address">
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Civico</mat-label>
-            <input matInput formControlName="civic_number">
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Latitudine</mat-label>
-            <input matInput formControlName="latitude" placeholder="Es. 42.5125" geoLatitude>
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Longitudine</mat-label>
-            <input matInput formControlName="longitude" placeholder="Es. 14.1450" geoLongitude>
-          </mat-form-field>
+        <div class="sheet-location">
+          <div class="sheet-grid">
+            <mat-form-field>
+              <mat-label>Toponimo</mat-label>
+              <input matInput formControlName="toponym" placeholder="es. Via, Piazza">
+            </mat-form-field>
+            <mat-form-field class="span-2">
+              <mat-label>Indirizzo</mat-label>
+              <input matInput formControlName="address">
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Civico</mat-label>
+              <input matInput formControlName="civic_number">
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Latitudine</mat-label>
+              <input matInput formControlName="latitude" placeholder="Es. 42.5125" geoLatitude>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Longitudine</mat-label>
+              <input matInput formControlName="longitude" placeholder="Es. 14.1450" geoLongitude>
+            </mat-form-field>
+          </div>
+          <app-location-map
+            [latitude]="form.controls.latitude.value"
+            [longitude]="form.controls.longitude.value"
+            [estimatedLatitude]="estimated()?.lat ?? null"
+            [estimatedLongitude]="estimated()?.lng ?? null"
+            [previewOnly]="!canEdit"
+            [readOnly]="!canEdit"
+            (positionSelected)="onPositionSelected($event)"
+            (positionCleared)="onPositionCleared()">
+          </app-location-map>
         </div>
-        <app-location-map
-          [latitude]="form.controls.latitude.value"
-          [longitude]="form.controls.longitude.value"
-          [estimatedLatitude]="estimated()?.lat ?? null"
-          [estimatedLongitude]="estimated()?.lng ?? null"
-          [previewOnly]="!canEdit"
-          [readOnly]="!canEdit"
-          (positionSelected)="onPositionSelected($event)"
-          (positionCleared)="onPositionCleared()">
-        </app-location-map>
         @if (!form.controls.latitude.value && estimated()) {
           <p class="sheet-hint">
             {{ plant?.position_quality === 'FROM_ASSET' ? "Posizione dell'immobile collegato" : 'Posizione stimata da indirizzo (geocodifica)' }}

@@ -1,22 +1,25 @@
 <div class="location-map-wrapper">
   <div [id]="canvasId" class="location-map-canvas"></div>
-  @if (hasKnownPosition()) {
-    <button mat-stroked-button type="button" class="location-map-street-view" (click)="openStreetView()">
-      <mat-icon>streetview</mat-icon>
-      Apri Street View
-    </button>
-  }
-  @if (!readOnly && usingOwnPosition && latitude && longitude) {
-    <button mat-stroked-button type="button" class="location-map-clear" (click)="clearPosition()">
-      Cancella posizione manuale
-    </button>
-  }
-  @if (!usingOwnPosition && latitude && longitude) {
-    <div class="location-map-hint">Posizione ereditata dall'immobile collegato</div>
-    @if (!readOnly) {
-      <button mat-stroked-button type="button" class="location-map-own-position" (click)="enableOwnPosition()">
+  <!-- Pulsanti sovrapposti alla mappa: non aggiungono righe sotto la mappa. -->
+  <div class="location-map-actions">
+    @if (hasKnownPosition()) {
+      <button mat-stroked-button type="button" (click)="openStreetView()">
+        <mat-icon>streetview</mat-icon>
+        Street View
+      </button>
+    }
+    @if (!readOnly && usingOwnPosition && latitude && longitude) {
+      <button mat-stroked-button type="button" (click)="clearPosition()">
+        Cancella posizione manuale
+      </button>
+    }
+    @if (!usingOwnPosition && latitude && longitude && !readOnly) {
+      <button mat-stroked-button type="button" (click)="enableOwnPosition()">
         Imposta posizione propria
       </button>
     }
+  </div>
+  @if (!usingOwnPosition && latitude && longitude) {
+    <div class="location-map-hint">Posizione ereditata dall'immobile collegato</div>
   }
 </div>

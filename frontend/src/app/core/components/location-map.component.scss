@@ -1,7 +1,5 @@
 .location-map-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  position: relative;
 }
 
 .location-map-canvas {
@@ -10,7 +8,36 @@
   border: 1px solid #e5e7eb;
 }
 
+// Sopra i pannelli Leaflet (z-index fino a 1000 per i controlli), accanto
+// allo zoom: in alto a destra c'è il selettore dei livelli.
+.location-map-actions {
+  position: absolute;
+  top: 10px;
+  left: 54px;
+  z-index: 1001;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 6px;
+  max-width: calc(100% - 110px);
+
+  button {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 0.8rem;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+}
+
 .location-map-hint {
-  font-size: 0.8rem;
-  color: #757575;
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 1001;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 0.75rem;
+  color: #555;
 }
