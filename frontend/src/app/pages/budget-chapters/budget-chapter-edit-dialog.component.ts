@@ -67,6 +67,9 @@ export class BudgetChapterEditDialogComponent implements OnInit {
   readonly eur = formatEuro;
 
   utilityTypeOptions: TOption[] = [];
+  // Esercizi salvati dal tab (subito, non col Salva della scheda): "Annulla"
+  // diventa "Chiudi" se il resto della scheda non è stato toccato.
+  yearsChanged = false;
   // Campi cache (mai getter) per app-linked-table e le anteprime.
   years: ChapterYear[] = [];
   current: ChapterYear | null = null;
@@ -152,6 +155,24 @@ export class BudgetChapterEditDialogComponent implements OnInit {
       })),
       error: err => console.error('Errore caricamento utenze del capitolo:', err),
     });
+  }
+
+  onYearsChanged(): void {
+    this.yearsChanged = true;
+    this.loadYears();
+  }
+
+  cancelLabel(): string {
+    if (!this.canEdit) return 'Chiudi';
+    return this.yearsChanged && this.form.pristine ? 'Chiudi' : 'Annulla';
+  }
+
+  // Descrizione e tipi utenza (nessuno = tutti i tipi).
+  subtitleText(): string {
+    const ids = this.form.getRawValue().utility_type_ids ?? [];
+    const names = ids.map(id => this.utilityTypeOptions.find(o => o.value === id)?.label).filter(Boolean);
+    const types = ids.length ? names.join(', ') : 'Tutti i tipi utenza';
+    return [this.data.item.description, types].filter(Boolean).join(' · ');
   }
 
   titleText(): string {

@@ -1,4 +1,4 @@
-import {Component, Type, ChangeDetectionStrategy, inject, OnChanges} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy, EventEmitter, inject, OnChanges, Output, SimpleChanges} from '@angular/core';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
 import {MatPaginatorModule} from '@angular/material/paginator';
@@ -69,12 +69,27 @@ export class DataTableBudgetChaptersComponent extends AbstractDataTableComponent
     this.saveColumnSelection(DataTableBudgetChaptersComponent.STORAGE_KEY, this.selectedColumns);
   }
 
+  // Una scheda chiusa (anche con Annulla/Chiudi) può aver salvato esercizi:
+  // il genitore ricarica le segnalazioni.
+  @Output() budgetChanged = new EventEmitter<void>();
+
   constructor(screen: ScreenSizeService) {
     super(screen);
+    this.dialog.afterAllClosed.subscribe(() => {
+      this.loadYearSummary();
+      this.budgetChanged.emit();
+    });
   }
 
-  override ngOnChanges(): void {
+  // Riepilogo dell'anno: al primo giro e a fine di ogni caricamento dal server,
+  // non a ogni filtro locale (ricerca rapida, segnalazioni).
+  override ngOnChanges(changes?: SimpleChanges): void {
     super.ngOnChanges();
+    const loaded = changes?.['loading']?.previousValue === true && !this.loading;
+    if (changes?.['data']?.firstChange || loaded) this.loadYearSummary();
+  }
+
+  private loadYearSummary(): void {
     this.budget.yearSummary(new Date().getFullYear()).subscribe({
       next: rows => this.yearByChapter = new Map(rows.map(r => [r.budget_chapter_id, r])),
       error: err => console.error('Errore caricamento riepilogo esercizio:', err),

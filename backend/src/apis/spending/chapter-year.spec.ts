@@ -65,7 +65,7 @@ describe('chapter-year', () => {
     ]);
     expect(query.mock.calls.every(([, params]) => (params as unknown[])[0] === 2026)).toBe(true);
     expect(query.mock.calls[0][0]).toContain('deleted = 0');
-    expect(query.mock.calls[1][0]).toContain('deleted = 0');
+    expect(query.mock.calls[1][0]).toContain('JOIN contracts c ON c.id = bcm.contract_id_fk AND c.deleted = 0');
     expect(query.mock.calls[2][0]).toContain('i.deleted = 0');
   });
 });

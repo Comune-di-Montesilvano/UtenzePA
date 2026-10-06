@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsInt, IsNumber, IsOptional, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsInt, IsNumber, IsOptional, ValidateNested } from 'class-validator';
 import { DateOnly } from '@/common/decorators/date-only.decorator';
 
 export class BudgetCheckLineDto {
@@ -27,6 +27,7 @@ export class BudgetCheckDto {
   invoice_date: string;
 
   @IsArray()
+  @ArrayMaxSize(500, { message: 'Al massimo 500 righe per fattura.' })
   @ValidateNested({ each: true })
   @Type(() => BudgetCheckLineDto)
   lines: BudgetCheckLineDto[];

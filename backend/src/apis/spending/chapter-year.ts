@@ -11,6 +11,10 @@ export const CHAPTER_LINES = `FROM invoice_lines il
   LEFT JOIN budget_commitments bcm ON bcm.id = il.commitment_id_fk
   LEFT JOIN utilities u ON u.id = il.utility_id_fk`;
 
+// Impegni contati solo su contratti non cancellati (come il tab Impegni).
+export const COMMITMENTS = `FROM budget_commitments bcm
+  JOIN contracts c ON c.id = bcm.contract_id_fk AND c.deleted = 0`;
+
 export interface ChapterYear {
   year: number;
   spending_id: number | null;
@@ -86,10 +90,11 @@ export async function chaptersYearSummary(query: Query, year: number): Promise<C
     [year],
   );
   const commitments = await query(
-    `SELECT budget_chapter_id_fk AS chapter_id, COUNT(*) AS commitments, SUM(amount) AS total,
-            SUM(amount IS NULL) AS without_amount
-     FROM budget_commitments WHERE fiscal_year = ? AND deleted = 0
-     GROUP BY budget_chapter_id_fk`,
+    `SELECT bcm.budget_chapter_id_fk AS chapter_id, COUNT(*) AS commitments, SUM(bcm.amount) AS total,
+            SUM(bcm.amount IS NULL) AS without_amount
+     ${COMMITMENTS}
+     WHERE bcm.fiscal_year = ? AND bcm.deleted = 0
+     GROUP BY bcm.budget_chapter_id_fk`,
     [year],
   );
   const invoiced = await query(

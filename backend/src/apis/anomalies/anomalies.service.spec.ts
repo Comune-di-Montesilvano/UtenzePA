@@ -274,7 +274,7 @@ describe('AnomaliesService', () => {
   it('capitoli oltre l’assestato dell’esercizio in corso, solo non cancellati', async () => {
     query.mockImplementation(async (sql: string) => {
       if (sql.includes('FROM budget_chapter_spending WHERE year = ?')) return [{ chapter_id: 7, adjusted_budget: '100' }];
-      if (sql.includes('FROM budget_commitments WHERE fiscal_year = ?'))
+      if (sql.includes('WHERE bcm.fiscal_year = ?'))
         return [{ chapter_id: 7, commitments: '1', total: '150', without_amount: '0' }];
       if (sql.includes('FROM budget_chapters WHERE deleted = 0 AND id IN'))
         return [{ id: 7, chapter_code: '12332', article: 0, description: 'Gas scuole' }];
@@ -291,7 +291,7 @@ describe('AnomaliesService', () => {
   it('capitolo oltre l’assestato ma cancellato: non segnalato', async () => {
     query.mockImplementation(async (sql: string) => {
       if (sql.includes('FROM budget_chapter_spending WHERE year = ?')) return [{ chapter_id: 7, adjusted_budget: '100' }];
-      if (sql.includes('FROM budget_commitments WHERE fiscal_year = ?'))
+      if (sql.includes('WHERE bcm.fiscal_year = ?'))
         return [{ chapter_id: 7, commitments: '1', total: '150', without_amount: '0' }];
       return [];
     });

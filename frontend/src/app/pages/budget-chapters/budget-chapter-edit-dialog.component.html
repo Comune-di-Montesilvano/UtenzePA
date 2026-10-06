@@ -2,7 +2,7 @@
   icon="account_balance"
   color="var(--entity-chapter)"
   [title]="titleText()"
-  [subtitle]="data.item.description ?? ''"
+  [subtitle]="subtitleText()"
   [lastModified]="lastModified">
   <ng-container sheetBadges>
     @if (!isNew) {
@@ -99,7 +99,7 @@
             <app-tab-label icon="euro" label="Esercizi" [dot]="!!current?.over_budget" tone="danger"></app-tab-label>
           </ng-template>
           <app-budget-chapter-years-tab [chapterId]="data.item.id" [years]="years" [canEdit]="canEdit"
-                                        (changed)="loadYears()"></app-budget-chapter-years-tab>
+                                        (changed)="onYearsChanged()"></app-budget-chapter-years-tab>
         </mat-tab>
 
         <mat-tab aria-label="Storico">
@@ -120,7 +120,7 @@
   </form>
 
   <ng-container sheetActions>
-    <button mat-stroked-button type="button" (click)="cancel()">{{ canEdit ? 'Annulla' : 'Chiudi' }}</button>
+    <button mat-stroked-button type="button" (click)="cancel()">{{ cancelLabel() }}</button>
     @if (canEdit) {
       <button mat-flat-button type="button" (click)="save()">{{ isNew ? 'Crea capitolo' : 'Salva' }}</button>
     }

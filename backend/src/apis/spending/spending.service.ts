@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import { partyNameSql } from '@apis/third-parties/third-party.name';
 import {
   CHAPTER_LINES,
+  COMMITMENTS,
   ChapterYear,
   ChapterYearSummary,
   chaptersYearSummary,
@@ -84,8 +85,9 @@ export class SpendingService {
       [chapterId],
     );
     const commitments = await this.q(
-      `SELECT fiscal_year AS year, COUNT(*) AS commitments, SUM(amount) AS total, SUM(amount IS NULL) AS without_amount
-       FROM budget_commitments WHERE budget_chapter_id_fk = ? AND deleted = 0 GROUP BY fiscal_year`,
+      `SELECT bcm.fiscal_year AS year, COUNT(*) AS commitments, SUM(bcm.amount) AS total,
+              SUM(bcm.amount IS NULL) AS without_amount
+       ${COMMITMENTS} WHERE bcm.budget_chapter_id_fk = ? AND bcm.deleted = 0 GROUP BY bcm.fiscal_year`,
       [chapterId],
     );
     const invoiced = await this.q(
@@ -151,7 +153,7 @@ export class SpendingService {
     const utilityIds = ids(dto.lines.filter((l) => !l.commitment_id_fk).map((l) => l.utility_id_fk));
     const commitments = commitmentIds.length
       ? await this.q(
-          'SELECT id, budget_chapter_id_fk AS chapter_id, fiscal_year FROM budget_commitments WHERE id IN (?)',
+          'SELECT id, budget_chapter_id_fk AS chapter_id, fiscal_year FROM budget_commitments WHERE id IN (?) AND deleted = 0',
           [commitmentIds],
         )
       : [];
@@ -181,7 +183,7 @@ export class SpendingService {
         `SELECT b.chapter_code, b.article, s.adjusted_budget
          FROM budget_chapters b
          LEFT JOIN budget_chapter_spending s ON s.budget_chapter_id_fk = b.id AND s.year = ? AND s.deleted = 0
-         WHERE b.id = ?`,
+         WHERE b.id = ? AND b.deleted = 0`,
         [g.year, g.chapter],
       );
       if (!b || b.adjusted_budget == null) continue;

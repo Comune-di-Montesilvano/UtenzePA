@@ -15,6 +15,7 @@
       (onDelete)="onDelete($event)"
       (onCreate)="onCreate($event)"
       (onRestore)="onRestore($event)"
+      (budgetChanged)="signalsToken = signalsToken + 1"
       [resetPagingTrigger]="resetPagingCount"
     ></app-data-table-budget-chapters>
   </div>
