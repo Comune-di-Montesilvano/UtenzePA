@@ -34,10 +34,6 @@ export class Asset extends AbstractEntity implements IAsset {
   @Transform(({ value }) => (value !== null && value !== undefined && value !== '' ? Number(value) : value))
   cadastral_value?: number;
   category?: string;
-  // Legacy in sola lettura: mai inviato al backend (non più nel DTO,
-  // forbidNonWhitelisted lo rifiuterebbe).
-  @Exclude({toPlainOnly: true})
-
   nature_id?: number | null;
   function_id?: number | null;
   status?: AssetStatus;
