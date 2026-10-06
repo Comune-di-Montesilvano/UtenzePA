@@ -13,6 +13,18 @@ export enum AuditAction {
   CREATE = 'CREATE',
   UPDATE = 'UPDATE',
   DELETE = 'DELETE',
+  // Accessi (entity_name = ACCESS_ENTITY, entity_id = utente).
+  LOGIN = 'LOGIN',
+  LOGOUT = 'LOGOUT',
+  TIMEOUT = 'TIMEOUT',
+}
+
+export const ACCESS_ENTITY = 'access';
+
+// Canale del login, salvato in new_value delle righe LOGIN.
+export enum AccessChannel {
+  LDAP = 'LDAP',
+  LOCAL = 'LOCAL',
 }
 
 @Entity('audit_logs')

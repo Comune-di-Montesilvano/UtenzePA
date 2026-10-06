@@ -19,7 +19,10 @@ import { Observable } from 'rxjs';
 // uniformi ('contract', 'Invoice', 'user'). I fornitori sono 'third_parties'
 // dalla v1.8.0 (prima 'suppliers': questo elenco era rimasto indietro e il
 // registro dei fornitori risultava sempre vuoto).
+// '' = Tutti; 'access' = login, logout e scadenze (ACCESS_ENTITY nel backend).
 const ENTITY_OPTIONS: TOption[] = [
+  { label: 'Tutti', value: '' },
+  { label: 'Accessi', value: 'access' },
   { label: 'Immobili', value: 'assets' },
   { label: 'Utenze', value: 'utilities' },
   { label: 'Impianti', value: 'plants' },
@@ -89,7 +92,27 @@ export class AuditLogPageComponent implements OnInit {
     this.load();
   }
 
+  private static readonly ACTION_LABELS: Record<string, string> = {
+    CREATE: 'Creazione',
+    UPDATE: 'Modifica',
+    DELETE: 'Eliminazione',
+    LOGIN: 'Accesso',
+    LOGOUT: 'Uscita',
+    TIMEOUT: 'Scadenza',
+  };
+
+  actionLabel(entry: AuditLogEntry): string {
+    return AuditLogPageComponent.ACTION_LABELS[entry.action] ?? entry.action;
+  }
+
+  isAccess(entry: AuditLogEntry): boolean {
+    return entry.entity_name === 'access';
+  }
+
   summary(entry: AuditLogEntry): string {
+    if (entry.action === 'LOGIN') return entry.new_value === 'LDAP' ? 'Accesso con LDAP' : 'Accesso con email e password';
+    if (entry.action === 'LOGOUT') return 'Uscita dal menu';
+    if (entry.action === 'TIMEOUT') return 'Sessione chiusa per inattività';
     if (entry.action === 'CREATE') return 'Elemento creato';
     if (entry.action === 'DELETE') return 'Elemento eliminato';
     const oldVal = entry.old_label ?? entry.old_value ?? '—';
@@ -128,9 +151,8 @@ export class AuditLogPageComponent implements OnInit {
 
   private load(): void {
     const { entity, userId } = this.filterForm.value;
-    if (!entity) return;
     this.auditLogService
-      .search({ entity, userId: userId ?? undefined, page: this.page, pageSize: this.pageSize })
+      .search({ entity: entity || undefined, userId: userId ?? undefined, page: this.page, pageSize: this.pageSize })
       .subscribe({
         next: (result) => {
           this.entries = result.items;

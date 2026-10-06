@@ -1,6 +1,6 @@
 <div class="page-container">
-  <h1>Log modifiche</h1>
-  <p class="list-subtitle">Chi ha modificato cosa e quando.</p>
+  <h1>Log attività</h1>
+  <p class="list-subtitle">Chi ha modificato cosa e quando, accessi e uscite.</p>
 
   @if (forbidden) {
     <p>Accesso riservato agli amministratori.</p>
@@ -33,7 +33,9 @@
       <ng-container matColumnDef="entity_id">
         <th mat-header-cell *matHeaderCellDef>Record</th>
         <td mat-cell *matCellDef="let entry">
-          @if (hasDetailLink(entry)) {
+          @if (isAccess(entry)) {
+            —
+          } @else if (hasDetailLink(entry)) {
             <button mat-button (click)="openRecordDetail(entry)">{{ entry.entity_label ?? entry.entity_id }}</button>
           } @else {
             {{ entry.entity_label ?? entry.entity_id }}
@@ -46,7 +48,7 @@
       </ng-container>
       <ng-container matColumnDef="action">
         <th mat-header-cell *matHeaderCellDef>Azione</th>
-        <td mat-cell *matCellDef="let entry">{{ entry.action }}</td>
+        <td mat-cell *matCellDef="let entry">{{ actionLabel(entry) }}</td>
       </ng-container>
       <ng-container matColumnDef="summary">
         <th mat-header-cell *matHeaderCellDef>Dettaglio</th>
