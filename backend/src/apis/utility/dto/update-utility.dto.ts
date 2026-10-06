@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import { Phase } from '../../shared/enum/user.enums';
 import { AreraCategory, GasUseCategory } from '../arera-category';
+import { InternetTechnology } from '../internet-technology';
 import { DateOnly } from '@/common/decorators/date-only.decorator';
 import { Transform } from 'class-transformer';
 
@@ -130,6 +131,45 @@ export class UpdateUtilityDto {
   @IsOptional()
   @IsBoolean()
   disconnectable?: boolean | null;
+
+  @IsOptional()
+  @DateOnly()
+  activated_on?: string | null;
+
+  @IsOptional()
+  @DateOnly()
+  ceased_on?: string | null;
+
+  @IsOptional()
+  @IsEnum(InternetTechnology, { message: 'Tecnologia della linea non valida.' })
+  internet_technology?: InternetTechnology | null;
+
+  // Mbit/s; vuoto = non noto (null).
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value === null || value === undefined ? value : Number(value)))
+  @IsNumber()
+  @Min(0)
+  download_mbps?: number | null;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value === null || value === undefined ? value : Number(value)))
+  @IsNumber()
+  @Min(0)
+  upload_mbps?: number | null;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value === null || value === undefined ? value : Number(value)))
+  @IsNumber()
+  @Min(0)
+  guaranteed_mbps?: number | null;
+
+  @IsOptional()
+  @IsBoolean()
+  modem_included?: boolean | null;
+
+  @IsOptional()
+  @IsBoolean()
+  static_ip?: boolean | null;
 
   @IsOptional()
   @IsArray({ message: 'Gli immobili associati devono essere un array.' })

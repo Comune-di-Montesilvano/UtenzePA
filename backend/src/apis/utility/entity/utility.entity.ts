@@ -1,3 +1,4 @@
+import { InternetTechnology } from '../internet-technology';
 import {
   Column,
   CreateDateColumn,
@@ -131,6 +132,34 @@ export class Utility {
 
   @Column({ type: 'date', nullable: true })
   transferred_on: string | null;
+
+  // Vita dell'utenza, distinta da quella del contratto di fornitura (es. più
+  // linee dello stesso contratto attivate in date diverse).
+  @Column({ type: 'date', nullable: true })
+  activated_on: string | null;
+
+  @Column({ type: 'date', nullable: true })
+  ceased_on: string | null;
+
+  // Connettività: dati tecnici della linea.
+  @Column({ type: 'enum', enum: InternetTechnology, nullable: true })
+  internet_technology: InternetTechnology | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  download_mbps: number | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  upload_mbps: number | null;
+
+  // Banda minima garantita.
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  guaranteed_mbps: number | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  modem_included: boolean | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  static_ip: boolean | null;
 
   @CreateDateColumn({ type: 'timestamp' })
   create_date: string;

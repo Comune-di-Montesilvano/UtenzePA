@@ -20,6 +20,7 @@ import {HardType, HardTypeColor, HardTypeMatIcon} from '../utility-types/enum/ha
 import {Phase} from './enum/phase.enum';
 import {Asset} from '../assets/entity/asset.entity';
 import {areraOptionsFor, DISCONNECTABLE_OPTIONS, GAS_USE_OPTIONS} from './arera-category';
+import {INTERNET_TECHNOLOGY_OPTIONS} from './internet-technology';
 import {TOption} from '../../core/types/option.interface';
 import {AssetService} from '../assets/asset.service';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
@@ -54,6 +55,13 @@ function atLeastOneLink(group: AbstractControl): ValidationErrors | null {
   const assets = (group.get('asset_ids')?.value ?? []) as unknown[];
   const plants = (group.get('plant_ids')?.value ?? []) as unknown[];
   return assets.length + plants.length > 0 ? null : {noLink: true};
+}
+
+// Cessazione non prima dell'attivazione (stessa regola del backend).
+function lifeDatesInOrder(group: AbstractControl): ValidationErrors | null {
+  const from = group.get('activated_on')?.value as Date | null;
+  const to = group.get('ceased_on')?.value as Date | null;
+  return from && to && to.getTime() < from.getTime() ? {ceasedBeforeActivated: true} : null;
 }
 
 // Riga impianto: dall'elenco completo, o dai dati parziali dell'utenza
@@ -128,6 +136,9 @@ export class UtilityEditDialogComponent implements OnInit {
   // Dall'utilityType già presente sull'item (edit) o null (create).
   selectedHardType: HardType | null = this.data.item.utilityType?.hard_type ?? null;
   readonly disconnectableOptions = DISCONNECTABLE_OPTIONS;
+  // Sì / No / Non noto (modem incluso, IP statico).
+  readonly yesNoUnknownOptions = DISCONNECTABLE_OPTIONS;
+  readonly internetTechnologyOptions = INTERNET_TECHNOLOGY_OPTIONS;
   readonly gasUseOptions = GAS_USE_OPTIONS;
   readonly hardTypeGas = HardType.GAS;
   areraOptions = areraOptionsFor(this.selectedHardType);
@@ -136,6 +147,13 @@ export class UtilityEditDialogComponent implements OnInit {
   get showGasFields(): boolean { return this.selectedHardType === HardType.GAS; }
   // Internet: niente contatore, consumi, disalimentabilità né deposito cauzionale.
   get isMetered(): boolean { return this.selectedHardType !== HardType.INTERNET; }
+  get showInternetFields(): boolean { return this.selectedHardType === HardType.INTERNET; }
+
+  // Cessazione già passata ma fornitura ancora segnata attiva.
+  get ceasedButActive(): boolean {
+    const ceased = this.form.controls.ceased_on.value as Date | null;
+    return !!ceased && ceased.getTime() <= new Date().setHours(0, 0, 0, 0) && this.form.controls.supply_active.value === true;
+  }
   get isWater(): boolean { return this.selectedHardType === HardType.WATER; }
 
   // Se la relazione non è popolata (FK orfana o non caricata), il campo FK
@@ -163,6 +181,14 @@ export class UtilityEditDialogComponent implements OnInit {
     budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null],
     transferred_to_third_party_id: [this.data.item.transferred_to_third_party_id ?? null],
     transferred_on: [this.toDate(this.data.item.transferred_on)],
+    activated_on: [this.toDate(this.data.item.activated_on)],
+    ceased_on: [this.toDate(this.data.item.ceased_on)],
+    internet_technology: [this.data.item.internet_technology ?? null],
+    download_mbps: [this.data.item.download_mbps ?? null as number | null],
+    upload_mbps: [this.data.item.upload_mbps ?? null as number | null],
+    guaranteed_mbps: [this.data.item.guaranteed_mbps ?? null as number | null],
+    modem_included: [this.data.item.modem_included ?? null],
+    static_ip: [this.data.item.static_ip ?? null],
     arera_category: [this.data.item.arera_category ?? null],
     gas_use_category: [this.data.item.gas_use_category ?? null],
     disconnectable: [this.data.item.disconnectable ?? null],
@@ -185,7 +211,7 @@ export class UtilityEditDialogComponent implements OnInit {
     voltage_kw_electric: [this.data.item.voltage_kw_electric ?? ''],
     water_concession: [this.toDate(this.data.item.water_concession)],
     wbs_gas_element: [this.data.item.wbs_gas_element ?? ''],
-  }, {validators: atLeastOneLink});
+  }, {validators: [atLeastOneLink, lifeDatesInOrder]});
 
   // Collegamenti: campi cache aggiornati da refreshLinks().
   contracts: Contract[] = this.data.item.contratti ?? [];
@@ -514,6 +540,13 @@ export class UtilityEditDialogComponent implements OnInit {
     // La categoria d'uso esiste solo per il gas.
     if (this.selectedHardType !== HardType.GAS) {
       this.form.controls.gas_use_category.setValue(null);
+    }
+    // I dati della linea esistono solo per la connettività.
+    if (this.selectedHardType !== HardType.INTERNET) {
+      this.form.patchValue({
+        internet_technology: null, download_mbps: null, upload_mbps: null,
+        guaranteed_mbps: null, modem_included: null, static_ip: null,
+      });
     }
     this.buildBudgetChapterOptions();
   }

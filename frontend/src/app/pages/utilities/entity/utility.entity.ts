@@ -11,6 +11,7 @@ import type {PlantType} from '../../plants/plant.model';
 import type {AreraCategory, GasUseCategory} from '../arera-category';
 import {BudgetChapter} from '../../budget-chapters/entity/budget-chapter.entity';
 import {DateOnly} from '../../../core/helpers/date.helper';
+import {InternetTechnology} from '../internet-technology';
 import {SystemUser} from '../../system-users/entity/system-user.entity';
 import {Contract} from '../../contracts/entity/contract.entity';
 
@@ -56,6 +57,18 @@ export class Utility extends AbstractEntity {
   transferred_to_third_party_id?: number | null;
   @DateOnly()
   transferred_on?: Date | string | null;
+  // Vita dell'utenza, distinta da quella del contratto di fornitura.
+  @DateOnly()
+  activated_on?: Date | string | null;
+  @DateOnly()
+  ceased_on?: Date | string | null;
+  // Connettività.
+  internet_technology?: InternetTechnology | null;
+  download_mbps?: number | null;
+  upload_mbps?: number | null;
+  guaranteed_mbps?: number | null;
+  modem_included?: boolean | null;
+  static_ip?: boolean | null;
   @Exclude({toPlainOnly: true})
   supplier_id_fk?: number | null;
   // Inviato al backend (sostituisce gli immobili collegati); in lettura si

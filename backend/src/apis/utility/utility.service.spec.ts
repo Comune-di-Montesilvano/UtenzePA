@@ -910,6 +910,43 @@ describe('UtilitiesService', () => {
       ).resolves.not.toThrow();
     });
 
+    it('create con cessazione prima dell’attivazione viene rifiutato', async () => {
+      await expect(
+        service.create(
+          { utility_id: 'U1', activated_on: '2024-05-10', ceased_on: '2024-05-09', asset_ids: [1] } as never,
+          1,
+        ),
+      ).rejects.toThrow('La data di cessazione non può precedere quella di attivazione.');
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it('create con cessazione lo stesso giorno dell’attivazione passa', async () => {
+      await expect(
+        service.create(
+          { utility_id: 'U1', activated_on: '2024-05-10', ceased_on: '2024-05-10', asset_ids: [1] } as never,
+          1,
+        ),
+      ).resolves.toBeDefined();
+    });
+
+    it('update che mette solo la cessazione prima dell’attivazione salvata viene rifiutato', async () => {
+      repo.findOne.mockResolvedValue({ id: 5, utility_type_id_fk: 33, activated_on: '2024-05-10', deleted: false });
+      await expect(service.update(5, { ceased_on: '2023-01-01' } as never, 1)).rejects.toThrow(
+        'La data di cessazione non può precedere quella di attivazione.',
+      );
+    });
+
+    it('update che svuota l’attivazione e lascia la cessazione passa', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 5,
+        utility_type_id_fk: 33,
+        activated_on: '2024-05-10',
+        ceased_on: '2023-01-01',
+        deleted: false,
+      });
+      await expect(service.update(5, { activated_on: null } as never, 1)).resolves.not.toThrow();
+    });
+
     it('update senza tipo né tipologia non valida nulla', async () => {
       repo.findOne.mockResolvedValue({ id: 5, utility_type_id_fk: 33, arera_category: null, deleted: false });
       await service.update(5, { notes: 'x' } as never, 1);
