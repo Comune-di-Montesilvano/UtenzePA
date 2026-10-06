@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -28,6 +29,13 @@ export class BudgetChaptersController {
   @Get()
   getAll(@Query() filters: SearchBudgetChapterDto): Promise<BudgetChapter[]> {
     return this.service.findAll(filters);
+  }
+
+  @Get(':id')
+  async getOne(@Param('id', ParseIntPipe) id: number): Promise<BudgetChapter> {
+    const chapter = await this.service.findOne(id);
+    if (!chapter) throw new BadRequestException('Capitolo non trovato');
+    return chapter;
   }
 
   @Get(':id/consumption-summary')

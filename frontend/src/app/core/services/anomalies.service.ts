@@ -25,6 +25,12 @@ export interface UtilityAnomaly {
   contracts?: string | null;
 }
 
+export interface ChapterAnomaly {
+  id: number;
+  chapter: string;
+  description: string | null;
+}
+
 export interface Anomalies {
   contracts_without_cig: AnomalyList<ContractAnomaly>;
   active_utilities_without_contract: AnomalyList<UtilityAnomaly>;
@@ -44,6 +50,8 @@ export interface Anomalies {
   invoices_on_ceased_utilities: AnomalyList<{invoice_id: number; number: string; invoice_date: string; utility_id: number; utility_code: string}>;
   utilities_with_uncommitted_chapter: AnomalyList<UtilityAnomaly & {chapter: string}>;
   active_utilities_without_chapter: AnomalyList<UtilityAnomaly>;
+  chapters_over_budget: AnomalyList<ChapterAnomaly & {adjusted_budget: number; committed: number; invoiced: number}>;
+  chapters_without_budget: AnomalyList<ChapterAnomaly>;
   invoice_lines_without_utility: AnomalyList<{invoice_id: number; number: string; supply_code: string | null; amount: number}>;
 }
 

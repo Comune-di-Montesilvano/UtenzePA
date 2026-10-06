@@ -1,5 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { partyNameSql } from '@apis/third-parties/third-party.name';
+import {
+  CHAPTER_LINES,
+  COMMITMENTS,
+  ChapterYear,
+  ChapterYearSummary,
+  chaptersYearSummary,
+  currentYear,
+  LINE_CHAPTER,
+  LINE_YEAR,
+  mergeChapterYears,
+  Query,
+} from './chapter-year';
+import { BudgetCheckDto } from './dto/budget-check.dto';
 
 export interface YearSpending {
   year: number;
@@ -17,6 +31,36 @@ export interface ChapterSummary {
   spent: { year: number; total: number }[];
 }
 
+export interface ChapterCommitment {
+  id: number;
+  contract_id: number;
+  fiscal_year: number;
+  commitment_number: string | null;
+  amount: number | null;
+  cig_contract: string | null;
+  supplier: string | null;
+}
+
+export interface ChapterInvoiceLine {
+  id: number;
+  invoice_id: number;
+  number: string;
+  invoice_date: string;
+  supplier: string | null;
+  utility_id: number | null;
+  utility_code: string | null;
+  year: number;
+  amount: number;
+}
+
+export interface BudgetWarning {
+  budget_chapter_id: number;
+  chapter: string;
+  year: number;
+  invoiced: number;
+  adjusted_budget: number;
+}
+
 // Anno di una riga: esercizio dell'impegno, altrimenti anno della fattura.
 const YEAR = 'COALESCE(bcm.fiscal_year, YEAR(i.invoice_date))';
 const LINES = `FROM invoice_lines il
@@ -30,6 +74,143 @@ const toYears = (rows: Record<string, unknown>[]): YearSpending[] =>
 @Injectable()
 export class SpendingService {
   constructor(private readonly dataSource: DataSource) {}
+
+  private q: Query = (sql, params) => this.dataSource.query(sql, params);
+
+  // Scheda capitolo: un elemento per esercizio (bilancio, impegni, fatturato).
+  async forChapter(chapterId: number): Promise<ChapterYear[]> {
+    const budget = await this.q(
+      `SELECT id, year, initial_budget, adjusted_budget, amount, notes
+       FROM budget_chapter_spending WHERE budget_chapter_id_fk = ? AND deleted = 0`,
+      [chapterId],
+    );
+    const commitments = await this.q(
+      `SELECT bcm.fiscal_year AS year, COUNT(*) AS commitments, SUM(bcm.amount) AS total,
+              SUM(bcm.amount IS NULL) AS without_amount
+       ${COMMITMENTS} WHERE bcm.budget_chapter_id_fk = ? AND bcm.deleted = 0 GROUP BY bcm.fiscal_year`,
+      [chapterId],
+    );
+    const invoiced = await this.q(
+      `SELECT ${LINE_YEAR} AS year, SUM(il.amount) AS total, COUNT(DISTINCT i.id) AS invoices
+       ${CHAPTER_LINES} WHERE ${LINE_CHAPTER} = ? GROUP BY year`,
+      [chapterId],
+    );
+    return mergeChapterYears(budget, commitments, invoiced, currentYear());
+  }
+
+  async chapterCommitments(chapterId: number): Promise<ChapterCommitment[]> {
+    const rows = await this.q(
+      `SELECT bcm.id, bcm.contract_id_fk AS contract_id, bcm.fiscal_year, bcm.commitment_number, bcm.amount,
+              c.cig_contract, ${partyNameSql('s')} AS supplier
+       FROM budget_commitments bcm
+       JOIN contracts c ON c.id = bcm.contract_id_fk AND c.deleted = 0
+       LEFT JOIN third_parties s ON s.id = c.supplier_id_fk
+       WHERE bcm.budget_chapter_id_fk = ? AND bcm.deleted = 0
+       ORDER BY bcm.fiscal_year DESC, supplier`,
+      [chapterId],
+    );
+    return rows.map((r) => ({
+      id: Number(r.id),
+      contract_id: Number(r.contract_id),
+      fiscal_year: Number(r.fiscal_year),
+      commitment_number: (r.commitment_number as string) ?? null,
+      amount: r.amount == null ? null : Number(r.amount),
+      cig_contract: (r.cig_contract as string) ?? null,
+      supplier: (r.supplier as string) ?? null,
+    }));
+  }
+
+  async chapterInvoiceLines(chapterId: number): Promise<ChapterInvoiceLine[]> {
+    const rows = await this.q(
+      `SELECT il.id, i.id AS invoice_id, i.invoice_id AS number, DATE_FORMAT(i.invoice_date, '%Y-%m-%d') AS invoice_date,
+              ${partyNameSql('s')} AS supplier, u.id AS utility_id, u.utility_id AS utility_code,
+              ${LINE_YEAR} AS year, il.amount
+       ${CHAPTER_LINES}
+       LEFT JOIN third_parties s ON s.id = i.supplier_id_fk
+       WHERE ${LINE_CHAPTER} = ?
+       ORDER BY i.invoice_date DESC, i.id DESC, il.id`,
+      [chapterId],
+    );
+    return rows.map((r) => ({
+      id: Number(r.id),
+      invoice_id: Number(r.invoice_id),
+      number: String(r.number),
+      invoice_date: String(r.invoice_date),
+      supplier: (r.supplier as string) ?? null,
+      utility_id: r.utility_id == null ? null : Number(r.utility_id),
+      utility_code: (r.utility_code as string) ?? null,
+      year: Number(r.year),
+      amount: Number(r.amount),
+    }));
+  }
+
+  // Scheda fattura: capitoli che con queste righe superano l'assestato
+  // dell'esercizio. Capitolo ed esercizio di ogni riga con le regole di
+  // CHAPTER_LINES; la fattura stessa (già salvata) non si conta due volte.
+  async budgetCheck(dto: BudgetCheckDto): Promise<BudgetWarning[]> {
+    const ids = (values: (number | null | undefined)[]) => [...new Set(values.filter((v): v is number => !!v))];
+    const commitmentIds = ids(dto.lines.map((l) => l.commitment_id_fk));
+    const utilityIds = ids(dto.lines.filter((l) => !l.commitment_id_fk).map((l) => l.utility_id_fk));
+    const commitments = commitmentIds.length
+      ? await this.q(
+          'SELECT id, budget_chapter_id_fk AS chapter_id, fiscal_year FROM budget_commitments WHERE id IN (?) AND deleted = 0',
+          [commitmentIds],
+        )
+      : [];
+    const utilities = utilityIds.length
+      ? await this.q('SELECT id, budget_chapter_code_fk AS chapter_id FROM utilities WHERE id IN (?)', [utilityIds])
+      : [];
+    const byCommitment = new Map(commitments.map((c) => [Number(c.id), c] as const));
+    const byUtility = new Map(utilities.map((u) => [Number(u.id), u] as const));
+    const invoiceYear = Number(String(dto.invoice_date).slice(0, 4));
+
+    // Somma delle righe per capitolo + esercizio (righe senza capitolo ignorate).
+    const groups = new Map<string, { chapter: number; year: number; amount: number }>();
+    for (const line of dto.lines) {
+      const c = line.commitment_id_fk ? byCommitment.get(line.commitment_id_fk) : undefined;
+      const chapter = c ? c.chapter_id : line.utility_id_fk ? byUtility.get(line.utility_id_fk)?.chapter_id : null;
+      if (chapter === null || chapter === undefined) continue;
+      const year = c ? Number(c.fiscal_year) : invoiceYear;
+      const key = `${chapter}-${year}`;
+      const g = groups.get(key) ?? { chapter: Number(chapter), year, amount: 0 };
+      g.amount += Number(line.amount) || 0;
+      groups.set(key, g);
+    }
+
+    const warnings: BudgetWarning[] = [];
+    for (const g of groups.values()) {
+      const [b] = await this.q(
+        `SELECT b.chapter_code, b.article, s.adjusted_budget
+         FROM budget_chapters b
+         LEFT JOIN budget_chapter_spending s ON s.budget_chapter_id_fk = b.id AND s.year = ? AND s.deleted = 0
+         WHERE b.id = ? AND b.deleted = 0`,
+        [g.year, g.chapter],
+      );
+      if (!b || b.adjusted_budget == null) continue;
+      const [{ total }] = await this.q(
+        `SELECT COALESCE(SUM(il.amount), 0) AS total ${CHAPTER_LINES}
+         WHERE ${LINE_CHAPTER} = ? AND ${LINE_YEAR} = ? AND i.id <> ?`,
+        [g.chapter, g.year, dto.invoice_id ?? 0],
+      );
+      const invoiced = Math.round((Number(total) + g.amount) * 100) / 100;
+      const adjusted = Number(b.adjusted_budget);
+      if (invoiced > adjusted) {
+        warnings.push({
+          budget_chapter_id: g.chapter,
+          chapter: `${b.chapter_code}/${b.article}`,
+          year: g.year,
+          invoiced,
+          adjusted_budget: adjusted,
+        });
+      }
+    }
+    return warnings;
+  }
+
+  // Elenco capitoli: riepilogo di un esercizio per tutti i capitoli.
+  chaptersYear(year: number): Promise<ChapterYearSummary[]> {
+    return chaptersYearSummary(this.q, year);
+  }
 
   async forUtility(utilityId: number): Promise<YearSpending[]> {
     return toYears(

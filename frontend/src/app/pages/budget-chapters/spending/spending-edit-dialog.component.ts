@@ -1,5 +1,5 @@
 import {ChangeDetectionStrategy, Component, inject} from '@angular/core';
-import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
+import {AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
@@ -10,6 +10,17 @@ import {BudgetChapterSpending, BudgetChapterSpendingService} from './budget-chap
 export interface SpendingEditDialogData {
   chapterId: number;
   item?: BudgetChapterSpending;
+  // Anno proposto per una riga nuova (es. esercizio con soli impegni/fatture).
+  year?: number;
+}
+
+const AMOUNTS = ['initial_budget', 'adjusted_budget', 'amount'] as const;
+const isSet = (v: unknown): boolean => v !== null && v !== undefined && v !== '';
+
+// Almeno un importo (stessa regola del backend).
+function someAmount(group: AbstractControl): ValidationErrors | null {
+  const v = group.value as Record<string, unknown>;
+  return AMOUNTS.some(k => isSet(v[k])) ? null : {noAmount: true};
 }
 
 // Salva da sé per mostrare inline l'errore "anno già presente" del backend.
@@ -19,21 +30,32 @@ export interface SpendingEditDialogData {
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <h2 mat-dialog-title>{{ data.item ? 'Modifica spesa' : 'Nuova spesa annua' }}</h2>
+    <h2 mat-dialog-title>{{ data.item ? 'Modifica esercizio ' + data.item.year : 'Nuovo esercizio' }}</h2>
     <mat-dialog-content>
       <form [formGroup]="form" style="display: flex; flex-wrap: wrap; gap: 1rem; padding-top: 0.5rem;">
         <mat-form-field style="flex: 1 1 40%;">
-          <mat-label>Anno *</mat-label>
+          <mat-label>Esercizio</mat-label>
           <input matInput type="number" min="1990" max="2100" formControlName="year">
         </mat-form-field>
         <mat-form-field style="flex: 1 1 40%;">
-          <mat-label>Importo speso (€) *</mat-label>
+          <mat-label>Stanziamento iniziale (€)</mat-label>
+          <input matInput type="number" min="0" step="0.01" formControlName="initial_budget">
+        </mat-form-field>
+        <mat-form-field style="flex: 1 1 40%;">
+          <mat-label>Assestato (€)</mat-label>
+          <input matInput type="number" min="0" step="0.01" formControlName="adjusted_budget">
+        </mat-form-field>
+        <mat-form-field style="flex: 1 1 40%;">
+          <mat-label>Spesa ragioneria (€)</mat-label>
           <input matInput type="number" min="0" step="0.01" formControlName="amount">
         </mat-form-field>
         <mat-form-field style="flex: 1 1 100%;">
           <mat-label>Note</mat-label>
           <textarea matInput rows="2" formControlName="notes"></textarea>
         </mat-form-field>
+        @if (form.hasError('noAmount') && form.touched) {
+          <p style="color: #b91c1c; margin: 0;">Indicare almeno un importo.</p>
+        }
         @if (error) {
           <p style="color: #b91c1c; margin: 0;">{{ error }}</p>
         }
@@ -41,7 +63,7 @@ export interface SpendingEditDialogData {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-stroked-button (click)="dialogRef.close(false)">Annulla</button>
-      <button mat-flat-button (click)="save()" [disabled]="form.invalid || saving">Salva</button>
+      <button mat-flat-button (click)="save()" [disabled]="saving">Salva</button>
     </mat-dialog-actions>
   `,
 })
@@ -55,17 +77,26 @@ export class SpendingEditDialogComponent {
   saving = false;
 
   form = this.fb.group({
-    year: [this.data.item?.year ?? new Date().getFullYear() - 1, [Validators.required, Validators.min(1990), Validators.max(2100)]],
-    amount: [this.data.item?.amount ?? null as number | null, [Validators.required, Validators.min(0)]],
+    year: [this.data.item?.year ?? this.data.year ?? new Date().getFullYear(),
+      [Validators.required, Validators.min(1990), Validators.max(2100)]],
+    initial_budget: [this.data.item?.initial_budget ?? null as number | null, Validators.min(0)],
+    adjusted_budget: [this.data.item?.adjusted_budget ?? null as number | null, Validators.min(0)],
+    amount: [this.data.item?.amount ?? null as number | null, Validators.min(0)],
     notes: [this.data.item?.notes ?? ''],
-  });
+  }, {validators: someAmount});
 
   save(): void {
-    if (this.form.invalid) return;
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
     const v = this.form.getRawValue();
+    const n = (x: unknown): number | null => (isSet(x) ? Number(x) : null);
     const payload = {
       year: Number(v.year),
-      amount: Number(v.amount),
+      initial_budget: n(v.initial_budget),
+      adjusted_budget: n(v.adjusted_budget),
+      amount: n(v.amount),
       notes: v.notes?.trim() ? v.notes.trim() : null,
     };
     this.saving = true;

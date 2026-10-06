@@ -76,6 +76,12 @@ describe('BudgetChaptersService', () => {
       );
     });
 
+    it('carica l’autore dell’ultima modifica (scheda aperta dalla riga)', async () => {
+      await service.findAll();
+
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('budget_chapters.updated_by', 'updated_by');
+    });
+
     it('filtro tipo utenza: capitoli con quel tipo, senza filtrare i tipi caricati', async () => {
       await service.findAll({ utility_type_id: 36 } as never);
 

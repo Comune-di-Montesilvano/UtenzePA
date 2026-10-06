@@ -29,13 +29,13 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 11 | Aggregati utenze (da eliminare) | fatto, v1.8.1 (funzione assegnata a 118 immobili sul DB locale; 7 senza funzione, 10 utenze SPRAR senza capitolo SPRAR da girare alla ragioneria) |
 | 12 | Costi a carico calcolato | fatto, v1.8.1, con volture (26 utenze da volturare, 8 attive, da verificare dall'anomalia) |
 | 13 | Schede entità: rifiniture | fatto in v1.11.2 (restano 3 verifiche E2E) |
-| 14 | Schede di fornitori, capitoli, fatture | da fare |
+| 14 | Schede di fornitori, capitoli, fatture | fatto in v1.14.0 (scheda capitolo; fornitori e fatture già fatti) |
 | 15 | UI e identità (elenchi, filtri, dark mode, sidebar, nome) | elenchi, filtri, segnalazioni e sidebar fatti in v1.11.0; creazione al volo dalle schede ("+" sulle select, "Nuovo …" sui collegamenti); dark mode e nome da approfondire |
 | 16 | Dashboard e mappa | mappa a livelli in v1.11.0 (filtri a perimetro, inattivi nascosti, ricerca nel Comune); dashboard per ultima |
 | 17 | Impegni di spesa (contratto ↔ capitolo) | fatto, v1.10.0 (impegni ACA 2025–2026 senza numero né importo, da completare con la ragioneria) |
 | 18 | Pulizia entità e incongruenze del modello | fatto: parte 1 v1.9.0 (tabelle morte, aggregati immobili, gestori manutenzione → manutenzione calcolata), parte 2 v1.9.1 (campi doppi) |
 | 19 | Allegati di contratti, immobili e impianti | da approfondire |
-| 20 | Assestato dei capitoli e disponibilità | da fare |
+| 20 | Assestato dei capitoli e disponibilità | fatto in v1.14.0 (mandati non ancora) |
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
 
@@ -256,6 +256,8 @@ Dalla revisione finale di v1.11.1 (creazione al volo dalle schede), non bloccant
 
 ## 14. Schede di fornitori, capitoli, fatture
 
+Fatto in v1.14.0: scheda capitolo (Riepilogo con l'esercizio in corso, Utenze, Impegni, Fatture, Esercizi, Storico), spec `docs/superpowers/specs/2026-10-06-scheda-capitolo-assestato-design.md`. Restano i collegamenti al capitolo dalle altre schede (utenza, riga fattura, impegni del contratto).
+
 Stesso modello delle schede di v1.7.1: Fornitori fatto con la voce 9 (scheda Soggetto terzo); Capitoli di spesa (51, 105 righe di spesa storica) → Riepilogo + tab Utenze, Spesa storica, Fatture; Fatture (185) → Riepilogo + collegamenti navigabili, in vista del nuovo modello per l'import massivo (voce 6).
 
 ## 15. UI e identità
@@ -352,6 +354,8 @@ Base esistente: le foto (`apis/photos/`) sono già polimorfiche (`entity_type` +
 - eventuale estensione futura a fatture (PDF allegato della fattura elettronica, vedi gotcha FatturaPA della voce 6) e utenze.
 
 ## 20. Assestato dei capitoli e disponibilità
+
+Fatto in v1.14.0 (stessa spec della voce 14): assestato e stanziamento iniziale sulla riga dell'anno, segnalazioni "oltre l'assestato" e "senza assestato", avviso nella scheda fattura. Resta da decidere: mandati (numero e importo). Testo originale sotto.
 
 Richiesta utente (2026-10-06), partendo dalla schermata "Competenza" del gestionale di contabilità (per capitolo ed esercizio). Dati da riportare, inseriti a mano per capitolo + esercizio:
 

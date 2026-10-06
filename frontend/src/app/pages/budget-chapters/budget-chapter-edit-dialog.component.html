@@ -1,63 +1,128 @@
-<h2 mat-dialog-title>
-  {{ isNew ? 'Nuovo Capitolo di Spesa' : 'Modifica Capitolo Di Spesa: ' + data.item.chapter_code }}
-</h2>
+<app-entity-sheet
+  icon="account_balance"
+  color="var(--entity-chapter)"
+  [title]="titleText()"
+  [subtitle]="subtitleText()"
+  [lastModified]="lastModified">
+  <ng-container sheetBadges>
+    @if (!isNew) {
+      <app-status-badge [info]="status" size="sm"></app-status-badge>
+    }
+  </ng-container>
 
-<mat-dialog-content>
-  <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start">
-    <mat-tab label="Dati">
-      <form [formGroup]="form" [readOnly]="['Lettore']" style="display: flex; flex-wrap: wrap; gap: 1rem; padding-top: 1rem;">
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Codice Capitolo *</mat-label>
-          <input matInput formControlName="chapter_code">
-          @if (form.controls.chapter_code.invalid && form.controls.chapter_code.touched) {
-            <mat-error>Obbligatorio</mat-error>
-          }
-        </mat-form-field>
+  <form [formGroup]="form">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
 
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Articolo *</mat-label>
-          <input matInput formControlName="article" onlyNumbers>
-          @if (form.controls.article.invalid && form.controls.article.touched) {
-            <mat-error>Obbligatorio</mat-error>
-          }
-        </mat-form-field>
+      <mat-tab aria-label="Riepilogo">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="summarize" label="Riepilogo" [error]="dataInvalid()"></app-tab-label>
+        </ng-template>
+        <div class="sheet-grid">
+          <mat-form-field>
+            <mat-label>Codice capitolo</mat-label>
+            <input matInput formControlName="chapter_code">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Articolo</mat-label>
+            <input matInput formControlName="article" onlyNumbers>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>PDC</mat-label>
+            <input matInput formControlName="pdc">
+          </mat-form-field>
+          <app-multi-select formControlName="utility_type_ids" label="Tipi utenza" placeholder="Tutti i tipi"
+                            [options]="utilityTypeOptions"></app-multi-select>
+          <mat-form-field class="span-all">
+            <mat-label>Descrizione</mat-label>
+            <textarea matInput formControlName="description" rows="2"></textarea>
+          </mat-form-field>
+        </div>
 
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>PDC</mat-label>
-          <input matInput formControlName="pdc">
-        </mat-form-field>
+        @if (!isNew) {
+          <div class="sheet-section-title"><mat-icon>euro</mat-icon>Esercizio {{ year }}</div>
+          <div class="chapter-year">
+            <div><span class="sheet-hint">Stanziamento iniziale</span><strong>{{ eur(current?.initial_budget) || '—' }}</strong></div>
+            <div><span class="sheet-hint">Assestato</span><strong>{{ eur(current?.adjusted_budget) || '—' }}</strong></div>
+            <div>
+              <span class="sheet-hint">Impegnato</span><strong>{{ eur(current?.committed ?? 0) }}</strong>
+              @if (current?.commitments_without_amount) {
+                <span class="sheet-hint">{{ current?.commitments_without_amount }} impegni senza importo</span>
+              }
+            </div>
+            <div><span class="sheet-hint">Fatturato</span><strong>{{ eur(current?.invoiced ?? 0) }}</strong></div>
+            <div>
+              <span class="sheet-hint">Disponibile</span><strong>{{ eur(current?.available) || '—' }}</strong>
+              @if (current?.adjusted_budget !== null && current?.commitments_without_amount) {
+                <span class="sheet-hint">al massimo: impegnato parziale</span>
+              }
+            </div>
+          </div>
+          <div class="sheet-previews">
+            <app-preview-card title="Utenze" icon="electric_meter" color="var(--entity-utility)" [items]="utilityPreview"
+                              emptyText="Nessuna utenza" (seeAll)="goTo('Utenze')" (open)="goTo('Utenze')"></app-preview-card>
+            <app-preview-card title="Impegni" icon="description" color="var(--entity-supply-contract)" [items]="commitmentPreview"
+                              emptyText="Nessun impegno" (seeAll)="goTo('Impegni')" (open)="goTo('Impegni')"></app-preview-card>
+            <app-preview-card title="Fatture" icon="receipt_long" color="var(--entity-chapter)" [items]="linePreview"
+                              emptyText="Nessuna fattura" (seeAll)="goTo('Fatture')" (open)="goTo('Fatture')"></app-preview-card>
+          </div>
+        }
+      </mat-tab>
 
-        <app-multi-select style="flex: 1 1 21%;" formControlName="utility_type_ids" label="Tipi utenza"
-                          placeholder="Tutti i tipi" [options]="utilityTypeOptions"></app-multi-select>
+      @if (!isNew) {
+        <mat-tab aria-label="Utenze">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="electric_meter" label="Utenze"></app-tab-label>
+          </ng-template>
+          <ng-template matTabContent>
+            <app-budget-chapter-utilities-tab [chapterId]="data.item.id"></app-budget-chapter-utilities-tab>
+          </ng-template>
+        </mat-tab>
 
-        <mat-form-field style="flex: 1 1 100%;">
-          <mat-label>Descrizione</mat-label>
-          <textarea matInput formControlName="description" rows="3"></textarea>
-        </mat-form-field>
-      </form>
-    </mat-tab>
-    <mat-tab [disabled]="isNew">
-      <ng-template mat-tab-label>
-        <mat-icon style="margin-right: 5px;">electric_meter</mat-icon>
-        Utenze associate
-      </ng-template>
-      <ng-template matTabContent>
-        <app-budget-chapter-utilities-tab [chapterId]="data.item.id"></app-budget-chapter-utilities-tab>
-      </ng-template>
-    </mat-tab>
-    <mat-tab [disabled]="isNew">
-      <ng-template mat-tab-label>
-        <mat-icon style="margin-right: 5px;">euro</mat-icon>
-        Spesa storica
-      </ng-template>
-      <ng-template matTabContent>
-        <app-budget-chapter-spending-tab [chapterId]="data.item.id"></app-budget-chapter-spending-tab>
-      </ng-template>
-    </mat-tab>
-  </mat-tab-group>
-</mat-dialog-content>
+        <mat-tab aria-label="Impegni">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="description" label="Impegni" [count]="commitments.length"></app-tab-label>
+          </ng-template>
+          <app-linked-table [columns]="commitmentColumns" [rows]="commitments"
+                            emptyText="Nessun impegno su questo capitolo." (open)="openContract($event)"></app-linked-table>
+        </mat-tab>
 
-<mat-dialog-actions align="end">
-  <button mat-stroked-button (click)="cancel()">Annulla</button>
-  <button mat-flat-button (click)="save()" [disabled]="!form.valid" [appHasRole]="['Admin','Operatore']">Salva</button>
-</mat-dialog-actions>
+        <mat-tab aria-label="Fatture">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="receipt_long" label="Fatture" [count]="lines.length"></app-tab-label>
+          </ng-template>
+          <app-linked-table [columns]="lineColumns" [rows]="lines"
+                            emptyText="Nessuna fattura su questo capitolo." (open)="openInvoice($event)"></app-linked-table>
+        </mat-tab>
+
+        <mat-tab aria-label="Esercizi">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="euro" label="Esercizi" [dot]="!!current?.over_budget" tone="danger"></app-tab-label>
+          </ng-template>
+          <app-budget-chapter-years-tab [chapterId]="data.item.id" [years]="years" [canEdit]="canEdit"
+                                        (changed)="onYearsChanged()"></app-budget-chapter-years-tab>
+        </mat-tab>
+
+        <mat-tab aria-label="Storico">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="history" label="Storico"></app-tab-label>
+          </ng-template>
+          <ng-template matTabContent>
+            <app-entity-history
+              [entity]="'budget_chapters'"
+              [entityId]="data.item.id"
+              [lastModifiedBy]="data.item.updated_by ? data.item.updated_by.firstName + ' ' + data.item.updated_by.lastName : null"
+              [lastModifiedAt]="data.item.update_date ? data.item.update_date.toString() : null">
+            </app-entity-history>
+          </ng-template>
+        </mat-tab>
+      }
+    </mat-tab-group>
+  </form>
+
+  <ng-container sheetActions>
+    <button mat-stroked-button type="button" (click)="cancel()">{{ cancelLabel() }}</button>
+    @if (canEdit) {
+      <button mat-flat-button type="button" (click)="save()">{{ isNew ? 'Crea capitolo' : 'Salva' }}</button>
+    }
+  </ng-container>
+</app-entity-sheet>

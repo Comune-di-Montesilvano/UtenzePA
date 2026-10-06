@@ -80,4 +80,33 @@ describe('BudgetChapterSpendingService', () => {
     ]);
     await expect(service.update(1, { year: 2024 }, 3)).rejects.toThrow(/2024/);
   });
+
+  it('crea un anno con il solo assestato', async () => {
+    await service.createForChapter(5, { year: 2026, adjusted_budget: 28000 } as never, 3);
+    expect(repo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ budget_chapter_id_fk: 5, year: 2026, adjusted_budget: 28000 }),
+    );
+  });
+
+  it('rifiuta un anno senza nessun importo', async () => {
+    await expect(service.createForChapter(5, { year: 2026, notes: 'x' } as never, 3)).rejects.toThrow(
+      'Indicare almeno un importo: stanziamento iniziale, assestato o spesa ragioneria.',
+    );
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('rifiuta una modifica che svuota tutti gli importi', async () => {
+    repo.findOne.mockResolvedValue({ id: 1, budget_chapter_id_fk: 5, year: 2026, amount: null, adjusted_budget: '100.00' });
+    await expect(service.update(1, { adjusted_budget: null } as never, 3)).rejects.toThrow(/almeno un importo/);
+  });
+
+  it('elenco: importi nulli restano null, gli altri diventano numeri', async () => {
+    repo.find.mockResolvedValue([
+      { id: 1, year: 2026, amount: null, initial_budget: '30000.00', adjusted_budget: '28000.00' },
+    ]);
+    const [row] = await service.findByChapter(5);
+    expect(row.amount).toBeNull();
+    expect(row.initial_budget).toBe(30000);
+    expect(row.adjusted_budget).toBe(28000);
+  });
 });

@@ -307,6 +307,36 @@ const formatDate = (iso: string | null): string => {
               </ul>
             </mat-expansion-panel>
             }
+            @if (data.chapters_over_budget.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.chapters_over_budget.count }}</span>
+                  Capitoli oltre l'assestato dell'anno
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (c of data.chapters_over_budget.items; track c.id) {
+                  <li (click)="openChapter(c.id)">{{ c.chapter }} · assestato {{ eur(c.adjusted_budget) }} · impegnato {{ eur(c.committed) }} · fatturato {{ eur(c.invoiced) }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
+            @if (data.chapters_without_budget.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.chapters_without_budget.count }}</span>
+                  Capitoli usati senza assestato dell'anno
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (c of data.chapters_without_budget.items; track c.id) {
+                  <li (click)="openChapter(c.id)">{{ c.chapter }} · {{ c.description }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
             @if (data.utilities_with_uncommitted_chapter.count > 0) {
             <mat-expansion-panel>
               <mat-expansion-panel-header>
@@ -385,17 +415,10 @@ export class AnomaliesCardComponent implements OnInit {
   }
   readonly fmt = formatDate;
 
+  // Tutte le anomalie: la somma a mano dimenticava quelle aggiunte via via.
   get total(): number {
     if (!this.data) return 0;
-    return this.data.contracts_without_cig.count + this.data.active_utilities_without_cig_contract.count
-      + this.data.active_utilities_without_contract.count + this.data.utilities_with_overlapping_contracts.count
-      + this.data.duplicate_cigs.count + this.data.real_estate_contracts_without_assets.count
-      + this.data.plants_without_position.count + this.data.plants_without_asset.count
-      + this.data.real_estate_contracts_without_parties.count + this.data.third_parties_without_identifier.count
-      + this.data.active_utilities_without_arera_category.count
-      + this.data.active_gas_utilities_without_use_category.count
-      + this.data.utilities_to_transfer.count
-      + this.data.utilities_to_recover.count;
+    return Object.values(this.data).reduce((sum, a) => sum + a.count, 0);
   }
 
   ngOnInit(): void {
@@ -457,6 +480,10 @@ export class AnomaliesCardComponent implements OnInit {
 
   eur(n: number): string {
     return n.toLocaleString('it-IT', {style: 'currency', currency: 'EUR'});
+  }
+
+  openChapter(id: number): void {
+    this.navigator.openBudgetChapter(id).subscribe(() => this.load());
   }
 
   openUtility(id: number): void {

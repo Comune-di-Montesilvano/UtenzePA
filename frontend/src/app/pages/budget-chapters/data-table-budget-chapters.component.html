@@ -63,6 +63,25 @@
     <td mat-cell *matCellDef="let item">{{ item.utilityTypesLabel }}</td>
   </ng-container>
 
+  <ng-container matColumnDef="adjusted_budget">
+    <th mat-header-cell *matHeaderCellDef>Assestato {{ year }}</th>
+    <td mat-cell *matCellDef="let item" style="text-align: right;">{{ eur(yearByChapter.get(item.id)?.adjusted_budget) }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="available">
+    <th mat-header-cell *matHeaderCellDef>Disponibile {{ year }}</th>
+    <td mat-cell *matCellDef="let item" style="text-align: right;">
+      @if (yearByChapter.get(item.id)?.over_budget) {
+        <span class="tone-danger" style="border-radius: 10px; padding: 1px 8px;">Oltre l'assestato</span>
+      } @else {
+        {{ eur(yearByChapter.get(item.id)?.available) }}
+        @if (yearByChapter.get(item.id)?.available != null && yearByChapter.get(item.id)?.commitments_without_amount) {
+          <div style="font-size: 0.75rem; color: var(--sheet-muted);">al massimo: impegnato parziale</div>
+        }
+      }
+    </td>
+  </ng-container>
+
   <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
   <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.row-deleted]="row.deleted"></tr>
 

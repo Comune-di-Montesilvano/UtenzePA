@@ -6,6 +6,8 @@ import {MatInputModule} from '@angular/material/input';
 import {MatDatepickerModule} from '@angular/material/datepicker';
 import {MatButtonModule} from '@angular/material/button';
 import {MatTabsModule} from '@angular/material/tabs';
+import {MatIconModule} from '@angular/material/icon';
+import {catchError, debounceTime, of, Subject, switchMap} from 'rxjs';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {Invoice} from './entity/invoice.entity';
@@ -27,6 +29,9 @@ import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.co
 import {hasInvalid, isEditorRole, lastModifiedLabel} from '../../core/components/entity-sheet/sheet-utils';
 import {ToastService} from '../../core/services/toast.service';
 import {InvoiceLinesTabComponent} from './invoice-lines-tab.component';
+import {ChapterBudgetService} from '../budget-chapters/chapter-budget.service';
+import {BudgetWarning} from '../budget-chapters/chapter-budget.model';
+import {toIsoDate} from '../../core/helpers/date.helper';
 
 // Data 'AAAA-MM-GG' letta come giorno locale (new Date(v) = mezzanotte UTC).
 const toLocalDate = (v: unknown): Date | null => {
@@ -44,8 +49,11 @@ const toNumberOrNull = (v: unknown): number | null => (v === null || v === undef
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatDatepickerModule, MatButtonModule,
-    MatTabsModule, FilterableSelectComponent, EntitySheetComponent, TabLabelComponent, InvoiceLinesTabComponent,
+    MatTabsModule, MatIconModule, FilterableSelectComponent, EntitySheetComponent, TabLabelComponent, InvoiceLinesTabComponent,
   ],
+  styles: [`
+    .budget-warning { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 6px; margin-top: 12px; }
+  `],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './invoice-edit-dialog.component.html'
 })
@@ -59,7 +67,12 @@ export class InvoiceEditDialogComponent implements OnInit {
   private utilityService = inject(UtilityService);
   private commitmentService = inject(CommitmentService);
   private toast = inject(ToastService);
+  private budget = inject(ChapterBudgetService);
   protected data = inject<EditDialogData<Invoice>>(MAT_DIALOG_DATA);
+
+  // Capitoli che con questa fattura superano l'assestato: solo avviso, mai blocco.
+  budgetWarnings: BudgetWarning[] = [];
+  private budgetCheck$ = new Subject<void>();
 
   isNew = this.data.mode === 'create';
   readonly canEdit = isEditorRole(this.authService.getCurrentUser()?.role);
@@ -91,9 +104,36 @@ export class InvoiceEditDialogComponent implements OnInit {
     // Lettore: form disabilitato anche a livello programmatico, non solo
     // nascondendo il Salva.
     if (!this.canEdit) this.form.disable();
+    this.budgetCheck$.pipe(
+      debounceTime(400),
+      switchMap(() => {
+        const date = this.form.controls.invoice_date.value as Date | null;
+        if (!date || !this.lines.length) return of([] as BudgetWarning[]);
+        return this.budget.budgetCheck({
+          invoice_id: this.isNew ? null : this.data.item.id,
+          invoice_date: toIsoDate(date),
+          lines: this.lines.map(l => ({
+            utility_id_fk: l.utility_id_fk ?? null,
+            commitment_id_fk: l.commitment_id_fk ?? null,
+            amount: Number(l.amount) || 0,
+          })),
+        }).pipe(catchError(() => of([] as BudgetWarning[])));
+      }),
+    ).subscribe(w => this.budgetWarnings = w);
+    this.form.controls.invoice_date.valueChanges.subscribe(() => this.checkBudget());
+  }
+
+  // Righe, importi, impegni o data cambiati: si ricontrolla l'assestato.
+  checkBudget(): void {
+    this.budgetCheck$.next();
+  }
+
+  eur(n: number): string {
+    return n.toLocaleString('it-IT', {style: 'currency', currency: 'EUR'});
   }
 
   ngOnInit(): void {
+    this.checkBudget();
     this.loadContracts();
     this.loadSuppliers();
     this.loadUtilities();
@@ -207,6 +247,7 @@ export class InvoiceEditDialogComponent implements OnInit {
     if (!foreign) return;
     this.lines = this.lines.map(l =>
       l.commitment_id_fk && !allowed.has(l.commitment_id_fk) ? {...l, commitment_id_fk: null, commitment: null} : l);
+    this.checkBudget();
     this.toast.add({
       severity: 'warn',
       summary: 'Impegni rimossi dalle righe',

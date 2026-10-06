@@ -45,6 +45,8 @@ export class BudgetChaptersService extends BaseService<
     const alias = this.entityName;
     const qb = this.repo.createQueryBuilder(alias);
     qb.leftJoinAndSelect(`${alias}.utilityTypes`, 'utilityTypes', 'utilityTypes.deleted = 0');
+    // La scheda aperta dalla riga mostra "Ultima modifica": findOne lo joina, findAll no.
+    qb.leftJoinAndSelect(`${alias}.updated_by`, 'updated_by');
     qb.where(`${alias}.deleted = :deleted`, { deleted: filter?.deleted ?? false });
 
     if (filter) {

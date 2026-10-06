@@ -73,8 +73,14 @@
           [readOnly]="!canEdit"
           [contractId]="form.controls.contratto_id_fk.value"
           (optionsStale)="onOptionsStale($event)"
-          (linesChange)="lines = $event">
+          (linesChange)="lines = $event; checkBudget()">
         </app-invoice-lines-tab>
+        @for (w of budgetWarnings; track w.budget_chapter_id + '-' + w.year) {
+          <div class="budget-warning tone-warn">
+            <mat-icon>warning</mat-icon>
+            Capitolo {{ w.chapter }}: con questa fattura il fatturato {{ w.year }} supera l'assestato ({{ eur(w.invoiced) }} su {{ eur(w.adjusted_budget) }}).
+          </div>
+        }
       </mat-tab>
     </mat-tab-group>
   </form>

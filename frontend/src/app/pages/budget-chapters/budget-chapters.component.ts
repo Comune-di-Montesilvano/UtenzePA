@@ -1,7 +1,9 @@
-import {Component, ChangeDetectionStrategy} from '@angular/core';
+import {Component, ChangeDetectionStrategy, ViewChild} from '@angular/core';
+import {ActivatedRoute} from '@angular/router';
 import {DataTableBudgetChaptersComponent} from './data-table-budget-chapters.component';
 import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
-import {budgetChapterFilters} from './budget-chapters-filters';
+import {budgetChapterFilters, CHAPTER_SIGNALS} from './budget-chapters-filters';
+import {ListSignalsComponent} from '../../core/components/list/list-signals.component';
 import {BudgetChaptersService} from './budget-chapters.service';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {BudgetChapter} from './entity/budget-chapter.entity';
@@ -11,17 +13,26 @@ import {BudgetChapter} from './entity/budget-chapter.entity';
   standalone: true,
   imports: [
     DataTableBudgetChaptersComponent,
-    ListFiltersComponent
+    ListFiltersComponent,
+    ListSignalsComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './budget-chapters.component.html'
 })
 export class BudgetChaptersComponent extends AbstractComponent<BudgetChapter> {
 
-  override filterDefs = budgetChapterFilters();
+  @ViewChild('dataTable') dataTable?: DataTableBudgetChaptersComponent;
 
-  constructor(protected override service: BudgetChaptersService) {
+  override filterDefs = budgetChapterFilters();
+  readonly signals = CHAPTER_SIGNALS;
+
+  constructor(protected override service: BudgetChaptersService, private route: ActivatedRoute) {
     super();
+  }
+
+  // ?selectedId=N apre la scheda del capitolo.
+  override ngOnInit(): void {
+    this.initFromRoute(this.route, item => this.dataTable?.openEditDialog(item));
   }
 
   protected override getEntityIdentifier(entity: BudgetChapter): string {
