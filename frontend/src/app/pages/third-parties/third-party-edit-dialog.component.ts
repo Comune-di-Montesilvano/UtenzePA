@@ -1,3 +1,4 @@
+import {EntityHistoryComponent} from '../../core/components/entity-history.component';
 import {ChangeDetectionStrategy, Component, inject, OnInit} from '@angular/core';
 import {AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
@@ -47,6 +48,7 @@ function formatIgnoringSpaces(re: RegExp): ValidatorFn {
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatButtonToggleModule,
     MatTabsModule, MatIconModule, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, LinkedTableComponent,
+    EntityHistoryComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './third-party-edit-dialog.component.html',
