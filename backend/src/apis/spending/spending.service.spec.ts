@@ -97,4 +97,65 @@ describe('SpendingService', () => {
     ]);
     expect(query.mock.calls[2][0]).toContain('LEFT JOIN budget_chapters');
   });
+
+  it('scheda capitolo: anni da bilancio, impegni e fatture del capitolo (capitolo dall’impegno o dall’utenza)', async () => {
+    query
+      .mockResolvedValueOnce([
+        { id: 1, year: 2024, amount: '100', initial_budget: null, adjusted_budget: null, notes: null },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    const rows = await service.forChapter(5);
+    expect(rows.map((r) => r.year)).toEqual([new Date().getFullYear(), 2024]);
+    const linesSql = String(query.mock.calls[2][0]);
+    expect(linesSql).toContain('COALESCE(bcm.budget_chapter_id_fk, u.budget_chapter_code_fk) = ?');
+    expect(linesSql).toContain('COALESCE(bcm.fiscal_year, YEAR(i.invoice_date))');
+    expect(query.mock.calls.every(([, p]) => (p as unknown[])[0] === 5)).toBe(true);
+  });
+
+  it('impegni del capitolo con contratto e fornitore, esclusi impegni e contratti cancellati', async () => {
+    query.mockResolvedValue([
+      {
+        id: 3,
+        contract_id: 10,
+        fiscal_year: 2026,
+        commitment_number: null,
+        amount: null,
+        cig_contract: 'X',
+        supplier: 'Fornitore prova',
+      },
+    ]);
+    expect(await service.chapterCommitments(5)).toEqual([
+      {
+        id: 3,
+        contract_id: 10,
+        fiscal_year: 2026,
+        commitment_number: null,
+        amount: null,
+        cig_contract: 'X',
+        supplier: 'Fornitore prova',
+      },
+    ]);
+    const sql = String(query.mock.calls[0][0]);
+    expect(sql).toContain('bcm.deleted = 0');
+    expect(sql).toContain('c.deleted = 0');
+  });
+
+  it('righe fattura del capitolo, importi numerici', async () => {
+    query.mockResolvedValue([
+      {
+        id: 1,
+        invoice_id: 2,
+        number: 'F-1',
+        invoice_date: '2026-03-01',
+        supplier: null,
+        utility_id: 4,
+        utility_code: 'U4',
+        year: '2026',
+        amount: '12.50',
+      },
+    ]);
+    const [line] = await service.chapterInvoiceLines(5);
+    expect(line).toEqual(expect.objectContaining({ year: 2026, amount: 12.5, invoice_id: 2 }));
+  });
 });
