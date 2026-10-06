@@ -65,7 +65,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(19);
+    expect(query).toHaveBeenCalledTimes(23);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -269,6 +269,48 @@ describe('AnomaliesService', () => {
     const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('u.budget_chapter_code_fk IS NULL'));
     expect(sql).toContain('u.supply_active = 1');
     expect(sql).toContain("c.contract_kind = 'FREE'");
+  });
+
+  it('capitoli oltre l’assestato dell’esercizio in corso, solo non cancellati', async () => {
+    query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM budget_chapter_spending WHERE year = ?')) return [{ chapter_id: 7, adjusted_budget: '100' }];
+      if (sql.includes('FROM budget_commitments WHERE fiscal_year = ?'))
+        return [{ chapter_id: 7, commitments: '1', total: '150', without_amount: '0' }];
+      if (sql.includes('FROM budget_chapters WHERE deleted = 0 AND id IN'))
+        return [{ id: 7, chapter_code: '12332', article: 0, description: 'Gas scuole' }];
+      return [];
+    });
+    const result = await service.getAnomalies();
+    expect(result.chapters_over_budget.items).toEqual([
+      { id: 7, chapter: '12332/0', description: 'Gas scuole', adjusted_budget: 100, committed: 150, invoiced: 0 },
+    ]);
+    const yearCalls = query.mock.calls.filter(([s]) => String(s).includes('FROM budget_chapter_spending WHERE year = ?'));
+    expect(yearCalls[0][1]).toEqual([new Date().getFullYear()]);
+  });
+
+  it('capitolo oltre l’assestato ma cancellato: non segnalato', async () => {
+    query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM budget_chapter_spending WHERE year = ?')) return [{ chapter_id: 7, adjusted_budget: '100' }];
+      if (sql.includes('FROM budget_commitments WHERE fiscal_year = ?'))
+        return [{ chapter_id: 7, commitments: '1', total: '150', without_amount: '0' }];
+      return [];
+    });
+    const result = await service.getAnomalies();
+    expect(result.chapters_over_budget.count).toBe(0);
+  });
+
+  it('capitoli usati nell’esercizio senza assestato', async () => {
+    query.mockImplementation(async (sql: string) =>
+      sql.includes('s.adjusted_budget IS NOT NULL')
+        ? [{ id: 4, chapter_code: '11428', article: 0, description: 'Acqua' }]
+        : [],
+    );
+    const result = await service.getAnomalies();
+    expect(result.chapters_without_budget.items).toEqual([{ id: 4, chapter: '11428/0', description: 'Acqua' }]);
+    const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('s.adjusted_budget IS NOT NULL'));
+    expect(sql).toContain('b.deleted = 0');
+    expect(sql).toContain('u.supply_active = 1');
+    expect(sql).toContain('c.fiscal_year = ?');
   });
 
   it('righe fattura senza utenza', async () => {

@@ -3,6 +3,7 @@ import { ASSET_REQUIRED_TYPES } from '@apis/plants/plant.calc';
 import { DataSource } from 'typeorm';
 import { partyNameSql } from '@apis/third-parties/third-party.name';
 import { CostStatus, costStatusSql } from '@apis/utility/cost-status';
+import { chaptersYearSummary, currentYear } from '@apis/spending/chapter-year';
 
 // Contratto valido oggi: stessa definizione di "contratto corrente" usata in
 // UtilitiesService (scadenza assente o non ancora passata).
@@ -57,12 +58,20 @@ export interface Anomalies {
   }>;
   utilities_with_uncommitted_chapter: AnomalyList<UtilityAnomaly & { chapter: string }>;
   active_utilities_without_chapter: AnomalyList<UtilityAnomaly>;
+  chapters_over_budget: AnomalyList<ChapterAnomaly & { adjusted_budget: number; committed: number; invoiced: number }>;
+  chapters_without_budget: AnomalyList<ChapterAnomaly>;
   invoice_lines_without_utility: AnomalyList<{
     invoice_id: number;
     number: string;
     supply_code: string | null;
     amount: number;
   }>;
+}
+
+export interface ChapterAnomaly {
+  id: number;
+  chapter: string;
+  description: string | null;
 }
 
 export interface PlantAnomaly {
@@ -313,7 +322,45 @@ export class AnomaliesService {
        ORDER BY i.invoice_date DESC, i.id`,
     );
 
+    // Capitoli sull'esercizio in corso (scheda capitolo, roadmap voce 20).
+    const year = currentYear();
+    const summary = await chaptersYearSummary((sql, params) => this.dataSource.query(sql, params), year);
+    const over = summary.filter((r) => r.over_budget);
+    const overLabels: Record<string, unknown>[] = over.length
+      ? await this.dataSource.query(
+          'SELECT id, chapter_code, article, description FROM budget_chapters WHERE deleted = 0 AND id IN (?)',
+          [over.map((r) => r.budget_chapter_id)],
+        )
+      : [];
+    const labelOf = new Map(overLabels.map((b) => [Number(b.id), b] as const));
+    const withoutBudget: Record<string, unknown>[] = await this.dataSource.query(
+      `SELECT b.id, b.chapter_code, b.article, b.description FROM budget_chapters b
+       WHERE b.deleted = 0
+         AND (EXISTS (SELECT 1 FROM utilities u WHERE u.budget_chapter_code_fk = b.id AND u.deleted = 0 AND u.supply_active = 1)
+              OR EXISTS (SELECT 1 FROM budget_commitments c WHERE c.budget_chapter_id_fk = b.id AND c.deleted = 0 AND c.fiscal_year = ?))
+         AND NOT EXISTS (SELECT 1 FROM budget_chapter_spending s
+                         WHERE s.budget_chapter_id_fk = b.id AND s.deleted = 0 AND s.year = ? AND s.adjusted_budget IS NOT NULL)
+       ORDER BY b.chapter_code, b.article`,
+      [year, year],
+    );
+    const chapterLabel = (b: Record<string, unknown>): ChapterAnomaly => ({
+      id: Number(b.id),
+      chapter: `${b.chapter_code}/${b.article}`,
+      description: (b.description as string) ?? null,
+    });
+
     return {
+      chapters_over_budget: list(
+        over
+          .filter((r) => labelOf.has(r.budget_chapter_id))
+          .map((r) => ({
+            ...chapterLabel(labelOf.get(r.budget_chapter_id)),
+            adjusted_budget: r.adjusted_budget as number,
+            committed: r.committed,
+            invoiced: r.invoiced,
+          })),
+      ),
+      chapters_without_budget: list(withoutBudget.map(chapterLabel)),
       invoices_on_ceased_utilities: list(
         onCeased.map((r) => ({
           invoice_id: Number(r.invoice_id),
