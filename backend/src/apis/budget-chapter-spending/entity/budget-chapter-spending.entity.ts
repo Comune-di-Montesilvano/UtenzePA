@@ -11,8 +11,9 @@ import {
 import { BudgetChapter } from '@apis/budget-chapters/entity/budgetChapter.entity';
 import { SystemUser } from '@apis/system-users/entity/system-user.entity';
 
-// Spesa consuntiva di un capitolo in un anno (da ragioneria). Un solo importo
-// per capitolo/anno tra le righe non cancellate: verificato nel service, un
+// Dati della ragioneria per capitolo/anno: stanziamento iniziale, assestato,
+// spesa consuntiva (almeno uno, verificato nel service). Un solo record per
+// capitolo/anno tra le righe non cancellate: verificato nel service, un
 // indice unique non escluderebbe le righe soft-deleted.
 @Entity('budget_chapter_spending')
 @Index(['budget_chapter_id_fk', 'deleted'])
@@ -26,8 +27,16 @@ export class BudgetChapterSpending {
   @Column({ type: 'int' })
   year: number;
 
-  @Column({ type: 'decimal', precision: 14, scale: 2 })
-  amount: number;
+  // Spesa consuntiva della ragioneria ("Spesa ragioneria"): facoltativa.
+  @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
+  amount: number | null;
+
+  @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
+  initial_budget: number | null;
+
+  // Assestato dell'esercizio.
+  @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
+  adjusted_budget: number | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
