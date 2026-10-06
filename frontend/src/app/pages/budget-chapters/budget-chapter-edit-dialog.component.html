@@ -50,7 +50,12 @@
               }
             </div>
             <div><span class="sheet-hint">Fatturato</span><strong>{{ eur(current?.invoiced ?? 0) }}</strong></div>
-            <div><span class="sheet-hint">Disponibile</span><strong>{{ eur(current?.available) || '—' }}</strong></div>
+            <div>
+              <span class="sheet-hint">Disponibile</span><strong>{{ eur(current?.available) || '—' }}</strong>
+              @if (current?.adjusted_budget !== null && current?.commitments_without_amount) {
+                <span class="sheet-hint">al massimo: impegnato parziale</span>
+              }
+            </div>
           </div>
           <div class="sheet-previews">
             <app-preview-card title="Utenze" icon="electric_meter" color="var(--entity-utility)" [items]="utilityPreview"

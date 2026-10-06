@@ -53,7 +53,12 @@ import {ChapterYear} from '../chapter-budget.model';
                 }
               </td>
               <td class="n">{{ eur(y.recorded_spending) }}</td>
-              <td class="n">{{ eur(y.available) }}</td>
+              <td class="n">
+                {{ eur(y.available) }}
+                @if (y.available !== null && y.commitments_without_amount) {
+                  <div class="sub">al massimo: impegnato parziale</div>
+                }
+              </td>
               <td>{{ y.notes ?? '' }}</td>
               <td class="actions">
                 @if (canEdit) {

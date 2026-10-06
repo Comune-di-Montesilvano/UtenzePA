@@ -75,6 +75,9 @@
         <span class="tone-danger" style="border-radius: 10px; padding: 1px 8px;">Oltre l'assestato</span>
       } @else {
         {{ eur(yearByChapter.get(item.id)?.available) }}
+        @if (yearByChapter.get(item.id)?.available != null && yearByChapter.get(item.id)?.commitments_without_amount) {
+          <div style="font-size: 0.75rem; color: var(--sheet-muted);">al massimo: impegnato parziale</div>
+        }
       }
     </td>
   </ng-container>
