@@ -22,7 +22,7 @@ export class App implements OnInit {
 
     this.idle.onIdleStart.subscribe(() => console.log('Utente inattivo...'));
     this.idle.onTimeout.subscribe(() => {
-      this.authService.logout();
+      this.authService.logout('TIMEOUT');
       alert('Sessione scaduta per inattività');
       this.router.navigate(['/login']);
     });

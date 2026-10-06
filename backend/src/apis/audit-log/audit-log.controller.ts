@@ -10,14 +10,19 @@ export class AuditLogController {
   constructor(private readonly service: AuditLogService) {}
 
   @Get()
-  async find(@Query() query: QueryAuditLogDto, @CurrentUser() user: ICurrentUser): Promise<AuditLogQueryResult> {
+  async find(
+    @Query() query: QueryAuditLogDto,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<AuditLogQueryResult> {
     // entityId presente = storico di un singolo record: stesso livello di
     // accesso del GET sull'entity stessa (qualunque utente autenticato).
     // entityId assente = log globale (sfoglia tutte le righe di una
     // tabella): solo Admin. @Roles()/RolesGuard non si applica qui perché
     // la stessa route serve entrambi i casi con permessi diversi a seconda
     // del query param, non del solo handler.
-    if (query.entityId === undefined && user.role !== 'Admin') {
+    // Senza entity ("Tutti") l'entityId da solo coprirebbe record di
+    // entità diverse: anche quello è log globale.
+    if ((query.entityId === undefined || !query.entity) && user.role !== 'Admin') {
       throw new ForbiddenException('Solo un amministratore può consultare il log globale');
     }
     return this.service.query(query);

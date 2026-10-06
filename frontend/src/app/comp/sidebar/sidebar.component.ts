@@ -65,7 +65,7 @@ export class SidebarComponent implements OnInit {
         {label: 'Funzioni immobili', icon: 'widgets', route: '/asset-function'},
         {label: 'Tipologie uso contatore', icon: 'sell', route: '/utility-types'},
         {label: 'Utenti e ruoli', icon: 'group', route: '/system-users'},
-        {label: 'Log modifiche', icon: 'history', route: '/audit-log'},
+        {label: 'Log attività', icon: 'history', route: '/audit-log'},
         {label: 'Backup e manutenzione', icon: 'storage', route: '/backup-import'},
         {label: 'Branding', icon: 'palette', route: '/branding'},
       ]},
@@ -98,7 +98,7 @@ export class SidebarComponent implements OnInit {
   }
 
   logout() {
-    this.authService.logout();
+    this.authService.logout('LOGOUT');
     this.router.navigate(['/login']);
   }
 

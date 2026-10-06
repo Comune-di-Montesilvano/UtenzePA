@@ -1,7 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { AuditLogService } from './audit-log.service';
-import { AuditLog, AuditAction } from './entity/audit-log.entity';
+import { AuditLog, AuditAction, AccessChannel } from './entity/audit-log.entity';
 import { Asset } from '@apis/asset/entity/asset.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
 
@@ -31,7 +31,12 @@ describe('AuditLogService', () => {
   });
 
   it('registra un evento CREATE come riga singola senza diff', async () => {
-    await service.record({ entityName: 'assets', entityId: 42, action: AuditAction.CREATE, userId: 1 });
+    await service.record({
+      entityName: 'assets',
+      entityId: 42,
+      action: AuditAction.CREATE,
+      userId: 1,
+    });
 
     expect(repo.save).toHaveBeenCalledWith([
       expect.objectContaining({
@@ -52,7 +57,13 @@ describe('AuditLogService', () => {
       userId: 1,
       fields: [
         { fieldName: 'asset_name', oldValue: 'A', newValue: 'B' },
-        { fieldName: 'nature_id', oldValue: 1, newValue: 2, oldLabel: 'Fabbricato', newLabel: 'Area / terreno' },
+        {
+          fieldName: 'nature_id',
+          oldValue: 1,
+          newValue: 2,
+          oldLabel: 'Fabbricato',
+          newLabel: 'Area / terreno',
+        },
       ],
     });
 
@@ -69,7 +80,13 @@ describe('AuditLogService', () => {
   });
 
   it('non scrive nulla per un UPDATE senza campi', async () => {
-    await service.record({ entityName: 'assets', entityId: 42, action: AuditAction.UPDATE, userId: 1, fields: [] });
+    await service.record({
+      entityName: 'assets',
+      entityId: 42,
+      action: AuditAction.UPDATE,
+      userId: 1,
+      fields: [],
+    });
 
     expect(repo.save).not.toHaveBeenCalled();
   });
@@ -86,7 +103,7 @@ describe('AuditLogService', () => {
     });
 
     it("risolve entity_label su asset_name per l'entità assets", async () => {
-      repo.createQueryBuilder.mockReturnValue(buildQb([{ entity_id: 42 }]));
+      repo.createQueryBuilder.mockReturnValue(buildQb([{ entity_name: 'assets', entity_id: 42 }]));
       assetRepo.find.mockResolvedValue([{ id: 42, asset_name: 'Scuola Primaria' }]);
 
       const result = await service.query({ entity: 'assets', page: 1, pageSize: 10 } as any);
@@ -96,7 +113,9 @@ describe('AuditLogService', () => {
     });
 
     it("risolve entity_label su utility_id per l'entità utilities", async () => {
-      repo.createQueryBuilder.mockReturnValue(buildQb([{ entity_id: 2523 }]));
+      repo.createQueryBuilder.mockReturnValue(
+        buildQb([{ entity_name: 'utilities', entity_id: 2523 }]),
+      );
       utilityRepo.find.mockResolvedValue([{ id: 2523, utility_id: '71011979' }]);
 
       const result = await service.query({ entity: 'utilities', page: 1, pageSize: 10 } as any);
@@ -105,13 +124,61 @@ describe('AuditLogService', () => {
     });
 
     it('ritorna entity_label null per entità senza resolver (es. contract)', async () => {
-      repo.createQueryBuilder.mockReturnValue(buildQb([{ entity_id: 7 }]));
+      repo.createQueryBuilder.mockReturnValue(buildQb([{ entity_name: 'contract', entity_id: 7 }]));
 
       const result = await service.query({ entity: 'contract', page: 1, pageSize: 10 } as any);
 
       expect(result.items[0].entity_label).toBeNull();
       expect(assetRepo.find).not.toHaveBeenCalled();
       expect(utilityRepo.find).not.toHaveBeenCalled();
+    });
+
+    it('senza entità non filtra e risolve le etichette per ogni entità presente', async () => {
+      const qb = buildQb([
+        { entity_name: 'assets', entity_id: 42 },
+        { entity_name: 'access', entity_id: 3 },
+        { entity_name: 'utilities', entity_id: 2523 },
+      ]);
+      repo.createQueryBuilder.mockReturnValue(qb);
+      assetRepo.find.mockResolvedValue([{ id: 42, asset_name: 'Scuola Primaria' }]);
+      utilityRepo.find.mockResolvedValue([{ id: 2523, utility_id: '71011979' }]);
+
+      const result = await service.query({ page: 1, pageSize: 10 } as any);
+
+      expect(qb.andWhere).not.toHaveBeenCalledWith(
+        expect.stringContaining('entity_name'),
+        expect.anything(),
+      );
+      expect(result.items.map((i) => i.entity_label)).toEqual([
+        'Scuola Primaria',
+        null,
+        '71011979',
+      ]);
+    });
+  });
+
+  describe('recordAccess', () => {
+    it('salva il login con il canale, senza field_name (non toccato dalla pulizia)', async () => {
+      await service.recordAccess(3, AuditAction.LOGIN, AccessChannel.LDAP);
+
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entity_name: 'access',
+          entity_id: 3,
+          user_id: 3,
+          action: AuditAction.LOGIN,
+          field_name: null,
+          new_value: 'LDAP',
+        }),
+      );
+    });
+
+    it('salva la scadenza per inattività senza canale', async () => {
+      await service.recordAccess(3, AuditAction.TIMEOUT);
+
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ action: AuditAction.TIMEOUT, new_value: null }),
+      );
     });
   });
 

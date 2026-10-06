@@ -61,7 +61,15 @@ export class AuthService {
     }
   }
 
-  logout(): void {
+  // reason: registra uscita o scadenza nel log accessi (finché il token è
+  // valido). Senza reason (401: token già non valido) nessuna chiamata.
+  logout(reason?: 'LOGOUT' | 'TIMEOUT'): void {
+    const token = this.getToken();
+    if (reason && token) {
+      axios.post(`${this.BASE_URL}/authModule/logout`, { reason }, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => undefined);
+    }
     sessionStorage.removeItem(this.TOKEN_KEY);
     sessionStorage.removeItem('auth_user');
     this.currentUserSubject.next(null);

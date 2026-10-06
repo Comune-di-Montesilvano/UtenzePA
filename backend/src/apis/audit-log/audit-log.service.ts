@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, ObjectLiteral, Repository } from 'typeorm';
-import { AuditLog, AuditAction } from './entity/audit-log.entity';
+import { AuditLog, AuditAction, AccessChannel, ACCESS_ENTITY } from './entity/audit-log.entity';
 import { QueryAuditLogDto } from './dto/query-audit-log.dto';
 import { Asset } from '@apis/asset/entity/asset.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
@@ -38,7 +38,10 @@ export class AuditLogService {
   // usate per i diff (mai euristica su nomi colonna). Solo le entità con un
   // dialog di dettaglio wired lato frontend (Task 10/11) hanno un resolver:
   // per le altre l'id numerico resta l'unica cosa mostrabile.
-  private readonly entityLabelResolvers: Record<string, { repo: Repository<ObjectLiteral>; field: string }>;
+  private readonly entityLabelResolvers: Record<
+    string,
+    { repo: Repository<ObjectLiteral>; field: string }
+  >;
 
   constructor(
     @InjectRepository(AuditLog)
@@ -89,14 +92,40 @@ export class AuditLogService {
     ]);
   }
 
+  // Login, logout o scadenza per inattività: una riga senza field_name, quindi
+  // esclusa dalla pulizia periodica (purgeOlderThan).
+  async recordAccess(
+    userId: number,
+    action: AuditAction.LOGIN | AuditAction.LOGOUT | AuditAction.TIMEOUT,
+    channel: AccessChannel | null = null,
+  ): Promise<void> {
+    await this.repo.save(
+      this.repo.create({
+        entity_name: ACCESS_ENTITY,
+        entity_id: userId,
+        action,
+        field_name: null,
+        old_value: null,
+        new_value: channel,
+        old_label: null,
+        new_label: null,
+        user_id: userId,
+      }),
+    );
+  }
+
   async query(filters: QueryAuditLogDto): Promise<AuditLogQueryResult> {
     const page = filters.page ?? 1;
     const pageSize = filters.pageSize ?? 10;
 
     const qb = this.repo
       .createQueryBuilder('audit_logs')
-      .leftJoinAndSelect('audit_logs.user', 'user')
-      .where('audit_logs.entity_name = :entityName', { entityName: filters.entity });
+      .leftJoinAndSelect('audit_logs.user', 'user');
+
+    // Senza entità: tutte le righe (modifiche e accessi).
+    if (filters.entity) {
+      qb.andWhere('audit_logs.entity_name = :entityName', { entityName: filters.entity });
+    }
 
     if (filters.entityId !== undefined) {
       qb.andWhere('audit_logs.entity_id = :entityId', { entityId: filters.entityId });
@@ -116,15 +145,24 @@ export class AuditLogService {
       .take(pageSize);
 
     const [items, total] = await qb.getManyAndCount();
-    const labels = await this.resolveEntityLabels(filters.entity, items.map((item) => item.entity_id));
+    const labelsByEntity = new Map<string, Map<number, string>>();
+    for (const entityName of new Set(items.map((item) => item.entity_name))) {
+      const ids = items
+        .filter((item) => item.entity_name === entityName)
+        .map((item) => item.entity_id);
+      labelsByEntity.set(entityName, await this.resolveEntityLabels(entityName, ids));
+    }
     const itemsWithLabel: AuditLogEntryWithLabel[] = items.map((item) => ({
       ...item,
-      entity_label: labels.get(item.entity_id) ?? null,
+      entity_label: labelsByEntity.get(item.entity_name)?.get(item.entity_id) ?? null,
     }));
     return { items: itemsWithLabel, total, page, pageSize };
   }
 
-  private async resolveEntityLabels(entityName: string, ids: number[]): Promise<Map<number, string>> {
+  private async resolveEntityLabels(
+    entityName: string,
+    ids: number[],
+  ): Promise<Map<number, string>> {
     const map = new Map<number, string>();
     const resolver = this.entityLabelResolvers[entityName];
     if (!resolver || ids.length === 0) return map;

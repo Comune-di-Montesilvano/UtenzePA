@@ -6,7 +6,8 @@ import { AuthService } from './auth.service';
 import { AuditLogPage } from '../core/entities/audit-log-entry.entity';
 
 export interface AuditLogFilters {
-  entity: string;
+  // Assente = tutte le entità, accessi compresi.
+  entity?: string;
   entityId?: number;
   userId?: number;
   dateFrom?: string;
@@ -26,7 +27,8 @@ export class AuditLogService {
   }
 
   search(filters: AuditLogFilters): Observable<AuditLogPage> {
-    let params = new HttpParams().set('entity', filters.entity);
+    let params = new HttpParams();
+    if (filters.entity) params = params.set('entity', filters.entity);
     if (filters.entityId !== undefined) params = params.set('entityId', String(filters.entityId));
     if (filters.userId !== undefined) params = params.set('userId', String(filters.userId));
     if (filters.dateFrom) params = params.set('dateFrom', filters.dateFrom);

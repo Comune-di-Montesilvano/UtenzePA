@@ -5,8 +5,10 @@ const toOptionalInt = ({ value }: { value: unknown }) =>
   value === undefined || value === '' ? undefined : Number(value);
 
 export class QueryAuditLogDto {
+  // Assente = tutte le entità, accessi compresi.
+  @IsOptional()
   @IsString()
-  entity: string;
+  entity?: string;
 
   @IsOptional()
   @Transform(toOptionalInt)
