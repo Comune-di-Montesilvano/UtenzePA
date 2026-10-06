@@ -87,7 +87,7 @@
     "cookie-parser": "^1.4.7",
     "cron": "^4.4.0",
     "csv-parser": "^3.2.1",
-    "dotenv": "^17.2.3",
+    "dotenv": "^18.0.5",
     "express": "^5.1.0",
     "heic-convert": "^2.1.0",
     "helmet": "^8.1.0",
