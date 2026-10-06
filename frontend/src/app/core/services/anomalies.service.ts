@@ -43,6 +43,7 @@ export interface Anomalies {
   assets_without_classification: AnomalyList<{id: number; asset_name: string; missing: string}>;
   invoices_on_ceased_utilities: AnomalyList<{invoice_id: number; number: string; invoice_date: string; utility_id: number; utility_code: string}>;
   utilities_with_uncommitted_chapter: AnomalyList<UtilityAnomaly & {chapter: string}>;
+  active_utilities_without_chapter: AnomalyList<UtilityAnomaly>;
   invoice_lines_without_utility: AnomalyList<{invoice_id: number; number: string; supply_code: string | null; amount: number}>;
 }
 

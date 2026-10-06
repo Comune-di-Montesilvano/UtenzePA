@@ -97,8 +97,8 @@
                     <td style="padding: 0.5rem;">
                       @if (item.contract.cig_contract) {
                         CIG {{ item.contract.cig_contract }}
-                      } @else if (item.contract.cig_exempt) {
-                        #{{ item.contract.id }} (escluso da CIG)
+                      } @else if (noCigLabel(item.contract.contract_kind)) {
+                        #{{ item.contract.id }} ({{ noCigLabel(item.contract.contract_kind) | lowercase }})
                       } @else {
                         #{{ item.contract.id }} <span class="badge severity-danger">CIG mancante</span>
                       }

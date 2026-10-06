@@ -1,3 +1,4 @@
+import {ContractKind, noCigLabel} from '../contracts/contract-kind';
 import {ChangeDetectionStrategy, Component, inject, OnInit, QueryList, ViewChild, ViewChildren} from '@angular/core';
 import {AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
@@ -158,7 +159,8 @@ export class UtilityEditDialogComponent implements OnInit {
     // valgono anche senza le relazioni caricate.
     asset_ids: [this.data.item.asset_ids ?? (this.data.item.assets ?? []).map(a => a.id)],
     plant_ids: [this.data.item.plant_ids ?? (this.data.item.plants ?? []).map(p => p.id)],
-    budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null, Validators.required],
+    // Facoltativo: senza capitolo l'utenza va tra le segnalazioni, salvo contratto a titolo gratuito.
+    budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null],
     transferred_to_third_party_id: [this.data.item.transferred_to_third_party_id ?? null],
     transferred_on: [this.toDate(this.data.item.transferred_on)],
     arera_category: [this.data.item.arera_category ?? null],
@@ -208,7 +210,7 @@ export class UtilityEditDialogComponent implements OnInit {
   readonly plantStatusOf = (p: PlantRow): StatusInfo | null => (p.status ? plantStatus(p.status) : null);
 
   readonly contractColumns: LinkedColumn<Contract>[] = [
-    {label: 'CIG', value: c => c.cig_contract || (c.cig_exempt ? 'Escluso da CIG' : '—')},
+    {label: 'CIG', value: c => c.cig_contract || (noCigLabel(c.contract_kind) ?? '—')},
     {label: 'Fornitore', value: c => partyName(c.supplier)},
     {label: 'Decorrenza', value: c => dateIt(c.supply_start_date)},
     {label: 'Scadenza', value: c => dateIt(c.supply_expiry_date)},
@@ -287,6 +289,11 @@ export class UtilityEditDialogComponent implements OnInit {
       this.loadPlants();
       this.addPlant(p.id);
     });
+  }
+
+  // Fornitura di un contratto a titolo gratuito aperto: capitolo non necessario.
+  get freeOfCharge(): boolean {
+    return this.contracts.some(c => !c.closed && c.contract_kind === ContractKind.FREE);
   }
 
   // Contratto aperto dell'utenza, solo se uno: precompila la nuova fattura.
@@ -524,17 +531,20 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   private buildBudgetChapterOptions(): void {
-    // Capitolo senza tipi = tutti (es. SPRAR). Solo ordinamento, nessun blocco.
+    // Prima i capitoli del tipo dell'utenza, poi quelli senza tipi (validi per
+    // tutti, es. SPRAR), poi gli altri; dentro ogni gruppo in ordine di
+    // capitolo/articolo. Solo ordinamento, nessun blocco.
     const typeId = this.form.controls.utility_type_id_fk.value;
-    const compatible = (c: BudgetChapter) =>
-      typeId == null || !c.utilityTypes?.length || c.utilityTypes.some(t => t.id === typeId);
+    const tier = (c: BudgetChapter) =>
+      typeId == null ? 0 : c.utilityTypes?.some(t => t.id === typeId) ? 0 : !c.utilityTypes?.length ? 1 : 2;
+    const compatible = (c: BudgetChapter) => tier(c) < 2;
     const label = (c: BudgetChapter) => `${c.chapter_code}/${c.article ?? 0} — ${c.description ?? ''}`.trim();
     const committed = (c: BudgetChapter) => this.committedChapterIds.has(c.id);
     this.budgetChapterOptions = [...this.budgetChapters]
       .sort((a, b) =>
-        Number(committed(b)) - Number(committed(a)) ||
-        Number(compatible(b)) - Number(compatible(a)) ||
-        label(a).localeCompare(label(b)))
+        tier(a) - tier(b) ||
+        a.chapter_code.localeCompare(b.chapter_code, 'it', {numeric: true}) ||
+        Number(a.article ?? 0) - Number(b.article ?? 0))
       .map(c => {
         const parts = [
           committed(c) ? 'impegnato sui contratti dell’utenza' : null,

@@ -156,8 +156,9 @@ export class Utility {
   @JoinColumn({ name: 'updated_by_user_id' })
   updated_by: SystemUser;
 
-  @Column({ type: 'int' })
-  budget_chapter_code_fk: number;
+  // Facoltativo (es. utenze di un contratto a titolo gratuito).
+  @Column({ type: 'int', nullable: true })
+  budget_chapter_code_fk: number | null;
 
   @ManyToOne(() => UtilityType, (type) => type.utilities)
   @JoinColumn({ name: 'utility_type_id_fk', referencedColumnName: 'id' })

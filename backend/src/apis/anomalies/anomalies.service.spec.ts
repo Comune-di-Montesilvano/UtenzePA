@@ -65,7 +65,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(18);
+    expect(query).toHaveBeenCalledTimes(19);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -243,6 +243,32 @@ describe('AnomaliesService', () => {
     expect(sql).toContain(
       'EXISTS (SELECT 1 FROM budget_commitments any_c WHERE any_c.contract_id_fk = c.id AND any_c.deleted = 0)',
     );
+  });
+
+  it('CIG: richiesto solo ai contratti ordinari (non esclusi né gratuiti)', async () => {
+    await service.getAnomalies();
+    const sqls = query.mock.calls.map(([s]) => String(s));
+    expect(sqls.find((s) => s.includes('AS agreement'))).toContain(
+      "c.contract_kind = 'STANDARD'",
+    );
+    expect(sqls.some((s) => s.includes("c.contract_kind <> 'STANDARD'"))).toBe(true);
+    expect(sqls.some((s) => s.includes('cig_exempt'))).toBe(false);
+  });
+
+  it('utenze attive senza capitolo, escluse quelle di un contratto a titolo gratuito', async () => {
+    query.mockImplementation(async (sql: string) =>
+      sql.includes('u.budget_chapter_code_fk IS NULL')
+        ? [{ id: '8', utility_id: 'IT08', type: 'gas', contracts: '#10 ACA' }]
+        : [],
+    );
+    const result = await service.getAnomalies();
+    expect(result.active_utilities_without_chapter).toEqual({
+      count: 1,
+      items: [{ id: 8, utility_id: 'IT08', type: 'gas', contracts: '#10 ACA' }],
+    });
+    const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('u.budget_chapter_code_fk IS NULL'));
+    expect(sql).toContain('u.supply_active = 1');
+    expect(sql).toContain("c.contract_kind = 'FREE'");
   });
 
   it('righe fattura senza utenza', async () => {

@@ -99,4 +99,5 @@ export const UTILITY_SIGNALS: SignalDef[] = [
   {key: 'utilities_to_transfer', label: 'Da volturare'},
   {key: 'utilities_to_recover', label: 'Volturate da riprendere'},
   {key: 'utilities_with_uncommitted_chapter', label: 'Capitolo non impegnato sul contratto di fornitura'},
+  {key: 'active_utilities_without_chapter', label: 'Senza capitolo di spesa'},
 ];

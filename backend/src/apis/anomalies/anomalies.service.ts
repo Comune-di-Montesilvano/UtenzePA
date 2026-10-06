@@ -56,6 +56,7 @@ export interface Anomalies {
     utility_code: string;
   }>;
   utilities_with_uncommitted_chapter: AnomalyList<UtilityAnomaly & { chapter: string }>;
+  active_utilities_without_chapter: AnomalyList<UtilityAnomaly>;
   invoice_lines_without_utility: AnomalyList<{
     invoice_id: number;
     number: string;
@@ -93,7 +94,7 @@ export class AnomaliesService {
        FROM contracts c
        LEFT JOIN third_parties s ON s.id = c.supplier_id_fk
        LEFT JOIN consip_agreement ca ON ca.id = c.consip_agreement_id
-       WHERE c.deleted = 0 AND c.closed = 0 AND c.cig_exempt = 0 AND NOT ${HAS_CIG}
+       WHERE c.deleted = 0 AND c.closed = 0 AND c.contract_kind = 'STANDARD' AND NOT ${HAS_CIG}
        ORDER BY supplier, c.id`,
     );
 
@@ -116,7 +117,7 @@ export class AnomaliesService {
     const withoutCigContract: UtilityAnomaly[] = await this.dataSource.query(
       `SELECT ${utilityColumns}, ${currentContractsList} ${activeUtilities}
        AND EXISTS (${currentContractOf()})
-       AND NOT EXISTS (${currentContractOf(`AND (${HAS_CIG} OR c.cig_exempt = 1)`)})
+       AND NOT EXISTS (${currentContractOf(`AND (${HAS_CIG} OR c.contract_kind <> 'STANDARD')`)})
        ORDER BY t.name, u.utility_id`,
     );
 
@@ -296,6 +297,15 @@ export class AnomaliesService {
        ORDER BY t.name, u.utility_id`,
     );
 
+    // Capitolo facoltativo sull'utenza: senza capitolo è da sistemare, salvo
+    // che la fornitura sia di un contratto a titolo gratuito in corso.
+    const withoutChapter: Record<string, unknown>[] = await this.dataSource.query(
+      `SELECT ${utilityColumns}, ${currentContractsList} ${activeUtilities}
+       AND u.budget_chapter_code_fk IS NULL
+       AND NOT EXISTS (${currentContractOf("AND c.contract_kind = 'FREE'")})
+       ORDER BY t.name, u.utility_id`,
+    );
+
     const withoutUtility: Record<string, unknown>[] = await this.dataSource.query(
       `SELECT i.id AS invoice_id, i.invoice_id AS number, il.supply_code, il.amount
        FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0
@@ -320,6 +330,14 @@ export class AnomaliesService {
           type: (r.type as string) ?? null,
           contracts: (r.contracts as string) ?? null,
           chapter: String(r.chapter),
+        })),
+      ),
+      active_utilities_without_chapter: list(
+        withoutChapter.map((r) => ({
+          id: Number(r.id),
+          utility_id: String(r.utility_id),
+          type: (r.type as string) ?? null,
+          contracts: (r.contracts as string) ?? null,
         })),
       ),
       invoice_lines_without_utility: list(

@@ -71,14 +71,17 @@
           </mat-form-field>
           <div class="span-all">
             <app-filterable-select
-              label="Capitolo di Spesa *"
+              label="Capitolo di Spesa"
               placeholder="Cerca per codice, descrizione o PDC..."
               [options]="budgetChapterOptions"
               formControlName="budget_chapter_code_fk"
               [createLabel]="canEdit ? 'Nuovo capitolo' : null"
               (create)="newChapter()"
-              [errorMessage]="form.controls.budget_chapter_code_fk.invalid && form.controls.budget_chapter_code_fk.touched ? 'Obbligatorio' : null">
+              [errorMessage]="null">
             </app-filterable-select>
+            @if (freeOfCharge && !form.controls.budget_chapter_code_fk.value) {
+              <span class="sheet-hint">Contratto a titolo gratuito: capitolo non necessario</span>
+            }
           </div>
         </div>
 

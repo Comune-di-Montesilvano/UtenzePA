@@ -1,3 +1,4 @@
+import {noCigLabel} from '../contracts/contract-kind';
 import {Component, Inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {MatCardModule} from '@angular/material/card';
@@ -32,6 +33,7 @@ type Severity = 'info' | 'success' | 'warn' | 'danger' | 'secondary' | 'contrast
              styleUrls: ['./dashboard.component.css']
            })
 export class DashboardComponent implements OnInit {
+  readonly noCigLabel = noCigLabel;
   readonly partyName = partyName;
 
   today: Date = new Date();

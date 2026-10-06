@@ -1,11 +1,13 @@
 import {
   IsBoolean,
+  IsEnum,
   IsArray,
   IsInt,
   IsOptional,
   IsString,
   MaxLength,
 } from 'class-validator';
+import { CONTRACT_KINDS, ContractKind } from '../enum/contract-kind.enum';
 import { DateOnly } from '@/common/decorators/date-only.decorator';
 
 export class UpdateContractDto {
@@ -18,8 +20,8 @@ export class UpdateContractDto {
   cig_contract?: string;
 
   @IsOptional()
-  @IsBoolean()
-  cig_exempt?: boolean;
+  @IsEnum(ContractKind, { message: `Tipologia non valida: ${CONTRACT_KINDS.join(', ')}` })
+  contract_kind?: ContractKind;
 
   @IsOptional()
   @IsBoolean()

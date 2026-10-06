@@ -144,7 +144,7 @@ export class UpdateUtilityDto {
 
   @IsOptional()
   @IsInt()
-  budget_chapter_code_fk?: number;
+  budget_chapter_code_fk?: number | null;
 
   @IsOptional()
   create_date?: string;

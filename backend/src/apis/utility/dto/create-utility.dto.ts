@@ -36,9 +36,11 @@ export class CreateUtilityDto {
   @IsInt({ each: true, message: 'Ogni impianto associato deve essere un ID intero.' })
   plant_ids?: number[];
 
-  @IsNotEmpty({ message: 'Il capitolo di spesa è obbligatorio.' })
+  // Facoltativo: senza capitolo l'utenza finisce tra le segnalazioni, salvo
+  // contratto a titolo gratuito.
+  @IsOptional()
   @IsInt()
-  budget_chapter_code_fk: number;
+  budget_chapter_code_fk?: number | null;
 
   @IsOptional()
   @IsString()

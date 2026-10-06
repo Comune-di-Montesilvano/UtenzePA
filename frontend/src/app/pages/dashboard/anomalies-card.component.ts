@@ -292,6 +292,21 @@ const formatDate = (iso: string | null): string => {
               </ul>
             </mat-expansion-panel>
             }
+            @if (data.active_utilities_without_chapter.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.active_utilities_without_chapter.count }}</span>
+                  Utenze attive senza capitolo di spesa
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (u of data.active_utilities_without_chapter.items; track u.id) {
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }}{{ u.contracts ? ' · ' + u.contracts : '' }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
             @if (data.utilities_with_uncommitted_chapter.count > 0) {
             <mat-expansion-panel>
               <mat-expansion-panel-header>
