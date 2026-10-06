@@ -71,14 +71,17 @@
           </mat-form-field>
           <div class="span-all">
             <app-filterable-select
-              label="Capitolo di Spesa *"
+              label="Capitolo di Spesa"
               placeholder="Cerca per codice, descrizione o PDC..."
               [options]="budgetChapterOptions"
               formControlName="budget_chapter_code_fk"
               [createLabel]="canEdit ? 'Nuovo capitolo' : null"
               (create)="newChapter()"
-              [errorMessage]="form.controls.budget_chapter_code_fk.invalid && form.controls.budget_chapter_code_fk.touched ? 'Obbligatorio' : null">
+              [errorMessage]="null">
             </app-filterable-select>
+            @if (freeOfCharge && !form.controls.budget_chapter_code_fk.value) {
+              <span class="sheet-hint">Contratto a titolo gratuito: capitolo non necessario</span>
+            }
           </div>
         </div>
 
@@ -193,6 +196,21 @@
               }
             </mat-select>
           </mat-form-field>
+          <mat-form-field>
+            <mat-label>Data attivazione</mat-label>
+            <input matInput [matDatepicker]="activatedPicker" formControlName="activated_on">
+            <mat-datepicker-toggle matSuffix [for]="activatedPicker"></mat-datepicker-toggle>
+            <mat-datepicker #activatedPicker></mat-datepicker>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Data cessazione</mat-label>
+            <input matInput [matDatepicker]="ceasedPicker" formControlName="ceased_on">
+            <mat-datepicker-toggle matSuffix [for]="ceasedPicker"></mat-datepicker-toggle>
+            <mat-datepicker #ceasedPicker></mat-datepicker>
+            @if (ceasedButActive) {
+              <mat-hint>Fornitura ancora segnata attiva</mat-hint>
+            }
+          </mat-form-field>
           @if (isMetered) {
           <mat-form-field>
             <mat-label>Contatore Rimosso</mat-label>
@@ -220,6 +238,52 @@
           </mat-form-field>
           }
         </div>
+        @if (form.hasError('ceasedBeforeActivated')) {
+          <div class="sheet-hint" style="color: var(--mat-sys-error, #b3261e);">La data di cessazione non può precedere quella di attivazione.</div>
+        }
+
+        @if (showInternetFields) {
+        <div class="sheet-section-title">Caratteristiche della linea</div>
+        <div class="sheet-grid">
+          <mat-form-field>
+            <mat-label>Tecnologia</mat-label>
+            <mat-select formControlName="internet_technology">
+              <mat-option [value]="null">—</mat-option>
+              @for (opt of internetTechnologyOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Download (Mbit/s)</mat-label>
+            <input matInput type="number" step="0.01" min="0" formControlName="download_mbps">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Upload (Mbit/s)</mat-label>
+            <input matInput type="number" step="0.01" min="0" formControlName="upload_mbps">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Banda minima garantita (Mbit/s)</mat-label>
+            <input matInput type="number" step="0.01" min="0" formControlName="guaranteed_mbps">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Modem incluso</mat-label>
+            <mat-select formControlName="modem_included">
+              @for (opt of yesNoUnknownOptions; track opt.label) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>IP statico</mat-label>
+            <mat-select formControlName="static_ip">
+              @for (opt of yesNoUnknownOptions; track opt.label) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
+        }
 
         @if (showLightFields || showGasFields) {
         <div class="sheet-section-title">Caratteristiche tecniche</div>

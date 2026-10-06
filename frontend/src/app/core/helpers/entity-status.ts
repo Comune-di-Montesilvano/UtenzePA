@@ -1,3 +1,4 @@
+import {ContractKind} from '../../pages/contracts/contract-kind';
 import {AssetStatus} from '../../pages/assets/enum/asset-status.enum';
 import {
   INSPECTION_LABEL,
@@ -120,8 +121,9 @@ export function supplyContractStatus(
 }
 
 // Stessa regola del validatore cigRequiredUnlessExempt del dialog.
-export function supplyContractFlags(c: {cig_contract?: string | null; cig_exempt?: boolean | null; closed?: boolean | null}): StatusInfo[] {
-  if (c.cig_exempt) return [{tone: 'info', label: 'Escluso da CIG', icon: 'info'}];
+export function supplyContractFlags(c: {cig_contract?: string | null; contract_kind?: ContractKind | null; closed?: boolean | null}): StatusInfo[] {
+  if (c.contract_kind === ContractKind.FREE) return [{tone: 'info', label: 'A titolo gratuito', icon: 'volunteer_activism'}];
+  if (c.contract_kind === ContractKind.CIG_EXEMPT) return [{tone: 'info', label: 'Escluso da CIG', icon: 'info'}];
   if (!(c.cig_contract ?? '').trim() && !c.closed) {
     return [{tone: 'danger', label: 'Senza CIG', icon: 'report', tooltip: 'Senza CIG il contratto è considerato inesistente'}];
   }

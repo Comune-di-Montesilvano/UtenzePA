@@ -6,11 +6,13 @@ import { ConsipAgreement } from '../../consip-agreement/entity/consip-agreement.
 import { Utility } from '../../utilities/entity/utility.entity';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
 import { DateOnly } from '../../../core/helpers/date.helper';
+import { ContractKind } from '../contract-kind';
 
 export class Contract extends AbstractEntity implements IContract {
   supplier_id_fk?: number | null;
   cig_contract?: string;
-  cig_exempt?: boolean;
+  // Ordinario, escluso da CIG o a titolo gratuito.
+  contract_kind?: ContractKind;
   // Manutenzione compresa nel contratto (es. convenzione Consip Luce).
   maintenance_included?: boolean;
   // Chiuso/scaduto esplicito: mai corrente, anche senza date.

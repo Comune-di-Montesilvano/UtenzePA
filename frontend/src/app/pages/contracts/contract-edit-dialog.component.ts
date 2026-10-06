@@ -15,6 +15,7 @@ import {Utility} from '../utilities/entity/utility.entity';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {Contract} from './entity/contract.entity';
+import {CONTRACT_KIND_OPTIONS, ContractKind, isCigRequired} from './contract-kind';
 import {AuthService} from '../../services/auth.service';
 import {TOption} from '../../core/types/option.interface';
 import {ThirdPartiesService} from '../third-parties/third-parties.service';
@@ -42,12 +43,12 @@ export interface ContractDialogExtra {
   preselectedUtilityIds?: number[];
 }
 
-// CIG obbligatorio salvo contratto escluso (stessa regola del backend).
+// CIG obbligatorio solo per i contratti ordinari (stessa regola del backend).
 function cigRequiredUnlessExempt(group: AbstractControl): ValidationErrors | null {
   const cig = (group.get('cig_contract')?.value ?? '').toString().trim();
-  const exempt = !!group.get('cig_exempt')?.value;
+  const required = isCigRequired(group.get('contract_kind')?.value);
   const closed = !!group.get('closed')?.value;
-  return !cig && !exempt && !closed ? {cigRequired: true} : null;
+  return !cig && required && !closed ? {cigRequired: true} : null;
 }
 
 @Component({
@@ -63,6 +64,8 @@ function cigRequiredUnlessExempt(group: AbstractControl): ValidationErrors | nul
   templateUrl: './contract-edit-dialog.component.html'
 })
 export class ContractEditDialogComponent implements OnInit {
+  readonly contractKindOptions = CONTRACT_KIND_OPTIONS;
+  readonly isCigRequired = isCigRequired;
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<ContractEditDialogComponent, Contract | undefined>);
   private authService = inject(AuthService);
@@ -118,7 +121,7 @@ export class ContractEditDialogComponent implements OnInit {
 
   form = this.fb.group({
     cig_contract: [this.data.item.cig_contract ?? ''],
-    cig_exempt: [this.data.item.cig_exempt ?? false],
+    contract_kind: [this.data.item.contract_kind ?? ContractKind.STANDARD],
     maintenance_included: [this.data.item.maintenance_included ?? false],
     closed: [this.data.item.closed ?? false],
     consip_order: [this.data.item.consip_order ?? ''],

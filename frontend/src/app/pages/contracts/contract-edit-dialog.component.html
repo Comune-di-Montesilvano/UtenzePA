@@ -21,16 +21,23 @@
 
         @if (form.hasError('cigRequired')) {
           <div class="sheet-alert tone-danger">
-            Contratto senza CIG: senza CIG il contratto è considerato inesistente. Inserisci il CIG oppure marca il contratto come escluso.
+            Contratto senza CIG: senza CIG il contratto è considerato inesistente. Inserisci il CIG oppure scegli la tipologia "Escluso da CIG" o "A titolo gratuito".
           </div>
         }
 
         <div class="sheet-grid">
           <mat-form-field class="span-2">
-            <mat-label>CIG{{ form.controls.cig_exempt.value ? '' : ' *' }}</mat-label>
+            <mat-label>Tipologia</mat-label>
+            <mat-select formControlName="contract_kind">
+              @for (opt of contractKindOptions; track opt.value) {
+                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field class="span-2">
+            <mat-label>CIG{{ isCigRequired(form.controls.contract_kind.value) ? ' *' : '' }}</mat-label>
             <input matInput formControlName="cig_contract">
           </mat-form-field>
-          <mat-checkbox formControlName="cig_exempt" style="align-self: center;">Escluso da CIG (es. in house)</mat-checkbox>
           <mat-checkbox formControlName="maintenance_included" style="align-self: center;">Manutenzione inclusa</mat-checkbox>
           <mat-checkbox formControlName="closed" style="align-self: center;"
                         matTooltip="Chiuso/scaduto: non è mai il contratto corrente delle utenze, anche senza date">Contratto chiuso</mat-checkbox>

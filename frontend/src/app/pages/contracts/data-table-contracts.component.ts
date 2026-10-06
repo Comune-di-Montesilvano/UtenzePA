@@ -1,3 +1,4 @@
+import {noCigLabel} from './contract-kind';
 import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
@@ -31,6 +32,7 @@ import {partyName} from '../../core/helpers/party-name.helper';
   templateUrl: './data-table-contracts.component.html'
 })
 export class DataTableContractsComponent extends AbstractDataTableComponent<Contract> {
+  readonly noCigLabel = noCigLabel;
   readonly partyName = partyName;
 
   readonly allColumns: IColumnDef[] = [

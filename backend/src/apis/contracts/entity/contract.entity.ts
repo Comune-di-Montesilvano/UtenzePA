@@ -1,3 +1,4 @@
+import { ContractKind } from '../enum/contract-kind.enum';
 import {
   Column,
   CreateDateColumn,
@@ -29,10 +30,9 @@ export class Contract {
   @Column({ type: 'text', nullable: true })
   cig_contract: string;
 
-  // Contratto per cui il CIG non è richiesto (es. servizio idrico in house,
-  // connettività): senza questo flag il CIG è obbligatorio.
-  @Column({ type: 'boolean', default: false })
-  cig_exempt: boolean;
+  // Ordinario (CIG obbligatorio), escluso da CIG o a titolo gratuito.
+  @Column({ type: 'enum', enum: ContractKind, default: ContractKind.STANDARD })
+  contract_kind: ContractKind;
 
   // Manutenzione compresa nel contratto di fornitura (es. convenzione Consip
   // Luce): le utenze collegate risultano "Manutenzione: Fornitore".

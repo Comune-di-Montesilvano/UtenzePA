@@ -13,6 +13,7 @@ import {partyName} from '../../core/helpers/party-name.helper';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {ARERA_CATEGORY_LABEL, ARERA_NONE, AreraCategory, GAS_USE_OPTIONS} from './arera-category';
+import {INTERNET_TECHNOLOGY_OPTIONS} from './internet-technology';
 
 const byLabel = (a: TOption, b: TOption) => (a.label ?? '').localeCompare(b.label ?? '');
 
@@ -56,6 +57,8 @@ export function utilityFilters(): FilterDef[] {
     {key: 'disconnectable', label: 'Disalimentabilità', type: 'select', group: 'Caratteristiche tecniche',
       options: [{label: 'Sì', value: 'true'}, {label: 'No', value: 'false'}, {label: 'Non noto', value: 'unknown'}]},
     {key: 'wbs_gas_element', label: 'WBS gas', type: 'text', group: 'Caratteristiche tecniche'},
+    {key: 'internet_technology', label: 'Tecnologia (connettività)', type: 'select', group: 'Caratteristiche tecniche',
+      options: INTERNET_TECHNOLOGY_OPTIONS},
 
     {key: 'meter_removed', label: 'Contatore rimosso', type: 'bool', group: 'Stato'},
     {key: 'meter_verified', label: 'Contatore verificato', type: 'bool', group: 'Stato'},
@@ -99,4 +102,5 @@ export const UTILITY_SIGNALS: SignalDef[] = [
   {key: 'utilities_to_transfer', label: 'Da volturare'},
   {key: 'utilities_to_recover', label: 'Volturate da riprendere'},
   {key: 'utilities_with_uncommitted_chapter', label: 'Capitolo non impegnato sul contratto di fornitura'},
+  {key: 'active_utilities_without_chapter', label: 'Senza capitolo di spesa'},
 ];

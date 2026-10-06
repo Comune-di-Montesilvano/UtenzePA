@@ -1,3 +1,4 @@
+import { InternetTechnology } from '../internet-technology';
 import {
   Column,
   CreateDateColumn,
@@ -132,6 +133,34 @@ export class Utility {
   @Column({ type: 'date', nullable: true })
   transferred_on: string | null;
 
+  // Vita dell'utenza, distinta da quella del contratto di fornitura (es. più
+  // linee dello stesso contratto attivate in date diverse).
+  @Column({ type: 'date', nullable: true })
+  activated_on: string | null;
+
+  @Column({ type: 'date', nullable: true })
+  ceased_on: string | null;
+
+  // Connettività: dati tecnici della linea.
+  @Column({ type: 'enum', enum: InternetTechnology, nullable: true })
+  internet_technology: InternetTechnology | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  download_mbps: number | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  upload_mbps: number | null;
+
+  // Banda minima garantita.
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  guaranteed_mbps: number | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  modem_included: boolean | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  static_ip: boolean | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   create_date: string;
 
@@ -156,8 +185,9 @@ export class Utility {
   @JoinColumn({ name: 'updated_by_user_id' })
   updated_by: SystemUser;
 
-  @Column({ type: 'int' })
-  budget_chapter_code_fk: number;
+  // Facoltativo (es. utenze di un contratto a titolo gratuito).
+  @Column({ type: 'int', nullable: true })
+  budget_chapter_code_fk: number | null;
 
   @ManyToOne(() => UtilityType, (type) => type.utilities)
   @JoinColumn({ name: 'utility_type_id_fk', referencedColumnName: 'id' })

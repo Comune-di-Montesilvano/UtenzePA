@@ -1,3 +1,4 @@
+import {ContractKind, noCigLabel} from '../contracts/contract-kind';
 import {ChangeDetectionStrategy, Component, inject, OnInit, QueryList, ViewChild, ViewChildren} from '@angular/core';
 import {AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
@@ -19,6 +20,7 @@ import {HardType, HardTypeColor, HardTypeMatIcon} from '../utility-types/enum/ha
 import {Phase} from './enum/phase.enum';
 import {Asset} from '../assets/entity/asset.entity';
 import {areraOptionsFor, DISCONNECTABLE_OPTIONS, GAS_USE_OPTIONS} from './arera-category';
+import {INTERNET_TECHNOLOGY_OPTIONS} from './internet-technology';
 import {TOption} from '../../core/types/option.interface';
 import {AssetService} from '../assets/asset.service';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
@@ -53,6 +55,13 @@ function atLeastOneLink(group: AbstractControl): ValidationErrors | null {
   const assets = (group.get('asset_ids')?.value ?? []) as unknown[];
   const plants = (group.get('plant_ids')?.value ?? []) as unknown[];
   return assets.length + plants.length > 0 ? null : {noLink: true};
+}
+
+// Cessazione non prima dell'attivazione (stessa regola del backend).
+function lifeDatesInOrder(group: AbstractControl): ValidationErrors | null {
+  const from = group.get('activated_on')?.value as Date | null;
+  const to = group.get('ceased_on')?.value as Date | null;
+  return from && to && to.getTime() < from.getTime() ? {ceasedBeforeActivated: true} : null;
 }
 
 // Riga impianto: dall'elenco completo, o dai dati parziali dell'utenza
@@ -127,6 +136,9 @@ export class UtilityEditDialogComponent implements OnInit {
   // Dall'utilityType già presente sull'item (edit) o null (create).
   selectedHardType: HardType | null = this.data.item.utilityType?.hard_type ?? null;
   readonly disconnectableOptions = DISCONNECTABLE_OPTIONS;
+  // Sì / No / Non noto (modem incluso, IP statico).
+  readonly yesNoUnknownOptions = DISCONNECTABLE_OPTIONS;
+  readonly internetTechnologyOptions = INTERNET_TECHNOLOGY_OPTIONS;
   readonly gasUseOptions = GAS_USE_OPTIONS;
   readonly hardTypeGas = HardType.GAS;
   areraOptions = areraOptionsFor(this.selectedHardType);
@@ -135,6 +147,13 @@ export class UtilityEditDialogComponent implements OnInit {
   get showGasFields(): boolean { return this.selectedHardType === HardType.GAS; }
   // Internet: niente contatore, consumi, disalimentabilità né deposito cauzionale.
   get isMetered(): boolean { return this.selectedHardType !== HardType.INTERNET; }
+  get showInternetFields(): boolean { return this.selectedHardType === HardType.INTERNET; }
+
+  // Cessazione già passata ma fornitura ancora segnata attiva.
+  get ceasedButActive(): boolean {
+    const ceased = this.form.controls.ceased_on.value as Date | null;
+    return !!ceased && ceased.getTime() <= new Date().setHours(0, 0, 0, 0) && this.form.controls.supply_active.value === true;
+  }
   get isWater(): boolean { return this.selectedHardType === HardType.WATER; }
 
   // Se la relazione non è popolata (FK orfana o non caricata), il campo FK
@@ -158,9 +177,18 @@ export class UtilityEditDialogComponent implements OnInit {
     // valgono anche senza le relazioni caricate.
     asset_ids: [this.data.item.asset_ids ?? (this.data.item.assets ?? []).map(a => a.id)],
     plant_ids: [this.data.item.plant_ids ?? (this.data.item.plants ?? []).map(p => p.id)],
-    budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null, Validators.required],
+    // Facoltativo: senza capitolo l'utenza va tra le segnalazioni, salvo contratto a titolo gratuito.
+    budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null],
     transferred_to_third_party_id: [this.data.item.transferred_to_third_party_id ?? null],
     transferred_on: [this.toDate(this.data.item.transferred_on)],
+    activated_on: [this.toDate(this.data.item.activated_on)],
+    ceased_on: [this.toDate(this.data.item.ceased_on)],
+    internet_technology: [this.data.item.internet_technology ?? null],
+    download_mbps: [this.data.item.download_mbps ?? null as number | null],
+    upload_mbps: [this.data.item.upload_mbps ?? null as number | null],
+    guaranteed_mbps: [this.data.item.guaranteed_mbps ?? null as number | null],
+    modem_included: [this.data.item.modem_included ?? null],
+    static_ip: [this.data.item.static_ip ?? null],
     arera_category: [this.data.item.arera_category ?? null],
     gas_use_category: [this.data.item.gas_use_category ?? null],
     disconnectable: [this.data.item.disconnectable ?? null],
@@ -183,7 +211,7 @@ export class UtilityEditDialogComponent implements OnInit {
     voltage_kw_electric: [this.data.item.voltage_kw_electric ?? ''],
     water_concession: [this.toDate(this.data.item.water_concession)],
     wbs_gas_element: [this.data.item.wbs_gas_element ?? ''],
-  }, {validators: atLeastOneLink});
+  }, {validators: [atLeastOneLink, lifeDatesInOrder]});
 
   // Collegamenti: campi cache aggiornati da refreshLinks().
   contracts: Contract[] = this.data.item.contratti ?? [];
@@ -208,7 +236,7 @@ export class UtilityEditDialogComponent implements OnInit {
   readonly plantStatusOf = (p: PlantRow): StatusInfo | null => (p.status ? plantStatus(p.status) : null);
 
   readonly contractColumns: LinkedColumn<Contract>[] = [
-    {label: 'CIG', value: c => c.cig_contract || (c.cig_exempt ? 'Escluso da CIG' : '—')},
+    {label: 'CIG', value: c => c.cig_contract || (noCigLabel(c.contract_kind) ?? '—')},
     {label: 'Fornitore', value: c => partyName(c.supplier)},
     {label: 'Decorrenza', value: c => dateIt(c.supply_start_date)},
     {label: 'Scadenza', value: c => dateIt(c.supply_expiry_date)},
@@ -287,6 +315,11 @@ export class UtilityEditDialogComponent implements OnInit {
       this.loadPlants();
       this.addPlant(p.id);
     });
+  }
+
+  // Fornitura di un contratto a titolo gratuito aperto: capitolo non necessario.
+  get freeOfCharge(): boolean {
+    return this.contracts.some(c => !c.closed && c.contract_kind === ContractKind.FREE);
   }
 
   // Contratto aperto dell'utenza, solo se uno: precompila la nuova fattura.
@@ -508,6 +541,13 @@ export class UtilityEditDialogComponent implements OnInit {
     if (this.selectedHardType !== HardType.GAS) {
       this.form.controls.gas_use_category.setValue(null);
     }
+    // I dati della linea esistono solo per la connettività.
+    if (this.selectedHardType !== HardType.INTERNET) {
+      this.form.patchValue({
+        internet_technology: null, download_mbps: null, upload_mbps: null,
+        guaranteed_mbps: null, modem_included: null, static_ip: null,
+      });
+    }
     this.buildBudgetChapterOptions();
   }
 
@@ -524,17 +564,20 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   private buildBudgetChapterOptions(): void {
-    // Capitolo senza tipi = tutti (es. SPRAR). Solo ordinamento, nessun blocco.
+    // Prima i capitoli del tipo dell'utenza, poi quelli senza tipi (validi per
+    // tutti, es. SPRAR), poi gli altri; dentro ogni gruppo in ordine di
+    // capitolo/articolo. Solo ordinamento, nessun blocco.
     const typeId = this.form.controls.utility_type_id_fk.value;
-    const compatible = (c: BudgetChapter) =>
-      typeId == null || !c.utilityTypes?.length || c.utilityTypes.some(t => t.id === typeId);
+    const tier = (c: BudgetChapter) =>
+      typeId == null ? 0 : c.utilityTypes?.some(t => t.id === typeId) ? 0 : !c.utilityTypes?.length ? 1 : 2;
+    const compatible = (c: BudgetChapter) => tier(c) < 2;
     const label = (c: BudgetChapter) => `${c.chapter_code}/${c.article ?? 0} — ${c.description ?? ''}`.trim();
     const committed = (c: BudgetChapter) => this.committedChapterIds.has(c.id);
     this.budgetChapterOptions = [...this.budgetChapters]
       .sort((a, b) =>
-        Number(committed(b)) - Number(committed(a)) ||
-        Number(compatible(b)) - Number(compatible(a)) ||
-        label(a).localeCompare(label(b)))
+        tier(a) - tier(b) ||
+        a.chapter_code.localeCompare(b.chapter_code, 'it', {numeric: true}) ||
+        Number(a.article ?? 0) - Number(b.article ?? 0))
       .map(c => {
         const parts = [
           committed(c) ? 'impegnato sui contratti dell’utenza' : null,

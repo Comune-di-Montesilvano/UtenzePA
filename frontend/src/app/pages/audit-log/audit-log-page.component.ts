@@ -14,21 +14,27 @@ import { TOption } from '../../core/types/option.interface';
 import { Observable } from 'rxjs';
 
 
-// Valori coerenti con `protected readonly entityName` dichiarato in ciascun
-// service backend (verificato in `backend/src/apis/*/*.service.ts`, non con
-// la bozza di piano originale, che aveva 3 valori errati):
-// - assets.service.ts        -> 'assets'
-// - utility.service.ts       -> 'utilities' (plurale, non 'utility')
-// - contracts.service.ts     -> 'contract'  (singolare, non 'contracts')
-// - invoice.service.ts       -> 'Invoice'   (maiuscola, non 'invoices')
-// - suppliers.service.ts     -> 'suppliers'
-// - system-users.service.ts  -> 'user'
+// Valori = `protected readonly entityName` di ciascun service backend
+// (`grep -rn "readonly entityName" backend/src/apis`): nomi storici non
+// uniformi ('contract', 'Invoice', 'user'). I fornitori sono 'third_parties'
+// dalla v1.8.0 (prima 'suppliers': questo elenco era rimasto indietro e il
+// registro dei fornitori risultava sempre vuoto).
 const ENTITY_OPTIONS: TOption[] = [
   { label: 'Immobili', value: 'assets' },
   { label: 'Utenze', value: 'utilities' },
+  { label: 'Impianti', value: 'plants' },
   { label: 'Contratti di fornitura', value: 'contract' },
+  { label: 'Contratti immobiliari', value: 'utilizer_grant' },
   { label: 'Fatture', value: 'Invoice' },
-  { label: 'Fornitori', value: 'suppliers' },
+  { label: 'Soggetti terzi (fornitori, controparti)', value: 'third_parties' },
+  { label: 'Capitoli di spesa', value: 'budget_chapters' },
+  { label: 'Impegni di spesa', value: 'budget_commitments' },
+  { label: 'Spesa storica dei capitoli', value: 'budget_chapter_spending' },
+  { label: 'Convenzioni CONSIP', value: 'consip_agreement' },
+  { label: 'Letture e consumi', value: 'utility_consumptions' },
+  { label: 'Tipi utenza', value: 'utility_types' },
+  { label: 'Tipologie immobile', value: 'asset_natures' },
+  { label: 'Funzioni immobile', value: 'asset_functions' },
   { label: 'Utenti', value: 'user' },
 ];
 
@@ -95,20 +101,25 @@ export class AuditLogPageComponent implements OnInit {
     return this.entityOptions.find((opt) => opt.value === entry.entity_name)?.label ?? entry.entity_name;
   }
 
-  // Solo immobili/utenze hanno un dialog di dettaglio già wired (Task 10/11) —
-  // per le altre entità (contratti, fatture, ecc.) l'id resta testo semplice.
+  // Schede apribili dal navigatore; per le altre entità l'id resta testo.
+  private readonly openers: Record<string, (id: number) => Observable<unknown>> = {
+    assets: id => this.navigator.openAsset(id),
+    utilities: id => this.navigator.openUtility(id),
+    plants: id => this.navigator.openPlant(id),
+    contract: id => this.navigator.openSupplyContract(id),
+    utilizer_grant: id => this.navigator.openGrant(id),
+    Invoice: id => this.navigator.openInvoice(id),
+    third_parties: id => this.navigator.openThirdParty(id),
+  };
+
   hasDetailLink(entry: AuditLogEntry): boolean {
-    return entry.entity_name === 'assets' || entry.entity_name === 'utilities';
+    return !!this.openers[entry.entity_name];
   }
 
   // Apre la scheda del record (stesso dialog di modifica usato altrove) e
   // ricarica il registro se l'utente salva qualcosa.
   openRecordDetail(entry: AuditLogEntry): void {
-    const opened: Observable<unknown> | null = entry.entity_name === 'assets'
-      ? this.navigator.openAsset(entry.entity_id)
-      : entry.entity_name === 'utilities'
-        ? this.navigator.openUtility(entry.entity_id)
-        : null;
+    const opened = this.openers[entry.entity_name]?.(entry.entity_id) ?? null;
     opened?.subscribe((saved) => {
       if (saved) this.load();
     });

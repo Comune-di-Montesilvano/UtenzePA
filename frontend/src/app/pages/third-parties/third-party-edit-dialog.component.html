@@ -113,6 +113,20 @@
           <app-linked-table [columns]="agreementColumns" [rows]="agreements"
                             emptyText="Nessuna convenzione CONSIP."></app-linked-table>
         </mat-tab>
+
+        <mat-tab aria-label="Storico">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="history" label="Storico"></app-tab-label>
+          </ng-template>
+          <ng-template matTabContent>
+            <app-entity-history
+              [entity]="'third_parties'"
+              [entityId]="data.item.id"
+              [lastModifiedBy]="data.item.updated_by ? data.item.updated_by.firstName + ' ' + data.item.updated_by.lastName : null"
+              [lastModifiedAt]="data.item.update_date ? data.item.update_date.toString() : null">
+            </app-entity-history>
+          </ng-template>
+        </mat-tab>
       }
     </mat-tab-group>
   </form>

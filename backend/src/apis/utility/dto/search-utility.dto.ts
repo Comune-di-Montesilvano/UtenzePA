@@ -1,3 +1,4 @@
+import { InternetTechnology } from '../internet-technology';
 import { DateRange } from '@common/decorators/date-range.decorator';
 import { Transform } from 'class-transformer';
 import {
@@ -180,6 +181,10 @@ export class SearchUtilityDto {
   @IsOptional()
   @IsIn(['true', 'false', 'unknown'])
   disconnectable?: 'true' | 'false' | 'unknown';
+
+  @IsOptional()
+  @IsIn(Object.values(InternetTechnology))
+  internet_technology?: InternetTechnology;
 
   @IsOptional()
   @IsString()

@@ -574,6 +574,13 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
   }
 
   // Voltura: soggetto esistente; la data senza soggetto non ha senso.
+  // Date 'AAAA-MM-GG': il confronto tra stringhe segue l'ordine delle date.
+  private assertLifeDates(activatedOn?: string | null, ceasedOn?: string | null): void {
+    if (activatedOn && ceasedOn && ceasedOn < activatedOn) {
+      throw new BadRequestException('La data di cessazione non può precedere quella di attivazione.');
+    }
+  }
+
   private async assertTransfer(
     thirdPartyId: number | null | undefined,
     transferredOn: string | null | undefined,
@@ -596,6 +603,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     await this.assertMeterAvailable(rest.meter_number, null);
     await this.assertAreraCategory(rest.utility_type_id_fk, rest.arera_category, rest.gas_use_category);
     await this.assertTransfer(rest.transferred_to_third_party_id, rest.transferred_on);
+    this.assertLifeDates(rest.activated_on, rest.ceased_on);
     const estimate = Number(rest.estimated_annual_consumption ?? 0);
     const assets = await this.resolveAssets(asset_ids ?? []);
     const plants = await this.resolvePlants(plant_ids ?? []);
@@ -641,6 +649,12 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
         rest.utility_type_id_fk ?? current.utility_type_id_fk,
         rest.arera_category !== undefined ? rest.arera_category : current.arera_category,
         rest.gas_use_category !== undefined ? rest.gas_use_category : current.gas_use_category,
+      );
+    }
+    if (rest.activated_on !== undefined || rest.ceased_on !== undefined) {
+      this.assertLifeDates(
+        rest.activated_on !== undefined ? rest.activated_on : current.activated_on,
+        rest.ceased_on !== undefined ? rest.ceased_on : current.ceased_on,
       );
     }
     if (linksChanged) {

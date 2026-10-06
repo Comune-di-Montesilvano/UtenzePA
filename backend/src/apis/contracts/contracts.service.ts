@@ -1,3 +1,4 @@
+import { ContractKind } from './enum/contract-kind.enum';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DateHelper } from '@/helpers/date.helpers';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -9,6 +10,10 @@ import { UpdateContractDto } from '@apis/contracts/dto/update-contract.dto';
 import { SearchContractDto } from '@apis/contracts/dto/search-contract.dto';
 import { BaseService, toFindOptionsRelations } from '@apis/shared/base.service';
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
+
+// Assente = ordinario.
+const isCigRequired = (kind: ContractKind | null | undefined): boolean =>
+  (kind ?? ContractKind.STANDARD) === ContractKind.STANDARD;
 
 @Injectable()
 export class ContractsService extends BaseService<Contract, CreateContractDto, UpdateContractDto> {
@@ -49,7 +54,7 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
         qb.andWhere(`${alias}.supplier_id_fk = :supplier_id_fk`, { supplier_id_fk: filters.supplier_id_fk });
       }
       if (filters.missing_cig) {
-        qb.andWhere(`TRIM(IFNULL(${alias}.cig_contract, '')) = '' AND ${alias}.cig_exempt = 0`);
+        qb.andWhere(`TRIM(IFNULL(${alias}.cig_contract, '')) = '' AND ${alias}.contract_kind = '${ContractKind.STANDARD}'`);
       }
       if (filters.closed !== undefined) {
         qb.andWhere(`${alias}.closed = :closed`, { closed: filters.closed });
@@ -84,21 +89,23 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
     }
   }
 
-  // CIG obbligatorio salvo contratto escluso (cig_exempt) o chiuso (storico).
+  // CIG obbligatorio solo per i contratti ordinari e non chiusi (storico).
   private assertCigPresent(
     cig: string | null | undefined,
-    exempt: boolean | null | undefined,
+    kind: ContractKind | null | undefined,
     closed?: boolean | null,
   ): void {
-    if (!exempt && !closed && !(cig ?? '').trim()) {
-      throw new BadRequestException('CIG obbligatorio: inseriscilo oppure marca il contratto come escluso da CIG.');
+    if (isCigRequired(kind) && !closed && !(cig ?? '').trim()) {
+      throw new BadRequestException(
+        'CIG obbligatorio: inseriscilo oppure scegli la tipologia "Escluso da CIG" o "A titolo gratuito".',
+      );
     }
   }
 
   async create(dto: CreateContractDto, userId?: number): Promise<Contract> {
     const { utility_ids, ...rest } = dto;
-    this.assertCigPresent(rest.cig_contract, rest.cig_exempt, rest.closed);
-    if (!rest.cig_exempt) await this.assertCigAvailable(rest.cig_contract, null);
+    this.assertCigPresent(rest.cig_contract, rest.contract_kind, rest.closed);
+    if (isCigRequired(rest.contract_kind)) await this.assertCigAvailable(rest.cig_contract, null);
 
     const saved = await this.dataSource.transaction(async (manager) => {
       const entity = manager.create(Contract, {
@@ -138,7 +145,7 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
     if (!before) throw new BadRequestException('elemento non trovato');
     this.assertCigPresent(
       rest.cig_contract !== undefined ? rest.cig_contract : before.cig_contract,
-      rest.cig_exempt !== undefined ? rest.cig_exempt : before.cig_exempt,
+      rest.contract_kind !== undefined ? rest.contract_kind : before.contract_kind,
       rest.closed !== undefined ? rest.closed : before.closed,
     );
     if (rest.cig_contract !== undefined) await this.assertCigAvailable(rest.cig_contract, id);

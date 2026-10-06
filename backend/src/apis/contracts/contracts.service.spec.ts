@@ -158,7 +158,7 @@ describe('ContractsService', () => {
     it('CIG vuoto su contratto escluso: nessun controllo di unicità', async () => {
       manager.save.mockImplementation(async (_e, data) => ({ id: 51, ...data }));
       manager.findOne.mockResolvedValue({ id: 51, updated_by_user_id: 1 });
-      await service.create({ cig_contract: '  ', cig_exempt: true, utility_ids: [] } as never, 1);
+      await service.create({ cig_contract: '  ', contract_kind: 'CIG_EXEMPT', utility_ids: [] } as never, 1);
       expect(repo.createQueryBuilder).not.toHaveBeenCalled();
     });
   });
@@ -171,21 +171,26 @@ describe('ContractsService', () => {
 
     it('create senza CIG ma escluso → ammesso', async () => {
       manager.findOne.mockResolvedValue({ id: 60, updated_by_user_id: 1 });
-      await expect(service.create({ cig_exempt: true, utility_ids: [] } as never, 1)).resolves.toMatchObject({ id: 60 });
+      await expect(service.create({ contract_kind: 'CIG_EXEMPT', utility_ids: [] } as never, 1)).resolves.toMatchObject({ id: 60 });
     });
 
     it('update di un contratto senza CIG che non lo aggiunge → 400', async () => {
-      repo.findOne.mockResolvedValue({ id: 30, cig_contract: null, cig_exempt: false });
+      repo.findOne.mockResolvedValue({ id: 30, cig_contract: null, contract_kind: 'STANDARD' });
       await expect(service.update(30, { consip_order: 'X' } as never, 1)).rejects.toThrow(/CIG obbligatorio/);
     });
 
     it('update che rimuove il CIG da un contratto non escluso → 400', async () => {
-      repo.findOne.mockResolvedValue({ id: 31, cig_contract: 'ABC', cig_exempt: false });
+      repo.findOne.mockResolvedValue({ id: 31, cig_contract: 'ABC', contract_kind: 'STANDARD' });
       await expect(service.update(31, { cig_contract: '' } as never, 1)).rejects.toThrow(/CIG obbligatorio/);
     });
 
+    it('create a titolo gratuito senza CIG → ammesso', async () => {
+      manager.findOne.mockResolvedValue({ id: 61, updated_by_user_id: 1 });
+      await expect(service.create({ contract_kind: 'FREE', utility_ids: [] } as never, 1)).resolves.toMatchObject({ id: 61 });
+    });
+
     it('update di un contratto escluso senza CIG → ammesso', async () => {
-      repo.findOne.mockResolvedValue({ id: 32, cig_contract: null, cig_exempt: true });
+      repo.findOne.mockResolvedValue({ id: 32, cig_contract: null, contract_kind: 'CIG_EXEMPT' });
       manager.findOne.mockResolvedValue({ id: 32 });
       await expect(service.update(32, { consip_order: 'X' } as never, 1)).resolves.toBeDefined();
     });
@@ -202,7 +207,7 @@ describe('ContractsService', () => {
     it('solo contratti senza CIG e non esclusi', async () => {
       await service.findAll({ missing_cig: true } as never);
       expect(qb.andWhere).toHaveBeenCalledWith(
-        "TRIM(IFNULL(contract.cig_contract, '')) = '' AND contract.cig_exempt = 0",
+        "TRIM(IFNULL(contract.cig_contract, '')) = '' AND contract.contract_kind = 'STANDARD'",
       );
     });
   });
