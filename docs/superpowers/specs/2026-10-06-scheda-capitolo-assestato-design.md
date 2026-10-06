@@ -57,10 +57,11 @@ Esercizio in corso = anno della data odierna.
 
 ## Backend
 
-- `apis/spending/`: `forChapter(chapterId)` → righe per esercizio `{year, spending_id, initial_budget, adjusted_budget, recorded_spending, notes, committed, commitments, commitments_without_amount, invoiced, invoices, available, over_budget}`. Esercizi = unione degli anni con una riga di bilancio, un impegno o una riga fattura, più l'esercizio in corso; ordinati dal più recente. Parametro facoltativo `exclude_invoice_id` (serve all'avviso della fattura: il fatturato senza la fattura che si sta modificando).
-- `apis/spending/`: `chapterInvoiceLines(chapterId)` → righe fattura del capitolo (fattura, data, fornitore, utenza, importo, esercizio), dalla più recente.
-- `budget-commitments`: filtro per capitolo (oggi solo per contratto), con il contratto e il fornitore.
-- Endpoint `GET /budget-chapters/:id/years`, `GET /budget-chapters/:id/invoice-lines`, `GET /budget-commitments?budget_chapter_id=…`.
+- `apis/spending/chapter-year.ts` (nuovo): calcolo condiviso tra spesa e anomalie. Funzioni pure di unione (riga di bilancio + impegni + fatturato → `ChapterYear`) e `chaptersYearSummary(query, year)` per tutti i capitoli di un esercizio, con le stesse tre query raggruppate.
+- `apis/spending/`: `forChapter(chapterId)` → righe per esercizio `{year, spending_id, initial_budget, adjusted_budget, recorded_spending, notes, committed, commitments, commitments_without_amount, invoiced, invoices, available, over_budget}`. Esercizi = unione degli anni con una riga di bilancio, un impegno o una riga fattura, più l'esercizio in corso; ordinati dal più recente.
+- `apis/spending/`: `chapterInvoiceLines(chapterId)` → righe fattura del capitolo (fattura, data, fornitore, utenza, importo, esercizio), dalla più recente; `chapterCommitments(chapterId)` → impegni del capitolo con contratto e fornitore.
+- `apis/spending/`: `budgetCheck({invoice_id?, invoice_date, lines})` → per ogni capitolo + esercizio toccato dalle righe (capitolo e esercizio risolti lato backend con le regole sopra), fatturato delle altre fatture + righe inviate, avviso se supera l'assestato. Così la scheda fattura non deve conoscere i capitoli delle utenze.
+- Endpoint: `GET /budget-chapters/:id` (oggi manca, serve alla scheda aperta dal navigatore), `GET /budget-chapters/:id/years`, `GET /budget-chapters/:id/invoice-lines`, `GET /budget-chapters/:id/commitments`, `GET /spending/chapters?year=` (riepilogo dell'esercizio per l'elenco), `POST /spending/budget-check`.
 - `budget-chapter-spending`: DTO con i due importi nuovi, `amount` facoltativo, controllo "almeno un importo".
 - Anomalie (`anomalies.service.ts`), sull'esercizio in corso:
   - `chapters_over_budget`: capitoli non cancellati oltre l'assestato (con assestato, impegnato, fatturato);
@@ -71,11 +72,11 @@ Esercizio in corso = anno della data odierna.
 
 ### Scheda capitolo (shell `entity-sheet`)
 
-Aperta con `openSheet()` dall'elenco e con `EntityNavigatorService.openBudgetChapter(id)` (nuovo; usato anche dal Log modifiche e dalle schede che mostrano un capitolo: impegni del contratto, riga fattura, utenza). La creazione al volo (`createBudgetChapter`) resta il dialog semplice.
+Aperta con `openSheet()` dall'elenco e con `EntityNavigatorService.openBudgetChapter(id)` (nuovo; usato dal Log modifiche; i collegamenti dalle altre schede che mostrano un capitolo restano per un giro successivo). Anche la creazione al volo (`createBudgetChapter`) passa alla scheda: in creazione è attivo solo il Riepilogo.
 
 - **Intestazione**: "Capitolo 12332/0", descrizione, tipi utenza; badge dell'esercizio in corso: "Disponibile € …" (ok), "Oltre l'assestato" (danger), "Assestato non indicato" (neutro).
 - **Riepilogo**: i campi del capitolo (codice, articolo, PDC, tipi utenza, descrizione: come oggi), il riquadro dell'esercizio in corso (stanziamento iniziale, assestato, impegnato, fatturato, disponibile) e le anteprime Utenze (conteggio per tipo), Impegni, Fatture, che portano ai tab.
-- **Utenze**: `app-linked-table` delle utenze del capitolo (codice, tipo, immobile, stato), apribili; sopra, il riepilogo consumi per tipo che c'è già.
+- **Utenze**: il tab attuale (riepilogo consumi per tipo + tabella utenze dell'elenco Utenze, con colonne, dettaglio ed export), invariato.
 - **Impegni**: contratto (fornitore, CIG), esercizio, numero, importo; apre il contratto.
 - **Fatture**: righe fattura del capitolo (numero e data, fornitore, utenza, esercizio, importo); apre la fattura.
 - **Esercizi** (sostituisce "Spesa storica"): tabella per anno con stanziamento iniziale, assestato, impegnato ("2 senza importo"), fatturato (n. fatture), spesa ragioneria, disponibile, note; riga oltre l'assestato evidenziata. "Nuovo esercizio" e modifica della riga con il dialog esistente (`spending-edit-dialog`) esteso ai due importi nuovi, tutti facoltativi ma almeno uno. Solo Admin/Operatore.
@@ -83,7 +84,7 @@ Aperta con `openSheet()` dall'elenco e con `EntityNavigatorService.openBudgetCha
 
 ### Elenco capitoli
 
-Segnalazioni (`app-list-signals`, come utenze e contratti): "Oltre l'assestato" e "Senza assestato dell'anno". Colonne nuove facoltative: "Assestato {anno}", "Disponibile {anno}" (dal riepilogo dell'esercizio in corso, calcolato lato backend nell'elenco con una sola query raggruppata, non una chiamata per riga).
+Segnalazioni (`app-list-signals`, come utenze e contratti): "Oltre l'assestato" e "Senza assestato dell'anno". Colonne nuove facoltative: "Assestato {anno}", "Disponibile {anno}" (dal riepilogo dell'esercizio in corso, da `GET /spending/chapters?year=`: una chiamata per l'elenco, non una per riga).
 
 ### Dashboard
 
@@ -91,7 +92,7 @@ Due voci nel riquadro anomalie, con clic sulla scheda capitolo.
 
 ### Avviso nella scheda fattura
 
-Per ogni capitolo + esercizio toccato dalle righe della fattura: fatturato senza questa fattura (`exclude_invoice_id`) + righe correnti > assestato → avviso sotto le righe: "Capitolo 12332/0: con questa fattura il fatturato 2026 supera l'assestato (€ … su € …)". Nessun blocco, nessun avviso se l'assestato non c'è. Ricalcolato quando cambiano righe, importi o impegni.
+Per ogni capitolo + esercizio toccato dalle righe della fattura (`POST /spending/budget-check`): fatturato delle altre fatture + righe correnti > assestato → avviso sotto le righe: "Capitolo 12332/0: con questa fattura il fatturato 2026 supera l'assestato (€ … su € …)". Nessun blocco, nessun avviso se l'assestato non c'è. Ricalcolato quando cambiano righe, importi o impegni.
 
 ## Verifica
 
