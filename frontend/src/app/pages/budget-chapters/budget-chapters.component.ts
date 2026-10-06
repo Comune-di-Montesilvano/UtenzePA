@@ -2,7 +2,8 @@ import {Component, ChangeDetectionStrategy, ViewChild} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
 import {DataTableBudgetChaptersComponent} from './data-table-budget-chapters.component';
 import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
-import {budgetChapterFilters} from './budget-chapters-filters';
+import {budgetChapterFilters, CHAPTER_SIGNALS} from './budget-chapters-filters';
+import {ListSignalsComponent} from '../../core/components/list/list-signals.component';
 import {BudgetChaptersService} from './budget-chapters.service';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {BudgetChapter} from './entity/budget-chapter.entity';
@@ -12,7 +13,8 @@ import {BudgetChapter} from './entity/budget-chapter.entity';
   standalone: true,
   imports: [
     DataTableBudgetChaptersComponent,
-    ListFiltersComponent
+    ListFiltersComponent,
+    ListSignalsComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './budget-chapters.component.html'
@@ -22,6 +24,7 @@ export class BudgetChaptersComponent extends AbstractComponent<BudgetChapter> {
   @ViewChild('dataTable') dataTable?: DataTableBudgetChaptersComponent;
 
   override filterDefs = budgetChapterFilters();
+  readonly signals = CHAPTER_SIGNALS;
 
   constructor(protected override service: BudgetChaptersService, private route: ActivatedRoute) {
     super();

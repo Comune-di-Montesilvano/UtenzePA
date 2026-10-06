@@ -2,7 +2,10 @@
   <h1>Capitoli di spesa</h1>
   <p class="list-subtitle">Capitoli del bilancio su cui gravano utenze e fatture.</p>
   <app-list-filters [defs]="filterDefs" [values]="filterValues" placeholder="Cerca codice, articolo, descrizione..."
-                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"></app-list-filters>
+                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"
+                    [extraChips]="signalChips" (extraChipRemoved)="clearSignal()"></app-list-filters>
+  <app-list-signals [signals]="signals" [reloadToken]="signalsToken" [activeKey]="signal?.key ?? null"
+                    (selected)="onSignal($event)"></app-list-signals>
   <div style="margin-top: 1rem;">
     <app-data-table-budget-chapters
       #dataTable

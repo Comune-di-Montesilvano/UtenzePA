@@ -1,4 +1,4 @@
-import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy, inject, OnChanges} from '@angular/core';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
 import {MatPaginatorModule} from '@angular/material/paginator';
@@ -13,6 +13,9 @@ import {ListToolbarComponent} from '../../core/components/list/list-toolbar.comp
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {BudgetChapterEditDialogComponent} from './budget-chapter-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
+import {ChapterBudgetService} from './chapter-budget.service';
+import {ChapterYearSummary} from './chapter-budget.model';
+import {formatEuro} from './spending/budget-chapter-spending.service';
 
 @Component({
   selector: 'app-data-table-budget-chapters',
@@ -30,7 +33,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-budget-chapters.component.html'
 })
-export class DataTableBudgetChaptersComponent extends AbstractDataTableComponent<BudgetChapter> {
+export class DataTableBudgetChaptersComponent extends AbstractDataTableComponent<BudgetChapter> implements OnChanges {
 
   private static readonly STORAGE_KEY = 'columns:budget-chapters';
 
@@ -41,7 +44,16 @@ export class DataTableBudgetChaptersComponent extends AbstractDataTableComponent
     {field: 'pdc', header: 'PDC'},
     {field: 'description', header: 'Descrizione'},
     {field: 'utility_types', header: 'Tipi utenza'},
+    {field: 'adjusted_budget', header: `Assestato ${new Date().getFullYear()}`},
+    {field: 'available', header: `Disponibile ${new Date().getFullYear()}`},
   ];
+
+  private budget = inject(ChapterBudgetService);
+  readonly eur = formatEuro;
+  readonly year = new Date().getFullYear();
+  // Esercizio in corso per capitolo: una chiamata per l'elenco, ricaricata
+  // quando l'elenco cambia (es. dopo il Salva di una scheda).
+  yearByChapter = new Map<number, ChapterYearSummary>();
 
   selectedColumns: IColumnDef[] = this.loadColumnSelection(
     DataTableBudgetChaptersComponent.STORAGE_KEY, this.allColumns, new Set(['id', 'chapter_code', 'article', 'pdc', 'description', 'utility_types'])
@@ -59,6 +71,14 @@ export class DataTableBudgetChaptersComponent extends AbstractDataTableComponent
 
   constructor(screen: ScreenSizeService) {
     super(screen);
+  }
+
+  override ngOnChanges(): void {
+    super.ngOnChanges();
+    this.budget.yearSummary(new Date().getFullYear()).subscribe({
+      next: rows => this.yearByChapter = new Map(rows.map(r => [r.budget_chapter_id, r])),
+      error: err => console.error('Errore caricamento riepilogo esercizio:', err),
+    });
   }
 
   override itemInstance(): BudgetChapter {

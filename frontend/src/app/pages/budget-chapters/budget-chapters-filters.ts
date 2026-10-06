@@ -1,6 +1,7 @@
 import {inject} from '@angular/core';
 import {map} from 'rxjs';
 import {DELETED_FILTER, FilterDef} from '../../core/components/list/filter-def';
+import type {SignalDef} from '../../core/components/list/list-signals.component';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 
 // Filtri dell'elenco capitoli di spesa.
@@ -17,3 +18,9 @@ export function budgetChapterFilters(): FilterDef[] {
     DELETED_FILTER,
   ];
 }
+
+// Segnalazioni dell'elenco (anomalie della dashboard), sull'esercizio in corso.
+export const CHAPTER_SIGNALS: SignalDef[] = [
+  {key: 'chapters_over_budget', label: "Oltre l'assestato dell'anno"},
+  {key: 'chapters_without_budget', label: "Senza assestato dell'anno"},
+];
