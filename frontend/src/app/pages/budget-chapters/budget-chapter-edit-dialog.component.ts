@@ -12,7 +12,9 @@ import {BudgetChapterSpendingTabComponent} from './spending/budget-chapter-spend
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {BudgetChapter} from './entity/budget-chapter.entity';
-import {SupplyTypeOptions} from './enum/supply-type.enum';
+import {MultiSelectComponent} from '../../core/components/multi-select.component';
+import {UtilityTypesService} from '../utility-types/utility-types.service';
+import type {TOption} from '../../core/types/option.interface';
 import {AuthService} from '../../services/auth.service';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
@@ -33,6 +35,7 @@ import {OnlyNumbersDirective} from '../../core/directives/only-numbers.directive
     OnlyNumbersDirective,
     MatTabsModule,
     MatIconModule,
+    MultiSelectComponent,
     BudgetChapterUtilitiesTabComponent,
     BudgetChapterSpendingTabComponent
   ],
@@ -45,14 +48,14 @@ export class BudgetChapterEditDialogComponent {
   private authService = inject(AuthService);
   protected data = inject<EditDialogData<BudgetChapter>>(MAT_DIALOG_DATA);
 
-  supplyTypeOptions = SupplyTypeOptions;
+  utilityTypeOptions: TOption[] = [];
   isNew = this.data.mode === 'create';
 
   form = this.fb.group({
     chapter_code: [{value: this.data.item.chapter_code ?? '', disabled: !this.isNew}, Validators.required],
     article: [this.data.item.article ?? '', Validators.required],
     pdc: [this.data.item.pdc ?? ''],
-    supply_type: [this.data.item.supply_type ?? null, Validators.required],
+    utility_type_ids: [(this.data.item.utilityTypes ?? []).map(t => t.id)],
     description: [this.data.item.description ?? ''],
   });
 
@@ -64,6 +67,10 @@ export class BudgetChapterEditDialogComponent {
     if (!role || role === 'Lettore') {
       this.form.disable();
     }
+    inject(UtilityTypesService).search({deleted: false}).subscribe({
+      next: list => this.utilityTypeOptions = list.map(t => ({label: t.name, value: t.id})),
+      error: err => console.error('Errore nel caricamento dei tipi utenza:', err),
+    });
   }
 
   save(): void {

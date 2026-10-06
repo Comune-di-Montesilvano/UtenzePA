@@ -32,7 +32,6 @@ import {UtilityConsumptionsTabComponent} from './consumptions/utility-consumptio
 import {PlantService} from '../plants/plant.service';
 import {PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PlantStatus, PlantType} from '../plants/plant.model';
 import {BudgetChapter} from '../budget-chapters/entity/budget-chapter.entity';
-import {SupplyType, SupplyTypeDescription} from '../budget-chapters/enum/supply-type.enum';
 import {CONSUMPTION_UNIT_BY_HARD_TYPE, ConsumptionSummary, formatQty} from './consumptions/consumption.model';
 import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
@@ -48,14 +47,6 @@ import {UtilityInvoicesTabComponent} from './utility-invoices-tab.component';
 import {CommitmentService} from '../contracts/commitments/commitment.service';
 import {forkJoin} from 'rxjs';
 
-// Tipi fornitura capitolo compatibili col tipo utenza; SPRAR sempre
-// compatibile (capitolo multi-utenza). Solo ordinamento, nessun blocco.
-const CHAPTER_COMPATIBILITY: Record<HardType, SupplyType[]> = {
-  [HardType.LIGHT]: [SupplyType.ELECTRICITY],
-  [HardType.GAS]: [SupplyType.GAS_SUPPLY_ONLY, SupplyType.THERMAL_MANAGEMENT],
-  [HardType.WATER]: [SupplyType.WATER],
-  [HardType.INTERNET]: [],
-};
 
 // Un'utenza serve almeno un immobile o un impianto (stessa regola del backend).
 function atLeastOneLink(group: AbstractControl): ValidationErrors | null {
@@ -533,10 +524,10 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   private buildBudgetChapterOptions(): void {
+    // Capitolo senza tipi = tutti (es. SPRAR). Solo ordinamento, nessun blocco.
+    const typeId = this.form.controls.utility_type_id_fk.value;
     const compatible = (c: BudgetChapter) =>
-      this.selectedHardType === null ||
-      c.supply_type === SupplyType.SPRAR_UTILITIES ||
-      CHAPTER_COMPATIBILITY[this.selectedHardType].includes(c.supply_type);
+      typeId == null || !c.utilityTypes?.length || c.utilityTypes.some(t => t.id === typeId);
     const label = (c: BudgetChapter) => `${c.chapter_code}/${c.article ?? 0} — ${c.description ?? ''}`.trim();
     const committed = (c: BudgetChapter) => this.committedChapterIds.has(c.id);
     this.budgetChapterOptions = [...this.budgetChapters]
@@ -548,8 +539,8 @@ export class UtilityEditDialogComponent implements OnInit {
         const parts = [
           committed(c) ? 'impegnato sui contratti dell’utenza' : null,
           c.pdc ? `PDC ${c.pdc}` : null,
-          SupplyTypeDescription[c.supply_type] ?? null,
-          compatible(c) ? null : 'tipo fornitura diverso dall’utenza',
+          c.utilityTypesLabel,
+          compatible(c) ? null : 'tipo diverso dall’utenza',
         ].filter(Boolean);
         return {
           label: label(c),

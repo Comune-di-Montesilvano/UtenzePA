@@ -1,5 +1,3 @@
-import {SupplyType} from '../enum/supply-type.enum';
-
 export interface IBudgetChapter {
   id: number;
   chapter_code: string;
@@ -7,6 +5,5 @@ export interface IBudgetChapter {
   name?: string;
   code?: string;
   pdc?: string;
-  supply_type: SupplyType;
   description?: string;
 }

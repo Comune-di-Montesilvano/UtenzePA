@@ -9,7 +9,6 @@ import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {BudgetChapter} from './entity/budget-chapter.entity';
-import {SupplyType, SupplyTypeDescription} from './enum/supply-type.enum';
 import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {BudgetChapterEditDialogComponent} from './budget-chapter-edit-dialog.component';
@@ -41,11 +40,11 @@ export class DataTableBudgetChaptersComponent extends AbstractDataTableComponent
     {field: 'article', header: 'Articolo'},
     {field: 'pdc', header: 'PDC'},
     {field: 'description', header: 'Descrizione'},
-    {field: 'supply_type', header: 'Tipo Fornitura'},
+    {field: 'utility_types', header: 'Tipi utenza'},
   ];
 
   selectedColumns: IColumnDef[] = this.loadColumnSelection(
-    DataTableBudgetChaptersComponent.STORAGE_KEY, this.allColumns, new Set(['id', 'chapter_code', 'article', 'pdc', 'description', 'supply_type'])
+    DataTableBudgetChaptersComponent.STORAGE_KEY, this.allColumns, new Set(['id', 'chapter_code', 'article', 'pdc', 'description', 'utility_types'])
   );
 
   get displayedColumns(): string[] {
@@ -57,7 +56,6 @@ export class DataTableBudgetChaptersComponent extends AbstractDataTableComponent
   onColumnsChange(): void {
     this.saveColumnSelection(DataTableBudgetChaptersComponent.STORAGE_KEY, this.selectedColumns);
   }
-  supplyTypeDescription = SupplyTypeDescription;
 
   constructor(screen: ScreenSizeService) {
     super(screen);
@@ -73,10 +71,6 @@ export class DataTableBudgetChaptersComponent extends AbstractDataTableComponent
 
   protected override entityLabel(): string {
     return 'capitolo';
-  }
-
-  getSupplyTypeDescription(value: any): string {
-    return this.supplyTypeDescription[value as SupplyType] || value;
   }
 
   override openDeleteDialog(entity: BudgetChapter): void {

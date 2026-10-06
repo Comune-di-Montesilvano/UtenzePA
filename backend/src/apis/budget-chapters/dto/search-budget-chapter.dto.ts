@@ -1,6 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsDate, IsEnum, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
-import { SupplyTypeEnum } from '@apis/budget-chapters/enum/supply-type.enum';
+import { IsBoolean, IsDate, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class SearchBudgetChapterDto {
   @IsOptional()
@@ -28,11 +27,11 @@ export class SearchBudgetChapterDto {
   @MaxLength(100)
   pdc?: string;
 
+  // Capitoli associati a questo tipo utenza.
   @IsOptional()
-  @IsEnum(SupplyTypeEnum, {
-    message: `Il campo supply_type deve essere uno dei seguenti valori: ${Object.values(SupplyTypeEnum).join(', ')}`,
-  })
-  supply_type?: SupplyTypeEnum;
+  @Transform(({ value }) => (value === '' ? undefined : Number(value)))
+  @IsInt()
+  utility_type_id?: number;
 
   @IsOptional()
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))

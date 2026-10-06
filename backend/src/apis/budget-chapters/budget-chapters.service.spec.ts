@@ -12,6 +12,7 @@ describe('BudgetChaptersService', () => {
   };
   let utilityRepo: { createQueryBuilder: jest.Mock };
   let qb: {
+    leftJoinAndSelect: jest.Mock;
     where: jest.Mock;
     andWhere: jest.Mock;
     orderBy: jest.Mock;
@@ -20,6 +21,7 @@ describe('BudgetChaptersService', () => {
 
   beforeEach(() => {
     qb = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
@@ -64,6 +66,26 @@ describe('BudgetChaptersService', () => {
       expect(qb.andWhere).toHaveBeenCalledWith('budget_chapters.year = :year', { year: 2026 });
     });
 
+    it('carica i tipi utenza del capitolo (solo non cancellati)', async () => {
+      await service.findAll();
+
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
+        'budget_chapters.utilityTypes',
+        'utilityTypes',
+        'utilityTypes.deleted = 0',
+      );
+    });
+
+    it('filtro tipo utenza: capitoli con quel tipo, senza filtrare i tipi caricati', async () => {
+      await service.findAll({ utility_type_id: 36 } as never);
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('EXISTS (SELECT 1 FROM budget_chapter_utility_types'),
+        { utility_type_id: 36 },
+      );
+      expect(qb.andWhere).not.toHaveBeenCalledWith('budget_chapters.utility_type_id = :utility_type_id', expect.anything());
+    });
+
     it('ignora i filtri undefined/null/stringa vuota', async () => {
       await service.findAll({ chapter_code: '', pdc: null, year: undefined } as never);
 
@@ -100,7 +122,18 @@ describe('BudgetChaptersService', () => {
     });
   });
 
-  describe('create (ereditato da BaseService)', () => {
+  describe('create', () => {
+    it('salva i tipi utenza indicati, senza doppioni', async () => {
+      repo.findOne.mockResolvedValue({ id: 0 });
+
+      await service.create({ chapter_code: 'CAP-1', utility_type_ids: [36, 35, 36] } as never, 1);
+
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ utilityTypes: [{ id: 36 }, { id: 35 }] }),
+      );
+      expect(repo.save).not.toHaveBeenCalledWith(expect.objectContaining({ utility_type_ids: expect.anything() }));
+    });
+
     it('crea il capitolo di spesa', async () => {
       const result = await service.create({ chapter_code: 'CAP-1' } as never, 1);
 
@@ -121,6 +154,23 @@ describe('BudgetChaptersService', () => {
       expect(repo.save).toHaveBeenCalledWith(
         expect.objectContaining({ chapter_code: 'CAP-2', updated_by_user_id: 2 }),
       );
+    });
+
+    it('sostituisce i tipi utenza se indicati', async () => {
+      repo.findOne.mockResolvedValue({ id: 1, chapter_code: 'CAP-1', utilityTypes: [{ id: 35 }] });
+
+      await service.update(1, { utility_type_ids: [36] } as never, 2);
+
+      expect(repo.save).toHaveBeenLastCalledWith(expect.objectContaining({ utilityTypes: [{ id: 36 }] }));
+    });
+
+    it('lascia i tipi utenza invariati se non indicati', async () => {
+      repo.findOne.mockResolvedValue({ id: 1, chapter_code: 'CAP-1', utilityTypes: [{ id: 35 }] });
+
+      await service.update(1, { chapter_code: 'CAP-2' } as never, 2);
+
+      expect(repo.save).toHaveBeenCalledTimes(1);
+      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ utilityTypes: [{ id: 35 }] }));
     });
 
     it('lancia BadRequestException se il capitolo non esiste', async () => {

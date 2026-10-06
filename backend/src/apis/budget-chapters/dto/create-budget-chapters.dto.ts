@@ -1,5 +1,4 @@
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
-import { SupplyTypeEnum } from '@apis/budget-chapters/enum/supply-type.enum';
+import { IsArray, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class CreateBudgetChapterDto {
@@ -25,10 +24,11 @@ export class CreateBudgetChapterDto {
   @MaxLength(100)
   pdc?: string;
 
-  @IsEnum(SupplyTypeEnum, {
-    message: `Il campo use_type deve essere uno dei seguenti valori: ${Object.values(SupplyTypeEnum).join(', ')}`,
-  })
-  supply_type?: SupplyTypeEnum;
+  // Tipi utenza del capitolo (tabella budget_chapter_utility_types); vuoto = tutti.
+  @IsOptional()
+  @IsArray({ message: 'I tipi utenza devono essere un array.' })
+  @IsInt({ each: true, message: 'Ogni tipo utenza deve essere un ID intero.' })
+  utility_type_ids?: number[];
 
   @IsOptional()
   @IsInt()
