@@ -35,6 +35,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 17 | Impegni di spesa (contratto ↔ capitolo) | fatto, v1.10.0 (impegni ACA 2025–2026 senza numero né importo, da completare con la ragioneria) |
 | 18 | Pulizia entità e incongruenze del modello | fatto: parte 1 v1.9.0 (tabelle morte, aggregati immobili, gestori manutenzione → manutenzione calcolata), parte 2 v1.9.1 (campi doppi) |
 | 19 | Allegati di contratti, immobili e impianti | da approfondire |
+| 20 | Assestato dei capitoli e disponibilità | da fare |
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
 
@@ -349,6 +350,18 @@ Base esistente: le foto (`apis/photos/`) sono già polimorfiche (`entity_type` +
 - scadenze: certificazioni e verifiche periodiche degli impianti hanno una validità; valutare una data di scadenza facoltativa sull'allegato e un'anomalia "documento scaduto" (dashboard e segnalazioni degli elenchi);
 - tab "Allegati" con lo stesso componente in tutte e quattro le schede; nelle schede immobile e impianto convive con il tab Foto;
 - eventuale estensione futura a fatture (PDF allegato della fattura elettronica, vedi gotcha FatturaPA della voce 6) e utenze.
+
+## 20. Assestato dei capitoli e disponibilità
+
+Richiesta utente (2026-10-06), partendo dalla schermata "Competenza" del gestionale di contabilità (per capitolo ed esercizio). Dati da riportare, inseriti a mano per capitolo + esercizio:
+
+- **assestato** (obbligatorio): il dato che manca. Calcolati, mai salvati: disponibilità = assestato − impegni (impegni della voce 17), spesa fatturata dell'esercizio (`apis/spending/`), avviso quando impegni o spesa presunta (consumo stimato) superano l'assestato (anomalia per dashboard e segnalazioni dell'elenco capitoli);
+- **stanziamento iniziale** (facoltativo): solo per vedere le variazioni nell'anno;
+- **mandati** (opzione, numero e importo): riscontro tra pagato e fatture registrate (12 mandati contro 11 fatture = fattura mancante). Costa un inserimento manuale in più: da decidere.
+
+Fuori: FPV, impegni prenotati, pre-impegni, pre-liquidazioni, economie, riaccertamenti, cassa, previsione definitiva dell'anno precedente (contabilità della ragioneria; la spesa degli anni passati è già nella spesa storica, `budget_chapter_spending`).
+
+Da approfondire: tabella dedicata per capitolo + esercizio o colonne su `budget_chapter_spending` (oggi una riga per anno con importo e note); tab della scheda capitolo (oggi "Spesa storica") che mostri per esercizio assestato, impegnato, fatturato e disponibilità.
 
 ## Fuori scope (decisioni prese)
 
