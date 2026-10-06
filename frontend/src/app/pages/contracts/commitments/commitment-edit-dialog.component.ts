@@ -75,7 +75,8 @@ export class CommitmentEditDialogComponent {
         searchText: `${c.chapter_code}/${c.article ?? 0} ${c.description ?? ''} ${c.pdc ?? ''}`};
       // Anche nell'elenco del chiamante: il prossimo impegno lo propone già.
       this.data.chapterOptions.push(opt);
-      this.chapterOptions = [...this.data.chapterOptions].sort((a, b) => a.label.localeCompare(b.label));
+      this.data.chapterOptions.sort((a, b) => a.label.localeCompare(b.label));
+      this.chapterOptions = [...this.data.chapterOptions];
       this.form.controls.budget_chapter_id_fk.setValue(c.id);
     });
   }

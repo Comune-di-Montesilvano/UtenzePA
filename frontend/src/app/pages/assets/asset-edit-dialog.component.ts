@@ -33,7 +33,7 @@ import {ICON_FALLBACK} from '../../core/helpers/material-icons';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {UtilityType} from '../utility-types/entity/utility-type.entity';
 import {PlantService} from '../plants/plant.service';
-import {Plant, PLANT_TYPE_ICON, PLANT_TYPE_LABEL} from '../plants/plant.model';
+import {Plant, PLANT_TYPE_ICON, PLANT_TYPE_LABEL, POSITION_LABEL} from '../plants/plant.model';
 import {UtilizerGrantService} from '../utilizer-grant/utilizer-grant.service';
 import {UtilizerGrant} from '../utilizer-grant/entity/utilizer-grant.entity';
 import {DIRECTION_LABEL, formatEuro, KIND_LABEL} from '../utilizer-grant/real-estate-contract.model';
@@ -194,6 +194,7 @@ export class AssetEditDialogComponent implements OnInit {
     {label: 'Tipo', value: p => PLANT_TYPE_LABEL[p.type]},
     {label: 'Codice', value: p => p.code},
     {label: 'Nome', value: p => p.name},
+    {label: 'Posizione', value: p => POSITION_LABEL[p.position_quality] ?? ''},
     {label: 'Utenze', value: p => (p.utilities ?? []).map(u => u.utility_id).join(', ')},
   ];
   readonly plantIconOf = (p: Plant): RowIcon => ({icon: PLANT_TYPE_ICON[p.type], color: 'var(--entity-plant)'});
@@ -389,10 +390,14 @@ export class AssetEditDialogComponent implements OnInit {
     this.missingUtilityTypes = types
       .filter(t => !this.utilitySections.some(s => s.type === t.value))
       .map(t => ({value: t.value, label: t.label, icon: HardTypeMatIcon[t.value], color: t.color}));
-    this.utilityPreview = this.utilitySections.flatMap(s => s.rows.map(u => ({
-      id: u.id, label: u.utility_id ?? `#${u.id}`, sublabel: s.label, icon: s.icon, color: s.color,
-      status: utilityStatus(u.supply_active),
-    })));
+    // Riepilogo: una riga per tipo con il conteggio (l'elenco sta nel tab).
+    this.utilityPreview = this.utilitySections.map((s, i) => {
+      const active = s.rows.filter(u => u.supply_active === true).length;
+      return {
+        id: -(i + 1), label: s.label, icon: s.icon, color: s.color,
+        sublabel: `${s.rows.length} ${s.rows.length === 1 ? 'utenza' : 'utenze'}, ${active} ${active === 1 ? 'attiva' : 'attive'}`,
+      };
+    });
   }
 
   private loadPlants(): void {
@@ -447,6 +452,8 @@ export class AssetEditDialogComponent implements OnInit {
       const others = (this.data.item.utilities ?? []).filter(u => u.id !== saved.id);
       this.data.item.utilities = stillLinked ? [...others, saved] : others;
       this.refreshUtilities();
+      // L'utenza può aver cambiato i suoi impianti: colonna Utenze del tab Impianti.
+      this.loadPlants();
     });
   }
 

@@ -1,5 +1,5 @@
 import {AbstractEntity} from '../../../core/entities/abstract.entity';
-import type {CostInfo, IUtility, MaintenanceInfo} from './utility.interface';
+import type {CostInfo, MaintenanceInfo} from './utility.interface';
 import {Phase} from '../enum/phase.enum';
 import {ExpireState} from '../enum/expire-state.enum';
 import {ConsipAgreement} from '../../consip-agreement/entity/consip-agreement.entity';
@@ -14,7 +14,7 @@ import {DateOnly} from '../../../core/helpers/date.helper';
 import {SystemUser} from '../../system-users/entity/system-user.entity';
 import {Contract} from '../../contracts/entity/contract.entity';
 
-export class Utility extends AbstractEntity implements IUtility {
+export class Utility extends AbstractEntity {
   utility_id!: string;
   utility_code?: string;
   meter_number?: string;
@@ -124,7 +124,6 @@ export class Utility extends AbstractEntity implements IUtility {
   consipAgreement?: ConsipAgreement | null;
 
   @Exclude({toPlainOnly: true})
-  remainingDays: number = 0;
 
   @Exclude({toPlainOnly: true})
   @Type(() => Contract)

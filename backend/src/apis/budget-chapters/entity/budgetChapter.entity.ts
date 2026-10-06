@@ -4,6 +4,8 @@ import {
   Entity,
   Index,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -11,7 +13,7 @@ import {
 } from 'typeorm';
 import { Utility } from '../../utility/entity/utility.entity';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
-import { SupplyTypeEnum } from '@apis/budget-chapters/enum/supply-type.enum';
+import { UtilityType } from '../../utility-types/entity/utility_type.entity';
 
 @Entity('budget_chapters')
 export class BudgetChapter {
@@ -30,11 +32,14 @@ export class BudgetChapter {
   @Column({ length: 100, nullable: true })
   pdc: string;
 
-  @Column({
-    type: 'enum',
-    enum: SupplyTypeEnum,
+  // Tipi utenza a cui il capitolo si applica; nessuno = tutti (es. SPRAR).
+  @ManyToMany(() => UtilityType)
+  @JoinTable({
+    name: 'budget_chapter_utility_types',
+    joinColumn: { name: 'budget_chapter_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'utility_type_id', referencedColumnName: 'id' },
   })
-  supply_type: SupplyTypeEnum;
+  utilityTypes: UtilityType[];
 
   @CreateDateColumn({ type: 'timestamp' })
   create_date: Date;

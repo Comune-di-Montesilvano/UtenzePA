@@ -19,6 +19,16 @@ export class DateHelper {
   }
 }
 
+// Data locale (non UTC): un Date del datepicker a mezzanotte locale con
+// toISOString() slitterebbe al giorno prima.
+export function toIsoDate(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+// Oggi come giorno locale 'AAAA-MM-GG'.
+export const todayIso = (): string => toIsoDate(new Date());
+
 // Campo data di un'entity inviato come giorno locale 'AAAA-MM-GG' (anche negli
 // intervalli dei filtri): il backend lo salva così com'è. toISOString() di una
 // data del datepicker (mezzanotte locale) darebbe il giorno prima.

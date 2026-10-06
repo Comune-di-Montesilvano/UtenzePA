@@ -56,7 +56,8 @@ import {
   StatusInfo,
   utilityStatus,
 } from '../../core/helpers/entity-status';
-import {dateIt, hasInvalid, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
+import {dateIt, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
+import {AuthService} from '../../services/auth.service';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 
 export interface PlantEditDialogData {
@@ -64,7 +65,6 @@ export interface PlantEditDialogData {
   plantId: number | null;
   // Immobile precompilato (nuovo impianto dal dialog immobile).
   assetId?: number | null;
-  readOnly: boolean;
 }
 
 const COUNT_FIELDS: {key: 'outdoor_units' | 'indoor_units' | 'fan_coils' | 'air_handling_units' | 'chillers_heat_pumps'; label: string}[] = [
@@ -101,7 +101,7 @@ export class PlantEditDialogComponent implements OnInit {
   private assetService = inject(AssetService);
   private utilityService = inject(UtilityService);
   private navigator = inject(EntityNavigatorService);
-  protected dialogRef = inject(MatDialogRef<PlantEditDialogComponent, boolean>);
+  protected dialogRef = inject(MatDialogRef<PlantEditDialogComponent, Plant | null>);
   protected data = inject<PlantEditDialogData>(MAT_DIALOG_DATA);
 
   @ViewChild(MatTabGroup) tabGroup?: MatTabGroup;
@@ -114,7 +114,8 @@ export class PlantEditDialogComponent implements OnInit {
   readonly statusLabel = PLANT_STATUS_LABEL;
   readonly countFields = COUNT_FIELDS;
   readonly cert = certificationStatus;
-  readonly canEdit = !this.data.readOnly;
+  // Stessa regola delle altre schede (Admin, Operatore).
+  readonly canEdit = isEditorRole(inject(AuthService).getCurrentUser()?.role);
 
   plant: Plant | null = null;
   private allAssets: Asset[] = [];
@@ -196,7 +197,7 @@ export class PlantEditDialogComponent implements OnInit {
   private savedUtilityIds = new Set<number>();
 
   ngOnInit(): void {
-    if (this.data.readOnly) this.form.disable();
+    if (!this.canEdit) this.form.disable();
     else {
       this.syncTypeGroups();
       this.form.controls.type.valueChanges.subscribe(() => this.syncTypeGroups());
@@ -269,9 +270,11 @@ export class PlantEditDialogComponent implements OnInit {
   }
 
   // Header
+  // Segue il form, come le altre schede (non il record salvato).
   title(): string {
-    if (!this.plant) return 'Nuovo impianto';
-    return `${this.plant.code} — ${this.plant.name}`;
+    const v = this.form.getRawValue();
+    const text = [v.code, v.name].map(x => (x ?? '').toString().trim()).filter(Boolean).join(' — ');
+    return text || (this.plant ? `Impianto #${this.plant.id}` : 'Nuovo impianto');
   }
 
   subtitle(): string {
@@ -382,8 +385,11 @@ export class PlantEditDialogComponent implements OnInit {
   }
 
   openAsset(id: number): void {
+    // Riallineamento anche senza salvataggio qui: più in alto nella pila
+    // qualcosa può essere stato salvato.
     this.navigator.openAsset(id).subscribe(saved => {
       if (saved) this.loadAssets();
+      this.resyncUtilityLinks();
     });
   }
 
@@ -391,9 +397,22 @@ export class PlantEditDialogComponent implements OnInit {
   // utility_ids, altrimenti "Salva" qui sovrascriverebbe la modifica.
   openUtility(id: number): void {
     this.navigator.openUtility(id).subscribe(saved => {
-      if (!saved) return;
-      this.loadUtilities();
-      if (this.plant) this.syncUtilityLink(id, (saved.plants ?? []).some(p => p.id === this.plant!.id));
+      if (saved) this.loadUtilities();
+      this.resyncUtilityLinks();
+    });
+  }
+
+  // Catene di schede (impianto → utenza → impianto…): una scheda più in alto
+  // può aver cambiato legami di questo impianto. Si rileggono tutti dal server,
+  // non solo quello del figlio diretto; le modifiche fatte qui e non salvate vincono.
+  private resyncUtilityLinks(): void {
+    if (!this.plant) return;
+    this.service.get(this.plant.id).subscribe({
+      next: p => {
+        const server = new Set((p.utilities ?? []).map(u => u.id));
+        for (const id of new Set([...this.savedUtilityIds, ...server])) this.syncUtilityLink(id, server.has(id));
+      },
+      error: err => console.error('Errore nel riallineamento delle utenze:', err),
     });
   }
 
@@ -503,7 +522,7 @@ export class PlantEditDialogComponent implements OnInit {
       },
     });
     this.savedUtilityIds = new Set((p.utilities ?? []).map(u => u.id));
-    if (!this.data.readOnly) this.syncTypeGroups();
+    if (this.canEdit) this.syncTypeGroups();
     this.form.markAsPristine();
     this.refreshLinks();
   }

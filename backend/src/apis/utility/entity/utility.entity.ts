@@ -126,7 +126,7 @@ export class Utility {
   transferred_to_third_party_id: number | null;
 
   @ManyToOne(() => ThirdParty, { nullable: true })
-  @JoinColumn({ name: 'transferred_to_third_party_id' })
+  @JoinColumn({ name: 'transferred_to_third_party_id', foreignKeyConstraintName: 'FK_utilities_transferred_to' })
   transferredTo: ThirdParty | null;
 
   @Column({ type: 'date', nullable: true })

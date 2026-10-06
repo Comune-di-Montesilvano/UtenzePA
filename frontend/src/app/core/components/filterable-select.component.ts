@@ -183,8 +183,8 @@ export class FilterableSelectComponent implements ControlValueAccessor {
     const opt: TOption = event.option.value;
     if (opt === this.CREATE) {
       const text = this.searchText();
-      // Il valore resta com'era (arriva dalla scheda di creazione): il campo
-      // torna a mostrarlo, anche se la creazione viene annullata.
+      // Il valore arriva dalla scheda di creazione. Il campo torna a mostrare
+      // quello attuale: vuoto se il testo digitato lo aveva già azzerato.
       this.searchControl.setValue('', {emitEvent: false});
       this.typed = '';
       this.filteredOptions = this._options;

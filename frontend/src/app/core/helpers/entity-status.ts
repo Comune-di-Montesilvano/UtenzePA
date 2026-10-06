@@ -6,10 +6,9 @@ import {
   PlantStatus,
   POSITION_LABEL,
   PositionQuality,
-  todayIso,
 } from '../../pages/plants/plant.model';
 import {ContractStatus, DisplayStatus, STATUS_LABEL} from '../../pages/utilizer-grant/real-estate-contract.model';
-import {toIsoDate} from '../../pages/utilities/consumptions/consumption.model';
+import {todayIso, toIsoDate} from './date.helper';
 
 // Badge di stato delle schede entità: tono semantico + testo. Funzioni pure,
 // riusabili in header, tabelle collegamenti e anteprime.
@@ -106,12 +105,16 @@ export function inspectionStatusInfo(s: InspectionStatus | null | undefined): St
 // Stesso criterio di Contract.isCurrent: chiuso = mai corrente; senza
 // scadenza = in corso; scadenza uguale a oggi = ancora in corso.
 export function supplyContractStatus(
-  c: {closed?: boolean | null; supply_expiry_date?: Date | string | null},
+  c: {closed?: boolean | null; supply_start_date?: Date | string | null; supply_expiry_date?: Date | string | null},
   today = todayIso(),
 ): StatusInfo {
   if (c.closed) return {tone: 'off', label: 'Chiuso', icon: 'lock'};
   if (c.supply_expiry_date && isoOf(c.supply_expiry_date) < today) {
     return {tone: 'danger', label: 'Scaduto', icon: 'event_busy'};
+  }
+  // Decorrenza futura: come la barra di validità, non ancora il contratto corrente.
+  if (c.supply_start_date && isoOf(c.supply_start_date) > today) {
+    return {tone: 'info', label: 'Non ancora iniziato', icon: 'schedule'};
   }
   return {tone: 'ok', label: 'In corso', icon: 'check_circle'};
 }

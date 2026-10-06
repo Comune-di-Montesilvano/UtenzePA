@@ -121,7 +121,7 @@
           <div class="sheet-previews">
             <app-preview-card title="Utenze" icon="electric_meter" color="var(--entity-utility)"
                               [items]="utilityPreview" emptyText="Nessuna utenza"
-                              (seeAll)="goTo('Utenze')" (open)="openUtility($event.id)"></app-preview-card>
+                              (seeAll)="goTo('Utenze')" (open)="goTo('Utenze')"></app-preview-card>
             <app-preview-card title="Impianti" icon="settings_input_component" color="var(--entity-plant)"
                               [items]="plantPreview" emptyText="Nessun impianto"
                               (seeAll)="goTo('Impianti')" (open)="openPlant($event.id)"></app-preview-card>

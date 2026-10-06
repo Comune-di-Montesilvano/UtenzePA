@@ -199,7 +199,12 @@ export class ContractEditDialogComponent implements OnInit {
     const supplier = this.form.controls.supplier_id_fk.value;
     this.navigator.createConsipAgreement({name: nameFrom(text), ...(supplier ? {supplier_id: supplier} : {})}).subscribe(a => {
       if (!a) return;
-      this.loadConsip(() => this.form.controls.consip_agreement_id.setValue(a.id));
+      // Il fornitore segue la convenzione e può essere stato creato dentro di
+      // essa: si ricaricano anche i fornitori, per mostrarne l'etichetta.
+      this.loadConsip(() => {
+        this.form.controls.consip_agreement_id.setValue(a.id);
+        this.loadSuppliers();
+      });
       this.form.controls.consip_agreement_id.markAsDirty();
     });
   }

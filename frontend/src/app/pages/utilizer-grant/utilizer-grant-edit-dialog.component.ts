@@ -21,7 +21,7 @@ import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-ba
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
 import {LinkedColumn, LinkedTableComponent} from '../../core/components/entity-sheet/linked-table.component';
 import {ValidityBarComponent} from '../../core/components/entity-sheet/validity-bar.component';
-import {assetStatus, costStatus, grantFlags, grantStatus, StatusInfo} from '../../core/helpers/entity-status';
+import {assetStatus, costStatus, grantFlags, grantStatus, StatusInfo, utilityStatus} from '../../core/helpers/entity-status';
 import {UtilityService} from '../utilities/utility.service';
 import {Utility} from '../utilities/entity/utility.entity';
 import {hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel} from '../../core/components/entity-sheet/sheet-utils';
@@ -122,7 +122,9 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
     {label: 'Tipo', value: u => u.utilityType?.name ?? ''},
     {label: 'Volturata a', value: u => u.cost_info?.transferred_to?.name ?? ''},
   ];
-  readonly utilityStatusOf = (u: Utility): StatusInfo => costStatus(u.cost_info);
+  // Utenza cessata: niente stato di voltura (come la dashboard, che conta solo le attive).
+  readonly utilityStatusOf = (u: Utility): StatusInfo =>
+    u.supply_active === false ? utilityStatus(false) : costStatus(u.cost_info);
 
   readonly childColumns: LinkedColumn<UtilizerGrant>[] = [
     {label: '#', value: c => String(c.id)},
@@ -256,6 +258,15 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
     });
   }
 
+  // Un contratto figlio salvato può aver cambiato padre: si rilegge l'elenco.
+  private reloadChildren(): void {
+    if (this.isNew) return;
+    this.grantService.getById(this.item.id).subscribe({
+      next: g => this.childRows = (g.children ?? []).filter(c => !c.deleted),
+      error: err => console.error('Errore nel caricamento dei contratti collegati:', err),
+    });
+  }
+
   newParty(): void {
     this.navigator.createThirdParty().subscribe(p => {
       if (!p) return;
@@ -319,7 +330,9 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   }
 
   openAsset(id: number): void {
-    this.navigator.openAsset(id).subscribe();
+    this.navigator.openAsset(id).subscribe(saved => {
+      if (saved) this.loadAssets();
+    });
   }
 
   private loadUtilities(): void {
@@ -337,7 +350,10 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   }
 
   openGrant(id: number | null | undefined): void {
-    if (id) this.navigator.openGrant(id).subscribe();
+    if (!id) return;
+    this.navigator.openGrant(id).subscribe(saved => {
+      if (saved) this.reloadChildren();
+    });
   }
 
   partyLabel(id: number): string {

@@ -86,8 +86,8 @@
           [longitude]="form.controls.longitude.value"
           [estimatedLatitude]="estimated()?.lat ?? null"
           [estimatedLongitude]="estimated()?.lng ?? null"
-          [previewOnly]="data.readOnly"
-          [readOnly]="data.readOnly"
+          [previewOnly]="!canEdit"
+          [readOnly]="!canEdit"
           (positionSelected)="onPositionSelected($event)"
           (positionCleared)="onPositionCleared()">
         </app-location-map>
@@ -246,7 +246,7 @@
           <app-plant-fire-equipment-tab
             [plantId]="plant.id"
             [rows]="plant.fireEquipment"
-            [readOnly]="data.readOnly"
+            [readOnly]="!canEdit"
             (changed)="reloadPlant()">
           </app-plant-fire-equipment-tab>
         </mat-tab>
@@ -263,7 +263,7 @@
             [plantType]="plant.type"
             [powerKw]="plant.thermal?.power_kw ?? null"
             [rows]="plant.inspections"
-            [readOnly]="data.readOnly"
+            [readOnly]="!canEdit"
             (changed)="reloadPlant()">
           </app-plant-inspections-tab>
         </mat-tab>
@@ -342,8 +342,8 @@
     @if (error) {
       <p class="sheet-error">{{ error }}</p>
     }
-    <button mat-stroked-button type="button" (click)="close()">{{ data.readOnly ? 'Chiudi' : 'Annulla' }}</button>
-    @if (!data.readOnly) {
+    <button mat-stroked-button type="button" (click)="close()">{{ canEdit ? 'Annulla' : 'Chiudi' }}</button>
+    @if (canEdit) {
       <button mat-flat-button type="button" (click)="save()" [disabled]="saving || loading">Salva</button>
     }
   </ng-container>

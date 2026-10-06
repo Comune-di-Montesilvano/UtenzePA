@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, inject} from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, ViewChild} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {partyName} from '../../core/helpers/party-name.helper';
@@ -17,6 +17,7 @@ import {ListSignalsComponent} from '../../core/components/list/list-signals.comp
   templateUrl: './third-parties.component.html',
 })
 export class ThirdPartiesComponent extends AbstractComponent<ThirdParty> {
+  @ViewChild('dataTable') dataTable?: DataTableThirdPartiesComponent;
   override filterDefs = thirdPartyFilters();
   readonly signals = THIRD_PARTY_SIGNALS;
   private route = inject(ActivatedRoute);
@@ -26,7 +27,7 @@ export class ThirdPartiesComponent extends AbstractComponent<ThirdParty> {
   }
 
   override ngOnInit(): void {
-    this.initFromRoute(this.route);
+    this.initFromRoute(this.route, item => this.dataTable?.openEditDialog(item));
   }
 
   protected override getEntityIdentifier(entity: ThirdParty): string {

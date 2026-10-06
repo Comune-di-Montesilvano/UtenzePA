@@ -3,8 +3,7 @@ import {AbstractControl} from '@angular/forms';
 import {ComponentType} from '@angular/cdk/portal';
 import {MatDialog, MatDialogConfig, MatDialogRef} from '@angular/material/dialog';
 import {MatTab, MatTabGroup} from '@angular/material/tabs';
-import {todayIso} from '../../../pages/plants/plant.model';
-import {toIsoDate} from '../../../pages/utilities/consumptions/consumption.model';
+import {todayIso, toIsoDate} from '../../helpers/date.helper';
 
 export const SHEET_PANEL_CLASS = 'entity-sheet-panel';
 const MAX_DEPTH = 5;

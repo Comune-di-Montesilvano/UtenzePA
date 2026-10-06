@@ -1,6 +1,5 @@
-import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { SupplyTypeEnum } from '@apis/budget-chapters/enum/supply-type.enum';
 
 export class UpdateBudgetChapterDto {
   @IsOptional()
@@ -25,11 +24,11 @@ export class UpdateBudgetChapterDto {
   @MaxLength(100)
   pdc?: string;
 
+  // Tipi utenza del capitolo (tabella budget_chapter_utility_types); vuoto = tutti.
   @IsOptional()
-  @IsEnum(SupplyTypeEnum, {
-    message: `Il campo supply_type deve essere uno dei seguenti valori: ${Object.values(SupplyTypeEnum).join(', ')}`,
-  })
-  supply_type?: SupplyTypeEnum;
+  @IsArray({ message: 'I tipi utenza devono essere un array.' })
+  @IsInt({ each: true, message: 'Ogni tipo utenza deve essere un ID intero.' })
+  utility_type_ids?: number[];
 
   @IsOptional()
   @IsInt()

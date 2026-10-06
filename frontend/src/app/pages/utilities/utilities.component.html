@@ -17,6 +17,7 @@
       (onDelete)="onDelete($event)"
       (onCreate)="onCreate($event)"
       (onRestore)="onRestore($event)"
+      (changed)="loadAll()"
       [resetPagingTrigger]="resetPagingCount"
     ></app-data-table-utilities>
   </div>

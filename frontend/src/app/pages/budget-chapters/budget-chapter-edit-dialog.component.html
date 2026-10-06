@@ -27,17 +27,8 @@
           <input matInput formControlName="pdc">
         </mat-form-field>
 
-        <mat-form-field style="flex: 1 1 21%;">
-          <mat-label>Tipo Fornitura *</mat-label>
-          <mat-select formControlName="supply_type">
-            @for (opt of supplyTypeOptions; track opt.value) {
-              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-            }
-          </mat-select>
-          @if (form.controls.supply_type.invalid && form.controls.supply_type.touched) {
-            <mat-error>Obbligatorio</mat-error>
-          }
-        </mat-form-field>
+        <app-multi-select style="flex: 1 1 21%;" formControlName="utility_type_ids" label="Tipi utenza"
+                          placeholder="Tutti i tipi" [options]="utilityTypeOptions"></app-multi-select>
 
         <mat-form-field style="flex: 1 1 100%;">
           <mat-label>Descrizione</mat-label>

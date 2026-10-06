@@ -32,7 +32,6 @@ import {UtilityConsumptionsTabComponent} from './consumptions/utility-consumptio
 import {PlantService} from '../plants/plant.service';
 import {PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PlantStatus, PlantType} from '../plants/plant.model';
 import {BudgetChapter} from '../budget-chapters/entity/budget-chapter.entity';
-import {SupplyType, SupplyTypeDescription} from '../budget-chapters/enum/supply-type.enum';
 import {CONSUMPTION_UNIT_BY_HARD_TYPE, ConsumptionSummary, formatQty} from './consumptions/consumption.model';
 import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
@@ -42,19 +41,12 @@ import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components
 import {assetStatus, costStatus, maintenanceStatus, plantStatus, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
 import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
+import {UtilityService} from './utility.service';
 import {partyName} from '../../core/helpers/party-name.helper';
 import {UtilityInvoicesTabComponent} from './utility-invoices-tab.component';
 import {CommitmentService} from '../contracts/commitments/commitment.service';
 import {forkJoin} from 'rxjs';
 
-// Tipi fornitura capitolo compatibili col tipo utenza; SPRAR sempre
-// compatibile (capitolo multi-utenza). Solo ordinamento, nessun blocco.
-const CHAPTER_COMPATIBILITY: Record<HardType, SupplyType[]> = {
-  [HardType.LIGHT]: [SupplyType.ELECTRICITY],
-  [HardType.GAS]: [SupplyType.GAS_SUPPLY_ONLY, SupplyType.THERMAL_MANAGEMENT],
-  [HardType.WATER]: [SupplyType.WATER],
-  [HardType.INTERNET]: [],
-};
 
 // Un'utenza serve almeno un immobile o un impianto (stessa regola del backend).
 function atLeastOneLink(group: AbstractControl): ValidationErrors | null {
@@ -98,6 +90,7 @@ export class UtilityEditDialogComponent implements OnInit {
   private utilityTypeService = inject(UtilityTypesService);
   private contractsService = inject(ContractsService);
   private navigator = inject(EntityNavigatorService);
+  private utilityService = inject(UtilityService);
   protected data = inject<EditDialogData<Utility>>(MAT_DIALOG_DATA);
 
   @ViewChild(MatTabGroup) tabGroup?: MatTabGroup;
@@ -161,8 +154,10 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   form = this.fb.group({
-    asset_ids: [(this.data.item.assets ?? []).map(a => a.id)],
-    plant_ids: [(this.data.item.plants ?? []).map(p => p.id)],
+    // Gli id precompilati (nuova utenza da contratto immobiliare o impianto)
+    // valgono anche senza le relazioni caricate.
+    asset_ids: [this.data.item.asset_ids ?? (this.data.item.assets ?? []).map(a => a.id)],
+    plant_ids: [this.data.item.plant_ids ?? (this.data.item.plants ?? []).map(p => p.id)],
     budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null, Validators.required],
     transferred_to_third_party_id: [this.data.item.transferred_to_third_party_id ?? null],
     transferred_on: [this.toDate(this.data.item.transferred_on)],
@@ -426,8 +421,11 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   openAsset(id: number): void {
+    // Riallineamento anche senza salvataggio qui: più in alto nella pila
+    // qualcosa può essere stato salvato.
     this.navigator.openAsset(id).subscribe(saved => {
       if (saved) this.loadAssets();
+      this.resyncPlantLinks();
     });
   }
 
@@ -436,10 +434,22 @@ export class UtilityEditDialogComponent implements OnInit {
   // la modifica fatta nella scheda impianto.
   openPlant(id: number): void {
     this.navigator.openPlant(id).subscribe(saved => {
-      if (!saved) return;
-      this.loadPlants();
-      if (this.isNew) return;
-      this.plantService.get(id).subscribe(plant => this.syncPlantLink(id, plant.utilities.some(u => u.id === this.data.item.id)));
+      if (saved) this.loadPlants();
+      this.resyncPlantLinks();
+    });
+  }
+
+  // Catene di schede (utenza → impianto → utenza…): una scheda più in alto può
+  // aver cambiato i legami di questa utenza con gli impianti. Si rileggono tutti
+  // dal server; le modifiche fatte qui e non salvate vincono.
+  private resyncPlantLinks(): void {
+    if (this.isNew) return;
+    this.utilityService.getById(this.data.item.id).subscribe({
+      next: u => {
+        const server = new Set((u.plants ?? []).map(p => p.id));
+        for (const pid of new Set([...this.savedPlantIds, ...server])) this.syncPlantLink(pid, server.has(pid));
+      },
+      error: err => console.error('Errore nel riallineamento degli impianti:', err),
     });
   }
 
@@ -462,6 +472,7 @@ export class UtilityEditDialogComponent implements OnInit {
   openContract(id: number): void {
     this.navigator.openSupplyContract(id).subscribe(saved => {
       if (saved) this.reloadContracts();
+      this.resyncPlantLinks();
     });
   }
 
@@ -513,10 +524,10 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   private buildBudgetChapterOptions(): void {
+    // Capitolo senza tipi = tutti (es. SPRAR). Solo ordinamento, nessun blocco.
+    const typeId = this.form.controls.utility_type_id_fk.value;
     const compatible = (c: BudgetChapter) =>
-      this.selectedHardType === null ||
-      c.supply_type === SupplyType.SPRAR_UTILITIES ||
-      CHAPTER_COMPATIBILITY[this.selectedHardType].includes(c.supply_type);
+      typeId == null || !c.utilityTypes?.length || c.utilityTypes.some(t => t.id === typeId);
     const label = (c: BudgetChapter) => `${c.chapter_code}/${c.article ?? 0} — ${c.description ?? ''}`.trim();
     const committed = (c: BudgetChapter) => this.committedChapterIds.has(c.id);
     this.budgetChapterOptions = [...this.budgetChapters]
@@ -528,8 +539,8 @@ export class UtilityEditDialogComponent implements OnInit {
         const parts = [
           committed(c) ? 'impegnato sui contratti dell’utenza' : null,
           c.pdc ? `PDC ${c.pdc}` : null,
-          SupplyTypeDescription[c.supply_type] ?? null,
-          compatible(c) ? null : 'tipo fornitura diverso dall’utenza',
+          c.utilityTypesLabel,
+          compatible(c) ? null : 'tipo diverso dall’utenza',
         ].filter(Boolean);
         return {
           label: label(c),
@@ -615,7 +626,7 @@ export class UtilityEditDialogComponent implements OnInit {
   markTransferredToday(): void {
     const parties = this.costInfo?.parties ?? [];
     if (parties.length !== 1) return;
-    // Mezzanotte locale, come il datepicker: il backend (NormalizeDate) corregge lo scarto UTC.
+    // Mezzanotte locale, come il datepicker: in invio vale il giorno locale (@DateOnly).
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     this.form.patchValue({transferred_to_third_party_id: parties[0].third_party_id, transferred_on: today});
