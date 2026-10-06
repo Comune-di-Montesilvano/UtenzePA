@@ -137,8 +137,6 @@ export class Utility extends AbstractEntity {
   consipAgreement?: ConsipAgreement | null;
 
   @Exclude({toPlainOnly: true})
-
-  @Exclude({toPlainOnly: true})
   @Type(() => Contract)
   contratti?: Contract[];
 
