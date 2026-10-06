@@ -1,4 +1,12 @@
-import { Controller, Post, Body, HttpCode, Logger, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  Logger,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuditLogService } from '@apis/audit-log/audit-log.service';
 import { AccessChannel, AuditAction } from '@apis/audit-log/entity/audit-log.entity';
@@ -6,6 +14,7 @@ import { AuthProvider } from '../shared/enum/user.enums';
 import { JwtAuthGuard } from '@core/auth/guards/jwt-auth.guard';
 import { CurrentUser, ICurrentUser } from '@core/auth/decorators/current-user.decorator';
 import { LogoutDto } from './dto/logout.dto';
+import { canSignIn } from './can-sign-in';
 import { LoginDto } from './dto/login.dto';
 import { GenerateOtpDto } from './dto/generate-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -41,7 +50,7 @@ export class AuthController {
         return { status: 'error', message: 'Invalid credentials' };
       }
 
-      if (user.deleted) {
+      if (!canSignIn(user)) {
         return { status: 'error_deleted', message: 'Deleted user.' };
       }
 
@@ -67,6 +76,17 @@ export class AuthController {
       console.error('Login error:', error);
       return { status: 'error', message: 'Internal server error' };
     }
+  }
+
+  // Rinnovo del token durante la sessione (il frontend lo chiama finché
+  // l'utente è attivo): 401 se nel frattempo è stato cancellato o disattivato.
+  @Post('refresh')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async refresh(@CurrentUser() user: ICurrentUser): Promise<{ access_token: string }> {
+    const token = await this.authService.refresh(user.id);
+    if (!token) throw new UnauthorizedException('Utente non più attivo');
+    return token;
   }
 
   @Post('logout')

@@ -75,6 +75,25 @@ export class AuthService {
     this.currentUserSubject.next(null);
   }
 
+  // Rinnovo del token durante la sessione (il token dura 1 ora). false = il
+  // backend ha rifiutato (utente cancellato/disattivato o token scaduto).
+  async refresh(): Promise<boolean> {
+    const token = this.getToken();
+    if (!token) return true;
+    try {
+      const response = await axios.post(`${this.BASE_URL}/authModule/refresh`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const next = response.data?.access_token;
+      if (next) sessionStorage.setItem(this.TOKEN_KEY, next);
+      return true;
+    } catch (error) {
+      // Solo un rifiuto esplicito chiude la sessione: un errore di rete
+      // momentaneo riprova al giro successivo.
+      return !(axios.isAxiosError(error) && error.response?.status === 401);
+    }
+  }
+
   get authenticated(): boolean {
     const token = sessionStorage.getItem(this.TOKEN_KEY);
     return !!token;

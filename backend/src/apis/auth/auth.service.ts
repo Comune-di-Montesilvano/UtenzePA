@@ -8,6 +8,7 @@ import { EMailerService } from '@/core/email/email.service';
 import { generateOtp } from '../shared/otp.helper';
 import { SettingsService } from '@apis/settings/settings.service';
 import { LdapService } from './ldap/ldap.service';
+import { canSignIn } from './can-sign-in';
 import { AuthProvider, UserRole, UserStatus } from '../shared/enum/user.enums';
 
 @Injectable()
@@ -35,6 +36,7 @@ export class AuthService {
         passwordHash: true,
         authProvider: true,
         deleted: true,
+        status: true,
       },
     });
 
@@ -113,7 +115,18 @@ export class AuthService {
 
   async login(user: SystemUser) {
     await this.userRepository.update(user.id, { lastLogin: new Date() });
+    return this.signToken(user);
+  }
 
+  // Nuovo token per una sessione in corso, solo se l'utente è ancora attivo:
+  // un utente cancellato o disattivato perde l'accesso alla scadenza del token.
+  async refresh(userId: number): Promise<{ access_token: string } | null> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user || !canSignIn(user)) return null;
+    return this.signToken(user);
+  }
+
+  private signToken(user: SystemUser): { access_token: string } {
     const payload = {
       sub: user.id,
       email: user.email,
