@@ -148,7 +148,7 @@ export class AssetEditDialogComponent implements OnInit {
     function_id: [this.data.item.function_id ?? null, this.mustClassify ? Validators.required : []],
     status: [this.data.item.status ?? AssetStatus.ATTIVO, Validators.required],
     category: [this.data.item.category ?? null],
-    ownership: [this.data.item.ownership ?? 0],
+    ownership: [this.data.item.ownership ?? 1],
     toponym: [this.data.item.toponym ?? null],
     address: [this.data.item.address ?? null],
     civic_number: [this.data.item.civic_number ?? null],

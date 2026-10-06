@@ -139,28 +139,30 @@
             <mat-icon>open_in_new</mat-icon>
           </button>
         </div>
-        <div class="sheet-grid">
-          <mat-form-field class="span-2">
-            <mat-label>Indirizzo Fornitura</mat-label>
-            <input matInput formControlName="supplier_address">
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Latitudine</mat-label>
-            <input matInput formControlName="latitude">
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Longitudine</mat-label>
-            <input matInput formControlName="longitude">
-          </mat-form-field>
+        <div class="sheet-location">
+          <div class="sheet-grid">
+            <mat-form-field class="span-2">
+              <mat-label>Indirizzo Fornitura</mat-label>
+              <input matInput formControlName="supplier_address">
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Latitudine</mat-label>
+              <input matInput formControlName="latitude">
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Longitudine</mat-label>
+              <input matInput formControlName="longitude">
+            </mat-form-field>
+          </div>
+          <app-location-map
+            [latitude]="resolveMapCoordsFromForm()?.lat ?? null"
+            [longitude]="resolveMapCoordsFromForm()?.lon ?? null"
+            [previewOnly]="isMapCoordsFromAsset()"
+            [readOnly]="!canEdit"
+            (positionSelected)="onPositionSelected($event)"
+            (positionCleared)="onPositionCleared()">
+          </app-location-map>
         </div>
-        <app-location-map
-          [latitude]="resolveMapCoordsFromForm()?.lat ?? null"
-          [longitude]="resolveMapCoordsFromForm()?.lon ?? null"
-          [previewOnly]="isMapCoordsFromAsset()"
-          [readOnly]="!canEdit"
-          (positionSelected)="onPositionSelected($event)"
-          (positionCleared)="onPositionCleared()">
-        </app-location-map>
 
         <div class="sheet-previews">
           <app-preview-card title="Immobili" icon="apartment" color="var(--entity-asset)"

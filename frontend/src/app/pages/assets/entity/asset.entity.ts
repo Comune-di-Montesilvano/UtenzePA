@@ -72,7 +72,7 @@ export class Asset extends AbstractEntity implements IAsset {
       nature_id: null,
       function_id: null,
       status: AssetStatus.ATTIVO,
-      ownership: 0,
+      ownership: 1,
       area_sqm: 0,
       cadastral_value: 0,
       deleted: false,

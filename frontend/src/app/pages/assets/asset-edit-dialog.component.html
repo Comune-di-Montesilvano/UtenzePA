@@ -60,52 +60,59 @@
             [createLabel]="canEdit ? 'Nuova funzione' : null" (create)="newFunction($event)"
             [errorMessage]="form.controls.function_id.invalid && form.controls.function_id.touched ? 'Obbligatorio' : null">
           </app-filterable-select>
+
+          <mat-form-field class="span-all">
+            <mat-label>Descrizione fabbricato</mat-label>
+            <textarea matInput formControlName="associated_building" rows="2" maxlength="255"></textarea>
+          </mat-form-field>
         </div>
 
         <div class="sheet-section-title"><mat-icon>place</mat-icon>Indirizzo e posizione</div>
-        <div class="sheet-grid">
-          <mat-form-field>
-            <mat-label>Toponimo</mat-label>
-            <mat-select formControlName="toponym">
-              @for (opt of toponomyOptions; track opt.value) {
-                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field class="span-2">
-            <mat-label>Indirizzo</mat-label>
-            <input matInput formControlName="address">
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Civico</mat-label>
-            <input matInput formControlName="civic_number">
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Comune</mat-label>
-            <input matInput formControlName="municipality">
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>CAP</mat-label>
-            <input matInput formControlName="zip_code" maxlength="5" inputmode="numeric" onlyNumbers>
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Latitudine</mat-label>
-            <input matInput formControlName="latitude" placeholder="Es. 41.1158" geoLatitude>
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Longitudine</mat-label>
-            <input matInput formControlName="longitude" placeholder="Es. 16.8776" geoLongitude>
-          </mat-form-field>
+        <div class="sheet-location">
+          <div class="sheet-grid">
+            <mat-form-field>
+              <mat-label>Toponimo</mat-label>
+              <mat-select formControlName="toponym">
+                @for (opt of toponomyOptions; track opt.value) {
+                  <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field class="span-2">
+              <mat-label>Indirizzo</mat-label>
+              <input matInput formControlName="address">
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Civico</mat-label>
+              <input matInput formControlName="civic_number">
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Comune</mat-label>
+              <input matInput formControlName="municipality">
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>CAP</mat-label>
+              <input matInput formControlName="zip_code" maxlength="5" inputmode="numeric" onlyNumbers>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Latitudine</mat-label>
+              <input matInput formControlName="latitude" placeholder="Es. 41.1158" geoLatitude>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Longitudine</mat-label>
+              <input matInput formControlName="longitude" placeholder="Es. 16.8776" geoLongitude>
+            </mat-form-field>
+          </div>
+          <app-location-map
+            [latitude]="form.controls.latitude.value"
+            [longitude]="form.controls.longitude.value"
+            [estimatedLatitude]="data.item.geocoded_latitude ?? null"
+            [estimatedLongitude]="data.item.geocoded_longitude ?? null"
+            [readOnly]="!canEdit"
+            (positionSelected)="onPositionSelected($event)"
+            (positionCleared)="onPositionCleared()">
+          </app-location-map>
         </div>
-        <app-location-map
-          [latitude]="form.controls.latitude.value"
-          [longitude]="form.controls.longitude.value"
-          [estimatedLatitude]="data.item.geocoded_latitude ?? null"
-          [estimatedLongitude]="data.item.geocoded_longitude ?? null"
-          [readOnly]="!canEdit"
-          (positionSelected)="onPositionSelected($event)"
-          (positionCleared)="onPositionCleared()">
-        </app-location-map>
         @if (!form.controls.latitude.value && data.item.geocoded_latitude) {
           <p class="sheet-hint">Posizione stimata da indirizzo (geocodifica) — clicca sulla mappa per confermarne una reale.</p>
         }
@@ -146,7 +153,7 @@
       <mat-tab aria-label="Catasto">
         <ng-template mat-tab-label>
           <app-tab-label icon="map" label="Catasto"
-                         [dot]="filled('category', 'cadastral_value', 'sheet', 'parcel', 'subordinate', 'area_sqm', 'associated_building', 'services_and_artifacts')"></app-tab-label>
+                         [dot]="filled('category', 'cadastral_value', 'sheet', 'parcel', 'subordinate', 'area_sqm', 'services_and_artifacts')"></app-tab-label>
         </ng-template>
         <div class="sheet-grid">
           <mat-form-field class="span-2">
@@ -180,10 +187,6 @@
           <mat-form-field class="span-2">
             <mat-label>Servizi/Manufatti</mat-label>
             <input matInput formControlName="services_and_artifacts">
-          </mat-form-field>
-          <mat-form-field class="span-all">
-            <mat-label>Descrizione fabbricato</mat-label>
-            <textarea matInput formControlName="associated_building" rows="3" maxlength="255"></textarea>
           </mat-form-field>
         </div>
       </mat-tab>

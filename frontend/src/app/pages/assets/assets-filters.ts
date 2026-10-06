@@ -53,4 +53,5 @@ export function assetFilters(): FilterDef[] {
 // Segnalazioni dell'elenco (anomalie della dashboard).
 export const ASSET_SIGNALS: SignalDef[] = [
   {key: 'assets_without_classification', label: 'Da classificare (tipologia o funzione mancanti)'},
+  {key: 'rented_assets_without_passive_contract', label: 'Non di proprietà senza contratto passivo attivo'},
 ];
