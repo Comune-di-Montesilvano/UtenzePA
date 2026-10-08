@@ -223,14 +223,6 @@
             </mat-select>
           </mat-form-field>
           <mat-form-field>
-            <mat-label>Contatore Verificato</mat-label>
-            <mat-select formControlName="meter_verified">
-              @for (opt of booleanOptions; track opt.value) {
-                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field>
             <mat-label>Disalimentabilità utenza</mat-label>
             <mat-select formControlName="disconnectable">
               @for (opt of disconnectableOptions; track opt.label) {

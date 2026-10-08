@@ -161,14 +161,6 @@
     </td>
   </ng-container>
 
-  <ng-container matColumnDef="meter_verified">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Contatore Verificato</th>
-    <td mat-cell *matCellDef="let item">
-      <mat-icon [style.color]="item.meter_verified ? '#22c55e' : '#ef4444'">
-        {{ item.meter_verified ? 'check_circle' : 'cancel' }}
-      </mat-icon>
-    </td>
-  </ng-container>
 
   <ng-container matColumnDef="water_concession">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Concessione acqua</th>

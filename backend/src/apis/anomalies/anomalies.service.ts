@@ -41,6 +41,7 @@ export interface Anomalies {
   duplicate_cigs: AnomalyList<{ cig: string; contracts: number[] }>;
   real_estate_contracts_without_assets: AnomalyList<RealEstateContractAnomaly>;
   plants_without_position: AnomalyList<PlantAnomaly>;
+  active_utilities_without_position: AnomalyList<UtilityAnomaly>;
   plants_without_asset: AnomalyList<PlantAnomaly>;
   real_estate_contracts_without_parties: AnomalyList<{ id: number; subject: string | null }>;
   third_parties_without_identifier: AnomalyList<{ id: number; name: string; type: string }>;
@@ -362,6 +363,25 @@ export class AnomaliesService {
       description: (b.description as string) ?? null,
     });
 
+    // Utenze attive senza posizione: né coordinate proprie, né un immobile
+    // localizzato, né un impianto localizzato (proprio o del suo immobile);
+    // stessa priorità della mappa.
+    const hasPositionSql = (t: string) =>
+      `((${isSetSql(`${t}.latitude`)} AND ${isSetSql(`${t}.longitude`)})
+        OR (${isSetSql(`${t}.geocoded_latitude`)} AND ${isSetSql(`${t}.geocoded_longitude`)}))`;
+    const utilitiesWithoutPosition: UtilityAnomaly[] = await this.dataSource.query(
+      `SELECT ${utilityColumns} ${activeUtilities}
+       AND NOT (${isSetSql('u.latitude')} AND ${isSetSql('u.longitude')})
+       AND NOT EXISTS (SELECT 1 FROM utility_assets ua JOIN assets a ON a.id = ua.asset_id AND a.deleted = 0
+                       WHERE ua.utility_id = u.id AND ${hasPositionSql('a')})
+       AND NOT EXISTS (
+         SELECT 1 FROM utility_plants up JOIN plants p ON p.id = up.plant_id AND p.deleted = 0
+         WHERE up.utility_id = u.id AND (${hasPositionSql('p')}
+           OR EXISTS (SELECT 1 FROM plant_assets pa JOIN assets pa_a ON pa_a.id = pa.asset_id AND pa_a.deleted = 0
+                      WHERE pa.plant_id = p.id AND ${hasPositionSql('pa_a')})))
+       ORDER BY t.name, u.utility_id`,
+    );
+
     return {
       chapters_over_budget: list(
         over
@@ -442,6 +462,7 @@ export class AnomaliesService {
           type: p.type,
         })),
       ),
+      active_utilities_without_position: list(utilitiesWithoutPosition),
       real_estate_contracts_without_assets: list(
         contractsWithoutAssets.map((c) => ({
           id: Number(c.id),

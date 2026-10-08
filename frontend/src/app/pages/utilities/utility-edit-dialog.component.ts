@@ -32,7 +32,7 @@ import {ContractsService} from '../contracts/contract.service';
 import {Contract} from '../contracts/entity/contract.entity';
 import {UtilityConsumptionsTabComponent} from './consumptions/utility-consumptions-tab.component';
 import {PlantService} from '../plants/plant.service';
-import {PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PlantStatus, PlantType} from '../plants/plant.model';
+import {Plant, PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PlantStatus, PlantType} from '../plants/plant.model';
 import {BudgetChapter} from '../budget-chapters/entity/budget-chapter.entity';
 import {CONSUMPTION_UNIT_BY_HARD_TYPE, ConsumptionSummary, formatQty} from './consumptions/consumption.model';
 import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
@@ -115,6 +115,8 @@ export class UtilityEditDialogComponent implements OnInit {
   assetOptions: Asset[] = [];
   assetSelectOptions: TOption[] = [];
   private allPlants: PlantRow[] = [];
+  // Impianti con coordinate e immobili collegati, per "Senza posizione".
+  private plantsById = new Map<number, Plant>();
   plantSelectOptions: TOption[] = [];
   budgetChapterOptions: TOption[] = [];
   utilityTypeSelectOptions: TOption[] = [];
@@ -197,7 +199,6 @@ export class UtilityEditDialogComponent implements OnInit {
     longitude: [this.data.item.longitude ?? ''],
     meter_number: [this.data.item.meter_number ?? ''],
     meter_removed: [this.data.item.meter_removed ?? null],
-    meter_verified: [this.data.item.meter_verified ?? null],
     notes: [this.data.item.notes ?? ''],
     phase_type_electric: [this.data.item.phase_type_electric ?? null],
     power_kw_electric: [this.data.item.power_kw_electric ?? null],
@@ -343,6 +344,7 @@ export class UtilityEditDialogComponent implements OnInit {
     this.plantService.list().subscribe({
       next: plants => {
         this.allPlants = plants.map(p => ({id: p.id, code: p.code, name: p.name, type: p.type, status: p.status}));
+        this.plantsById = new Map(plants.map(p => [p.id, p]));
         this.plantSelectOptions = plants.map(p => ({
           label: `${p.code} — ${p.name}`,
           value: p.id,
@@ -403,8 +405,28 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   flags(): StatusInfo[] {
-    if (!this.isMetered) return [];
-    return utilityFlags(this.form.controls.meter_removed.value, this.form.controls.meter_verified.value);
+    const meterRemoved = this.isMetered && this.form.controls.meter_removed.value;
+    const withoutPosition = this.form.controls.supply_active.value === true && this.hasPosition() === false;
+    return utilityFlags(meterRemoved, withoutPosition);
+  }
+
+  // Stessa regola dell'anomalia "senza posizione" (backend): coordinate
+  // proprie, di un immobile o di un impianto (proprie o del suo immobile).
+  // null finché gli elenchi non sono caricati.
+  private hasPosition(): boolean | null {
+    const isSet = (v: string | null | undefined) => v != null && String(v).trim() !== '';
+    const located = (x: {latitude?: string | null; longitude?: string | null; geocoded_latitude?: string | null; geocoded_longitude?: string | null} | undefined) =>
+      !!x && ((isSet(x.latitude) && isSet(x.longitude)) || (isSet(x.geocoded_latitude) && isSet(x.geocoded_longitude)));
+    const f = this.form.controls;
+    if (isSet(f.latitude.value) && isSet(f.longitude.value)) return true;
+    if (this.assetRows.some(a => located(a))) return true;
+    const plantIds = (f.plant_ids.value ?? []) as number[];
+    if (plantIds.length && !this.plantsById.size) return null;
+    if (plantIds.length && !this.assetOptions.length) return null;
+    return plantIds.some(id => {
+      const p = this.plantsById.get(id);
+      return located(p) || !!p?.assets.some(a => located(this.assetOptions.find(o => o.id === a.id)));
+    });
   }
 
   invalid(...names: string[]): boolean {
