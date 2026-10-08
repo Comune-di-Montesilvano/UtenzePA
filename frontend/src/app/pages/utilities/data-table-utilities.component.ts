@@ -71,7 +71,6 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     {field: 'security_deposit', header: 'Deposito Cauzionale', minWidth: '120px'},
     {field: 'supply_active', header: 'Fornitura Attiva', minWidth: '120px'},
     {field: 'meter_removed', header: 'Contatore Rimosso', minWidth: '120px'},
-    {field: 'meter_verified', header: 'Contatore Verificato', minWidth: '120px'},
     {field: 'water_concession', header: 'Concessione acqua', minWidth: '120px'},
     {field: 'supply_start_date', header: 'Decorrenza fornitura', minWidth: '120px'},
     {field: 'supply_expiry_date', header: 'Scadenza affidamento', minWidth: '120px'},
@@ -252,8 +251,6 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
         return ExportHelper.boolData(utility.supply_active);
       case 'meter_removed':
         return ExportHelper.boolData(utility.meter_removed);
-      case 'meter_verified':
-        return ExportHelper.boolData(utility.meter_verified);
       case 'water_concession':
         return ExportHelper.formatDate(utility.water_concession);
       case 'supply_start_date':

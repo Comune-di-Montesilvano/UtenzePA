@@ -47,7 +47,6 @@ export class Utility extends AbstractEntity {
   longitude?: string;
   notes?: string;
   wbs_gas_element?: string;
-  meter_verified?: boolean;
   arera_category?: AreraCategory | null;
   gas_use_category?: GasUseCategory | null;
   disconnectable?: boolean | null;

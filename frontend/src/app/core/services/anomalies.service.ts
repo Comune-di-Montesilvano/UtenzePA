@@ -39,6 +39,7 @@ export interface Anomalies {
   duplicate_cigs: AnomalyList<{cig: string; contracts: number[]}>;
   real_estate_contracts_without_assets: AnomalyList<{id: number; counterparty: string | null; subject: string | null}>;
   plants_without_position: AnomalyList<{id: number; code: string; name: string; type: string}>;
+  active_utilities_without_position: AnomalyList<UtilityAnomaly>;
   plants_without_asset: AnomalyList<{id: number; code: string; name: string; type: string}>;
   real_estate_contracts_without_parties: AnomalyList<{id: number; subject: string | null}>;
   third_parties_without_identifier: AnomalyList<{id: number; name: string; type: string}>;

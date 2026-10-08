@@ -108,10 +108,6 @@ export class UpdateUtilityDto {
   water_concession?: string;
 
   @IsOptional()
-  @IsBoolean()
-  meter_verified?: boolean;
-
-  @IsOptional()
   @IsEnum(AreraCategory, { message: 'Tipologia ARERA non valida.' })
   arera_category?: AreraCategory | null;
 

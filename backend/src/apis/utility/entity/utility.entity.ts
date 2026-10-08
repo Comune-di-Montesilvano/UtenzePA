@@ -106,9 +106,6 @@ export class Utility {
   @Column({ type: 'date', nullable: true })
   water_concession: string;
 
-  @Column({ type: 'boolean', default: false, nullable: true })
-  meter_verified: boolean;
-
   @Column({ type: 'enum', enum: AreraCategory, nullable: true })
   arera_category: AreraCategory | null;
 

@@ -61,7 +61,6 @@ export function utilityFilters(): FilterDef[] {
       options: INTERNET_TECHNOLOGY_OPTIONS},
 
     {key: 'meter_removed', label: 'Contatore rimosso', type: 'bool', group: 'Stato'},
-    {key: 'meter_verified', label: 'Contatore verificato', type: 'bool', group: 'Stato'},
     {key: 'cost_status', label: 'A carico di', type: 'select', group: 'Stato',
       options: [{label: 'Comune', value: 'COMUNE'}, {label: 'Da volturare', value: 'TO_TRANSFER'},
         {label: 'Volturata', value: 'TRANSFERRED'}, {label: 'Da riprendere', value: 'TO_RECOVER'}]},
@@ -103,4 +102,5 @@ export const UTILITY_SIGNALS: SignalDef[] = [
   {key: 'utilities_to_recover', label: 'Volturate da riprendere'},
   {key: 'utilities_with_uncommitted_chapter', label: 'Capitolo non impegnato sul contratto di fornitura'},
   {key: 'active_utilities_without_chapter', label: 'Senza capitolo di spesa'},
+  {key: 'active_utilities_without_position', label: 'Attive senza posizione'},
 ];

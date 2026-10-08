@@ -63,11 +63,6 @@ export class SearchUtilityDto {
 
   @IsOptional()
   @IsBoolean()
-  @Transform(({ value }) => value === true || value === 'true')
-  meter_verified?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
   @Transform(({ value }) => {
     if (value === 'true' || value === 1 || value === true) return true;
     if (value === 'false' || value === 0 || value === false) return false;

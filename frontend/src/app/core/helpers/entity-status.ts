@@ -50,10 +50,10 @@ export function utilityStatus(active: boolean | null | undefined): StatusInfo {
   return {tone: 'warn', label: 'Fornitura non indicata', icon: 'help_outline'};
 }
 
-export function utilityFlags(meterRemoved: boolean | null | undefined, meterVerified: boolean | null | undefined): StatusInfo[] {
+export function utilityFlags(meterRemoved: boolean | null | undefined, withoutPosition: boolean): StatusInfo[] {
   const flags: StatusInfo[] = [];
   if (meterRemoved) flags.push({tone: 'off', label: 'Contatore rimosso', icon: 'remove_circle_outline'});
-  if (meterVerified === false) flags.push({tone: 'warn', label: 'Contatore non verificato', icon: 'report'});
+  if (withoutPosition) flags.push({tone: 'warn', label: 'Senza posizione', icon: 'location_off'});
   return flags;
 }
 

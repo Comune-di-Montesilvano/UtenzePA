@@ -120,6 +120,22 @@ const formatDate = (iso: string | null): string => {
             </mat-expansion-panel>
             }
 
+            @if (data.active_utilities_without_position.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count" [class.zero]="data.active_utilities_without_position.count === 0">{{ data.active_utilities_without_position.count }}</span>
+                  Utenze attive senza posizione
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (u of data.active_utilities_without_position.items; track u.id) {
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
+
             @if (data.utilities_to_transfer.count > 0) {
             <mat-expansion-panel>
               <mat-expansion-panel-header>
