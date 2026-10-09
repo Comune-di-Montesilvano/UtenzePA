@@ -9,17 +9,19 @@ Gestionale del patrimonio immobiliare e delle utenze per enti pubblici locali (a
 
 ## Screenshot
 
+Tema chiaro o scuro secondo il sistema, oppure scelto dalla voce **Tema** della barra laterale. Le immagini seguono il tema di GitHub.
+
 | Login | Dashboard |
 |---|---|
-| ![Login](docs/screenshots/01-login.png) | ![Dashboard](docs/screenshots/02-dashboard.png) |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/01-login-dark.png"><img src="docs/screenshots/01-login.png" alt="Login"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/02-dashboard-dark.png"><img src="docs/screenshots/02-dashboard.png" alt="Dashboard"></picture> |
 
-| Mappa geolocalizzazione | Gestione Immobili |
+| Mappa | Immobili |
 |---|---|
-| ![Mappa](docs/screenshots/03-mappa.png) | ![Immobili](docs/screenshots/04-immobili.png) |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/03-mappa-dark.png"><img src="docs/screenshots/03-mappa.png" alt="Mappa"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/04-immobili-dark.png"><img src="docs/screenshots/04-immobili.png" alt="Immobili"></picture> |
 
-| Gestione Utenze |
+| Utenze |
 |---|
-| ![Utenze](docs/screenshots/05-utenze.png) |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/05-utenze-dark.png"><img src="docs/screenshots/05-utenze.png" alt="Utenze"></picture> |
 
 ## Architettura
 
