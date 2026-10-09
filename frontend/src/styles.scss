@@ -25,57 +25,6 @@ li a {
     color: inherit;
 }
 
-p-dialog .p-datatable-table-container {
-    height: 30vh;
-}
-
-p-table.p-component.p-datatable, .search-params {
-    padding: 20px;
-    border: 1px solid var(--app-border);
-    margin-top: 10px;
-    border-radius: 12px;
-}
-
-.p-fluid.p-formgrid.p-grid {
-    display: flex;
-}
-
-.p-field.p-col-4 {
-    display: grid;
-    margin-right: 16px;
-}
-
-.p-col-12.p-d-flex.p-jc-start.p-mt-2 {
-    margin-top: 20px;
-}
-
-button.p-button.p-component {
-    margin-right: 4px;
-}
-
-
-.action-button .pi,
-.action-button:hover,
-.action-button:focus {
-  color: var(--app-text) !important;
-  background-color: transparent !important;
-  box-shadow: none !important;
-}
-
-.custom-button {
-  background-color: var(--mat-sys-primary) !important;
-  color: var(--mat-sys-on-primary) !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-.custom-button:hover,
-.custom-button:focus {
-  background-color: var(--mat-sys-primary) !important;
-  color: var(--mat-sys-on-primary) !important;
-  box-shadow: none !important;
-}
-
 .row-deleted {
   color: var(--app-muted) !important;
   opacity: 0.6;
@@ -85,22 +34,10 @@ button.p-button.p-component {
   color: inherit !important;
 }
 
-.btn-green .pi {
-  color: light-dark(#00c10d, #4ade80) !important;
-}
-
-.btn-red .pi {
-  color: light-dark(#e7000b, #f87171) !important;
-}
-
 ul.sidebar-menu li {
     margin-left: 14px;
     margin-top: 4px;
     margin-bottom: 9px;
-}
-
-.submenu i.pi {
-    margin-right: 10px;
 }
 
 textarea,
@@ -109,14 +46,7 @@ textarea:active {
   font-family: inherit !important;
   font-feature-settings: inherit !important;
   font-size: 1rem !important;
-  color: var(--p-inputtext-color) !important;
-  background: var(--p-inputtext-background) !important;
-  padding-block: var(--p-inputtext-padding-y) !important;
-  padding-inline: var(--p-inputtext-padding-x) !important;
-  border: 1px solid var(--p-inputtext-border-color) !important;
   appearance: none !important;
-  border-radius: var(--p-inputtext-border-radius) !important;
-  box-shadow: var(--p-inputtext-shadow) !important;
   outline: none !important;
 }
 
@@ -126,59 +56,12 @@ textarea:focus-within {
   font-family: inherit !important;
   font-feature-settings: inherit !important;
   font-size: 1rem !important;
-  color: var(--p-inputtext-color) !important;
-  background: var(--p-inputtext-background) !important;
-  padding-block: var(--p-inputtext-padding-y) !important;
-  padding-inline: var(--p-inputtext-padding-x) !important;
-  border-color: var(--p-inputtext-focus-border-color) !important;
   appearance: none !important;
-  border-radius: var(--p-inputtext-border-radius) !important;
-  box-shadow: var(--p-inputtext-focus-ring-shadow) !important;
   outline: none !important;
 }
-.p-card {
-  box-shadow: none !important;
-  border: 1px solid var(--app-border) !important;
-}
-
-//.p-card-body {
-//  height: 76vh;
-//}
 
 aside.sidebar {
     padding-top: 20px;
-}
-
-.dynamic-rows .p-datatable-tbody > tr {
-  height: var(--row-height) !important;
-}
-
-.p-datatable-table-container {
-    height: 100vh;
-}
-
-p-paginator.p-component.p-paginator {
-    padding-top: 25px;
-}
-
-.p-datatable-table-container {
-    background-color: var(--app-surface-2);
-}
-
-.cursor-pointer {
-  cursor: pointer!important;
-}
-
-.cursor-pointer.linker:hover {
-  background-color: var(--app-surface-2)!important;
-}
-
-.card-widget .p-card-body {
-  padding-top: 0!important;
-}
-
-.card-widget .p-card-content p-table {
-  margin-top: 0!important;
 }
 
 // Icone marker Leaflet (mappa geolocalizzazione + mini-mappa dialog): iniettate
@@ -436,7 +319,6 @@ p-paginator.p-component.p-paginator {
   max-width: 420px;
   text-align: left;
 }
-
 
 // Dark mode: le tessere della mappa restano chiare (spec), si adeguano solo
 // controlli e popup di Leaflet.
