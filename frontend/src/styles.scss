@@ -10,6 +10,8 @@ body, html {
   line-height: 20px;
   letter-spacing: -0.15px;
   margin: 0px;
+  background: var(--app-bg);
+  color: var(--app-text);
 }
 
 ul {
@@ -20,7 +22,7 @@ ul {
 
 li a {
     text-decoration: none;
-    color: black;
+    color: inherit;
 }
 
 p-dialog .p-datatable-table-container {
@@ -45,21 +47,6 @@ p-table.p-component.p-datatable, .search-params {
 
 .p-col-12.p-d-flex.p-jc-start.p-mt-2 {
     margin-top: 20px;
-}
-
-html, :root, .p-component, body {
-  --p-button-primary-background: #030213;
-  --p-button-primary-hover-background: #030213;
-  --p-button-primary-color: #ffffff;
-  --p-primary-color: #030213;
-  --p-button-primary-border-color : #030213;
-
-  --p-button-secondary-background: #ffffff;
-  --p-button-secondary-hover-background: #ffffff;
-  --p-button-secondary-color: #030213;
-  --p-secondary-color: #030213;
-  --p-button-secondary-border-color : #D4D4D4;
-
 }
 
 button.p-button.p-component {
@@ -452,21 +439,35 @@ p-paginator.p-component.p-paginator {
 
 
 /* ===== Schede entità (dialog Riepilogo + tab) ===== */
+// Token colore di tutta l'app: light-dark(chiaro, scuro), il tema effettivo lo
+// decide color-scheme su <html> (material-theme.scss). Nei componenti solo
+// questi token, mai esadecimali (salvo colori "dato": tipo utenza, pin, serie).
 :root {
-  --tone-ok-bg: #dcfce7; --tone-ok-fg: #166534;
-  --tone-warn-bg: #fef3c7; --tone-warn-fg: #92400e;
-  --tone-danger-bg: #fee2e2; --tone-danger-fg: #991b1b;
-  --tone-off-bg: #f3f4f6; --tone-off-fg: #4b5563;
-  --tone-info-bg: #dbeafe; --tone-info-fg: #1e40af;
-  --entity-asset: #2563eb;
-  --entity-utility: #0891b2;
-  --entity-plant: #ea580c;
-  --entity-supply-contract: #7c3aed;
-  --entity-grant: #0d9488;
-  --entity-party: #be185d;
-  --entity-chapter: #4d7c0f;
-  --sheet-border: #e5e7eb;
-  --sheet-muted: #6b7280;
+  --app-bg: light-dark(#ffffff, #121212);
+  --app-surface: light-dark(#ffffff, #1c1c1e);
+  --app-surface-2: light-dark(#f3f4f6, #26262a);
+  --app-text: light-dark(#111827, #e7e7ea);
+  --app-muted: light-dark(#6b7280, #9a9aa3);
+  --app-border: light-dark(#e5e7eb, #34343a);
+  --app-error: light-dark(#b91c1c, #f87171);
+  --app-link: light-dark(#1d4ed8, #93c5fd);
+  --app-header: light-dark(#d9d9d9, #18181a);
+
+  --tone-ok-bg: light-dark(#dcfce7, #14361f); --tone-ok-fg: light-dark(#166534, #86efac);
+  --tone-warn-bg: light-dark(#fef3c7, #3d2c0b); --tone-warn-fg: light-dark(#92400e, #fcd34d);
+  --tone-danger-bg: light-dark(#fee2e2, #3f1515); --tone-danger-fg: light-dark(#991b1b, #fca5a5);
+  --tone-off-bg: light-dark(#f3f4f6, #2a2a2e); --tone-off-fg: light-dark(#4b5563, #b4b4bb);
+  --tone-info-bg: light-dark(#dbeafe, #172554); --tone-info-fg: light-dark(#1e40af, #93c5fd);
+  --tone-disputed-bg: light-dark(#fde68a, #4a3510); --tone-disputed-fg: light-dark(#78350f, #fde68a);
+  --entity-asset: light-dark(#2563eb, #60a5fa);
+  --entity-utility: light-dark(#0891b2, #22d3ee);
+  --entity-plant: light-dark(#ea580c, #fb923c);
+  --entity-supply-contract: light-dark(#7c3aed, #a78bfa);
+  --entity-grant: light-dark(#0d9488, #2dd4bf);
+  --entity-party: light-dark(#be185d, #f472b6);
+  --entity-chapter: light-dark(#4d7c0f, #a3e635);
+  --sheet-border: var(--app-border);
+  --sheet-muted: var(--app-muted);
 }
 
 .tone-ok { background: var(--tone-ok-bg); color: var(--tone-ok-fg); }

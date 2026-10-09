@@ -10,11 +10,15 @@
 @use 'theme-colors';
 
 html {
-  color-scheme: light;
+  // Default: segue il sistema. ThemeService e lo script in index.html mettono
+  // theme-light o theme-dark su <html> per forzarlo.
+  color-scheme: light dark;
 
   @include mat.theme((
     color: (
-      theme-type: light,
+      // color-scheme: ogni ruolo --mat-sys-* diventa light-dark(chiaro, scuro),
+      // il tema effettivo dipende solo dalla proprietà color-scheme.
+      theme-type: color-scheme,
       primary: theme-colors.$primary-palette,
       tertiary: mat.$blue-palette,
     ),
@@ -30,12 +34,26 @@ html {
   // manteniamo i colori esatti del design esistente. I ruoli derivati (container,
   // inverse-*, ecc.) restano invece quelli generati dalla palette sopra, non
   // più patchati a mano (vedi commento sezione "Theming" più sopra).
-  --mat-sys-primary: #030213;
-  --mat-sys-on-primary: #ffffff;
-  --mat-sys-secondary: #ffffff;
-  --mat-sys-on-secondary: #030213;
-  --mat-sys-outline: #d4d4d4;
+  // In scuro lo specchio monocromatico: primario quasi bianco su superfici
+  // antracite (spec dark mode 2026-10-08). Le superfici in chiaro sono i
+  // valori che la palette generava già con theme-type: light.
+  --mat-sys-primary: light-dark(#030213, #ececf0);
+  --mat-sys-on-primary: light-dark(#ffffff, #0b0b12);
+  --mat-sys-secondary: light-dark(#ffffff, #1c1c1e);
+  --mat-sys-on-secondary: light-dark(#030213, #ececf0);
+  --mat-sys-outline: light-dark(#d4d4d4, #3f3f46);
+  --mat-sys-background: light-dark(#fcf8fa, #121212);
+  --mat-sys-surface: light-dark(#fcf8fa, #1c1c1e);
+  --mat-sys-on-surface: light-dark(#1c1b1d, #e7e7ea);
+  --mat-sys-surface-container-lowest: light-dark(#ffffff, #121212);
+  --mat-sys-surface-container-low: light-dark(#f7f2f5, #18181a);
+  --mat-sys-surface-container: light-dark(#f1edef, #1c1c1e);
+  --mat-sys-surface-container-high: light-dark(#ebe7e9, #26262a);
+  --mat-sys-surface-container-highest: light-dark(#e5e1e3, #2e2e33);
 }
+
+html.theme-light { color-scheme: light; }
+html.theme-dark { color-scheme: dark; }
 
 .mat-action-success {
   --mdc-icon-button-icon-color: #00c10d;
