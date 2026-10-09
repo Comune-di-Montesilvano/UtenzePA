@@ -42,9 +42,9 @@
       @if (item.cig_contract) {
         {{ item.cig_contract }}
       } @else if (noCigLabel(item.contract_kind)) {
-        <span style="color: #6b7280;">{{ noCigLabel(item.contract_kind) }}</span>
+        <span style="color: var(--app-muted);">{{ noCigLabel(item.contract_kind) }}</span>
       } @else {
-        <span style="background: #fee2e2; color: #991b1b; border-radius: 10px; padding: 1px 8px; font-size: 0.75rem;">CIG mancante</span>
+        <span style="background: var(--tone-danger-bg); color: var(--tone-danger-fg); border-radius: 10px; padding: 1px 8px; font-size: 0.75rem;">CIG mancante</span>
       }
     </td>
   </ng-container>
@@ -65,11 +65,11 @@
     <td mat-cell *matCellDef="let item">
       {{ item.supply_expiry_date ? (item.supply_expiry_date | date: 'dd/MM/yyyy') : 'N/D' }}
       @if (item.closed) {
-        <span style="margin-left: 0.5rem; color: #6b7280;">Chiuso</span>
+        <span style="margin-left: 0.5rem; color: var(--app-muted);">Chiuso</span>
       } @else if (item.isCurrent) {
         <span class="mat-action-success" style="margin-left: 0.5rem;">Corrente</span>
       } @else {
-        <span style="margin-left: 0.5rem; color: #6b7280;">Scaduto</span>
+        <span style="margin-left: 0.5rem; color: var(--app-muted);">Scaduto</span>
       }
     </td>
   </ng-container>

@@ -117,10 +117,10 @@ export function suggestedInspections(type: PlantType, powerKw?: number | null): 
 }
 
 export type Badge = {bg: string; fg: string};
-const GREEN: Badge = {bg: '#dcfce7', fg: '#166534'};
-const AMBER: Badge = {bg: '#fef3c7', fg: '#92400e'};
-const RED: Badge = {bg: '#fee2e2', fg: '#991b1b'};
-const GREY: Badge = {bg: '#f3f4f6', fg: '#374151'};
+const GREEN: Badge = {bg: 'var(--tone-ok-bg)', fg: 'var(--tone-ok-fg)'};
+const AMBER: Badge = {bg: 'var(--tone-warn-bg)', fg: 'var(--tone-warn-fg)'};
+const RED: Badge = {bg: 'var(--tone-danger-bg)', fg: 'var(--tone-danger-fg)'};
+const GREY: Badge = {bg: 'var(--app-surface-2)', fg: 'light-dark(#374151, #d4d4d8)'};
 
 export function positionBadge(q: PositionQuality): Badge {
   return q === 'PRECISE' || q === 'FROM_ASSET' ? GREEN : q === 'ESTIMATED' ? AMBER : RED;

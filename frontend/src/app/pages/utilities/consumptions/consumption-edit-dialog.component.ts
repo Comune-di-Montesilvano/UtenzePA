@@ -78,7 +78,7 @@ export interface ConsumptionEditDialogData {
         </mat-form-field>
 
         @if (error) {
-          <p style="color: #b91c1c; margin: 0;">{{ error }}</p>
+          <p style="color: var(--app-error); margin: 0;">{{ error }}</p>
         }
       </form>
     </mat-dialog-content>

@@ -24,14 +24,14 @@ const formatDate = (iso: string | null): string => {
     <mat-card>
       <mat-card-header style="padding: 1.25rem;">
         <mat-card-title style="font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
-          <mat-icon [style.color]="total > 0 ? '#dc2626' : '#16a34a'">{{ total > 0 ? 'report_problem' : 'verified' }}</mat-icon>
+          <mat-icon [style.color]="total > 0 ? 'light-dark(#dc2626, #f87171)' : 'light-dark(#16a34a, #4ade80)'">{{ total > 0 ? 'report_problem' : 'verified' }}</mat-icon>
           Anomalie dati contrattuali
         </mat-card-title>
         <mat-card-subtitle>Un contratto di fornitura senza CIG, e non escluso, è considerato inesistente.</mat-card-subtitle>
       </mat-card-header>
       <mat-card-content>
         @if (!data) {
-          <p style="color: #6b7280;">Caricamento…</p>
+          <p style="color: var(--app-muted);">Caricamento…</p>
         } @else {
           @if (!hasAnomalies()) {
             <p class="no-anomalies">Nessuna anomalia: i dati sono in ordine.</p>
@@ -424,10 +424,10 @@ const formatDate = (iso: string | null): string => {
     </mat-card>
   `,
   styles: [`
-    .no-anomalies { margin: 0.5rem 0; color: #15803d; }
+    .no-anomalies { margin: 0.5rem 0; color: light-dark(#15803d, #86efac); }
     .anomaly-count { display: inline-block; min-width: 2.25rem; text-align: center; margin-right: 0.75rem;
-      padding: 1px 8px; border-radius: 10px; background: #fee2e2; color: #991b1b; font-weight: 600; }
-    .anomaly-count.zero { background: #dcfce7; color: #166534; }
+      padding: 1px 8px; border-radius: 10px; background: var(--tone-danger-bg); color: var(--tone-danger-fg); font-weight: 600; }
+    .anomaly-count.zero { background: var(--tone-ok-bg); color: var(--tone-ok-fg); }
     .anomaly-list { max-height: 40vh; overflow-y: auto; margin: 0; padding-left: 1.25rem; font-size: 0.875rem; }
     .anomaly-list li { cursor: pointer; padding: 2px 0; }
     .anomaly-list li:hover { text-decoration: underline; }

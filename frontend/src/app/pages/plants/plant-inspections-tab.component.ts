@@ -45,7 +45,7 @@ const toDate = (iso?: string | null): Date | null => {
       }
 
       @if (editing) {
-        <form [formGroup]="form" style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+        <form [formGroup]="form" style="border: 1px solid var(--app-border); border-radius: 6px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
           <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
             <mat-form-field style="flex: 2 1 280px;">
               <mat-label>Verifica *</mat-label>
@@ -89,7 +89,7 @@ const toDate = (iso?: string | null): Date | null => {
             <textarea matInput rows="2" formControlName="notes"></textarea>
           </mat-form-field>
           @if (error) {
-            <p style="color: #b91c1c; margin: 0;">{{ error }}</p>
+            <p style="color: var(--app-error); margin: 0;">{{ error }}</p>
           }
           <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
             <button mat-stroked-button type="button" (click)="cancel()">Annulla</button>
@@ -99,12 +99,12 @@ const toDate = (iso?: string | null): Date | null => {
       }
 
       @if (rows.length === 0) {
-        <p style="color: #6A7282; margin: 0;">Nessuna verifica registrata.</p>
+        <p style="color: light-dark(#6a7282, #9a9aa3); margin: 0;">Nessuna verifica registrata.</p>
       } @else {
         <div style="overflow-x: auto;">
           <table style="width: 100%; min-width: 800px; border-collapse: collapse; font-size: 0.875rem;">
             <thead>
-              <tr style="text-align: left; border-bottom: 1px solid #e5e7eb;">
+              <tr style="text-align: left; border-bottom: 1px solid var(--app-border);">
                 <th style="padding: 6px;">Verifica</th>
                 <th style="padding: 6px;">Periodicità</th>
                 <th style="padding: 6px;">Ultima</th>
@@ -118,7 +118,7 @@ const toDate = (iso?: string | null): Date | null => {
             <tbody>
               @for (r of rows; track r.id) {
                 @let b = badgeOf(r);
-                <tr style="border-bottom: 1px solid #f3f4f6;">
+                <tr style="border-bottom: 1px solid var(--app-surface-2);">
                   <td style="padding: 6px;">{{ r.kind }}</td>
                   <td style="padding: 6px;">{{ r.period_months ? r.period_months + ' mesi' : '' }}</td>
                   <td style="padding: 6px;">{{ dateIt(r.last_date) }}</td>

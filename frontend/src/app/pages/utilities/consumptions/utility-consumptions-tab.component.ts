@@ -23,16 +23,16 @@ const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
     <div style="display: flex; flex-direction: column; gap: 1.25rem; padding: 1rem 0;">
       @if (summary) {
         <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-          <div style="flex: 1 1 260px; border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
-            <div style="color: #6b7280; font-size: 0.85rem;">Consumo effettivo ultimi 12 mesi</div>
+          <div style="flex: 1 1 260px; border: 1px solid var(--app-border); border-radius: 6px; padding: 1rem;">
+            <div style="color: var(--app-muted); font-size: 0.85rem;">Consumo effettivo ultimi 12 mesi</div>
             <div style="font-size: 1.5rem; font-weight: 600;">{{ formatQty(summary.actual_consumption, summary.unit) }}</div>
-            <div style="color: #6b7280; font-size: 0.8rem;">
+            <div style="color: var(--app-muted); font-size: 0.8rem;">
               Dati su {{ summary.coverage_days }}/365 giorni
               @if (summary.coverage_days < 365) { · valore parziale }
             </div>
           </div>
-          <div style="flex: 1 1 260px; border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem;">
-            <div style="color: #6b7280; font-size: 0.85rem;">Consumo annuo stimato</div>
+          <div style="flex: 1 1 260px; border: 1px solid var(--app-border); border-radius: 6px; padding: 1rem;">
+            <div style="color: var(--app-muted); font-size: 0.85rem;">Consumo annuo stimato</div>
             <div style="font-size: 1.5rem; font-weight: 600;">{{ formatQty(summary.estimated_annual_consumption, summary.unit) }}</div>
             <span [style.background]="estimateBadge().bg" [style.color]="estimateBadge().fg"
                   style="display: inline-block; border-radius: 10px; padding: 1px 8px; font-size: 0.75rem;">
@@ -55,11 +55,11 @@ const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
           </button>
         </div>
         @if (rows.length === 0) {
-          <p style="color: #6b7280;">Nessuna rilevazione inserita.</p>
+          <p style="color: var(--app-muted);">Nessuna rilevazione inserita.</p>
         } @else {
           <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
             <thead>
-              <tr style="text-align: left; border-bottom: 1px solid #e5e7eb;">
+              <tr style="text-align: left; border-bottom: 1px solid var(--app-border);">
                 <th style="padding: 6px;">Data / periodo</th>
                 <th style="padding: 6px;">Tipo</th>
                 <th style="padding: 6px;">Matricola</th>
@@ -72,7 +72,7 @@ const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
             </thead>
             <tbody>
               @for (row of rows; track row.id) {
-                <tr style="border-bottom: 1px solid #f3f4f6;">
+                <tr style="border-bottom: 1px solid var(--app-surface-2);">
                   <td style="padding: 6px;">
                     {{ row.kind === 'READING' ? formatDateIt(row.reading_date) : formatDateIt(row.period_start) + ' – ' + formatDateIt(row.period_end) }}
                   </td>
@@ -81,7 +81,7 @@ const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
                   <td style="padding: 6px; text-align: right;">{{ row.kind === 'READING' ? formatQty(row.reading_value) : '' }}</td>
                   <td style="padding: 6px; text-align: right;">
                     @if (row.computed_consumption === null) {
-                      <span style="color: #6b7280;" matTooltip="Nessun consumo calcolabile: prima lettura del contatore o lettura precedente di un contatore diverso">—</span>
+                      <span style="color: var(--app-muted);" matTooltip="Nessun consumo calcolabile: prima lettura del contatore o lettura precedente di un contatore diverso">—</span>
                     } @else {
                       {{ formatQty(row.computed_consumption, summary?.unit) }}
                     }
@@ -129,11 +129,11 @@ export class UtilityConsumptionsTabComponent implements OnInit {
     if (!s) return {text: '', bg: 'transparent', fg: 'inherit'};
     if (s.estimated_source === 'MANUAL') {
       return s.estimated_valid_until && s.estimated_valid_until >= new Date().toISOString().slice(0, 10)
-        ? {text: `Manuale — valida fino al ${formatDateIt(s.estimated_valid_until)}`, bg: '#fef3c7', fg: '#92400e'}
-        : {text: 'Manuale — scaduta', bg: '#fee2e2', fg: '#991b1b'};
+        ? {text: `Manuale — valida fino al ${formatDateIt(s.estimated_valid_until)}`, bg: 'var(--tone-warn-bg)', fg: 'var(--tone-warn-fg)'}
+        : {text: 'Manuale — scaduta', bg: 'var(--tone-danger-bg)', fg: 'var(--tone-danger-fg)'};
     }
-    if (s.estimated_source === 'HISTORY') return {text: 'Da storico', bg: '#dcfce7', fg: '#166534'};
-    return {text: 'Nessun dato', bg: '#f3f4f6', fg: '#374151'};
+    if (s.estimated_source === 'HISTORY') return {text: 'Da storico', bg: 'var(--tone-ok-bg)', fg: 'var(--tone-ok-fg)'};
+    return {text: 'Nessun dato', bg: 'var(--app-surface-2)', fg: 'light-dark(#374151, #d4d4d8)'};
   }
 
   openDialog(item?: UtilityConsumption): void {

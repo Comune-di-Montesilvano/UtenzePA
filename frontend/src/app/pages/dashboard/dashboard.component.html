@@ -1,7 +1,7 @@
 <div style="padding: 1rem;">
   <div>
     <h1>Dashboard</h1>
-    <p style="color: #6A7282;">Panoramica generale del sistema di gestione utenze</p>
+    <p style="color: light-dark(#6a7282, #9a9aa3);">Panoramica generale del sistema di gestione utenze</p>
   </div>
 
   <div style="display: flex; flex-direction: column">
@@ -11,10 +11,10 @@
         <div style="flex: 1">
           <mat-card>
             <mat-card-content style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
-              <mat-icon style="font-size: 2rem; width: 2rem; height: 2rem; color: #6A7282;">local_shipping</mat-icon>
+              <mat-icon style="font-size: 2rem; width: 2rem; height: 2rem; color: light-dark(#6a7282, #9a9aa3);">local_shipping</mat-icon>
               <div>
-                <p style="margin: 0; font-size: 0.85rem; color: #6A7282;">Fornitori</p>
-                <p style="margin: 0; font-size: 1.75rem; font-weight: 700; color: #1E293B;">{{ suppliersCount }}</p>
+                <p style="margin: 0; font-size: 0.85rem; color: light-dark(#6a7282, #9a9aa3);">Fornitori</p>
+                <p style="margin: 0; font-size: 1.75rem; font-weight: 700; color: light-dark(#1e293b, #e7e7ea);">{{ suppliersCount }}</p>
               </div>
             </mat-card-content>
           </mat-card>
@@ -23,10 +23,10 @@
         <div style="flex: 1">
           <mat-card>
             <mat-card-content style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
-              <mat-icon style="font-size: 2rem; width: 2rem; height: 2rem; color: #6A7282;">bolt</mat-icon>
+              <mat-icon style="font-size: 2rem; width: 2rem; height: 2rem; color: light-dark(#6a7282, #9a9aa3);">bolt</mat-icon>
               <div>
-                <p style="margin: 0; font-size: 0.85rem; color: #6A7282;">Utenze</p>
-                <p style="margin: 0; font-size: 1.75rem; font-weight: 700; color: #1E293B;">{{ utilitiesCount }}</p>
+                <p style="margin: 0; font-size: 0.85rem; color: light-dark(#6a7282, #9a9aa3);">Utenze</p>
+                <p style="margin: 0; font-size: 1.75rem; font-weight: 700; color: light-dark(#1e293b, #e7e7ea);">{{ utilitiesCount }}</p>
               </div>
             </mat-card-content>
           </mat-card>
@@ -35,10 +35,10 @@
         <div style="flex: 1">
           <mat-card>
             <mat-card-content style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
-              <mat-icon style="font-size: 2rem; width: 2rem; height: 2rem; color: #6A7282;">apartment</mat-icon>
+              <mat-icon style="font-size: 2rem; width: 2rem; height: 2rem; color: light-dark(#6a7282, #9a9aa3);">apartment</mat-icon>
               <div>
-                <p style="margin: 0; font-size: 0.85rem; color: #6A7282;">Immobili</p>
-                <p style="margin: 0; font-size: 1.75rem; font-weight: 700; color: #1E293B;">{{ assetsCount }}</p>
+                <p style="margin: 0; font-size: 0.85rem; color: light-dark(#6a7282, #9a9aa3);">Immobili</p>
+                <p style="margin: 0; font-size: 1.75rem; font-weight: 700; color: light-dark(#1e293b, #e7e7ea);">{{ assetsCount }}</p>
               </div>
             </mat-card-content>
           </mat-card>
@@ -47,10 +47,10 @@
         <div style="flex: 1">
           <mat-card (click)="scroll(consip)" style="cursor: pointer;">
             <mat-card-content style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
-              <mat-icon style="font-size: 2rem; width: 2rem; height: 2rem; color: #6A7282;">handshake</mat-icon>
+              <mat-icon style="font-size: 2rem; width: 2rem; height: 2rem; color: light-dark(#6a7282, #9a9aa3);">handshake</mat-icon>
               <div>
-                <p style="margin: 0; font-size: 0.85rem; color: #6A7282;">Salvaguardia</p>
-                <p style="margin: 0; font-size: 1.75rem; font-weight: 700; color: #1E293B;">{{ safeGuardedUtilitiesList.length }}</p>
+                <p style="margin: 0; font-size: 0.85rem; color: light-dark(#6a7282, #9a9aa3);">Salvaguardia</p>
+                <p style="margin: 0; font-size: 1.75rem; font-weight: 700; color: light-dark(#1e293b, #e7e7ea);">{{ safeGuardedUtilitiesList.length }}</p>
               </div>
             </mat-card-content>
           </mat-card>
@@ -103,13 +103,13 @@
                         #{{ item.contract.id }} <span class="badge severity-danger">CIG mancante</span>
                       }
                       @if (item.contract.consip_order) {
-                        <div style="font-size: 0.8rem; color: #6b7280;">Ordine CONSIP {{ item.contract.consip_order }}</div>
+                        <div style="font-size: 0.8rem; color: var(--app-muted);">Ordine CONSIP {{ item.contract.consip_order }}</div>
                       }
                     </td>
                     <td style="padding: 0.5rem;">
                       {{ partyName(item.contract.supplier) || '—' }}
                       @if (item.contract.consipAgreement?.name) {
-                        <div style="font-size: 0.8rem; color: #6b7280;">{{ item.contract.consipAgreement?.name }}</div>
+                        <div style="font-size: 0.8rem; color: var(--app-muted);">{{ item.contract.consipAgreement?.name }}</div>
                       }
                     </td>
                     <td style="padding: 0.5rem;">{{ item.contract.supply_expiry_date | date: 'dd/MM/yyyy' }}</td>
@@ -118,7 +118,7 @@
                     </td>
                     <td style="padding: 0.5rem;">
                       <strong>{{ item.contract.utilities?.length ?? 0 }}</strong>
-                      <div style="font-size: 0.8rem; color: #6b7280;">{{ utilitiesPreview(item.contract) }}</div>
+                      <div style="font-size: 0.8rem; color: var(--app-muted);">{{ utilitiesPreview(item.contract) }}</div>
                     </td>
                   </tr>
                 } @empty {

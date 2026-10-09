@@ -21,13 +21,13 @@ import {ToastService} from '../../core/services/toast.service';
     <div style="display: flex; flex-direction: column; gap: 1rem; padding: 1rem 0;">
       <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
         @for (row of summary; track row.hard_type) {
-          <div style="flex: 1 1 260px; border: 1px solid #e5e7eb; border-radius: 6px; padding: 0.75rem 1rem;">
+          <div style="flex: 1 1 260px; border: 1px solid var(--app-border); border-radius: 6px; padding: 0.75rem 1rem;">
             <div style="font-weight: 600;">{{ hardTypeLabel[row.hard_type] }} · {{ row.utilities_count }} utenze</div>
             <div style="font-size: 0.9rem;">Presunto: <strong>{{ formatQty(row.estimated_sum, row.unit) }}</strong></div>
             <div style="font-size: 0.9rem;">Effettivo 12 mesi: <strong>{{ formatQty(row.actual_sum, row.unit) }}</strong></div>
           </div>
         } @empty {
-          <p style="color: #6b7280; margin: 0;">Nessun consumo per le utenze di questo capitolo.</p>
+          <p style="color: var(--app-muted); margin: 0;">Nessun consumo per le utenze di questo capitolo.</p>
         }
       </div>
       <app-data-table-utilities

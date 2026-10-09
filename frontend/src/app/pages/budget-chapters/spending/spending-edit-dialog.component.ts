@@ -54,10 +54,10 @@ function someAmount(group: AbstractControl): ValidationErrors | null {
           <textarea matInput rows="2" formControlName="notes"></textarea>
         </mat-form-field>
         @if (form.hasError('noAmount') && form.touched) {
-          <p style="color: #b91c1c; margin: 0;">Indicare almeno un importo.</p>
+          <p style="color: var(--app-error); margin: 0;">Indicare almeno un importo.</p>
         }
         @if (error) {
-          <p style="color: #b91c1c; margin: 0;">{{ error }}</p>
+          <p style="color: var(--app-error); margin: 0;">{{ error }}</p>
         }
       </form>
     </mat-dialog-content>

@@ -42,8 +42,8 @@
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Direzione</th>
     <td mat-cell *matCellDef="let item">
       @if (item.direction) {
-        <span [style.background]="item.direction === 'ACTIVE' ? '#dcfce7' : '#fee2e2'"
-              [style.color]="item.direction === 'ACTIVE' ? '#166534' : '#991b1b'"
+        <span [style.background]="item.direction === 'ACTIVE' ? 'var(--tone-ok-bg)' : 'var(--tone-danger-bg)'"
+              [style.color]="item.direction === 'ACTIVE' ? 'var(--tone-ok-fg)' : 'var(--tone-danger-fg)'"
               style="border-radius: 10px; padding: 1px 8px; font-size: 0.75rem;">
           {{ directionText(item) }}
         </span>
@@ -65,7 +65,7 @@
     <th mat-header-cell *matHeaderCellDef>Immobili</th>
     <td mat-cell *matCellDef="let item">
       @if ((item.assets ?? []).length === 0) {
-        <span style="color: #b91c1c;">nessuno</span>
+        <span style="color: var(--app-error);">nessuno</span>
       } @else {
         <span [matTooltip]="assetNames(item)">{{ truncate(assetNames(item)) }}</span>
       }
@@ -133,7 +133,7 @@
   <ng-container matColumnDef="utilities_to_be_taken_over">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Utenze da volturare</th>
     <td mat-cell *matCellDef="let item">
-      <mat-icon [style.color]="item.utilities_to_be_taken_over ? '#22c55e' : '#9ca3af'">
+      <mat-icon [style.color]="item.utilities_to_be_taken_over ? '#22c55e' : 'light-dark(#9ca3af, #71717a)'">
         {{ item.utilities_to_be_taken_over ? 'check_circle' : 'remove' }}
       </mat-icon>
     </td>

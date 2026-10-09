@@ -88,7 +88,7 @@ const readPageSize = (): number => {
                           (selectedColumnsChange)="onColumnsChange($event)"
                           [exportable]="true" (export)="exportCsv()" (create)="openDialog()"></app-list-toolbar>
         @if (typeCounts().length > 1) {
-          <div style="margin-bottom: 0.5rem; color: #6b7280; font-size: 0.85rem;">
+          <div style="margin-bottom: 0.5rem; color: var(--app-muted); font-size: 0.85rem;">
             @for (c of typeCounts(); track c.type; let first = $first) {
               {{ first ? '' : ' · ' }}{{ c.count }} {{ typeLabel[c.type].toLowerCase() }}
             }
@@ -111,7 +111,7 @@ const readPageSize = (): number => {
           <ng-container matColumnDef="type">
             <th mat-header-cell *matHeaderCellDef mat-sort-header>Tipo</th>
             <td mat-cell *matCellDef="let item" style="white-space: nowrap;">
-              <mat-icon style="vertical-align: middle; color: #4b5563; margin-right: 4px;">{{ typeIcon[asPlant(item).type] }}</mat-icon>{{ typeLabel[asPlant(item).type] }}
+              <mat-icon style="vertical-align: middle; color: light-dark(#4b5563, #b4b4bb); margin-right: 4px;">{{ typeIcon[asPlant(item).type] }}</mat-icon>{{ typeLabel[asPlant(item).type] }}
             </td>
           </ng-container>
           <ng-container matColumnDef="code">
@@ -123,7 +123,7 @@ const readPageSize = (): number => {
             <td mat-cell *matCellDef="let item">
               {{ item.name }}
               @if (item.address) {
-                <div style="color: #6b7280; font-size: 0.75rem;">{{ item.address }} {{ item.civic_number ?? '' }}</div>
+                <div style="color: var(--app-muted); font-size: 0.75rem;">{{ item.address }} {{ item.civic_number ?? '' }}</div>
               }
             </td>
           </ng-container>
@@ -163,7 +163,7 @@ const readPageSize = (): number => {
           <tr mat-header-row *matHeaderRowDef="columns; sticky: true"></tr>
           <tr mat-row *matRowDef="let row; columns: columns;"></tr>
           <tr class="mat-row" *matNoDataRow>
-            <td class="mat-cell" [attr.colspan]="columns.length" style="padding: 1rem; color: #6b7280;">Nessun impianto trovato.</td>
+            <td class="mat-cell" [attr.colspan]="columns.length" style="padding: 1rem; color: var(--app-muted);">Nessun impianto trovato.</td>
           </tr>
         </table>
       </div>
