@@ -463,6 +463,8 @@ html.theme-dark .only-dark { display: revert !important; }
   --app-error: light-dark(#b91c1c, #f87171);
   --app-link: light-dark(#1d4ed8, #93c5fd);
   --app-header: light-dark(#d9d9d9, #18181a);
+  // Testo/icona sopra un fondo --entity-*: in scuro i colori entità sono chiari.
+  --on-entity: light-dark(#ffffff, #121212);
 
   --tone-ok-bg: light-dark(#dcfce7, #14361f); --tone-ok-fg: light-dark(#166534, #86efac);
   --tone-warn-bg: light-dark(#fef3c7, #3d2c0b); --tone-warn-fg: light-dark(#92400e, #fcd34d);

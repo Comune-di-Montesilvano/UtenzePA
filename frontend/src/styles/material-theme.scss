@@ -50,6 +50,8 @@ html {
   --mat-sys-surface-container: light-dark(#f1edef, #1c1c1e);
   --mat-sys-surface-container-high: light-dark(#ebe7e9, #26262a);
   --mat-sys-surface-container-highest: light-dark(#e5e1e3, #2e2e33);
+  // Fondo dei campi filled: il valore scuro generato (#47464c) pesava troppo.
+  --mat-sys-surface-variant: light-dark(#e5e1e9, #2e2e33);
 }
 
 html.theme-light { color-scheme: light; }

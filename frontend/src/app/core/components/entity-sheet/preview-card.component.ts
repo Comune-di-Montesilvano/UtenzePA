@@ -66,7 +66,7 @@ export interface PreviewItem {
       width: 100%; display: flex; align-items: center; gap: 8px; text-align: left;
       border: 0; background: transparent; padding: 6px; border-radius: 6px; cursor: pointer; font: inherit;
     }
-    .pc-item:hover { background: #f3f4f6; }
+    .pc-item:hover { background: var(--app-surface-2); }
     .pc-item .mat-icon { font-size: 20px; width: 20px; height: 20px; flex: 0 0 auto; }
     .pc-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
     .pc-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

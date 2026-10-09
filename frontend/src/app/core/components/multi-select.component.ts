@@ -44,7 +44,7 @@ import {TOption} from '../types/option.interface';
             }
             {{ opt.label }}
             @if (opt.count != null) {
-              <span style="color: #757575; font-size: 0.85em;"> ({{ opt.count }})</span>
+              <span style="color: var(--app-muted); font-size: 0.85em;"> ({{ opt.count }})</span>
             }
           </mat-option>
         }
@@ -71,14 +71,16 @@ import {TOption} from '../types/option.interface';
       padding: 8px;
       position: sticky;
       top: 0;
-      background: white;
+      background: var(--mat-sys-surface-container);
       z-index: 1;
     }
     .multi-select-search input {
       width: 100%;
       box-sizing: border-box;
       padding: 4px 8px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--app-border);
+      background: var(--app-surface);
+      color: var(--app-text);
       border-radius: 4px;
       font: inherit;
     }

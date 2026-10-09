@@ -136,24 +136,24 @@ const toDate = (v: unknown): Date | null => {
   styles: [`
     .adv { display: flex; gap: 16px; height: 400px; max-height: 60vh; }
     .adv-nav { flex: 0 0 200px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto;
-      border-right: 1px solid #e5e7eb; padding-right: 8px; }
+      border-right: 1px solid var(--app-border); padding-right: 8px; }
     .adv-nav-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left;
-      border: 0; background: transparent; padding: 10px 12px; border-radius: 8px; cursor: pointer; font: inherit; color: #374151; }
-    .adv-nav-item:hover { background: #f3f4f6; }
-    .adv-nav-item.active { background: #e8eefc; color: #1d4ed8; font-weight: 600; }
-    .adv-count { min-width: 20px; padding: 0 6px; border-radius: 10px; background: #1d4ed8; color: #fff;
+      border: 0; background: transparent; padding: 10px 12px; border-radius: 8px; cursor: pointer; font: inherit; color: light-dark(#374151, #d4d4d8); }
+    .adv-nav-item:hover { background: var(--app-surface-2); }
+    .adv-nav-item.active { background: light-dark(#e8eefc, #1e2a4a); color: var(--app-link); font-weight: 600; }
+    .adv-count { min-width: 20px; padding: 0 6px; border-radius: 10px; background: light-dark(#1d4ed8, #3b82f6); color: #fff;
       font-size: 0.75rem; line-height: 20px; text-align: center; }
     .adv-fields { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px 16px; align-content: start; padding: 4px 2px; }
     .adv-field mat-form-field, .adv-field app-filterable-select { width: 100%; }
     .adv-wide { grid-column: 1 / -1; }
-    .adv-summary { display: flex; align-items: center; gap: 6px; padding: 8px 24px 0; color: #374151; font-size: 0.85rem;
-      border-top: 1px solid #e5e7eb; min-height: 28px; }
-    .adv-summary mat-icon { font-size: 18px; height: 18px; width: 18px; color: #6b7280; }
-    .adv-none { color: #9ca3af; }
+    .adv-summary { display: flex; align-items: center; gap: 6px; padding: 8px 24px 0; color: light-dark(#374151, #d4d4d8); font-size: 0.85rem;
+      border-top: 1px solid var(--app-border); min-height: 28px; }
+    .adv-summary mat-icon { font-size: 18px; height: 18px; width: 18px; color: var(--app-muted); }
+    .adv-none { color: var(--app-muted); }
     @media (max-width: 700px) {
       .adv { flex-direction: column; height: auto; }
-      .adv-nav { flex: none; flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid #e5e7eb; }
+      .adv-nav { flex: none; flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--app-border); }
       .adv-fields { grid-template-columns: 1fr; }
     }
   `],
