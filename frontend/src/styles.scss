@@ -11,7 +11,7 @@ body, html {
   letter-spacing: -0.15px;
   margin: 0px;
   background: var(--app-bg);
-  color: var(--app-text);
+  color: light-dark(#000, #e7e7ea);
 }
 
 ul {
@@ -26,7 +26,7 @@ li a {
 }
 
 .row-deleted {
-  color: var(--app-muted) !important;
+  color: light-dark(#9ca3af, #8a8a93) !important;
   opacity: 0.6;
 }
 
@@ -321,20 +321,35 @@ aside.sidebar {
 }
 
 // Dark mode: le tessere della mappa restano chiare (spec), si adeguano solo
-// controlli e popup di Leaflet.
-// Prefisso html: leaflet.css è caricato dopo styles.scss (angular.json).
+// controlli e popup di Leaflet. Primo valore di light-dark() = default di
+// leaflet.css. Prefisso html: leaflet.css è caricato dopo styles.scss
+// (angular.json), a parità di specificità vincerebbe lui.
 html .leaflet-popup-content-wrapper,
 html .leaflet-popup-tip,
-html .leaflet-bar a,
-html .leaflet-control-layers,
-html .leaflet-container .leaflet-control-attribution {
-  background: var(--app-surface);
-  color: var(--app-text);
+html .leaflet-control-layers {
+  background: light-dark(#fff, #1c1c1e);
+  color: light-dark(#333, #e7e7ea);
 }
-html .leaflet-bar a { border-bottom-color: var(--app-border); }
-html .leaflet-bar a:hover { background: var(--app-surface-2); }
-html .leaflet-container a.leaflet-popup-close-button { color: var(--app-muted); }
-html .leaflet-container .leaflet-control-attribution a { color: var(--app-link); }
+html .leaflet-bar a {
+  background-color: light-dark(#fff, #1c1c1e);
+  color: light-dark(black, #e7e7ea);
+  border-bottom-color: light-dark(#ccc, #34343a);
+}
+html .leaflet-bar a:hover,
+html .leaflet-bar a:focus {
+  background-color: light-dark(#f4f4f4, #26262a);
+}
+html .leaflet-container .leaflet-control-attribution {
+  background: light-dark(rgba(255, 255, 255, 0.8), rgba(28, 28, 30, 0.8));
+  color: light-dark(#333, #e7e7ea);
+}
+html .leaflet-container a.leaflet-popup-close-button { color: light-dark(#757575, #9a9aa3); }
+html .leaflet-container .leaflet-control-attribution a { color: light-dark(#0078a8, #93c5fd); }
+// Icona del selettore livelli: bitmap grigio scuro, invertita su fondo scuro.
+html.theme-dark .leaflet-control-layers-toggle { filter: invert(1); }
+@media (prefers-color-scheme: dark) {
+  html:not(.theme-light) .leaflet-control-layers-toggle { filter: invert(1); }
+}
 
 // Elementi alternativi per tema (es. logo chiaro/scuro): light-dark() vale
 // solo per i colori. Tema effettivo scuro = classe theme-dark, oppure sistema
@@ -457,7 +472,7 @@ html.theme-dark .only-dark { display: revert !important; }
 }
 
 // Sottotitolo delle pagine elenco (sotto l'h1).
-.list-subtitle { color: var(--app-muted); margin: -0.5rem 0 1rem; }
+.list-subtitle { color: light-dark(#6a7282, #9a9aa3); margin: -0.5rem 0 1rem; }
 
 // Marker mappa di immobile/impianto dismesso o utenza cessata (inclusi dai filtri).
 .map-pin--inactive {

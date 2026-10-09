@@ -18,7 +18,7 @@
       <form [formGroup]="form" (ngSubmit)="submit()">
         <div>
           <p style="text-align: left; padding-bottom: 0px; font-size: 16px;"><b>Accesso al Sistema</b></p>
-          <p style="text-align: left;color: var(--app-muted);">Inserisci le tue credenziali per accedere</p>
+          <p style="text-align: left;color: light-dark(#717182, #9a9aa3);">Inserisci le tue credenziali per accedere</p>
         </div>
         <div>
           <label for="username">Username</label>
@@ -33,7 +33,7 @@
         }
         <div style="text-align: right;">
           <p
-            style="display: inline-block; cursor: pointer; color: var(--app-text);"
+            style="display: inline-block; cursor: pointer; color: light-dark(#000, #e7e7ea);"
             (click)="showResetForm()"
             >
             Password dimenticata?

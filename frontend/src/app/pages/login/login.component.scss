@@ -1,7 +1,7 @@
 button.second-button {
     background-color: var(--app-surface) !important;
-    border: 1px solid var(--app-border) !important;
-    color: var(--app-text) !important;
+    border: 1px solid light-dark(#ccc, #34343a) !important;
+    color: light-dark(#000, #e7e7ea) !important;
 }
 
 .login-page {
@@ -10,7 +10,7 @@ button.second-button {
 
   .login-left {
     flex: 1;
-    background-color: var(--app-surface-2);
+    background-color: light-dark(#ccc, #26262a);
     background-image: url("/assets/login-image.jpg");
     background-size: cover;       
     background-position: center; 
@@ -25,7 +25,7 @@ button.second-button {
     flex-direction: column;
     justify-content: center;
     padding: 0 2rem;
-    background-color: var(--app-bg);
+    background-color: light-dark(#f9fafb, #121212);
 
     .brand-header {
       display: flex;
@@ -91,10 +91,10 @@ button.second-button {
       input {
         margin-bottom: 1rem;
         padding: 0.5rem;
-        border: 1px solid var(--app-border);
+        border: 1px solid light-dark(#ccc, #34343a);
         border-radius: 4px;
-        background-color: var(--app-surface-2);
-        color: var(--app-text);
+        background-color: light-dark(#f3f3f5, #26262a);
+        color: light-dark(#000, #e7e7ea);
         width: 100%;
       }
 
@@ -108,7 +108,8 @@ button.second-button {
         cursor: pointer;
 
         &:disabled {
-          background-color: var(--app-border);
+          background-color: light-dark(#ccc, #3f3f46);
+          color: light-dark(#fff, #9a9aa3);
           cursor: not-allowed;
         }
       }
@@ -121,7 +122,7 @@ form {
     margin-right: auto;
     margin-left: auto;
     border-radius: 10px;
-    border: 1px solid var(--app-border);
+    border: 1px solid light-dark(#ccc, #34343a);
     padding: 20px;
     width: 80%;
     background-color: var(--app-surface);
@@ -180,7 +181,7 @@ label {
 @media (max-width: 600px) {
 
   body, html {
-    background-color: var(--app-bg);
+    background-color: light-dark(#f9fafb, #121212);
   }
 
   .login-page {

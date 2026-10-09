@@ -18,7 +18,7 @@
     padding: 0 1rem;
 
     background-color: var(--app-header);
-    border-bottom: 1px solid var(--app-border);
+    border-bottom: 1px solid light-dark(#ddd, #34343a);
 
     .header-left {
       display: flex;
@@ -92,7 +92,7 @@
 
     .sidebar {
       width: 250px;
-      border-right: 1px solid var(--app-border);
+      border-right: 1px solid light-dark(#ddd, #34343a);
       background-color: var(--app-surface);
       // display:flex qui (invece di lasciarlo block e affidarsi allo stretch
       // di default) evita di dover propagare l'altezza a <app-sidebar> via

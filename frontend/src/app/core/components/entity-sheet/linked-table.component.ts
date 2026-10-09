@@ -122,8 +122,8 @@ export interface RowIcon {
     .lt-icon-col { width: 32px; }
     .lt-icon-col .mat-icon { font-size: 20px; width: 20px; height: 20px; vertical-align: middle; }
     .lt-actions { width: 1%; white-space: nowrap; text-align: right; }
-    .lt-chevron { color: var(--app-muted); vertical-align: middle; }
-    .lt-unlink { color: var(--app-muted); }
+    .lt-chevron { color: light-dark(#9ca3af, #8a8a93); vertical-align: middle; }
+    .lt-unlink { color: light-dark(#9ca3af, #8a8a93); }
     .lt-unlink:hover { color: var(--tone-danger-fg); }
   `],
 })

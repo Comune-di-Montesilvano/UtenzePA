@@ -5,7 +5,7 @@
 }
 
 .photo-gallery-empty {
-  color: var(--app-muted);
+  color: light-dark(#6a7282, #9a9aa3);
   font-style: italic;
   margin: 0;
 }
@@ -51,6 +51,6 @@
 }
 
 .photo-gallery-count {
-  color: var(--app-muted);
+  color: light-dark(#6a7282, #9a9aa3);
   font-size: 0.85rem;
 }

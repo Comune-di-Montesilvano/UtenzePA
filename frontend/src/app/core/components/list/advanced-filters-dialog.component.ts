@@ -141,7 +141,7 @@ const toDate = (v: unknown): Date | null => {
       border: 0; background: transparent; padding: 10px 12px; border-radius: 8px; cursor: pointer; font: inherit; color: light-dark(#374151, #d4d4d8); }
     .adv-nav-item:hover { background: var(--app-surface-2); }
     .adv-nav-item.active { background: light-dark(#e8eefc, #1e2a4a); color: var(--app-link); font-weight: 600; }
-    .adv-count { min-width: 20px; padding: 0 6px; border-radius: 10px; background: light-dark(#1d4ed8, #3b82f6); color: #fff;
+    .adv-count { min-width: 20px; padding: 0 6px; border-radius: 10px; background: light-dark(#1d4ed8, #2563eb); color: #fff;
       font-size: 0.75rem; line-height: 20px; text-align: center; }
     .adv-fields { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px 16px; align-content: start; padding: 4px 2px; }
@@ -150,7 +150,7 @@ const toDate = (v: unknown): Date | null => {
     .adv-summary { display: flex; align-items: center; gap: 6px; padding: 8px 24px 0; color: light-dark(#374151, #d4d4d8); font-size: 0.85rem;
       border-top: 1px solid var(--app-border); min-height: 28px; }
     .adv-summary mat-icon { font-size: 18px; height: 18px; width: 18px; color: var(--app-muted); }
-    .adv-none { color: var(--app-muted); }
+    .adv-none { color: light-dark(#9ca3af, #8a8a93); }
     @media (max-width: 700px) {
       .adv { flex-direction: column; height: auto; }
       .adv-nav { flex: none; flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--app-border); }
