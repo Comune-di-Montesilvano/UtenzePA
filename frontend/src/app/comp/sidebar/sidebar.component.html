@@ -60,6 +60,25 @@
     }
   </div>
 
+  <button type="button" class="sidebar-theme" [matMenuTriggerFor]="themeMenu" aria-label="Tema">
+    <mat-icon>{{ themeIcon }}</mat-icon>
+    <span>Tema</span>
+  </button>
+  <mat-menu #themeMenu="matMenu">
+    @for (opt of themeOptions; track opt.value) {
+      <button mat-menu-item type="button" role="menuitemradio"
+              [attr.aria-checked]="theme.preference() === opt.value"
+              (click)="theme.set(opt.value)">
+        <mat-icon>{{ opt.icon }}</mat-icon>
+        <span>{{ opt.label }}</span>
+        <!-- span e non mat-icon: mat-menu-item proietta ogni mat-icon nello slot iniziale -->
+        @if (theme.preference() === opt.value) {
+          <span class="material-icons sidebar-theme-check" aria-hidden="true">check</span>
+        }
+      </button>
+    }
+  </mat-menu>
+
   <div class="sidebar-footer" (click)="logout()">
     <mat-icon>logout</mat-icon>
     <span>Esci</span>

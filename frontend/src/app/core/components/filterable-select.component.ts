@@ -43,11 +43,11 @@ import {TOption} from '../types/option.interface';
                 }
                 <span>{{ opt.label }}</span>
                 @if (opt.count != null) {
-                  <span style="color: #757575; font-size: 0.85em;">({{ opt.count }})</span>
+                  <span style="color: light-dark(#757575, #9a9aa3); font-size: 0.85em;">({{ opt.count }})</span>
                 }
               </span>
               @if (opt.sublabel) {
-                <span style="color: #757575; font-size: 0.8em;">{{ opt.sublabel }}</span>
+                <span style="color: light-dark(#757575, #9a9aa3); font-size: 0.8em;">{{ opt.sublabel }}</span>
               }
             </span>
           </mat-option>

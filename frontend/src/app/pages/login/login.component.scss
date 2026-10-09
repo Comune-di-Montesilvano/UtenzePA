@@ -1,7 +1,7 @@
 button.second-button {
-    background-color: #fff !important;
-    border: 1px solid #cccccc !important;
-    color: #000 !important;
+    background-color: var(--app-surface) !important;
+    border: 1px solid light-dark(#ccc, #34343a) !important;
+    color: light-dark(#000, #e7e7ea) !important;
 }
 
 .login-page {
@@ -10,7 +10,7 @@ button.second-button {
 
   .login-left {
     flex: 1;
-    background-color: #ccc;
+    background-color: light-dark(#ccc, #26262a);
     background-image: url("/assets/login-image.jpg");
     background-size: cover;       
     background-position: center; 
@@ -25,7 +25,7 @@ button.second-button {
     flex-direction: column;
     justify-content: center;
     padding: 0 2rem;
-    background-color: #F9FAFB;
+    background-color: light-dark(#f9fafb, #121212);
 
     .brand-header {
       display: flex;
@@ -91,23 +91,25 @@ button.second-button {
       input {
         margin-bottom: 1rem;
         padding: 0.5rem;
-        border: 1px solid #ccc;
+        border: 1px solid light-dark(#ccc, #34343a);
         border-radius: 4px;
-        background-color: #F3F3F5;
+        background-color: light-dark(#f3f3f5, #26262a);
+        color: light-dark(#000, #e7e7ea);
         width: 100%;
       }
 
       button {
         padding: 0.75rem;
         font-weight: 600;
-        background-color: #030213;
-        color: #fff;
+        background-color: var(--mat-sys-primary);
+        color: var(--mat-sys-on-primary);
         border: none;
         border-radius: 4px;
         cursor: pointer;
 
         &:disabled {
-          background-color: #ccc;
+          background-color: light-dark(#ccc, #3f3f46);
+          color: light-dark(#fff, #9a9aa3);
           cursor: not-allowed;
         }
       }
@@ -120,10 +122,10 @@ form {
     margin-right: auto;
     margin-left: auto;
     border-radius: 10px;
-    border: 1px solid #cccccc;
+    border: 1px solid light-dark(#ccc, #34343a);
     padding: 20px;
     width: 80%;
-    background-color: #fff;
+    background-color: var(--app-surface);
     max-width: 450px;
 }
 
@@ -179,7 +181,7 @@ label {
 @media (max-width: 600px) {
 
   body, html {
-    background-color: #f9fafb;
+    background-color: light-dark(#f9fafb, #121212);
   }
 
   .login-page {

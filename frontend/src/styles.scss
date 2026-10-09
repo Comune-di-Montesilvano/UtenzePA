@@ -10,6 +10,8 @@ body, html {
   line-height: 20px;
   letter-spacing: -0.15px;
   margin: 0px;
+  background: var(--app-bg);
+  color: light-dark(#000, #e7e7ea);
 }
 
 ul {
@@ -20,90 +22,16 @@ ul {
 
 li a {
     text-decoration: none;
-    color: black;
-}
-
-p-dialog .p-datatable-table-container {
-    height: 30vh;
-}
-
-p-table.p-component.p-datatable, .search-params {
-    padding: 20px;
-    border: 1px solid #dddddd;
-    margin-top: 10px;
-    border-radius: 12px;
-}
-
-.p-fluid.p-formgrid.p-grid {
-    display: flex;
-}
-
-.p-field.p-col-4 {
-    display: grid;
-    margin-right: 16px;
-}
-
-.p-col-12.p-d-flex.p-jc-start.p-mt-2 {
-    margin-top: 20px;
-}
-
-html, :root, .p-component, body {
-  --p-button-primary-background: #030213;
-  --p-button-primary-hover-background: #030213;
-  --p-button-primary-color: #ffffff;
-  --p-primary-color: #030213;
-  --p-button-primary-border-color : #030213;
-
-  --p-button-secondary-background: #ffffff;
-  --p-button-secondary-hover-background: #ffffff;
-  --p-button-secondary-color: #030213;
-  --p-secondary-color: #030213;
-  --p-button-secondary-border-color : #D4D4D4;
-
-}
-
-button.p-button.p-component {
-    margin-right: 4px;
-}
-
-
-.action-button .pi,
-.action-button:hover,
-.action-button:focus {
-  color: #000 !important;
-  background-color: transparent !important;
-  box-shadow: none !important;
-}
-
-.custom-button {
-  background-color: black !important;
-  color: white !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-.custom-button:hover,
-.custom-button:focus {
-  background-color: black !important;
-  color: white !important;
-  box-shadow: none !important;
+    color: inherit;
 }
 
 .row-deleted {
-  color: #9ca3af !important;
+  color: light-dark(#9ca3af, #8a8a93) !important;
   opacity: 0.6;
 }
 
 .row-deleted td {
   color: inherit !important;
-}
-
-.btn-green .pi {
-  color: #00C10D !important;
-}
-
-.btn-red .pi {
-  color: #E7000B !important;
 }
 
 ul.sidebar-menu li {
@@ -112,24 +40,13 @@ ul.sidebar-menu li {
     margin-bottom: 9px;
 }
 
-.submenu i.pi {
-    margin-right: 10px;
-}
-
 textarea,
 textarea:hover,
 textarea:active {
   font-family: inherit !important;
   font-feature-settings: inherit !important;
   font-size: 1rem !important;
-  color: var(--p-inputtext-color) !important;
-  background: var(--p-inputtext-background) !important;
-  padding-block: var(--p-inputtext-padding-y) !important;
-  padding-inline: var(--p-inputtext-padding-x) !important;
-  border: 1px solid var(--p-inputtext-border-color) !important;
   appearance: none !important;
-  border-radius: var(--p-inputtext-border-radius) !important;
-  box-shadow: var(--p-inputtext-shadow) !important;
   outline: none !important;
 }
 
@@ -139,59 +56,12 @@ textarea:focus-within {
   font-family: inherit !important;
   font-feature-settings: inherit !important;
   font-size: 1rem !important;
-  color: var(--p-inputtext-color) !important;
-  background: var(--p-inputtext-background) !important;
-  padding-block: var(--p-inputtext-padding-y) !important;
-  padding-inline: var(--p-inputtext-padding-x) !important;
-  border-color: var(--p-inputtext-focus-border-color) !important;
   appearance: none !important;
-  border-radius: var(--p-inputtext-border-radius) !important;
-  box-shadow: var(--p-inputtext-focus-ring-shadow) !important;
   outline: none !important;
 }
-.p-card {
-  box-shadow: none !important;
-  border: 1px solid #dddddd !important;
-}
-
-//.p-card-body {
-//  height: 76vh;
-//}
 
 aside.sidebar {
     padding-top: 20px;
-}
-
-.dynamic-rows .p-datatable-tbody > tr {
-  height: var(--row-height) !important;
-}
-
-.p-datatable-table-container {
-    height: 100vh;
-}
-
-p-paginator.p-component.p-paginator {
-    padding-top: 25px;
-}
-
-.p-datatable-table-container {
-    background-color: #f3f3f375;
-}
-
-.cursor-pointer {
-  cursor: pointer!important;
-}
-
-.cursor-pointer.linker:hover {
-  background-color: #f5f5f5!important;
-}
-
-.card-widget .p-card-body {
-  padding-top: 0!important;
-}
-
-.card-widget .p-card-content p-table {
-  margin-top: 0!important;
 }
 
 // Icone marker Leaflet (mappa geolocalizzazione + mini-mappa dialog): iniettate
@@ -378,7 +248,7 @@ p-paginator.p-component.p-paginator {
   gap: 0.5rem;
   padding: 0.4rem 0.25rem;
   cursor: pointer;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid light-dark(#f0f0f0, #2a2a2e);
   font-size: 0.85rem;
 
   &:last-child {
@@ -386,7 +256,7 @@ p-paginator.p-component.p-paginator {
   }
 
   &:hover {
-    background: #f7f7f7;
+    background: light-dark(#f7f7f7, #26262a);
   }
 }
 
@@ -450,23 +320,82 @@ p-paginator.p-component.p-paginator {
   text-align: left;
 }
 
+// Dark mode: le tessere della mappa restano chiare (spec), si adeguano solo
+// controlli e popup di Leaflet. Primo valore di light-dark() = default di
+// leaflet.css. Prefisso html: leaflet.css è caricato dopo styles.scss
+// (angular.json), a parità di specificità vincerebbe lui.
+html .leaflet-popup-content-wrapper,
+html .leaflet-popup-tip,
+html .leaflet-control-layers {
+  background: light-dark(#fff, #1c1c1e);
+  color: light-dark(#333, #e7e7ea);
+}
+html .leaflet-bar a {
+  background-color: light-dark(#fff, #1c1c1e);
+  color: light-dark(black, #e7e7ea);
+  border-bottom-color: light-dark(#ccc, #34343a);
+}
+html .leaflet-bar a:hover,
+html .leaflet-bar a:focus {
+  background-color: light-dark(#f4f4f4, #26262a);
+}
+html .leaflet-container .leaflet-control-attribution {
+  background: light-dark(rgba(255, 255, 255, 0.8), rgba(28, 28, 30, 0.8));
+  color: light-dark(#333, #e7e7ea);
+}
+html .leaflet-container a.leaflet-popup-close-button { color: light-dark(#757575, #9a9aa3); }
+html .leaflet-container .leaflet-control-attribution a { color: light-dark(#0078a8, #93c5fd); }
+// Icona del selettore livelli: bitmap grigio scuro, invertita su fondo scuro.
+html.theme-dark .leaflet-control-layers-toggle { filter: invert(1); }
+@media (prefers-color-scheme: dark) {
+  html:not(.theme-light) .leaflet-control-layers-toggle { filter: invert(1); }
+}
+
+// Elementi alternativi per tema (es. logo chiaro/scuro): light-dark() vale
+// solo per i colori. Tema effettivo scuro = classe theme-dark, oppure sistema
+// scuro senza theme-light (stessa regola di color-scheme in material-theme.scss).
+.only-dark { display: none !important; }
+html.theme-dark .only-light { display: none !important; }
+html.theme-dark .only-dark { display: revert !important; }
+@media (prefers-color-scheme: dark) {
+  html:not(.theme-light) .only-light { display: none !important; }
+  html:not(.theme-light) .only-dark { display: revert !important; }
+}
 
 /* ===== Schede entità (dialog Riepilogo + tab) ===== */
+// Token colore di tutta l'app: light-dark(chiaro, scuro), il tema effettivo lo
+// decide color-scheme su <html> (material-theme.scss). Nei componenti solo
+// questi token, mai esadecimali (salvo colori "dato": tipo utenza, pin, serie).
 :root {
-  --tone-ok-bg: #dcfce7; --tone-ok-fg: #166534;
-  --tone-warn-bg: #fef3c7; --tone-warn-fg: #92400e;
-  --tone-danger-bg: #fee2e2; --tone-danger-fg: #991b1b;
-  --tone-off-bg: #f3f4f6; --tone-off-fg: #4b5563;
-  --tone-info-bg: #dbeafe; --tone-info-fg: #1e40af;
-  --entity-asset: #2563eb;
-  --entity-utility: #0891b2;
-  --entity-plant: #ea580c;
-  --entity-supply-contract: #7c3aed;
-  --entity-grant: #0d9488;
-  --entity-party: #be185d;
-  --entity-chapter: #4d7c0f;
-  --sheet-border: #e5e7eb;
-  --sheet-muted: #6b7280;
+  --app-bg: light-dark(#ffffff, #121212);
+  --app-surface: light-dark(#ffffff, #1c1c1e);
+  --app-surface-2: light-dark(#f3f4f6, #26262a);
+  --app-text: light-dark(#111827, #e7e7ea);
+  --app-muted: light-dark(#6b7280, #9a9aa3);
+  --app-border: light-dark(#e5e7eb, #34343a);
+  --app-error: light-dark(#b91c1c, #f87171);
+  --app-link: light-dark(#1d4ed8, #93c5fd);
+  --app-header: light-dark(#d9d9d9, #18181a);
+  // Testo/icona sopra un fondo --entity-*: in scuro i colori entità sono chiari.
+  --on-entity: light-dark(#ffffff, #121212);
+  // Serie dei grafici consumi (SVG): blu più chiaro su fondo scuro.
+  --chart-series: light-dark(#1976d2, #60a5fa);
+
+  --tone-ok-bg: light-dark(#dcfce7, #14361f); --tone-ok-fg: light-dark(#166534, #86efac);
+  --tone-warn-bg: light-dark(#fef3c7, #3d2c0b); --tone-warn-fg: light-dark(#92400e, #fcd34d);
+  --tone-danger-bg: light-dark(#fee2e2, #3f1515); --tone-danger-fg: light-dark(#991b1b, #fca5a5);
+  --tone-off-bg: light-dark(#f3f4f6, #2a2a2e); --tone-off-fg: light-dark(#4b5563, #b4b4bb);
+  --tone-info-bg: light-dark(#dbeafe, #172554); --tone-info-fg: light-dark(#1e40af, #93c5fd);
+  --tone-disputed-bg: light-dark(#fde68a, #4a3510); --tone-disputed-fg: light-dark(#78350f, #fde68a);
+  --entity-asset: light-dark(#2563eb, #60a5fa);
+  --entity-utility: light-dark(#0891b2, #22d3ee);
+  --entity-plant: light-dark(#ea580c, #fb923c);
+  --entity-supply-contract: light-dark(#7c3aed, #a78bfa);
+  --entity-grant: light-dark(#0d9488, #2dd4bf);
+  --entity-party: light-dark(#be185d, #f472b6);
+  --entity-chapter: light-dark(#4d7c0f, #a3e635);
+  --sheet-border: var(--app-border);
+  --sheet-muted: var(--app-muted);
 }
 
 .tone-ok { background: var(--tone-ok-bg); color: var(--tone-ok-fg); }
@@ -498,7 +427,7 @@ p-paginator.p-component.p-paginator {
 .sheet-grid .span-all { grid-column: 1 / -1; }
 .sheet-section-title {
   display: flex; align-items: center; gap: 8px;
-  margin: 20px 0 8px; font-weight: 600; font-size: 0.95rem; color: #111827;
+  margin: 20px 0 8px; font-weight: 600; font-size: 0.95rem; color: var(--app-text);
 }
 .sheet-section-title:first-child { margin-top: 0; }
 .sheet-section-title .mat-icon { font-size: 20px; width: 20px; height: 20px; }
@@ -518,7 +447,7 @@ p-paginator.p-component.p-paginator {
   border: 1px solid var(--sheet-border); border-radius: 8px;
 }
 .sheet-stat-value { font-size: 1.1rem; font-weight: 600; }
-.sheet-error { color: #b91c1c; margin: 0 auto 0 0; font-size: 0.875rem; }
+.sheet-error { color: var(--app-error); margin: 0 auto 0 0; font-size: 0.875rem; }
 .sheet-list { margin: 0; padding-left: 1.5rem; }
 // Tabelle semplici dentro le schede (impegni, fatture di un'utenza).
 .sheet-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
@@ -526,7 +455,7 @@ p-paginator.p-component.p-paginator {
 .sheet-table td { padding: 6px 8px; border-bottom: 1px solid var(--sheet-border); vertical-align: middle; }
 .sheet-table tr.row-warning td { background: var(--tone-warn-bg); }
 .sheet-table tr.row-clickable { cursor: pointer; }
-.sheet-table tr.row-clickable:hover td { background: rgba(0, 0, 0, 0.04); }
+.sheet-table tr.row-clickable:hover td { background: var(--app-surface-2); }
 .sheet-table .inline-icon { font-size: 16px; width: 16px; height: 16px; vertical-align: text-bottom; color: var(--tone-warn-fg); }
 // Indirizzo e posizione: campi a sinistra, mappa a destra (meno spazio verticale).
 .sheet-location {
@@ -543,7 +472,7 @@ p-paginator.p-component.p-paginator {
 }
 
 // Sottotitolo delle pagine elenco (sotto l'h1).
-.list-subtitle { color: #6A7282; margin: -0.5rem 0 1rem; }
+.list-subtitle { color: light-dark(#6a7282, #9a9aa3); margin: -0.5rem 0 1rem; }
 
 // Marker mappa di immobile/impianto dismesso o utenza cessata (inclusi dai filtri).
 .map-pin--inactive {

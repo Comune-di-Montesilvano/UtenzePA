@@ -116,14 +116,14 @@ export interface RowIcon {
     .lt-scroll { overflow-x: auto; }
     .lt-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
     .lt-table th { text-align: left; font-weight: 600; color: var(--sheet-muted); padding: 6px 8px; border-bottom: 1px solid var(--sheet-border); white-space: nowrap; }
-    .lt-table td { padding: 6px 8px; border-bottom: 1px solid #f3f4f6; }
+    .lt-table td { padding: 6px 8px; border-bottom: 1px solid var(--app-surface-2); }
     .lt-row { cursor: pointer; }
-    .lt-row:hover, .lt-row:focus { background: #f9fafb; outline: none; }
+    .lt-row:hover, .lt-row:focus { background: light-dark(#f9fafb, #26262a); outline: none; }
     .lt-icon-col { width: 32px; }
     .lt-icon-col .mat-icon { font-size: 20px; width: 20px; height: 20px; vertical-align: middle; }
     .lt-actions { width: 1%; white-space: nowrap; text-align: right; }
-    .lt-chevron { color: #9ca3af; vertical-align: middle; }
-    .lt-unlink { color: #9ca3af; }
+    .lt-chevron { color: light-dark(#9ca3af, #8a8a93); vertical-align: middle; }
+    .lt-unlink { color: light-dark(#9ca3af, #8a8a93); }
     .lt-unlink:hover { color: var(--tone-danger-fg); }
   `],
 })

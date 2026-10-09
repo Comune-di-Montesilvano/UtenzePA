@@ -54,14 +54,14 @@ interface Row {
   `,
   styles: [`
     :host { display: block; margin-top: 0.75rem; }
-    .ls { box-shadow: none !important; border: 1px solid #fcd34d; background: #fffbeb; }
-    .ls-icon { color: #b45309; margin-right: 8px; }
+    .ls { box-shadow: none !important; border: 1px solid light-dark(#fcd34d, #78591a); background: light-dark(#fffbeb, #2a2210); }
+    .ls-icon { color: light-dark(#b45309, #fcd34d); margin-right: 8px; }
     .ls-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
     .ls-row { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 12px;
-      border: 0; background: transparent; padding: 8px 12px; border-radius: 6px; cursor: pointer; font: inherit; color: #374151; text-align: left; }
-    .ls-row:hover { background: #fef3c7; }
-    .ls-row.active { background: #fde68a; font-weight: 600; }
-    .ls-count { min-width: 24px; padding: 0 8px; border-radius: 10px; background: #b45309; color: #fff;
+      border: 0; background: transparent; padding: 8px 12px; border-radius: 6px; cursor: pointer; font: inherit; color: light-dark(#374151, #d4d4d8); text-align: left; }
+    .ls-row:hover { background: var(--tone-warn-bg); }
+    .ls-row.active { background: var(--tone-disputed-bg); font-weight: 600; }
+    .ls-count { min-width: 24px; padding: 0 8px; border-radius: 10px; background: light-dark(#b45309, #fcd34d); color: light-dark(#fff, #1c1c1e);
       font-size: 0.75rem; line-height: 20px; text-align: center; }
   `],
 })

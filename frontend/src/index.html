@@ -7,6 +7,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <script>
+    // Tema prima del bootstrap (stessa chiave di ThemeService).
+    try {
+      var t = localStorage.getItem('utenzepa-theme');
+      if (t === 'light' || t === 'dark') document.documentElement.classList.add('theme-' + t);
+    } catch (e) {}
+  </script>
   <script src="config.js"></script>
 </head>
 <body>

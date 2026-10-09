@@ -75,7 +75,7 @@ const LONG_LIST = 12;
     .lf-search { flex: 1 1 260px; }
     .lf-inline { flex: 0 1 220px; min-width: 160px; }
     .lf-adv { height: 56px; }
-    .lf-extra { --mdc-chip-elevated-container-color: #fef3c7; }
+    .lf-extra { --mdc-chip-elevated-container-color: var(--tone-warn-bg); }
     .lf-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
   `],
 })

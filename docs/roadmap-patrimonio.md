@@ -1,6 +1,6 @@
 # Roadmap: estensione del perimetro di UtenzePA al patrimonio
 
-Aggiornata: 2026-10-05
+Aggiornata: 2026-10-09
 
 Obiettivo: portare UtenzePA da gestionale delle utenze a gestionale del **patrimonio** comunale (immobili, contratti, impianti, inventario), sfruttando i dati già presenti in `W:\PATRIMONIO`.
 
@@ -30,7 +30,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 12 | Costi a carico calcolato | fatto, v1.8.1, con volture (26 utenze da volturare, 8 attive, da verificare dall'anomalia) |
 | 13 | Schede entità: rifiniture | fatto in v1.11.2 (restano 3 verifiche E2E) |
 | 14 | Schede di fornitori, capitoli, fatture | fatto in v1.14.0 (scheda capitolo; fornitori e fatture già fatti) |
-| 15 | UI e identità (elenchi, filtri, dark mode, sidebar, nome) | elenchi, filtri, segnalazioni e sidebar fatti in v1.11.0; creazione al volo dalle schede ("+" sulle select, "Nuovo …" sui collegamenti); dark mode e nome da approfondire |
+| 15 | UI e identità (elenchi, filtri, dark mode, sidebar, nome) | elenchi, filtri, segnalazioni e sidebar fatti in v1.11.0; creazione al volo dalle schede ("+" sulle select, "Nuovo …" sui collegamenti); dark mode in v1.17.0; nome da approfondire |
 | 16 | Dashboard e mappa | mappa a livelli in v1.11.0 (filtri a perimetro, inattivi nascosti, ricerca nel Comune); dashboard per ultima |
 | 17 | Impegni di spesa (contratto ↔ capitolo) | fatto, v1.10.0 (impegni ACA 2025–2026 senza numero né importo, da completare con la ragioneria) |
 | 18 | Pulizia entità e incongruenze del modello | fatto: parte 1 v1.9.0 (tabelle morte, aggregati immobili, gestori manutenzione → manutenzione calcolata), parte 2 v1.9.1 (campi doppi) |
@@ -270,7 +270,7 @@ Stesso modello delle schede di v1.7.1: Fornitori fatto con la voce 9 (scheda Sog
 ## 15. UI e identità
 
 - ~~**Elenchi uniformi** e **filtri coerenti**~~ (fatto in v1.11.0, con segnalazioni per elenco e filtri avanzati a sezioni; spec `docs/superpowers/specs/2026-10-05-elenchi-uniformi-design.md`): filtri dichiarati per pagina, max 3 in linea, "Filtri avanzati" generico, chip dei filtri attivi, righe 25/50/100 ricordate, toolbar uguale. Resta: Impianti con tabella propria (stessa barra e paginatore); filtro "Stato utenza" del vecchio dialog mai funzionante, non riportato.
-- **Dark mode automatico** (`prefers-color-scheme`): tema Material scuro, token colore (già presenti per le schede) ridefiniti, via i colori inline (39 file) e gli esadecimali fissi in `styles.scss` (~40); attenzione a Leaflet.
+- ~~**Dark mode automatico**~~ (fatto in v1.17.0, spec `docs/superpowers/specs/2026-10-08-dark-mode-design.md`): segue il sistema, selettore Chiaro / Scuro / Sistema nella sidebar, token `light-dark()`, tessere della mappa chiare. Tolte anche le regole morte di PrimeNG da `styles.scss`.
 - **Sidebar**: gruppi, voci, icone, voce attiva, versione compressa.
 - **Nuovo nome**: "UtenzePA" non rappresenta più il patrimonio. Candidati (convenzione team: suffisso "PA"): **PatrimonioPA** (consigliato; rischio confusione con la rilevazione MEF "Patrimonio della PA"), **BeniComuniPA** (più distintivo), ImmobiliPA (troppo stretto). Cercare omonimi su Developers Italia e GitHub. Impatti: `publiccode.yml`, immagini GHCR e `release.yml`, `docker-compose*.yml` (`name: utenzepa`, nomi container usati in CLAUDE.md), branding, README, repo GitHub, nomi file dei backup. Decidere il nome prima di toccare l'UI.
 

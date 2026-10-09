@@ -41,9 +41,9 @@ export class RealEstateContractsCardComponent implements OnInit {
 
   readonly euro = formatEuro;
   readonly alerts: {key: ContractAlert; count: keyof ContractSummary; label: string; color: string}[] = [
-    {key: 'notice', count: 'notice', label: 'disdette da inviare entro 60 giorni', color: '#b91c1c'},
-    {key: 'expiring', count: 'expiring', label: 'in scadenza entro 4 mesi', color: '#92400e'},
-    {key: 'expired_active', count: 'expired_active', label: 'scaduti ancora attivi', color: '#b91c1c'},
+    {key: 'notice', count: 'notice', label: 'disdette da inviare entro 60 giorni', color: 'var(--app-error)'},
+    {key: 'expiring', count: 'expiring', label: 'in scadenza entro 4 mesi', color: 'var(--tone-warn-fg)'},
+    {key: 'expired_active', count: 'expired_active', label: 'scaduti ancora attivi', color: 'var(--app-error)'},
   ];
   s: ContractSummary | null = null;
 

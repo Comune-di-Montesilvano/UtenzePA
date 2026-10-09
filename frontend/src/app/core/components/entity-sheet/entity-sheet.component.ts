@@ -42,7 +42,7 @@ import {MatIconModule} from '@angular/material/icon';
     }
     .sheet-icon {
       flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center; color: #fff;
+      display: flex; align-items: center; justify-content: center; color: var(--on-entity);
     }
     .sheet-titles { flex: 1 1 auto; min-width: 0; }
     .sheet-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }

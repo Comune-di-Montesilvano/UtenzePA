@@ -26,32 +26,32 @@ interface Bar {
   template: `
     @if (hasData) {
       <svg [attr.viewBox]="'0 0 ' + width + ' 200'" style="width: 100%; height: 220px;" role="img" aria-label="Consumi mensili">
-        <line x1="0" [attr.x2]="width" y1="175" y2="175" stroke="#d1d5db" />
+        <line x1="0" [attr.x2]="width" y1="175" y2="175" style="stroke: light-dark(#d1d5db, #3f3f46)" />
         @for (bar of bars; track $index) {
           <g>
             <title>{{ bar.title }}</title>
             @if (bar.actualH > 0) {
               <rect [attr.x]="bar.x" [attr.y]="bar.actualY" width="14" [attr.height]="bar.actualH"
-                    fill="#1976d2" [attr.fill-opacity]="bar.partial ? 0.45 : 1" />
+                    style="fill: var(--chart-series)" [attr.fill-opacity]="bar.partial ? 0.45 : 1" />
             }
             @if (bar.estimatedH > 0) {
               <rect [attr.x]="bar.x" [attr.y]="bar.estimatedY" width="14" [attr.height]="bar.estimatedH"
-                    fill="rgba(25,118,210,0.12)" stroke="#1976d2" stroke-dasharray="3 2" />
+                    style="fill: color-mix(in srgb, var(--chart-series) 12%, transparent); stroke: var(--chart-series)" stroke-dasharray="3 2" />
             }
             <rect [attr.x]="bar.x - 3" y="0" width="20" height="176" fill="transparent" />
             @if (bar.label) {
-              <text [attr.x]="bar.x + 7" y="192" text-anchor="middle" font-size="10" fill="#6b7280">{{ bar.label }}</text>
+              <text [attr.x]="bar.x + 7" y="192" text-anchor="middle" font-size="10" style="fill: var(--app-muted)">{{ bar.label }}</text>
             }
           </g>
         }
       </svg>
-      <div style="display: flex; gap: 1.5rem; font-size: 0.8rem; color: #6b7280;">
-        <span><span style="display:inline-block; width:10px; height:10px; background:#1976d2;"></span> Reale</span>
-        <span><span style="display:inline-block; width:10px; height:10px; background:#1976d2; opacity:0.45;"></span> Reale, mese coperto in parte</span>
-        <span><span style="display:inline-block; width:10px; height:10px; border:1px dashed #1976d2;"></span> Stimato</span>
+      <div style="display: flex; gap: 1.5rem; font-size: 0.8rem; color: var(--app-muted);">
+        <span><span style="display:inline-block; width:10px; height:10px; background: var(--chart-series);"></span> Reale</span>
+        <span><span style="display:inline-block; width:10px; height:10px; background: var(--chart-series); opacity:0.45;"></span> Reale, mese coperto in parte</span>
+        <span><span style="display:inline-block; width:10px; height:10px; border:1px dashed var(--chart-series);"></span> Stimato</span>
       </div>
     } @else {
-      <p style="color: #6b7280;">Nessun consumo da mostrare.</p>
+      <p style="color: var(--app-muted);">Nessun consumo da mostrare.</p>
     }
   `,
 })

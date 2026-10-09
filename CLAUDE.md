@@ -134,6 +134,7 @@ Nessun ESLint, nessun browser nel container (Karma non eseguibile). Verifica = `
 - `mat-label` di campi required senza `*` manuale (salvo `app-filterable-select`). `ngModel` dentro `[formGroup]`: `[ngModelOptions]="{standalone: true}"`.
 - Toast: `ToastService.add({severity, summary, detail})`. Conferma: `ConfirmDialogComponent` (`{title, message, confirmLabel, danger?}`). `BudgetChapter.article` è stringa (`'0'|'1'`).
 - Componenti con `ChangeDetectionStrategy.Eager` esplicito (pre-v22).
+- **Colori / dark mode** (v1.17.0): solo token `light-dark()` di `styles.scss` (`--app-*`, `--tone-*`, `--entity-*`, `--on-entity`, `--chart-series`), mai esadecimali nei componenti salvo colori "dato" (tipo utenza, pin, serie, icone di stato sature); se il chiaro non coincide con un token, `light-dark(<valore attuale>, <scuro>)`. Tema da `ThemeService` (classi `theme-light`/`theme-dark` su `<html>`, chiave `utenzepa-theme`, gemella nello script di `index.html`). Immagini per tema: `.only-light`/`.only-dark`. SVG: `style="fill: var(--x)"`, non l'attributo. Override di Leaflet con prefisso `html` (il suo CSS è caricato dopo).
 
 ## Verifica (dettagli in `docs/claude/testing-e2e.md`)
 - Nessuna credenziale di test: utente temporaneo su `system_users`, eliminato subito dopo (FK su ~17 tabelle e `audit_logs`).

@@ -21,15 +21,15 @@ import {PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PlantSummary, PlantType} from '../pla
         @if (s) {
           <div style="display:flex; flex-wrap:wrap; gap:0.75rem;">
             <button mat-stroked-button (click)="open('overdue')" [disabled]="s.inspections_overdue === 0"
-                    [style.color]="s.inspections_overdue > 0 ? '#b91c1c' : null">
+                    [style.color]="s.inspections_overdue > 0 ? 'var(--app-error)' : null">
               {{ s.inspections_overdue }} impianti con verifiche scadute
             </button>
             <button mat-stroked-button (click)="open('due_soon')" [disabled]="s.inspections_due_soon === 0"
-                    [style.color]="s.inspections_due_soon > 0 ? '#92400e' : null">
+                    [style.color]="s.inspections_due_soon > 0 ? 'var(--tone-warn-fg)' : null">
               {{ s.inspections_due_soon }} in scadenza entro 60 giorni
             </button>
           </div>
-          <div style="display:flex; flex-wrap:wrap; gap:1rem; margin-top:1rem; color:#4b5563; font-size:0.9rem;">
+          <div style="display:flex; flex-wrap:wrap; gap:1rem; margin-top:1rem; color:light-dark(#4b5563, #b4b4bb); font-size:0.9rem;">
             @for (t of topTypes(); track t.type) {
               <span><mat-icon style="vertical-align: middle; font-size: 18px; height: 18px; width: 18px;">{{ icon[t.type] }}</mat-icon>
                 {{ t.count }} {{ label[t.type].toLowerCase() }}</span>

@@ -25,11 +25,11 @@ import {FIRE_EQUIPMENT_LABEL, FireEquipmentType, PlantFireEquipment, PlantFireEq
             <mat-icon>add</mat-icon> Aggiungi presidio
           </button>
         }
-        <span style="color: #6b7280; font-size: 0.85rem;">{{ totals() }}</span>
+        <span style="color: var(--app-muted); font-size: 0.85rem;">{{ totals() }}</span>
       </div>
 
       @if (editing) {
-        <form [formGroup]="form" style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+        <form [formGroup]="form" style="border: 1px solid var(--app-border); border-radius: 6px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
           <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
             <mat-form-field style="flex: 1 1 180px;">
               <mat-label>Tipo *</mat-label>
@@ -63,7 +63,7 @@ import {FIRE_EQUIPMENT_LABEL, FireEquipmentType, PlantFireEquipment, PlantFireEq
             </mat-form-field>
           </div>
           @if (error) {
-            <p style="color: #b91c1c; margin: 0;">{{ error }}</p>
+            <p style="color: var(--app-error); margin: 0;">{{ error }}</p>
           }
           <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
             <button mat-stroked-button type="button" (click)="editing = false">Annulla</button>
@@ -73,12 +73,12 @@ import {FIRE_EQUIPMENT_LABEL, FireEquipmentType, PlantFireEquipment, PlantFireEq
       }
 
       @if (rows.length === 0) {
-        <p style="color: #6A7282; margin: 0;">Nessun presidio censito.</p>
+        <p style="color: light-dark(#6a7282, #9a9aa3); margin: 0;">Nessun presidio censito.</p>
       } @else {
         <div style="overflow-x: auto;">
           <table style="width: 100%; min-width: 750px; border-collapse: collapse; font-size: 0.875rem;">
             <thead>
-              <tr style="text-align: left; border-bottom: 1px solid #e5e7eb;">
+              <tr style="text-align: left; border-bottom: 1px solid var(--app-border);">
                 <th style="padding: 6px;">Tipo</th>
                 <th style="padding: 6px;">Matricola</th>
                 <th style="padding: 6px;">Agente</th>
@@ -90,7 +90,7 @@ import {FIRE_EQUIPMENT_LABEL, FireEquipmentType, PlantFireEquipment, PlantFireEq
             </thead>
             <tbody>
               @for (r of rows; track r.id) {
-                <tr style="border-bottom: 1px solid #f3f4f6;">
+                <tr style="border-bottom: 1px solid var(--app-surface-2);">
                   <td style="padding: 6px;">{{ typeText(r) }}</td>
                   <td style="padding: 6px;">{{ r.serial_number ?? '' }}</td>
                   <td style="padding: 6px;">{{ r.agent ?? '' }}</td>

@@ -25,7 +25,7 @@ import {dateIt, validityProgress, ValidityProgress} from './sheet-utils';
     .vb { display: flex; flex-direction: column; gap: 6px; }
     .vb-dates { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--sheet-muted); }
     .vb-state { border-radius: 999px; padding: 1px 8px; font-weight: 600; }
-    .vb-track { height: 8px; border-radius: 4px; background: #e5e7eb; overflow: hidden; }
+    .vb-track { height: 8px; border-radius: 4px; background: var(--app-border); overflow: hidden; }
     .vb-fill { height: 100%; border-radius: 4px; opacity: 0.7; }
   `],
 })

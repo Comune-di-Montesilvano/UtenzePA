@@ -4,13 +4,13 @@
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 1rem;
-    color: var(--mat-sys-on-surface-variant, #666);
+    color: var(--mat-sys-on-surface-variant);
     font-size: 0.875rem;
   }
 
   &__loading,
   &__empty {
-    color: var(--mat-sys-on-surface-variant, #666);
+    color: var(--mat-sys-on-surface-variant);
     font-size: 0.875rem;
     padding: 0.5rem 0;
   }
@@ -28,11 +28,11 @@
 
   &__diff-old {
     text-decoration: line-through;
-    color: var(--mat-sys-error, #b00020);
+    color: var(--mat-sys-error);
   }
 
   &__diff-new {
-    color: var(--mat-sys-primary, #1a73e8);
+    color: var(--mat-sys-primary);
     font-weight: 500;
   }
 }

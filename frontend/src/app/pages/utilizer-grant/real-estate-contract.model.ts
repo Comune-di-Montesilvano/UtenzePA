@@ -20,11 +20,11 @@ export const STATUS_LABEL: Record<DisplayStatus, string> = {
 
 export function statusBadge(s: DisplayStatus): {bg: string; fg: string} {
   switch (s) {
-    case 'ACTIVE': return {bg: '#dcfce7', fg: '#166534'};
-    case 'EXPIRING': return {bg: '#fef3c7', fg: '#92400e'};
-    case 'EXPIRED': return {bg: '#fee2e2', fg: '#991b1b'};
-    case 'DISPUTED': return {bg: '#fde68a', fg: '#78350f'};
-    default: return {bg: '#f3f4f6', fg: '#374151'};
+    case 'ACTIVE': return {bg: 'var(--tone-ok-bg)', fg: 'var(--tone-ok-fg)'};
+    case 'EXPIRING': return {bg: 'var(--tone-warn-bg)', fg: 'var(--tone-warn-fg)'};
+    case 'EXPIRED': return {bg: 'var(--tone-danger-bg)', fg: 'var(--tone-danger-fg)'};
+    case 'DISPUTED': return {bg: 'var(--tone-disputed-bg)', fg: 'var(--tone-disputed-fg)'};
+    default: return {bg: 'var(--app-surface-2)', fg: 'light-dark(#374151, #d4d4d8)'};
   }
 }
 

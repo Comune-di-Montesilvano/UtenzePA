@@ -1,9 +1,11 @@
-import {Component, ChangeDetectionStrategy, OnInit} from '@angular/core';
+import {Component, ChangeDetectionStrategy, OnInit, inject} from '@angular/core';
 
 import {Router, RouterModule} from '@angular/router';
 import {MatIconModule} from '@angular/material/icon';
+import {MatMenuModule} from '@angular/material/menu';
 import {AuthService} from '../../services/auth.service';
 import {VersionService} from '../../services/version.service';
+import {ThemePreference, ThemeService} from '../../core/services/theme.service';
 
 interface MenuItem {
   label: string;
@@ -23,13 +25,25 @@ interface MenuItem {
 @Component({
              selector: 'app-sidebar',
              standalone: true,
-             imports: [RouterModule, MatIconModule],
+             imports: [RouterModule, MatIconModule, MatMenuModule],
              templateUrl: './sidebar.component.html',
              changeDetection: ChangeDetectionStrategy.Eager,
              styleUrls: ['./sidebar.components.scss']
            })
 export class SidebarComponent implements OnInit {
   appVersion = '';
+
+  readonly theme = inject(ThemeService);
+
+  readonly themeOptions: {value: ThemePreference; label: string; icon: string}[] = [
+    {value: 'light', label: 'Chiaro', icon: 'light_mode'},
+    {value: 'dark', label: 'Scuro', icon: 'dark_mode'},
+    {value: 'system', label: 'Sistema', icon: 'contrast'},
+  ];
+
+  get themeIcon(): string {
+    return this.themeOptions.find(o => o.value === this.theme.preference())!.icon;
+  }
 
   menu: MenuItem[] = [
     {label: 'Dashboard', icon: 'home', route: '/dashboard'},

@@ -46,7 +46,7 @@
 
       <div style="margin-top: 2rem;">
         <h3>Ripristina da backup</h3>
-        <p style="color: #dc2626;">Attenzione: il ripristino sovrascrive tutti i dati attuali. Azione irreversibile.</p>
+        <p style="color: light-dark(#dc2626, #f87171);">Attenzione: il ripristino sovrascrive tutti i dati attuali. Azione irreversibile.</p>
         <input type="file" accept=".sql,.tar.gz" [disabled]="restoring" (change)="onRestoreFileSelected($event)" />
         @if (restoring) {
           <mat-spinner diameter="20" style="display: inline-block; margin-left: 0.5rem; vertical-align: middle;"></mat-spinner>

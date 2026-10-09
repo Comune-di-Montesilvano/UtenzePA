@@ -5,7 +5,8 @@
 
   <div class="login-right">
     <div class="brand-header">
-      <img src="/assets/logo.svg" alt="UtenzePA" class="app-logo">
+      <img src="/assets/logo.svg" alt="UtenzePA" class="app-logo only-light">
+      <img src="/assets/logo-dark.svg" alt="UtenzePA" class="app-logo only-dark">
       @if (logo) {
         <div class="entity-brand">
           <img [src]="logo" alt="" class="brand-logo">
@@ -17,7 +18,7 @@
       <form [formGroup]="form" (ngSubmit)="submit()">
         <div>
           <p style="text-align: left; padding-bottom: 0px; font-size: 16px;"><b>Accesso al Sistema</b></p>
-          <p style="text-align: left;color: #717182;">Inserisci le tue credenziali per accedere</p>
+          <p style="text-align: left;color: light-dark(#717182, #9a9aa3);">Inserisci le tue credenziali per accedere</p>
         </div>
         <div>
           <label for="username">Username</label>
@@ -32,7 +33,7 @@
         }
         <div style="text-align: right;">
           <p
-            style="display: inline-block; cursor: pointer; color: black;"
+            style="display: inline-block; cursor: pointer; color: light-dark(#000, #e7e7ea);"
             (click)="showResetForm()"
             >
             Password dimenticata?
