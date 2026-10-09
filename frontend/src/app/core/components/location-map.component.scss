@@ -5,7 +5,7 @@
 .location-map-canvas {
   height: 220px;
   border-radius: 6px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--app-border);
 }
 
 // Sopra i pannelli Leaflet (z-index fino a 1000 per i controlli), accanto
@@ -25,7 +25,8 @@
     height: 30px;
     padding: 0 10px;
     font-size: 0.8rem;
-    background: #fff;
+    background: var(--app-surface);
+    color: var(--app-text);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   }
 }
@@ -37,7 +38,7 @@
   z-index: 1001;
   padding: 2px 8px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.9);
+  background: color-mix(in srgb, var(--app-surface) 90%, transparent);
   font-size: 0.75rem;
-  color: #555;
+  color: light-dark(#555, #b4b4bb);
 }

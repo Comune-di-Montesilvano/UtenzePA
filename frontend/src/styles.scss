@@ -365,7 +365,7 @@ p-paginator.p-component.p-paginator {
   gap: 0.5rem;
   padding: 0.4rem 0.25rem;
   cursor: pointer;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid light-dark(#f0f0f0, #2a2a2e);
   font-size: 0.85rem;
 
   &:last-child {
@@ -373,7 +373,7 @@ p-paginator.p-component.p-paginator {
   }
 
   &:hover {
-    background: #f7f7f7;
+    background: light-dark(#f7f7f7, #26262a);
   }
 }
 
@@ -438,6 +438,22 @@ p-paginator.p-component.p-paginator {
 }
 
 
+// Dark mode: le tessere della mappa restano chiare (spec), si adeguano solo
+// controlli e popup di Leaflet.
+// Prefisso html: leaflet.css è caricato dopo styles.scss (angular.json).
+html .leaflet-popup-content-wrapper,
+html .leaflet-popup-tip,
+html .leaflet-bar a,
+html .leaflet-control-layers,
+html .leaflet-container .leaflet-control-attribution {
+  background: var(--app-surface);
+  color: var(--app-text);
+}
+html .leaflet-bar a { border-bottom-color: var(--app-border); }
+html .leaflet-bar a:hover { background: var(--app-surface-2); }
+html .leaflet-container a.leaflet-popup-close-button { color: var(--app-muted); }
+html .leaflet-container .leaflet-control-attribution a { color: var(--app-link); }
+
 // Elementi alternativi per tema (es. logo chiaro/scuro): light-dark() vale
 // solo per i colori. Tema effettivo scuro = classe theme-dark, oppure sistema
 // scuro senza theme-light (stessa regola di color-scheme in material-theme.scss).
@@ -465,6 +481,8 @@ html.theme-dark .only-dark { display: revert !important; }
   --app-header: light-dark(#d9d9d9, #18181a);
   // Testo/icona sopra un fondo --entity-*: in scuro i colori entità sono chiari.
   --on-entity: light-dark(#ffffff, #121212);
+  // Serie dei grafici consumi (SVG): blu più chiaro su fondo scuro.
+  --chart-series: light-dark(#1976d2, #60a5fa);
 
   --tone-ok-bg: light-dark(#dcfce7, #14361f); --tone-ok-fg: light-dark(#166534, #86efac);
   --tone-warn-bg: light-dark(#fef3c7, #3d2c0b); --tone-warn-fg: light-dark(#92400e, #fcd34d);
