@@ -56,13 +56,13 @@ html.theme-light { color-scheme: light; }
 html.theme-dark { color-scheme: dark; }
 
 .mat-action-success {
-  --mdc-icon-button-icon-color: #00c10d;
-  color: #00c10d;
+  --mdc-icon-button-icon-color: light-dark(#00c10d, #4ade80);
+  color: light-dark(#00c10d, #4ade80);
 }
 
 .mat-action-danger {
-  --mdc-icon-button-icon-color: #e7000b;
-  color: #e7000b;
+  --mdc-icon-button-icon-color: light-dark(#e7000b, #f87171);
+  color: light-dark(#e7000b, #f87171);
 
   // .mat-action-success/.mat-action-danger sopra colorano solo i mat-icon-button
   // (--mdc-icon-button-icon-color). Il bottone "Elimina" di ConfirmDialogComponent
@@ -91,6 +91,6 @@ html.theme-dark { color-scheme: dark; }
 }
 
 .toast-info {
-  --mdc-snackbar-container-color: #030213;
-  --mdc-snackbar-supporting-text-color: #ffffff;
+  --mdc-snackbar-container-color: var(--mat-sys-primary);
+  --mdc-snackbar-supporting-text-color: var(--mat-sys-on-primary);
 }
