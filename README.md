@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/assets/logo.svg" alt="UtenzePA" width="480" height="104">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-dark.svg">
+    <img src="docs/assets/logo.svg" alt="UtenzePA" width="480" height="104">
+  </picture>
 </p>
 
 Gestionale del patrimonio immobiliare e delle utenze per enti pubblici locali (asset, utenze, contratti, fornitori, fatture). Nato per il Comune di Montesilvano, ma l'ente (nome, tipo, coordinate mappa di default, logo, favicon) è configurabile da interfaccia in **Impostazioni > Branding** — nessuna modifica al codice o rebuild necessari per adattarlo a un altro ente.
