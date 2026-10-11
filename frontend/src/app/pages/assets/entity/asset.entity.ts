@@ -36,6 +36,11 @@ export class Asset extends AbstractEntity implements IAsset {
   category?: string;
   nature_id?: number | null;
   function_id?: number | null;
+  complex_id?: number | null;
+
+  // Solo lettura (il salvataggio usa complex_id).
+  @Exclude({toPlainOnly: true})
+  complex?: {id: number; name: string} | null;
   status?: AssetStatus;
 
   @Exclude({toPlainOnly: true})
@@ -67,6 +72,7 @@ export class Asset extends AbstractEntity implements IAsset {
       asset_name: '',
       nature_id: null,
       function_id: null,
+      complex_id: null,
       status: AssetStatus.ATTIVO,
       ownership: 1,
       area_sqm: 0,
