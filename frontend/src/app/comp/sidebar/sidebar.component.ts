@@ -83,6 +83,7 @@ export class SidebarComponent implements OnInit {
         {label: 'Backup e manutenzione', icon: 'storage', route: '/backup-import'},
         {label: 'Branding', icon: 'palette', route: '/branding'},
       ]},
+    {label: 'Guida', icon: 'help_outline', route: '/guida'},
   ];
 
   toggleSubmenu(item: MenuItem) {

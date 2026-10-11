@@ -5,7 +5,7 @@
   "packageManager": "pnpm@11.24.0",
   "scripts": {
     "start": "ng serve --host 0.0.0.0 --port 4300 --poll 2000 --source-map=true",
-    "build": "ng build --configuration production",
+    "build": "node scripts/check-guida.mjs && ng build --configuration production",
     "docker:dev:win": "docker build --target dev -t montesilvano-fe-dev . && docker run -it --rm --init --name montesilvano-fe-dev -p 4300:4300 -v %cd%:/app -v /app/node_modules montesilvano-fe-dev",
     "docker:dev:linux": "docker build --target dev -t montesilvano-fe-dev . && docker run -it --rm --init --name montesilvano-fe-dev -p 4300:4300 -v $(pwd):/app -v /app/node_modules montesilvano-fe-dev",
     "docker:prod": "docker build --target prod -t montesilvano-fe-prod . && docker run -p 80:80 montesilvano-fe-prod"
@@ -41,6 +41,7 @@
     "font-awesome": "^4.7.0",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
+    "marked": "^18.1.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",

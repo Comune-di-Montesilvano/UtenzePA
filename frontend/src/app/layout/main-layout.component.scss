@@ -52,6 +52,15 @@
     }
 
     .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .header-help {
+        display: flex;
+        color: inherit;
+      }
+
       .user-initials {
         font-weight: 400;
         background-color: #686B6F;

@@ -12,6 +12,9 @@
       }
     </div>
     <div class="header-right">
+      <a class="header-help" routerLink="/guida" [fragment]="guidaFragment" title="Guida" aria-label="Guida">
+        <mat-icon>help_outline</mat-icon>
+      </a>
       <span class="user-initials">{{ userInitials }}</span>
     </div> 
   </header>

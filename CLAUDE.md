@@ -136,6 +136,11 @@ Nessun ESLint, nessun browser nel container (Karma non eseguibile). Verifica = `
 - Componenti con `ChangeDetectionStrategy.Eager` esplicito (pre-v22).
 - **Colori / dark mode** (v1.17.0): solo token `light-dark()` di `styles.scss` (`--app-*`, `--tone-*`, `--entity-*`, `--on-entity`, `--chart-series`), mai esadecimali nei componenti salvo colori "dato" (tipo utenza, pin, serie, icone di stato sature); se il chiaro non coincide con un token, `light-dark(<valore attuale>, <scuro>)`. Tema da `ThemeService` (classi `theme-light`/`theme-dark` su `<html>`, chiave `utenzepa-theme`, gemella nello script di `index.html`). Immagini per tema: `.only-light`/`.only-dark`. SVG: `style="fill: var(--x)"`, non l'attributo. Override di Leaflet con prefisso `html` (il suo CSS è caricato dopo).
 
+## Guida operatori
+- Unica fonte: `frontend/public/guida/guida.md` (struttura comune delle guide integrate del Comune: Cos'è, Accesso, Operazioni frequenti, Regole e riferimenti, Problemi frequenti con Causa/Soluzione/Apri un ticket se, Contatti). Servita così com'è da `/guida/guida.md` (nginx `location ^~ /guida/`, `text/markdown`), resa dalla pagina `/guida` (`pages/guida/`, `marked`, HTML grezzo scartato, `ViewEncapsulation.None` perché gli stili raggiungano l'`innerHTML`), importata da CruscottoPA come guida GitHub.
+- **Ogni modifica visibile all'utente aggiorna la guida nella stessa PR, con la data in testa.**
+- Ancore = slug dei titoli (`guidaSlug`); bottone "?" dell'intestazione per pagina (`GUIDA_PER_PAGINA`). `pnpm run build` esegue prima `scripts/check-guida.mjs` (ancore esistenti, titoli non ripetuti, niente HTML): rinominare un titolo citato rompe la build.
+
 ## Verifica (dettagli in `docs/claude/testing-e2e.md`)
 - Nessuna credenziale di test: utente temporaneo su `system_users`, eliminato subito dopo (FK su ~17 tabelle e `audit_logs`).
 - Login via API: `POST /api/v1/authModule/login` con `{"email":"<username>","password":"..."}`, token in `token.access_token`.
