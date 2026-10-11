@@ -6,12 +6,14 @@ import {AssetService} from './asset.service';
 import {AssetNaturesService} from '../asset-nature/asset-nature.service';
 import {AssetFunctionsService} from '../asset-function/asset-function.service';
 import {ASSET_STATUS_OPTIONS} from './enum/asset-status.enum';
+import {ComplexService} from '../complexes/complex.service';
 
 // Filtri dell'elenco immobili. Da chiamare in un injection context.
 export function assetFilters(): FilterDef[] {
   const assets = inject(AssetService);
   const natures = inject(AssetNaturesService);
   const functions = inject(AssetFunctionsService);
+  const complexes = inject(ComplexService);
   return [
     {key: 'nature_id', label: 'Tipologia', type: 'select', inline: true,
       options: () => natures.search({deleted: false} as never).pipe(map(list =>
@@ -20,6 +22,8 @@ export function assetFilters(): FilterDef[] {
       options: () => functions.search({deleted: false} as never).pipe(map(list =>
         list.map(f => ({label: f.name, value: f.id, icon: f.icon ?? undefined}))))},
     {key: 'status', label: 'Stato', type: 'select', inline: true, options: ASSET_STATUS_OPTIONS},
+    {key: 'complex_id', label: 'Complesso', type: 'select', group: 'Immobile',
+      options: () => complexes.list().pipe(map(list => list.map(c => ({label: c.name, value: c.id, icon: 'domain'}))))},
 
     {key: 'legacy_only', label: 'Da classificare', type: 'bool', group: 'Segnalazioni'},
 

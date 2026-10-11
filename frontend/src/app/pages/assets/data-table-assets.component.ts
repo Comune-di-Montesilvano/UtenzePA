@@ -38,6 +38,7 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
     {field: 'asset_name', header: 'Nome edificio', minWidth: '150px'},
     {field: 'assetNature.name', header: 'Tipologia', minWidth: '120px'},
     {field: 'assetFunction.name', header: 'Funzione', minWidth: '150px'},
+    {field: 'complex.name', header: 'Complesso', minWidth: '150px'},
     {field: 'status', header: 'Stato', minWidth: '100px'},
     {field: 'category', header: 'Categoria', minWidth: '120px'},
     {field: 'ownership', header: 'Proprietà', minWidth: '100px'},
