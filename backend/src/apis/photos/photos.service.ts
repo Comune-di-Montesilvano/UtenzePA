@@ -10,6 +10,7 @@ import { CreatePhotoDto } from './dto/create-photo.dto';
 import { Asset } from '@apis/asset/entity/asset.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
 import { Plant } from '@apis/plants/entity/plant.entity';
+import { Complex } from '@apis/complexes/entity/complex.entity';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 const HEIC_MIME_TYPES = ['image/heic', 'image/heif'];
@@ -25,6 +26,7 @@ export class PhotosService {
     @InjectRepository(Asset) private readonly assetRepo: Repository<Asset>,
     @InjectRepository(Utility) private readonly utilityRepo: Repository<Utility>,
     @InjectRepository(Plant) private readonly plantRepo: Repository<Plant>,
+    @InjectRepository(Complex) private readonly complexRepo: Repository<Complex>,
   ) {
     this.photosDir = process.env.PHOTOS_DIR ?? path.join(process.cwd(), 'photos');
     fs.mkdirSync(this.photosDir, { recursive: true });
@@ -117,6 +119,7 @@ export class PhotosService {
       [PhotoEntityType.ASSET]: [() => this.assetRepo.exists(where), 'Immobile'],
       [PhotoEntityType.UTILITY]: [() => this.utilityRepo.exists(where), 'Contatore'],
       [PhotoEntityType.PLANT]: [() => this.plantRepo.exists(where), 'Impianto'],
+      [PhotoEntityType.COMPLEX]: [() => this.complexRepo.exists(where), 'Complesso'],
     };
     const [exists, label] = checks[entityType];
     if (!(await exists())) {

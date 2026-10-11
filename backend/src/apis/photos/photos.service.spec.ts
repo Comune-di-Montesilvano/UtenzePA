@@ -11,6 +11,7 @@ describe('PhotosService', () => {
   let assetRepo: { exists: jest.Mock };
   let utilityRepo: { exists: jest.Mock };
   let plantRepo: { exists: jest.Mock };
+  let complexRepo: { exists: jest.Mock };
 
   beforeEach(() => {
     (fs.mkdirSync as jest.Mock).mockReset();
@@ -27,12 +28,14 @@ describe('PhotosService', () => {
     assetRepo = { exists: jest.fn().mockResolvedValue(true) };
     utilityRepo = { exists: jest.fn().mockResolvedValue(true) };
     plantRepo = { exists: jest.fn().mockResolvedValue(true) };
+    complexRepo = { exists: jest.fn().mockResolvedValue(true) };
 
     service = new PhotosService(
       photoRepo as never,
       assetRepo as never,
       utilityRepo as never,
       plantRepo as never,
+      complexRepo as never,
     );
   });
 
@@ -62,6 +65,16 @@ describe('PhotosService', () => {
         service.create({ entityType: PhotoEntityType.PLANT, entityId: 3 }, file, 1),
       ).rejects.toThrow(BadRequestException);
       expect(plantRepo.exists).toHaveBeenCalledWith({ where: { id: 3, deleted: false } });
+    });
+
+    it('controlla l’esistenza del complesso per le foto di un complesso', async () => {
+      complexRepo.exists.mockResolvedValue(false);
+      const file = { mimetype: 'image/jpeg', buffer: Buffer.from('x'), originalname: 'f.jpg' } as Express.Multer.File;
+
+      await expect(
+        service.create({ entityType: PhotoEntityType.COMPLEX, entityId: 4 }, file, 1),
+      ).rejects.toThrow('Complesso non trovato');
+      expect(complexRepo.exists).toHaveBeenCalledWith({ where: { id: 4, deleted: false } });
     });
 
     it('rifiuta se è già stato raggiunto il limite di 10 foto', async () => {
@@ -99,7 +112,7 @@ describe('PhotosService', () => {
       jest.resetModules();
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { PhotosService: FreshPhotosService } = require('./photos.service');
-      const freshService = new FreshPhotosService(photoRepo as never, assetRepo as never, utilityRepo as never, plantRepo as never);
+      const freshService = new FreshPhotosService(photoRepo as never, assetRepo as never, utilityRepo as never, plantRepo as never, complexRepo as never);
 
       const file = { mimetype: 'image/heic', buffer: Buffer.from('heic-bytes'), originalname: 'foto.heic' } as Express.Multer.File;
 
@@ -116,7 +129,7 @@ describe('PhotosService', () => {
       jest.resetModules();
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { PhotosService: FreshPhotosService } = require('./photos.service');
-      const freshService = new FreshPhotosService(photoRepo as never, assetRepo as never, utilityRepo as never, plantRepo as never);
+      const freshService = new FreshPhotosService(photoRepo as never, assetRepo as never, utilityRepo as never, plantRepo as never, complexRepo as never);
 
       const file = { mimetype: 'image/heic', buffer: Buffer.from('heic-bytes'), originalname: 'foto.heic' } as Express.Multer.File;
 
@@ -133,7 +146,7 @@ describe('PhotosService', () => {
   describe('findAll', () => {
     it('filtra per entity_type/entity_id e deleted=false', async () => {
       const repoFindAll = { ...photoRepo, find: jest.fn().mockResolvedValue([]) };
-      const svc = new PhotosService(repoFindAll as never, assetRepo as never, utilityRepo as never, plantRepo as never);
+      const svc = new PhotosService(repoFindAll as never, assetRepo as never, utilityRepo as never, plantRepo as never, complexRepo as never);
 
       await svc.findAll(PhotoEntityType.ASSET, 5);
 

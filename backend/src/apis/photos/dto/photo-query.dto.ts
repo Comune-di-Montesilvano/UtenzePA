@@ -3,7 +3,7 @@ import { Transform } from 'class-transformer';
 import { PhotoEntityType } from '../enum/photo-entity-type.enum';
 
 export class PhotoQueryDto {
-  @IsEnum(PhotoEntityType, { message: 'entityType deve essere "asset" o "utility"' })
+  @IsEnum(PhotoEntityType, { message: 'entityType deve essere "asset", "utility", "plant" o "complex"' })
   entityType: PhotoEntityType;
 
   @Transform(({ value }) => Number(value))

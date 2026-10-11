@@ -4,12 +4,13 @@ import { Photo } from './entity/photo.entity';
 import { Asset } from '@apis/asset/entity/asset.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
 import { Plant } from '@apis/plants/entity/plant.entity';
+import { Complex } from '@apis/complexes/entity/complex.entity';
 import { PhotosService } from './photos.service';
 import { PhotosController } from './photos.controller';
 import { ChunkedUploadModule } from '@common/chunked-upload/chunked-upload.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Photo, Asset, Utility, Plant]), ChunkedUploadModule],
+  imports: [TypeOrmModule.forFeature([Photo, Asset, Utility, Plant, Complex]), ChunkedUploadModule],
   providers: [PhotosService],
   controllers: [PhotosController],
 })
