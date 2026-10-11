@@ -19,6 +19,11 @@ export class MapQueryDto {
   @Transform(({ value }) => (value === undefined ? undefined : value === true || value === 'true'))
   showPlants?: boolean;
 
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => (value === undefined ? undefined : value === true || value === 'true'))
+  showComplexes?: boolean;
+
   // Tipi impianto, stringa "FOUNTAIN,TRAFFIC_LIGHT" (stesso formato degli altri filtri).
   @IsOptional()
   @Transform(({ value }) =>

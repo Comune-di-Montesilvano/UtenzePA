@@ -6,12 +6,84 @@ describe('MapService', () => {
   let assetRepo: { find: jest.Mock };
   let utilityRepo: { find: jest.Mock };
   let plantRepo: { find: jest.Mock };
+  let complexRepo: { find: jest.Mock };
 
   beforeEach(() => {
     assetRepo = { find: jest.fn() };
     utilityRepo = { find: jest.fn() };
     plantRepo = { find: jest.fn().mockResolvedValue([]) };
-    service = new MapService(assetRepo as never, utilityRepo as never, plantRepo as never);
+    complexRepo = { find: jest.fn().mockResolvedValue([]) };
+    service = new MapService(assetRepo as never, utilityRepo as never, plantRepo as never, complexRepo as never);
+  });
+
+  describe('complessi', () => {
+    const located = (id: number, lat: string, lng: string, over: Record<string, unknown> = {}) => ({
+      id, asset_name: `imm_${id}`, address: null, latitude: lat, longitude: lng,
+      geocoded_latitude: null, geocoded_longitude: null, deleted: false, nature_id: 1, function_id: 2,
+      status: 'Attivo', complex_id: 5, ...over,
+    });
+
+    it('punto complesso al centro degli immobili localizzati, con i loro id', async () => {
+      assetRepo.find.mockResolvedValue([]);
+      utilityRepo.find.mockResolvedValue([]);
+      complexRepo.find.mockResolvedValue([
+        { id: 5, name: 'Palazzina', address: 'Via Salieri', latitude: null, longitude: null, complex_type: null,
+          assets: [located(1, '42.0', '14.0'), located(2, '42.2', '14.2'), located(3, '42.4', '14.4', { deleted: true })] },
+      ]);
+
+      const { points } = await service.getPoints({});
+
+      expect(points).toContainEqual(expect.objectContaining({
+        id: 5, type: 'complex', lat: '42.100000', lng: '14.100000', assetIds: [1, 2], source: 'geocoded',
+      }));
+    });
+
+    it('posizione propria del complesso: source gps', async () => {
+      assetRepo.find.mockResolvedValue([]);
+      utilityRepo.find.mockResolvedValue([]);
+      complexRepo.find.mockResolvedValue([
+        { id: 5, name: 'Plesso', address: null, latitude: '42.5', longitude: '14.5', complex_type: null,
+          assets: [located(1, '42.0', '14.0')] },
+      ]);
+
+      const { points } = await service.getPoints({});
+
+      expect(points).toContainEqual(expect.objectContaining({ id: 5, type: 'complex', lat: '42.5', lng: '14.5', source: 'gps' }));
+    });
+
+    it('nessun immobile visibile dopo i filtri: niente punto complesso', async () => {
+      assetRepo.find.mockResolvedValue([]);
+      utilityRepo.find.mockResolvedValue([]);
+      complexRepo.find.mockResolvedValue([
+        { id: 5, name: 'Plesso', latitude: '42.5', longitude: '14.5', complex_type: null,
+          assets: [located(1, '42.0', '14.0', { function_id: 9 })] },
+      ]);
+
+      const { points } = await service.getPoints({ functionIds: [2] });
+
+      expect(points.some((p) => p.type === 'complex')).toBe(false);
+    });
+
+    it('showComplexes=false: nessun punto complesso', async () => {
+      assetRepo.find.mockResolvedValue([]);
+      utilityRepo.find.mockResolvedValue([]);
+      complexRepo.find.mockResolvedValue([
+        { id: 5, name: 'Plesso', latitude: '42.5', longitude: '14.5', complex_type: null, assets: [located(1, '42.0', '14.0')] },
+      ]);
+
+      const { points } = await service.getPoints({ showComplexes: false });
+
+      expect(points.some((p) => p.type === 'complex')).toBe(false);
+    });
+
+    it('punto immobile con complexId', async () => {
+      assetRepo.find.mockResolvedValue([located(1, '42.0', '14.0')]);
+      utilityRepo.find.mockResolvedValue([]);
+
+      const { points } = await service.getPoints({ showComplexes: false });
+
+      expect(points[0]).toMatchObject({ id: 1, type: 'asset', complexId: 5 });
+    });
   });
 
   describe('impianti', () => {

@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Asset } from '@apis/asset/entity/asset.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
 import { Plant } from '@apis/plants/entity/plant.entity';
+import { Complex } from '@apis/complexes/entity/complex.entity';
 import { GeocodingModule } from '@apis/geocoding/geocoding.module';
 import { MapService } from './map.service';
 import { MapController } from './map.controller';
@@ -12,7 +13,7 @@ import { MapController } from './map.controller';
   // GeocodingModule esporta GeocodingService — riusato dall'endpoint
   // /map/geocode (ricerca libera indirizzo) invece di duplicare il client
   // Nominatim/throttle/backoff qui.
-  imports: [TypeOrmModule.forFeature([Asset, Utility, Plant]), GeocodingModule, SettingsModule],
+  imports: [TypeOrmModule.forFeature([Asset, Utility, Plant, Complex]), GeocodingModule, SettingsModule],
   providers: [MapService],
   controllers: [MapController],
 })

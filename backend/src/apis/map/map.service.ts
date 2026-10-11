@@ -9,10 +9,12 @@ import { Plant } from '@apis/plants/entity/plant.entity';
 import { PlantStatus, PlantType, PositionQuality } from '@apis/plants/enum/plant.enum';
 import { AssetStatusEnum } from '@apis/asset/enum/asset-status.enum';
 import { firstLocatedAsset, resolvePlantPosition } from '@apis/plants/plant.calc';
+import { Complex } from '@apis/complexes/entity/complex.entity';
+import { ComplexType } from '@apis/complexes/enum/complex-type.enum';
 
 export interface MapPoint {
   id: number;
-  type: 'asset' | 'utility' | 'plant';
+  type: 'asset' | 'utility' | 'plant' | 'complex';
   name: string;
   address: string | null;
   lat: string;
@@ -39,6 +41,12 @@ export interface MapPoint {
   plantId?: number | null;
   // Solo per type 'plant' — pilota l'icona per tipo impianto.
   plantType?: PlantType;
+  // Solo per type 'asset' — complesso dell'immobile: il frontend nasconde il
+  // pin finché il complesso è chiuso.
+  complexId?: number | null;
+  // Solo per type 'complex' — immobili visibili del complesso (dopo i filtri).
+  assetIds?: number[];
+  complexType?: ComplexType | null;
 }
 
 export interface UngeolocatedItem {
@@ -62,6 +70,7 @@ export class MapService {
     @InjectRepository(Asset) private readonly assetRepo: Repository<Asset>,
     @InjectRepository(Utility) private readonly utilityRepo: Repository<Utility>,
     @InjectRepository(Plant) private readonly plantRepo: Repository<Plant>,
+    @InjectRepository(Complex) private readonly complexRepo: Repository<Complex>,
   ) {}
 
   async getPoints(
@@ -107,6 +116,7 @@ export class MapService {
             lng: position.lng,
             source: position.source,
             icon: asset.assetFunction?.icon ?? null,
+            ...(asset.complex_id ? { complexId: asset.complex_id } : {}),
             ...(asset.status === AssetStatusEnum.DISMESSO ? { inactive: true } : {}),
           });
         } else {
@@ -248,6 +258,44 @@ export class MapService {
                 : 'no_address',
           });
         }
+      }
+    }
+
+    if (filters.showComplexes !== false) {
+      // Complessi: perimetro e stato degli immobili valgono anche dentro il
+      // complesso; senza immobili visibili e posizionati il complesso non compare.
+      const complexes = await this.complexRepo.find({
+        where: { deleted: false },
+        relations: { assets: true },
+      });
+      const inPerimeter = (a: Asset) =>
+        !a.deleted &&
+        (!filters.natureIds?.length || (a.nature_id != null && filters.natureIds.includes(a.nature_id))) &&
+        (!filters.functionIds?.length ||
+          (a.function_id != null && filters.functionIds.includes(a.function_id))) &&
+        (!filters.statuses?.length || filters.statuses.includes(a.status));
+      for (const c of complexes) {
+        const visible = (c.assets ?? [])
+          .filter(inPerimeter)
+          .map((a) => ({ a, pos: this.resolveAssetPosition(a) }))
+          .filter((x) => x.pos);
+        if (!visible.length) continue;
+        const own = isSet(c.latitude) && isSet(c.longitude);
+        const avg = (k: 'lat' | 'lng') =>
+          (
+            visible.reduce((s, x) => s + parseFloat(x.pos[k].replace(',', '.')), 0) / visible.length
+          ).toFixed(6);
+        points.push({
+          id: c.id,
+          type: 'complex',
+          name: c.name,
+          address: c.address ?? null,
+          lat: own ? c.latitude : avg('lat'),
+          lng: own ? c.longitude : avg('lng'),
+          source: own ? 'gps' : 'geocoded',
+          assetIds: visible.map((x) => x.a.id),
+          complexType: c.complex_type ?? null,
+        });
       }
     }
 
