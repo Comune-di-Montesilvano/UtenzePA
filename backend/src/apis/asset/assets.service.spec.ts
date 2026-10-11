@@ -38,6 +38,7 @@ describe('AssetsService', () => {
         geocode: jest.fn(),
       } as never,
       { createQueryBuilder: jest.fn().mockReturnValue(natureQb) } as never,
+      {} as never,
     );
   });
 
@@ -108,6 +109,7 @@ describe('AssetsService', () => {
         repo as never,
         geocodingService as never,
         { createQueryBuilder: jest.fn() } as never,
+        {} as never,
       );
     });
 
@@ -160,11 +162,13 @@ describe('AssetsService', () => {
         repo as never,
         { buildQuery: jest.fn(), geocode: jest.fn() } as never,
         { createQueryBuilder: jest.fn() } as never,
+        {} as never,
       );
 
       const resolvers = (service as any).auditLabelResolvers;
       expect(resolvers.nature_id.field).toBe('name');
       expect(resolvers.asset_type_id).toBeUndefined();
+      expect(resolvers.complex_id.field).toBe('name');
     });
   });
   describe('classificazione', () => {
@@ -183,6 +187,22 @@ describe('AssetsService', () => {
         expect(calls).toHaveLength(2);
       }
       expect(qb.leftJoinAndSelect.mock.calls.some((c) => c[0] === 'assets.assetAggregator')).toBe(false);
+    });
+
+    it('findAll e findOne joinano il complesso non cancellato', async () => {
+      await service.findAll();
+      await service.findOne(1);
+      const calls = qb.leftJoinAndSelect.mock.calls.filter(
+        (c) => c[0] === 'assets.complex' && c[1] === 'complex' && c[2] === 'complex.deleted = 0',
+      );
+      expect(calls).toHaveLength(2);
+    });
+
+    it('findAll con complex_id filtra per uguaglianza', async () => {
+      await service.findAll({ complex_id: 5 } as never);
+      expect(qb.andWhere).toHaveBeenCalledWith('assets.complex_id = :filter_complex_id', {
+        filter_complex_id: 5,
+      });
     });
 
     it('findAll con legacy_only filtra gli immobili senza natura o funzione e non lo passa ad applyFilters', async () => {

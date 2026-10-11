@@ -107,6 +107,14 @@ export class CreateAssetDto {
   @IsInt()
   function_id: number;
 
+  // Complesso di appartenenza (null = nessuno).
+  @IsOptional()
+  @Transform(({ value }) =>
+    value !== undefined && value !== null && value !== '' ? parseInt(value, 10) : null,
+  )
+  @IsInt()
+  complex_id?: number | null;
+
   @IsOptional()
   @IsEnum(AssetStatusEnum, { message: `Lo stato deve essere uno tra: ${Object.values(AssetStatusEnum).join(', ')}` })
   status?: AssetStatusEnum;

@@ -18,6 +18,10 @@ import { ComplexesService, ComplexRow } from './complexes.service';
 import { CreateComplexDto } from './dto/create-complex.dto';
 import { UpdateComplexDto } from './dto/update-complex.dto';
 import { SearchComplexDto } from './dto/search-complex.dto';
+import { Utility } from '@apis/utility/entity/utility.entity';
+import { Plant } from '@apis/plants/entity/plant.entity';
+import { UtilizerGrant } from '@apis/utilizer-grant/entity/utilizer-grant.entity';
+import { DisplayStatus } from '@apis/utilizer-grant/enum/real-estate-contract.enum';
 
 @Controller('complexes')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -27,6 +31,23 @@ export class ComplexesController {
   @Get()
   list(@Query() filters: SearchComplexDto): Promise<ComplexRow[]> {
     return this.service.findAll(filters);
+  }
+
+  @Get(':id/utilities')
+  utilities(@Param('id', ParseIntPipe) id: number): Promise<Utility[]> {
+    return this.service.utilities(id);
+  }
+
+  @Get(':id/plants')
+  plants(@Param('id', ParseIntPipe) id: number): Promise<Plant[]> {
+    return this.service.plants(id);
+  }
+
+  @Get(':id/grants')
+  grants(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<(UtilizerGrant & { computed_status: DisplayStatus })[]> {
+    return this.service.grants(id);
   }
 
   @Get(':id')

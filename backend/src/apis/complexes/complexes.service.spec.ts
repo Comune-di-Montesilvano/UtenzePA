@@ -134,4 +134,16 @@ describe('ComplexesService', () => {
 
     expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ id: 1, deleted: true }));
   });
+  it('grants: contratti degli immobili con lo stato mostrato', async () => {
+    grantRepo.find.mockResolvedValue([
+      { id: 301, status: ContractStatus.ACTIVE, end_date: '2020-01-01', tacit_renewal: false, renewal_months: null, notice_months: null, assets: [asset(11)] },
+    ]);
+
+    const rows = await service.grants(1);
+
+    expect(grantRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { deleted: false, assets: { complex_id: 1, deleted: false } } }),
+    );
+    expect(rows[0].computed_status).toBe('EXPIRED');
+  });
 });

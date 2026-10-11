@@ -89,6 +89,38 @@ export class ComplexesService extends BaseService<Complex, CreateComplexDto, Upd
     return (await this.withCounts([c]))[0];
   }
 
+  private linkedWhere(id: number) {
+    return { deleted: false, assets: { complex_id: id, deleted: false } };
+  }
+
+  // Righe dei tab di sola lettura: TypeORM carica nella relazione assets solo
+  // gli immobili del complesso (colonna "Immobile" del tab).
+  utilities(id: number): Promise<Utility[]> {
+    return this.utilityRepo.find({
+      where: this.linkedWhere(id),
+      relations: { assets: true, utilityType: true },
+      order: { utility_id: 'ASC' },
+    });
+  }
+
+  plants(id: number): Promise<Plant[]> {
+    return this.plantRepo.find({
+      where: this.linkedWhere(id),
+      relations: { assets: true },
+      order: { code: 'ASC' },
+    });
+  }
+
+  async grants(id: number): Promise<(UtilizerGrant & { computed_status: DisplayStatus })[]> {
+    const today = this.today();
+    const rows = await this.grantRepo.find({
+      where: this.linkedWhere(id),
+      relations: { assets: true, parties: true },
+      order: { start_date: 'DESC' },
+    });
+    return rows.map((g) => ({ ...g, computed_status: displayStatus(g as never, today) }));
+  }
+
   private async withCounts(complexes: Complex[]): Promise<ComplexRow[]> {
     const ids = complexes.map((c) => c.id);
     if (!ids.length) return [];
