@@ -39,11 +39,15 @@ import { CoordinateHelper } from '../../core/helpers/coordinate.helper';
 import { StreetViewHelper } from '../../core/helpers/street-view.helper';
 import { ToastService } from '../../core/services/toast.service';
 import { PLANT_STATUS_LABEL, PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PLANT_TYPES, PlantStatus } from '../plants/plant.model';
+import { COMPLEX_TYPE_LABEL } from '../complexes/complex.model';
 
 // Marker immobile: icona Material Icons della funzione dell'immobile,
 // ICON_FALLBACK se la funzione manca o non ha icona.
 const ASSET_COLOR = '#37474f';
 const PLANT_COLOR = '#0f766e';
+const COMPLEX_COLOR = 'var(--entity-complex)';
+// Oltre questo zoom i complessi si aprono da soli (immobili al posto del pin).
+const COMPLEX_EXPAND_ZOOM = 17;
 // Contatore senza tipologia associata (dato mancante) — icona neutra.
 const UNKNOWN_UTILITY_ICON = 'fa fa-question';
 const UNKNOWN_UTILITY_COLOR = '#757575';
@@ -131,6 +135,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   showAssets = new FormControl(true, { nonNullable: true });
   showUtilities = new FormControl(true, { nonNullable: true });
   showPlants = new FormControl(true, { nonNullable: true });
+  showComplexes = new FormControl(true, { nonNullable: true });
   plantTypes = new FormControl<string[]>([], {nonNullable: true});
   plantTypeOptions: TOption[] = PLANT_TYPES.map((t) => ({ label: PLANT_TYPE_LABEL[t], value: t, icon: PLANT_TYPE_ICON[t] }));
   utilityTypeIds = new FormControl<number[]>([], {nonNullable: true});
@@ -151,7 +156,11 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   // Pannello e livelli (sezioni aperte), conteggi dei punti visibili per livello.
   panelOpen = true;
   expanded: Record<'asset' | 'utility' | 'plant', boolean> = { asset: false, utility: false, plant: false };
-  layerCounts: Record<'asset' | 'utility' | 'plant', number> = { asset: 0, utility: 0, plant: 0 };
+  layerCounts: Record<'asset' | 'utility' | 'plant' | 'complex', number> = { asset: 0, utility: 0, plant: 0, complex: 0 };
+  // Ultima risposta del server e complessi aperti col clic (vedi visiblePoints).
+  private lastPoints: MapPoint[] = [];
+  private expandedComplexes = new Set<number>();
+  private aboveExpandZoom = false;
   private reload$ = new Subject<void>();
 
   utilityTypeOptions: TOption[] = [];
@@ -252,10 +261,11 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       )
       .subscribe((response) => {
         if (!response) return;
-        this.renderPoints(response.points);
+        this.lastPoints = response.points;
+        this.renderPoints(this.visiblePoints());
         this.ungeolocated = response.ungeolocated;
       });
-    for (const c of [this.showAssets, this.showUtilities, this.showPlants, this.plantTypes, this.plantStatuses,
+    for (const c of [this.showAssets, this.showUtilities, this.showPlants, this.showComplexes, this.plantTypes, this.plantStatuses,
       this.utilityTypeIds, this.includeInactiveUtilities, this.natureIds, this.functionIds, this.statuses]) {
       (c.valueChanges as Observable<unknown>).subscribe(() => this.reload());
     }
@@ -476,6 +486,15 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     // Click destro su un punto vuoto della mappa — menu "Aggiungi immobile
     // qui / Aggiungi contatore qui" con le coordinate del click.
     this.map.on('contextmenu', (event: L.LeafletMouseEvent) => this.openAddPicker(event.latlng));
+
+    // Superata la soglia di zoom i complessi si aprono (e si richiudono tornando sotto).
+    this.aboveExpandZoom = this.map.getZoom() >= COMPLEX_EXPAND_ZOOM;
+    this.map.on('zoomend', () => {
+      const above = (this.map?.getZoom() ?? 0) >= COMPLEX_EXPAND_ZOOM;
+      if (above === this.aboveExpandZoom) return;
+      this.aboveExpandZoom = above;
+      this.renderPoints(this.visiblePoints());
+    });
   }
 
   ngOnDestroy(): void {
@@ -492,6 +511,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         showAssets: this.showAssets.value,
         showUtilities: this.showUtilities.value,
         showPlants: this.showPlants.value,
+        showComplexes: this.showComplexes.value,
         plantTypes: this.plantTypes.value,
         natureIds: this.natureIds.value,
         functionIds: this.functionIds.value,
@@ -509,8 +529,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     this.assetMarkers.clear();
     this.utilityMarkers.clear();
     this.plantMarkers.clear();
-    const countOf = (t: MapPoint['type']) => new Set(points.filter((p) => p.type === t).map((p) => p.id)).size;
-    this.layerCounts = { asset: countOf('asset'), utility: countOf('utility'), plant: countOf('plant') };
+    const countOf = (t: MapPoint['type']) => new Set(this.lastPoints.filter((p) => p.type === t).map((p) => p.id)).size;
+    this.layerCounts = { asset: countOf('asset'), utility: countOf('utility'), plant: countOf('plant'), complex: countOf('complex') };
 
     // Posizioni di immobili e impianti, per le linee tratteggiate verso i
     // collegati che stanno in un punto diverso (un'utenza che eredita la
@@ -656,6 +676,10 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
           | 'utility'
           | 'plant'
           | undefined;
+        if (principal?.type === 'complex') {
+          this.openComplexPopup(principal, L.latLng(lat, lng));
+          return;
+        }
         if (principal) {
           if (filterType) this.openMembersPicker(principal, members, filterType);
           else this.openDetail(principal);
@@ -792,6 +816,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   // mappa (renderPoints) sia alle voci del popup di scelta immobile/contatori
   // (openAssetOrPicker), stessa resa in entrambi i posti.
   private pointIcon(point: MapPoint): { iconHtml: string; color: string } {
+    if (point.type === 'complex') {
+      return { iconHtml: '<span class="material-icons">domain</span>', color: COMPLEX_COLOR };
+    }
     if (point.type === 'plant') {
       const icon = point.plantType ? PLANT_TYPE_ICON[point.plantType] : 'settings_input_component';
       return { iconHtml: `<span class="material-icons">${icon}</span>`, color: PLANT_COLOR };
@@ -809,6 +836,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Etichetta di un punto (tooltip pin e voci dei popup di scelta).
   private pointLabel(point: MapPoint): string {
+    if (point.type === 'complex') return `${point.name} (complesso, ${point.assetIds?.length ?? 0} immobili)`;
     if (point.type === 'asset') return `${point.name} (immobile)`;
     if (point.type === 'plant') {
       return `${point.plantType ? PLANT_TYPE_LABEL[point.plantType] : 'Impianto'} — ${point.name}`;
@@ -835,7 +863,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.map) return;
     const lat = CoordinateHelper.parseCoordinate(principal.lat);
     const lng = CoordinateHelper.parseCoordinate(principal.lng);
-    const order = {asset: 0, plant: 1, utility: 2} as const;
+    const order = {complex: 0, asset: 1, plant: 2, utility: 3} as const;
     const listed = [...(filterType ? members.filter((m) => m.type === filterType) : members)]
       .sort((x, y) => order[x.type] - order[y.type]);
     const items = [
@@ -942,7 +970,56 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  // Complessi chiusi: un solo pin al posto dei loro immobili; anche utenze e
+  // impianti di quegli immobili restano nascosti (altrimenti pin orfani nello
+  // stesso punto). Aperti (clic) o oltre lo zoom 17: immobili e collegati, senza pin complesso.
+  private visiblePoints(): MapPoint[] {
+    const open = (c: MapPoint) => this.aboveExpandZoom || this.expandedComplexes.has(c.id);
+    const hidden = new Set<number>();
+    for (const c of this.lastPoints) {
+      if (c.type === 'complex' && !open(c)) (c.assetIds ?? []).forEach((id) => hidden.add(id));
+    }
+    return this.lastPoints.filter((p) => {
+      if (p.type === 'complex') return !open(p);
+      if (p.type === 'asset') return !hidden.has(p.id);
+      return p.assetId == null || !hidden.has(p.assetId);
+    });
+  }
+
+  private openComplexPopup(c: MapPoint, at: L.LatLng): void {
+    if (!this.map) return;
+    const type = c.complexType ? COMPLEX_TYPE_LABEL[c.complexType] : 'Complesso';
+    const html = `<div class="map-complex-popup">
+        <strong>${this.escapeAttr(c.name)}</strong>
+        <div>${this.escapeAttr(type)} · ${c.assetIds?.length ?? 0} immobili</div>
+        <button type="button" data-action="open">Apri scheda</button>
+        <button type="button" data-action="expand">Mostra immobili</button>
+      </div>`;
+    const popup = L.popup().setLatLng(at).setContent(html).openOn(this.map);
+    const el = popup.getElement();
+    el?.querySelector('[data-action="open"]')?.addEventListener('click', () => {
+      this.map?.closePopup();
+      this.openDetail(c);
+    });
+    el?.querySelector('[data-action="expand"]')?.addEventListener('click', () => {
+      this.map?.closePopup();
+      this.expandedComplexes.add(c.id);
+      this.renderPoints(this.visiblePoints());
+      const bounds = (c.assetIds ?? [])
+        .map((id) => this.assetMarkers.get(id)?.getLatLng())
+        .filter((ll): ll is L.LatLng => !!ll);
+      // maxZoom sotto la soglia: lo zoom non deve aprire/chiudere di nuovo tutti i complessi.
+      if (bounds.length) this.map?.fitBounds(L.latLngBounds(bounds), { maxZoom: COMPLEX_EXPAND_ZOOM - 1, padding: [40, 40] });
+    });
+  }
+
   openDetail(point: MapPoint | UngeolocatedItem): void {
+    if (point.type === 'complex') {
+      this.navigator.openComplex(point.id).subscribe((saved) => {
+        if (saved) this.reload();
+      });
+      return;
+    }
     if (point.type === 'plant') {
       this.navigator.openPlant(point.id).subscribe((saved) => {
         if (saved) this.reload();

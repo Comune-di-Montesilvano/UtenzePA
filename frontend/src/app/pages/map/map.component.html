@@ -90,6 +90,16 @@
         }
       </div>
 
+      <!-- Complessi -->
+      <div class="mp-layer" [class.off]="!showComplexes.value">
+        <div class="mp-layer-row">
+          <mat-checkbox [formControl]="showComplexes" aria-label="Mostra complessi"></mat-checkbox>
+          <span class="map-pin mp-sample" style="background: var(--entity-complex)"><span class="material-icons">domain</span></span>
+          <span class="mp-name">Complessi</span>
+          <span class="mp-count" matTooltip="Punti visibili">{{ layerCounts.complex }}</span>
+        </div>
+      </div>
+
       <div class="mp-section">Simboli</div>
       <ul class="mp-legend">
         <li><span class="map-pin mp-sample mp-sample--small mp-neutral" style="border-style:solid"></span>Posizione GPS</li>
