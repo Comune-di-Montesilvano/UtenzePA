@@ -103,16 +103,22 @@ Una migration con spostamento dati (regole `docs/claude/backend.md`):
 
 ### Scheda immobile
 
-- **Riepilogo**: invariato.
-- **Catasto** (rifatto):
-  - sezione "Unità catastali": tabella modificabile (sezione, foglio, particella, sub, categoria, rendita) con aggiungi/modifica/rimuovi in riga, `FormArray` salvato con il **Salva** della scheda; vuota → "Nessuna unità catastale (immobile non accatastato)"; rimuovi chiede conferma;
-  - sezione "Consistenza": superficie (esistente), superficie di riferimento, superficie delle pertinenze, cubatura, epoca di costruzione;
-  - Servizi/manufatti come oggi;
-  - pallino del tab sui valori di unità e consistenza; pallino rosso su unità invalide (foglio o particella mancanti).
-- **Patrimonio** (nuovo tab dopo Catasto, `aria-label` "Patrimonio"):
-  - modificabili: natura giuridica, vincolo culturale/paesaggistico, federalismo demaniale, bene confiscato (select a tre stati Sì/No/Non noto);
-  - riquadro "Per il MEF" in sola lettura, con la provenienza: Id bene MEF; titolo (da Proprietà); stato di accatastamento (dalle unità); utilizzo (con link al contratto che lo determina); tipologia e finalità (dalla funzione, con link all'anagrafica funzioni; avviso se la funzione non le ha).
-- Tab Utenze, Impianti, Contratti, Note, Foto, Storico invariati.
+Nessun tab nuovo: il tab **Catasto** diventa **"Catasto e patrimonio"** (`aria-label` uguale all'etichetta) e raccoglie tutto il patrimoniale, in quattro sezioni una sotto l'altra:
+
+```
+Catasto e patrimonio
+├─ Unità catastali     tabella: sezione | foglio | particella | sub | categoria | rendita   + Aggiungi
+├─ Consistenza         superficie · sup. riferimento · sup. pertinenze · cubatura · epoca
+├─ Patrimonio          natura giuridica · vincolo · federalismo · confiscato
+└─ Per il MEF ▸        riquadro richiudibile (chiuso di default), sola lettura
+```
+
+- **Unità catastali**: tabella modificabile con aggiungi/modifica/rimuovi in riga, `FormArray` salvato con il **Salva** della scheda; vuota → "Nessuna unità catastale (immobile non accatastato)"; rimuovi chiede conferma.
+- **Consistenza**: superficie (esistente), superficie di riferimento, superficie delle pertinenze, cubatura, epoca di costruzione; Servizi/manufatti come oggi.
+- **Patrimonio**: natura giuridica, vincolo culturale/paesaggistico, federalismo demaniale, bene confiscato (select a tre stati Sì/No/Non noto).
+- **Per il MEF** (`mat-expansion-panel` chiuso di default), con la provenienza di ogni valore: Id bene MEF; titolo (da Proprietà); stato di accatastamento (dalle unità); utilizzo (con link al contratto che lo determina); tipologia e finalità (dalla funzione, con link all'anagrafica funzioni; avviso se la funzione non le ha).
+- Pallino del tab sui valori di unità, consistenza e patrimonio; pallino rosso su unità invalide (foglio o particella mancanti).
+- Riepilogo, Utenze, Impianti, Contratti, Note, Foto, Storico invariati.
 
 ### Elenco immobili
 
@@ -126,7 +132,7 @@ Due select "Tipologia fabbricato MEF" e "Finalità MEF" nella scheda funzione; c
 
 ## Guida operatori
 
-Data in testa aggiornata; sezione "Catasto e dati di patrimonio" (unità catastali, consistenza, tab Patrimonio, cosa è calcolato e da dove); righe nuove nella tabella "Segnalazioni per elenco"; anagrafica funzioni (tipologia e finalità MEF).
+Data in testa aggiornata; sezione "Catasto e dati di patrimonio" (tab "Catasto e patrimonio": unità catastali, consistenza, patrimonio, riquadro "Per il MEF" con cosa è calcolato e da dove); righe nuove nella tabella "Segnalazioni per elenco"; anagrafica funzioni (tipologia e finalità MEF).
 
 ## Test
 
@@ -134,7 +140,7 @@ Data in testa aggiornata; sezione "Catasto e dati di patrimonio" (unità catasta
 - `asset-mef.spec.ts`: utilizzo (contratto attivo, in scadenza, scaduto, passivo, dismesso, nessuno), titolo, stato di accatastamento, finalità vuota se non diretto.
 - `assets.service.spec.ts`: sostituzione delle unità, PATCH senza `cadastral_units` invariato, audit solo se cambiano, filtri `EXISTS`.
 - Anomalie: query nuove nella spec (mock posizionali in fondo).
-- `ng build`; E2E Playwright: aggiungi due unità, salva, riapri; tab Patrimonio con utilizzo da contratto; segnalazioni.
+- `ng build`; E2E Playwright: aggiungi due unità, salva, riapri; sezione Patrimonio e riquadro "Per il MEF" con utilizzo da contratto; segnalazioni.
 
 ## Rilascio
 
