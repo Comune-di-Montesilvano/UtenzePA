@@ -47,7 +47,9 @@ const ASSET_COLOR = '#37474f';
 const PLANT_COLOR = '#0f766e';
 const COMPLEX_COLOR = 'var(--entity-complex)';
 // Oltre questo zoom i complessi si aprono da soli (immobili al posto del pin).
-const COMPLEX_EXPAND_ZOOM = 17;
+// Un livello sopra disableClusteringAtZoom (17): a 17 il pin complesso si vede
+// singolo e si può cliccare, altrimenti nelle zone dense resterebbe in un cluster.
+const COMPLEX_EXPAND_ZOOM = 18;
 // Contatore senza tipologia associata (dato mancante) — icona neutra.
 const UNKNOWN_UTILITY_ICON = 'fa fa-question';
 const UNKNOWN_UTILITY_COLOR = '#757575';
@@ -161,6 +163,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   private lastPoints: MapPoint[] = [];
   private expandedComplexes = new Set<number>();
   private aboveExpandZoom = false;
+  // zoomToShowLayer in corso: il ridisegno per la soglia dei complessi aspetta,
+  // altrimenti toglierebbe il marker cercato (TypeError in showMarker di markercluster).
+  private zoomingToMarker = false;
   private reload$ = new Subject<void>();
 
   utilityTypeOptions: TOption[] = [];
@@ -383,9 +388,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     if (marker && this.clusterGroup) {
       // zoomToShowLayer scioglie il/i cluster necessari e zooma finché il
       // marker non è visibile singolarmente, poi il callback centra la vista.
-      this.clusterGroup.zoomToShowLayer(marker, () => {
-        this.map?.setView(marker.getLatLng(), Math.max(this.map.getZoom(), 18));
-      });
+      this.zoomToMarker(marker);
       return;
     }
 
@@ -402,18 +405,14 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.map) return;
     const marker = this.utilityMarkers.get(id);
     if (!marker || !this.clusterGroup) return;
-    this.clusterGroup.zoomToShowLayer(marker, () => {
-      this.map?.setView(marker.getLatLng(), Math.max(this.map.getZoom(), 18));
-    });
+    this.zoomToMarker(marker);
   }
 
   private goToPlant(id: number): void {
     if (!this.map) return;
     const marker = this.plantMarkers.get(id);
     if (!marker || !this.clusterGroup) return;
-    this.clusterGroup.zoomToShowLayer(marker, () => {
-      this.map?.setView(marker.getLatLng(), Math.max(this.map.getZoom(), 18));
-    });
+    this.zoomToMarker(marker);
   }
 
   async ngAfterViewInit(): Promise<void> {
@@ -489,12 +488,15 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Superata la soglia di zoom i complessi si aprono (e si richiudono tornando sotto).
     this.aboveExpandZoom = this.map.getZoom() >= COMPLEX_EXPAND_ZOOM;
-    this.map.on('zoomend', () => {
+    // Su moveend e mai durante zoomToMarker (vedi zoomingToMarker): il moveend
+    // finale del "vai al punto" ridisegna con la soglia aggiornata.
+    this.map.on('moveend', () => setTimeout(() => {
+      if (this.zoomingToMarker) return;
       const above = (this.map?.getZoom() ?? 0) >= COMPLEX_EXPAND_ZOOM;
       if (above === this.aboveExpandZoom) return;
       this.aboveExpandZoom = above;
       this.renderPoints(this.visiblePoints());
-    });
+    }));
   }
 
   ngOnDestroy(): void {
@@ -970,9 +972,21 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  // "Vai al punto": scioglie i cluster e centra il marker (zoom almeno 18).
+  private zoomToMarker(marker: L.Marker): void {
+    if (!this.clusterGroup) return;
+    this.zoomingToMarker = true;
+    // Rete di sicurezza: se markercluster non chiama mai il callback.
+    setTimeout(() => (this.zoomingToMarker = false), 4000);
+    this.clusterGroup.zoomToShowLayer(marker, () => {
+      this.zoomingToMarker = false;
+      this.map?.setView(marker.getLatLng(), Math.max(this.map.getZoom(), 18));
+    });
+  }
+
   // Complessi chiusi: un solo pin al posto dei loro immobili; anche utenze e
   // impianti di quegli immobili restano nascosti (altrimenti pin orfani nello
-  // stesso punto). Aperti (clic) o oltre lo zoom 17: immobili e collegati, senza pin complesso.
+  // stesso punto). Aperti (clic) o da zoom 18: immobili e collegati, senza pin complesso.
   private visiblePoints(): MapPoint[] {
     const open = (c: MapPoint) => this.aboveExpandZoom || this.expandedComplexes.has(c.id);
     const hidden = new Set<number>();
