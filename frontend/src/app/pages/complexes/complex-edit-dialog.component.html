@@ -33,9 +33,10 @@
               }
             </mat-select>
           </mat-form-field>
-          <mat-form-field>
+          <!-- Assegnato dal MEF, valorizzato dall'import: non si modifica a mano. -->
+          <mat-form-field matTooltip="Assegnato dal censimento MEF, valorizzato dall'import">
             <mat-label>Id compendio MEF</mat-label>
-            <input matInput type="number" formControlName="mef_compendium_id">
+            <input matInput [value]="complex?.mef_compendium_id ?? '—'" readonly>
           </mat-form-field>
         </div>
 

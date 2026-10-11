@@ -127,6 +127,35 @@ describe('ComplexesService', () => {
     );
   });
 
+  it('create con Id compendio MEF già usato: 400 con il complesso', async () => {
+    repo.findOne.mockResolvedValue(complex({ id: 9, name: 'Plesso Rodari', mef_compendium_id: 48200 }));
+
+    await expect(service.create({ name: 'Nuovo', mef_compendium_id: 48200 }, 7)).rejects.toThrow(
+      'Id compendio MEF 48200 già usato dal complesso «Plesso Rodari»',
+    );
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('update con Id compendio MEF di un altro complesso: 400', async () => {
+    repo.findOne.mockImplementation(async ({ where }) =>
+      where.mef_compendium_id ? complex({ id: 9, name: 'Plesso Rodari' }) : complex({ id: 1 }),
+    );
+
+    await expect(service.update(1, { mef_compendium_id: 48200 }, 7)).rejects.toThrow(BadRequestException);
+  });
+
+  it('update con il proprio Id compendio MEF: nessun errore', async () => {
+    repo.findOne.mockResolvedValue(complex({ id: 1, mef_compendium_id: 48200 }));
+
+    await expect(service.update(1, { mef_compendium_id: 48200 }, 7)).resolves.toBeDefined();
+  });
+
+  it('findOneOrFail su complesso inesistente: 400 «Complesso non trovato»', async () => {
+    repo.findOne.mockResolvedValue(null);
+
+    await expect(service.findOneOrFail(99)).rejects.toThrow('Complesso non trovato');
+  });
+
   it('remove ignora gli immobili cancellati', async () => {
     repo.findOne.mockResolvedValue(complex({ id: 1, assets: [asset(10, { deleted: true })] }));
 

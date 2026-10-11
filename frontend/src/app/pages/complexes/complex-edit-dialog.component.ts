@@ -8,6 +8,7 @@ import {MatSelectModule} from '@angular/material/select';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTab, MatTabGroup, MatTabsModule} from '@angular/material/tabs';
+import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 import {LocationMapComponent} from '../../core/components/location-map.component';
 import {PhotoGalleryComponent} from '../../core/components/photo-gallery.component';
@@ -45,7 +46,7 @@ export interface ComplexEditDialogData {
   selector: 'app-complex-edit-dialog',
   standalone: true,
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
-    MatIconModule, MatTabsModule, MatProgressBarModule, LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
+    MatIconModule, MatTabsModule, MatTooltipModule, MatProgressBarModule, LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
     EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, PreviewCardComponent, LinkedTableComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './complex-edit-dialog.component.html',
@@ -115,7 +116,6 @@ export class ComplexEditDialogComponent implements OnInit {
   form = this.fb.group({
     name: [this.data.prefill?.name ?? '', [Validators.required, Validators.maxLength(255)]],
     complex_type: [(this.data.prefill?.complex_type ?? null) as ComplexType | null],
-    mef_compendium_id: [(this.data.prefill?.mef_compendium_id ?? null) as number | null],
     toponym: [''],
     address: [''],
     civic_number: [''],
@@ -153,8 +153,12 @@ export class ComplexEditDialogComponent implements OnInit {
     this.loading = true;
     this.service.get(id).subscribe({
       next: c => {
-        this.complex = c;
         this.loading = false;
+        if (!c) {
+          this.error = 'Complesso non trovato.';
+          return;
+        }
+        this.complex = c;
         this.patch(c);
         this.loadLinked(c.id);
       },
@@ -176,7 +180,6 @@ export class ComplexEditDialogComponent implements OnInit {
     this.form.patchValue({
       name: c.name,
       complex_type: c.complex_type,
-      mef_compendium_id: c.mef_compendium_id,
       toponym: c.toponym ?? '',
       address: c.address ?? '',
       civic_number: c.civic_number ?? '',
@@ -264,7 +267,24 @@ export class ComplexEditDialogComponent implements OnInit {
 
   openAsset(id: number): void {
     this.navigator.openAsset(id).subscribe(saved => {
-      if (saved) this.loadAssets();
+      if (!saved) return;
+      this.loadAssets();
+      this.resyncAssets();
+    });
+  }
+
+  // L'immobile può aver cambiato complesso dalla sua scheda: se qui i
+  // collegamenti non sono stati toccati, si riallineano al server (altrimenti
+  // il prossimo Salva li riporterebbe indietro).
+  private resyncAssets(): void {
+    if (!this.complex || this.form.controls.asset_ids.dirty) return;
+    this.service.get(this.complex.id).subscribe(c => {
+      if (!c || this.form.controls.asset_ids.dirty) return;
+      this.complex = {...this.complex!, assets: c.assets, asset_count: c.asset_count};
+      this.form.controls.asset_ids.setValue((c.assets ?? []).map(a => a.id));
+      this.form.controls.asset_ids.markAsPristine();
+      this.refreshLinks();
+      this.loadLinked(c.id);
     });
   }
 
@@ -298,18 +318,17 @@ export class ComplexEditDialogComponent implements OnInit {
     }
     const v = this.form.getRawValue();
     const text = (s: string | null | undefined) => (s?.trim() ? s.trim() : null);
-    const mef = v.mef_compendium_id;
     const payload: ComplexPayload = {
       name: (v.name ?? '').trim(),
       complex_type: v.complex_type ?? null,
-      mef_compendium_id: mef === null || mef === undefined || `${mef}` === '' ? null : Number(mef),
       toponym: text(v.toponym),
       address: text(v.address),
       civic_number: text(v.civic_number),
       latitude: v.latitude ?? null,
       longitude: v.longitude ?? null,
       notes: text(v.notes),
-      asset_ids: v.asset_ids ?? [],
+      // Solo se toccati: PATCH senza asset_ids lascia i collegamenti del server.
+      ...(!this.complex || this.form.controls.asset_ids.dirty ? {asset_ids: v.asset_ids ?? []} : {}),
     };
     this.saving = true;
     this.error = null;

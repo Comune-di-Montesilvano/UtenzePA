@@ -89,6 +89,12 @@ export class ComplexesService extends BaseService<Complex, CreateComplexDto, Upd
     return (await this.withCounts([c]))[0];
   }
 
+  async findOneOrFail(id: number): Promise<ComplexRow> {
+    const c = await this.findOne(id);
+    if (!c) throw new BadRequestException('Complesso non trovato');
+    return c;
+  }
+
   private linkedWhere(id: number) {
     return { deleted: false, assets: { complex_id: id, deleted: false } };
   }
@@ -148,6 +154,7 @@ export class ComplexesService extends BaseService<Complex, CreateComplexDto, Upd
   async create(dto: CreateComplexDto, userId: number): Promise<ComplexRow> {
     const { asset_ids, ...rest } = dto;
     if (asset_ids !== undefined) await this.assertAssets(asset_ids);
+    await this.assertMefFree(rest.mef_compendium_id, null);
     const saved = (await this.repo.save(
       this.repo.create({
         ...rest,
@@ -172,6 +179,7 @@ export class ComplexesService extends BaseService<Complex, CreateComplexDto, Upd
     if (!current) throw new BadRequestException('Complesso non trovato');
     if (rest.name !== undefined) rest.name = rest.name.trim();
     if (asset_ids !== undefined) await this.assertAssets(asset_ids);
+    await this.assertMefFree(rest.mef_compendium_id, id);
     await super.update(id, rest as UpdateComplexDto, userId);
     if (asset_ids !== undefined) {
       const before = (current.assets ?? []).filter((a) => !a.deleted).map((a) => a.id);
@@ -203,6 +211,15 @@ export class ComplexesService extends BaseService<Complex, CreateComplexDto, Upd
     delete (entity as Partial<Complex>).assets;
     await this.repo.save({ ...entity, deleted: true, updated_by_user_id: userId });
     await this.recordAudit(AuditAction.DELETE, id, userId, []);
+  }
+
+  // Indice unico anche tra i cancellati: errore leggibile invece del 500 del DB.
+  private async assertMefFree(mefId: number | null | undefined, selfId: number | null): Promise<void> {
+    if (mefId === null || mefId === undefined) return;
+    const other = await this.repo.findOne({ where: { mef_compendium_id: mefId } });
+    if (other && other.id !== selfId) {
+      throw new BadRequestException(`Id compendio MEF ${mefId} già usato dal complesso «${other.name}»`);
+    }
   }
 
   private async assertAssets(ids: number[]): Promise<void> {

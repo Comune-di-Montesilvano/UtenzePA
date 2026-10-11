@@ -383,6 +383,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private goToAsset(id: number | null): void {
     if (id == null || !this.map) return;
+    this.revealAsset(id);
 
     const marker = this.assetMarkers.get(id);
     if (marker && this.clusterGroup) {
@@ -403,6 +404,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   // e' altrove, spesso in un cluster diverso. Stesso pattern di goToAsset.
   private goToUtility(id: number): void {
     if (!this.map) return;
+    this.revealLinked('utility', id);
     const marker = this.utilityMarkers.get(id);
     if (!marker || !this.clusterGroup) return;
     this.zoomToMarker(marker);
@@ -410,6 +412,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private goToPlant(id: number): void {
     if (!this.map) return;
+    this.revealLinked('plant', id);
     const marker = this.plantMarkers.get(id);
     if (!marker || !this.clusterGroup) return;
     this.zoomToMarker(marker);
@@ -987,7 +990,24 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   // Complessi chiusi: un solo pin al posto dei loro immobili; anche utenze e
   // impianti di quegli immobili restano nascosti (altrimenti pin orfani nello
   // stesso punto). Aperti (clic) o da zoom 18: immobili e collegati, senza pin complesso.
+  // "Vai al punto" verso un immobile di un complesso chiuso: si apre il
+  // complesso, altrimenti il marker non esiste e si aprirebbe solo la scheda.
+  private revealAsset(assetId: number): void {
+    const c = this.lastPoints.find((p) => p.type === 'complex' && (p.assetIds ?? []).includes(assetId));
+    if (!c || this.expandedComplexes.has(c.id)) return;
+    this.expandedComplexes.add(c.id);
+    this.renderPoints(this.visiblePoints());
+  }
+
+  private revealLinked(type: 'utility' | 'plant', id: number): void {
+    const p = this.lastPoints.find((x) => x.type === type && x.id === id && x.assetId != null);
+    if (p?.assetId != null) this.revealAsset(p.assetId);
+  }
+
   private visiblePoints(): MapPoint[] {
+    // Livello Immobili spento: niente pin complesso e niente nascosto, così
+    // utenze e impianti restano come da loro livelli.
+    if (!this.showAssets.value) return this.lastPoints.filter((p) => p.type !== 'complex');
     const open = (c: MapPoint) => this.aboveExpandZoom || this.expandedComplexes.has(c.id);
     const hidden = new Set<number>();
     for (const c of this.lastPoints) {

@@ -40,7 +40,7 @@ Fuori scope:
 | `address` | varchar(255), nullable | |
 | `civic_number` | varchar(50), nullable | |
 | `latitude`, `longitude` | varchar(20), nullable | come `assets`; vuoti = centro calcolato dagli immobili |
-| `mef_compendium_id` | int, nullable, unique | Id compendio MEF |
+| `mef_compendium_id` | int, nullable, unique | Id compendio MEF: assegnato dal MEF, **sola lettura in UI**, valorizzato solo dall'import MEF |
 | `notes` | text, nullable | |
 | `create_date`, `update_date`, `created_by_user_id`, `updated_by_user_id`, `deleted` | | standard dei moduli |
 
@@ -55,6 +55,12 @@ Colonne stringa nullable con `type: 'varchar'` esplicito.
 ### Migration
 
 Una migration: `CREATE TABLE complexes` + `ADD COLUMN assets.complex_id` + FK + indice. Nessun dato.
+
+### Id e codice compendio MEF
+
+Il tracciato MEF ha due campi: **Id Compendio** (numerico, assegnato dal sistema MEF, non modificabile) e **Codice Compendio** (codifica libera del Comune). Nell'app non c'è un campo codice: all'export (fase 4) il Codice Compendio è l'id del complesso. Giro per un complesso nuovo: export con Id vuoto e Codice = id app → il MEF assegna l'Id → l'export MEF dei compendi rientra con l'import (fase 3), che abbina per Codice e scrive `mef_compendium_id`. L'Id non si inserisce mai a mano; un Id duplicato è rifiutato con 400.
+
+Nota MEF: un compendio è un insieme di beni di proprietà connessi; una parte di palazzina non lo è, e un compendio con 0 o 1 beni è un'anomalia bloccante. Il complesso dell'app è più ampio: all'export vanno come compendi solo i complessi che rispettano la definizione.
 
 ## Backend
 

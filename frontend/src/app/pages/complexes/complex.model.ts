@@ -52,7 +52,8 @@ export interface ComplexPayload {
   civic_number: string | null;
   latitude: string | null;
   longitude: string | null;
-  mef_compendium_id: number | null;
+  // Id compendio MEF: non inviato dalla UI (sola lettura), lo valorizza l'import MEF.
+  mef_compendium_id?: number | null;
   notes: string | null;
   asset_ids?: number[];
 }

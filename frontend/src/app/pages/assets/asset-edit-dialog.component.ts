@@ -324,9 +324,22 @@ export class AssetEditDialogComponent implements OnInit {
     });
   }
 
+  // Dalla scheda complesso l'immobile può essere stato scollegato o spostato:
+  // se qui il campo non è stato toccato, si riallinea al server.
   openComplex(): void {
     const id = this.form.controls.complex_id.value;
-    if (id) this.navigator.openComplex(id).subscribe(saved => saved && this.loadComplexes());
+    if (!id) return;
+    this.navigator.openComplex(id).subscribe(saved => {
+      if (!saved) return;
+      this.loadComplexes();
+      const control = this.form.controls.complex_id;
+      if (!this.data.item.id || control.dirty) return;
+      this.assetService.getById(this.data.item.id).subscribe(a => {
+        if (control.dirty) return;
+        control.setValue(a.complex_id ?? null);
+        control.markAsPristine();
+      });
+    });
   }
 
   // Funzioni ammesse dalla tipologia scelta, come opzioni della select (cache).

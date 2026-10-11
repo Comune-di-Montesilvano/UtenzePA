@@ -51,8 +51,8 @@ export class ComplexesController {
   }
 
   @Get(':id')
-  get(@Param('id', ParseIntPipe) id: number): Promise<ComplexRow | null> {
-    return this.service.findOne(id);
+  get(@Param('id', ParseIntPipe) id: number): Promise<ComplexRow> {
+    return this.service.findOneOrFail(id);
   }
 
   @Roles('Admin', 'Operatore')
