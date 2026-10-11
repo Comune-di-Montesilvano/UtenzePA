@@ -23,6 +23,7 @@ import {RedirectToSetupGuard} from "./guards/redirect-to-setup.guard";
 import {BackupImportComponent} from './pages/backup-import/backup-import.component';
 import {BrandingSettingsComponent} from "./pages/branding-settings/branding-settings.component";
 import {AuditLogPageComponent} from "./pages/audit-log/audit-log-page.component";
+import {GuidaComponent} from "./pages/guida/guida.component";
 
 export const routes: Routes = [
   {
@@ -51,6 +52,7 @@ export const routes: Routes = [
       {path: 'dashboard', component: DashboardComponent},
       {path: 'map', component: MapComponent},
       {path: 'audit-log', component: AuditLogPageComponent},
+      {path: 'guida', component: GuidaComponent},
 
     ]
   },

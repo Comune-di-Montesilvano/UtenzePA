@@ -1,0 +1,15 @@
+<div class="page-container">
+  @if (error) {
+    <p>Impossibile caricare la guida.</p>
+    <button mat-stroked-button type="button" (click)="load()">Riprova</button>
+  } @else if (!html) {
+    <p class="list-subtitle">Caricamento guida...</p>
+  } @else {
+    <nav class="guida-toc" aria-label="Sezioni della guida">
+      @for (s of sections; track s.id) {
+        <a mat-stroked-button routerLink="/guida" [fragment]="s.id">{{ s.title }}</a>
+      }
+    </nav>
+    <article class="guida-md" [innerHTML]="html"></article>
+  }
+</div>

@@ -1,0 +1,74 @@
+.guida-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.guida-md {
+  max-width: 960px;
+  line-height: 1.6;
+  color: var(--app-text);
+
+  :is(h1, h2, h3, h4) {
+    scroll-margin-top: 16px;
+    line-height: 1.25;
+  }
+
+  h2 {
+    margin-top: 32px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  h3 {
+    margin-top: 24px;
+  }
+
+  a {
+    color: var(--app-link);
+  }
+
+  ul,
+  ol {
+    padding-left: 24px;
+  }
+
+  ul {
+    list-style: disc;
+  }
+
+  ol {
+    list-style: decimal;
+  }
+
+  li {
+    margin: 2px 0;
+  }
+
+  code {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--app-surface-2, var(--app-bg));
+    font-size: 0.9em;
+  }
+
+  table {
+    width: 100%;
+    margin: 12px 0;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    padding: 6px 10px;
+    border: 1px solid var(--app-border);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    color: var(--app-muted);
+    font-weight: 600;
+  }
+}
