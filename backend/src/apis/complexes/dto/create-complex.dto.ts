@@ -7,10 +7,12 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ComplexType } from '../enum/complex-type.enum';
 import { ComplexKind } from '../enum/complex-kind.enum';
 
 export class CreateComplexDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)

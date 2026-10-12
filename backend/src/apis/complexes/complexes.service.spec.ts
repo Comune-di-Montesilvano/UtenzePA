@@ -62,14 +62,43 @@ describe('ComplexesService', () => {
     ]);
     plantRepo.find.mockResolvedValue([{ id: 200, assets: [asset(10)] }]);
     grantRepo.find.mockResolvedValue([
-      { id: 300, status: ContractStatus.ACTIVE, end_date: '2027-01-01', tacit_renewal: false, renewal_months: null, notice_months: null, assets: [asset(10)] },
-      { id: 301, status: ContractStatus.ACTIVE, end_date: '2020-01-01', tacit_renewal: false, renewal_months: null, notice_months: null, assets: [asset(11)] },
-      { id: 302, status: ContractStatus.RETURNED, end_date: null, tacit_renewal: false, renewal_months: null, notice_months: null, assets: [asset(11)] },
+      {
+        id: 300,
+        status: ContractStatus.ACTIVE,
+        end_date: '2027-01-01',
+        tacit_renewal: false,
+        renewal_months: null,
+        notice_months: null,
+        assets: [asset(10)],
+      },
+      {
+        id: 301,
+        status: ContractStatus.ACTIVE,
+        end_date: '2020-01-01',
+        tacit_renewal: false,
+        renewal_months: null,
+        notice_months: null,
+        assets: [asset(11)],
+      },
+      {
+        id: 302,
+        status: ContractStatus.RETURNED,
+        end_date: null,
+        tacit_renewal: false,
+        renewal_months: null,
+        notice_months: null,
+        assets: [asset(11)],
+      },
     ]);
 
     const [row] = await service.findAll({});
 
-    expect(row).toMatchObject({ asset_count: 2, utility_count: 2, plant_count: 1, active_grant_count: 1 });
+    expect(row).toMatchObject({
+      asset_count: 2,
+      utility_count: 2,
+      plant_count: 1,
+      active_grant_count: 1,
+    });
   });
 
   it('findAll filtra per testo su nome e indirizzo', async () => {
@@ -90,7 +119,10 @@ describe('ComplexesService', () => {
 
     await service.create({ name: 'Nuovo', asset_ids: [10, 11] }, 7);
 
-    expect(assetRepo.update).toHaveBeenCalledWith(expect.anything(), { complex_id: 1 });
+    expect(assetRepo.update).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ complex_id: 1 }),
+    );
   });
 
   it('create rifiuta immobili inesistenti o cancellati', async () => {
@@ -107,8 +139,14 @@ describe('ComplexesService', () => {
 
     await service.update(1, { asset_ids: [11, 12] }, 7);
 
-    expect(assetRepo.update).toHaveBeenCalledWith(expect.anything(), { complex_id: null });
-    expect(assetRepo.update).toHaveBeenCalledWith(expect.anything(), { complex_id: 1 });
+    expect(assetRepo.update).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ complex_id: null }),
+    );
+    expect(assetRepo.update).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ complex_id: 1 }),
+    );
   });
 
   it('update senza asset_ids lascia invariati gli immobili', async () => {
@@ -128,7 +166,9 @@ describe('ComplexesService', () => {
   });
 
   it('create con Id compendio MEF già usato: 400 con il complesso', async () => {
-    repo.findOne.mockResolvedValue(complex({ id: 9, name: 'Plesso Rodari', mef_compendium_id: 48200 }));
+    repo.findOne.mockResolvedValue(
+      complex({ id: 9, name: 'Plesso Rodari', mef_compendium_id: 48200 }),
+    );
 
     await expect(service.create({ name: 'Nuovo', mef_compendium_id: 48200 }, 7)).rejects.toThrow(
       'Id compendio MEF 48200 già usato dal complesso «Plesso Rodari»',
@@ -141,7 +181,9 @@ describe('ComplexesService', () => {
       where.mef_compendium_id ? complex({ id: 9, name: 'Plesso Rodari' }) : complex({ id: 1 }),
     );
 
-    await expect(service.update(1, { mef_compendium_id: 48200 }, 7)).rejects.toThrow(BadRequestException);
+    await expect(service.update(1, { mef_compendium_id: 48200 }, 7)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('update con il proprio Id compendio MEF: nessun errore', async () => {
@@ -165,14 +207,70 @@ describe('ComplexesService', () => {
   });
   it('grants: contratti degli immobili con lo stato mostrato', async () => {
     grantRepo.find.mockResolvedValue([
-      { id: 301, status: ContractStatus.ACTIVE, end_date: '2020-01-01', tacit_renewal: false, renewal_months: null, notice_months: null, assets: [asset(11)] },
+      {
+        id: 301,
+        status: ContractStatus.ACTIVE,
+        end_date: '2020-01-01',
+        tacit_renewal: false,
+        renewal_months: null,
+        notice_months: null,
+        assets: [asset(11)],
+      },
     ]);
 
     const rows = await service.grants(1);
 
     expect(grantRepo.find).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { deleted: false, assets: { complex_id: 1, deleted: false } } }),
+      expect.objectContaining({
+        where: { deleted: false, assets: { complex_id: 1, deleted: false } },
+      }),
     );
     expect(rows[0].computed_status).toBe('EXPIRED');
+  });
+
+  describe('minor della revisione', () => {
+    let audit: { record: jest.Mock };
+    beforeEach(() => {
+      audit = { record: jest.fn() };
+      (service as any).auditLogService = audit;
+    });
+
+    it('spostare un immobile da un altro complesso registra l’audit su entrambi i complessi e sull’immobile', async () => {
+      repo.findOne.mockResolvedValue(complex({ id: 1, assets: [] }));
+      assetRepo.count.mockResolvedValue(1);
+      // l'immobile 20 era nel complesso 2
+      assetRepo.find.mockResolvedValue([asset(20, { complex_id: 2 })]);
+
+      await service.update(1, { asset_ids: [20] }, 7);
+
+      const calls = audit.record.mock.calls.map((c) => c[0]);
+      expect(calls).toContainEqual(
+        expect.objectContaining({
+          entityName: 'complexes',
+          entityId: 2,
+          fields: [expect.objectContaining({ fieldName: 'asset_ids' })],
+        }),
+      );
+      expect(calls).toContainEqual(
+        expect.objectContaining({
+          entityName: 'assets',
+          entityId: 20,
+          fields: [expect.objectContaining({ fieldName: 'complex_id', oldValue: 2, newValue: 1 })],
+        }),
+      );
+      expect(assetRepo.update).toHaveBeenCalledWith(expect.anything(), {
+        complex_id: 1,
+        updated_by_user_id: 7,
+      });
+    });
+
+    it('findAll non restituisce l’elenco degli immobili, solo il conteggio', async () => {
+      repo.find.mockResolvedValue([complex({ assets: [asset(10), asset(11)] })]);
+
+      const [row] = await service.findAll();
+
+      expect(row.asset_count).toBe(2);
+      expect(row.assets).toBeUndefined();
+    });
   });
 });

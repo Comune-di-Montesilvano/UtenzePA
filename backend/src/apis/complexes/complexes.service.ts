@@ -62,7 +62,10 @@ export class ComplexesService extends BaseService<Complex, CreateComplexDto, Upd
 
   async findAll(filters: SearchComplexDto = {}): Promise<ComplexRow[]> {
     let rows = await this.repo.find({
-      where: { deleted: false, ...(filters.complex_type ? { complex_type: filters.complex_type } : {}) },
+      where: {
+        deleted: false,
+        ...(filters.complex_type ? { complex_type: filters.complex_type } : {}),
+      },
       relations: { assets: true },
       order: { name: 'ASC' },
     });
@@ -72,7 +75,8 @@ export class ComplexesService extends BaseService<Complex, CreateComplexDto, Upd
         [c.name, c.address, c.toponym].some((v) => (v ?? '').toLowerCase().includes(q)),
       );
     }
-    return this.withCounts(rows);
+    // Elenco: basta il conteggio, non serve l'anagrafica di ogni immobile.
+    return (await this.withCounts(rows)).map((r) => ({ ...r, assets: undefined }));
   }
 
   async findOne(id: number): Promise<ComplexRow | null> {
@@ -163,10 +167,8 @@ export class ComplexesService extends BaseService<Complex, CreateComplexDto, Upd
         updated_by_user_id: userId,
       } as never),
     )) as unknown as Complex;
-    if (asset_ids?.length) {
-      await this.assetRepo.update({ id: In(asset_ids) }, { complex_id: saved.id });
-    }
     await this.recordAudit(AuditAction.CREATE, saved.id, userId, []);
+    if (asset_ids?.length) await this.moveAssets(saved.id, asset_ids, [], userId);
     return this.findOne(saved.id);
   }
 
@@ -183,17 +185,90 @@ export class ComplexesService extends BaseService<Complex, CreateComplexDto, Upd
     await super.update(id, rest as UpdateComplexDto, userId);
     if (asset_ids !== undefined) {
       const before = (current.assets ?? []).filter((a) => !a.deleted).map((a) => a.id);
-      const removed = before.filter((a) => !asset_ids.includes(a));
-      if (removed.length) await this.assetRepo.update({ id: In(removed) }, { complex_id: null });
-      if (asset_ids.length) await this.assetRepo.update({ id: In(asset_ids) }, { complex_id: id });
-      const sorted = (xs: number[]) => [...xs].sort((a, b) => a - b).join(',');
-      if (sorted(before) !== sorted(asset_ids)) {
-        await this.recordAudit(AuditAction.UPDATE, id, userId, [
-          { fieldName: 'asset_ids', oldValue: sorted(before), newValue: sorted(asset_ids) },
-        ]);
-      }
+      await this.moveAssets(id, asset_ids, before, userId);
     }
     return this.findOne(id);
+  }
+
+  // Collega gli immobili al complesso (togliendoli da quello di prima) e
+  // scollega quelli non più in elenco. Audit sul complesso, sui complessi di
+  // provenienza e su ogni immobile spostato.
+  private async moveAssets(
+    id: number,
+    assetIds: number[],
+    before: number[],
+    userId: number,
+  ): Promise<void> {
+    const sorted = (xs: number[]) => [...xs].sort((a, b) => a - b).join(',');
+    const incoming = assetIds.length
+      ? await this.assetRepo.find({ where: { id: In(assetIds), deleted: false } })
+      : [];
+    const moved = incoming.filter((a) => a.complex_id != null && a.complex_id !== id);
+    const origins = [...new Set(moved.map((a) => a.complex_id as number))];
+    const originBefore = new Map<number, number[]>();
+    for (const o of origins) {
+      const rows = await this.assetRepo.find({ where: { complex_id: o, deleted: false } });
+      originBefore.set(
+        o,
+        rows.map((a) => a.id),
+      );
+    }
+    const removed = before.filter((a) => !assetIds.includes(a));
+    if (removed.length) {
+      await this.assetRepo.update(
+        { id: In(removed) },
+        { complex_id: null, updated_by_user_id: userId },
+      );
+    }
+    if (assetIds.length) {
+      await this.assetRepo.update(
+        { id: In(assetIds) },
+        { complex_id: id, updated_by_user_id: userId },
+      );
+    }
+    if (sorted(before) !== sorted(assetIds)) {
+      await this.recordAudit(AuditAction.UPDATE, id, userId, [
+        { fieldName: 'asset_ids', oldValue: sorted(before), newValue: sorted(assetIds) },
+      ]);
+    }
+    for (const o of origins) {
+      const was = originBefore.get(o) ?? [];
+      const now = was.filter((a) => !assetIds.includes(a));
+      await this.auditOn('complexes', o, userId, [
+        { fieldName: 'asset_ids', oldValue: sorted(was), newValue: sorted(now) },
+      ]);
+    }
+    const prev = new Map(incoming.map((a) => [a.id, a.complex_id ?? null]));
+    for (const a of assetIds.filter((x) => (prev.get(x) ?? null) !== id)) {
+      await this.auditOn('assets', a, userId, [
+        { fieldName: 'complex_id', oldValue: prev.get(a) ?? null, newValue: id },
+      ]);
+    }
+    for (const a of removed) {
+      await this.auditOn('assets', a, userId, [
+        { fieldName: 'complex_id', oldValue: id, newValue: null },
+      ]);
+    }
+  }
+
+  // Audit su un'altra entità (best-effort, come recordAudit).
+  private async auditOn(
+    entityName: string,
+    entityId: number,
+    userId: number,
+    fields: { fieldName: string; oldValue: unknown; newValue: unknown }[],
+  ): Promise<void> {
+    try {
+      await this.auditLogService?.record({
+        entityName,
+        entityId,
+        action: AuditAction.UPDATE,
+        userId,
+        fields,
+      });
+    } catch (error) {
+      console.error(`[ComplexesService] Errore audit su ${entityName} ${entityId}`, error);
+    }
   }
 
   async remove(id: number, userId: number): Promise<void> {
@@ -214,11 +289,16 @@ export class ComplexesService extends BaseService<Complex, CreateComplexDto, Upd
   }
 
   // Indice unico anche tra i cancellati: errore leggibile invece del 500 del DB.
-  private async assertMefFree(mefId: number | null | undefined, selfId: number | null): Promise<void> {
+  private async assertMefFree(
+    mefId: number | null | undefined,
+    selfId: number | null,
+  ): Promise<void> {
     if (mefId === null || mefId === undefined) return;
     const other = await this.repo.findOne({ where: { mef_compendium_id: mefId } });
     if (other && other.id !== selfId) {
-      throw new BadRequestException(`Id compendio MEF ${mefId} già usato dal complesso «${other.name}»`);
+      throw new BadRequestException(
+        `Id compendio MEF ${mefId} già usato dal complesso «${other.name}»`,
+      );
     }
   }
 
