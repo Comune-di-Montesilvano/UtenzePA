@@ -1014,9 +1014,10 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private visiblePoints(): MapPoint[] {
-    // Livello Immobili spento: niente pin complesso e niente nascosto, così
-    // utenze e impianti restano come da loro livelli.
-    if (!this.showAssets.value) return this.lastPoints.filter((p) => p.type !== 'complex');
+    // Livello Immobili spento: i pin dei complessi restano (livello Complessi
+    // a sé) ma non nascondono nulla, così utenze e impianti restano come da
+    // loro livelli.
+    if (!this.showAssets.value) return this.lastPoints;
     const open = (c: MapPoint) => this.aboveExpandZoom || this.expandedComplexes.has(c.id);
     const hidden = new Set<number>();
     for (const c of this.lastPoints) {
@@ -1051,6 +1052,11 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     el?.querySelector('[data-action="expand"]')?.addEventListener('click', () => {
       this.map?.closePopup();
       this.expandedComplexes.add(c.id);
+      // Livello Immobili spento: lo accende (il cambio ricarica i punti).
+      if (!this.showAssets.value) {
+        this.showAssets.setValue(true);
+        return;
+      }
       this.renderPoints(this.visiblePoints());
       const bounds = (c.assetIds ?? [])
         .map((id) => this.assetMarkers.get(id)?.getLatLng())
