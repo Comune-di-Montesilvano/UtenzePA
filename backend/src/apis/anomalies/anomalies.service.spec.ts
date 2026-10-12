@@ -29,14 +29,18 @@ describe('AnomaliesService', () => {
 
   it('utenze attive senza posizione propria, dell’immobile o dell’impianto', async () => {
     query.mockImplementation(async (sql: string) =>
-      sql.includes('FROM utility_plants up') ? [{ id: 12, utility_id: 'IT002', type: 'Acqua' }] : [],
+      sql.includes('FROM utility_plants up')
+        ? [{ id: 12, utility_id: 'IT002', type: 'Acqua' }]
+        : [],
     );
     const result = await service.getAnomalies();
     expect(result.active_utilities_without_position).toEqual({
       count: 1,
       items: [{ id: 12, utility_id: 'IT002', type: 'Acqua' }],
     });
-    const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('FROM utility_plants up'));
+    const sql = query.mock.calls
+      .map(([s]) => String(s))
+      .find((s) => s.includes('FROM utility_plants up'));
     expect(sql).toContain('u.supply_active = 1');
     expect(sql).toContain('FROM utility_assets ua');
     expect(sql).toContain('a.geocoded_latitude');
@@ -96,7 +100,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(25);
+    expect(query).toHaveBeenCalledTimes(29);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -245,15 +249,33 @@ describe('AnomaliesService', () => {
   it('fatture dell’ultimo anno su utenze cessate', async () => {
     query.mockImplementation(async (sql: string) =>
       sql.includes('u.supply_active = 0')
-        ? [{ invoice_id: '741', number: 'F-1', invoice_date: '2026-01-10', utility_id: '3', utility_code: 'ACQ1' }]
+        ? [
+            {
+              invoice_id: '741',
+              number: 'F-1',
+              invoice_date: '2026-01-10',
+              utility_id: '3',
+              utility_code: 'ACQ1',
+            },
+          ]
         : [],
     );
     const result = await service.getAnomalies();
     expect(result.invoices_on_ceased_utilities).toEqual({
       count: 1,
-      items: [{ invoice_id: 741, number: 'F-1', invoice_date: '2026-01-10', utility_id: 3, utility_code: 'ACQ1' }],
+      items: [
+        {
+          invoice_id: 741,
+          number: 'F-1',
+          invoice_date: '2026-01-10',
+          utility_id: 3,
+          utility_code: 'ACQ1',
+        },
+      ],
     });
-    const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('u.supply_active = 0'));
+    const sql = query.mock.calls
+      .map(([s]) => String(s))
+      .find((s) => s.includes('u.supply_active = 0'));
     expect(sql).toContain('INTERVAL 12 MONTH');
     expect(sql).toContain('i.deleted = 0');
   });
@@ -279,9 +301,7 @@ describe('AnomaliesService', () => {
   it('CIG: richiesto solo ai contratti ordinari (non esclusi né gratuiti)', async () => {
     await service.getAnomalies();
     const sqls = query.mock.calls.map(([s]) => String(s));
-    expect(sqls.find((s) => s.includes('AS agreement'))).toContain(
-      "c.contract_kind = 'STANDARD'",
-    );
+    expect(sqls.find((s) => s.includes('AS agreement'))).toContain("c.contract_kind = 'STANDARD'");
     expect(sqls.some((s) => s.includes("c.contract_kind <> 'STANDARD'"))).toBe(true);
     expect(sqls.some((s) => s.includes('cig_exempt'))).toBe(false);
   });
@@ -297,14 +317,17 @@ describe('AnomaliesService', () => {
       count: 1,
       items: [{ id: 8, utility_id: 'IT08', type: 'gas', contracts: '#10 ACA' }],
     });
-    const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('u.budget_chapter_code_fk IS NULL'));
+    const sql = query.mock.calls
+      .map(([s]) => String(s))
+      .find((s) => s.includes('u.budget_chapter_code_fk IS NULL'));
     expect(sql).toContain('u.supply_active = 1');
     expect(sql).toContain("c.contract_kind = 'FREE'");
   });
 
   it('capitoli oltre l’assestato dell’esercizio in corso, solo non cancellati', async () => {
     query.mockImplementation(async (sql: string) => {
-      if (sql.includes('FROM budget_chapter_spending WHERE year = ?')) return [{ chapter_id: 7, adjusted_budget: '100' }];
+      if (sql.includes('FROM budget_chapter_spending WHERE year = ?'))
+        return [{ chapter_id: 7, adjusted_budget: '100' }];
       if (sql.includes('WHERE bcm.fiscal_year = ?'))
         return [{ chapter_id: 7, commitments: '1', total: '150', without_amount: '0' }];
       if (sql.includes('FROM budget_chapters WHERE deleted = 0 AND id IN'))
@@ -313,15 +336,25 @@ describe('AnomaliesService', () => {
     });
     const result = await service.getAnomalies();
     expect(result.chapters_over_budget.items).toEqual([
-      { id: 7, chapter: '12332/0', description: 'Gas scuole', adjusted_budget: 100, committed: 150, invoiced: 0 },
+      {
+        id: 7,
+        chapter: '12332/0',
+        description: 'Gas scuole',
+        adjusted_budget: 100,
+        committed: 150,
+        invoiced: 0,
+      },
     ]);
-    const yearCalls = query.mock.calls.filter(([s]) => String(s).includes('FROM budget_chapter_spending WHERE year = ?'));
+    const yearCalls = query.mock.calls.filter(([s]) =>
+      String(s).includes('FROM budget_chapter_spending WHERE year = ?'),
+    );
     expect(yearCalls[0][1]).toEqual([new Date().getFullYear()]);
   });
 
   it('capitolo oltre l’assestato ma cancellato: non segnalato', async () => {
     query.mockImplementation(async (sql: string) => {
-      if (sql.includes('FROM budget_chapter_spending WHERE year = ?')) return [{ chapter_id: 7, adjusted_budget: '100' }];
+      if (sql.includes('FROM budget_chapter_spending WHERE year = ?'))
+        return [{ chapter_id: 7, adjusted_budget: '100' }];
       if (sql.includes('WHERE bcm.fiscal_year = ?'))
         return [{ chapter_id: 7, commitments: '1', total: '150', without_amount: '0' }];
       return [];
@@ -337,8 +370,12 @@ describe('AnomaliesService', () => {
         : [],
     );
     const result = await service.getAnomalies();
-    expect(result.chapters_without_budget.items).toEqual([{ id: 4, chapter: '11428/0', description: 'Acqua' }]);
-    const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('s.adjusted_budget IS NOT NULL'));
+    expect(result.chapters_without_budget.items).toEqual([
+      { id: 4, chapter: '11428/0', description: 'Acqua' },
+    ]);
+    const sql = query.mock.calls
+      .map(([s]) => String(s))
+      .find((s) => s.includes('s.adjusted_budget IS NOT NULL'));
     expect(sql).toContain('b.deleted = 0');
     expect(sql).toContain('u.supply_active = 1');
     expect(sql).toContain('c.fiscal_year = ?');
@@ -354,5 +391,65 @@ describe('AnomaliesService', () => {
     expect(result.invoice_lines_without_utility.items).toEqual([
       { invoice_id: 9, number: 'F-9', supply_code: 'POD-PROVA', amount: 12.3 },
     ]);
+  });
+
+  describe('catasto e MEF', () => {
+    const only = (marker: string, rows: unknown[]) =>
+      query.mockImplementation(async (sql: string) => (sql.includes(marker) ? rows : []));
+    const sqlOf = (marker: string) =>
+      query.mock.calls.map(([s]) => String(s)).find((s) => s.includes(marker)) ?? '';
+
+    it('immobili di proprietà senza unità catastali', async () => {
+      only('/* assets_without_cadastre */', [{ id: '3', asset_name: 'Scuola' }]);
+      const r = await service.getAnomalies();
+      expect(r.assets_without_cadastre).toEqual({
+        count: 1,
+        items: [{ id: 3, asset_name: 'Scuola' }],
+      });
+      const sql = sqlOf('/* assets_without_cadastre */');
+      expect(sql).toContain('b.deleted = 0');
+      expect(sql).toContain('b.ownership = 1');
+      expect(sql).toContain('NOT EXISTS (SELECT 1 FROM asset_cadastral_units');
+    });
+
+    it('fabbricati di proprietà senza Id MEF', async () => {
+      only('/* assets_without_mef_id */', [{ id: '4', asset_name: 'Municipio' }]);
+      const r = await service.getAnomalies();
+      expect(r.assets_without_mef_id).toEqual({
+        count: 1,
+        items: [{ id: 4, asset_name: 'Municipio' }],
+      });
+      const sql = sqlOf('/* assets_without_mef_id */');
+      expect(sql).toContain('b.mef_id IS NULL');
+      expect(sql).toContain("n.name = 'Fabbricato'");
+      expect(sql).toContain('b.ownership = 1');
+    });
+
+    it('unità senza subalterno su immobili con stessi via, civico, foglio e particella', async () => {
+      only('/* units_without_subordinate */', [{ id: '6', asset_name: 'Alloggio' }]);
+      const r = await service.getAnomalies();
+      expect(r.units_without_subordinate).toEqual({
+        count: 1,
+        items: [{ id: 6, asset_name: 'Alloggio' }],
+      });
+      const sql = sqlOf('/* units_without_subordinate */');
+      expect(sql).toContain('u.subordinate IS NULL');
+      expect(sql).toContain('o.id <> b.id');
+      expect(sql).toContain('o.civic_number');
+      expect(sql).toContain('ou.parcel = u.parcel');
+    });
+
+    it('funzioni usate da immobili di proprietà senza tipologia MEF', async () => {
+      only('/* functions_without_mef_type */', [{ id: '2', name: 'Istruzione' }]);
+      const r = await service.getAnomalies();
+      expect(r.functions_without_mef_type).toEqual({
+        count: 1,
+        items: [{ id: 2, name: 'Istruzione' }],
+      });
+      const sql = sqlOf('/* functions_without_mef_type */');
+      expect(sql).toContain('f.mef_building_type IS NULL');
+      expect(sql).toContain('f.deleted = 0');
+      expect(sql).toContain('b.ownership = 1');
+    });
   });
 });

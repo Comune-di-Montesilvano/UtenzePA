@@ -60,7 +60,9 @@ export interface Anomalies {
   }>;
   utilities_with_uncommitted_chapter: AnomalyList<UtilityAnomaly & { chapter: string }>;
   active_utilities_without_chapter: AnomalyList<UtilityAnomaly>;
-  chapters_over_budget: AnomalyList<ChapterAnomaly & { adjusted_budget: number; committed: number; invoiced: number }>;
+  chapters_over_budget: AnomalyList<
+    ChapterAnomaly & { adjusted_budget: number; committed: number; invoiced: number }
+  >;
   chapters_without_budget: AnomalyList<ChapterAnomaly>;
   invoice_lines_without_utility: AnomalyList<{
     invoice_id: number;
@@ -68,6 +70,10 @@ export interface Anomalies {
     supply_code: string | null;
     amount: number;
   }>;
+  assets_without_cadastre: AnomalyList<{ id: number; asset_name: string }>;
+  assets_without_mef_id: AnomalyList<{ id: number; asset_name: string }>;
+  units_without_subordinate: AnomalyList<{ id: number; asset_name: string }>;
+  functions_without_mef_type: AnomalyList<{ id: number; name: string }>;
 }
 
 export interface ChapterAnomaly {
@@ -338,7 +344,10 @@ export class AnomaliesService {
 
     // Capitoli sull'esercizio in corso (scheda capitolo, roadmap voce 20).
     const year = currentYear();
-    const summary = await chaptersYearSummary((sql, params) => this.dataSource.query(sql, params), year);
+    const summary = await chaptersYearSummary(
+      (sql, params) => this.dataSource.query(sql, params),
+      year,
+    );
     const over = summary.filter((r) => r.over_budget);
     const overLabels: Record<string, unknown>[] = over.length
       ? await this.dataSource.query(
@@ -382,7 +391,48 @@ export class AnomaliesService {
        ORDER BY t.name, u.utility_id`,
     );
 
+    // Catasto e censimento MEF (alias b: "FROM assets a" è già usato sopra).
+    const withoutCadastre: { id: unknown; asset_name: string }[] = await this.dataSource.query(
+      `/* assets_without_cadastre */ SELECT b.id, b.asset_name FROM assets b
+        WHERE b.deleted = 0 AND b.ownership = 1
+          AND NOT EXISTS (SELECT 1 FROM asset_cadastral_units cu WHERE cu.asset_id = b.id)
+        ORDER BY b.asset_name`,
+    );
+    const withoutMefId: { id: unknown; asset_name: string }[] = await this.dataSource.query(
+      `/* assets_without_mef_id */ SELECT b.id, b.asset_name FROM assets b
+         JOIN asset_natures n ON n.id = b.nature_id AND n.name = 'Fabbricato'
+        WHERE b.deleted = 0 AND b.ownership = 1 AND b.mef_id IS NULL
+        ORDER BY b.asset_name`,
+    );
+    // Immobili indistinguibili al catasto: stessi via, civico, foglio e
+    // particella di un altro immobile, ma senza subalterno.
+    const withoutSubordinate: { id: unknown; asset_name: string }[] = await this.dataSource.query(
+      `/* units_without_subordinate */ SELECT DISTINCT b.id, b.asset_name FROM assets b
+         JOIN asset_cadastral_units u ON u.asset_id = b.id
+        WHERE b.deleted = 0 AND (u.subordinate IS NULL OR TRIM(u.subordinate) = '')
+          AND EXISTS (SELECT 1 FROM assets o JOIN asset_cadastral_units ou ON ou.asset_id = o.id
+                      WHERE o.deleted = 0 AND o.id <> b.id
+                        AND ou.sheet = u.sheet AND ou.parcel = u.parcel
+                        AND COALESCE(o.address, '') = COALESCE(b.address, '')
+                        AND COALESCE(o.civic_number, '') = COALESCE(b.civic_number, ''))
+        ORDER BY b.asset_name`,
+    );
+    const functionsWithoutMefType: { id: unknown; name: string }[] = await this.dataSource.query(
+      `/* functions_without_mef_type */ SELECT f.id, f.name FROM asset_functions f
+        WHERE f.deleted = 0 AND f.mef_building_type IS NULL
+          AND EXISTS (SELECT 1 FROM assets b WHERE b.function_id = f.id AND b.deleted = 0 AND b.ownership = 1)
+        ORDER BY f.name`,
+    );
+    const assetItems = (rows: { id: unknown; asset_name: string }[]) =>
+      list(rows.map((a) => ({ id: Number(a.id), asset_name: a.asset_name })));
+
     return {
+      assets_without_cadastre: assetItems(withoutCadastre),
+      assets_without_mef_id: assetItems(withoutMefId),
+      units_without_subordinate: assetItems(withoutSubordinate),
+      functions_without_mef_type: list(
+        functionsWithoutMefType.map((f) => ({ id: Number(f.id), name: f.name })),
+      ),
       chapters_over_budget: list(
         over
           .filter((r) => labelOf.has(r.budget_chapter_id))
