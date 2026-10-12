@@ -56,6 +56,8 @@ export class Utility extends AbstractEntity {
   transferred_to_third_party_id?: number | null;
   @DateOnly()
   transferred_on?: Date | string | null;
+  // Da volturare deciso sull'utenza: null = come da contratto immobiliare.
+  transfer_required?: boolean | null;
   // Vita dell'utenza, distinta da quella del contratto di fornitura.
   @DateOnly()
   activated_on?: Date | string | null;

@@ -124,6 +124,11 @@ export class UpdateUtilityDto {
   @DateOnly()
   transferred_on?: string | null;
 
+  // null = come da contratto immobiliare.
+  @IsOptional()
+  @IsBoolean()
+  transfer_required?: boolean | null;
+
   @IsOptional()
   @IsBoolean()
   disconnectable?: boolean | null;
