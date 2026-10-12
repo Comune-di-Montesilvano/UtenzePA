@@ -1,6 +1,7 @@
 import {ChangeDetectionStrategy, Component, inject, OnInit, QueryList, ViewChild, ViewChildren} from '@angular/core';
-import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
-import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
+import {FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators} from '@angular/forms';
+import {MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
+import {MatExpansionModule} from '@angular/material/expansion';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatSelectModule} from '@angular/material/select';
@@ -57,6 +58,27 @@ import {partyNames} from '../../core/helpers/party-name.helper';
 import {SpendingService} from '../spending/spending.service';
 import type {AssetSpending} from '../spending/spending.model';
 import {ComplexService} from '../complexes/complex.service';
+import {ConfirmDialogComponent, ConfirmDialogData} from '../../core/components/confirm-dialog.component';
+import {CadastralUnit, cadastralUnitLabel} from './entity/cadastral-unit';
+import {
+  CADASTRAL_STATUS_LABEL,
+  CONSTRUCTION_PERIOD_LABEL,
+  ConstructionPeriod,
+  HERITAGE_CONSTRAINT_LABEL,
+  HeritageConstraint,
+  LEGAL_NATURE_LABEL,
+  LegalNature,
+  MEF_BUILDING_TYPE_LABEL,
+  MEF_PURPOSE_LABEL,
+  MEF_USAGE_LABEL,
+  optionsOf,
+} from './mef-domains';
+
+// Testo trim, vuoto = null (campi facoltativi delle unità catastali).
+const textOrNull = (v: unknown): string | null => {
+  const t = v == null ? '' : `${v}`.trim();
+  return t === '' ? null : t;
+};
 
 interface UtilitySection {
   type: HardType;
@@ -78,7 +100,7 @@ interface UtilityTypeButton {
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
-    MatTabsModule, MatTooltipModule, MatIconModule, OnlyNumbersDirective, LatitudeInputDirective,
+    MatTabsModule, MatTooltipModule, MatIconModule, MatExpansionModule, OnlyNumbersDirective, LatitudeInputDirective,
     LongitudeInputDirective, LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
     EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, PreviewCardComponent, LinkedTableComponent, FilterableSelectComponent,
   ],
@@ -88,6 +110,16 @@ interface UtilityTypeButton {
     .classification-field { display: flex; align-items: flex-start; gap: 4px; }
     .classification-field app-filterable-select { flex: 1 1 auto; min-width: 0; }
     .classification-help { margin-top: 16px; color: var(--sheet-muted); cursor: help; }
+    .units-scroll { overflow-x: auto; }
+    .units-table { width: 100%; border-collapse: collapse; }
+    .units-table th { text-align: left; font-weight: 600; color: var(--sheet-muted); padding: 4px 6px; white-space: nowrap; }
+    .units-table td { padding: 0 6px; vertical-align: top; }
+    .units-table mat-form-field { width: 100%; }
+    .units-table .col-short { width: 80px; }
+    .units-table .col-action { width: 48px; padding-top: 8px; }
+    .mef-list { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+    .mef-list dt { color: var(--sheet-muted); }
+    .mef-list dd { margin: 0; }
   `],
 })
 export class AssetEditDialogComponent implements OnInit {
@@ -103,6 +135,7 @@ export class AssetEditDialogComponent implements OnInit {
   private grantService = inject(UtilizerGrantService);
   private navigator = inject(EntityNavigatorService);
   private complexService = inject(ComplexService);
+  private dialog = inject(MatDialog);
   protected data = inject<EditDialogData<Asset>>(MAT_DIALOG_DATA);
 
   @ViewChild(MatTabGroup) tabGroup?: MatTabGroup;
@@ -144,12 +177,27 @@ export class AssetEditDialogComponent implements OnInit {
     {label: 'No', value: 0}
   ];
 
+  readonly legalNatureOptions = optionsOf(LEGAL_NATURE_LABEL);
+  readonly constructionPeriodOptions = optionsOf(CONSTRUCTION_PERIOD_LABEL);
+  readonly heritageOptions = optionsOf(HERITAGE_CONSTRAINT_LABEL);
+  // Si/No; null = non noto.
+  readonly triStateOptions = [{label: 'Sì', value: true}, {label: 'No', value: false}];
+
+  private unitGroup = (u?: CadastralUnit): FormGroup =>
+    this.fb.group({
+      section: [u?.section ?? null, Validators.maxLength(5)],
+      sheet: [u?.sheet ?? '', [Validators.required, Validators.maxLength(50)]],
+      parcel: [u?.parcel ?? '', [Validators.required, Validators.maxLength(50)]],
+      subordinate: [u?.subordinate ?? null, Validators.maxLength(50)],
+      category: [u?.category ?? null],
+      cadastral_income: [(u?.cadastral_income ?? null) as number | null],
+    });
+
   form = this.fb.group({
     asset_name: [this.data.item.asset_name ?? '', Validators.required],
     nature_id: [this.data.item.nature_id ?? null, this.mustClassify ? Validators.required : []],
     function_id: [this.data.item.function_id ?? null, this.mustClassify ? Validators.required : []],
     status: [this.data.item.status ?? AssetStatus.ATTIVO, Validators.required],
-    category: [this.data.item.category ?? null],
     ownership: [this.data.item.ownership ?? 1],
     toponym: [this.data.item.toponym ?? null],
     address: [this.data.item.address ?? null],
@@ -159,11 +207,20 @@ export class AssetEditDialogComponent implements OnInit {
     services_and_artifacts: [this.data.item.services_and_artifacts ?? null],
     latitude: [this.data.item.latitude ?? null],
     longitude: [this.data.item.longitude ?? null],
-    cadastral_value: [this.data.item.cadastral_value ?? null],
-    sheet: [this.data.item.sheet ?? null],
-    parcel: [this.data.item.parcel ?? null],
-    subordinate: [this.data.item.subordinate ?? null],
     area_sqm: [this.data.item.area_sqm ?? null],
+    cadastral_units: this.fb.array<FormGroup>(
+      [...(this.data.item.cadastralUnits ?? [])]
+        .sort((a, b) => (a.id ?? 0) - (b.id ?? 0))
+        .map(u => this.unitGroup(u)),
+    ),
+    reference_area_sqm: [this.data.item.reference_area_sqm ?? null],
+    appurtenance_area_sqm: [this.data.item.appurtenance_area_sqm ?? null],
+    volume_m3: [this.data.item.volume_m3 ?? null],
+    construction_period: [(this.data.item.construction_period ?? null) as ConstructionPeriod | null],
+    legal_nature: [(this.data.item.legal_nature ?? null) as LegalNature | null],
+    heritage_constraint: [(this.data.item.heritage_constraint ?? null) as HeritageConstraint | null],
+    federal_transfer: [(this.data.item.federal_transfer ?? null) as boolean | null],
+    confiscated: [(this.data.item.confiscated ?? null) as boolean | null],
     associated_building: [this.data.item.associated_building ?? null],
     complex_id: [(this.data.item.complex_id ?? null) as number | null],
     specific_details: [this.data.item.specific_details ?? null],
@@ -528,15 +585,75 @@ export class AssetEditDialogComponent implements OnInit {
     });
   }
 
+  get units(): FormArray<FormGroup> {
+    return this.form.controls.cadastral_units;
+  }
+
+  addUnit(): void {
+    this.units.push(this.unitGroup());
+    this.units.markAsDirty();
+  }
+
+  removeUnit(index: number): void {
+    const u = this.units.at(index).getRawValue() as CadastralUnit;
+    const label = u.sheet || u.parcel ? cadastralUnitLabel(u) : 'unità vuota';
+    this.dialog
+      .open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
+        data: {title: 'Rimuovi unità catastale', message: `Rimuovere ${label}?`, confirmLabel: 'Rimuovi', danger: true},
+      })
+      .afterClosed()
+      .subscribe(ok => {
+        if (!ok) return;
+        this.units.removeAt(index);
+        this.units.markAsDirty();
+      });
+  }
+
+  // Pallino del tab Catasto e patrimonio.
+  cadastreFilled(): boolean {
+    return this.units.length > 0 || this.filled(
+      'area_sqm', 'reference_area_sqm', 'appurtenance_area_sqm', 'volume_m3', 'construction_period',
+      'services_and_artifacts', 'legal_nature', 'heritage_constraint', 'federal_transfer', 'confiscated',
+    );
+  }
+
+  // Tipologia e finalità MEF si impostano sulla funzione salvata dell'immobile.
+  openFunction(): void {
+    const id = this.data.item.function_id;
+    if (!id) return;
+    this.navigator.openAssetFunction(id).subscribe(saved => {
+      if (saved) this.loadFunctions();
+    });
+  }
+
+  // Sezione "Per il MEF": valori calcolati dal backend all'ultimo salvataggio.
+  readonly mef = this.data.item.mef ?? null;
+  readonly mefUsageLabel = this.mef ? MEF_USAGE_LABEL[this.mef.usage] : '';
+  readonly mefCadastralLabel = this.mef ? CADASTRAL_STATUS_LABEL[this.mef.cadastral_status] : '';
+  readonly mefBuildingTypeLabel = this.mef?.building_type ? MEF_BUILDING_TYPE_LABEL[this.mef.building_type] : null;
+  readonly mefPurposeLabel = this.mef?.purpose ? MEF_PURPOSE_LABEL[this.mef.purpose] : null;
+
   save(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
+    const {cadastral_units, ...values} = this.form.getRawValue();
     const result = plainToInstance(Asset, {
       id: this.data.item.id,
-      ...this.form.getRawValue()
+      ...values,
     });
+    // Unità inviate solo se toccate (o immobile nuovo): assenti = invariate.
+    if (this.isNew || this.units.dirty) {
+      result.cadastral_units = (cadastral_units as CadastralUnit[]).map(u => ({
+        section: textOrNull(u.section),
+        sheet: `${u.sheet}`.trim(),
+        parcel: `${u.parcel}`.trim(),
+        subordinate: textOrNull(u.subordinate),
+        category: textOrNull(u.category),
+        cadastral_income: textOrNull(u.cadastral_income) === null ? null : Number(u.cadastral_income),
+      }));
+    }
     this.dialogRef.close(result);
   }
 

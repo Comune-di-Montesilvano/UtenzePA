@@ -9,8 +9,37 @@ import { BaseService } from '../shared/base.service';
 import { GeocodingService } from '@apis/geocoding/geocoding.service';
 import { AssetNature } from '@apis/asset-natures/entity/asset-nature.entity';
 import { Complex } from '@apis/complexes/entity/complex.entity';
+import { todayIso } from '@apis/utilizer-grant/real-estate-contract.calc';
+import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
+import { AssetCadastralUnit } from './entity/asset-cadastral-unit.entity';
+import { CadastralUnitDto } from './dto/cadastral-unit.dto';
+import { AssetMef, computeAssetMef } from './asset-mef';
 
 const ADDRESS_FIELDS = ['toponym', 'address', 'civic_number', 'zip_code', 'municipality'] as const;
+
+export type AssetWithMef = Asset & { mef: AssetMef };
+
+type UnitLike = Partial<Pick<AssetCadastralUnit, 'section' | 'subordinate' | 'category'>> & {
+  sheet: string;
+  parcel: string;
+  cadastral_income?: number | string | null;
+};
+
+// Testo di un'unità per l'audit e per capire se le unità sono cambiate.
+const unitLabel = (u: UnitLike): string =>
+  [
+    u.section ? `sez. ${u.section}` : null,
+    `foglio ${u.sheet}`,
+    `part. ${u.parcel}`,
+    u.subordinate ? `sub. ${u.subordinate}` : null,
+    u.category || null,
+    u.cadastral_income != null && u.cadastral_income !== ''
+      ? `rendita ${Number(u.cadastral_income).toFixed(2)}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+const unitsText = (units: UnitLike[]): string => units.map(unitLabel).sort().join('; ');
 
 export interface RegeocodeAllStatus {
   running: boolean;
@@ -27,12 +56,7 @@ export interface RegeocodeAllStatus {
 @Injectable()
 export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAssetDto> {
   protected readonly entityName = 'assets';
-  protected readonly relations = [
-    'assetNature',
-    'assetFunction',
-    'created_by',
-    'updated_by',
-  ];
+  protected readonly relations = ['assetNature', 'assetFunction', 'created_by', 'updated_by'];
 
   private readonly logger = new Logger(AssetsService.name);
 
@@ -61,6 +85,8 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     private readonly natureRepo: Repository<AssetNature>,
     @InjectRepository(Complex)
     private readonly complexRepo: Repository<Complex>,
+    @InjectRepository(AssetCadastralUnit)
+    private readonly unitRepo: Repository<AssetCadastralUnit>,
   ) {
     super();
     this.auditLabelResolvers = {
@@ -69,8 +95,28 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     };
   }
 
-  async findAll(filters?: SearchAssetDto): Promise<Asset[]> {
+  protected today(): string {
+    return todayIso();
+  }
+
+  // Dati MEF calcolati, aggiunti sull'istanza (non una copia: remove() la salva).
+  private withMef(asset: Asset): AssetWithMef {
+    const mef = computeAssetMef(
+      {
+        ownership: asset.ownership,
+        status: asset.status ?? null,
+        cadastral_unit_count: asset.cadastralUnits?.length ?? 0,
+        function: asset.assetFunction ?? null,
+        grants: asset.utilizerGrants ?? [],
+      },
+      this.today(),
+    );
+    return Object.assign(asset, { mef });
+  }
+
+  async findAll(filters?: SearchAssetDto): Promise<AssetWithMef[]> {
     const qb = this.repo.createQueryBuilder('assets');
+    qb.leftJoinAndSelect('assets.cadastralUnits', 'cadastralUnits');
     qb.leftJoinAndSelect('assets.assetNature', 'assetNature', 'assetNature.deleted = 0');
     qb.leftJoinAndSelect('assets.assetFunction', 'assetFunction', 'assetFunction.deleted = 0');
     qb.leftJoinAndSelect('assets.complex', 'complex', 'complex.deleted = 0');
@@ -101,14 +147,41 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
       qb.andWhere('assets.status = :filter_status', { filter_status: filters.status });
     }
 
-    this.applyFilters(qb, filters ?? {}, 'assets', ['deleted', 'legacy_only', 'status']);
+    // Foglio e particella stanno sulle unità catastali: uguaglianza esatta
+    // (il LIKE di applyFilters troverebbe il foglio 16 cercando 1).
+    for (const field of ['sheet', 'parcel'] as const) {
+      const value = filters?.[field]?.trim();
+      if (value) {
+        qb.andWhere(
+          `EXISTS (SELECT 1 FROM asset_cadastral_units u_${field} WHERE u_${field}.asset_id = assets.id AND u_${field}.${field} = :filter_unit_${field})`,
+          { [`filter_unit_${field}`]: value },
+        );
+      }
+    }
+    if (filters?.legal_nature) {
+      qb.andWhere('assets.legal_nature = :filter_legal_nature', {
+        filter_legal_nature: filters.legal_nature,
+      });
+    }
 
-    return qb.orderBy('assets.id', 'ASC').getMany();
+    this.applyFilters(qb, filters ?? {}, 'assets', [
+      'deleted',
+      'legacy_only',
+      'status',
+      'sheet',
+      'parcel',
+      'legal_nature',
+      'usage',
+    ]);
+
+    const rows = (await qb.orderBy('assets.id', 'ASC').getMany()).map((a) => this.withMef(a));
+    return filters?.usage ? rows.filter((a) => a.mef.usage === filters.usage) : rows;
   }
 
-  findOne(id: number): Promise<Asset | null> {
-    return this.repo
+  async findOne(id: number): Promise<AssetWithMef | null> {
+    const asset = await this.repo
       .createQueryBuilder('assets')
+      .leftJoinAndSelect('assets.cadastralUnits', 'cadastralUnits')
       .leftJoinAndSelect('assets.assetNature', 'assetNature', 'assetNature.deleted = 0')
       .leftJoinAndSelect('assets.assetFunction', 'assetFunction', 'assetFunction.deleted = 0')
       .leftJoinAndSelect('assets.complex', 'complex', 'complex.deleted = 0')
@@ -129,11 +202,60 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
       .leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0')
       .where('assets.id = :id', { id })
       .getOne();
+    return asset ? this.withMef(asset) : null;
   }
 
   async create(dto: CreateAssetDto, userId?: number): Promise<Asset> {
     await this.assertClassification(dto.nature_id, dto.function_id);
-    return super.create(dto, userId);
+    const { cadastral_units: units, ...rest } = dto;
+    const saved = await super.create(rest as CreateAssetDto, userId);
+    if (units?.length) {
+      try {
+        saved.cadastralUnits = await this.unitRepo.save(this.toUnitRows(saved.id, units));
+      } catch (error) {
+        this.manageErrors(error, 'Errore durante il salvataggio delle unità catastali');
+      }
+    }
+    return saved;
+  }
+
+  private toUnitRows(assetId: number, units: CadastralUnitDto[]): Partial<AssetCadastralUnit>[] {
+    return units.map((u) => ({
+      asset_id: assetId,
+      section: u.section ?? null,
+      sheet: u.sheet,
+      parcel: u.parcel,
+      subordinate: u.subordinate ?? null,
+      category: u.category ?? null,
+      cadastral_income: u.cadastral_income ?? null,
+    }));
+  }
+
+  // Sostituisce in blocco le unità dell'immobile; audit solo se cambiano.
+  private async replaceUnits(
+    assetId: number,
+    units: CadastralUnitDto[],
+    previous: AssetCadastralUnit[],
+    userId?: number,
+  ): Promise<void> {
+    const rows = this.toUnitRows(assetId, units);
+    // Cancellazione e inserimento insieme: se l'inserimento fallisce restano
+    // le unità di prima (e due salvataggi concorrenti non le sommano).
+    try {
+      await this.unitRepo.manager.transaction(async (m) => {
+        await m.delete(AssetCadastralUnit, { asset_id: assetId });
+        if (rows.length) await m.save(AssetCadastralUnit, rows);
+      });
+    } catch (error) {
+      this.manageErrors(error, 'Errore durante il salvataggio delle unità catastali');
+    }
+    const before = unitsText(previous);
+    const after = unitsText(rows as UnitLike[]);
+    if (before !== after && userId !== undefined) {
+      await this.recordAudit(AuditAction.UPDATE, assetId, userId, [
+        { fieldName: 'cadastral_units', oldValue: before || null, newValue: after || null },
+      ]);
+    }
   }
 
   countLegacy(): Promise<number> {
@@ -166,7 +288,8 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     }
   }
 
-  async update(id: number, updateDto: UpdateAssetDto, userId?: number): Promise<Asset> {
+  async update(id: number, dto: UpdateAssetDto, userId?: number): Promise<Asset> {
+    const { cadastral_units: units, ...updateDto } = dto;
     const existing = await this.repo.findOne({ where: { id } as never });
     const addressChanged = ADDRESS_FIELDS.some(
       (field) => field in updateDto && updateDto[field] !== existing?.[field],
@@ -191,7 +314,15 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
       payload.geocoded_at = null;
     }
 
-    const result = await super.update(id, payload as UpdateAssetDto, userId);
+    const previousUnits =
+      units !== undefined
+        ? await this.unitRepo.find({ where: { asset_id: id }, order: { id: 'ASC' } })
+        : [];
+    let result = await super.update(id, payload as UpdateAssetDto, userId);
+    if (units !== undefined) {
+      await this.replaceUnits(id, units, previousUnits, userId);
+      result = (await this.findOne(id)) ?? result;
+    }
 
     if (shouldRegeocode) {
       await this.regeocode(result).catch(() => undefined);

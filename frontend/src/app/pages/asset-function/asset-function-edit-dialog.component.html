@@ -29,6 +29,28 @@
       </mat-autocomplete>
       <mat-hint>Nome ligature Material Icons — anche libero, non solo dai suggerimenti</mat-hint>
     </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 100%;">
+      <mat-label>Tipologia MEF</mat-label>
+      <mat-select formControlName="mef_building_type">
+        <mat-option [value]="null">—</mat-option>
+        @for (o of buildingTypeOptions; track o.value) {
+          <mat-option [value]="o.value">{{ o.label }}</mat-option>
+        }
+      </mat-select>
+      <mat-hint>Tipologia del fabbricato nel censimento MEF per gli immobili con questa funzione</mat-hint>
+    </mat-form-field>
+
+    <mat-form-field style="flex: 1 1 100%;">
+      <mat-label>Finalità MEF</mat-label>
+      <mat-select formControlName="mef_purpose">
+        <mat-option [value]="null">—</mat-option>
+        @for (o of purposeOptions; track o.value) {
+          <mat-option [value]="o.value">{{ o.label }}</mat-option>
+        }
+      </mat-select>
+      <mat-hint>Dichiarata solo per gli immobili utilizzati direttamente</mat-hint>
+    </mat-form-field>
   </form>
 </mat-dialog-content>
 

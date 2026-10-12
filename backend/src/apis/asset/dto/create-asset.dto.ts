@@ -1,8 +1,17 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, IsInt, MaxLength, IsNumber } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsInt,
+  MaxLength,
+  IsNumber,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { AssetStatusEnum } from '@apis/asset/enum/asset-status.enum';
+import { AssetMefFieldsDto } from './cadastral-unit.dto';
 
-export class CreateAssetDto {
+export class CreateAssetDto extends AssetMefFieldsDto {
   @IsNotEmpty({ message: 'Il campo asset_name è obbligatorio' })
   @IsString()
   @MaxLength(255)
@@ -66,32 +75,8 @@ export class CreateAssetDto {
   longitude?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  sheet?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  parcel?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  subordinate?: string;
-
-  @IsOptional()
   @IsNumber({}, { message: 'Il campo area_sqm deve essere un numero' })
   area_sqm?: number;
-
-  @IsOptional()
-  @IsNumber({}, { message: 'Il campo cadastral_value deve essere un numero' })
-  cadastral_value?: number;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  category?: string;
 
   @IsNotEmpty({ message: 'La tipologia immobile è obbligatoria' })
   @Transform(({ value }) =>
@@ -116,7 +101,9 @@ export class CreateAssetDto {
   complex_id?: number | null;
 
   @IsOptional()
-  @IsEnum(AssetStatusEnum, { message: `Lo stato deve essere uno tra: ${Object.values(AssetStatusEnum).join(', ')}` })
+  @IsEnum(AssetStatusEnum, {
+    message: `Lo stato deve essere uno tra: ${Object.values(AssetStatusEnum).join(', ')}`,
+  })
   status?: AssetStatusEnum;
 
   @IsOptional()

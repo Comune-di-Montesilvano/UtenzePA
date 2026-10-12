@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToMany,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -17,6 +18,12 @@ import { AssetNature } from '@apis/asset-natures/entity/asset-nature.entity';
 import { AssetFunction } from '@apis/asset-functions/entity/asset-function.entity';
 import { AssetStatusEnum } from '@apis/asset/enum/asset-status.enum';
 import { Complex } from '@apis/complexes/entity/complex.entity';
+import {
+  ConstructionPeriod,
+  HeritageConstraint,
+  LegalNature,
+} from '@apis/asset/enum/mef-domains.enum';
+import { AssetCadastralUnit } from './asset-cadastral-unit.entity';
 
 @Entity('assets')
 export class Asset {
@@ -71,23 +78,38 @@ export class Asset {
   @Column({ type: 'timestamp', nullable: true })
   geocoded_at: Date;
 
-  @Column({ length: 50, nullable: true })
-  sheet: string;
-
-  @Column({ length: 50, nullable: true })
-  parcel: string;
-
-  @Column({ length: 50, nullable: true })
-  subordinate: string;
-
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   area_sqm: number;
 
-  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
-  cadastral_value: number;
+  // Dati del censimento MEF "Patrimonio della PA" (domini in mef-domains.enum.ts).
+  // mef_id = Id bene assegnato dal MEF: lo scrive solo l'import, sola lettura in UI.
+  @Column({ type: 'int', nullable: true, unique: true })
+  mef_id: number | null;
 
-  @Column({ length: 100, nullable: true })
-  category: string;
+  @Column({ type: 'enum', enum: LegalNature, nullable: true })
+  legal_nature: LegalNature | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  reference_area_sqm: number | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  appurtenance_area_sqm: number | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  volume_m3: number | null;
+
+  @Column({ type: 'enum', enum: ConstructionPeriod, nullable: true })
+  construction_period: ConstructionPeriod | null;
+
+  @Column({ type: 'enum', enum: HeritageConstraint, nullable: true })
+  heritage_constraint: HeritageConstraint | null;
+
+  // null = non noto.
+  @Column({ type: 'boolean', nullable: true })
+  federal_transfer: boolean | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  confiscated: boolean | null;
 
   @Column({ type: 'int', nullable: true })
   nature_id: number | null;
@@ -138,6 +160,9 @@ export class Asset {
   @ManyToOne(() => AssetFunction)
   @JoinColumn({ name: 'function_id' })
   assetFunction: AssetFunction;
+
+  @OneToMany(() => AssetCadastralUnit, (unit) => unit.asset, { cascade: true })
+  cadastralUnits: AssetCadastralUnit[];
 
   @ManyToOne(() => Complex, (complex) => complex.assets, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'complex_id' })

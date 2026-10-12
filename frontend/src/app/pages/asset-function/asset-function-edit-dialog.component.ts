@@ -7,6 +7,7 @@ import {MatAutocompleteModule} from '@angular/material/autocomplete';
 import {MatIconModule} from '@angular/material/icon';
 import {MatButtonModule} from '@angular/material/button';
 import {MatTooltipModule} from '@angular/material/tooltip';
+import {MatSelectModule} from '@angular/material/select';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {AuthService} from '../../services/auth.service';
@@ -15,13 +16,14 @@ import {ReadOnlyDirective} from '../../core/directives/read-only.directive';
 import {ICON_OPTIONS, ICON_FALLBACK} from '../../core/helpers/material-icons';
 import {IconPickerDialogComponent} from '../../core/components/icon-picker-dialog.component';
 import {AssetFunction} from './entity/asset-function.entity';
+import {MEF_BUILDING_TYPE_LABEL, MEF_PURPOSE_LABEL, MefBuildingType, MefPurpose, optionsOf} from '../assets/mef-domains';
 
 @Component({
   selector: 'app-asset-function-edit-dialog',
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatAutocompleteModule,
-    MatIconModule, MatButtonModule, MatTooltipModule, HasRoleDirective, ReadOnlyDirective
+    MatIconModule, MatButtonModule, MatTooltipModule, MatSelectModule, HasRoleDirective, ReadOnlyDirective
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './asset-function-edit-dialog.component.html'
@@ -36,10 +38,14 @@ export class AssetFunctionEditDialogComponent {
   isNew = this.data.mode === 'create';
   iconFallback = ICON_FALLBACK;
   filteredIconOptions = ICON_OPTIONS;
+  buildingTypeOptions = optionsOf(MEF_BUILDING_TYPE_LABEL);
+  purposeOptions = optionsOf(MEF_PURPOSE_LABEL);
 
   form = this.fb.group({
     name: [this.data.item.name ?? '', Validators.required],
     icon: [this.data.item.icon ?? ICON_FALLBACK],
+    mef_building_type: [(this.data.item.mef_building_type ?? null) as MefBuildingType | null],
+    mef_purpose: [(this.data.item.mef_purpose ?? null) as MefPurpose | null],
   });
 
   constructor() {

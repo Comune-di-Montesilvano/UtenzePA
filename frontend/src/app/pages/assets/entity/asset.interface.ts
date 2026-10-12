@@ -20,12 +20,16 @@ export interface IAsset {
   // marker su LocationMapComponent quando manca una posizione GPS reale.
   geocoded_latitude?: string | null;
   geocoded_longitude?: string | null;
-  sheet?: string | null;
-  parcel?: string | null;
-  subordinate?: string | null;
   area_sqm?: number | null;
-  cadastral_value?: number | null;
-  category?: string | null;
+  mef_id?: number | null;
+  legal_nature?: string | null;
+  reference_area_sqm?: number | null;
+  appurtenance_area_sqm?: number | null;
+  volume_m3?: number | null;
+  construction_period?: string | null;
+  heritage_constraint?: string | null;
+  federal_transfer?: boolean | null;
+  confiscated?: boolean | null;
   nature_id?: number | null;
   function_id?: number | null;
   complex_id?: number | null;

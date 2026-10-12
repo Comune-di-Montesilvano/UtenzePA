@@ -161,45 +161,208 @@
         }
       </mat-tab>
 
-      <mat-tab aria-label="Catasto">
+      <mat-tab aria-label="Catasto e patrimonio">
         <ng-template mat-tab-label>
-          <app-tab-label icon="map" label="Catasto"
-                         [dot]="filled('category', 'cadastral_value', 'sheet', 'parcel', 'subordinate', 'area_sqm', 'services_and_artifacts')"></app-tab-label>
+          <app-tab-label icon="map" label="Catasto e patrimonio"
+                         [dot]="cadastreFilled()" [error]="invalid('cadastral_units')"></app-tab-label>
         </ng-template>
-        <div class="sheet-grid">
-          <mat-form-field class="span-2">
-            <mat-label>Categoria (destinazione d'uso)</mat-label>
-            <mat-select formControlName="category">
-              @for (opt of categoryOptions; track opt.value) {
-                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Foglio</mat-label>
-            <input matInput formControlName="sheet">
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Particella (Mappale)</mat-label>
-            <input matInput formControlName="parcel">
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Subalterno</mat-label>
-            <input matInput formControlName="subordinate">
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Valore catastale (€)</mat-label>
-            <input matInput type="number" step="0.01" formControlName="cadastral_value">
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Superficie (mq)</mat-label>
-            <input matInput type="number" step="0.01" formControlName="area_sqm">
-          </mat-form-field>
-          <mat-form-field class="span-2">
-            <mat-label>Servizi/Manufatti</mat-label>
-            <input matInput formControlName="services_and_artifacts">
-          </mat-form-field>
-        </div>
+
+        <section class="sheet-section">
+          <div class="sheet-section-title">Unità catastali</div>
+          @if (units.length === 0) {
+            <p class="sheet-hint">Nessuna unità catastale: per il MEF l'immobile risulta non accatastato.</p>
+          } @else {
+            <div class="units-scroll" formArrayName="cadastral_units">
+              <table class="units-table">
+                <thead>
+                  <tr>
+                    <th class="col-short">Sezione</th>
+                    <th class="col-short">Foglio *</th>
+                    <th class="col-short">Particella *</th>
+                    <th class="col-short">Sub.</th>
+                    <th>Categoria</th>
+                    <th>Rendita (€)</th>
+                    <th class="col-action"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (u of units.controls; track u; let i = $index) {
+                    <tr [formGroupName]="i">
+                      <td class="col-short">
+                        <mat-form-field subscriptSizing="dynamic">
+                          <input matInput formControlName="section" aria-label="Sezione">
+                        </mat-form-field>
+                      </td>
+                      <td class="col-short">
+                        <mat-form-field subscriptSizing="dynamic">
+                          <input matInput formControlName="sheet" aria-label="Foglio">
+                          @if (u.get('sheet')?.invalid && u.get('sheet')?.touched) {
+                            <mat-error>Obbligatorio</mat-error>
+                          }
+                        </mat-form-field>
+                      </td>
+                      <td class="col-short">
+                        <mat-form-field subscriptSizing="dynamic">
+                          <input matInput formControlName="parcel" aria-label="Particella">
+                          @if (u.get('parcel')?.invalid && u.get('parcel')?.touched) {
+                            <mat-error>Obbligatoria</mat-error>
+                          }
+                        </mat-form-field>
+                      </td>
+                      <td class="col-short">
+                        <mat-form-field subscriptSizing="dynamic">
+                          <input matInput formControlName="subordinate" aria-label="Subalterno">
+                        </mat-form-field>
+                      </td>
+                      <td>
+                        <mat-form-field subscriptSizing="dynamic">
+                          <mat-select formControlName="category" aria-label="Categoria">
+                            <mat-option [value]="null">—</mat-option>
+                            @for (opt of categoryOptions; track opt.value) {
+                              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                            }
+                          </mat-select>
+                        </mat-form-field>
+                      </td>
+                      <td>
+                        <mat-form-field subscriptSizing="dynamic">
+                          <input matInput type="number" step="0.01" formControlName="cadastral_income" aria-label="Rendita">
+                        </mat-form-field>
+                      </td>
+                      <td class="col-action">
+                        @if (canEdit) {
+                          <button mat-icon-button type="button" matTooltip="Rimuovi unità" aria-label="Rimuovi unità"
+                                  (click)="removeUnit(i)">
+                            <mat-icon>delete</mat-icon>
+                          </button>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+          @if (canEdit) {
+            <button mat-stroked-button type="button" (click)="addUnit()">
+              <mat-icon>add</mat-icon>Aggiungi unità
+            </button>
+          }
+        </section>
+
+        <section class="sheet-section">
+          <div class="sheet-section-title">Consistenza</div>
+          <div class="sheet-grid">
+            <mat-form-field>
+              <mat-label>Superficie (mq)</mat-label>
+              <input matInput type="number" step="0.01" formControlName="area_sqm">
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Superficie di riferimento (mq)</mat-label>
+              <input matInput type="number" step="0.01" formControlName="reference_area_sqm">
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Aree pertinenziali (mq)</mat-label>
+              <input matInput type="number" step="0.01" formControlName="appurtenance_area_sqm">
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Cubatura (mc)</mat-label>
+              <input matInput type="number" step="0.01" formControlName="volume_m3">
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Epoca di costruzione</mat-label>
+              <mat-select formControlName="construction_period">
+                <mat-option [value]="null">—</mat-option>
+                @for (o of constructionPeriodOptions; track o.value) {
+                  <mat-option [value]="o.value">{{ o.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field class="span-2">
+              <mat-label>Servizi/Manufatti</mat-label>
+              <input matInput formControlName="services_and_artifacts">
+            </mat-form-field>
+          </div>
+        </section>
+
+        <section class="sheet-section">
+          <div class="sheet-section-title">Patrimonio</div>
+          <div class="sheet-grid">
+            <mat-form-field>
+              <mat-label>Natura giuridica</mat-label>
+              <mat-select formControlName="legal_nature">
+                <mat-option [value]="null">—</mat-option>
+                @for (o of legalNatureOptions; track o.value) {
+                  <mat-option [value]="o.value">{{ o.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field class="span-2">
+              <mat-label>Vincolo culturale/paesaggistico</mat-label>
+              <mat-select formControlName="heritage_constraint">
+                <mat-option [value]="null">—</mat-option>
+                @for (o of heritageOptions; track o.value) {
+                  <mat-option [value]="o.value">{{ o.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Federalismo demaniale</mat-label>
+              <mat-select formControlName="federal_transfer">
+                <mat-option [value]="null">Non noto</mat-option>
+                @for (o of triStateOptions; track o.value) {
+                  <mat-option [value]="o.value">{{ o.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Bene confiscato</mat-label>
+              <mat-select formControlName="confiscated">
+                <mat-option [value]="null">Non noto</mat-option>
+                @for (o of triStateOptions; track o.value) {
+                  <mat-option [value]="o.value">{{ o.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+        </section>
+
+        <section class="sheet-section">
+          <mat-expansion-panel>
+            <mat-expansion-panel-header>
+              <mat-panel-title>Per il MEF</mat-panel-title>
+              <mat-panel-description>dati calcolati, aggiornati al salvataggio</mat-panel-description>
+            </mat-expansion-panel-header>
+            @if (mef) {
+              <dl class="mef-list">
+                <dt>Id bene MEF</dt>
+                <dd>{{ data.item.mef_id ?? 'non ancora assegnato (arriva con l’import MEF)' }}</dd>
+                <dt>Utilizzo</dt>
+                <dd>
+                  {{ mefUsageLabel }}
+                  @if (mef.usage_grant_id) {
+                    — <a href="javascript:void(0)" (click)="openGrant(mef.usage_grant_id)">contratto attivo</a>
+                  }
+                </dd>
+                <dt>Titolo</dt>
+                <dd>{{ mef.title === 'PROPERTY' ? 'Proprietà' : '— (non di proprietà)' }}</dd>
+                <dt>Stato di accatastamento</dt>
+                <dd>{{ mefCadastralLabel }}</dd>
+                <dt>Tipologia</dt>
+                <dd>
+                  {{ mefBuildingTypeLabel ?? 'da impostare nella funzione dell’immobile' }}
+                  @if (data.item.function_id) {
+                    — <a href="javascript:void(0)" (click)="openFunction()">apri la funzione</a>
+                  }
+                </dd>
+                <dt>Finalità</dt>
+                <dd>{{ mefPurposeLabel ?? (mef.usage === 'DIRECT' ? 'da impostare nella funzione dell’immobile' : 'non prevista (solo per gli immobili utilizzati direttamente)') }}</dd>
+              </dl>
+            } @else {
+              <p class="sheet-hint">Calcolati dopo il primo salvataggio.</p>
+            }
+          </mat-expansion-panel>
+        </section>
       </mat-tab>
 
       <mat-tab aria-label="Utenze" [disabled]="isNew">

@@ -91,11 +91,6 @@
     <td mat-cell *matCellDef="let item">{{ item.status }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="category">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Categoria</th>
-    <td mat-cell *matCellDef="let item">{{ item.category }}</td>
-  </ng-container>
-
   <ng-container matColumnDef="ownership">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Proprietà</th>
     <td mat-cell *matCellDef="let item">{{ item.ownership ? 'Sì' : 'No' }}</td>
@@ -135,11 +130,6 @@
     </td>
   </ng-container>
 
-  <ng-container matColumnDef="cadastral_value">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Valore catastale</th>
-    <td mat-cell *matCellDef="let item">{{ item.cadastral_value | formatAmount }}</td>
-  </ng-container>
-
   <ng-container matColumnDef="latitude">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Latitudine</th>
     <td mat-cell *matCellDef="let item">{{ item.latitude }}</td>
@@ -150,19 +140,24 @@
     <td mat-cell *matCellDef="let item">{{ item.longitude }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="sheet">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Foglio</th>
-    <td mat-cell *matCellDef="let item">{{ item.sheet }}</td>
+  <ng-container matColumnDef="cadastre">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Catasto</th>
+    <td mat-cell *matCellDef="let item">{{ cadastreText(item) }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="parcel">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Particella (Mappale)</th>
-    <td mat-cell *matCellDef="let item">{{ item.parcel }}</td>
+  <ng-container matColumnDef="legal_nature">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Natura giuridica</th>
+    <td mat-cell *matCellDef="let item">{{ item.legal_nature ? legalNatureLabel[item.legal_nature] : '' }}</td>
   </ng-container>
 
-  <ng-container matColumnDef="subordinate">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Subalterno</th>
-    <td mat-cell *matCellDef="let item">{{ item.subordinate }}</td>
+  <ng-container matColumnDef="mef.usage">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Utilizzo</th>
+    <td mat-cell *matCellDef="let item">{{ item.mef ? usageLabel[item.mef.usage] : '' }}</td>
+  </ng-container>
+
+  <ng-container matColumnDef="mef_id">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Id MEF</th>
+    <td mat-cell *matCellDef="let item">{{ item.mef_id }}</td>
   </ng-container>
 
   <ng-container matColumnDef="area_sqm">
