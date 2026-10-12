@@ -27,6 +27,8 @@ const ENTITY_OPTIONS: TOption[] = [
   { label: 'Utenze', value: 'utilities' },
   { label: 'Impianti', value: 'plants' },
   { label: 'Complessi', value: 'complexes' },
+  { label: 'Atti', value: 'acts' },
+  { label: 'Tipi di atto', value: 'act_types' },
   { label: 'Contratti di fornitura', value: 'contract' },
   { label: 'Contratti immobiliari', value: 'utilizer_grant' },
   { label: 'Fatture', value: 'Invoice' },

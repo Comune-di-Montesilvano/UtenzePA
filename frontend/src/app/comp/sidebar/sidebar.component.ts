@@ -70,6 +70,7 @@ export class SidebarComponent implements OnInit {
       icon: 'real_estate_agent',
       route: '/utilizer-grant',
     },
+    {label: 'Atti', icon: 'gavel', route: '/acts'},
     {label: 'Soggetti terzi', icon: 'groups', route: '/third-parties', groupLabel: 'Gestione economica'},
     {label: 'Capitoli di spesa', icon: 'attach_money', route: '/budget-chapter'},
     {label: 'Fatture', icon: 'receipt_long', route: '/invoices'},
