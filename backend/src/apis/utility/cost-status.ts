@@ -11,6 +11,9 @@ import { PartyFields, partyName } from '@apis/third-parties/third-party.name';
 // - non volturata, contratto con voltura → TO_TRANSFER (paga il Comune finché il terzo non volta)
 // - volturata a una parte di un contratto attivo → TRANSFERRED
 // - volturata a chi non ha più un contratto attivo → TO_RECOVER
+// Sull'utenza transfer_required (null = come da contratto) decide al posto del
+// contratto: true = da volturare, e una volta volturata resta "volturata" anche
+// senza contratto; false = non da volturare, e se volturata va ripresa.
 // costStatusSql è la stessa regola in SQL: tenerle allineate.
 export enum CostStatus {
   COMUNE = 'COMUNE',
@@ -33,6 +36,9 @@ export interface CostInfo {
   active_parties: CostParty[];
   transferred_to: { id: number; name: string } | null;
   transferred_on: string | Date | null;
+  // Cosa prevede il contratto (voltura nel contratto con almeno una parte),
+  // a prescindere dalla scelta sull'utenza.
+  contract_requires: boolean;
 }
 
 interface PartyLike extends PartyFields {
@@ -55,6 +61,7 @@ export interface CostInput {
   transferred_to_third_party_id?: number | null;
   transferredTo?: PartyLike | null;
   transferred_on?: string | Date | null;
+  transfer_required?: boolean | number | null;
 }
 
 const isActive = (g: GrantLike) =>
@@ -75,21 +82,35 @@ export function costInfo(utility: CostInput): CostInfo {
     }
     return result;
   };
-  const parties = partiesOf(grants.filter((g) => !!g.utilities_to_be_taken_over));
+  const contractParties = partiesOf(grants.filter((g) => !!g.utilities_to_be_taken_over));
   const activeParties = partiesOf(grants);
+  // Scelta sull'utenza: da volturare (anche senza voltura nel contratto: chi
+  // deve volturare sono le parti dei contratti attivi) o non da volturare.
+  const manual =
+    utility.transfer_required === null || utility.transfer_required === undefined
+      ? null
+      : !!Number(utility.transfer_required);
+  const parties =
+    manual === false
+      ? []
+      : manual === true && !contractParties.length
+        ? activeParties
+        : contractParties;
+  const required = manual ?? contractParties.length > 0;
 
   const toId = utility.transferred_to_third_party_id ?? null;
   const transferredOn = utility.transferred_on ?? null;
   if (toId === null) {
     return {
-      status: parties.length ? CostStatus.TO_TRANSFER : CostStatus.COMUNE,
+      status: required ? CostStatus.TO_TRANSFER : CostStatus.COMUNE,
       parties,
       active_parties: activeParties,
       transferred_to: null,
       transferred_on: transferredOn,
+      contract_requires: contractParties.length > 0,
     };
   }
-  const hasTitle = activeParties.some((p) => p.third_party_id === toId);
+  const hasTitle = manual ?? activeParties.some((p) => p.third_party_id === toId);
   return {
     status: hasTitle ? CostStatus.TRANSFERRED : CostStatus.TO_RECOVER,
     parties,
@@ -99,6 +120,7 @@ export function costInfo(utility: CostInput): CostInfo {
       name: utility.transferredTo ? partyName(utility.transferredTo) : '',
     },
     transferred_on: transferredOn,
+    contract_requires: contractParties.length > 0,
   };
 }
 
@@ -117,14 +139,15 @@ export function costStatusSql(status: CostStatus, alias = 'Utility'): string {
   const transferredTo = `${alias}.transferred_to_third_party_id`;
   const withTransfer = activeGrantParties(alias, 'g.utilities_to_be_taken_over = 1');
   const withTitle = activeGrantParties(alias, `tp.id = ${transferredTo}`);
+  const required = `${alias}.transfer_required`;
   switch (status) {
     case CostStatus.COMUNE:
-      return `(${transferredTo} IS NULL AND NOT EXISTS (${withTransfer}))`;
+      return `(${transferredTo} IS NULL AND (${required} = 0 OR (${required} IS NULL AND NOT EXISTS (${withTransfer}))))`;
     case CostStatus.TO_TRANSFER:
-      return `(${transferredTo} IS NULL AND EXISTS (${withTransfer}))`;
+      return `(${transferredTo} IS NULL AND (${required} = 1 OR (${required} IS NULL AND EXISTS (${withTransfer}))))`;
     case CostStatus.TRANSFERRED:
-      return `(${transferredTo} IS NOT NULL AND EXISTS (${withTitle}))`;
+      return `(${transferredTo} IS NOT NULL AND (${required} = 1 OR (${required} IS NULL AND EXISTS (${withTitle}))))`;
     case CostStatus.TO_RECOVER:
-      return `(${transferredTo} IS NOT NULL AND NOT EXISTS (${withTitle}))`;
+      return `(${transferredTo} IS NOT NULL AND (${required} = 0 OR (${required} IS NULL AND NOT EXISTS (${withTitle}))))`;
   }
 }

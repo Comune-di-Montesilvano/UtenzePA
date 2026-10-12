@@ -72,6 +72,8 @@ Il campo **A carico di** dell'utenza indica chi paga: il Comune oppure il terzo 
 2. Se l'utenza risulta **Da volturare**, quando il terzo ha fatto la voltura premi **Segna volturata oggi**, oppure scegli il soggetto in **Volturata a** e la data.
 3. Quando il Comune riprende l'utenza (es. contratto immobiliare finito), usa **Ripresa dal Comune**.
 
+Di norma un'utenza è da volturare se lo prevede il contratto immobiliare dell'immobile («Utenze da volturare»). Per decidere sulla singola utenza usa il campo **Voltura**: **Da volturare** (anche se il contratto non lo prevede, o non c'è un contratto) oppure **Non da volturare** (anche se il contratto lo prevede). **Come da contratto** torna alla regola del contratto. In **Volturata a** puoi cercare qualsiasi soggetto terzo; in cima ci sono le parti dei contratti in corso.
+
 Il significato degli stati è in «A carico di: gli stati».
 
 ### Registrare i consumi di un'utenza
@@ -142,10 +144,10 @@ I ruoli si assegnano da **Impostazioni → Utenti e ruoli**.
 
 | Stato | Significato |
 | --- | --- |
-| Comune | L'utenza non è volturata e nessun contratto immobiliare in corso ne prevede la voltura. |
-| Da volturare | Un contratto immobiliare in corso prevede «Utenze da volturare», ma il terzo non ha ancora volturato: intanto paga il Comune. |
-| Volturata | L'utenza è volturata a una parte di un contratto immobiliare in corso. |
-| Da riprendere | L'utenza è volturata a qualcuno che non ha più un contratto in corso: il Comune deve riprenderla. |
+| Comune | L'utenza non è volturata e non è da volturare: nessun contratto immobiliare in corso ne prevede la voltura, oppure in **Voltura** è scelto «Non da volturare». |
+| Da volturare | Un contratto immobiliare in corso prevede «Utenze da volturare», oppure in **Voltura** è scelto «Da volturare», ma il terzo non ha ancora volturato: intanto paga il Comune. |
+| Volturata | L'utenza è volturata a una parte di un contratto immobiliare in corso, oppure è volturata e in **Voltura** è scelto «Da volturare». |
+| Da riprendere | L'utenza è volturata a qualcuno che non ha più un contratto in corso, oppure in **Voltura** è scelto «Non da volturare»: il Comune deve riprenderla. |
 
 **Manutenzione a carico di** è calcolata allo stesso modo: Fornitore se il contratto di fornitura include la manutenzione, Controparte se lo prevede il contratto immobiliare, altrimenti Comune.
 

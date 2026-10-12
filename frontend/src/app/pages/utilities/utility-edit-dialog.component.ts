@@ -45,6 +45,7 @@ import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, select
 import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import {UtilityService} from './utility.service';
 import {partyName} from '../../core/helpers/party-name.helper';
+import {ThirdPartiesService} from '../third-parties/third-parties.service';
 import {UtilityInvoicesTabComponent} from './utility-invoices-tab.component';
 import {CommitmentService} from '../contracts/commitments/commitment.service';
 import {forkJoin} from 'rxjs';
@@ -100,6 +101,7 @@ export class UtilityEditDialogComponent implements OnInit {
   private contractsService = inject(ContractsService);
   private navigator = inject(EntityNavigatorService);
   private utilityService = inject(UtilityService);
+  private thirdPartiesService = inject(ThirdPartiesService);
   protected data = inject<EditDialogData<Utility>>(MAT_DIALOG_DATA);
 
   @ViewChild(MatTabGroup) tabGroup?: MatTabGroup;
@@ -183,6 +185,7 @@ export class UtilityEditDialogComponent implements OnInit {
     budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null],
     transferred_to_third_party_id: [this.data.item.transferred_to_third_party_id ?? null],
     transferred_on: [this.toDate(this.data.item.transferred_on)],
+    transfer_required: [(this.data.item.transfer_required ?? null) as boolean | null],
     activated_on: [this.toDate(this.data.item.activated_on)],
     ceased_on: [this.toDate(this.data.item.ceased_on)],
     internet_technology: [this.data.item.internet_technology ?? null],
@@ -251,6 +254,7 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    if (!this.isNew) this.loadTransferOptions();
     this.refreshLinks();
     this.loadPlants();
     this.loadAssets();
@@ -679,14 +683,45 @@ export class UtilityEditDialogComponent implements OnInit {
   // Manutenzione: calcolata dal backend sui contratti salvati (si aggiorna dopo il Salva).
   readonly maintenanceInfo = this.data.item.maintenance_info;
   readonly maintenanceStatusInfo = maintenanceStatus(this.data.item.maintenance_info);
-  // Soggetti a cui volturare: parti di tutti i contratti attivi più
-  // l'intestatario attuale (anche se non ha più un contratto).
-  readonly transferOptions: TOption[] = (() => {
-    const opts = new Map<number, string>();
-    for (const p of this.costInfo?.active_parties ?? []) opts.set(p.third_party_id, p.name);
-    if (this.costInfo?.transferred_to) opts.set(this.costInfo.transferred_to.id, this.costInfo.transferred_to.name);
-    return [...opts].map(([value, label]) => ({value, label}));
-  })();
+  // Soggetti a cui volturare: prima le parti dei contratti attivi e
+  // l'intestatario attuale, poi tutti gli altri soggetti terzi (la voltura
+  // può essere decisa sull'utenza anche senza contratto).
+  transferOptions: TOption[] = this.contractTransferOptions();
+
+  private contractTransferOptions(): TOption[] {
+    const opts = new Map<number, TOption>();
+    for (const p of this.costInfo?.active_parties ?? []) {
+      opts.set(p.third_party_id, {value: p.third_party_id, label: p.name, sublabel: 'Parte di un contratto immobiliare attivo'});
+    }
+    const t = this.costInfo?.transferred_to;
+    if (t && !opts.has(t.id)) opts.set(t.id, {value: t.id, label: t.name, sublabel: 'Intestatario attuale'});
+    return [...opts.values()];
+  }
+
+  private loadTransferOptions(): void {
+    this.thirdPartiesService.search({deleted: false}).subscribe({
+      next: list => {
+        const first = this.contractTransferOptions();
+        const seen = new Set(first.map(o => o.value));
+        const others = list
+          .filter(tp => !seen.has(tp.id))
+          .map(tp => ({value: tp.id, label: partyName(tp)}))
+          .sort((a, b) => a.label.localeCompare(b.label));
+        this.transferOptions = [...first, ...others];
+      },
+      error: err => console.error('Errore caricamento soggetti terzi:', err),
+    });
+  }
+
+  // Voltura decisa sull'utenza: "come da contratto" dice cosa prevede il contratto.
+  get transferRequiredOptions(): {value: boolean | null; label: string}[] {
+    const contract = this.costInfo?.contract_requires ? 'da volturare' : 'non da volturare';
+    return [
+      {value: null, label: `Come da contratto (${contract})`},
+      {value: true, label: 'Da volturare'},
+      {value: false, label: 'Non da volturare'},
+    ];
+  }
 
   markTransferredToday(): void {
     const parties = this.costInfo?.parties ?? [];

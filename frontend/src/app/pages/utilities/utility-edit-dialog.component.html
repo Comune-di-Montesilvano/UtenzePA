@@ -100,15 +100,18 @@
                 <button mat-button type="button" (click)="recoverToComune()">Ripresa dal Comune</button>
               }
             </div>
-            <mat-form-field class="span-2">
-              <mat-label>Volturata a</mat-label>
-              <mat-select formControlName="transferred_to_third_party_id">
-                <mat-option [value]="null">Non volturata (Comune)</mat-option>
-                @for (opt of transferOptions; track opt.value) {
+            <mat-form-field>
+              <mat-label>Voltura</mat-label>
+              <mat-select formControlName="transfer_required">
+                @for (opt of transferRequiredOptions; track opt.value) {
                   <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
                 }
               </mat-select>
+              <mat-hint>Prevale su quanto previsto dal contratto immobiliare</mat-hint>
             </mat-form-field>
+            <app-filterable-select label="Volturata a" placeholder="Cerca soggetto... (vuoto = Comune)"
+              [options]="transferOptions" formControlName="transferred_to_third_party_id">
+            </app-filterable-select>
             <mat-form-field>
               <mat-label>Volturata il</mat-label>
               <input matInput [matDatepicker]="transferredOnPicker" formControlName="transferred_on">

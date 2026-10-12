@@ -130,6 +130,11 @@ export class Utility {
   @Column({ type: 'date', nullable: true })
   transferred_on: string | null;
 
+  // Da volturare deciso sull'utenza: null = come da contratto immobiliare,
+  // true = da volturare comunque, false = non da volturare (vedi cost-status.ts).
+  @Column({ type: 'boolean', nullable: true })
+  transfer_required: boolean | null;
+
   // Vita dell'utenza, distinta da quella del contratto di fornitura (es. più
   // linee dello stesso contratto attivate in date diverse).
   @Column({ type: 'date', nullable: true })
