@@ -18,6 +18,16 @@ export class AssetCadastralUnits1793700000000 implements MigrationInterface {
         `${n} immobili con foglio senza particella o viceversa: completarli prima della migration`,
       );
     }
+    // Sub, categoria o rendita senza foglio e particella non diventano un'unità
+    // e andrebbero persi: rendita 0 tollerata (valore vuoto di fatto).
+    const [{ n: orphan }] = await q.query(
+      "SELECT COUNT(*) AS n FROM `assets` WHERE (`sheet` IS NULL OR TRIM(`sheet`) = '') AND (`parcel` IS NULL OR TRIM(`parcel`) = '') AND ((`subordinate` IS NOT NULL AND TRIM(`subordinate`) <> '') OR (`category` IS NOT NULL AND TRIM(`category`) <> '') OR (`cadastral_value` IS NOT NULL AND `cadastral_value` <> 0))",
+    );
+    if (Number(orphan) > 0) {
+      throw new Error(
+        `${orphan} immobili con subalterno, categoria o rendita ma senza foglio e particella: completarli o svuotarli prima della migration`,
+      );
+    }
 
     await q.query(
       'CREATE TABLE `asset_cadastral_units` (`id` int NOT NULL AUTO_INCREMENT, `asset_id` int NOT NULL, `section` varchar(5) NULL, `sheet` varchar(50) NOT NULL, `parcel` varchar(50) NOT NULL, `subordinate` varchar(50) NULL, `category` varchar(100) NULL, `cadastral_income` decimal(15,2) NULL, INDEX `IDX_a31859ca5b018442d8540708c0` (`sheet`, `parcel`), PRIMARY KEY (`id`)) ENGINE=InnoDB',

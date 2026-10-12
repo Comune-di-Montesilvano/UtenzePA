@@ -1,9 +1,11 @@
 import { AssetCadastralUnits1793700000000 } from './migrations/1793700000000-AssetCadastralUnits';
 
-const runner = (n: number) => {
+// n = immobili con foglio senza particella (o viceversa); orphan = immobili
+// senza foglio e particella ma con sub, categoria o rendita.
+const runner = (n: number, orphan = 0) => {
   const ddl: string[] = [];
   const query = jest.fn(async (sql: string) => {
-    if (sql.startsWith('SELECT')) return [{ n }];
+    if (sql.startsWith('SELECT')) return [{ n: sql.includes('cadastral_value') ? orphan : n }];
     ddl.push(sql);
     return [];
   });
@@ -27,6 +29,14 @@ describe('AssetCadastralUnits', () => {
     const { q, ddl } = runner(2);
     await expect(new AssetCadastralUnits1793700000000().up(q)).rejects.toThrow(
       '2 immobili con foglio senza particella o viceversa',
+    );
+    expect(ddl).toHaveLength(0);
+  });
+
+  it('con sub, categoria o rendita senza foglio e particella si ferma prima di ogni DDL', async () => {
+    const { q, ddl } = runner(0, 3);
+    await expect(new AssetCadastralUnits1793700000000().up(q)).rejects.toThrow(
+      '3 immobili con subalterno, categoria o rendita ma senza foglio e particella',
     );
     expect(ddl).toHaveLength(0);
   });
