@@ -30,6 +30,7 @@ import { PlantsModule } from '@apis/plants/plants.module';
 import { ComplexesModule } from '@apis/complexes/complexes.module';
 import { AttachmentsModule } from '@apis/attachments/attachments.module';
 import { ActTypesModule } from '@apis/act-types/act-types.module';
+import { ActsModule } from '@apis/acts/acts.module';
 import { AnomaliesModule } from '@apis/anomalies/anomalies.module';
 import { InvoicesModule } from '@apis/invoices/invoie.module';
 import { ConsipAgreementModule } from '@apis/consip-agreement/consip-agreement.module';
@@ -71,6 +72,7 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     ComplexesModule,
     AttachmentsModule,
     ActTypesModule,
+    ActsModule,
     AnomaliesModule,
     InvoicesModule,
     ConsipAgreementModule,
