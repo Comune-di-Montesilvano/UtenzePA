@@ -7,7 +7,7 @@ import {SystemUser} from '../../system-users/entity/system-user.entity';
 import {AssetNature} from '../../asset-nature/entity/asset-nature.entity';
 import {AssetFunction} from '../../asset-function/entity/asset-function.entity';
 import {AssetStatus} from '../enum/asset-status.enum';
-import {AssetMef, ConstructionPeriod, HeritageConstraint, LegalNature} from '../mef-domains';
+import type {AssetMef, ConstructionPeriod, HeritageConstraint, LegalNature} from '../mef-domains';
 import {CadastralUnit} from './cadastral-unit';
 
 export class Asset extends AbstractEntity implements IAsset {
