@@ -422,6 +422,7 @@ describe('AnomaliesService', () => {
       const sql = sqlOf('/* assets_without_mef_id */');
       expect(sql).toContain('b.mef_id IS NULL');
       expect(sql).toContain("n.name = 'Fabbricato'");
+      expect(sql).toContain('n.deleted = 0');
       expect(sql).toContain('b.ownership = 1');
     });
 
@@ -436,6 +437,7 @@ describe('AnomaliesService', () => {
       expect(sql).toContain('u.subordinate IS NULL');
       expect(sql).toContain('o.id <> b.id');
       expect(sql).toContain('o.civic_number');
+      expect(sql).toContain('o.toponym');
       expect(sql).toContain('ou.parcel = u.parcel');
     });
 

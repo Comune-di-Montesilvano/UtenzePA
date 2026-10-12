@@ -71,6 +71,34 @@ describe('MapService', () => {
       );
     });
 
+    it('posizione propria e immobili senza coordinate: il complesso compare comunque', async () => {
+      assetRepo.find.mockResolvedValue([]);
+      utilityRepo.find.mockResolvedValue([]);
+      complexRepo.find.mockResolvedValue([
+        {
+          id: 5,
+          name: 'Plesso',
+          address: null,
+          latitude: '42.5',
+          longitude: '14.5',
+          complex_type: null,
+          assets: [located(1, '', '')],
+        },
+      ]);
+
+      const { points } = await service.getPoints({});
+
+      expect(points).toContainEqual(
+        expect.objectContaining({
+          id: 5,
+          type: 'complex',
+          lat: '42.5',
+          lng: '14.5',
+          assetIds: [1],
+        }),
+      );
+    });
+
     it('posizione propria del complesso: source gps', async () => {
       assetRepo.find.mockResolvedValue([]);
       utilityRepo.find.mockResolvedValue([]);

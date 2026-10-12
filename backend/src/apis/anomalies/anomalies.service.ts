@@ -398,9 +398,10 @@ export class AnomaliesService {
           AND NOT EXISTS (SELECT 1 FROM asset_cadastral_units cu WHERE cu.asset_id = b.id)
         ORDER BY b.asset_name`,
     );
+    // Dipende dal nome della tipologia: rinominare «Fabbricato» azzera la segnalazione.
     const withoutMefId: { id: unknown; asset_name: string }[] = await this.dataSource.query(
       `/* assets_without_mef_id */ SELECT b.id, b.asset_name FROM assets b
-         JOIN asset_natures n ON n.id = b.nature_id AND n.name = 'Fabbricato'
+         JOIN asset_natures n ON n.id = b.nature_id AND n.name = 'Fabbricato' AND n.deleted = 0
         WHERE b.deleted = 0 AND b.ownership = 1 AND b.mef_id IS NULL
         ORDER BY b.asset_name`,
     );
@@ -414,6 +415,7 @@ export class AnomaliesService {
                       WHERE o.deleted = 0 AND o.id <> b.id
                         AND ou.sheet = u.sheet AND ou.parcel = u.parcel
                         AND COALESCE(o.address, '') = COALESCE(b.address, '')
+                        AND COALESCE(o.toponym, '') = COALESCE(b.toponym, '')
                         AND COALESCE(o.civic_number, '') = COALESCE(b.civic_number, ''))
         ORDER BY b.asset_name`,
     );

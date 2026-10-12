@@ -285,12 +285,13 @@ export class MapService {
         // Raggruppamento amministrativo (edifici distanti): nessun pin, gli
         // immobili restano punti singoli.
         if (c.kind === ComplexKind.ADMINISTRATIVE) continue;
-        const visible = (c.assets ?? [])
-          .filter(inPerimeter)
+        const members = (c.assets ?? []).filter(inPerimeter);
+        const visible = members
           .map((a) => ({ a, pos: this.resolveAssetPosition(a) }))
           .filter((x) => x.pos);
-        if (!visible.length) continue;
         const own = isSet(c.latitude) && isSet(c.longitude);
+        // Con posizione propria basta un immobile nel perimetro, anche senza coordinate.
+        if (!visible.length && !(own && members.length)) continue;
         const avg = (k: 'lat' | 'lng') =>
           (
             visible.reduce((s, x) => s + parseFloat(x.pos[k].replace(',', '.')), 0) / visible.length
@@ -303,7 +304,7 @@ export class MapService {
           lat: own ? c.latitude : avg('lat'),
           lng: own ? c.longitude : avg('lng'),
           source: own ? 'gps' : 'geocoded',
-          assetIds: visible.map((x) => x.a.id),
+          assetIds: (own ? members : visible.map((x) => x.a)).map((a) => a.id),
           complexType: c.complex_type ?? null,
         });
       }
