@@ -103,8 +103,9 @@ Un **complesso** raggruppa immobili gestiti o censiti come un insieme: una palaz
 2. Nel tab **Immobili** collega gli immobili del complesso. Un immobile sta in un solo complesso: collegarlo qui lo toglie da quello precedente.
 3. I tab **Utenze**, **Impianti** e **Contratti immobiliari** mostrano quelli degli immobili del complesso, in sola lettura: si modificano dalle loro schede.
 4. Un complesso con immobili collegati non si può eliminare: scollega prima gli immobili.
+5. **Raggruppamento**: *Fisico* per edifici vicini gestiti insieme (palazzina, impianto sportivo); *Amministrativo* per edifici distanti raggruppati, come un istituto comprensivo con i suoi plessi.
 
-In **Mappa** il livello **Complessi** mostra un solo pin per complesso. Clicca il pin e scegli **Mostra immobili**, oppure avvicinati (zoom alto): compaiono gli immobili e le loro utenze.
+In **Mappa** il livello **Complessi** mostra un solo pin per ogni complesso fisico; i complessi amministrativi non hanno un pin e i loro edifici si vedono singolarmente. Clicca il pin e scegli **Mostra immobili**, oppure avvicinati (zoom alto): compaiono gli immobili e le loro utenze.
 
 ### Catasto e dati di patrimonio
 

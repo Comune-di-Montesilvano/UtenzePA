@@ -32,7 +32,9 @@ import {UtilizerGrant} from '../utilizer-grant/entity/utilizer-grant.entity';
 import {DIRECTION_LABEL, KIND_LABEL} from '../utilizer-grant/real-estate-contract.model';
 import {partyName} from '../../core/helpers/party-name.helper';
 import {ComplexService} from './complex.service';
-import {Complex, COMPLEX_TYPE_LABEL, COMPLEX_TYPES, ComplexPayload, ComplexType} from './complex.model';
+import {
+  Complex, COMPLEX_KIND_LABEL, COMPLEX_TYPE_LABEL, COMPLEX_TYPES, ComplexKind, ComplexPayload, ComplexType,
+} from './complex.model';
 
 export interface ComplexEditDialogData {
   // null = nuovo complesso.
@@ -64,6 +66,8 @@ export class ComplexEditDialogComponent implements OnInit {
 
   readonly types = COMPLEX_TYPES;
   readonly typeLabel = COMPLEX_TYPE_LABEL;
+  readonly kinds = Object.keys(COMPLEX_KIND_LABEL) as ComplexKind[];
+  readonly kindLabel = COMPLEX_KIND_LABEL;
   readonly canEdit = isEditorRole(inject(AuthService).getCurrentUser()?.role);
 
   complex: Complex | null = null;
@@ -116,6 +120,7 @@ export class ComplexEditDialogComponent implements OnInit {
   form = this.fb.group({
     name: [this.data.prefill?.name ?? '', [Validators.required, Validators.maxLength(255)]],
     complex_type: [(this.data.prefill?.complex_type ?? null) as ComplexType | null],
+    kind: [(this.data.prefill?.kind ?? 'PHYSICAL') as ComplexKind],
     toponym: [''],
     address: [''],
     civic_number: [''],
@@ -180,6 +185,7 @@ export class ComplexEditDialogComponent implements OnInit {
     this.form.patchValue({
       name: c.name,
       complex_type: c.complex_type,
+      kind: c.kind ?? 'PHYSICAL',
       toponym: c.toponym ?? '',
       address: c.address ?? '',
       civic_number: c.civic_number ?? '',
@@ -321,6 +327,7 @@ export class ComplexEditDialogComponent implements OnInit {
     const payload: ComplexPayload = {
       name: (v.name ?? '').trim(),
       complex_type: v.complex_type ?? null,
+      kind: v.kind ?? 'PHYSICAL',
       toponym: text(v.toponym),
       address: text(v.address),
       civic_number: text(v.civic_number),
