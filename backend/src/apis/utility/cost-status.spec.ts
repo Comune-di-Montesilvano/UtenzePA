@@ -44,6 +44,7 @@ describe('costInfo', () => {
       active_parties: [{ grant_id: 7, third_party_id: 3, name: 'Alfa Srl' }],
       transferred_to: null,
       transferred_on: null,
+      contract_requires: false,
     });
   });
 
@@ -155,6 +156,71 @@ describe('costInfo', () => {
   it('transferredTo non caricato: nome vuoto ma id presente', () => {
     const info = costInfo({ assets: [], transferred_to_third_party_id: 9 });
     expect(info.transferred_to).toEqual({ id: 9, name: '' });
+  });
+});
+
+describe('costInfo con la voltura decisa sull’utenza', () => {
+  const withTransfer = [[grant(7, [party(3, 'Alfa Srl')])]];
+  const withoutTransfer = [
+    [grant(7, [party(3, 'Alfa Srl')], { utilities_to_be_taken_over: false })],
+  ];
+
+  it('non da volturare: Comune anche se il contratto prevede la voltura', () => {
+    const info = costInfo(utility(withTransfer, { transfer_required: false }));
+    expect(info.status).toBe(CostStatus.COMUNE);
+    expect(info.contract_requires).toBe(true);
+  });
+
+  it('da volturare: anche se il contratto non lo prevede, con le parti dei contratti attivi', () => {
+    const info = costInfo(utility(withoutTransfer, { transfer_required: true }));
+    expect(info.status).toBe(CostStatus.TO_TRANSFER);
+    expect(info.parties.map((p) => p.third_party_id)).toEqual([3]);
+  });
+
+  it('da volturare senza contratti attivi: da volturare, senza parti', () => {
+    const info = costInfo(utility([[]], { transfer_required: true }));
+    expect(info.status).toBe(CostStatus.TO_TRANSFER);
+    expect(info.parties).toEqual([]);
+  });
+
+  it('flag 1/0 da MySQL', () => {
+    expect(costInfo(utility(withTransfer, { transfer_required: 0 })).status).toBe(
+      CostStatus.COMUNE,
+    );
+    expect(costInfo(utility(withoutTransfer, { transfer_required: 1 })).status).toBe(
+      CostStatus.TO_TRANSFER,
+    );
+  });
+
+  it('volturata e da volturare: volturata anche senza contratto', () => {
+    const p = party(3, 'Alfa Srl');
+    expect(costInfo(utility([[]], { transfer_required: true, ...transferred(p) })).status).toBe(
+      CostStatus.TRANSFERRED,
+    );
+  });
+
+  it('volturata ma non da volturare: da riprendere anche con il contratto', () => {
+    const p = party(3, 'Alfa Srl');
+    expect(
+      costInfo(utility(withTransfer, { transfer_required: false, ...transferred(p) })).status,
+    ).toBe(CostStatus.TO_RECOVER);
+  });
+});
+
+describe('costStatusSql con la voltura decisa sull’utenza', () => {
+  it('Comune e Da volturare considerano transfer_required prima del contratto', () => {
+    expect(costStatusSql(CostStatus.COMUNE)).toContain(
+      'Utility.transfer_required = 0 OR (Utility.transfer_required IS NULL AND NOT EXISTS (',
+    );
+    expect(costStatusSql(CostStatus.TO_TRANSFER)).toContain(
+      'Utility.transfer_required = 1 OR (Utility.transfer_required IS NULL AND EXISTS (',
+    );
+    expect(costStatusSql(CostStatus.TRANSFERRED)).toContain(
+      'Utility.transfer_required = 1 OR (Utility.transfer_required IS NULL AND EXISTS (',
+    );
+    expect(costStatusSql(CostStatus.TO_RECOVER)).toContain(
+      'Utility.transfer_required = 0 OR (Utility.transfer_required IS NULL AND NOT EXISTS (',
+    );
   });
 });
 

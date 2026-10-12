@@ -8,6 +8,8 @@ export interface CostInfo {
   active_parties: {grant_id: number; third_party_id: number; name: string}[];
   transferred_to: {id: number; name: string} | null;
   transferred_on: string | null;
+  // Cosa prevede il contratto, a prescindere dalla scelta sull'utenza.
+  contract_requires: boolean;
 }
 
 // "Manutenzione a carico di" calcolata dal backend (apis/utility/maintenance-status.ts).
