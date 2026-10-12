@@ -1,8 +1,7 @@
 import { IsIn, IsInt, IsOptional, Min } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
-const bool = ({ value }: { value: unknown }) =>
-  value === true || value === 'true' || value === '1';
+const bool = ({ value }: { value: unknown }) => value === true || value === 'true' || value === '1';
 
 export class SearchActDto {
   @IsOptional()

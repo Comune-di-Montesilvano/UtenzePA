@@ -27,10 +27,10 @@ export class BackupService {
     return this.http.get<BackupInfo[]>(this.BASE_URL, { headers: this.getAuthHeaders() });
   }
 
-  create(includePhotos = false): Observable<BackupInfo> {
+  create(includePhotos = false, includeAttachments = false): Observable<BackupInfo> {
     return this.http.post<BackupInfo>(
       this.BASE_URL,
-      { includePhotos },
+      { includePhotos, includeAttachments },
       { headers: this.getAuthHeaders() },
     );
   }

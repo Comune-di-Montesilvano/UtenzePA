@@ -36,8 +36,9 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 16 | Dashboard e mappa | mappa a livelli in v1.11.0 (filtri a perimetro, inattivi nascosti, ricerca nel Comune); dashboard per ultima |
 | 17 | Impegni di spesa (contratto ↔ capitolo) | fatto, v1.10.0 (impegni ACA 2025–2026 senza numero né importo, da completare con la ragioneria) |
 | 18 | Pulizia entità e incongruenze del modello | fatto: parte 1 v1.9.0 (tabelle morte, aggregati immobili, gestori manutenzione → manutenzione calcolata), parte 2 v1.9.1 (campi doppi) |
-| 19 | Allegati di contratti, immobili e impianti | da approfondire |
+| 19 | Allegati di contratti, immobili e impianti | fatto, v1.22.0 (allegati e atti; utenze e complessi, ricerca nei PDF e firma digitale rimandati) |
 | 20 | Assestato dei capitoli e disponibilità | fatto in v1.14.0 (mandati non ancora) |
+| 21 | Scadenzario degli obblighi dell'immobile | da approfondire |
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
 
@@ -392,6 +393,12 @@ Base esistente: le foto (`apis/photos/`) sono già polimorfiche (`entity_type` +
 - scadenze: certificazioni e verifiche periodiche degli impianti hanno una validità; valutare una data di scadenza facoltativa sull'allegato e un'anomalia "documento scaduto" (dashboard e segnalazioni degli elenchi);
 - tab "Allegati" con lo stesso componente in tutte e quattro le schede; nelle schede immobile e impianto convive con il tab Foto;
 - eventuale estensione futura a fatture (PDF allegato della fattura elettronica, vedi gotcha FatturaPA della voce 6) e utenze.
+
+**Fatto in v1.22.0** (spec `docs/superpowers/specs/2026-10-12-documenti-design.md`): separati **allegati** (file dell'entità senza scheda: immobili, impianti, singole verifiche, contratti immobiliari e di fornitura; tabella polimorfica `attachments`, volume `attachments_data`, download solo Admin/Operatore) e **atti** (delibere, determine, decreti, ordinanze, atti notarili, autorizzazioni: entità `acts` con estremi, file facoltativi come allegati dell'atto, collegati N-N). Nessuna scadenza sul documento: vedi voce 21. Rimandati: utenze e complessi, estrazione del testo e ricerca nei PDF, verifica della firma digitale, versioni dei file.
+
+## 21. Scadenzario degli obblighi dell'immobile
+
+Emerso nel design della voce 19 (2026-10-12): le scadenze vere non sono dei documenti ma degli obblighi dell'immobile (CPI/SCIA antincendio ogni 5 anni, APE 10 anni, e simili). Da approfondire: uno scadenzario per immobile sul modello delle verifiche degli impianti (`plant_inspections`: tipo, periodicità, ultima e prossima data, segnalazioni), con gli allegati (certificato, attestato) collegati alla singola scadenza come i verbali delle verifiche. Agibilità e dichiarazioni di conformità non scadono e restano allegati.
 
 ## 20. Assestato dei capitoli e disponibilità
 

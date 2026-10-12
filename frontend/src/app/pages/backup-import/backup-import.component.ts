@@ -45,6 +45,7 @@ export class BackupImportComponent implements OnDestroy {
   // Solo sui backup manuali (mai sullo schedulato, lato backend) — genera
   // un .tar.gz (dump.sql + foto) invece del solo .sql.
   includePhotosInBackup = false;
+  includeAttachmentsInBackup = false;
 
   restoreFile: File | null = null;
   restoring = false;
@@ -128,7 +129,7 @@ export class BackupImportComponent implements OnDestroy {
 
   createBackup() {
     this.creatingBackup = true;
-    this.backupService.create(this.includePhotosInBackup).subscribe({
+    this.backupService.create(this.includePhotosInBackup, this.includeAttachmentsInBackup).subscribe({
       next: () => {
         this.creatingBackup = false;
         this.toastService.add({ severity: 'success', summary: 'Backup creato' });

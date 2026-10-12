@@ -76,13 +76,11 @@ export class ActsService extends BaseService<Act, CreateActDto, UpdateActDto> {
         cleaned[rel] = kept;
         links += kept.length;
       }
-      cleaned.contracts = (cleaned.contracts as Contract[]).map(
-        (c): ActContractRef => ({
-          id: c.id,
-          cig_contract: c.cig_contract ?? null,
-          supplier_name: partyName(c.supplier),
-        }),
-      );
+      cleaned.contracts = (cleaned.contracts as Contract[]).map((c): ActContractRef => ({
+        id: c.id,
+        cig_contract: c.cig_contract ?? null,
+        supplier_name: partyName(c.supplier),
+      }));
       return {
         ...(cleaned as unknown as ActRow),
         file_count: files.get(a.id) ?? 0,
@@ -157,7 +155,10 @@ export class ActsService extends BaseService<Act, CreateActDto, UpdateActDto> {
   }
 
   async update(id: number, dto: UpdateActDto, userId: number): Promise<ActRow> {
-    const current = await this.repo.findOne({ where: { id, deleted: false }, relations: RELATIONS });
+    const current = await this.repo.findOne({
+      where: { id, deleted: false },
+      relations: RELATIONS,
+    });
     if (!current) throw new BadRequestException('Atto non trovato');
     if (dto.act_type_id !== undefined) await this.assertType(dto.act_type_id);
     if (dto.subject !== undefined) dto.subject = this.assertSubject(dto.subject);
@@ -245,7 +246,8 @@ export class ActsService extends BaseService<Act, CreateActDto, UpdateActDto> {
     const found = await this.targetRepo(entity).count({
       where: { id: In(unique), deleted: false },
     });
-    if (found !== unique.length) throw new BadRequestException(`${LINKS[entity].label} non trovato`);
+    if (found !== unique.length)
+      throw new BadRequestException(`${LINKS[entity].label} non trovato`);
   }
 
   // Solo i campi *_ids presenti nel DTO diventano relazioni da salvare.

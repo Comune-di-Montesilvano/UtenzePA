@@ -16,7 +16,13 @@ describe('AttachmentsService', () => {
     service.saveChunk({ uploadId: id, chunkIndex: 0, totalChunks: 1 }, content);
   const finalize = (id: string, name: string, type = T.CONTRACT, entityId = 3) =>
     service.finalize(
-      { uploadId: id, totalChunks: 1, originalFilename: name, entity_type: type, entity_id: entityId },
+      {
+        uploadId: id,
+        totalChunks: 1,
+        originalFilename: name,
+        entity_type: type,
+        entity_id: entityId,
+      },
       1,
     );
 
