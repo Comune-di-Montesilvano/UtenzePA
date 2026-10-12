@@ -57,11 +57,13 @@ export class SystemUser {
   })
   status: UserStatus;
 
-  @Column({ length: 6, nullable: true })
-  otp?: string;
+  // select: false: mai nelle risposte (created_by/updated_by sono visibili a
+  // tutti i ruoli). Li legge solo apis/auth/otp-store.ts.
+  @Column({ type: 'varchar', length: 6, nullable: true, select: false })
+  otp?: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
-  otp_expiry?: Date;
+  @Column({ type: 'timestamp', nullable: true, select: false })
+  otp_expiry?: Date | null;
 
   @Column({ type: 'timestamp', nullable: true, name: 'last_login' })
   lastLogin: Date | null;
