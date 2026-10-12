@@ -11,6 +11,7 @@ import { AssetStatusEnum } from '@apis/asset/enum/asset-status.enum';
 import { firstLocatedAsset, resolvePlantPosition } from '@apis/plants/plant.calc';
 import { Complex } from '@apis/complexes/entity/complex.entity';
 import { ComplexType } from '@apis/complexes/enum/complex-type.enum';
+import { ComplexKind } from '@apis/complexes/enum/complex-kind.enum';
 
 export interface MapPoint {
   id: number;
@@ -173,13 +174,18 @@ export class MapService {
     if (showUtilities) {
       const utilityWhere = {
         deleted: false,
-        ...(filters.utilityTypeIds?.length ? { utility_type_id_fk: In(filters.utilityTypeIds) } : {}),
+        ...(filters.utilityTypeIds?.length
+          ? { utility_type_id_fk: In(filters.utilityTypeIds) }
+          : {}),
         ...(filters.includeInactiveUtilities === false ? { supply_active: true } : {}),
       };
       // Nel perimetro: collegata a un immobile del perimetro o a un impianto di uno di questi.
       const utilities = await this.utilityRepo.find({
         where: hasPerimeter
-          ? [{ ...utilityWhere, assets: perimeter }, { ...utilityWhere, plants: { assets: perimeter } }]
+          ? [
+              { ...utilityWhere, assets: perimeter },
+              { ...utilityWhere, plants: { assets: perimeter } },
+            ]
           : utilityWhere,
         relations: { assets: true, plants: { assets: true }, utilityType: true },
       });
@@ -270,11 +276,15 @@ export class MapService {
       });
       const inPerimeter = (a: Asset) =>
         !a.deleted &&
-        (!filters.natureIds?.length || (a.nature_id != null && filters.natureIds.includes(a.nature_id))) &&
+        (!filters.natureIds?.length ||
+          (a.nature_id != null && filters.natureIds.includes(a.nature_id))) &&
         (!filters.functionIds?.length ||
           (a.function_id != null && filters.functionIds.includes(a.function_id))) &&
         (!filters.statuses?.length || filters.statuses.includes(a.status));
       for (const c of complexes) {
+        // Raggruppamento amministrativo (edifici distanti): nessun pin, gli
+        // immobili restano punti singoli.
+        if (c.kind === ComplexKind.ADMINISTRATIVE) continue;
         const visible = (c.assets ?? [])
           .filter(inPerimeter)
           .map((a) => ({ a, pos: this.resolveAssetPosition(a) }))

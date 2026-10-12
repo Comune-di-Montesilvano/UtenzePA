@@ -11,6 +11,7 @@ import {
 import { Asset } from '@apis/asset/entity/asset.entity';
 import { SystemUser } from '@apis/system-users/entity/system-user.entity';
 import { ComplexType } from '../enum/complex-type.enum';
+import { ComplexKind } from '../enum/complex-kind.enum';
 
 // Complesso: immobili gestiti o censiti come un insieme (palazzina di
 // alloggi, plesso scolastico, impianto sportivo). Livello "compendio" del
@@ -25,6 +26,10 @@ export class Complex {
 
   @Column({ type: 'enum', enum: ComplexType, nullable: true })
   complex_type: ComplexType | null;
+
+  // Fisico o amministrativo: il secondo non ha un pin in mappa.
+  @Column({ type: 'enum', enum: ComplexKind, default: ComplexKind.PHYSICAL })
+  kind: ComplexKind;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   toponym: string | null;

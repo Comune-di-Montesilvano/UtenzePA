@@ -24,10 +24,19 @@ export const COMPLEX_TYPE_LABEL: Record<ComplexType, string> = {
 };
 export const COMPLEX_TYPES = Object.keys(COMPLEX_TYPE_LABEL) as ComplexType[];
 
+// Gemello di backend/src/apis/complexes/enum/complex-kind.enum.ts. Amministrativo:
+// edifici distanti raggruppati (es. istituto comprensivo), nessun pin in mappa.
+export type ComplexKind = 'PHYSICAL' | 'ADMINISTRATIVE';
+export const COMPLEX_KIND_LABEL: Record<ComplexKind, string> = {
+  PHYSICAL: 'Fisico',
+  ADMINISTRATIVE: 'Amministrativo',
+};
+
 export interface Complex {
   id: number;
   name: string;
   complex_type: ComplexType | null;
+  kind: ComplexKind;
   toponym: string | null;
   address: string | null;
   civic_number: string | null;
@@ -47,6 +56,7 @@ export interface Complex {
 export interface ComplexPayload {
   name: string;
   complex_type: ComplexType | null;
+  kind: ComplexKind;
   toponym: string | null;
   address: string | null;
   civic_number: string | null;

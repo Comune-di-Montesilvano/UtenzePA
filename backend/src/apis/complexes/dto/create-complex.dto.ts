@@ -8,6 +8,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { ComplexType } from '../enum/complex-type.enum';
+import { ComplexKind } from '../enum/complex-kind.enum';
 
 export class CreateComplexDto {
   @IsString()
@@ -18,6 +19,10 @@ export class CreateComplexDto {
   @IsOptional()
   @IsEnum(ComplexType)
   complex_type?: ComplexType | null;
+
+  @IsOptional()
+  @IsEnum(ComplexKind)
+  kind?: ComplexKind;
 
   @IsOptional()
   @IsString()

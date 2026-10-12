@@ -180,7 +180,8 @@ export class ComplexesComponent implements OnInit, AfterViewInit {
   }
 
   typeText(c: Complex): string {
-    return c.complex_type ? COMPLEX_TYPE_LABEL[c.complex_type] : '';
+    const type = c.complex_type ? COMPLEX_TYPE_LABEL[c.complex_type] : '';
+    return c.kind === 'ADMINISTRATIVE' ? [type, 'amministrativo'].filter(Boolean).join(' · ') : type;
   }
 
   addressText(c: Complex): string {

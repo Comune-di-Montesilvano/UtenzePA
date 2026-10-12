@@ -33,6 +33,17 @@
               }
             </mat-select>
           </mat-form-field>
+          <mat-form-field>
+            <mat-label>Raggruppamento</mat-label>
+            <mat-select formControlName="kind">
+              @for (k of kinds; track k) {
+                <mat-option [value]="k">{{ kindLabel[k] }}</mat-option>
+              }
+            </mat-select>
+            <mat-hint>{{ form.controls.kind.value === 'ADMINISTRATIVE'
+              ? 'Edifici distanti (es. istituto comprensivo): in mappa si vedono i singoli edifici'
+              : 'Edifici vicini: in mappa un solo pin per il complesso' }}</mat-hint>
+          </mat-form-field>
           <!-- Assegnato dal MEF, valorizzato dall'import: non si modifica a mano. -->
           <mat-form-field matTooltip="Assegnato dal censimento MEF, valorizzato dall'import">
             <mat-label>Id compendio MEF</mat-label>
