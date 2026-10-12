@@ -79,6 +79,7 @@ export class SidebarComponent implements OnInit {
         {label: 'Tipologie immobili', icon: 'category', route: '/asset-nature'},
         {label: 'Funzioni immobili', icon: 'widgets', route: '/asset-function'},
         {label: 'Tipologie uso contatore', icon: 'sell', route: '/utility-types'},
+        {label: 'Tipi di atto', icon: 'gavel', route: '/act-types'},
         {label: 'Utenti e ruoli', icon: 'group', route: '/system-users'},
         {label: 'Log attività', icon: 'history', route: '/audit-log'},
         {label: 'Backup e manutenzione', icon: 'storage', route: '/backup-import'},

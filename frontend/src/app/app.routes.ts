@@ -11,6 +11,7 @@ import {AssetsComponent} from "./pages/assets/assets.component";
 import {UtilizerGrantComponent} from "./pages/utilizer-grant/utilizer-grant.component";
 import {PlantsComponent} from './pages/plants/plants.component';
 import {ComplexesComponent} from './pages/complexes/complexes.component';
+import {ActTypesComponent} from './pages/act-types/act-types.component';
 import {UtilitiesComponent} from "./pages/utilities/utilities.component";
 import {InvoicesComponent} from "./pages/invoices/invoices.component";
 import {ContractsComponent} from "./pages/contracts/contracts.component";
@@ -38,6 +39,7 @@ export const routes: Routes = [
       {path: 'backup-import', component: BackupImportComponent},
       {path: 'branding', component: BrandingSettingsComponent},
       {path: 'utility-types', component: UtilityTypesComponent},
+      {path: 'act-types', component: ActTypesComponent},
       {path: 'third-parties', component: ThirdPartiesComponent},
       {path: 'asset-nature', component: AssetNatureComponent},
       {path: 'asset-function', component: AssetFunctionComponent},
