@@ -98,6 +98,28 @@ describe('AttachmentsService', () => {
     );
   });
 
+  it('salvataggio in DB fallito: nessun file lasciato su disco', async () => {
+    repo.save.mockRejectedValueOnce(new Error('DB giù'));
+    upload('u7', Buffer.from('%PDF-1.7'));
+    await expect(finalize('u7', 'a.pdf')).rejects.toThrow('DB giù');
+    const dirOf = path.join(dir, 'contract', '3');
+    expect(fs.existsSync(dirOf) ? fs.readdirSync(dirOf) : []).toEqual([]);
+  });
+
+  it('primo pezzo di un upload: ripulisce i pezzi abbandonati da più di un giorno', () => {
+    const tmp = path.join(dir, 'tmp');
+    fs.mkdirSync(tmp, { recursive: true });
+    const old = path.join(tmp, 'vecchio.chunk0');
+    const recent = path.join(tmp, 'recente.chunk0');
+    fs.writeFileSync(old, 'x');
+    fs.writeFileSync(recent, 'x');
+    const twoDaysAgo = (Date.now() - 2 * 24 * 3600 * 1000) / 1000;
+    fs.utimesSync(old, twoDaysAgo, twoDaysAgo);
+    upload('u8', Buffer.from('%PDF-1.7'));
+    expect(fs.existsSync(old)).toBe(false);
+    expect(fs.existsSync(recent)).toBe(true);
+  });
+
   it('chunk oltre la dimensione massima → 400', () => {
     process.env.ATTACHMENT_MAX_SIZE_MB = '1';
     expect(() => upload('u4', Buffer.alloc(1024 * 1024 + 1))).toThrow(

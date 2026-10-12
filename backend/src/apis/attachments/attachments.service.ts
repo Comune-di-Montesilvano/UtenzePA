@@ -18,6 +18,8 @@ import { userRef } from '@apis/shared/user-ref';
 export type AttachmentRow = Attachment & { inspection: { id: number; kind: string } | null };
 
 const HEAD_BYTES = 8192;
+// Pezzi di upload interrotti (rete caduta, scheda chiusa): eliminati dopo un giorno.
+const STALE_CHUNK_MS = 24 * 60 * 60 * 1000;
 
 // Proprietario: tabella per il controllo di esistenza, entità del log attività,
 // etichetta nei messaggi. La verifica registra sull'impianto.
@@ -124,6 +126,7 @@ export class AttachmentsService {
 
   saveChunk(dto: UploadChunkDto, buffer: Buffer): void {
     const max = maxSizeBytes();
+    if (dto.chunkIndex === 0) this.sweepStaleChunks();
     try {
       this.chunkedUpload.saveChunk(
         dto.uploadId,
@@ -141,6 +144,24 @@ export class AttachmentsService {
         );
       }
       throw new BadRequestException(msg);
+    }
+  }
+
+  private sweepStaleChunks(): void {
+    let entries: string[];
+    try {
+      entries = fs.readdirSync(this.tmpDir);
+    } catch {
+      return;
+    }
+    const limit = Date.now() - STALE_CHUNK_MS;
+    for (const name of entries) {
+      const file = path.join(this.tmpDir, name);
+      try {
+        if (fs.statSync(file).mtimeMs < limit) fs.unlinkSync(file);
+      } catch {
+        // già rimosso da un'altra richiesta
+      }
     }
   }
 
@@ -173,19 +194,26 @@ export class AttachmentsService {
       fs.mkdirSync(path.dirname(target), { recursive: true });
       const size = fs.statSync(assembled).size;
       fs.renameSync(assembled, target);
-      const saved = await this.repo.save(
-        this.repo.create({
-          entity_type: dto.entity_type,
-          entity_id: dto.entity_id,
-          original_name: originalName,
-          stored_name: storedName,
-          mime_type: mime,
-          size_bytes: size,
-          description: dto.description?.trim() || null,
-          created_by_user_id: userId,
-          updated_by_user_id: userId,
-        }),
-      );
+      let saved: Attachment;
+      try {
+        saved = await this.repo.save(
+          this.repo.create({
+            entity_type: dto.entity_type,
+            entity_id: dto.entity_id,
+            original_name: originalName,
+            stored_name: storedName,
+            mime_type: mime,
+            size_bytes: size,
+            description: dto.description?.trim() || null,
+            created_by_user_id: userId,
+            updated_by_user_id: userId,
+          }),
+        );
+      } catch (e) {
+        // Senza la riga il file sarebbe irraggiungibile: si toglie.
+        fs.rmSync(target, { force: true });
+        throw e;
+      }
       await this.audit(dto.entity_type, owner, userId, 'attachment_added', null, originalName);
       return saved;
     } finally {

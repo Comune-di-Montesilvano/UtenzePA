@@ -43,7 +43,8 @@ export class AttachmentsController {
   // Pezzi da 512 KB (frontend ChunkedUploadService): limite del proxy di produzione.
   @Roles('Admin', 'Operatore')
   @Post('chunk')
-  @UseInterceptors(FileInterceptor('chunk'))
+  // Il frontend manda pezzi da 512 KB: oltre 1 MB la richiesta è rifiutata.
+  @UseInterceptors(FileInterceptor('chunk', { limits: { fileSize: 1024 * 1024 } }))
   chunk(
     @UploadedFile() chunk: Express.Multer.File,
     @Body() dto: UploadChunkDto,
