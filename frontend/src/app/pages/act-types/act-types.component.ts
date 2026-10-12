@@ -65,8 +65,8 @@ import {ActType} from '../acts/act.model';
               <td style="padding: 6px;">{{ t.name }}</td>
               <td style="padding: 6px;">{{ t.sort_order }}</td>
               <td style="padding: 6px; text-align: right; white-space: nowrap;">
-                <button mat-icon-button type="button" (click)="startEdit(t)" matTooltip="Modifica" [appHasRole]="['Admin']"><mat-icon>edit</mat-icon></button>
-                <button mat-icon-button type="button" (click)="remove(t)" matTooltip="Elimina" [appHasRole]="['Admin']"><mat-icon>delete</mat-icon></button>
+                <button mat-icon-button type="button" (click)="startEdit(t)" matTooltip="Modifica" aria-label="Modifica" [appHasRole]="['Admin']"><mat-icon>edit</mat-icon></button>
+                <button mat-icon-button type="button" (click)="remove(t)" matTooltip="Elimina" aria-label="Elimina" [appHasRole]="['Admin']"><mat-icon>delete</mat-icon></button>
               </td>
             </tr>
           } @empty {

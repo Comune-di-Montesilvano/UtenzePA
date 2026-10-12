@@ -80,10 +80,10 @@ const dateIt = (iso: string | null): string => (iso ? iso.slice(0, 10).split('-'
             <th mat-header-cell *matHeaderCellDef style="width: 110px;">Azioni</th>
             <td mat-cell *matCellDef="let item" style="white-space: nowrap;">
               @if (!item.deleted) {
-                <button mat-icon-button (click)="openDialog(item)" matTooltip="Dettaglio atto"><mat-icon>edit</mat-icon></button>
-                <button mat-icon-button (click)="remove(item)" [appHasRole]="['Admin','Operatore']" matTooltip="Elimina"><mat-icon>delete</mat-icon></button>
+                <button mat-icon-button (click)="openDialog(item)" matTooltip="Dettaglio atto" aria-label="Dettaglio atto"><mat-icon>edit</mat-icon></button>
+                <button mat-icon-button (click)="remove(item)" [appHasRole]="['Admin','Operatore']" matTooltip="Elimina" aria-label="Elimina"><mat-icon>delete</mat-icon></button>
               } @else {
-                <button mat-icon-button (click)="restore(item)" [appHasRole]="['Admin','Operatore']" matTooltip="Ripristina"><mat-icon>restore_from_trash</mat-icon></button>
+                <button mat-icon-button (click)="restore(item)" [appHasRole]="['Admin','Operatore']" matTooltip="Ripristina" aria-label="Ripristina"><mat-icon>restore_from_trash</mat-icon></button>
               }
             </td>
           </ng-container>

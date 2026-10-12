@@ -21,7 +21,7 @@
           <app-tab-label icon="dashboard" label="Riepilogo" [error]="invalid('act_type_id', 'subject')"></app-tab-label>
         </ng-template>
         <div class="sheet-grid">
-          <app-filterable-select label="Tipo di atto" placeholder="Cerca tipo..." [options]="typeOptions"
+          <app-filterable-select label="Tipo di atto *" placeholder="Cerca tipo..." [options]="typeOptions"
             formControlName="act_type_id" [createLabel]="isAdmin ? 'Nuovo tipo di atto' : null"
             (create)="newType($event)"
             [errorMessage]="form.controls.act_type_id.invalid && form.controls.act_type_id.touched ? 'Obbligatorio' : null">

@@ -134,7 +134,8 @@ const toDate = (iso?: string | null): Date | null => {
                   <td style="padding: 6px;">{{ r.provider ?? '' }}</td>
                   <td style="padding: 6px;">{{ r.outcome ?? '' }}</td>
                   <td style="padding: 6px; white-space: nowrap; text-align: right;">
-                    <button mat-icon-button type="button" (click)="openAttachments(r)" matTooltip="Allegati della verifica (es. verbale)">
+                    <button mat-icon-button type="button" (click)="openAttachments(r)" matTooltip="Allegati della verifica (es. verbale)"
+                            aria-label="Allegati della verifica">
                       <mat-icon [matBadge]="attachmentCounts.get(r.id) || null" matBadgeSize="small">attach_file</mat-icon>
                     </button>
                     @if (!readOnly) {

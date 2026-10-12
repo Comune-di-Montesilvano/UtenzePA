@@ -114,9 +114,9 @@ In **Mappa** il livello **Complessi** mostra un solo pin per ogni complesso fisi
 Nelle schede di **immobili**, **impianti**, **contratti immobiliari** e **contratti di fornitura** il tab **Documenti** raccoglie gli allegati e gli atti collegati.
 
 1. Apri il tab **Documenti** e, nella sezione **Allegati**, trascina i file nel riquadro oppure premi **scegli**. Non serve compilare nulla: la descrizione (es. «Contratto firmato», «Planimetria piano terra») è facoltativa e si scrive direttamente nella riga.
-2. Sono ammessi PDF, PDF firmati (.p7m), documenti e fogli di calcolo (Word, Excel, OpenDocument, CSV, testo), immagini (JPG, PNG, TIFF) ed email (.eml, .msg), fino a 50 MB per file.
+2. Sono ammessi PDF, PDF firmati (.p7m), documenti e fogli di calcolo (Word, Excel, OpenDocument, CSV, testo), immagini (JPG, PNG, TIFF) ed email (.eml, .msg). La dimensione massima per file è indicata nel riquadro (di norma 50 MB).
 3. Il verbale di una verifica di un impianto si allega alla verifica: nel tab **Verifiche** premi la graffetta sulla riga della verifica. Gli allegati delle verifiche compaiono anche nel tab **Documenti** dell'impianto, con l'indicazione «verifica: …».
-4. **Apri** mostra PDF e immagini in una nuova scheda del browser, **Scarica** salva il file. Un allegato eliminato non si vede più.
+4. **Apri** mostra PDF e immagini JPG e PNG in una nuova scheda del browser (gli altri file, TIFF compresi, si scaricano), **Scarica** salva il file. Un allegato eliminato non si vede più.
 
 ### Registrare un atto
 
@@ -309,7 +309,7 @@ In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni u
 
 ### «Tipo di file non ammesso» o «Il contenuto del file non corrisponde al tipo»
 
-**Causa:** il file non è di un tipo ammesso (es. ZIP o programmi), oppure l'estensione non corrisponde al contenuto (es. un file rinominato in .pdf), oppure supera i 50 MB.
+**Causa:** il file non è di un tipo ammesso (es. ZIP o programmi), oppure l'estensione non corrisponde al contenuto (es. un file rinominato in .pdf), oppure supera la dimensione massima indicata nel riquadro (di norma 50 MB), oppure è vuoto.
 
 **Soluzione:** salva o esporta il documento in PDF dal programma che lo ha creato, senza rinominare l'estensione; se è troppo grande, scansionalo a risoluzione più bassa o dividilo in più file.
 
