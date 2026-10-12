@@ -16,6 +16,7 @@ import { SystemUser } from '../../system-users/entity/system-user.entity';
 import { AssetNature } from '@apis/asset-natures/entity/asset-nature.entity';
 import { AssetFunction } from '@apis/asset-functions/entity/asset-function.entity';
 import { AssetStatusEnum } from '@apis/asset/enum/asset-status.enum';
+import { Complex } from '@apis/complexes/entity/complex.entity';
 
 @Entity('assets')
 export class Asset {
@@ -94,6 +95,9 @@ export class Asset {
   @Column({ type: 'int', nullable: true })
   function_id: number | null;
 
+  @Column({ type: 'int', nullable: true })
+  complex_id: number | null;
+
   @Column({ type: 'enum', enum: AssetStatusEnum, default: AssetStatusEnum.ATTIVO })
   status: AssetStatusEnum;
 
@@ -134,4 +138,8 @@ export class Asset {
   @ManyToOne(() => AssetFunction)
   @JoinColumn({ name: 'function_id' })
   assetFunction: AssetFunction;
+
+  @ManyToOne(() => Complex, (complex) => complex.assets, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'complex_id' })
+  complex: Complex | null;
 }

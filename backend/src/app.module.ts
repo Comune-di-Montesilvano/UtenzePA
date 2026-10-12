@@ -27,6 +27,7 @@ import { BudgetChapterSpendingModule } from '@apis/budget-chapter-spending/budge
 import { BudgetCommitmentsModule } from '@apis/budget-commitments/budget-commitments.module';
 import { SpendingModule } from '@apis/spending/spending.module';
 import { PlantsModule } from '@apis/plants/plants.module';
+import { ComplexesModule } from '@apis/complexes/complexes.module';
 import { AnomaliesModule } from '@apis/anomalies/anomalies.module';
 import { InvoicesModule } from '@apis/invoices/invoie.module';
 import { ConsipAgreementModule } from '@apis/consip-agreement/consip-agreement.module';
@@ -65,6 +66,7 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     BudgetCommitmentsModule,
     SpendingModule,
     PlantsModule,
+    ComplexesModule,
     AnomaliesModule,
     InvoicesModule,
     ConsipAgreementModule,

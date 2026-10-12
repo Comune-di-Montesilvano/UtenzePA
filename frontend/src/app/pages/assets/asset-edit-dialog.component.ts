@@ -56,6 +56,7 @@ import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navig
 import {partyNames} from '../../core/helpers/party-name.helper';
 import {SpendingService} from '../spending/spending.service';
 import type {AssetSpending} from '../spending/spending.model';
+import {ComplexService} from '../complexes/complex.service';
 
 interface UtilitySection {
   type: HardType;
@@ -101,6 +102,7 @@ export class AssetEditDialogComponent implements OnInit {
   private plantService = inject(PlantService);
   private grantService = inject(UtilizerGrantService);
   private navigator = inject(EntityNavigatorService);
+  private complexService = inject(ComplexService);
   protected data = inject<EditDialogData<Asset>>(MAT_DIALOG_DATA);
 
   @ViewChild(MatTabGroup) tabGroup?: MatTabGroup;
@@ -163,11 +165,15 @@ export class AssetEditDialogComponent implements OnInit {
     subordinate: [this.data.item.subordinate ?? null],
     area_sqm: [this.data.item.area_sqm ?? null],
     associated_building: [this.data.item.associated_building ?? null],
+    complex_id: [(this.data.item.complex_id ?? null) as number | null],
     specific_details: [this.data.item.specific_details ?? null],
     memo: [this.data.item.memo ?? null],
   });
 
   photoCount: number | null = null;
+
+  // Opzioni della select Complesso (cache).
+  complexOptions: TOption[] = [];
 
   // Collegamenti: campi cache, aggiornati solo su load/aggiunta/salvataggio.
   utilitySections: UtilitySection[] = [];
@@ -245,6 +251,7 @@ export class AssetEditDialogComponent implements OnInit {
     }
     this.loadNatures();
     this.loadFunctions();
+    this.loadComplexes();
     this.utilityTypesService.search({deleted: false}).subscribe({
       next: (data: UtilityType[]) => {
         this.utilityTypeIdByHardType.clear();
@@ -292,6 +299,46 @@ export class AssetEditDialogComponent implements OnInit {
     this.functionsService.search({deleted: false} as never).subscribe({
       next: data => this.allFunctions = data,
       error: err => console.error('Errore nel caricamento delle funzioni immobile:', err)
+    });
+  }
+
+  private loadComplexes(after?: () => void): void {
+    this.complexService.list().subscribe({
+      next: list => {
+        this.complexOptions = list
+          .map(c => ({label: c.name, value: c.id, icon: 'domain'}))
+          .sort((a, b) => a.label.localeCompare(b.label));
+        after?.();
+      },
+      error: err => console.error('Errore nel caricamento dei complessi:', err)
+    });
+  }
+
+  // Il complesso nuovo nasce già con questo immobile (se salvato).
+  newComplex(text: string): void {
+    const assetIds = this.data.item.id ? [this.data.item.id] : [];
+    this.navigator.createComplex({name: nameFrom(text), asset_ids: assetIds}).subscribe(c => {
+      if (!c) return;
+      this.loadComplexes(() => this.form.controls.complex_id.setValue(c.id));
+      this.form.controls.complex_id.markAsDirty();
+    });
+  }
+
+  // Dalla scheda complesso l'immobile può essere stato scollegato o spostato:
+  // se qui il campo non è stato toccato, si riallinea al server.
+  openComplex(): void {
+    const id = this.form.controls.complex_id.value;
+    if (!id) return;
+    this.navigator.openComplex(id).subscribe(saved => {
+      if (!saved) return;
+      this.loadComplexes();
+      const control = this.form.controls.complex_id;
+      if (!this.data.item.id || control.dirty) return;
+      this.assetService.getById(this.data.item.id).subscribe(a => {
+        if (control.dirty) return;
+        control.setValue(a.complex_id ?? null);
+        control.markAsPristine();
+      });
     });
   }
 

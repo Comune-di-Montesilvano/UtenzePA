@@ -1,0 +1,176 @@
+<app-entity-sheet
+  icon="domain"
+  color="var(--entity-complex)"
+  [title]="title()"
+  [subtitle]="subtitle()"
+  [lastModified]="lastModified()">
+  <ng-container sheetBadges>
+    <app-status-badge [info]="countBadge()" size="sm"></app-status-badge>
+  </ng-container>
+
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
+  <form [formGroup]="form">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
+
+      <mat-tab aria-label="Riepilogo">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="dashboard" label="Riepilogo" [error]="invalid('name')"></app-tab-label>
+        </ng-template>
+        <div class="sheet-grid">
+          <mat-form-field class="span-2">
+            <mat-label>Nome</mat-label>
+            <input matInput formControlName="name" maxlength="255">
+            <mat-error>Obbligatorio</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Tipo</mat-label>
+            <mat-select formControlName="complex_type">
+              <mat-option [value]="null">—</mat-option>
+              @for (t of types; track t) {
+                <mat-option [value]="t">{{ typeLabel[t] }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <!-- Assegnato dal MEF, valorizzato dall'import: non si modifica a mano. -->
+          <mat-form-field matTooltip="Assegnato dal censimento MEF, valorizzato dall'import">
+            <mat-label>Id compendio MEF</mat-label>
+            <input matInput [value]="complex?.mef_compendium_id ?? '—'" readonly>
+          </mat-form-field>
+        </div>
+
+        <div class="sheet-section-title"><mat-icon>place</mat-icon>Indirizzo e posizione</div>
+        <div class="sheet-location">
+          <div class="sheet-grid">
+            <mat-form-field>
+              <mat-label>Toponimo</mat-label>
+              <input matInput formControlName="toponym">
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Indirizzo</mat-label>
+              <input matInput formControlName="address">
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Civico</mat-label>
+              <input matInput formControlName="civic_number">
+            </mat-form-field>
+          </div>
+          <app-location-map
+            [latitude]="form.controls.latitude.value"
+            [longitude]="form.controls.longitude.value"
+            [previewOnly]="!canEdit"
+            [readOnly]="!canEdit"
+            (positionSelected)="onPositionSelected($event)"
+            (positionCleared)="onPositionCleared()">
+          </app-location-map>
+        </div>
+        @if (!form.controls.latitude.value) {
+          <p class="sheet-hint">Senza posizione propria, in mappa il complesso sta al centro dei suoi immobili.</p>
+        }
+
+        @if (complex) {
+          <div class="sheet-previews">
+            <app-preview-card title="Immobili" icon="apartment" color="var(--entity-asset)"
+                              [items]="assetPreview" emptyText="Nessun immobile"
+                              (seeAll)="goTo('Immobili')" (open)="openAsset($event.id)"></app-preview-card>
+          </div>
+          <p class="sheet-hint">{{ complex.utility_count }} utenze · {{ complex.plant_count }} impianti · {{ complex.active_grant_count }} contratti immobiliari attivi</p>
+        }
+      </mat-tab>
+
+      <mat-tab aria-label="Immobili">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="apartment" label="Immobili" [count]="assetRows.length"></app-tab-label>
+        </ng-template>
+        <app-linked-table
+          [columns]="assetColumns"
+          [rows]="assetRows"
+          [rowStatus]="assetStatusOf"
+          [addOptions]="canEdit ? assetOptions : null"
+          addLabel="Collega immobile"
+          itemLabel="l'immobile"
+          [unlinkable]="canEdit"
+          emptyText="Nessun immobile nel complesso."
+          [createLabel]="canEdit ? 'Nuovo immobile' : null"
+          (create)="newAsset()"
+          (add)="addAsset($event)"
+          (unlink)="unlinkAsset($event)"
+          (open)="openAsset($event.id)"></app-linked-table>
+      </mat-tab>
+
+      @if (complex) {
+        <mat-tab aria-label="Utenze">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="electric_meter" label="Utenze" [count]="utilityRows.length"></app-tab-label>
+          </ng-template>
+          <app-linked-table [columns]="utilityColumns" [rows]="utilityRows" [rowIcon]="utilityIconOf"
+                            [rowStatus]="utilityStatusOf" emptyText="Nessuna utenza sugli immobili del complesso."
+                            (open)="openUtility($event.id)"></app-linked-table>
+        </mat-tab>
+
+        <mat-tab aria-label="Impianti">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="settings_input_component" label="Impianti" [count]="plantRows.length"></app-tab-label>
+          </ng-template>
+          <app-linked-table [columns]="plantColumns" [rows]="plantRows" [rowStatus]="plantStatusOf"
+                            emptyText="Nessun impianto sugli immobili del complesso."
+                            (open)="openPlant($event.id)"></app-linked-table>
+        </mat-tab>
+
+        <mat-tab aria-label="Contratti immobiliari">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="real_estate_agent" label="Contratti immobiliari" [count]="grantRows.length"></app-tab-label>
+          </ng-template>
+          <app-linked-table [columns]="grantColumns" [rows]="grantRows" [rowStatus]="grantStatusOf"
+                            emptyText="Nessun contratto immobiliare sugli immobili del complesso."
+                            (open)="openGrant($event.id)"></app-linked-table>
+        </mat-tab>
+      }
+
+      <mat-tab aria-label="Note">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="notes" label="Note"></app-tab-label>
+        </ng-template>
+        <mat-form-field style="width: 100%;">
+          <mat-label>Note</mat-label>
+          <textarea matInput formControlName="notes" rows="6"></textarea>
+        </mat-form-field>
+      </mat-tab>
+
+      @if (complex) {
+        <mat-tab aria-label="Foto">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="photo_library" label="Foto"></app-tab-label>
+          </ng-template>
+          <ng-template matTabContent>
+            <app-photo-gallery [entityType]="'complex'" [entityId]="complex.id"></app-photo-gallery>
+          </ng-template>
+        </mat-tab>
+        <mat-tab aria-label="Storico">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="history" label="Storico"></app-tab-label>
+          </ng-template>
+          <ng-template matTabContent>
+            <app-entity-history
+              [entity]="'complexes'"
+              [entityId]="complex.id"
+              [lastModifiedBy]="complex.updated_by ? (complex.updated_by.firstName ?? '') + ' ' + (complex.updated_by.lastName ?? '') : null"
+              [lastModifiedAt]="complex.update_date ?? null">
+            </app-entity-history>
+          </ng-template>
+        </mat-tab>
+      }
+    </mat-tab-group>
+  </form>
+
+  <ng-container sheetActions>
+    @if (error) {
+      <p class="sheet-error">{{ error }}</p>
+    }
+    <button mat-stroked-button type="button" (click)="close()">{{ canEdit ? 'Annulla' : 'Chiudi' }}</button>
+    @if (canEdit) {
+      <button mat-flat-button type="button" (click)="save()" [disabled]="saving || loading">Salva</button>
+    }
+  </ng-container>
+</app-entity-sheet>

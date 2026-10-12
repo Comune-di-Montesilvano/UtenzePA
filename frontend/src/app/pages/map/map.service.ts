@@ -9,6 +9,7 @@ export interface MapPointsFilters {
   showAssets?: boolean;
   showUtilities?: boolean;
   showPlants?: boolean;
+  showComplexes?: boolean;
   plantTypes?: string[] | null;
   utilityTypeIds?: number[] | null;
   natureIds?: number[] | null;

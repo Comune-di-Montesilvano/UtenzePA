@@ -1,4 +1,4 @@
-export type PhotoEntityType = 'asset' | 'utility' | 'plant';
+export type PhotoEntityType = 'asset' | 'utility' | 'plant' | 'complex';
 
 export interface Photo {
   id: number;

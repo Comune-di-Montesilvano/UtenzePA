@@ -110,6 +110,11 @@ export class SearchAssetDto {
   function_id?: number;
 
   @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : Number(value)))
+  @IsInt()
+  complex_id?: number;
+
+  @IsOptional()
   @IsEnum(AssetStatusEnum)
   status?: AssetStatusEnum;
 

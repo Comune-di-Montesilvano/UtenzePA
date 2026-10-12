@@ -54,6 +54,7 @@ export class SidebarComponent implements OnInit {
       route: '/building',
       groupLabel: 'Patrimonio',
     },
+    {label: 'Complessi', icon: 'domain', route: '/complexes'},
     {
       label: 'Utenze',
       icon: 'bolt',

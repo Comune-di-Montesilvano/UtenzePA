@@ -17,7 +17,9 @@ const slug = (h) => h.toLowerCase().replace(/[^\p{L}\p{N} _-]/gu, '').replace(/ 
 const errors = [];
 const slugs = new Set();
 let inCode = false;
-for (const line of md.split('\n')) {
+// \r?\n: con la copia di lavoro in CRLF (Windows) il \r finale farebbe
+// fallire la regex dei titoli e tutte le ancore risulterebbero mancanti.
+for (const line of md.split(/\r?\n/)) {
   if (line.startsWith('```')) inCode = !inCode;
   if (inCode) continue;
   const m = /^#{1,6} (.+)$/.exec(line);

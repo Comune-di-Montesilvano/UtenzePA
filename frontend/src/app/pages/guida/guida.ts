@@ -18,6 +18,7 @@ export const GUIDA_PER_PAGINA: Record<string, string> = {
   'building': 'trovare-un-elemento-negli-elenchi',
   'utilities': 'gestire-la-voltura-di-unutenza',
   'plants': 'trovare-un-elemento-negli-elenchi',
+  'complexes': 'gestire-i-complessi',
   'invoices': 'registrare-una-fattura',
   'budget-chapter': 'controllare-la-spesa-di-un-capitolo',
   'contracts': 'contratti-di-fornitura',

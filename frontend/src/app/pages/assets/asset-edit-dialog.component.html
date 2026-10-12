@@ -65,6 +65,17 @@
             <mat-label>Descrizione fabbricato</mat-label>
             <textarea matInput formControlName="associated_building" rows="2" maxlength="255"></textarea>
           </mat-form-field>
+
+          <div class="span-all" style="display: flex; gap: 8px; align-items: flex-start;">
+            <app-filterable-select label="Complesso" placeholder="Cerca complesso..." [options]="complexOptions"
+              formControlName="complex_id" style="flex: 1;"
+              [createLabel]="canEdit ? 'Nuovo complesso' : null" (create)="newComplex($event)">
+            </app-filterable-select>
+            <button mat-icon-button type="button" style="margin-top: 8px;" [disabled]="!form.controls.complex_id.value"
+                    (click)="openComplex()" matTooltip="Apri il complesso" aria-label="Apri il complesso">
+              <mat-icon>open_in_new</mat-icon>
+            </button>
+          </div>
         </div>
 
         <div class="sheet-section-title"><mat-icon>place</mat-icon>Indirizzo e posizione</div>

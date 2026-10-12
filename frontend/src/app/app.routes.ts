@@ -10,6 +10,7 @@ import {BudgetChaptersComponent} from "./pages/budget-chapters/budget-chapters.c
 import {AssetsComponent} from "./pages/assets/assets.component";
 import {UtilizerGrantComponent} from "./pages/utilizer-grant/utilizer-grant.component";
 import {PlantsComponent} from './pages/plants/plants.component';
+import {ComplexesComponent} from './pages/complexes/complexes.component';
 import {UtilitiesComponent} from "./pages/utilities/utilities.component";
 import {InvoicesComponent} from "./pages/invoices/invoices.component";
 import {ContractsComponent} from "./pages/contracts/contracts.component";
@@ -42,6 +43,7 @@ export const routes: Routes = [
       {path: 'asset-function', component: AssetFunctionComponent},
       {path: 'budget-chapter', component: BudgetChaptersComponent},
       {path: 'building', component: AssetsComponent},
+      {path: 'complexes', component: ComplexesComponent},
       {path: 'utilizer-grant', component: UtilizerGrantComponent},
       {path: 'utilities', component: UtilitiesComponent},
       {path: 'plants', component: PlantsComponent},

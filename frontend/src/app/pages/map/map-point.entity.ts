@@ -1,7 +1,8 @@
 import { HardType } from '../utility-types/enum/hard-type.enum';
 import type { PlantType } from '../plants/plant.model';
+import type { ComplexType } from '../complexes/complex.model';
 
-export type MapPointType = 'asset' | 'utility' | 'plant';
+export type MapPointType = 'asset' | 'utility' | 'plant' | 'complex';
 export type MapPointSource = 'gps' | 'geocoded';
 export type UngeolocatedReason = 'no_address' | 'geocode_failed';
 
@@ -27,6 +28,11 @@ export interface MapPoint {
   plantId?: number | null;
   // Solo per type 'plant' — pilota l'icona per tipo impianto.
   plantType?: PlantType;
+  // type 'asset': complesso dell'immobile (pin nascosto a complesso chiuso).
+  complexId?: number | null;
+  // type 'complex': immobili visibili del complesso.
+  assetIds?: number[];
+  complexType?: ComplexType | null;
   // Immobile o impianto dismesso, utenza cessata: marker sbiadito.
   inactive?: boolean;
 }

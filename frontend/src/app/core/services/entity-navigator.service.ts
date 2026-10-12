@@ -31,6 +31,7 @@ import {CommitmentService} from '../../pages/contracts/commitments/commitment.se
 import {chapterLabel, Commitment, CommitmentPayload} from '../../pages/contracts/commitments/commitment.model';
 import type {CommitmentDialogData} from '../../pages/contracts/commitments/commitment-edit-dialog.component';
 import type {Plant} from '../../pages/plants/plant.model';
+import type {Complex, ComplexPayload} from '../../pages/complexes/complex.model';
 import {ToastService} from './toast.service';
 
 // Import dinamici: i dialog iniettano questo servizio, un import statico dei
@@ -38,6 +39,7 @@ import {ToastService} from './toast.service';
 const ASSET_DIALOG = () => import('../../pages/assets/asset-edit-dialog.component').then(m => m.AssetEditDialogComponent);
 const UTILITY_DIALOG = () => import('../../pages/utilities/utility-edit-dialog.component').then(m => m.UtilityEditDialogComponent);
 const PLANT_DIALOG = () => import('../../pages/plants/plant-edit-dialog.component').then(m => m.PlantEditDialogComponent);
+const COMPLEX_DIALOG = () => import('../../pages/complexes/complex-edit-dialog.component').then(m => m.ComplexEditDialogComponent);
 const CONTRACT_DIALOG = () => import('../../pages/contracts/contract-edit-dialog.component').then(m => m.ContractEditDialogComponent);
 const GRANT_DIALOG = () => import('../../pages/utilizer-grant/utilizer-grant-edit-dialog.component').then(m => m.UtilizerGrantEditDialogComponent);
 const INVOICE_DIALOG = () => import('../../pages/invoices/invoice-edit-dialog.component').then(m => m.InvoiceEditDialogComponent);
@@ -110,6 +112,19 @@ export class EntityNavigatorService {
     return this.sheet<{plantId: null; assetId: number | null}, Plant | null>(
       PLANT_DIALOG, {plantId: null, assetId},
     ).pipe(map(p => p ?? null));
+  }
+
+  // Il dialog complesso salva da sé e chiude con il complesso se ha salvato.
+  openComplex(id: number): Observable<boolean> {
+    return this.sheet<{complexId: number}, Complex | null>(COMPLEX_DIALOG, {complexId: id}).pipe(
+      map(saved => !!saved),
+    );
+  }
+
+  createComplex(prefill: Partial<ComplexPayload> = {}): Observable<Complex | null> {
+    return this.sheet<{complexId: null; prefill: Partial<ComplexPayload>}, Complex | null>(
+      COMPLEX_DIALOG, {complexId: null, prefill},
+    ).pipe(map(c => c ?? null));
   }
 
   openSupplyContract(id: number): Observable<Contract | null> {

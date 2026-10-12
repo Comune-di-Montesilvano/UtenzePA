@@ -12,7 +12,7 @@ export class PhotoUploadFinalizeDto {
   @Min(1, { message: 'Il campo totalChunks deve essere >= 1' })
   totalChunks: number;
 
-  @IsEnum(PhotoEntityType, { message: 'entityType deve essere "asset" o "utility"' })
+  @IsEnum(PhotoEntityType, { message: 'entityType deve essere "asset", "utility", "plant" o "complex"' })
   entityType: PhotoEntityType;
 
   @Transform(({ value }) => Number(value))

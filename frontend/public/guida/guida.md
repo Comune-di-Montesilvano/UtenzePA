@@ -91,8 +91,20 @@ Una matricola diversa dalla precedente indica un nuovo contatore. Il grafico mos
 - Tipologia e funzione dell'immobile filtrano anche utenze e impianti; lo stato filtra solo gli immobili.
 - Di default immobili dismessi e utenze cessate sono nascosti.
 - La ricerca indirizzo cerca prima nel territorio del Comune, poi altrove.
+- Il livello **Complessi** raggruppa gli immobili di un complesso in un solo pin (vedi «Gestire i complessi»).
 
 Un'utenza compare sulla mappa con le sue coordinate. Se non le ha, usa la posizione dell'immobile collegato, poi quella dell'impianto collegato.
+
+### Gestire i complessi
+
+Un **complesso** raggruppa immobili gestiti o censiti come un insieme: una palazzina di alloggi, un plesso scolastico, un impianto sportivo con più edifici. Il tipo segue i tipi di compendio del censimento MEF.
+
+1. Apri **Complessi** dal menu e premi **Nuovo complesso**, oppure scegli **Nuovo complesso** dal campo **Complesso** nella scheda di un immobile.
+2. Nel tab **Immobili** collega gli immobili del complesso. Un immobile sta in un solo complesso: collegarlo qui lo toglie da quello precedente.
+3. I tab **Utenze**, **Impianti** e **Contratti immobiliari** mostrano quelli degli immobili del complesso, in sola lettura: si modificano dalle loro schede.
+4. Un complesso con immobili collegati non si può eliminare: scollega prima gli immobili.
+
+In **Mappa** il livello **Complessi** mostra un solo pin per complesso. Clicca il pin e scegli **Mostra immobili**, oppure avvicinati (zoom alto): compaiono gli immobili e le loro utenze.
 
 ### Fare un backup (solo amministratori)
 

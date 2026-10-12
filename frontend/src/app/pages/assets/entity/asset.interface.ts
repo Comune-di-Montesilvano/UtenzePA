@@ -28,6 +28,7 @@ export interface IAsset {
   category?: string | null;
   nature_id?: number | null;
   function_id?: number | null;
+  complex_id?: number | null;
   status?: string;
   created_by?: { id: number; name: string } | null;
   updated_by?: { id: number; firstName: string; lastName: string } | null;

@@ -8,6 +8,7 @@ import { SearchAssetDto } from './dto/search-asset.dto';
 import { BaseService } from '../shared/base.service';
 import { GeocodingService } from '@apis/geocoding/geocoding.service';
 import { AssetNature } from '@apis/asset-natures/entity/asset-nature.entity';
+import { Complex } from '@apis/complexes/entity/complex.entity';
 
 const ADDRESS_FIELDS = ['toponym', 'address', 'civic_number', 'zip_code', 'municipality'] as const;
 
@@ -58,10 +59,13 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     private readonly geocodingService: GeocodingService,
     @InjectRepository(AssetNature)
     private readonly natureRepo: Repository<AssetNature>,
+    @InjectRepository(Complex)
+    private readonly complexRepo: Repository<Complex>,
   ) {
     super();
     this.auditLabelResolvers = {
       nature_id: { repo: this.natureRepo, field: 'name' },
+      complex_id: { repo: this.complexRepo, field: 'name' },
     };
   }
 
@@ -69,6 +73,7 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     const qb = this.repo.createQueryBuilder('assets');
     qb.leftJoinAndSelect('assets.assetNature', 'assetNature', 'assetNature.deleted = 0');
     qb.leftJoinAndSelect('assets.assetFunction', 'assetFunction', 'assetFunction.deleted = 0');
+    qb.leftJoinAndSelect('assets.complex', 'complex', 'complex.deleted = 0');
     // Servono per mostrare "ultima modifica" nell'header del dialog aperto
     // dalla riga di tabella (che usa findAll(), non findOne()) — mancavano
     // qui, presenti solo in findOne(), stesso identico bug già noto per
@@ -106,6 +111,7 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
       .createQueryBuilder('assets')
       .leftJoinAndSelect('assets.assetNature', 'assetNature', 'assetNature.deleted = 0')
       .leftJoinAndSelect('assets.assetFunction', 'assetFunction', 'assetFunction.deleted = 0')
+      .leftJoinAndSelect('assets.complex', 'complex', 'complex.deleted = 0')
       .leftJoinAndSelect('assets.created_by', 'created_by')
       .leftJoinAndSelect('assets.updated_by', 'updated_by')
       .leftJoinAndSelect('assets.utilities', 'utilities', 'utilities.deleted = 0')
