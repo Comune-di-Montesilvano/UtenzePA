@@ -7,6 +7,8 @@ import {SystemUser} from '../../system-users/entity/system-user.entity';
 import {AssetNature} from '../../asset-nature/entity/asset-nature.entity';
 import {AssetFunction} from '../../asset-function/entity/asset-function.entity';
 import {AssetStatus} from '../enum/asset-status.enum';
+import {AssetMef, ConstructionPeriod, HeritageConstraint, LegalNature} from '../mef-domains';
+import {CadastralUnit} from './cadastral-unit';
 
 export class Asset extends AbstractEntity implements IAsset {
   asset_name!: string;
@@ -24,16 +26,33 @@ export class Asset extends AbstractEntity implements IAsset {
   longitude?: string;
   geocoded_latitude?: string;
   geocoded_longitude?: string;
-  sheet?: string;
-  parcel?: string;
-  subordinate?: string;
-
   @Transform(({ value }) => (value !== null && value !== undefined && value !== '' ? Number(value) : value))
   area_sqm?: number;
 
+  // Dati del censimento MEF. mef_id: sola lettura, lo scrive l'import.
+  @Exclude({toPlainOnly: true})
+  mef_id?: number | null;
+  legal_nature?: LegalNature | null;
   @Transform(({ value }) => (value !== null && value !== undefined && value !== '' ? Number(value) : value))
-  cadastral_value?: number;
-  category?: string;
+  reference_area_sqm?: number | null;
+  @Transform(({ value }) => (value !== null && value !== undefined && value !== '' ? Number(value) : value))
+  appurtenance_area_sqm?: number | null;
+  @Transform(({ value }) => (value !== null && value !== undefined && value !== '' ? Number(value) : value))
+  volume_m3?: number | null;
+  construction_period?: ConstructionPeriod | null;
+  heritage_constraint?: HeritageConstraint | null;
+  federal_transfer?: boolean | null;
+  confiscated?: boolean | null;
+
+  // Unità catastali lette dal backend; il salvataggio le invia come cadastral_units.
+  @Exclude({toPlainOnly: true})
+  @Type(() => CadastralUnit)
+  cadastralUnits?: CadastralUnit[];
+  cadastral_units?: CadastralUnit[];
+
+  // Dati MEF calcolati dal backend (utilizzo, accatastamento, tipologia…).
+  @Exclude({toPlainOnly: true})
+  mef?: AssetMef;
   nature_id?: number | null;
   function_id?: number | null;
   complex_id?: number | null;
@@ -76,7 +95,6 @@ export class Asset extends AbstractEntity implements IAsset {
       status: AssetStatus.ATTIVO,
       ownership: 1,
       area_sqm: 0,
-      cadastral_value: 0,
       deleted: false,
       ...data
     });

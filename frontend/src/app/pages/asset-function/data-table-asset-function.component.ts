@@ -14,6 +14,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
 import {ICON_FALLBACK} from '../../core/helpers/material-icons';
 import {AssetFunction} from './entity/asset-function.entity';
 import {AssetFunctionEditDialogComponent} from './asset-function-edit-dialog.component';
+import {MEF_BUILDING_TYPE_LABEL} from '../assets/mef-domains';
 
 @Component({
   selector: 'app-data-table-asset-function',
@@ -26,8 +27,9 @@ import {AssetFunctionEditDialogComponent} from './asset-function-edit-dialog.com
   templateUrl: './data-table-asset-function.component.html'
 })
 export class DataTableAssetFunctionComponent extends AbstractDataTableComponent<AssetFunction> {
-  displayedColumns = ['actions', 'id', 'icon', 'name'];
+  displayedColumns = ['actions', 'id', 'icon', 'name', 'mef_building_type'];
   iconFallback = ICON_FALLBACK;
+  buildingTypeLabel = MEF_BUILDING_TYPE_LABEL as Record<string, string>;
 
   constructor(screen: ScreenSizeService) {
     super(screen);
