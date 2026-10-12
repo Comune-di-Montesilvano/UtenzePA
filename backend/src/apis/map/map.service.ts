@@ -292,10 +292,25 @@ export class MapService {
         const own = isSet(c.latitude) && isSet(c.longitude);
         // Con posizione propria basta un immobile nel perimetro, anche senza coordinate.
         if (!visible.length && !(own && members.length)) continue;
+        // Pin nella posizione condivisa dal maggior numero di immobili (così gli
+        // immobili in quel punto confluiscono nel pin); a parità, la media.
+        const byPos = new Map<string, { lat: string; lng: string; n: number }>();
+        for (const x of visible) {
+          const key = `${x.pos.lat},${x.pos.lng}`;
+          const cur = byPos.get(key) ?? { lat: x.pos.lat, lng: x.pos.lng, n: 0 };
+          cur.n += 1;
+          byPos.set(key, cur);
+        }
+        const ranked = [...byPos.values()].sort((p, q) => q.n - p.n);
+        const top =
+          ranked[0] && ranked[0].n > 1 && ranked[0].n > (ranked[1]?.n ?? 0) ? ranked[0] : null;
         const avg = (k: 'lat' | 'lng') =>
-          (
-            visible.reduce((s, x) => s + parseFloat(x.pos[k].replace(',', '.')), 0) / visible.length
-          ).toFixed(6);
+          top
+            ? top[k]
+            : (
+                visible.reduce((s, x) => s + parseFloat(x.pos[k].replace(',', '.')), 0) /
+                visible.length
+              ).toFixed(6);
         points.push({
           id: c.id,
           type: 'complex',

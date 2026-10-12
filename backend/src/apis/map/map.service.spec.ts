@@ -71,6 +71,38 @@ describe('MapService', () => {
       );
     });
 
+    it('pin nella posizione condivisa dalla maggioranza degli immobili, non nella media', async () => {
+      assetRepo.find.mockResolvedValue([]);
+      utilityRepo.find.mockResolvedValue([]);
+      complexRepo.find.mockResolvedValue([
+        {
+          id: 5,
+          name: 'Palazzina',
+          address: null,
+          latitude: null,
+          longitude: null,
+          complex_type: null,
+          assets: [
+            located(1, '42.5', '14.1'),
+            located(2, '42.5', '14.1'),
+            located(3, '42.3', '14.3'),
+          ],
+        },
+      ]);
+
+      const { points } = await service.getPoints({});
+
+      expect(points).toContainEqual(
+        expect.objectContaining({
+          id: 5,
+          type: 'complex',
+          lat: '42.5',
+          lng: '14.1',
+          assetIds: [1, 2, 3],
+        }),
+      );
+    });
+
     it('posizione propria e immobili senza coordinate: il complesso compare comunque', async () => {
       assetRepo.find.mockResolvedValue([]);
       utilityRepo.find.mockResolvedValue([]);

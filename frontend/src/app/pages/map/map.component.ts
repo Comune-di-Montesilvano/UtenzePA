@@ -39,7 +39,6 @@ import { CoordinateHelper } from '../../core/helpers/coordinate.helper';
 import { StreetViewHelper } from '../../core/helpers/street-view.helper';
 import { ToastService } from '../../core/services/toast.service';
 import { PLANT_STATUS_LABEL, PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PLANT_TYPES, PlantStatus } from '../plants/plant.model';
-import { COMPLEX_TYPE_LABEL } from '../complexes/complex.model';
 
 // Marker immobile: icona Material Icons della funzione dell'immobile,
 // ICON_FALLBACK se la funzione manca o non ha icona.
@@ -49,7 +48,6 @@ const COMPLEX_COLOR = 'var(--entity-complex)';
 // Oltre questo zoom i complessi si aprono da soli (immobili al posto del pin).
 // Un livello sopra disableClusteringAtZoom (17): a 17 il pin complesso si vede
 // singolo e si può cliccare, altrimenti nelle zone dense resterebbe in un cluster.
-const COMPLEX_EXPAND_ZOOM = 18;
 // Contatore senza tipologia associata (dato mancante) — icona neutra.
 const UNKNOWN_UTILITY_ICON = 'fa fa-question';
 const UNKNOWN_UTILITY_COLOR = '#757575';
@@ -80,6 +78,13 @@ const SEARCH_MARKER_ICON = L.divIcon({
 const LINK_COLOR = '#ea580c';
 const LINK_STYLE: L.PolylineOptions = { dashArray: '6,4', weight: 2.5, color: LINK_COLOR, opacity: 0.9, interactive: false };
 const LINK_STYLE_HL: L.PolylineOptions = { ...LINK_STYLE, weight: 5, opacity: 1, dashArray: undefined };
+// Immobile del complesso lontano dal pin del complesso: stesso tratteggio,
+// colore dei complessi (colore "dato", come i pin: niente token CSS negli attributi SVG).
+const COMPLEX_LINK_COLOR = '#4f46e5';
+// Immobili di un complesso entro questa distanza dal pin confluiscono nel pin.
+const COMPLEX_SNAP_METERS = 40;
+const COMPLEX_LINK_STYLE: L.PolylineOptions = { ...LINK_STYLE, color: COMPLEX_LINK_COLOR, opacity: 0.8 };
+const COMPLEX_LINK_STYLE_HL: L.PolylineOptions = { ...COMPLEX_LINK_STYLE, weight: 5, opacity: 1, dashArray: undefined };
 
 const SAFE_DEFAULT_CENTER: L.LatLngExpression = [42.5083, 14.15];
 
@@ -164,8 +169,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   layerCounts: Record<'asset' | 'utility' | 'plant' | 'complex', number> = { asset: 0, utility: 0, plant: 0, complex: 0 };
   // Ultima risposta del server e complessi aperti col clic (vedi visiblePoints).
   private lastPoints: MapPoint[] = [];
-  private expandedComplexes = new Set<number>();
-  private aboveExpandZoom = false;
   // zoomToShowLayer in corso: il ridisegno per la soglia dei complessi aspetta,
   // altrimenti toglierebbe il marker cercato (TypeError in showMarker di markercluster).
   private zoomingToMarker = false;
@@ -386,7 +389,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private goToAsset(id: number | null): void {
     if (id == null || !this.map) return;
-    this.revealAsset(id);
 
     const marker = this.assetMarkers.get(id);
     if (marker && this.clusterGroup) {
@@ -407,7 +409,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   // e' altrove, spesso in un cluster diverso. Stesso pattern di goToAsset.
   private goToUtility(id: number): void {
     if (!this.map) return;
-    this.revealLinked('utility', id);
     const marker = this.utilityMarkers.get(id);
     if (!marker || !this.clusterGroup) return;
     this.zoomToMarker(marker);
@@ -415,7 +416,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private goToPlant(id: number): void {
     if (!this.map) return;
-    this.revealLinked('plant', id);
     const marker = this.plantMarkers.get(id);
     if (!marker || !this.clusterGroup) return;
     this.zoomToMarker(marker);
@@ -493,17 +493,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     // qui / Aggiungi contatore qui" con le coordinate del click.
     this.map.on('contextmenu', (event: L.LeafletMouseEvent) => this.openAddPicker(event.latlng));
 
-    // Superata la soglia di zoom i complessi si aprono (e si richiudono tornando sotto).
-    this.aboveExpandZoom = this.map.getZoom() >= COMPLEX_EXPAND_ZOOM;
-    // Su moveend e mai durante zoomToMarker (vedi zoomingToMarker): il moveend
-    // finale del "vai al punto" ridisegna con la soglia aggiornata.
-    this.map.on('moveend', () => setTimeout(() => {
-      if (this.zoomingToMarker) return;
-      const above = (this.map?.getZoom() ?? 0) >= COMPLEX_EXPAND_ZOOM;
-      if (above === this.aboveExpandZoom) return;
-      this.aboveExpandZoom = above;
-      this.renderPoints(this.visiblePoints());
-    }));
   }
 
   ngOnDestroy(): void {
@@ -545,12 +534,18 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     // Posizioni di immobili e impianti, per le linee tratteggiate verso i
     // collegati che stanno in un punto diverso (un'utenza che eredita la
     // posizione non deve produrre una linea di lunghezza zero).
-    const latLngOf = (p: MapPoint) => ({
+    const rawLatLng = (p: MapPoint) => ({
       lat: CoordinateHelper.parseCoordinate(p.lat),
       lng: CoordinateHelper.parseCoordinate(p.lng),
     });
+    // Immobili di un complesso a pochi metri dal suo pin (coordinate quasi
+    // uguali) confluiscono nel pin, con utenze e impianti nello stesso punto;
+    // più lontani restano a parte, con la linea verso il complesso.
+    const snapped = this.snapToComplexes(points, rawLatLng);
+    const latLngOf = (p: MapPoint) => snapped.get(p) ?? rawLatLng(p);
     const assetLatLngById = new Map<number, { lat: number; lng: number }>();
     const plantLatLngById = new Map<number, { lat: number; lng: number }>();
+    const complexLatLngById = new Map<number, { lat: number; lng: number }>();
     const assetNameById = new Map<number, string>();
     for (const p of points) {
       const ll = latLngOf(p);
@@ -560,6 +555,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         assetLatLngById.set(p.id, ll);
       } else if (p.type === 'plant') {
         plantLatLngById.set(p.id, ll);
+      } else if (p.type === 'complex') {
+        complexLatLngById.set(p.id, ll);
       }
     }
 
@@ -617,7 +614,14 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         ({ iconHtml, color } = this.pointIcon(principal));
         const utilities = members.filter((m) => m.type === 'utility').length;
         const plants = members.filter((m) => m.type === 'plant').length;
+        const buildings = members.filter((m) => m.type === 'asset').length;
         badgeHtml =
+          (principal.type === 'complex' && buildings > 0
+            ? `<span class="map-pin-badge map-pin-badge--group map-pin-badge--buildings"
+                 data-badge-filter="asset" title="${buildings} immobili collegati — clicca per vederli">
+                 <span class="material-icons">holiday_village</span>${buildings}
+               </span>`
+            : '') +
           (plants > 0
             ? `<span class="map-pin-badge map-pin-badge--group map-pin-badge--plants"
                  data-badge-filter="plant" title="${plants} impianti collegati — clicca per vederli">
@@ -687,10 +691,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
           | 'utility'
           | 'plant'
           | undefined;
-        if (principal?.type === 'complex') {
-          this.openComplexPopup(principal, L.latLng(lat, lng));
-          return;
-        }
         if (principal) {
           if (filterType) this.openMembersPicker(principal, members, filterType);
           else this.openDetail(principal);
@@ -717,15 +717,23 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Linee tratteggiate verso il "padre" quando sta in un punto diverso:
     // utenza → immobile (o, senza immobile, → impianto), impianto → immobile.
-    const line = (from: { lat: number; lng: number }, to: { lat: number; lng: number }, a: string, b: string) => {
+    const lineStyle = new Map<L.Polyline, [L.PolylineOptions, L.PolylineOptions]>();
+    const line = (
+      from: { lat: number; lng: number },
+      to: { lat: number; lng: number },
+      a: string,
+      b: string,
+      styles: [L.PolylineOptions, L.PolylineOptions] = [LINK_STYLE, LINK_STYLE_HL],
+    ) => {
       if (!this.linksLayer || (from.lat === to.lat && from.lng === to.lng)) return;
       const pl = L.polyline(
         [
           [from.lat, from.lng],
           [to.lat, to.lng],
         ],
-        { ...LINK_STYLE },
+        { ...styles[0] },
       ).addTo(this.linksLayer);
+      lineStyle.set(pl, styles);
       addTo(linesByKey, a, pl);
       addTo(linesByKey, b, pl);
     };
@@ -740,6 +748,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       } else if (p.type === 'plant' && p.assetId != null) {
         const asset = assetLatLngById.get(p.assetId);
         if (asset) line(asset, ll, `asset:${p.assetId}`, keyOf(p));
+      } else if (p.type === 'asset' && p.complexId != null) {
+        const complex = complexLatLngById.get(p.complexId);
+        if (complex) line(complex, ll, `complex:${p.complexId}`, keyOf(p), [COMPLEX_LINK_STYLE, COMPLEX_LINK_STYLE_HL]);
       }
     }
 
@@ -751,12 +762,44 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
           for (const m of markersByKey.get(k) ?? []) {
             if (m !== marker) m.getElement()?.classList.toggle('map-marker--related', on);
           }
-          for (const pl of linesByKey.get(k) ?? []) pl.setStyle(on ? LINK_STYLE_HL : LINK_STYLE);
+          for (const pl of linesByKey.get(k) ?? []) {
+            const [base, hl] = lineStyle.get(pl) ?? [LINK_STYLE, LINK_STYLE_HL];
+            pl.setStyle(on ? hl : base);
+          }
         }
       };
       marker.on('mouseover', () => highlight(true));
       marker.on('mouseout', () => highlight(false));
     }
+  }
+
+  private snapToComplexes(
+    points: MapPoint[],
+    pos: (p: MapPoint) => { lat: number; lng: number },
+  ): Map<MapPoint, { lat: number; lng: number }> {
+    const out = new Map<MapPoint, { lat: number; lng: number }>();
+    const near = (x: { lat: number; lng: number }, y: { lat: number; lng: number }) =>
+      Math.hypot((x.lat - y.lat) * 111000, (x.lng - y.lng) * 111000 * Math.cos((x.lat * Math.PI) / 180)) <= COMPLEX_SNAP_METERS;
+    const same = (x: { lat: number; lng: number }, y: { lat: number; lng: number }) => x.lat === y.lat && x.lng === y.lng;
+    for (const c of points) {
+      if (c.type !== 'complex') continue;
+      const cp = pos(c);
+      if (Number.isNaN(cp.lat) || Number.isNaN(cp.lng)) continue;
+      for (const a of points) {
+        if (a.type !== 'asset' || a.complexId !== c.id) continue;
+        const ap = pos(a);
+        if (Number.isNaN(ap.lat) || same(ap, cp) || !near(ap, cp)) continue;
+        out.set(a, cp);
+        const plantIds = new Set(points.filter((p) => p.type === 'plant' && p.assetId === a.id).map((p) => p.id));
+        for (const p of points) {
+          const linked =
+            (p.type === 'plant' && p.assetId === a.id) ||
+            (p.type === 'utility' && (p.assetId === a.id || (p.plantId != null && plantIds.has(p.plantId))));
+          if (linked && same(pos(p), ap)) out.set(p, cp);
+        }
+      }
+    }
+    return out;
   }
 
   // Chi rappresenta un punto con più elementi sovrapposti:
@@ -772,6 +815,19 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     | { type: 'stack' }
     | { type: 'mixed' } {
     if (group.length === 1) return { type: 'principal', principal: group[0] };
+    const complexes = group.filter((g) => g.type === 'complex');
+    if (complexes.length === 1) {
+      const c = complexes[0];
+      const assetIds = new Set(group.filter((g) => g.type === 'asset' && g.complexId === c.id).map((g) => g.id));
+      const plantIds = new Set(group.filter((g) => g.type === 'plant' && g.assetId != null && assetIds.has(g.assetId)).map((g) => g.id));
+      const belongs = (g: MapPoint) =>
+        g === c ||
+        (g.type === 'asset' && assetIds.has(g.id)) ||
+        (g.type === 'plant' && plantIds.has(g.id)) ||
+        (g.type === 'utility' &&
+          ((g.assetId != null && assetIds.has(g.assetId)) || (g.plantId != null && plantIds.has(g.plantId))));
+      if (group.every(belongs)) return { type: 'principal', principal: c };
+    }
     const assets = group.filter((g) => g.type === 'asset');
     const plants = group.filter((g) => g.type === 'plant');
     if (assets.length === 1) {
@@ -807,7 +863,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       if (p !== principal && !out.some((x) => x.type === p.type && x.id === p.id)) out.push(p);
     };
     group.forEach(add);
-    if (principal.type === 'asset') {
+    if (principal.type === 'complex') {
+      this.lastPoints.filter((p) => p.type === 'asset' && p.complexId === principal.id).forEach(add);
+    } else if (principal.type === 'asset') {
       (this.utilitiesByAsset.get(principal.id) ?? []).forEach(add);
       (this.plantsByAsset.get(principal.id) ?? []).forEach(add);
     } else if (principal.type === 'plant') {
@@ -977,8 +1035,6 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         const target = sorted[idx];
         this.map?.closePopup();
         if (target.type === 'asset') this.openAssetOrPicker(target);
-        // Complesso nel gruppo misto: stesso popup del pin singolo (con "Mostra immobili").
-        else if (target.type === 'complex') this.openComplexPopup(target, L.latLng(lat, lng));
         else this.openDetail(target);
       });
     });
@@ -996,68 +1052,10 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  // Complessi chiusi: un solo pin al posto dei loro immobili; anche utenze e
-  // impianti di quegli immobili restano nascosti (altrimenti pin orfani nello
-  // stesso punto). Aperti (clic) o da zoom 18: immobili e collegati, senza pin complesso.
-  // "Vai al punto" verso un immobile di un complesso chiuso: si apre il
-  // complesso, altrimenti il marker non esiste e si aprirebbe solo la scheda.
-  private revealAsset(assetId: number): void {
-    const c = this.lastPoints.find((p) => p.type === 'complex' && (p.assetIds ?? []).includes(assetId));
-    if (!c || this.expandedComplexes.has(c.id)) return;
-    this.expandedComplexes.add(c.id);
-    this.renderPoints(this.visiblePoints());
-  }
-
-  private revealLinked(type: 'utility' | 'plant', id: number): void {
-    const p = this.lastPoints.find((x) => x.type === type && x.id === id && x.assetId != null);
-    if (p?.assetId != null) this.revealAsset(p.assetId);
-  }
-
+  // Tutti i punti: gli immobili di un complesso nello stesso punto confluiscono
+  // nel suo pin (classifyGroup), quelli lontani restano con una linea al complesso.
   private visiblePoints(): MapPoint[] {
-    // Livello Immobili spento: niente pin complesso e niente nascosto, così
-    // utenze e impianti restano come da loro livelli.
-    if (!this.showAssets.value) return this.lastPoints.filter((p) => p.type !== 'complex');
-    const open = (c: MapPoint) => this.aboveExpandZoom || this.expandedComplexes.has(c.id);
-    const hidden = new Set<number>();
-    for (const c of this.lastPoints) {
-      if (c.type === 'complex' && !open(c)) (c.assetIds ?? []).forEach((id) => hidden.add(id));
-    }
-    // Utenza senza immobile ma con impianto: segue l'immobile dell'impianto.
-    const plantAsset = new Map<number, number>();
-    for (const p of this.lastPoints) if (p.type === 'plant' && p.assetId != null) plantAsset.set(p.id, p.assetId);
-    return this.lastPoints.filter((p) => {
-      if (p.type === 'complex') return !open(p);
-      if (p.type === 'asset') return !hidden.has(p.id);
-      const owner = p.assetId ?? (p.plantId != null ? plantAsset.get(p.plantId) : undefined);
-      return owner == null || !hidden.has(owner);
-    });
-  }
-
-  private openComplexPopup(c: MapPoint, at: L.LatLng): void {
-    if (!this.map) return;
-    const type = c.complexType ? COMPLEX_TYPE_LABEL[c.complexType] : 'Complesso';
-    const html = `<div class="map-complex-popup">
-        <strong>${this.escapeAttr(c.name)}</strong>
-        <div>${this.escapeAttr(type)} · ${c.assetIds?.length ?? 0} immobili</div>
-        <button type="button" data-action="open">Apri scheda</button>
-        <button type="button" data-action="expand">Mostra immobili</button>
-      </div>`;
-    const popup = L.popup().setLatLng(at).setContent(html).openOn(this.map);
-    const el = popup.getElement();
-    el?.querySelector('[data-action="open"]')?.addEventListener('click', () => {
-      this.map?.closePopup();
-      this.openDetail(c);
-    });
-    el?.querySelector('[data-action="expand"]')?.addEventListener('click', () => {
-      this.map?.closePopup();
-      this.expandedComplexes.add(c.id);
-      this.renderPoints(this.visiblePoints());
-      const bounds = (c.assetIds ?? [])
-        .map((id) => this.assetMarkers.get(id)?.getLatLng())
-        .filter((ll): ll is L.LatLng => !!ll);
-      // maxZoom sotto la soglia: lo zoom non deve aprire/chiudere di nuovo tutti i complessi.
-      if (bounds.length) this.map?.fitBounds(L.latLngBounds(bounds), { maxZoom: COMPLEX_EXPAND_ZOOM - 1, padding: [40, 40] });
-    });
+    return this.lastPoints;
   }
 
   openDetail(point: MapPoint | UngeolocatedItem): void {
