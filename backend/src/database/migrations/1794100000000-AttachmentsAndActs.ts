@@ -80,10 +80,18 @@ export class AttachmentsAndActs1794100000000 implements MigrationInterface {
       'Atto notarile',
       'Autorizzazione / nulla osta / parere',
     ];
+    // Autore: il primo Admin, altrimenti il primo utente. Installazione nuova
+    // (migration prima del wizard /setup, nessun utente): niente tipi, li
+    // crea l'Admin da Impostazioni → Tipi di atto. Idempotente per nome.
+    const rows: { id: number | null }[] = await q.query(
+      "SELECT COALESCE((SELECT MIN(`id`) FROM `system_users` WHERE `role` = 'Admin'), (SELECT MIN(`id`) FROM `system_users`)) AS id",
+    );
+    const userId = rows[0]?.id;
+    if (userId == null) return;
     for (const [i, name] of TYPES.entries()) {
       await q.query(
-        'INSERT INTO `act_types` (`name`, `sort_order`, `created_by_user_id`, `updated_by_user_id`) VALUES (?, ?, 1, 1)',
-        [name, (i + 1) * 10],
+        'INSERT INTO `act_types` (`name`, `sort_order`, `created_by_user_id`, `updated_by_user_id`) SELECT ?, ?, ?, ? FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `act_types` WHERE `name` = ?)',
+        [name, (i + 1) * 10, userId, userId, name],
       );
     }
   }
