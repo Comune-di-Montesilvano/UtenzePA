@@ -68,7 +68,7 @@ const atLeastOne = (c: AbstractControl): ValidationErrors | null =>
 @Component({
   selector: 'app-utilizer-grant-edit-dialog',
   standalone: true,
-  imports: [EntityDocumentsComponent, 
+  imports: [EntityDocumentsComponent,
     ReactiveFormsModule,
     MultiSelectComponent,
     MatDialogModule,

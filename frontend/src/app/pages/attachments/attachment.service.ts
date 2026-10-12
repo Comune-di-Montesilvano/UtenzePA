@@ -1,10 +1,10 @@
 import {inject, Injectable} from '@angular/core';
 import {HttpClient, HttpHeaders, HttpParams} from '@angular/common/http';
-import {Observable} from 'rxjs';
+import {Observable, shareReplay} from 'rxjs';
 import {environment} from '../../../environments/environment';
 import {AuthService} from '../../services/auth.service';
 import {ChunkedUploadService} from '../../services/chunked-upload.service';
-import {Attachment, AttachmentEntityType} from './attachment.model';
+import {Attachment, AttachmentEntityType, AttachmentLimits} from './attachment.model';
 
 // Non estende AbstractService: header Authorization a mano, l'interceptor
 // non lo aggiunge (vedi CLAUDE.md).
@@ -17,6 +17,15 @@ export class AttachmentService {
 
   private headers(): HttpHeaders {
     return new HttpHeaders({Authorization: `Bearer ${this.auth.getToken() || ''}`});
+  }
+
+  // Una richiesta per sessione: il limite cambia solo con la configurazione del server.
+  private limits$?: Observable<AttachmentLimits>;
+
+  limits(): Observable<AttachmentLimits> {
+    this.limits$ ??= this.http.get<AttachmentLimits>(`${this.api}/limits`, {headers: this.headers()})
+      .pipe(shareReplay(1));
+    return this.limits$;
   }
 
   list(type: AttachmentEntityType, id: number): Observable<Attachment[]> {

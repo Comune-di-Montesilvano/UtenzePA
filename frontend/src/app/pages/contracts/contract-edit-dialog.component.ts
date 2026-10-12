@@ -55,7 +55,7 @@ function cigRequiredUnlessExempt(group: AbstractControl): ValidationErrors | nul
 @Component({
   selector: 'app-contract-edit-dialog',
   standalone: true,
-  imports: [EntityDocumentsComponent, 
+  imports: [EntityDocumentsComponent,
     ReactiveFormsModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatDatepickerModule, MatButtonModule, MatCheckboxModule, MatTabsModule, MatIconModule, MatTooltipModule,
     FilterableSelectComponent, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, PreviewCardComponent,

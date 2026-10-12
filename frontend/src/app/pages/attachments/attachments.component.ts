@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, Output,
+  ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, OnInit, Output,
 } from '@angular/core';
 import {HttpErrorResponse} from '@angular/common/http';
 import {MatDialog} from '@angular/material/dialog';
@@ -30,7 +30,7 @@ import type {AttachmentEntityType} from './attachment.model';
            (drop)="onDrop($event)">
         <mat-icon>upload_file</mat-icon>
         <span>Trascina qui i file o <button type="button" class="att-pick" (click)="picker.click()">scegli</button></span>
-        <span class="att-hint">PDF, P7M, Office, OpenDocument, immagini, email · massimo 50 MB</span>
+        <span class="att-hint">PDF, P7M, Office, OpenDocument, immagini, email · massimo {{ maxSizeMb }} MB</span>
         <input #picker type="file" multiple hidden [accept]="accept" (change)="onPick(picker)">
       </div>
     }
@@ -66,6 +66,7 @@ import type {AttachmentEntityType} from './attachment.model';
                   @if (r.description) { <div class="att-desc">{{ r.description }}</div> }
                 } @else {
                   <input class="att-desc-input" placeholder="Descrizione (facoltativa)" [value]="r.description ?? ''"
+                         [attr.aria-label]="'Descrizione di ' + r.original_name"
                          (blur)="saveDescription(r, $any($event.target).value)">
                 }
               </td>
@@ -74,14 +75,15 @@ import type {AttachmentEntityType} from './attachment.model';
               <td class="att-actions">
                 @if (canDownload) {
                   @if (previewable(r)) {
-                    <button mat-icon-button type="button" (click)="open(r, true)" matTooltip="Apri"><mat-icon>visibility</mat-icon></button>
+                    <button mat-icon-button type="button" (click)="open(r, true)" matTooltip="Apri" [attr.aria-label]="'Apri ' + r.original_name"><mat-icon>visibility</mat-icon></button>
                   }
-                  <button mat-icon-button type="button" (click)="open(r, false)" matTooltip="Scarica"><mat-icon>download</mat-icon></button>
+                  <button mat-icon-button type="button" (click)="open(r, false)" matTooltip="Scarica" [attr.aria-label]="'Scarica ' + r.original_name"><mat-icon>download</mat-icon></button>
                 } @else {
-                  <mat-icon class="att-lock" matTooltip="Download riservato ad Amministratori e Operatori">lock</mat-icon>
+                  <mat-icon class="att-lock" matTooltip="Download riservato ad Amministratori e Operatori"
+                            aria-label="Download riservato ad Amministratori e Operatori" role="img">lock</mat-icon>
                 }
                 @if (!readOnly) {
-                  <button mat-icon-button type="button" (click)="remove(r)" matTooltip="Elimina"><mat-icon>delete</mat-icon></button>
+                  <button mat-icon-button type="button" (click)="remove(r)" matTooltip="Elimina" [attr.aria-label]="'Elimina ' + r.original_name"><mat-icon>delete</mat-icon></button>
                 }
               </td>
             </tr>
@@ -114,7 +116,7 @@ import type {AttachmentEntityType} from './attachment.model';
     .att-lock { color: var(--app-muted); vertical-align: middle; }
   `],
 })
-export class AttachmentsComponent implements OnChanges {
+export class AttachmentsComponent implements OnChanges, OnInit {
   @Input({required: true}) entityType!: AttachmentEntityType;
   @Input({required: true}) entityId!: number;
   @Input() readOnly = false;
@@ -123,7 +125,10 @@ export class AttachmentsComponent implements OnChanges {
   private service = inject(AttachmentService);
   private dialog = inject(MatDialog);
   readonly canDownload = isEditorRole(inject(AuthService).getCurrentUser()?.role);
-  readonly accept = ALLOWED_EXTENSIONS.map(e => '.' + e).join(',');
+  accept = ALLOWED_EXTENSIONS.map(e => '.' + e).join(',');
+  private extensions = ALLOWED_EXTENSIONS;
+  // Valore del server (ATTACHMENT_MAX_SIZE_MB); 50 finché non arriva.
+  maxSizeMb = 50;
   readonly size = formatBytes;
   readonly previewable = isPreviewable;
 
@@ -134,6 +139,17 @@ export class AttachmentsComponent implements OnChanges {
 
   ngOnChanges(): void {
     if (this.entityId) this.reload();
+  }
+
+  ngOnInit(): void {
+    this.service.limits().subscribe({
+      next: l => {
+        this.maxSizeMb = l.max_size_mb;
+        this.extensions = l.extensions;
+        this.accept = l.extensions.map(e => '.' + e).join(',');
+      },
+      error: () => undefined, // restano i valori predefiniti
+    });
   }
 
   reload(): void {
@@ -173,9 +189,16 @@ export class AttachmentsComponent implements OnChanges {
   addFiles(files: File[]): void {
     if (this.readOnly || !files.length) return;
     const accepted = files.filter(f => {
-      const ok = ALLOWED_EXTENSIONS.includes(extensionOf(f.name));
-      if (!ok) this.errors.push(`${f.name}: tipo di file non ammesso`);
-      return ok;
+      if (!this.extensions.includes(extensionOf(f.name))) {
+        this.errors.push(`${f.name}: tipo di file non ammesso`);
+      } else if (f.size === 0) {
+        this.errors.push(`${f.name}: il file è vuoto`);
+      } else if (f.size > this.maxSizeMb * 1024 * 1024) {
+        this.errors.push(`${f.name}: file troppo grande (massimo ${this.maxSizeMb} MB)`);
+      } else {
+        return true;
+      }
+      return false;
     });
     if (!accepted.length) return;
     from(accepted).pipe(

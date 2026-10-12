@@ -99,7 +99,7 @@ interface UtilityTypeButton {
 @Component({
   selector: 'app-asset-edit-dialog',
   standalone: true,
-  imports: [EntityDocumentsComponent, 
+  imports: [EntityDocumentsComponent,
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
     MatTabsModule, MatTooltipModule, MatIconModule, MatExpansionModule, OnlyNumbersDirective, LatitudeInputDirective,
     LongitudeInputDirective, LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,

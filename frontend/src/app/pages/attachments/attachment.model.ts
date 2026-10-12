@@ -31,5 +31,13 @@ export function formatBytes(n: number): string {
   return `${(n / 1024 / 1024).toLocaleString('it-IT', {maximumFractionDigits: 1})} MB`;
 }
 
+// Gemello di isPreviewableMime nel backend: PDF e immagini che il browser
+// sa mostrare (TIFF no, si scarica).
 export const isPreviewable = (a: Attachment): boolean =>
-  a.mime_type === 'application/pdf' || a.mime_type.startsWith('image/');
+  ['application/pdf', 'image/jpeg', 'image/png'].includes(a.mime_type);
+
+// Limiti letti dal server (GET /attachments/limits).
+export interface AttachmentLimits {
+  max_size_mb: number;
+  extensions: string[];
+}
