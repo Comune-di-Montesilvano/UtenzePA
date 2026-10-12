@@ -1,6 +1,6 @@
 # Roadmap: estensione del perimetro di UtenzePA al patrimonio
 
-Aggiornata: 2026-10-09
+Aggiornata: 2026-10-11
 
 Obiettivo: portare UtenzePA da gestionale delle utenze a gestionale del **patrimonio** comunale (immobili, contratti, impianti, inventario), sfruttando i dati già presenti in `W:\PATRIMONIO`.
 
@@ -9,6 +9,8 @@ Ogni voce qui sotto è **da approfondire**: prima di implementarla serve il soli
 - `.audit-w/immobiliare/inventory.json`: inventario file di `W:\PATRIMONIO\4_IMMOBILIARE` (22.275 file, solo metadati)
 - `.audit-w/immobiliare/excel/`: 688/689 fogli di calcolo di `4_IMMOBILIARE` in JSON (`_index.json` → percorso originale)
 - `.audit-w/excel/`: fogli di calcolo di `W:\PATRIMONIO\2_ UTENZE` in JSON
+- `.audit-w/contratti/`: 135 fogli di calcolo di `W:\CONTRATTI\CONTRATTI` (ufficio contratti) in JSON
+- `.audit-w/*_CF-00193460680_Anno-2025.xlsx`: censimento beni PA al MEF 2025 (fabbricati, terreni, variazioni di proprietà, compendi), scaricati dal portale MEF
 
 I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per cartelle mirate.
 
@@ -16,7 +18,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 
 | # | Funzione | Stato |
 |---|---|---|
-| 1 | Contratti immobiliari (unificazione Concessioni) | fatto, v1.7.0 (dati: registro ripulito e import fonti sul DB locale, da portare in produzione) |
+| 1 | Contratti immobiliari (unificazione Concessioni) | fatto, v1.7.0 (dati: registro ripulito e import fonti sul DB locale; registri di `W:\CONTRATTI` importati il 2026-10-11, 339 contratti; tutto da portare in produzione) |
 | 2 | Inventario patrimoniale e catasto | da approfondire |
 | 3 | Impianto unificato | fatto, v1.7.0 (immobili convertiti in impianti e consistenze 2025 importate sul DB locale, da portare in produzione) |
 | 4 | Complessi | da approfondire |
@@ -49,6 +51,12 @@ Registro unico di locazioni, concessioni, comodati, assegnazioni di alloggi, occ
 
 **Rimandato (richiesta utente 2026-10-02, da riprendere quando ci saranno dati da collegare): contratti collegati agli impianti.** Un contratto immobiliare oggi si collega solo a immobili, ma l'oggetto può essere un impianto: esempio reale, un contratto con un condominio per un'antenna della Polizia Locale, senza l'antenna in anagrafe. Serve: tipo d'impianto "Antenna / ripetitore", collegamento contratto ↔ impianti N-N (come `utilizer_grant_assets`, tab nella scheda), anomalia in dashboard "Contratti immobiliari senza immobile né impianto" al posto di quella attuale (73 contratti senza immobile al 2026-10-02). Caso reale già nei dati: contratto 2447 (locazione passiva di area condominiale per un ponte radio della Polizia Locale, senza immobile). PR separata; design già abbozzato (tipo `ANTENNA`, tabella `utilizer_grant_plants`, tab Impianti nella scheda contratto e Contratti nella scheda impianto).
 
+**Import dai registri dell'ufficio contratti (2026-10-11, solo DB locale).** Fonti in `W:\CONTRATTI\CONTRATTI`: riepilogo locazioni passive (con i fogli delle versioni precedenti), locazioni attive e demaniali, registro comodati e comodati associazioni, locazioni SPRAR, elenco alloggi comunali. Script e report in `.audit-w/contratti_*.py` / `contratti_report.md` (dati personali, non committati); backup delle tabelle prima dell'import in `.audit-w/backup_contratti_2026-10-11.sql`. Esito: 127 → 339 contratti, 137 soggetti nuovi, 84 collegamenti a immobili (catasto o indirizzo univoco; gli immobili non trovati sono scritti nelle note del contratto).
+
+- Regole: storico completo (anche scaduti); a parità di contratto vincono le date e i canoni del file, salvo fonti DB più recenti (mercatino ittico, canoni idrici, adeguamento ISTAT, rinnovi con scadenza successiva); i fogli storici delle passive riempiono solo i campi vuoti; esiti → stato (reso → restituito, risolto/recesso/deceduto → cessato, legale/sfratto → contenzioso); comodati di beni mobili (auto, scuolabus, carri ferroviari, rete gas) esclusi.
+- Elenco alloggi comunali: se l'assegnatario ha una locazione attiva, arricchisce quella (canone attuale, catasto, immobile); gli altri 6 sono assegnazioni figlie della concessione 1961 all'Azienda Speciale. Nucleo familiare non importato.
+- Da verificare: parti diverse tra DB e file su 2219, 2466, 2475, 2489, 2490, 2499 (lasciate quelle del DB); 2232 doppione di 2452 (stesso Rep. 3763); abbinamenti decisi a mano 2219 (Reg. 1/2017, via Adige 12) e 2220 (Reg. 39/2025, via Vestina 401); 18 contratti senza parti (già prima dell'import).
+
 ## 2. Inventario patrimoniale e catasto
 
 Fonti (`4_IMMOBILIARE/ricostruzione immobili/`):
@@ -63,6 +71,12 @@ Fonti (`4_IMMOBILIARE/ricostruzione immobili/`):
 | `adempimenti/TRASPARENZA/immobili 2016 per trasparenza.xlsx` | 544 | Amministrazione trasparente, sez. 14.1 patrimonio immobiliare |
 | `ELENCO FASCICOLI ARCHIVIO_ LAVORO STAGISTA 2018/*` | ~130 | alloggi ERP, locali cabine/sollevamenti, terreni e strade non accatastate |
 | `FONTE URBANISTICA/GEOM DI LORITO/cessioni aree 2002–2008` | ~380 | aree cedute al Comune da lottizzazioni |
+| MEF 2025, `BeniImmobili-Fabbricati_…` | 146 | fabbricati: coordinate catastali (`F646:sez:foglio:particella::sub`), indirizzo, GPS, tipologia, superfici, natura giuridica, utilizzo (86 dati a terzi) |
+| MEF 2025, `BeniImmobili-Terreni_…` | 1.367 | terreni: coordinate catastali, indirizzo, superficie, natura giuridica, utilizzo |
+| MEF 2025, `Variazioni-Proprietà_…` | 55 | rettifiche di acquisizione/cessione 2025 (51 terreni, 4 fabbricati) |
+| `W:\CONTRATTI\CONTRATTI\Scritture private varie\patrimonio.xlsx` | 1.636 | censimento del patrimonio: foglio, particella, subalterno, indirizzo, specifica del bene |
+
+Il MEF 2025 è la fonte più recente e ufficiale per catasto e natura giuridica: candidata a chiave della riconciliazione. Oggi solo 58 immobili su 190 hanno foglio e particella; nell'import contratti il catasto dei beni a terzi è stato usato come ponte verso l'indirizzo.
 
 Da approfondire:
 
@@ -106,7 +120,7 @@ Rifiniture aperte (dalla revisione finale del codice, 2026-10-02, rimandate):
 
 ## 4. Complessi
 
-Entità che raggruppa immobili gestiti come un tutt'uno (plesso scolastico, cimitero, stadio, "Edificio con 6 alloggi contrada giardino"). Non è una tipologia (v1.3.0 ha 4 tipologie fisse, l'utente ha escluso "Struttura" e "Altro"). Semi: `assets.associated_building`; abbinamento istituto scolastico → plesso dal report di pulizia delle concessioni (voce 1). Da fare prima di rimettere mano alla mappa (voce 16).
+Entità che raggruppa immobili gestiti come un tutt'uno (plesso scolastico, cimitero, stadio, "Edificio con 6 alloggi contrada giardino"). Non è una tipologia (v1.3.0 ha 4 tipologie fisse, l'utente ha escluso "Struttura" e "Altro"). Semi: `assets.associated_building`; abbinamento istituto scolastico → plesso dal report di pulizia delle concessioni (voce 1); compendi MEF 2025 (`Compendi_…`: 5, cioè impianto sportivo di via Senna, alloggi Carabinieri via Agostinone, istituti comprensivi Silone, Rodari e Delfico, con il numero di immobili di ciascuno). Da fare prima di rimettere mano alla mappa (voce 16).
 
 ## 5. Aree verdi
 

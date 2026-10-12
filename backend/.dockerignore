@@ -24,6 +24,14 @@
 # Build artifacts
 **/node_modules
 **/.pnpm-store
+# Store pnpm del container dev (HOME=/usr/src/app nell'override → bind mount)
+.local
+.npm
+# Dati runtime e scratch locali
+backups
+photos
+.scratch
+.trunk
 **/dist
 **/build
 **/.next
