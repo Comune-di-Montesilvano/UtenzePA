@@ -32,6 +32,7 @@ import {chapterLabel, Commitment, CommitmentPayload} from '../../pages/contracts
 import type {CommitmentDialogData} from '../../pages/contracts/commitments/commitment-edit-dialog.component';
 import type {Plant} from '../../pages/plants/plant.model';
 import type {Complex, ComplexPayload} from '../../pages/complexes/complex.model';
+import type {Act, ActPayload} from '../../pages/acts/act.model';
 import {ToastService} from './toast.service';
 
 // Import dinamici: i dialog iniettano questo servizio, un import statico dei
@@ -39,6 +40,7 @@ import {ToastService} from './toast.service';
 const ASSET_DIALOG = () => import('../../pages/assets/asset-edit-dialog.component').then(m => m.AssetEditDialogComponent);
 const UTILITY_DIALOG = () => import('../../pages/utilities/utility-edit-dialog.component').then(m => m.UtilityEditDialogComponent);
 const PLANT_DIALOG = () => import('../../pages/plants/plant-edit-dialog.component').then(m => m.PlantEditDialogComponent);
+const ACT_DIALOG = () => import('../../pages/acts/act-edit-dialog.component').then(m => m.ActEditDialogComponent);
 const COMPLEX_DIALOG = () => import('../../pages/complexes/complex-edit-dialog.component').then(m => m.ComplexEditDialogComponent);
 const CONTRACT_DIALOG = () => import('../../pages/contracts/contract-edit-dialog.component').then(m => m.ContractEditDialogComponent);
 const GRANT_DIALOG = () => import('../../pages/utilizer-grant/utilizer-grant-edit-dialog.component').then(m => m.UtilizerGrantEditDialogComponent);
@@ -125,6 +127,16 @@ export class EntityNavigatorService {
     return this.sheet<{complexId: null; prefill: Partial<ComplexPayload>}, Complex | null>(
       COMPLEX_DIALOG, {complexId: null, prefill},
     ).pipe(map(c => c ?? null));
+  }
+
+  // Il dialog atto salva da sé e chiude con l'atto se ha salvato.
+  openAct(id: number): Observable<boolean> {
+    return this.sheet<{actId: number}, Act | null>(ACT_DIALOG, {actId: id}).pipe(map(saved => !!saved));
+  }
+
+  createAct(prefill: Partial<ActPayload> = {}): Observable<Act | null> {
+    return this.sheet<{actId: null; prefill: Partial<ActPayload>}, Act | null>(ACT_DIALOG, {actId: null, prefill})
+      .pipe(map(a => a ?? null));
   }
 
   openSupplyContract(id: number): Observable<Contract | null> {
