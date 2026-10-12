@@ -78,6 +78,16 @@ Fonti (`4_IMMOBILIARE/ricostruzione immobili/`):
 
 Il MEF 2025 è la fonte più recente e ufficiale per catasto e natura giuridica: candidata a chiave della riconciliazione. Oggi solo 58 immobili su 190 hanno foglio e particella; nell'import contratti il catasto dei beni a terzi è stato usato come ponte verso l'indirizzo.
 
+**Import MEF fatto (2026-10-12, DB locale; produzione via export).** Fonti in più: `ConfrontoCatasto-Fabbricati_…_31-12-2025` (esito al catasto, categoria, indirizzo e titolari per bene), `BeniImmobili-Fabbricati_…_2024` (14 beni in locazione passiva, spariti nel 2025), open data MEF Abruzzo 2023 (unica fonte con l'**ID compendio per bene**). Esito: 247 immobili, 144 con Id MEF, 170 con catasto (194 unità), 10 complessi (5 compendi MEF, di cui i 3 istituti comprensivi amministrativi). Casi aperti nei report per i colleghi (`.audit-w/da_verificare_colleghi.md`, `.audit-w/da_verificare_contratti.md`, non versionati).
+
+Da fare prima dell'**export MEF**:
+
+- **tipologia e finalità MEF per immobile**: oggi derivano dalla funzione, ma il MEF le dichiara bene per bene e per alcune funzioni non coincidono (Cultura ed eventi: palazzo storico e teatro; Sicurezza e soccorso: ufficio, ospedale, caserma; Sociale, Associazioni). Serve un campo sull'immobile che prevale sulla funzione, riempito dai dati MEF di ogni bene;
+- campi MEF non presenti nell'app: valore di mercato e anno della stima, segnalazione per cessione/valorizzazione, codice del bene non accatastato (7 beni), consistenza catastale; la rendita catastale non c'è in nessuna fonte;
+- le **locazioni passive** non sono più dichiarate dal 2025: l'export deve includerle (sezione detenzione);
+- numeri del MEF in formato italiano (`1.158,75`): punto delle migliaia, virgola dei decimali;
+- contratti di W:\CONTRATTI con catasto scritto con le virgole (`FG,16 P,494 sub 6`): un parser rigido non li legge.
+
 Da approfondire:
 
 - terreni come nuova tipologia di bene (oggi l'app ha 477 immobili e quasi nessun terreno);
