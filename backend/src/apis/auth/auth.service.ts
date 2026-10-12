@@ -10,6 +10,7 @@ import { SettingsService } from '@apis/settings/settings.service';
 import { LdapService } from './ldap/ldap.service';
 import { canSignIn } from './can-sign-in';
 import { AuthProvider, UserRole, UserStatus } from '../shared/enum/user.enums';
+import { clearOtp, findUserWithOtp, otpMatches } from './otp-store';
 
 @Injectable()
 export class AuthService {
@@ -154,10 +155,7 @@ export class AuthService {
 
     const { code: otp, expiry } = generateOtp();
 
-    user.otp = otp;
-    user.otp_expiry = expiry;
-
-    await this.userRepository.save(user);
+    await this.userRepository.update(user.id, { otp, otp_expiry: expiry });
 
     await this.sendOtpEmail(user, otp);
 
@@ -165,29 +163,16 @@ export class AuthService {
   }
 
   async verifyOtp(email: string, otp: string): Promise<boolean> {
-    const user = await this.userRepository.findOne({ where: { email } });
-    if (!user || !user.otp || !user.otp_expiry) return false;
-
-    const now = new Date();
-    if (user.otp !== otp || now > user.otp_expiry) return false;
-
-    return true;
+    const user = await findUserWithOtp(this.userRepository, email);
+    return otpMatches(user, otp);
   }
 
   async resetPassword(email: string, otp: string, newPassword: string): Promise<boolean> {
-    const user = await this.userRepository.findOne({ where: { email } });
-    if (!user || !user.otp || !user.otp_expiry) return false;
-
-    const now = new Date();
-    if (user.otp !== otp || now > user.otp_expiry) return false;
+    const user = await findUserWithOtp(this.userRepository, email);
+    if (!user || !otpMatches(user, otp)) return false;
 
     const hash = await bcrypt.hash(newPassword, 10);
-    user.passwordHash = hash;
-
-    user.otp = null;
-    user.otp_expiry = null;
-
-    await this.userRepository.save(user);
+    await clearOtp(this.userRepository, user.id, hash);
     return true;
   }
 }

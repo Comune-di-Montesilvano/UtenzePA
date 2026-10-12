@@ -23,6 +23,8 @@ import { CurrentUser, ICurrentUser } from '@core/auth/decorators/current-user.de
 export class SystemUsersController {
   constructor(private readonly usersService: SystemUsersService) {}
 
+  // Email, ruoli e stato degli utenti: solo Admin (prima era aperto a tutti).
+  @Roles('Admin')
   @Get()
   getAll(@Query() filters: any): Promise<SystemUser[]> {
     return this.usersService.findAll(filters);
