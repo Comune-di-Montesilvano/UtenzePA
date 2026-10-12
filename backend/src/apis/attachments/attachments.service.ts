@@ -12,7 +12,7 @@ import { Attachment } from './entity/attachment.entity';
 import { AttachmentEntityType as T } from './enum/attachment-entity-type.enum';
 import { AttachmentFinalizeDto } from './dto/attachment-finalize.dto';
 import { UpdateAttachmentDto } from './dto/update-attachment.dto';
-import { checkFile, maxSizeBytes } from './attachment-file-policy';
+import { ALLOWED_EXTENSIONS, checkFile, maxSizeBytes } from './attachment-file-policy';
 import { userRef } from '@apis/shared/user-ref';
 
 export type AttachmentRow = Attachment & { inspection: { id: number; kind: string } | null };
@@ -122,6 +122,14 @@ export class AttachmentsService {
     });
     for (const r of rows) out.set(r.entity_id, (out.get(r.entity_id) ?? 0) + 1);
     return out;
+  }
+
+  // Per l'interfaccia: limite e tipi letti dalla configurazione del server.
+  limits(): { max_size_mb: number; extensions: readonly string[] } {
+    return {
+      max_size_mb: Math.round(maxSizeBytes() / 1024 / 1024),
+      extensions: ALLOWED_EXTENSIONS,
+    };
   }
 
   saveChunk(dto: UploadChunkDto, buffer: Buffer): void {

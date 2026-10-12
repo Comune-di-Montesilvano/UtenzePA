@@ -120,6 +120,14 @@ describe('AttachmentsService', () => {
     expect(fs.existsSync(recent)).toBe(true);
   });
 
+  it('limits: dimensione massima e tipi ammessi dalla configurazione', () => {
+    process.env.ATTACHMENT_MAX_SIZE_MB = '20';
+    const l = service.limits();
+    expect(l.max_size_mb).toBe(20);
+    expect(l.extensions).toContain('pdf');
+    expect(l.extensions).not.toContain('zip');
+  });
+
   it('chunk oltre la dimensione massima → 400', () => {
     process.env.ATTACHMENT_MAX_SIZE_MB = '1';
     expect(() => upload('u4', Buffer.alloc(1024 * 1024 + 1))).toThrow(

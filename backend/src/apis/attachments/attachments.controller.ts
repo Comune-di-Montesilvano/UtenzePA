@@ -35,6 +35,11 @@ import { contentDisposition, isPreviewableMime } from './attachment-file-policy'
 export class AttachmentsController {
   constructor(private readonly service: AttachmentsService) {}
 
+  @Get('limits')
+  limits(): { max_size_mb: number; extensions: readonly string[] } {
+    return this.service.limits();
+  }
+
   @Get()
   list(@Query() q: AttachmentQueryDto): Promise<AttachmentRow[]> {
     return this.service.list(q.entity_type, q.entity_id);
