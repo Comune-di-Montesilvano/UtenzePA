@@ -248,6 +248,15 @@
       </mat-tab>
 
       @if (!isNew) {
+        <mat-tab aria-label="Documenti">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="folder_open" label="Documenti" [count]="documentCount"></app-tab-label>
+          </ng-template>
+          <ng-template matTabContent>
+            <app-entity-documents entity="utilizer_grant" [entityId]="item.id" [readOnly]="!canEdit"
+                                  (countChange)="documentCount = $event"></app-entity-documents>
+          </ng-template>
+        </mat-tab>
         <mat-tab aria-label="Storico">
           <ng-template mat-tab-label>
             <app-tab-label icon="history" label="Storico"></app-tab-label>

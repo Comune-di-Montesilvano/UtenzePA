@@ -33,6 +33,7 @@ describe('BackupService', () => {
     fs.rmSync(backupDir, { recursive: true, force: true });
     delete process.env.BACKUP_DIR;
     delete process.env.PHOTOS_DIR;
+    delete process.env.ATTACHMENTS_DIR;
   });
 
   it('createBackup si connette al DB con la config corretta e produce un file .sql', async () => {
@@ -214,6 +215,62 @@ describe('BackupService', () => {
 
     fs.rmSync(sourcePhotosDir, { recursive: true, force: true });
     fs.rmSync(targetPhotosDir, { recursive: true, force: true });
+  });
+
+  it('createBackup(false, true): archivio con attachments/ senza tmp/ e senza photos/', async () => {
+    const tar = await import('tar');
+    const attDir = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-service-att-'));
+    process.env.ATTACHMENTS_DIR = attDir;
+    fs.mkdirSync(path.join(attDir, 'contract', '3'), { recursive: true });
+    fs.writeFileSync(path.join(attDir, 'contract', '3', 'a.pdf'), '%PDF-1.7');
+    fs.mkdirSync(path.join(attDir, 'tmp'), { recursive: true });
+    fs.writeFileSync(path.join(attDir, 'tmp', 'x.chunk0'), 'pezzo');
+
+    mockConn.query
+      .mockResolvedValueOnce([[{ Tables_in_mydatabase: 'users' }], []])
+      .mockResolvedValueOnce([[{ Table: 'users', 'Create Table': 'CREATE TABLE `users` (`id` INT)' }], []])
+      .mockResolvedValueOnce([[], []]);
+
+    const result = await service.createBackup(false, true);
+
+    expect(result.filename.endsWith('.tar.gz')).toBe(true);
+    const listed: string[] = [];
+    await tar.list({
+      file: path.join(backupDir, result.filename),
+      onReadEntry: (e) => {
+        listed.push(e.path);
+      },
+    });
+    expect(listed).toEqual(expect.arrayContaining(['dump.sql', 'attachments/contract/3/a.pdf']));
+    expect(listed.some((p) => p.startsWith('attachments/tmp'))).toBe(false);
+    expect(listed.some((p) => p.startsWith('photos'))).toBe(false);
+    expect(fs.readdirSync(backupDir)).toEqual([result.filename]);
+
+    fs.rmSync(attDir, { recursive: true, force: true });
+  });
+
+  it('restoreFromFile su un .tar.gz copia gli allegati nella ATTACHMENTS_DIR corrente', async () => {
+    const tar = await import('tar');
+    const source = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-restore-att-src-'));
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-restore-att-dst-'));
+    process.env.ATTACHMENTS_DIR = target;
+
+    fs.mkdirSync(path.join(source, 'attachments', 'act', '5'), { recursive: true });
+    fs.writeFileSync(path.join(source, 'attachments', 'act', '5', 'b.pdf'), 'restored-pdf');
+    fs.writeFileSync(path.join(source, 'dump.sql'), 'INSERT INTO x VALUES (1);');
+
+    const archivePath = path.join(backupDir, 'utenzepa_20260101_000000.tar.gz');
+    await tar.create({ gzip: true, file: archivePath, cwd: source }, ['dump.sql', 'attachments']);
+    mockConn.query.mockResolvedValue([[], []]);
+
+    await service.restoreFromFile(archivePath);
+
+    const restored = path.join(target, 'act', '5', 'b.pdf');
+    expect(fs.readFileSync(restored, 'utf8')).toBe('restored-pdf');
+    expect(fs.readdirSync(backupDir)).toEqual(['utenzepa_20260101_000000.tar.gz']);
+
+    fs.rmSync(source, { recursive: true, force: true });
+    fs.rmSync(target, { recursive: true, force: true });
   });
 
   it('applyRetention cancella solo i backup più vecchi della retention', async () => {

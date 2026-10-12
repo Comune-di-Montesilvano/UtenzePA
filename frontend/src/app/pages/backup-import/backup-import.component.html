@@ -13,6 +13,9 @@
         <mat-checkbox [(ngModel)]="includePhotosInBackup" [disabled]="creatingBackup">
           Includi foto (genera un .tar.gz invece di .sql)
         </mat-checkbox>
+        <mat-checkbox [(ngModel)]="includeAttachmentsInBackup" [disabled]="creatingBackup">
+          Includi gli allegati (il file può diventare grande)
+        </mat-checkbox>
       </div>
 
       <table mat-table [dataSource]="backups" style="width: 100%;">

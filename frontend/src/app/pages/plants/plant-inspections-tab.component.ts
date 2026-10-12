@@ -8,6 +8,10 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatAutocompleteModule} from '@angular/material/autocomplete';
 import {MatDatepickerModule} from '@angular/material/datepicker';
+import {MatBadgeModule} from '@angular/material/badge';
+import {MatDialog} from '@angular/material/dialog';
+import {AttachmentService} from '../attachments/attachment.service';
+import {InspectionAttachmentsDialogComponent} from '../attachments/inspection-attachments-dialog.component';
 import {PlantService} from './plant.service';
 import {
   formatDateIt,
@@ -32,7 +36,7 @@ const toDate = (iso?: string | null): Date | null => {
   selector: 'app-plant-inspections-tab',
   standalone: true,
   imports: [ReactiveFormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MatFormFieldModule, MatInputModule,
-    MatAutocompleteModule, MatDatepickerModule],
+    MatAutocompleteModule, MatDatepickerModule, MatBadgeModule],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div style="display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem 0;">
@@ -130,6 +134,10 @@ const toDate = (iso?: string | null): Date | null => {
                   <td style="padding: 6px;">{{ r.provider ?? '' }}</td>
                   <td style="padding: 6px;">{{ r.outcome ?? '' }}</td>
                   <td style="padding: 6px; white-space: nowrap; text-align: right;">
+                    <button mat-icon-button type="button" (click)="openAttachments(r)" matTooltip="Allegati della verifica (es. verbale)"
+                            aria-label="Allegati della verifica">
+                      <mat-icon [matBadge]="attachmentCounts.get(r.id) || null" matBadgeSize="small">attach_file</mat-icon>
+                    </button>
                     @if (!readOnly) {
                       <button mat-icon-button type="button" (click)="startEdit(r)" matTooltip="Modifica"><mat-icon>edit</mat-icon></button>
                       <button mat-icon-button type="button" (click)="remove(r)" matTooltip="Elimina"><mat-icon>delete</mat-icon></button>
@@ -147,6 +155,8 @@ const toDate = (iso?: string | null): Date | null => {
 export class PlantInspectionsTabComponent implements OnInit {
   private fb = inject(FormBuilder);
   private service = inject(PlantService);
+  private attachmentService = inject(AttachmentService);
+  private dialog = inject(MatDialog);
 
   @Input({required: true}) plantId!: number;
   @Input({required: true}) plantType!: PlantType;
@@ -174,6 +184,28 @@ export class PlantInspectionsTabComponent implements OnInit {
 
   ngOnInit(): void {
     this.suggestions = suggestedInspections(this.plantType, this.powerKw);
+    this.loadAttachmentCounts();
+  }
+
+  // Allegati per verifica, dagli allegati dell'impianto (righe «verifica: …»).
+  attachmentCounts = new Map<number, number>();
+
+  private loadAttachmentCounts(): void {
+    this.attachmentService.list('plant', this.plantId).subscribe(rows => {
+      const counts = new Map<number, number>();
+      for (const a of rows) {
+        if (a.inspection) counts.set(a.inspection.id, (counts.get(a.inspection.id) ?? 0) + 1);
+      }
+      this.attachmentCounts = counts;
+    });
+  }
+
+  openAttachments(r: PlantInspection): void {
+    this.dialog.open(InspectionAttachmentsDialogComponent, {
+      width: '760px',
+      maxWidth: '95vw',
+      data: {inspectionId: r.id, title: r.kind, readOnly: this.readOnly},
+    }).afterClosed().subscribe(() => this.loadAttachmentCounts());
   }
 
   badgeOf(r: PlantInspection): {bg: string; fg: string} {

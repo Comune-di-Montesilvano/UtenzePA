@@ -63,9 +63,12 @@ services:
       - BACKUP_CRON_SCHEDULE=${BACKUP_CRON_SCHEDULE:-0 0 * * *}
       - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
       - BACKUP_MAX_SIZE_MB=${BACKUP_MAX_SIZE_MB:-500}
+      # Allegati — dimensione massima per file (MB)
+      - ATTACHMENT_MAX_SIZE_MB=${ATTACHMENT_MAX_SIZE_MB:-50}
     volumes:
       - backups_data:/usr/src/app/backups
       - photos_data:/usr/src/app/photos
+      - attachments_data:/usr/src/app/attachments
     ports:
       - '${DOCKER_API_PORT:-3000}:3000'
     depends_on:
@@ -95,6 +98,7 @@ volumes:
   mysql_data:
   backups_data:
   photos_data:
+  attachments_data:
 
 networks:
   utenzepa-network:

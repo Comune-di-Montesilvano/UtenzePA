@@ -1,0 +1,135 @@
+<app-entity-sheet
+  icon="gavel"
+  color="var(--entity-act)"
+  [title]="title()"
+  [subtitle]="subtitle()"
+  [lastModified]="lastModified()">
+  <ng-container sheetBadges>
+    @if (act) {
+      <app-status-badge [info]="filesBadge()" size="sm"></app-status-badge>
+    }
+  </ng-container>
+
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
+  <form [formGroup]="form">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
+
+      <mat-tab aria-label="Riepilogo">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="dashboard" label="Riepilogo" [error]="invalid('act_type_id', 'subject')"></app-tab-label>
+        </ng-template>
+        <div class="sheet-grid">
+          <app-filterable-select label="Tipo di atto *" placeholder="Cerca tipo..." [options]="typeOptions"
+            formControlName="act_type_id" [createLabel]="isAdmin ? 'Nuovo tipo di atto' : null"
+            (create)="newType($event)"
+            [errorMessage]="form.controls.act_type_id.invalid && form.controls.act_type_id.touched ? 'Obbligatorio' : null">
+          </app-filterable-select>
+          <mat-form-field>
+            <mat-label>Numero</mat-label>
+            <input matInput formControlName="number" maxlength="100" placeholder="es. 12/2024, Rep. 3763">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Data</mat-label>
+            <input matInput [matDatepicker]="datePicker" formControlName="act_date" placeholder="GG/MM/AAAA">
+            <mat-datepicker-toggle matSuffix [for]="datePicker"></mat-datepicker-toggle>
+            <mat-datepicker #datePicker></mat-datepicker>
+          </mat-form-field>
+          <mat-form-field class="span-2">
+            <mat-label>Oggetto</mat-label>
+            <input matInput formControlName="subject" maxlength="500">
+            <mat-error>Obbligatorio</mat-error>
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Emesso da</mat-label>
+            <input matInput formControlName="issuer" maxlength="255" placeholder="Ufficio, notaio, ente">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Protocollo</mat-label>
+            <input matInput formControlName="protocol_number" maxlength="100">
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Data protocollo</mat-label>
+            <input matInput [matDatepicker]="protocolPicker" formControlName="protocol_date" placeholder="GG/MM/AAAA">
+            <mat-datepicker-toggle matSuffix [for]="protocolPicker"></mat-datepicker-toggle>
+            <mat-datepicker #protocolPicker></mat-datepicker>
+          </mat-form-field>
+        </div>
+        <p class="sheet-hint">Il testo dell'atto è facoltativo: se lo hai, caricalo nel tab Allegati.</p>
+      </mat-tab>
+
+      <mat-tab aria-label="Allegati">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="attach_file" label="Allegati" [count]="fileCount"></app-tab-label>
+        </ng-template>
+        @if (act) {
+          <app-attachments entityType="act" [entityId]="act.id" [readOnly]="!canEdit"
+                           (countChange)="fileCount = $event"></app-attachments>
+        } @else {
+          <p class="sheet-hint">Salva l'atto per caricare i file.</p>
+        }
+      </mat-tab>
+
+      <mat-tab aria-label="Collegamenti">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="link" label="Collegamenti" [count]="act?.link_count ?? 0"></app-tab-label>
+        </ng-template>
+        @if (act) {
+          @for (s of sections; track s.entity) {
+            <div class="sheet-section-title"><mat-icon [style.color]="s.color">{{ s.icon }}</mat-icon>{{ s.title }}</div>
+            <app-linked-table
+              [columns]="linkColumns"
+              [rows]="s.rows"
+              [addOptions]="canEdit ? s.options : null"
+              addLabel="Collega"
+              itemLabel="il collegamento"
+              [unlinkable]="canEdit"
+              emptyText="Nessun collegamento."
+              (add)="link(s.entity, $event)"
+              (unlink)="unlink(s.entity, $event)"
+              (open)="openLinked(s.entity, $event.id)"></app-linked-table>
+          }
+        } @else {
+          <p class="sheet-hint">Salva l'atto per collegarlo a immobili, impianti e contratti.</p>
+        }
+      </mat-tab>
+
+      <mat-tab aria-label="Note">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="notes" label="Note"></app-tab-label>
+        </ng-template>
+        <mat-form-field style="width: 100%;">
+          <mat-label>Note</mat-label>
+          <textarea matInput formControlName="notes" rows="6"></textarea>
+        </mat-form-field>
+      </mat-tab>
+
+      @if (act) {
+        <mat-tab aria-label="Storico">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="history" label="Storico"></app-tab-label>
+          </ng-template>
+          <ng-template matTabContent>
+            <app-entity-history
+              [entity]="'acts'"
+              [entityId]="act.id"
+              [lastModifiedBy]="act.updated_by ? (act.updated_by.firstName ?? '') + ' ' + (act.updated_by.lastName ?? '') : null"
+              [lastModifiedAt]="act.update_date ?? null">
+            </app-entity-history>
+          </ng-template>
+        </mat-tab>
+      }
+    </mat-tab-group>
+  </form>
+
+  <ng-container sheetActions>
+    @if (error) {
+      <p class="sheet-error">{{ error }}</p>
+    }
+    <button mat-stroked-button type="button" (click)="close()">Chiudi</button>
+    @if (canEdit) {
+      <button mat-flat-button type="button" (click)="save()" [disabled]="saving || loading">Salva</button>
+    }
+  </ng-container>
+</app-entity-sheet>

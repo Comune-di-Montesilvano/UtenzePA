@@ -109,6 +109,26 @@ Un **complesso** raggruppa immobili gestiti o censiti come un insieme: una palaz
 
 In **Mappa** il livello **Complessi** mostra un solo pin per ogni complesso fisico; i complessi amministrativi non hanno un pin e i loro edifici si vedono singolarmente. Il pin del complesso porta il numero dei suoi immobili: clic sul pin = scheda del complesso, clic sul numero = elenco degli immobili. Gli immobili nello stesso punto del complesso stanno nel suo pin; quelli più lontani hanno un proprio pin, collegato al complesso da una linea tratteggiata viola che si evidenzia passando con il mouse.
 
+### Allegare un file a un immobile, impianto o contratto
+
+Nelle schede di **immobili**, **impianti**, **contratti immobiliari** e **contratti di fornitura** il tab **Documenti** raccoglie gli allegati e gli atti collegati.
+
+1. Apri il tab **Documenti** e, nella sezione **Allegati**, trascina i file nel riquadro oppure premi **scegli**. Non serve compilare nulla: la descrizione (es. «Contratto firmato», «Planimetria piano terra») è facoltativa e si scrive direttamente nella riga.
+2. Sono ammessi PDF, PDF firmati (.p7m), documenti e fogli di calcolo (Word, Excel, OpenDocument, CSV, testo), immagini (JPG, PNG, TIFF) ed email (.eml, .msg). La dimensione massima per file è indicata nel riquadro (di norma 50 MB).
+3. Il verbale di una verifica di un impianto si allega alla verifica: nel tab **Verifiche** premi la graffetta sulla riga della verifica. Gli allegati delle verifiche compaiono anche nel tab **Documenti** dell'impianto, con l'indicazione «verifica: …».
+4. **Apri** mostra PDF e immagini JPG e PNG in una nuova scheda del browser (gli altri file, TIFF compresi, si scaricano), **Scarica** salva il file. Un allegato eliminato non si vede più.
+
+### Registrare un atto
+
+Un **atto** è un atto ufficiale (delibera di Giunta o di Consiglio, determina, decreto, ordinanza, atto notarile, autorizzazione) di cui si registrano gli estremi: tipo, numero, data, oggetto, chi lo ha emesso, protocollo. Si registra anche senza il testo, ad esempio quando si hanno solo gli estremi o il file è troppo pesante.
+
+1. Apri **Atti** dal menu e premi **Nuovo atto**, oppure nel tab **Documenti** di una scheda premi **Nuovo atto** nella sezione **Atti collegati**: l'atto nasce già collegato a quella scheda.
+2. Compila tipo e oggetto (obbligatori) e gli altri estremi che conosci, poi **Salva**.
+3. Se hai il testo, caricalo nel tab **Allegati** dell'atto.
+4. Un atto può riguardare più immobili, impianti o contratti (es. una delibera che acquisisce più immobili): si registra una volta sola e si collega dalle altre schede con **Collega atto**, oppure dal tab **Collegamenti** dell'atto.
+
+I tipi di atto si modificano da **Impostazioni → Tipi di atto** (solo amministratori).
+
 ### Catasto e dati di patrimonio
 
 Il tab **Catasto e patrimonio** della scheda immobile raccoglie i dati catastali e quelli chiesti dal censimento MEF «Patrimonio della PA».
@@ -126,7 +146,7 @@ Nell'elenco immobili puoi cercare per foglio e particella (valore esatto), natur
 
 ### Fare un backup (solo amministratori)
 
-Da **Impostazioni → Backup e manutenzione** puoi creare un backup, scaricarlo, eliminarlo o ripristinarlo. Il ripristino non tocca utenti e branding. <!-- DA VERIFICARE: cosa contiene il backup (foto incluse?) e se va fatto prima di operazioni particolari -->
+Da **Impostazioni → Backup e manutenzione** puoi creare un backup, scaricarlo, eliminarlo o ripristinarlo. Il ripristino non tocca utenti e branding. Con **Includi gli allegati** il backup contiene anche i file allegati: può diventare grande. <!-- DA VERIFICARE: cosa contiene il backup (foto incluse?) e se va fatto prima di operazioni particolari -->
 
 ## Regole e riferimenti
 
@@ -163,6 +183,10 @@ Il **canone** si inserisce sempre **netto**, cioè senza IVA. Nel **Regime IVA**
 | IVA 22% | Immobili strumentali (uffici, negozi, capannoni) locati con opzione per l'IVA. |
 
 Con IVA 10% o 22% sotto il canone compaiono l'importo annuo netto, l'IVA e il totale. **Da indicare** vuol dire che il regime non è ancora stato verificato. Nel dubbio sul regime chiedi alla ragioneria.
+
+### Chi può scaricare gli allegati
+
+Le schede, gli elenchi degli allegati e gli atti sono visibili a tutti. **Aprire e scaricare i file** è riservato ad amministratori e operatori, perché contratti e atti contengono spesso dati personali: chi ha il ruolo di sola lettura vede un lucchetto al posto dei pulsanti.
 
 ### Contratti di fornitura
 
@@ -282,6 +306,14 @@ In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni u
 **Soluzione:** collega l'utenza o l'impianto al suo immobile, oppure inserisci le coordinate nella scheda. La segnalazione sparisce dopo il salvataggio.
 
 **Apri un ticket se:** l'immobile collegato ha l'indirizzo ma non viene posizionato sulla mappa.
+
+### «Tipo di file non ammesso» o «Il contenuto del file non corrisponde al tipo»
+
+**Causa:** il file non è di un tipo ammesso (es. ZIP o programmi), oppure l'estensione non corrisponde al contenuto (es. un file rinominato in .pdf), oppure supera la dimensione massima indicata nel riquadro (di norma 50 MB), oppure è vuoto.
+
+**Soluzione:** salva o esporta il documento in PDF dal programma che lo ha creato, senza rinominare l'estensione; se è troppo grande, scansionalo a risoluzione più bassa o dividilo in più file.
+
+**Apri un ticket se:** un PDF originale, non modificato, viene rifiutato.
 
 ### «Massimo 10 foto per elemento.»
 
