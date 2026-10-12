@@ -1,8 +1,17 @@
-import { IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { AssetStatusEnum } from '@apis/asset/enum/asset-status.enum';
+import { AssetMefFieldsDto } from './cadastral-unit.dto';
 
-export class UpdateAssetDto {
+export class UpdateAssetDto extends AssetMefFieldsDto {
   @IsOptional()
   @IsString()
   @MaxLength(255)
@@ -66,38 +75,11 @@ export class UpdateAssetDto {
   longitude?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  sheet?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  parcel?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  subordinate?: string;
-
-  @IsOptional()
   @Transform(({ value }) =>
     value !== undefined && value !== null && value !== '' ? parseFloat(value) : value,
   )
   @IsNumber()
   area_sqm?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Transform(({ value }) =>
-    value !== undefined && value !== null && value !== '' ? parseFloat(value) : value,
-  )
-  cadastral_value?: number;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  category?: string;
 
   // null ammesso (@IsOptional salta la validazione): un immobile legacy si
   // salva anche senza essere riclassificato.
@@ -124,7 +106,9 @@ export class UpdateAssetDto {
   complex_id?: number | null;
 
   @IsOptional()
-  @IsEnum(AssetStatusEnum, { message: `Lo stato deve essere uno tra: ${Object.values(AssetStatusEnum).join(', ')}` })
+  @IsEnum(AssetStatusEnum, {
+    message: `Lo stato deve essere uno tra: ${Object.values(AssetStatusEnum).join(', ')}`,
+  })
   status?: AssetStatusEnum;
 
   @IsOptional()

@@ -3,7 +3,12 @@ import { Asset } from './entity/asset.entity';
 
 describe('AssetsService', () => {
   let service: AssetsService;
-  let repo: { createQueryBuilder: jest.Mock; findOne?: jest.Mock; save?: jest.Mock; update?: jest.Mock };
+  let repo: {
+    createQueryBuilder: jest.Mock;
+    findOne?: jest.Mock;
+    save?: jest.Mock;
+    update?: jest.Mock;
+  };
   let qb: {
     leftJoinAndSelect: jest.Mock;
     where: jest.Mock;
@@ -39,6 +44,7 @@ describe('AssetsService', () => {
       } as never,
       { createQueryBuilder: jest.fn().mockReturnValue(natureQb) } as never,
       {} as never,
+      {} as never,
     );
   });
 
@@ -71,7 +77,7 @@ describe('AssetsService', () => {
 
       const result = await service.findAll();
 
-      expect(result).toBe(assets);
+      expect(result).toEqual([expect.objectContaining({ id: 1, mef: expect.any(Object) })]);
     });
   });
 
@@ -101,7 +107,9 @@ describe('AssetsService', () => {
         buildQuery: jest.fn().mockReturnValue('Via Roma 1, Montesilvano'),
         geocode: jest.fn().mockResolvedValue({ lat: '42.5', lon: '14.1' }),
       };
-      (repo as any).findOne = jest.fn().mockResolvedValue({ id: 1, address: 'Via Roma 1' } as Asset);
+      (repo as any).findOne = jest
+        .fn()
+        .mockResolvedValue({ id: 1, address: 'Via Roma 1' } as Asset);
       (repo as any).save = jest.fn().mockResolvedValue(undefined);
       (repo as any).update = jest.fn().mockResolvedValue(undefined);
       qb.getOne.mockResolvedValue({ id: 1, address: 'Via Vecchia 2' } as Asset);
@@ -109,6 +117,7 @@ describe('AssetsService', () => {
         repo as never,
         geocodingService as never,
         { createQueryBuilder: jest.fn() } as never,
+        {} as never,
         {} as never,
       );
     });
@@ -124,7 +133,11 @@ describe('AssetsService', () => {
     });
 
     it('non tocca i campi geocoded se viene fornito un gps manuale insieme al nuovo indirizzo', async () => {
-      await service.update(1, { address: 'Via Nuova 5', latitude: '42.1', longitude: '14.2' } as never);
+      await service.update(1, {
+        address: 'Via Nuova 5',
+        latitude: '42.1',
+        longitude: '14.2',
+      } as never);
 
       const savedEntity = (repo.save as jest.Mock).mock.calls[0][0];
       expect(savedEntity.geocoded_latitude).toBeUndefined();
@@ -137,13 +150,13 @@ describe('AssetsService', () => {
       expect(geocodingService.geocode).not.toHaveBeenCalled();
     });
 
-    it("non rilancia il geocoding se il valore di indirizzo inviato è uguale a quello già persistito (payload full-form invariato)", async () => {
+    it('non rilancia il geocoding se il valore di indirizzo inviato è uguale a quello già persistito (payload full-form invariato)', async () => {
       await service.update(1, { address: 'Via Roma 1' } as never);
 
       expect(geocodingService.geocode).not.toHaveBeenCalled();
     });
 
-    it("rilancia il geocoding se il valore di indirizzo inviato differisce da quello persistito", async () => {
+    it('rilancia il geocoding se il valore di indirizzo inviato differisce da quello persistito', async () => {
       await service.update(1, { address: 'Via Roma 1', civic_number: '10' } as never);
 
       expect(geocodingService.geocode).toHaveBeenCalledWith('Via Roma 1, Montesilvano');
@@ -162,6 +175,7 @@ describe('AssetsService', () => {
         repo as never,
         { buildQuery: jest.fn(), geocode: jest.fn() } as never,
         { createQueryBuilder: jest.fn() } as never,
+        {} as never,
         {} as never,
       );
 
@@ -183,10 +197,14 @@ describe('AssetsService', () => {
         ['assets.assetNature', 'assetNature'],
         ['assets.assetFunction', 'assetFunction'],
       ]) {
-        const calls = qb.leftJoinAndSelect.mock.calls.filter((c) => c[0] === path && c[1] === alias);
+        const calls = qb.leftJoinAndSelect.mock.calls.filter(
+          (c) => c[0] === path && c[1] === alias,
+        );
         expect(calls).toHaveLength(2);
       }
-      expect(qb.leftJoinAndSelect.mock.calls.some((c) => c[0] === 'assets.assetAggregator')).toBe(false);
+      expect(qb.leftJoinAndSelect.mock.calls.some((c) => c[0] === 'assets.assetAggregator')).toBe(
+        false,
+      );
     });
 
     it('findAll e findOne joinano il complesso non cancellato', async () => {
@@ -207,7 +225,9 @@ describe('AssetsService', () => {
 
     it('findAll con legacy_only filtra gli immobili senza natura o funzione e non lo passa ad applyFilters', async () => {
       await service.findAll({ legacy_only: true } as never);
-      expect(qb.andWhere).toHaveBeenCalledWith('(assets.nature_id IS NULL OR assets.function_id IS NULL)');
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        '(assets.nature_id IS NULL OR assets.function_id IS NULL)',
+      );
       expect(qb.andWhere).not.toHaveBeenCalledWith(
         expect.stringContaining('legacy_only'),
         expect.anything(),
@@ -230,9 +250,7 @@ describe('AssetsService', () => {
     });
 
     it('update parziale (solo funzione) valida contro la natura già salvata', async () => {
-      (repo as any).findOne = jest
-        .fn()
-        .mockResolvedValue({ id: 5, nature_id: 1, function_id: 2 });
+      (repo as any).findOne = jest.fn().mockResolvedValue({ id: 5, nature_id: 1, function_id: 2 });
 
       await service.update(5, { function_id: 4 } as never, 1);
 
@@ -261,7 +279,129 @@ describe('AssetsService', () => {
       qb.getCount.mockResolvedValue(42);
       await expect(service.countLegacy()).resolves.toBe(42);
       expect(qb.where).toHaveBeenCalledWith('assets.deleted = 0');
-      expect(qb.andWhere).toHaveBeenCalledWith('(assets.nature_id IS NULL OR assets.function_id IS NULL)');
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        '(assets.nature_id IS NULL OR assets.function_id IS NULL)',
+      );
+    });
+  });
+
+  describe('unità catastali e dati MEF', () => {
+    let unitRepo: { find: jest.Mock; delete: jest.Mock; save: jest.Mock };
+    let audit: { record: jest.Mock };
+
+    beforeEach(() => {
+      unitRepo = {
+        find: jest.fn().mockResolvedValue([]),
+        delete: jest.fn().mockResolvedValue(undefined),
+        save: jest.fn(async (rows) => rows),
+      };
+      audit = { record: jest.fn() };
+      (repo as any).findOne = jest
+        .fn()
+        .mockResolvedValue({ id: 1, nature_id: null, function_id: null });
+      (repo as any).save = jest.fn(async (d) => ({ id: 9, ...d }));
+      (repo as any).create = jest.fn((d) => d);
+      service = new AssetsService(
+        repo as never,
+        { buildQuery: jest.fn(), geocode: jest.fn() } as never,
+        { createQueryBuilder: jest.fn().mockReturnValue(natureQb) } as never,
+        {} as never,
+        unitRepo as never,
+      );
+      (service as any).auditLogService = audit;
+    });
+
+    const unit = { sheet: '16', parcel: '200', subordinate: '3', category: 'A/3' };
+
+    it('update con cadastral_units sostituisce le unità e registra il cambio', async () => {
+      unitRepo.find.mockResolvedValue([{ id: 4, asset_id: 1, sheet: '16', parcel: '200' }]);
+
+      await service.update(1, { cadastral_units: [unit] } as never, 7);
+
+      expect(unitRepo.delete).toHaveBeenCalledWith({ asset_id: 1 });
+      expect(unitRepo.save).toHaveBeenCalledWith([
+        expect.objectContaining({ asset_id: 1, ...unit }),
+      ]);
+      const fields = audit.record.mock.calls.flatMap((c) => c[0].fields ?? []);
+      expect(fields).toContainEqual(expect.objectContaining({ fieldName: 'cadastral_units' }));
+      const saved = (repo.save as jest.Mock).mock.calls[0][0];
+      expect(saved.cadastral_units).toBeUndefined();
+    });
+
+    it('update con le stesse unità non registra cambi sulle unità', async () => {
+      unitRepo.find.mockResolvedValue([
+        { id: 4, asset_id: 1, section: null, cadastral_income: null, ...unit },
+      ]);
+
+      await service.update(1, { cadastral_units: [unit] } as never, 7);
+
+      const fields = audit.record.mock.calls.flatMap((c) => c[0].fields ?? []);
+      expect(fields).not.toContainEqual(expect.objectContaining({ fieldName: 'cadastral_units' }));
+    });
+
+    it('update senza cadastral_units non tocca le unità', async () => {
+      await service.update(1, { asset_name: 'X' } as never, 7);
+
+      expect(unitRepo.find).not.toHaveBeenCalled();
+      expect(unitRepo.delete).not.toHaveBeenCalled();
+      expect(unitRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('create salva le unità sul nuovo immobile', async () => {
+      await service.create({ asset_name: 'X', ownership: 1, cadastral_units: [unit] } as never, 7);
+
+      expect(unitRepo.save).toHaveBeenCalledWith([
+        expect.objectContaining({ asset_id: 9, ...unit }),
+      ]);
+    });
+
+    it('findAll e findOne joinano le unità catastali', async () => {
+      await service.findAll();
+      await service.findOne(1);
+      const calls = qb.leftJoinAndSelect.mock.calls.filter(
+        (c) => c[0] === 'assets.cadastralUnits' && c[1] === 'cadastralUnits',
+      );
+      expect(calls).toHaveLength(2);
+    });
+
+    it('findAll con foglio cerca tra le unità e non sulla colonna dell’immobile', async () => {
+      await service.findAll({ sheet: '16' } as never);
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        expect.stringContaining('EXISTS (SELECT 1 FROM asset_cadastral_units'),
+        { filter_unit_sheet: '16' },
+      );
+      expect(qb.andWhere).not.toHaveBeenCalledWith(
+        expect.stringContaining('assets.sheet'),
+        expect.anything(),
+      );
+    });
+
+    it('findAll con utilizzo filtra sul dato MEF calcolato', async () => {
+      qb.getMany.mockResolvedValue([
+        { id: 1, ownership: 1, status: 'Attivo', utilizerGrants: [] },
+        {
+          id: 2,
+          ownership: 1,
+          status: 'Attivo',
+          utilizerGrants: [
+            {
+              id: 5,
+              direction: 'ACTIVE',
+              status: 'ACTIVE',
+              end_date: '2999-01-01',
+              tacit_renewal: false,
+              renewal_months: null,
+              notice_months: null,
+            },
+          ],
+        },
+      ]);
+
+      const rows = await service.findAll({ usage: 'THIRD_PARTIES' } as never);
+
+      expect(rows.map((r) => r.id)).toEqual([2]);
+      expect((rows[0] as any).mef.usage_grant_id).toBe(5);
     });
   });
 });

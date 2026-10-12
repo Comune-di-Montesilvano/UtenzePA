@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 import { AssetStatusEnum } from '@apis/asset/enum/asset-status.enum';
+import { LegalNature, MefUsage } from '@apis/asset/enum/mef-domains.enum';
 
 export class SearchAssetDto {
   @IsOptional()
@@ -65,6 +66,7 @@ export class SearchAssetDto {
   @IsString()
   longitude?: string;
 
+  // Foglio e particella cercano tra le unità catastali (uguaglianza esatta).
   @IsOptional()
   @IsString()
   @MaxLength(50)
@@ -76,28 +78,11 @@ export class SearchAssetDto {
   parcel?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  subordinate?: string;
-
-  @IsOptional()
   @Transform(({ value }) =>
     value !== undefined && value !== null && value !== '' ? String(value) : undefined,
   )
   @IsString()
   area_sqm?: string;
-
-  @IsOptional()
-  @Transform(({ value }) =>
-    value !== undefined && value !== null && value !== '' ? String(value) : undefined,
-  )
-  @IsString()
-  cadastral_value?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  category?: string;
 
   @IsOptional()
   @Transform(({ value }) => (value === '' ? undefined : Number(value)))
@@ -117,6 +102,15 @@ export class SearchAssetDto {
   @IsOptional()
   @IsEnum(AssetStatusEnum)
   status?: AssetStatusEnum;
+
+  @IsOptional()
+  @IsEnum(LegalNature)
+  legal_nature?: LegalNature;
+
+  // Utilizzo MEF calcolato (asset-mef.ts): filtrato dopo la query.
+  @IsOptional()
+  @IsEnum(MefUsage)
+  usage?: MefUsage;
 
   // Solo immobili senza natura o funzione: usato dal banner "N immobili da
   // classificare" (stesso criterio dell'anomalia in dashboard).
