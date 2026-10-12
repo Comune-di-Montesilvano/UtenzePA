@@ -138,7 +138,7 @@ Da **Impostazioni → Backup e manutenzione** puoi creare un backup, scaricarlo,
 | Operatore | Crea, modifica ed elimina immobili, utenze, impianti, contratti, fatture e capitoli. |
 | Admin | Come l'Operatore, più utenti e ruoli, log attività completo, backup, branding e rigeocodifica degli immobili. |
 
-I ruoli si assegnano da **Impostazioni → Utenti e ruoli**.
+I ruoli si assegnano da **Impostazioni → Utenti e ruoli**, pagina riservata agli Admin: Operatori e Lettori non vedono l'elenco degli utenti.
 
 ### A carico di: gli stati
 
