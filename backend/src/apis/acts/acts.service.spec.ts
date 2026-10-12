@@ -1,5 +1,6 @@
 import { ActsService } from './acts.service';
 import { BaseService } from '@apis/shared/base.service';
+import { In } from 'typeorm';
 
 const repo = () => ({
   find: jest.fn().mockResolvedValue([]),
@@ -7,6 +8,8 @@ const repo = () => ({
   count: jest.fn(),
   create: jest.fn((x) => x),
   save: jest.fn(async (x) => ({ id: 10, ...x })),
+  createQueryBuilder: jest.fn(),
+  update: jest.fn(),
 });
 
 const act = (extra = {}) => ({
@@ -124,7 +127,59 @@ describe('ActsService', () => {
     expect((await service.findAll({ year: 2019 })).map((a) => a.id)).toEqual([2]);
   });
 
+  it('byEntity: atti con tutti i loro collegamenti (non solo quello cercato)', async () => {
+    acts.find
+      .mockResolvedValueOnce([{ id: 1 }, { id: 2 }])
+      .mockResolvedValueOnce([act({ id: 1 }), act({ id: 2 })]);
+    await service.byEntity('asset', 3);
+    expect(acts.find.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        where: { deleted: false, assets: { id: 3 } },
+        select: { id: true },
+      }),
+    );
+    expect(acts.find.mock.calls[1][0].where).toEqual({ id: In([1, 2]) });
+  });
+
+  it('byEntity senza atti: una sola query', async () => {
+    acts.find.mockResolvedValueOnce([]);
+    expect(await service.byEntity('asset', 3)).toEqual([]);
+    expect(acts.find).toHaveBeenCalledTimes(1);
+  });
+
+  it('link/unlink: modifica solo la riga di collegamento (niente riscrittura della relazione)', async () => {
+    const add = jest.fn();
+    const remove = jest.fn();
+    acts.createQueryBuilder.mockReturnValue({
+      relation: () => ({ of: () => ({ add, remove }) }),
+    });
+    targets.asset.count.mockResolvedValue(1);
+    acts.findOne.mockResolvedValue(act({ assets: [{ id: 5, deleted: false }] }));
+    await service.link(10, 'asset', 3, 1);
+    await service.unlink(10, 'asset', 5, 1);
+    expect(add).toHaveBeenCalledWith(3);
+    expect(remove).toHaveBeenCalledWith(5);
+    expect(acts.save).not.toHaveBeenCalled();
+    expect(acts.update).toHaveBeenCalledWith(10, { updated_by_user_id: 1 });
+  });
+
+  it('PATCH *_ids: i collegamenti a entità cancellate (non visibili) restano', async () => {
+    acts.findOne.mockResolvedValue(
+      act({
+        assets: [
+          { id: 3, deleted: true },
+          { id: 5, deleted: false },
+        ],
+      }),
+    );
+    targets.asset.count.mockResolvedValue(1);
+    jest.spyOn(BaseService.prototype, 'update').mockResolvedValue(act() as never);
+    await service.update(10, { asset_ids: [4] }, 1);
+    expect(acts.save.mock.calls[0][0].assets).toEqual([{ id: 4 }, { id: 3 }]);
+  });
+
   it('byEntity: atti non cancellati collegati all’entità', async () => {
+    acts.find.mockResolvedValueOnce([]);
     await service.byEntity('contract', 7);
     expect(acts.find.mock.calls[0][0].where).toEqual({ deleted: false, contracts: { id: 7 } });
   });

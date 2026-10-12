@@ -122,14 +122,21 @@ export class ActsService extends BaseService<Act, CreateActDto, UpdateActDto> {
     return (await this.toRows([a]))[0];
   }
 
+  // Prima gli id, poi gli atti completi: filtrando sulla relazione nella stessa
+  // query TypeORM caricherebbe solo il collegamento cercato.
   async byEntity(entity: ActLinkEntity, entityId: number): Promise<ActRow[]> {
     const rel = LINKS[entity].relation;
-    return this.toRows(
+    const order = { act_date: 'DESC' as const, id: 'DESC' as const };
+    const ids = (
       await this.repo.find({
         where: { deleted: false, [rel]: { id: entityId } },
-        relations: RELATIONS,
-        order: { act_date: 'DESC', id: 'DESC' },
-      }),
+        select: { id: true },
+        order,
+      })
+    ).map((a) => a.id);
+    if (!ids.length) return [];
+    return this.toRows(
+      await this.repo.find({ where: { id: In(ids) }, relations: RELATIONS, order }),
     );
   }
 
@@ -166,6 +173,16 @@ export class ActsService extends BaseService<Act, CreateActDto, UpdateActDto> {
     if (dto.act_type_id !== undefined) await this.assertType(dto.act_type_id);
     if (dto.subject !== undefined) dto.subject = this.assertSubject(dto.subject);
     const links = await this.resolveLinks(dto);
+    // I collegamenti a entità cancellate non si vedono né si possono inviare:
+    // una sostituzione completa li conserva.
+    for (const [rel, list] of Object.entries(links)) {
+      const hidden = (
+        ((current as never)[rel] as { id: number; deleted?: boolean | number }[]) ?? []
+      )
+        .filter((x) => x.deleted && !list.some((l) => l.id === x.id))
+        .map((x) => ({ id: x.id }));
+      links[rel] = [...list, ...hidden];
+    }
     await super.update(id, this.withoutLinks(dto) as UpdateActDto, userId);
     if (Object.keys(links).length) {
       await this.repo.save({ id, ...links, updated_by_user_id: userId } as never);
@@ -214,11 +231,15 @@ export class ActsService extends BaseService<Act, CreateActDto, UpdateActDto> {
     if (add === before.includes(entityId)) return;
     if (add) await this.assertTargets(entity, [entityId]);
     const after = add ? [...before, entityId] : before.filter((x) => x !== entityId);
-    await this.repo.save({
-      id,
-      [rel]: after.map((x) => ({ id: x })),
-      updated_by_user_id: userId,
-    } as never);
+    // Solo la riga della join table: due collegamenti contemporanei non si
+    // sovrascrivono (un doppio inserimento dello stesso è già presente).
+    const relation = this.repo.createQueryBuilder().relation(Act, rel).of(id);
+    try {
+      await (add ? relation.add(entityId) : relation.remove(entityId));
+    } catch (e) {
+      if ((e as { code?: string }).code !== 'ER_DUP_ENTRY') throw e;
+    }
+    await this.repo.update(id, { updated_by_user_id: userId });
     await this.recordAudit(AuditAction.UPDATE, id, userId, [
       {
         fieldName: LINKS[entity].idsField,
