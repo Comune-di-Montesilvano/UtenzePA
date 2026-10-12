@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
@@ -15,6 +16,11 @@ import {
   HeritageConstraint,
   LegalNature,
 } from '@apis/asset/enum/mef-domains.enum';
+
+// Massimi delle colonne decimal(p,2): oltre, MySQL rifiuta l'INSERT.
+const MAX_DECIMAL_15_2 = 9999999999999.99;
+const MAX_DECIMAL_12_2 = 9999999999.99;
+const MAX_DECIMAL_10_2 = 99999999.99;
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 const blankToNull = ({ value }: { value: unknown }) => {
@@ -56,6 +62,7 @@ export class CadastralUnitDto {
 
   @IsOptional()
   @IsNumber({}, { message: 'La rendita deve essere un numero' })
+  @Max(MAX_DECIMAL_15_2, { message: 'Rendita troppo grande' })
   cadastral_income?: number | null;
 }
 
@@ -75,14 +82,17 @@ export class AssetMefFieldsDto {
 
   @IsOptional()
   @IsNumber({}, { message: 'La superficie di riferimento deve essere un numero' })
+  @Max(MAX_DECIMAL_10_2, { message: 'Superficie di riferimento troppo grande' })
   reference_area_sqm?: number | null;
 
   @IsOptional()
   @IsNumber({}, { message: 'La superficie delle aree pertinenziali deve essere un numero' })
+  @Max(MAX_DECIMAL_10_2, { message: 'Superficie delle aree pertinenziali troppo grande' })
   appurtenance_area_sqm?: number | null;
 
   @IsOptional()
   @IsNumber({}, { message: 'La cubatura deve essere un numero' })
+  @Max(MAX_DECIMAL_12_2, { message: 'Cubatura troppo grande' })
   volume_m3?: number | null;
 
   @IsOptional()

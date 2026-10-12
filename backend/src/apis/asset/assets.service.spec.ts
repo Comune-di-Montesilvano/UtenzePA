@@ -1,5 +1,6 @@
 import { AssetsService } from './assets.service';
 import { Asset } from './entity/asset.entity';
+import { AssetCadastralUnit } from './entity/asset-cadastral-unit.entity';
 
 describe('AssetsService', () => {
   let service: AssetsService;
@@ -286,14 +287,20 @@ describe('AssetsService', () => {
   });
 
   describe('unità catastali e dati MEF', () => {
-    let unitRepo: { find: jest.Mock; delete: jest.Mock; save: jest.Mock };
+    let unitRepo: { find: jest.Mock; save: jest.Mock; manager: { transaction: jest.Mock } };
+    // EntityManager della transazione in cui si sostituiscono le unità.
+    let em: { delete: jest.Mock; save: jest.Mock };
     let audit: { record: jest.Mock };
 
     beforeEach(() => {
+      em = {
+        delete: jest.fn().mockResolvedValue(undefined),
+        save: jest.fn(async (_entity, rows) => rows),
+      };
       unitRepo = {
         find: jest.fn().mockResolvedValue([]),
-        delete: jest.fn().mockResolvedValue(undefined),
         save: jest.fn(async (rows) => rows),
+        manager: { transaction: jest.fn(async (fn) => fn(em)) },
       };
       audit = { record: jest.fn() };
       (repo as any).findOne = jest
@@ -318,8 +325,9 @@ describe('AssetsService', () => {
 
       await service.update(1, { cadastral_units: [unit] } as never, 7);
 
-      expect(unitRepo.delete).toHaveBeenCalledWith({ asset_id: 1 });
-      expect(unitRepo.save).toHaveBeenCalledWith([
+      expect(unitRepo.manager.transaction).toHaveBeenCalled();
+      expect(em.delete).toHaveBeenCalledWith(AssetCadastralUnit, { asset_id: 1 });
+      expect(em.save).toHaveBeenCalledWith(AssetCadastralUnit, [
         expect.objectContaining({ asset_id: 1, ...unit }),
       ]);
       const fields = audit.record.mock.calls.flatMap((c) => c[0].fields ?? []);
@@ -343,8 +351,23 @@ describe('AssetsService', () => {
       await service.update(1, { asset_name: 'X' } as never, 7);
 
       expect(unitRepo.find).not.toHaveBeenCalled();
-      expect(unitRepo.delete).not.toHaveBeenCalled();
+      expect(unitRepo.manager.transaction).not.toHaveBeenCalled();
       expect(unitRepo.save).not.toHaveBeenCalled();
+    });
+
+    it("se l'inserimento delle unità fallisce l'errore è un 400, non un 500", async () => {
+      em.save.mockRejectedValue(
+        Object.assign(new Error('Out of range value'), { code: 'ER_WARN_DATA_OUT_OF_RANGE' }),
+      );
+
+      await expect(
+        service.update(1, { cadastral_units: [unit] } as never, 7),
+      ).rejects.toMatchObject({
+        status: 400,
+      });
+      // Cancellazione e inserimento nella stessa transazione: il rollback le annulla entrambe.
+      expect(em.delete).toHaveBeenCalled();
+      expect(unitRepo.manager.transaction).toHaveBeenCalledTimes(1);
     });
 
     it('create salva le unità sul nuovo immobile', async () => {

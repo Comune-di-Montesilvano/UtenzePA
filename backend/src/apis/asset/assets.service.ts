@@ -210,7 +210,11 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     const { cadastral_units: units, ...rest } = dto;
     const saved = await super.create(rest as CreateAssetDto, userId);
     if (units?.length) {
-      saved.cadastralUnits = await this.unitRepo.save(this.toUnitRows(saved.id, units));
+      try {
+        saved.cadastralUnits = await this.unitRepo.save(this.toUnitRows(saved.id, units));
+      } catch (error) {
+        this.manageErrors(error, 'Errore durante il salvataggio delle unità catastali');
+      }
     }
     return saved;
   }
@@ -234,9 +238,17 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     previous: AssetCadastralUnit[],
     userId?: number,
   ): Promise<void> {
-    await this.unitRepo.delete({ asset_id: assetId });
     const rows = this.toUnitRows(assetId, units);
-    if (rows.length) await this.unitRepo.save(rows);
+    // Cancellazione e inserimento insieme: se l'inserimento fallisce restano
+    // le unità di prima (e due salvataggi concorrenti non le sommano).
+    try {
+      await this.unitRepo.manager.transaction(async (m) => {
+        await m.delete(AssetCadastralUnit, { asset_id: assetId });
+        if (rows.length) await m.save(AssetCadastralUnit, rows);
+      });
+    } catch (error) {
+      this.manageErrors(error, 'Errore durante il salvataggio delle unità catastali');
+    }
     const before = unitsText(previous);
     const after = unitsText(rows as UnitLike[]);
     if (before !== after && userId !== undefined) {
