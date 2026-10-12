@@ -117,7 +117,7 @@ Il tab **Catasto e patrimonio** della scheda immobile raccoglie i dati catastali
    - **Id bene MEF**: lo assegna il MEF, arriva con l'import e non si modifica.
    - **Utilizzo**: «Dato a terzi» se un contratto immobiliare attivo (in uscita) è in corso, «Inutilizzabile» se l'immobile è dismesso, altrimenti «Utilizzato direttamente».
    - **Stato di accatastamento**: «Accatastato» con almeno un'unità catastale.
-   - **Tipologia** e **Finalità**: vengono dalla funzione dell'immobile. Si impostano in **Funzioni immobile** (campi **Tipologia MEF** e **Finalità MEF**); la finalità vale solo per gli immobili utilizzati direttamente.
+   - **Tipologia** e **Finalità**: vengono dalla funzione dell'immobile. Si impostano in **Funzioni immobile** (campi **Tipologia MEF** e **Finalità MEF**), anche con **apri la funzione** dal riquadro; la finalità vale solo per gli immobili utilizzati direttamente.
 
 Nell'elenco immobili puoi cercare per foglio e particella (valore esatto), natura giuridica e utilizzo, e aggiungere le colonne **Catasto**, **Natura giuridica**, **Utilizzo** e **Id MEF**.
 

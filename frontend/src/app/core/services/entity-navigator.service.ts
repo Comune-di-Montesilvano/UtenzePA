@@ -234,6 +234,17 @@ export class EntityNavigatorService {
     );
   }
 
+  // Funzione immobile in un dialog impilato (es. tipologia MEF dalla scheda immobile).
+  openAssetFunction(id: number): Observable<AssetFunction | null> {
+    return this.functions.getById(id).pipe(
+      switchMap(item => this.simple<EditDialogData<AssetFunction>, AssetFunction>(FUNCTION_DIALOG, {mode: 'edit', item})),
+      switchMap(r => (r ? this.functions.update(r.id, {
+        ...AssetFunction.toPayload(r), updated_by_user_id: this.authorship().updated_by_user_id,
+      }) : of(null))),
+      catchError(err => this.fail('Errore apertura/salvataggio della funzione', err)),
+    );
+  }
+
   // Una funzione nuova va anche tra le ammesse della tipologia scelta,
   // altrimenti la scheda immobile non la propone.
   createAssetFunction(natureId: number | null, prefill: Partial<AssetFunction> = {}): Observable<AssetFunction | null> {

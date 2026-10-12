@@ -351,7 +351,9 @@
                 <dt>Tipologia</dt>
                 <dd>
                   {{ mefBuildingTypeLabel ?? 'da impostare nella funzione dell’immobile' }}
-                  — <a href="/asset-function" target="_blank" rel="noopener">funzioni immobile</a>
+                  @if (data.item.function_id) {
+                    — <a href="javascript:void(0)" (click)="openFunction()">apri la funzione</a>
+                  }
                 </dd>
                 <dt>Finalità</dt>
                 <dd>{{ mefPurposeLabel ?? (mef.usage === 'DIRECT' ? 'da impostare nella funzione dell’immobile' : 'non prevista (solo per gli immobili utilizzati direttamente)') }}</dd>

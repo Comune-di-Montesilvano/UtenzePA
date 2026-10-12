@@ -617,6 +617,15 @@ export class AssetEditDialogComponent implements OnInit {
     );
   }
 
+  // Tipologia e finalità MEF si impostano sulla funzione salvata dell'immobile.
+  openFunction(): void {
+    const id = this.data.item.function_id;
+    if (!id) return;
+    this.navigator.openAssetFunction(id).subscribe(saved => {
+      if (saved) this.loadFunctions();
+    });
+  }
+
   // Sezione "Per il MEF": valori calcolati dal backend all'ultimo salvataggio.
   readonly mef = this.data.item.mef ?? null;
   readonly mefUsageLabel = this.mef ? MEF_USAGE_LABEL[this.mef.usage] : '';
