@@ -7,6 +7,7 @@ import {AssetNaturesService} from '../asset-nature/asset-nature.service';
 import {AssetFunctionsService} from '../asset-function/asset-function.service';
 import {ASSET_STATUS_OPTIONS} from './enum/asset-status.enum';
 import {ComplexService} from '../complexes/complex.service';
+import {LEGAL_NATURE_LABEL, MEF_USAGE_LABEL, optionsOf} from './mef-domains';
 
 // Filtri dell'elenco immobili. Da chiamare in un injection context.
 export function assetFilters(): FilterDef[] {
@@ -41,12 +42,13 @@ export function assetFilters(): FilterDef[] {
     {key: 'latitude', label: 'Latitudine', type: 'text', group: 'Indirizzo'},
     {key: 'longitude', label: 'Longitudine', type: 'text', group: 'Indirizzo'},
 
-    {key: 'category', label: "Categoria (destinazione d'uso)", type: 'select', group: 'Catasto', options: assets.categoryOptions()},
-    {key: 'sheet', label: 'Foglio', type: 'text', group: 'Catasto'},
-    {key: 'parcel', label: 'Particella (mappale)', type: 'text', group: 'Catasto'},
-    {key: 'subordinate', label: 'Subalterno', type: 'text', group: 'Catasto'},
-    {key: 'cadastral_value', label: 'Valore catastale', type: 'number', group: 'Catasto'},
-    {key: 'area_sqm', label: 'Superficie (mq)', type: 'number', group: 'Catasto'},
+    {key: 'sheet', label: 'Foglio', type: 'text', group: 'Catasto e patrimonio'},
+    {key: 'parcel', label: 'Particella (mappale)', type: 'text', group: 'Catasto e patrimonio'},
+    {key: 'area_sqm', label: 'Superficie (mq)', type: 'number', group: 'Catasto e patrimonio'},
+    {key: 'legal_nature', label: 'Natura giuridica', type: 'select', group: 'Catasto e patrimonio',
+      options: optionsOf(LEGAL_NATURE_LABEL)},
+    {key: 'usage', label: 'Utilizzo (MEF)', type: 'select', group: 'Catasto e patrimonio',
+      options: optionsOf(MEF_USAGE_LABEL)},
 
     {key: 'specific_details', label: 'Specifiche', type: 'text', group: 'Altro'},
     {key: 'memo', label: 'Promemoria', type: 'text', group: 'Altro'},
@@ -58,4 +60,7 @@ export function assetFilters(): FilterDef[] {
 export const ASSET_SIGNALS: SignalDef[] = [
   {key: 'assets_without_classification', label: 'Da classificare (tipologia o funzione mancanti)'},
   {key: 'rented_assets_without_passive_contract', label: 'Non di proprietà senza contratto passivo attivo'},
+  {key: 'assets_without_cadastre', label: 'Di proprietà senza catasto'},
+  {key: 'assets_without_mef_id', label: 'Fabbricati di proprietà senza Id MEF'},
+  {key: 'units_without_subordinate', label: 'Subalterno da assegnare (stessi via, civico, foglio e particella)'},
 ];

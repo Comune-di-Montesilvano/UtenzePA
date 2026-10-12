@@ -55,6 +55,10 @@ export interface Anomalies {
   chapters_over_budget: AnomalyList<ChapterAnomaly & {adjusted_budget: number; committed: number; invoiced: number}>;
   chapters_without_budget: AnomalyList<ChapterAnomaly>;
   invoice_lines_without_utility: AnomalyList<{invoice_id: number; number: string; supply_code: string | null; amount: number}>;
+  assets_without_cadastre: AnomalyList<{id: number; asset_name: string}>;
+  assets_without_mef_id: AnomalyList<{id: number; asset_name: string}>;
+  units_without_subordinate: AnomalyList<{id: number; asset_name: string}>;
+  functions_without_mef_type: AnomalyList<{id: number; name: string}>;
 }
 
 // Non estende AbstractService: header Authorization messo a mano (nessun

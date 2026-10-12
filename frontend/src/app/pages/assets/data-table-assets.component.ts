@@ -17,8 +17,9 @@ import {AbstractDataTableComponent} from '../../core/components/abstract-data-ta
 import {AssetEditDialogComponent} from './asset-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 import {HardType} from '../utility-types/enum/hard-type.enum';
-import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
 import {TruncatePipe} from '../../core/pipes/truncate.pipe';
+import {cadastralUnitLabel} from './entity/cadastral-unit';
+import {LEGAL_NATURE_LABEL, MEF_USAGE_LABEL} from './mef-domains';
 
 @Component({
   selector: 'app-data-table-assets',
@@ -26,7 +27,7 @@ import {TruncatePipe} from '../../core/pipes/truncate.pipe';
   imports: [ListToolbarComponent, 
     MatTableModule, MatSortModule, MatPaginatorModule, MatButtonModule, MatIconModule,
     MatTooltipModule, MatProgressBarModule, MatSelectModule, MatFormFieldModule, FormsModule,
-    HasRoleDirective, FormatAmountPipe, TruncatePipe
+    HasRoleDirective, TruncatePipe
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-assets.component.html'
@@ -40,7 +41,6 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
     {field: 'assetFunction.name', header: 'Funzione', minWidth: '150px'},
     {field: 'complex.name', header: 'Complesso', minWidth: '150px'},
     {field: 'status', header: 'Stato', minWidth: '100px'},
-    {field: 'category', header: 'Categoria', minWidth: '120px'},
     {field: 'ownership', header: 'Proprietà', minWidth: '100px'},
     {field: 'toponym', header: 'Toponimo', minWidth: '100px'},
     {field: 'address', header: 'Indirizzo', minWidth: '150px'},
@@ -48,12 +48,12 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
     {field: 'municipality', header: 'Comune', minWidth: '150px'},
     {field: 'zip_code', header: 'CAP', minWidth: '80px'},
     {field: 'services_and_artifacts', header: 'Servizi/Manufatti', minWidth: '200px'},
-    {field: 'cadastral_value', header: 'Valore catastale', minWidth: '150px'},
     {field: 'latitude', header: 'Latitudine', minWidth: '100px'},
     {field: 'longitude', header: 'Longitudine', minWidth: '100px'},
-    {field: 'sheet', header: 'Foglio', minWidth: '80px'},
-    {field: 'parcel', header: 'Particella (Mappale)', minWidth: '100px'},
-    {field: 'subordinate', header: 'Subalterno', minWidth: '100px'},
+    {field: 'cadastre', header: 'Catasto', minWidth: '160px'},
+    {field: 'legal_nature', header: 'Natura giuridica', minWidth: '150px'},
+    {field: 'mef.usage', header: 'Utilizzo', minWidth: '150px'},
+    {field: 'mef_id', header: 'Id MEF', minWidth: '90px'},
     {field: 'area_sqm', header: 'Superficie (mq)', minWidth: '120px'},
     {field: 'associated_building', header: 'Descrizione fabbricato', minWidth: '200px'},
     {field: 'specific_details', header: 'Specifiche', minWidth: '200px'},
@@ -62,13 +62,20 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
 
   private readonly defaultVisibleFields = new Set([
     'id', 'asset_name', 'assetNature.name', 'assetFunction.name', 'status',
-    'category', 'ownership', 'address', 'municipality'
+    'ownership', 'address', 'municipality'
   ]);
 
-  // v2: le colonne classificazione (natura/funzione/stato) sostituiscono
-  // 'Tipo immobile' — chiave nuova perché le selezioni salvate prima non le
-  // conterrebbero e resterebbero nascoste.
-  private static readonly STORAGE_KEY = 'columns:assets:v2';
+  // v3: catasto spostato sulle unità catastali (colonna "Catasto") e dati
+  // MEF — chiave nuova perché le selezioni salvate citano colonne rimosse.
+  private static readonly STORAGE_KEY = 'columns:assets:v3';
+
+  readonly legalNatureLabel = LEGAL_NATURE_LABEL as Record<string, string>;
+  readonly usageLabel = MEF_USAGE_LABEL as Record<string, string>;
+
+  // Unità catastali in una riga: "F. 16 P. 200 sub. 3, F. 16 P. 201".
+  cadastreText(item: Asset): string {
+    return (item.cadastralUnits ?? []).map(cadastralUnitLabel).join(', ');
+  }
 
   selectedColumns: IColumnDef[] = this.loadColumnSelection(
     DataTableAssetsComponent.STORAGE_KEY, this.allColumns, this.defaultVisibleFields
@@ -90,6 +97,7 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
   constructor(screen: ScreenSizeService) {
     super(screen);
     this.dataSource.sortingDataAccessor = (item: Asset, property: string) => {
+      if (property === 'cadastre') return this.cadastreText(item);
       const value = this.getNestedValue(item, property);
       return (value ?? '') as string | number;
     };
@@ -103,10 +111,12 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
     switch (field) {
       case 'ownership':
         return item.ownership ? 'Sì' : 'No';
-      case 'cadastral_value':
-        return item.cadastral_value != null
-          ? item.cadastral_value.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2})
-          : '';
+      case 'cadastre':
+        return this.cadastreText(item);
+      case 'legal_nature':
+        return item.legal_nature ? this.legalNatureLabel[item.legal_nature] : '';
+      case 'mef.usage':
+        return item.mef ? this.usageLabel[item.mef.usage] : '';
       default:
         return String(this.getNestedValue(item, field) ?? '');
     }

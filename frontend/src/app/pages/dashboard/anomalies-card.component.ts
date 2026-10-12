@@ -308,6 +308,66 @@ const formatDate = (iso: string | null): string => {
               </ul>
             </mat-expansion-panel>
             }
+            @if (data.assets_without_cadastre.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.assets_without_cadastre.count }}</span>
+                  Immobili di proprietà senza unità catastali
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (a of data.assets_without_cadastre.items; track a.id) {
+                  <li (click)="openAsset(a.id)">{{ a.asset_name }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
+            @if (data.assets_without_mef_id.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.assets_without_mef_id.count }}</span>
+                  Fabbricati di proprietà senza Id MEF
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (a of data.assets_without_mef_id.items; track a.id) {
+                  <li (click)="openAsset(a.id)">{{ a.asset_name }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
+            @if (data.units_without_subordinate.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.units_without_subordinate.count }}</span>
+                  Subalterno da assegnare (immobili con stessi via, civico, foglio e particella)
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (a of data.units_without_subordinate.items; track a.id) {
+                  <li (click)="openAsset(a.id)">{{ a.asset_name }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
+            @if (data.functions_without_mef_type.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.functions_without_mef_type.count }}</span>
+                  Funzioni immobile senza tipologia MEF
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (a of data.functions_without_mef_type.items; track a.id) {
+                  <li (click)="openAssetFunction(a.id)">{{ a.name }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
             @if (data.invoices_on_ceased_utilities.count > 0) {
             <mat-expansion-panel>
               <mat-expansion-panel-header>
@@ -493,6 +553,10 @@ export class AnomaliesCardComponent implements OnInit {
     this.navigator.openThirdParty(id).subscribe(saved => {
       if (saved) this.load();
     });
+  }
+
+  openAssetFunction(id: number): void {
+    this.router.navigate(['/asset-function'], {queryParams: {selectedId: id}});
   }
 
   openRealEstateContract(id: number): void {
