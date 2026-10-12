@@ -61,6 +61,7 @@ services:
       - ./backend:/usr/src/app
       - ./backend/backups:/usr/src/app/backups
       - ./backend/photos:/usr/src/app/photos
+      - ./backend/attachments:/usr/src/app/attachments
       - api_node_modules:/usr/src/app/node_modules
     ports:
       - '9229:9229'

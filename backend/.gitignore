@@ -87,3 +87,5 @@ schema_db.sql
 # Directory upload foto (bind-mount in dev), may contain real photos of municipal
 # assets/property - dati sensibili, non usare in produzione/non committare
 /photos/
+# Allegati caricati (bind-mount in dev): documenti reali, mai nel repo.
+/attachments/
