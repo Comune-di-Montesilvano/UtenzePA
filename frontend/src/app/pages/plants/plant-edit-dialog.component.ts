@@ -59,6 +59,7 @@ import {
 import {dateIt, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
 import {AuthService} from '../../services/auth.service';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
+import {EntityDocumentsComponent} from '../acts/entity-documents.component';
 
 export interface PlantEditDialogData {
   // null = nuovo impianto.
@@ -87,7 +88,7 @@ const toDate = (iso?: string | null): Date | null => {
 @Component({
   selector: 'app-plant-edit-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
+  imports: [EntityDocumentsComponent, ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatCheckboxModule, MatButtonModule, MatIconModule, MatTabsModule, MatDatepickerModule, MatProgressBarModule,
     LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
     PlantInspectionsTabComponent, PlantFireEquipmentTabComponent,
@@ -116,6 +117,8 @@ export class PlantEditDialogComponent implements OnInit {
   readonly cert = certificationStatus;
   // Stessa regola delle altre schede (Admin, Operatore).
   readonly canEdit = isEditorRole(inject(AuthService).getCurrentUser()?.role);
+  // Tab Documenti: allegati + atti collegati (si aggiorna alla prima apertura).
+  documentCount: number | null = null;
 
   plant: Plant | null = null;
   private allAssets: Asset[] = [];

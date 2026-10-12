@@ -73,6 +73,7 @@ import {
   MEF_USAGE_LABEL,
   optionsOf,
 } from './mef-domains';
+import {EntityDocumentsComponent} from '../acts/entity-documents.component';
 
 // Testo trim, vuoto = null (campi facoltativi delle unità catastali).
 const textOrNull = (v: unknown): string | null => {
@@ -98,7 +99,7 @@ interface UtilityTypeButton {
 @Component({
   selector: 'app-asset-edit-dialog',
   standalone: true,
-  imports: [
+  imports: [EntityDocumentsComponent, 
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
     MatTabsModule, MatTooltipModule, MatIconModule, MatExpansionModule, OnlyNumbersDirective, LatitudeInputDirective,
     LongitudeInputDirective, LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
@@ -142,6 +143,8 @@ export class AssetEditDialogComponent implements OnInit {
   @ViewChildren(MatTab) tabList?: QueryList<MatTab>;
 
   isNew = this.data.mode === 'create';
+  // Tab Documenti: allegati + atti collegati (si aggiorna alla prima apertura).
+  documentCount: number | null = null;
   private spendingService = inject(SpendingService);
   // Spesa da fatture per anno (Riepilogo).
   assetSpending: AssetSpending | null = null;

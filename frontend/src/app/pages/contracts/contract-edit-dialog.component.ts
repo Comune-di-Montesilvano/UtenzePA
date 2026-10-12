@@ -37,6 +37,7 @@ import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navig
 import {ContractCommitmentsTabComponent} from './commitments/contract-commitments-tab.component';
 import {chapterLabel} from './commitments/commitment.model';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
+import {EntityDocumentsComponent} from '../acts/entity-documents.component';
 
 /** Precompila l'associazione utenze quando aperto dal dettaglio Utenza ("Nuovo contratto"). */
 export interface ContractDialogExtra {
@@ -54,7 +55,7 @@ function cigRequiredUnlessExempt(group: AbstractControl): ValidationErrors | nul
 @Component({
   selector: 'app-contract-edit-dialog',
   standalone: true,
-  imports: [
+  imports: [EntityDocumentsComponent, 
     ReactiveFormsModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatDatepickerModule, MatButtonModule, MatCheckboxModule, MatTabsModule, MatIconModule, MatTooltipModule,
     FilterableSelectComponent, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, PreviewCardComponent,
@@ -80,6 +81,8 @@ export class ContractEditDialogComponent implements OnInit {
   @ViewChildren(MatTab) tabList?: QueryList<MatTab>;
 
   isNew = this.data.mode === 'create';
+  // Tab Documenti: allegati + atti collegati (si aggiorna alla prima apertura).
+  documentCount: number | null = null;
   readonly canEdit = isEditorRole(this.authService.getCurrentUser()?.role);
   readonly lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
 

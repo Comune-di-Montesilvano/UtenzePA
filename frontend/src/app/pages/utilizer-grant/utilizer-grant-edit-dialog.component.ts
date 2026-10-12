@@ -51,6 +51,7 @@ import {
   VAT_REGIME_LABEL,
   VatRegime,
 } from './real-estate-contract.model';
+import {EntityDocumentsComponent} from '../acts/entity-documents.component';
 
 const options = <K extends string>(labels: Record<K, string>) =>
   (Object.keys(labels) as K[]).map(value => ({value, label: labels[value]}));
@@ -67,7 +68,7 @@ const atLeastOne = (c: AbstractControl): ValidationErrors | null =>
 @Component({
   selector: 'app-utilizer-grant-edit-dialog',
   standalone: true,
-  imports: [
+  imports: [EntityDocumentsComponent, 
     ReactiveFormsModule,
     MultiSelectComponent,
     MatDialogModule,
@@ -101,6 +102,8 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   protected data = inject<EditDialogData<UtilizerGrant>>(MAT_DIALOG_DATA);
 
   readonly item = this.data.item;
+  // Tab Documenti: allegati + atti collegati (si aggiorna alla prima apertura).
+  documentCount: number | null = null;
   private navigator = inject(EntityNavigatorService);
   private utilityService = inject(UtilityService);
 
