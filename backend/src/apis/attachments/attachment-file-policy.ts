@@ -4,7 +4,7 @@ import * as path from 'path';
 // Tipi ammessi per gli allegati: estensione + firma del contenuto (il MIME del
 // browser non conta, lo decide il server). Niente archivi né eseguibili; il
 // p7m (firmato digitalmente) si conserva così com'è.
-type Kind = 'pdf' | 'zip' | 'ole' | 'p7m' | 'jpeg' | 'png' | 'tiff' | 'text';
+type Kind = 'pdf' | 'ooxml' | 'odf' | 'ole' | 'p7m' | 'jpeg' | 'png' | 'tiff' | 'text';
 
 const TYPES: Record<string, { mime: string; kind: Kind }> = {
   pdf: { mime: 'application/pdf', kind: 'pdf' },
@@ -14,11 +14,14 @@ const TYPES: Record<string, { mime: string; kind: Kind }> = {
   msg: { mime: 'application/vnd.ms-outlook', kind: 'ole' },
   docx: {
     mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    kind: 'zip',
+    kind: 'ooxml',
   },
-  xlsx: { mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', kind: 'zip' },
-  odt: { mime: 'application/vnd.oasis.opendocument.text', kind: 'zip' },
-  ods: { mime: 'application/vnd.oasis.opendocument.spreadsheet', kind: 'zip' },
+  xlsx: {
+    mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    kind: 'ooxml',
+  },
+  odt: { mime: 'application/vnd.oasis.opendocument.text', kind: 'odf' },
+  ods: { mime: 'application/vnd.oasis.opendocument.spreadsheet', kind: 'odf' },
   csv: { mime: 'text/csv', kind: 'text' },
   txt: { mime: 'text/plain', kind: 'text' },
   eml: { mime: 'message/rfc822', kind: 'text' },
@@ -34,17 +37,39 @@ export const ALLOWED_EXTENSIONS: readonly string[] = Object.keys(TYPES);
 const startsWith = (head: Buffer, bytes: number[]) =>
   head.length >= bytes.length && bytes.every((b, i) => head[i] === b);
 
+const ZIP = [0x50, 0x4b, 0x03, 0x04];
+// Un pacchetto Office (OOXML) ha tra i primi file [Content_Types].xml o le
+// cartelle _rels/, docProps/, word/, xl/; un OpenDocument ha per primo il file
+// «mimetype» non compresso. Uno ZIP qualsiasi rinominato non passa.
+const OOXML_MARKERS = ['[Content_Types].xml', '_rels/', 'docProps/', 'word/', 'xl/'];
+const ODF_MARKER = 'mimetypeapplication/vnd.oasis.opendocument';
+// OID 1.2.840.113549.1.7.2 (PKCS#7 signedData) in DER.
+const P7_SIGNED_DATA = Buffer.from([
+  0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07, 0x02,
+]);
+const BASE64 = /^[A-Za-z0-9+/=\r\n]+$/;
+
 function matches(kind: Kind, head: Buffer): boolean {
   switch (kind) {
     case 'pdf':
       return head.subarray(0, 5).toString('latin1') === '%PDF-';
-    case 'zip':
-      return startsWith(head, [0x50, 0x4b, 0x03, 0x04]);
+    case 'ooxml': {
+      const text = head.toString('latin1');
+      return startsWith(head, ZIP) && OOXML_MARKERS.some((m) => text.includes(m));
+    }
+    case 'odf':
+      return startsWith(head, ZIP) && head.toString('latin1').includes(ODF_MARKER);
     case 'ole':
       return startsWith(head, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
-    // DER (SEQUENCE) oppure base64 di un DER.
-    case 'p7m':
-      return head[0] === 0x30 || head.subarray(0, 2).toString('latin1') === 'MI';
+    // DER (SEQUENCE con l'OID signedData) oppure base64 di un DER.
+    case 'p7m': {
+      if (head[0] === 0x30) return head.subarray(0, 64).includes(P7_SIGNED_DATA);
+      // FatturaPA nominata .p7m ma non firmata: XML (con o senza BOM).
+      // trimStart toglie anche il BOM (U+FEFF è spazio per JavaScript).
+      if (head.subarray(0, 64).toString('utf8').trimStart().startsWith('<?xml')) return true;
+      const start = head.subarray(0, 64).toString('latin1');
+      return start.startsWith('MI') && BASE64.test(start);
+    }
     case 'jpeg':
       return startsWith(head, [0xff, 0xd8, 0xff]);
     case 'png':
@@ -89,6 +114,11 @@ export function contentDisposition(originalName: string, inline: boolean): strin
     (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
   );
   return `${inline ? 'inline' : 'attachment'}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}
+
+// PDF e immagini che il browser sa mostrare (TIFF no): solo questi in anteprima.
+export function isPreviewableMime(mime: string): boolean {
+  return ['application/pdf', 'image/jpeg', 'image/png'].includes(mime);
 }
 
 export function maxSizeBytes(): number {

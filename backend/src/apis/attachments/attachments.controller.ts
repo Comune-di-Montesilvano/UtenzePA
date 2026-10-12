@@ -28,7 +28,7 @@ import { Attachment } from './entity/attachment.entity';
 import { AttachmentQueryDto } from './dto/attachment-query.dto';
 import { AttachmentFinalizeDto } from './dto/attachment-finalize.dto';
 import { UpdateAttachmentDto } from './dto/update-attachment.dto';
-import { contentDisposition } from './attachment-file-policy';
+import { contentDisposition, isPreviewableMime } from './attachment-file-policy';
 
 @Controller('attachments')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -71,9 +71,7 @@ export class AttachmentsController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
     const { attachment, absolutePath } = await this.service.open(id);
-    const preview =
-      inline === '1' &&
-      (attachment.mime_type === 'application/pdf' || attachment.mime_type.startsWith('image/'));
+    const preview = inline === '1' && isPreviewableMime(attachment.mime_type);
     res.set({
       'Content-Type': attachment.mime_type,
       'Content-Disposition': contentDisposition(attachment.original_name, preview),
