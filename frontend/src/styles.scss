@@ -488,5 +488,3 @@ html.theme-dark .only-dark { display: revert !important; }
 }
 
 // Popup del pin complesso in mappa (CSS di Leaflet caricato dopo: prefisso html).
-html .map-complex-popup { display: flex; flex-direction: column; gap: 4px; min-width: 180px; }
-html .map-complex-popup button { cursor: pointer; text-align: left; }

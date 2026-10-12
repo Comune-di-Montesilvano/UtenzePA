@@ -105,7 +105,7 @@ Un **complesso** raggruppa immobili gestiti o censiti come un insieme: una palaz
 4. Un complesso con immobili collegati non si può eliminare: scollega prima gli immobili.
 5. **Raggruppamento**: *Fisico* per edifici vicini gestiti insieme (palazzina, impianto sportivo); *Amministrativo* per edifici distanti raggruppati, come un istituto comprensivo con i suoi plessi.
 
-In **Mappa** il livello **Complessi** mostra un solo pin per ogni complesso fisico; i complessi amministrativi non hanno un pin e i loro edifici si vedono singolarmente. Clicca il pin e scegli **Mostra immobili**, oppure avvicinati (zoom alto): compaiono gli immobili e le loro utenze.
+In **Mappa** il livello **Complessi** mostra un solo pin per ogni complesso fisico; i complessi amministrativi non hanno un pin e i loro edifici si vedono singolarmente. Il pin del complesso porta il numero dei suoi immobili: clic sul pin = scheda del complesso, clic sul numero = elenco degli immobili. Gli immobili nello stesso punto del complesso stanno nel suo pin; quelli più lontani hanno un proprio pin, collegato al complesso da una linea tratteggiata viola che si evidenzia passando con il mouse.
 
 ### Catasto e dati di patrimonio
 
