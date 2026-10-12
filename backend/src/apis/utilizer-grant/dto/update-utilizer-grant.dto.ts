@@ -17,6 +17,7 @@ import {
   ContractKind,
   ContractStatus,
   RentPeriod,
+  VatRegime,
 } from '../enum/real-estate-contract.enum';
 
 // PATCH parziale: la coerenza del contratto risultante (merge con il
@@ -86,8 +87,8 @@ export class UpdateUtilizerGrantDto {
   rent_period?: RentPeriod | null;
 
   @IsOptional()
-  @IsBoolean()
-  vat_applicable?: boolean;
+  @IsEnum(VatRegime)
+  vat_regime?: VatRegime | null;
 
   @IsOptional()
   @IsBoolean()

@@ -10,6 +10,7 @@ import type {
   ContractStatus,
   DisplayStatus,
   RentPeriod,
+  VatRegime,
 } from '../real-estate-contract.model';
 
 // Contratto immobiliare (ex concessione). Le date viaggiano come stringhe
@@ -30,7 +31,7 @@ export class UtilizerGrant extends AbstractEntity implements IUtilizerGrant {
   subject?: string | null;
   rent_amount?: number | null;
   rent_period?: RentPeriod | null;
-  vat_applicable?: boolean;
+  vat_regime?: VatRegime | null;
   tacit_renewal?: boolean;
   renewal_months?: number | null;
   notice_months?: number | null;
@@ -80,7 +81,6 @@ export class UtilizerGrant extends AbstractEntity implements IUtilizerGrant {
       kind: 'CONCESSION',
       status: 'ACTIVE',
       tacit_renewal: false,
-      vat_applicable: false,
       utilities_to_be_taken_over: false,
       maintenance_by_counterparty: false,
       deleted: false,

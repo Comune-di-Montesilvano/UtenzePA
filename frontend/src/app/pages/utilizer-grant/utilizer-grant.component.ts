@@ -69,7 +69,7 @@ export class UtilizerGrantComponent extends AbstractComponent<UtilizerGrant> {
       usage_type: entity.usage_type,
       rent_amount: entity.rent_amount ?? null,
       rent_period: entity.rent_period ?? null,
-      vat_applicable: entity.vat_applicable ?? false,
+      vat_regime: entity.vat_regime ?? null,
       start_date: entity.start_date ?? null,
       end_date: entity.end_date ?? null,
       tacit_renewal: entity.tacit_renewal ?? false,

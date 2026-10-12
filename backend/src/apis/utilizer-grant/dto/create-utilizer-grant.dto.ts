@@ -17,6 +17,7 @@ import {
   ContractKind,
   ContractStatus,
   RentPeriod,
+  VatRegime,
 } from '../enum/real-estate-contract.enum';
 
 export class CreateUtilizerGrantDto {
@@ -80,8 +81,8 @@ export class CreateUtilizerGrantDto {
   rent_period?: RentPeriod | null;
 
   @IsOptional()
-  @IsBoolean()
-  vat_applicable?: boolean;
+  @IsEnum(VatRegime)
+  vat_regime?: VatRegime | null;
 
   @IsOptional()
   @IsBoolean()

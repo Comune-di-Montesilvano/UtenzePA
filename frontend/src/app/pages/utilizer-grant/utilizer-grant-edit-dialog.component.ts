@@ -47,6 +47,9 @@ import {
   PERIOD_LABEL,
   RentPeriod,
   STATUS_LABEL,
+  VAT_RATE,
+  VAT_REGIME_LABEL,
+  VatRegime,
 } from './real-estate-contract.model';
 
 const options = <K extends string>(labels: Record<K, string>) =>
@@ -140,6 +143,7 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   readonly directionOptions = options(DIRECTION_LABEL);
   readonly kindOptions = options(KIND_LABEL);
   readonly periodOptions = options(PERIOD_LABEL);
+  readonly vatOptions = options(VAT_REGIME_LABEL);
   readonly statusOptions = options({
     ACTIVE: 'Attivo', RETURNED: 'Restituito', TERMINATED: 'Cessato', DISPUTED: 'In contenzioso',
   } as Record<ContractStatus, string>);
@@ -177,7 +181,7 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
     usage_type: [this.item.usage_type ?? ''],
     rent_amount: [this.item.rent_amount ?? null as number | null, Validators.min(0)],
     rent_period: [this.item.rent_period ?? null as RentPeriod | null],
-    vat_applicable: [this.item.vat_applicable ?? false],
+    vat_regime: [this.item.vat_regime ?? null as VatRegime | null],
     start_date: [this.toDate(this.item.start_date)],
     end_date: [this.toDate(this.item.end_date)],
     tacit_renewal: [this.item.tacit_renewal ?? false],
@@ -294,7 +298,10 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   annualPreview(): string {
     const v = this.form.getRawValue();
     if (v.rent_amount === null || v.rent_amount === undefined || `${v.rent_amount}` === '' || !v.rent_period) return '';
-    return `Canone annuo: ${formatEuro(Number(v.rent_amount) * PERIOD_FACTOR[v.rent_period])}`;
+    const net = Number(v.rent_amount) * PERIOD_FACTOR[v.rent_period];
+    const rate = v.vat_regime ? VAT_RATE[v.vat_regime] : 0;
+    if (!rate) return `Canone annuo: ${formatEuro(net)}`;
+    return `Annuo: ${formatEuro(net)} + IVA ${formatEuro(net * rate)} = ${formatEuro(net * (1 + rate))}`;
   }
 
   private syncRenewalFields(): void {

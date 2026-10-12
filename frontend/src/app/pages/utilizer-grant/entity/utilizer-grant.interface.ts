@@ -5,6 +5,7 @@ import type {
   ContractStatus,
   DisplayStatus,
   RentPeriod,
+  VatRegime,
 } from '../real-estate-contract.model';
 
 export interface IUtilizerGrant {
@@ -22,7 +23,7 @@ export interface IUtilizerGrant {
   subject?: string | null;
   rent_amount?: number | null;
   rent_period?: RentPeriod | null;
-  vat_applicable?: boolean;
+  vat_regime?: VatRegime | null;
   tacit_renewal?: boolean;
   renewal_months?: number | null;
   notice_months?: number | null;

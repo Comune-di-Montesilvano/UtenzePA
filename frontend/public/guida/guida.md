@@ -149,6 +149,19 @@ I ruoli si assegnano da **Impostazioni → Utenti e ruoli**.
 
 **Manutenzione a carico di** è calcolata allo stesso modo: Fornitore se il contratto di fornitura include la manutenzione, Controparte se lo prevede il contratto immobiliare, altrimenti Comune.
 
+### Canone e IVA dei contratti immobiliari
+
+Il **canone** si inserisce sempre **netto**, cioè senza IVA. Nel **Regime IVA** si sceglie:
+
+| Regime IVA | Quando |
+| --- | --- |
+| Fuori campo IVA | Il locatore non è soggetto IVA (es. persona fisica): si paga solo l'imposta di registro. |
+| Esente (art. 10 DPR 633/72) | Locazioni di abitazioni e, salvo opzione per l'IVA, di immobili strumentali. |
+| IVA 10% | Abitazioni locate con opzione per l'IVA (es. alloggi sociali, imprese costruttrici). |
+| IVA 22% | Immobili strumentali (uffici, negozi, capannoni) locati con opzione per l'IVA. |
+
+Con IVA 10% o 22% sotto il canone compaiono l'importo annuo netto, l'IVA e il totale. **Da indicare** vuol dire che il regime non è ancora stato verificato. Nel dubbio sul regime chiedi alla ragioneria.
+
 ### Contratti di fornitura
 
 | Tipo | Regola |

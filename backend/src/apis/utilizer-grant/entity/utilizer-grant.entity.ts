@@ -20,6 +20,7 @@ import {
   ContractKind,
   ContractStatus,
   RentPeriod,
+  VatRegime,
 } from '../enum/real-estate-contract.enum';
 
 // Contratto immobiliare (ex "concessione"): locazione, concessione, comodato,
@@ -65,8 +66,9 @@ export class UtilizerGrant {
   @Column({ type: 'enum', enum: RentPeriod, nullable: true })
   rent_period: RentPeriod | null;
 
-  @Column({ type: 'boolean', default: false })
-  vat_applicable: boolean;
+  // Canone (rent_amount) sempre netto; null = regime da indicare.
+  @Column({ type: 'enum', enum: VatRegime, nullable: true })
+  vat_regime: VatRegime | null;
 
   @Column({ type: 'boolean', default: false })
   tacit_renewal: boolean;
