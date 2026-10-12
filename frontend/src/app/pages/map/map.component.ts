@@ -970,6 +970,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         const target = sorted[idx];
         this.map?.closePopup();
         if (target.type === 'asset') this.openAssetOrPicker(target);
+        // Complesso nel gruppo misto: stesso popup del pin singolo (con "Mostra immobili").
+        else if (target.type === 'complex') this.openComplexPopup(target, L.latLng(lat, lng));
         else this.openDetail(target);
       });
     });
@@ -1013,10 +1015,14 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     for (const c of this.lastPoints) {
       if (c.type === 'complex' && !open(c)) (c.assetIds ?? []).forEach((id) => hidden.add(id));
     }
+    // Utenza senza immobile ma con impianto: segue l'immobile dell'impianto.
+    const plantAsset = new Map<number, number>();
+    for (const p of this.lastPoints) if (p.type === 'plant' && p.assetId != null) plantAsset.set(p.id, p.assetId);
     return this.lastPoints.filter((p) => {
       if (p.type === 'complex') return !open(p);
       if (p.type === 'asset') return !hidden.has(p.id);
-      return p.assetId == null || !hidden.has(p.assetId);
+      const owner = p.assetId ?? (p.plantId != null ? plantAsset.get(p.plantId) : undefined);
+      return owner == null || !hidden.has(owner);
     });
   }
 

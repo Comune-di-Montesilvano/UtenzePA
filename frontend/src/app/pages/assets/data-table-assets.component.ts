@@ -112,7 +112,12 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
       case 'ownership':
         return item.ownership ? 'Sì' : 'No';
       case 'cadastre':
-        return this.cadastreText(item);
+        // CSV: anche categoria e rendita di ogni unità.
+        return (item.cadastralUnits ?? [])
+          .map(u => [cadastralUnitLabel(u), u.category, u.cadastral_income != null
+            ? `rendita ${Number(u.cadastral_income).toLocaleString('it-IT', {minimumFractionDigits: 2})}` : null]
+            .filter(Boolean).join(' '))
+          .join('; ');
       case 'legal_nature':
         return item.legal_nature ? this.legalNatureLabel[item.legal_nature] : '';
       case 'mef.usage':
