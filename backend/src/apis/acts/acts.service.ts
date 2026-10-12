@@ -9,6 +9,7 @@ import { Plant } from '@apis/plants/entity/plant.entity';
 import { UtilizerGrant } from '@apis/utilizer-grant/entity/utilizer-grant.entity';
 import { Contract } from '@apis/contracts/entity/contract.entity';
 import { partyName } from '@apis/third-parties/third-party.name';
+import { userRef } from '@apis/shared/user-ref';
 import { AttachmentsService } from '@apis/attachments/attachments.service';
 import { AttachmentEntityType } from '@apis/attachments/enum/attachment-entity-type.enum';
 import { Act } from './entity/act.entity';
@@ -76,6 +77,8 @@ export class ActsService extends BaseService<Act, CreateActDto, UpdateActDto> {
         cleaned[rel] = kept;
         links += kept.length;
       }
+      if (a.created_by) cleaned.created_by = userRef(a.created_by);
+      if (a.updated_by) cleaned.updated_by = userRef(a.updated_by);
       cleaned.contracts = (cleaned.contracts as Contract[]).map((c): ActContractRef => ({
         id: c.id,
         cig_contract: c.cig_contract ?? null,

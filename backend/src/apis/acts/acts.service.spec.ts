@@ -129,6 +129,14 @@ describe('ActsService', () => {
     expect(acts.find.mock.calls[0][0].where).toEqual({ deleted: false, contracts: { id: 7 } });
   });
 
+  it('scheda: di autore e ultimo modificatore solo nome e cognome', async () => {
+    const user = { id: 2, firstName: 'Anna', lastName: 'Bianchi', email: 'x', otp: '123456' };
+    acts.findOne.mockResolvedValue(act({ created_by: user, updated_by: user }));
+    const a = await service.findOneOrFail(10);
+    expect(a.created_by).toEqual({ firstName: 'Anna', lastName: 'Bianchi' });
+    expect(a.updated_by).toEqual({ firstName: 'Anna', lastName: 'Bianchi' });
+  });
+
   it('scheda: del fornitore solo il nome (niente codice fiscale ai Lettori)', async () => {
     acts.findOne.mockResolvedValue(
       act({

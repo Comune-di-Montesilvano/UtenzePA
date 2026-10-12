@@ -13,6 +13,7 @@ import { AttachmentEntityType as T } from './enum/attachment-entity-type.enum';
 import { AttachmentFinalizeDto } from './dto/attachment-finalize.dto';
 import { UpdateAttachmentDto } from './dto/update-attachment.dto';
 import { checkFile, maxSizeBytes } from './attachment-file-policy';
+import { userRef } from '@apis/shared/user-ref';
 
 export type AttachmentRow = Attachment & { inspection: { id: number; kind: string } | null };
 
@@ -77,7 +78,7 @@ export class AttachmentsService {
       relations: { created_by: true },
       order,
     });
-    const rows: AttachmentRow[] = own.map((a) => ({ ...a, inspection: null }));
+    const rows: AttachmentRow[] = own.map((a) => this.withAuthor({ ...a, inspection: null }));
     if (type !== T.PLANT) return rows;
     const inspections: { id: number; kind: string }[] = await this.dataSource.query(
       'SELECT id, kind FROM plant_inspections WHERE plant_id = ? AND deleted = 0',
@@ -96,11 +97,17 @@ export class AttachmentsService {
     });
     return [
       ...rows,
-      ...fromInspections.map((a) => ({
-        ...a,
-        inspection: { id: a.entity_id, kind: kindOf.get(a.entity_id) ?? '' },
-      })),
+      ...fromInspections.map((a) =>
+        this.withAuthor({
+          ...a,
+          inspection: { id: a.entity_id, kind: kindOf.get(a.entity_id) ?? '' },
+        }),
+      ),
     ];
+  }
+
+  private withAuthor(a: AttachmentRow): AttachmentRow {
+    return { ...a, created_by: userRef(a.created_by) as never };
   }
 
   async countByEntity(type: T, ids: number[]): Promise<Map<number, number>> {

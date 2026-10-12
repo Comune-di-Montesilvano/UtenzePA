@@ -116,6 +116,19 @@ describe('AttachmentsService', () => {
     await expect(service.open(9)).rejects.toThrow('File non disponibile sul server');
   });
 
+  it('list: dell’autore solo nome e cognome (mai email/OTP ai Lettori)', async () => {
+    repo.find.mockResolvedValueOnce([
+      {
+        id: 1,
+        entity_type: 'contract',
+        entity_id: 3,
+        created_by: { id: 2, firstName: 'Anna', lastName: 'Bianchi', email: 'x', otp: '123456' },
+      },
+    ]);
+    const rows = await service.list(T.CONTRACT, 3);
+    expect(rows[0].created_by).toEqual({ firstName: 'Anna', lastName: 'Bianchi' });
+  });
+
   it('list(plant): allegati dell’impianto e delle sue verifiche non cancellate', async () => {
     query.mockResolvedValue([{ id: 11, kind: 'Verifica biennale' }]);
     repo.find
