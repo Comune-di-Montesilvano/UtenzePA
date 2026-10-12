@@ -174,7 +174,9 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
       'usage',
     ]);
 
-    const rows = (await qb.orderBy('assets.id', 'ASC').getMany()).map((a) => this.withMef(a));
+    const rows = (
+      await qb.orderBy('assets.id', 'ASC').addOrderBy('cadastralUnits.id', 'ASC').getMany()
+    ).map((a) => this.withMef(a));
     return filters?.usage ? rows.filter((a) => a.mef.usage === filters.usage) : rows;
   }
 
@@ -201,22 +203,38 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
       .leftJoinAndSelect('assets.utilizerGrants', 'utilizerGrants', 'utilizerGrants.deleted = 0')
       .leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0')
       .where('assets.id = :id', { id })
+      .orderBy('cadastralUnits.id', 'ASC')
       .getOne();
     return asset ? this.withMef(asset) : null;
   }
 
   async create(dto: CreateAssetDto, userId?: number): Promise<Asset> {
     await this.assertClassification(dto.nature_id, dto.function_id);
+    await this.assertComplex(dto.complex_id);
     const { cadastral_units: units, ...rest } = dto;
     const saved = await super.create(rest as CreateAssetDto, userId);
     if (units?.length) {
+      const rows = this.toUnitRows(saved.id, units);
       try {
-        saved.cadastralUnits = await this.unitRepo.save(this.toUnitRows(saved.id, units));
+        saved.cadastralUnits = await this.unitRepo.save(rows);
       } catch (error) {
         this.manageErrors(error, 'Errore durante il salvataggio delle unità catastali');
       }
+      if (userId !== undefined) {
+        await this.recordAudit(AuditAction.UPDATE, saved.id, userId, [
+          { fieldName: 'cadastral_units', oldValue: null, newValue: unitsText(rows as UnitLike[]) },
+        ]);
+      }
     }
-    return saved;
+    // Stessa forma di findOne (dati MEF calcolati compresi).
+    return (await this.findOne(saved.id)) ?? this.withMef(saved);
+  }
+
+  // Un complesso cancellato o inesistente non si assegna (stesso messaggio della scheda complesso).
+  private async assertComplex(complexId: number | null | undefined): Promise<void> {
+    if (complexId === null || complexId === undefined) return;
+    const found = await this.complexRepo.findOne({ where: { id: complexId, deleted: false } });
+    if (!found) throw new BadRequestException('Complesso non trovato');
   }
 
   private toUnitRows(assetId: number, units: CadastralUnitDto[]): Partial<AssetCadastralUnit>[] {
@@ -301,6 +319,7 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     const natureId = 'nature_id' in updateDto ? updateDto.nature_id : existing?.nature_id;
     const functionId = 'function_id' in updateDto ? updateDto.function_id : existing?.function_id;
     await this.assertClassification(natureId, functionId);
+    if ('complex_id' in updateDto) await this.assertComplex(updateDto.complex_id);
 
     const payload: UpdateAssetDto & {
       geocoded_latitude?: string | null;

@@ -161,7 +161,8 @@ export class Asset {
   @JoinColumn({ name: 'function_id' })
   assetFunction: AssetFunction;
 
-  @OneToMany(() => AssetCadastralUnit, (unit) => unit.asset, { cascade: true })
+  // Nessun cascade: le unità si salvano solo da AssetsService (sostituzione in blocco).
+  @OneToMany(() => AssetCadastralUnit, (unit) => unit.asset)
   cadastralUnits: AssetCadastralUnit[];
 
   @ManyToOne(() => Complex, (complex) => complex.assets, { nullable: true, onDelete: 'SET NULL' })
