@@ -144,7 +144,9 @@ export class ComplexEditDialogComponent implements OnInit {
           .map(a => ({
             label: a.asset_name ?? '',
             value: a.id,
-            sublabel: a.complex && a.complex.id !== this.complex?.id ? `nel complesso ${a.complex.name}` : (a.address ?? undefined),
+            // id dai dati del dialog: this.complex può non essere ancora caricato.
+            sublabel: a.complex && a.complex.id !== (this.data.complexId ?? this.complex?.id)
+              ? `nel complesso ${a.complex.name}` : (a.address ?? undefined),
             searchText: `${a.asset_name ?? ''} ${a.address ?? ''}`,
           }))
           .sort((a, b) => a.label.localeCompare(b.label));
@@ -264,7 +266,9 @@ export class ComplexEditDialogComponent implements OnInit {
   }
 
   newAsset(): void {
-    this.navigator.createAsset().subscribe(a => {
+    // Complesso già salvato: l'immobile nasce già collegato.
+    const complexId = this.data.complexId ?? this.complex?.id ?? null;
+    this.navigator.createAsset(complexId ? {complex_id: complexId} : {}).subscribe(a => {
       if (!a) return;
       this.loadAssets();
       this.addAsset(a.id);

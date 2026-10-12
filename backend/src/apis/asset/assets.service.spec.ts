@@ -15,6 +15,7 @@ describe('AssetsService', () => {
     where: jest.Mock;
     andWhere: jest.Mock;
     orderBy: jest.Mock;
+    addOrderBy: jest.Mock;
     getMany: jest.Mock;
     getOne: jest.Mock;
     getCount: jest.Mock;
@@ -27,6 +28,7 @@ describe('AssetsService', () => {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([]),
       getOne: jest.fn().mockResolvedValue(null),
       getCount: jest.fn().mockResolvedValue(0),
@@ -368,6 +370,45 @@ describe('AssetsService', () => {
       // Cancellazione e inserimento nella stessa transazione: il rollback le annulla entrambe.
       expect(em.delete).toHaveBeenCalled();
       expect(unitRepo.manager.transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('create risponde con i dati MEF e registra le unità nell\u2019audit', async () => {
+      const created = await service.create(
+        { asset_name: 'X', ownership: 1, cadastral_units: [unit] } as never,
+        7,
+      );
+
+      expect((created as any).mef).toBeDefined();
+      const fields = audit.record.mock.calls.flatMap((c) => c[0].fields ?? []);
+      expect(fields).toContainEqual(expect.objectContaining({ fieldName: 'cadastral_units' }));
+    });
+
+    it('findAll e findOne ordinano le unità per id', async () => {
+      await service.findAll();
+      await service.findOne(1);
+      expect(qb.addOrderBy).toHaveBeenCalledWith('cadastralUnits.id', 'ASC');
+      expect(qb.orderBy.mock.calls.length + qb.addOrderBy.mock.calls.length).toBeGreaterThanOrEqual(
+        3,
+      );
+    });
+
+    it('complex_id di un complesso cancellato o inesistente: 400', async () => {
+      const complexRepo = { findOne: jest.fn().mockResolvedValue(null) };
+      service = new AssetsService(
+        repo as never,
+        { buildQuery: jest.fn(), geocode: jest.fn() } as never,
+        { createQueryBuilder: jest.fn().mockReturnValue(natureQb) } as never,
+        complexRepo as never,
+        unitRepo as never,
+      );
+
+      await expect(
+        service.create({ asset_name: 'X', ownership: 1, complex_id: 99 } as never, 7),
+      ).rejects.toThrow('Complesso non trovato');
+      await expect(service.update(1, { complex_id: 99 } as never, 7)).rejects.toThrow(
+        'Complesso non trovato',
+      );
+      expect(complexRepo.findOne).toHaveBeenCalledWith({ where: { id: 99, deleted: false } });
     });
 
     it('create salva le unità sul nuovo immobile', async () => {

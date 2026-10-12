@@ -30,7 +30,7 @@
           <mat-checkbox [formControl]="showAssets" aria-label="Mostra immobili"></mat-checkbox>
           <span class="map-pin mp-sample" style="background:#37474f"><span class="material-icons">apartment</span></span>
           <span class="mp-name">Immobili</span>
-          <span class="mp-count" matTooltip="Punti visibili">{{ layerCounts.asset }}</span>
+          <span class="mp-count" matTooltip="Elementi del livello, compresi quelli raggruppati nei complessi">{{ layerCounts.asset }}</span>
           <button mat-icon-button type="button" class="mp-toggle" (click)="expanded.asset = !expanded.asset"
                   [attr.aria-expanded]="expanded.asset" aria-label="Filtri immobili">
             <mat-icon [class.mp-filtered]="activeFilters('asset')">{{ expanded.asset ? 'expand_less' : 'tune' }}</mat-icon>
@@ -56,7 +56,7 @@
             }
           </span>
           <span class="mp-name">Utenze</span>
-          <span class="mp-count" matTooltip="Punti visibili">{{ layerCounts.utility }}</span>
+          <span class="mp-count" matTooltip="Elementi del livello, compresi quelli raggruppati nei complessi">{{ layerCounts.utility }}</span>
           <button mat-icon-button type="button" class="mp-toggle" (click)="expanded.utility = !expanded.utility"
                   [attr.aria-expanded]="expanded.utility" aria-label="Filtri utenze">
             <mat-icon [class.mp-filtered]="activeFilters('utility')">{{ expanded.utility ? 'expand_less' : 'tune' }}</mat-icon>
@@ -76,7 +76,7 @@
           <mat-checkbox [formControl]="showPlants" aria-label="Mostra impianti"></mat-checkbox>
           <span class="map-pin mp-sample" style="background:#0f766e"><span class="material-icons">settings_input_component</span></span>
           <span class="mp-name">Impianti</span>
-          <span class="mp-count" matTooltip="Punti visibili">{{ layerCounts.plant }}</span>
+          <span class="mp-count" matTooltip="Elementi del livello, compresi quelli raggruppati nei complessi">{{ layerCounts.plant }}</span>
           <button mat-icon-button type="button" class="mp-toggle" (click)="expanded.plant = !expanded.plant"
                   [attr.aria-expanded]="expanded.plant" aria-label="Filtri impianti">
             <mat-icon [class.mp-filtered]="activeFilters('plant')">{{ expanded.plant ? 'expand_less' : 'tune' }}</mat-icon>
@@ -96,7 +96,7 @@
           <mat-checkbox [formControl]="showComplexes" aria-label="Mostra complessi"></mat-checkbox>
           <span class="map-pin mp-sample" style="background: var(--entity-complex)"><span class="material-icons">domain</span></span>
           <span class="mp-name">Complessi</span>
-          <span class="mp-count" matTooltip="Punti visibili">{{ layerCounts.complex }}</span>
+          <span class="mp-count" matTooltip="Elementi del livello, compresi quelli raggruppati nei complessi">{{ layerCounts.complex }}</span>
         </div>
       </div>
 

@@ -116,7 +116,7 @@ Il tab **Catasto e patrimonio** della scheda immobile raccoglie i dati catastali
 3. **Patrimonio**: natura giuridica, vincolo culturale o paesaggistico, federalismo demaniale e bene confiscato (Sì, No o Non noto).
 4. **Per il MEF** (si apre con un clic) mostra i dati calcolati dall'applicazione, aggiornati a ogni salvataggio:
    - **Id bene MEF**: lo assegna il MEF, arriva con l'import e non si modifica.
-   - **Utilizzo**: «Dato a terzi» se un contratto immobiliare attivo (in uscita) è in corso, «Inutilizzabile» se l'immobile è dismesso, altrimenti «Utilizzato direttamente».
+   - **Utilizzo**: «Dato a terzi» se è in corso (o in scadenza) un contratto immobiliare attivo, cioè con cui il Comune concede l'immobile a terzi, «Inutilizzabile» se l'immobile è dismesso, altrimenti «Utilizzato direttamente».
    - **Stato di accatastamento**: «Accatastato» con almeno un'unità catastale.
    - **Tipologia** e **Finalità**: vengono dalla funzione dell'immobile. Si impostano in **Funzioni immobile** (campi **Tipologia MEF** e **Finalità MEF**), anche con **apri la funzione** dal riquadro; la finalità vale solo per gli immobili utilizzati direttamente.
 

@@ -128,6 +128,9 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   // clusterizzato (leaflet.markercluster nasconde i marker raggruppati, non
   // gli oggetti generici come le polyline, ma tenerli fuori evita ambiguità).
   private linksLayer: L.LayerGroup | null = null;
+  // Pin dei complessi fuori dal clustering: altrimenti finiscono nei cluster
+  // numerati e si vedrebbero solo nella fascia di zoom tra cluster e apertura.
+  private complexLayer: L.LayerGroup | null = null;
 
   // Marker temporaneo dell'ultima ricerca indirizzo (searchAddress) — un
   // solo risultato alla volta, rimosso/sostituito alla ricerca successiva o
@@ -461,6 +464,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     this.clusterGroup = L.markerClusterGroup({ maxClusterRadius: 40, disableClusteringAtZoom: 17 });
     this.map.addLayer(this.clusterGroup);
     this.linksLayer = L.layerGroup().addTo(this.map);
+    this.complexLayer = L.layerGroup().addTo(this.map);
     this.reload();
 
     // .map-canvas è flex:1 dentro .map-page — al momento di L.map() il layout
@@ -531,6 +535,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.clusterGroup) return;
     this.clusterGroup.clearLayers();
     this.linksLayer?.clearLayers();
+    this.complexLayer?.clearLayers();
     this.assetMarkers.clear();
     this.utilityMarkers.clear();
     this.plantMarkers.clear();
@@ -670,7 +675,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       });
 
       // Gli immobili restano sopra a utenze/impianti di cluster vicini.
-      const marker = L.marker([lat, lng], { icon, zIndexOffset: principal?.type === 'asset' ? 1000 : 0 });
+      const isComplex = principal?.type === 'complex';
+      const marker = L.marker([lat, lng], { icon, zIndexOffset: isComplex ? 2000 : principal?.type === 'asset' ? 1000 : 0 });
       marker.on('click', (e: L.LeafletMouseEvent) => {
         // Click su un badge: elenco già filtrato per tipo (data-badge-filter,
         // letto dal target dell'evento nativo: i marker in un cluster chiuso
@@ -692,7 +698,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
           this.openCombinedPicker(group, assetNameById, lat, lng, filterType);
         }
       });
-      this.clusterGroup.addLayer(marker);
+      if (isComplex && this.complexLayer) this.complexLayer.addLayer(marker);
+      else this.clusterGroup.addLayer(marker);
       // Collegati: il gruppo, i membri del principale e i "padri" (immobile/impianto).
       const keys = new Set<string>([...group, ...members].map(keyOf));
       for (const p of group) {
@@ -970,6 +977,8 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         const target = sorted[idx];
         this.map?.closePopup();
         if (target.type === 'asset') this.openAssetOrPicker(target);
+        // Complesso nel gruppo misto: stesso popup del pin singolo (con "Mostra immobili").
+        else if (target.type === 'complex') this.openComplexPopup(target, L.latLng(lat, lng));
         else this.openDetail(target);
       });
     });
@@ -1013,10 +1022,14 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     for (const c of this.lastPoints) {
       if (c.type === 'complex' && !open(c)) (c.assetIds ?? []).forEach((id) => hidden.add(id));
     }
+    // Utenza senza immobile ma con impianto: segue l'immobile dell'impianto.
+    const plantAsset = new Map<number, number>();
+    for (const p of this.lastPoints) if (p.type === 'plant' && p.assetId != null) plantAsset.set(p.id, p.assetId);
     return this.lastPoints.filter((p) => {
       if (p.type === 'complex') return !open(p);
       if (p.type === 'asset') return !hidden.has(p.id);
-      return p.assetId == null || !hidden.has(p.assetId);
+      const owner = p.assetId ?? (p.plantId != null ? plantAsset.get(p.plantId) : undefined);
+      return owner == null || !hidden.has(owner);
     });
   }
 
