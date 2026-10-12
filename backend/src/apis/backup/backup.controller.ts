@@ -41,7 +41,7 @@ export class BackupController {
 
   @Post()
   create(@Body() dto: CreateBackupDto): Promise<BackupInfo> {
-    return this.service.createBackup(dto.includePhotos ?? false);
+    return this.service.createBackup(dto.includePhotos ?? false, dto.includeAttachments ?? false);
   }
 
   @Get()

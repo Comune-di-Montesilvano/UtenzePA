@@ -95,6 +95,10 @@ export class BackupService {
     return process.env.PHOTOS_DIR ?? path.join(process.cwd(), 'photos');
   }
 
+  private resolveAttachmentsDir(): string {
+    return process.env.ATTACHMENTS_DIR ?? path.join(process.cwd(), 'attachments');
+  }
+
   getBackupPath(filename: string): string {
     if (!FILENAME_PATTERN.test(filename)) {
       throw new Error('Nome file non valido');
@@ -152,12 +156,13 @@ export class BackupService {
     }
   }
 
-  // includePhotos: solo sui backup manuali (POST /backup con body
-  // {includePhotos:true}) — lo schedulato (handleScheduledBackup) resta
-  // sempre solo SQL, per non far crescere senza controllo lo storage dei
-  // backup giornalieri con retention 30gg quando ci sono molte foto.
-  async createBackup(includePhotos = false): Promise<BackupInfo> {
-    const ext = includePhotos ? 'tar.gz' : 'sql';
+  // includePhotos/includeAttachments: solo sui backup manuali (POST /backup)
+  // — lo schedulato (handleScheduledBackup) resta sempre solo SQL, per non far
+  // crescere senza controllo lo storage dei backup giornalieri con retention
+  // 30gg quando ci sono molte foto o molti allegati.
+  async createBackup(includePhotos = false, includeAttachments = false): Promise<BackupInfo> {
+    const archive = includePhotos || includeAttachments;
+    const ext = archive ? 'tar.gz' : 'sql';
     const filename = this.buildFilename(new Date(), ext);
     const finalPath = path.join(this.backupDir, filename);
     const tmpSqlPath = `${finalPath}.sql.tmp`;
@@ -165,15 +170,23 @@ export class BackupService {
     try {
       await this.writeDump(tmpSqlPath);
 
-      if (!includePhotos) {
+      if (!archive) {
         fs.renameSync(tmpSqlPath, finalPath);
       } else {
         const stagingDir = fs.mkdtempSync(path.join(this.backupDir, '.staging-'));
         try {
           fs.renameSync(tmpSqlPath, path.join(stagingDir, 'dump.sql'));
           const photosDir = this.resolvePhotosDir();
-          if (fs.existsSync(photosDir)) {
+          if (includePhotos && fs.existsSync(photosDir)) {
             fs.cpSync(photosDir, path.join(stagingDir, 'photos'), { recursive: true });
+          }
+          const attachmentsDir = this.resolveAttachmentsDir();
+          if (includeAttachments && fs.existsSync(attachmentsDir)) {
+            // I pezzi di upload in corso (tmp/) non vanno nel backup.
+            fs.cpSync(attachmentsDir, path.join(stagingDir, 'attachments'), {
+              recursive: true,
+              filter: (src) => path.relative(attachmentsDir, src).split(path.sep)[0] !== 'tmp',
+            });
           }
           const tmpArchivePath = `${finalPath}.tmp`;
           await tar.create(
@@ -279,6 +292,13 @@ export class BackupService {
         fs.mkdirSync(photosDir, { recursive: true });
         fs.cpSync(archivedPhotosDir, photosDir, { recursive: true });
         this.logger.log(`Restore: foto ripristinate da ${archivedPhotosDir}`);
+      }
+      const archivedAttachmentsDir = path.join(extractDir, 'attachments');
+      if (fs.existsSync(archivedAttachmentsDir)) {
+        const attachmentsDir = this.resolveAttachmentsDir();
+        fs.mkdirSync(attachmentsDir, { recursive: true });
+        fs.cpSync(archivedAttachmentsDir, attachmentsDir, { recursive: true });
+        this.logger.log(`Restore: allegati ripristinati da ${archivedAttachmentsDir}`);
       }
     } finally {
       fs.rmSync(extractDir, { recursive: true, force: true });

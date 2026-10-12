@@ -9,4 +9,10 @@ export class CreateBackupDto {
   @Type(() => Boolean)
   @IsBoolean({ message: 'Il campo includePhotos deve essere booleano' })
   includePhotos?: boolean;
+
+  // Come includePhotos, per gli allegati (attachments/).
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean({ message: 'Il campo includeAttachments deve essere booleano' })
+  includeAttachments?: boolean;
 }
