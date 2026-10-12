@@ -87,6 +87,17 @@ describe('AttachmentsService', () => {
     expect(fs.readdirSync(path.join(dir, 'tmp'))).toEqual([]);
   });
 
+  it('verifica di un impianto cancellato: proprietario non valido → 400', async () => {
+    // Il DB risponde solo se la query esclude gli impianti cancellati.
+    query.mockImplementation(async (sql: string) =>
+      sql.includes('p.deleted = 0') ? [] : [{ id: 3, plant_id: 5, kind: 'Verifica' }],
+    );
+    upload('u6', Buffer.from('%PDF-1.7'));
+    await expect(finalize('u6', 'v.pdf', T.PLANT_INSPECTION, 3)).rejects.toThrow(
+      'Verifica non trovato',
+    );
+  });
+
   it('chunk oltre la dimensione massima → 400', () => {
     process.env.ATTACHMENT_MAX_SIZE_MB = '1';
     expect(() => upload('u4', Buffer.alloc(1024 * 1024 + 1))).toThrow(

@@ -62,11 +62,12 @@ export class AttachmentsService {
   // Proprietario non cancellato; per una verifica anche impianto e tipo.
   private async owner(type: T, id: number): Promise<Owner> {
     const o = OWNERS[type];
-    const cols = type === T.PLANT_INSPECTION ? 'id, plant_id, kind' : 'id';
-    const rows: Owner[] = await this.dataSource.query(
-      `SELECT ${cols} FROM \`${o.table}\` WHERE id = ? AND deleted = 0`,
-      [id],
-    );
+    // Verifica: vale solo se anche il suo impianto non è cancellato.
+    const sql =
+      type === T.PLANT_INSPECTION
+        ? 'SELECT i.id, i.plant_id, i.kind FROM `plant_inspections` i JOIN `plants` p ON p.id = i.plant_id WHERE i.id = ? AND i.deleted = 0 AND p.deleted = 0'
+        : `SELECT id FROM \`${o.table}\` WHERE id = ? AND deleted = 0`;
+    const rows: Owner[] = await this.dataSource.query(sql, [id]);
     if (!rows.length) throw new BadRequestException(`${o.label} non trovato`);
     return rows[0];
   }
