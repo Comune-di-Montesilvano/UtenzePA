@@ -1,6 +1,6 @@
 # UtenzePA – Guida per gli operatori
 
-_Ultimo aggiornamento: 2026-10-11_
+_Ultimo aggiornamento: 2026-10-12_
 
 ## Cos'è e chi lo usa
 
@@ -106,6 +106,21 @@ Un **complesso** raggruppa immobili gestiti o censiti come un insieme: una palaz
 
 In **Mappa** il livello **Complessi** mostra un solo pin per complesso. Clicca il pin e scegli **Mostra immobili**, oppure avvicinati (zoom alto): compaiono gli immobili e le loro utenze.
 
+### Catasto e dati di patrimonio
+
+Il tab **Catasto e patrimonio** della scheda immobile raccoglie i dati catastali e quelli chiesti dal censimento MEF «Patrimonio della PA».
+
+1. **Unità catastali**: un immobile può avere più unità (piani, subalterni). Premi **Aggiungi unità** e compila almeno **Foglio** e **Particella**; sezione, subalterno, categoria e rendita sono facoltativi. Il cestino rimuove un'unità dopo la conferma. Le modifiche valgono al **Salva**.
+2. **Consistenza**: superficie, superficie di riferimento, aree pertinenziali, cubatura ed epoca di costruzione.
+3. **Patrimonio**: natura giuridica, vincolo culturale o paesaggistico, federalismo demaniale e bene confiscato (Sì, No o Non noto).
+4. **Per il MEF** (si apre con un clic) mostra i dati calcolati dall'applicazione, aggiornati a ogni salvataggio:
+   - **Id bene MEF**: lo assegna il MEF, arriva con l'import e non si modifica.
+   - **Utilizzo**: «Dato a terzi» se un contratto immobiliare attivo (in uscita) è in corso, «Inutilizzabile» se l'immobile è dismesso, altrimenti «Utilizzato direttamente».
+   - **Stato di accatastamento**: «Accatastato» con almeno un'unità catastale.
+   - **Tipologia** e **Finalità**: vengono dalla funzione dell'immobile. Si impostano in **Funzioni immobile** (campi **Tipologia MEF** e **Finalità MEF**); la finalità vale solo per gli immobili utilizzati direttamente.
+
+Nell'elenco immobili puoi cercare per foglio e particella (valore esatto), natura giuridica e utilizzo, e aggiungere le colonne **Catasto**, **Natura giuridica**, **Utilizzo** e **Id MEF**.
+
 ### Fare un backup (solo amministratori)
 
 Da **Impostazioni → Backup e manutenzione** puoi creare un backup, scaricarlo, eliminarlo o ripristinarlo. Il ripristino non tocca utenti e branding. <!-- DA VERIFICARE: cosa contiene il backup (foto incluse?) e se va fatto prima di operazioni particolari -->
@@ -148,13 +163,15 @@ Un CIG può essere usato da un solo contratto. Il numero d'ordine CONSIP è unic
 | Elenco | Segnalazioni |
 | --- | --- |
 | Utenze | Attive senza contratto di fornitura valido · Attive coperte solo da contratti senza CIG · Con contratti di fornitura sovrapposti · Attive senza tipologia ARERA · Da volturare · Volturate da riprendere · Capitolo non impegnato sul contratto di fornitura · Senza capitolo di spesa · Attive senza posizione |
-| Immobili | Da classificare (tipologia o funzione mancanti) · Non di proprietà senza contratto passivo attivo |
+| Immobili | Da classificare (tipologia o funzione mancanti) · Non di proprietà senza contratto passivo attivo · Di proprietà senza catasto · Fabbricati di proprietà senza Id MEF · Subalterno da assegnare (stessi via, civico, foglio e particella) |
 | Impianti | Senza posizione · Senza immobile |
 | Fatture | Su utenze cessate · Con righe senza utenza |
 | Contratti di fornitura | Senza CIG (non esclusi) · CIG duplicati |
 | Contratti immobiliari | Senza immobile · Senza parti |
 | Capitoli di spesa | Oltre l'assestato dell'anno · Senza assestato dell'anno |
 | Soggetti terzi | Senza P.IVA o codice fiscale |
+
+In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni usate da immobili di proprietà a cui manca la tipologia del censimento MEF.
 
 ## Problemi frequenti
 

@@ -19,6 +19,7 @@ export const GUIDA_PER_PAGINA: Record<string, string> = {
   'utilities': 'gestire-la-voltura-di-unutenza',
   'plants': 'trovare-un-elemento-negli-elenchi',
   'complexes': 'gestire-i-complessi',
+  'asset-function': 'catasto-e-dati-di-patrimonio',
   'invoices': 'registrare-una-fattura',
   'budget-chapter': 'controllare-la-spesa-di-un-capitolo',
   'contracts': 'contratti-di-fornitura',
