@@ -13,6 +13,12 @@ export const PERIOD_LABEL: Record<RentPeriod, string> = {
   MONTHLY: 'Mensile', BIMONTHLY: 'Bimestrale', QUARTERLY: 'Trimestrale',
   SEMIANNUAL: 'Semestrale', ANNUAL: 'Annuale', ONE_OFF: 'Una tantum',
 };
+// Regime IVA del canone (netto); gemello di VatRegime nel backend.
+export type VatRegime = 'OUT_OF_SCOPE' | 'EXEMPT' | 'VAT_10' | 'VAT_22';
+export const VAT_REGIME_LABEL: Record<VatRegime, string> = {
+  OUT_OF_SCOPE: 'Fuori campo IVA', EXEMPT: 'Esente (art. 10 DPR 633/72)', VAT_10: 'IVA 10%', VAT_22: 'IVA 22%',
+};
+export const VAT_RATE: Record<VatRegime, number> = {OUT_OF_SCOPE: 0, EXEMPT: 0, VAT_10: 0.1, VAT_22: 0.22};
 export const STATUS_LABEL: Record<DisplayStatus, string> = {
   ACTIVE: 'Attivo', EXPIRING: 'In scadenza', EXPIRED: 'Scaduto',
   RETURNED: 'Restituito', TERMINATED: 'Cessato', DISPUTED: 'In contenzioso',

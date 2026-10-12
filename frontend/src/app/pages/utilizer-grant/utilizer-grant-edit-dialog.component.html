@@ -88,7 +88,7 @@
         <app-validity-bar [start]="form.controls.start_date.value" [end]="item.effective_end_date ?? form.controls.end_date.value"></app-validity-bar>
         <div class="sheet-grid" style="margin-top: 12px;">
           <mat-form-field>
-            <mat-label>Canone (€)</mat-label>
+            <mat-label>Canone netto (€)</mat-label>
             <input matInput type="number" min="0" step="0.01" formControlName="rent_amount">
             <mat-hint>{{ annualPreview() }}</mat-hint>
           </mat-form-field>
@@ -101,8 +101,15 @@
               }
             </mat-select>
           </mat-form-field>
-          <mat-checkbox formControlName="vat_applicable" style="align-self: center;">Soggetto a IVA</mat-checkbox>
-          <div></div>
+          <mat-form-field>
+            <mat-label>Regime IVA</mat-label>
+            <mat-select formControlName="vat_regime">
+              <mat-option [value]="null">Da indicare</mat-option>
+              @for (o of vatOptions; track o.value) {
+                <mat-option [value]="o.value">{{ o.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
           <mat-form-field>
             <mat-label>Decorrenza</mat-label>
             <input matInput [matDatepicker]="startPicker" formControlName="start_date" placeholder="GG/MM/AAAA">

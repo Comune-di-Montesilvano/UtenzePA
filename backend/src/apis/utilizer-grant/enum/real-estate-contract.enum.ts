@@ -11,6 +11,15 @@ export enum ContractKind {
   LAND_OCCUPATION = 'LAND_OCCUPATION',
 }
 
+// Regime IVA del canone (il canone è sempre netto). null = da indicare.
+// Gemello frontend: VAT_REGIME_LABEL/VAT_RATE in real-estate-contract.model.ts.
+export enum VatRegime {
+  OUT_OF_SCOPE = 'OUT_OF_SCOPE', // fuori campo IVA (es. locatore privato)
+  EXEMPT = 'EXEMPT', // esente, art. 10 DPR 633/72
+  VAT_10 = 'VAT_10',
+  VAT_22 = 'VAT_22',
+}
+
 export enum RentPeriod {
   MONTHLY = 'MONTHLY',
   BIMONTHLY = 'BIMONTHLY',
