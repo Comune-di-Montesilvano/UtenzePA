@@ -246,6 +246,61 @@ describe('PlantsService', () => {
     ).rejects.toThrow(/antincendio/);
   });
 
+  it('presidio: date normalizzate al primo del mese', async () => {
+    repo.findOne.mockResolvedValue(plant({ type: PlantType.FIRE_PROTECTION }));
+    await service.addFireEquipment(
+      1,
+      { equipment_type: 'EXTINGUISHER', revision_due_on: '2027-03-15' } as never,
+      3,
+    );
+    expect(fireRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ revision_due_on: '2027-03-01', plant_id: 1 }),
+    );
+  });
+
+  it('presidio non estintore: date sempre azzerate, anche cambiando tipo', async () => {
+    fireRepo.findOne.mockResolvedValue({
+      id: 6,
+      plant_id: 1,
+      equipment_type: 'EXTINGUISHER',
+      quantity: 1,
+      last_check_on: '2026-01-01',
+      revision_due_on: '2027-01-01',
+      test_due_on: '2030-01-01',
+      deleted: false,
+    });
+    await service.updateFireEquipment(6, { equipment_type: 'HYDRANT' } as never, 3);
+    expect(fireRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        equipment_type: 'HYDRANT',
+        last_check_on: null,
+        revision_due_on: null,
+        test_due_on: null,
+      }),
+    );
+  });
+
+  it('riga: stato dei presidi = peggiore tra gli estintori, solo antincendio', async () => {
+    repo.find.mockResolvedValue([
+      plant({
+        type: PlantType.FIRE_PROTECTION,
+        fireEquipment: [
+          {
+            equipment_type: 'EXTINGUISHER',
+            last_check_on: null,
+            revision_due_on: '2017-01-01',
+            test_due_on: null,
+            deleted: false,
+          },
+        ],
+      }),
+      plant({ id: 2 }),
+    ]);
+    const rows = await service.findAll({});
+    expect(rows.find((r) => r.id === 1)?.fire_equipment_status).toBe(InspectionStatus.OVERDUE);
+    expect(rows.find((r) => r.id === 2)?.fire_equipment_status).toBeNull();
+  });
+
   it('summary', async () => {
     repo.find.mockResolvedValue([
       plant({ inspections: [{ next_date: '2026-01-01', deleted: false }] }),
