@@ -266,7 +266,8 @@
             [powerKw]="plant.thermal?.power_kw ?? null"
             [rows]="plant.inspections"
             [readOnly]="!canEdit"
-            (changed)="reloadPlant()">
+            (changed)="reloadPlant()"
+            (attachmentsChanged)="refreshDocumentCount()">
           </app-plant-inspections-tab>
         </mat-tab>
       }

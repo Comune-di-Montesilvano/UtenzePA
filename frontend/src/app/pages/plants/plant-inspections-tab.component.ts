@@ -164,6 +164,8 @@ export class PlantInspectionsTabComponent implements OnInit {
   @Input() readOnly = false;
   @Input() rows: PlantInspection[] = [];
   @Output() changed = new EventEmitter<void>();
+  // Allegati di una verifica aggiunti o tolti: il conteggio del tab Documenti va ricalcolato.
+  @Output() attachmentsChanged = new EventEmitter<void>();
 
   readonly dateIt = formatDateIt;
   suggestions: {kind: string; period_months: number}[] = [];
@@ -205,7 +207,10 @@ export class PlantInspectionsTabComponent implements OnInit {
       width: '760px',
       maxWidth: '95vw',
       data: {inspectionId: r.id, title: r.kind, readOnly: this.readOnly},
-    }).afterClosed().subscribe(() => this.loadAttachmentCounts());
+    }).afterClosed().subscribe(() => {
+      this.loadAttachmentCounts();
+      this.attachmentsChanged.emit();
+    });
   }
 
   badgeOf(r: PlantInspection): {bg: string; fg: string} {
