@@ -62,7 +62,7 @@ services:
       # Backup DB — schedulazione cron, retention, dimensioni massime
       - BACKUP_CRON_SCHEDULE=${BACKUP_CRON_SCHEDULE:-0 0 * * *}
       - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
-      - BACKUP_MAX_SIZE_MB=${BACKUP_MAX_SIZE_MB:-500}
+      - BACKUP_MAX_SIZE_MB=${BACKUP_MAX_SIZE_MB:-20480}
       # Allegati — dimensione massima per file (MB)
       - ATTACHMENT_MAX_SIZE_MB=${ATTACHMENT_MAX_SIZE_MB:-50}
     volumes:

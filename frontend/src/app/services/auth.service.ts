@@ -34,6 +34,7 @@ export class AuthService {
   }
 
   async login(username: string, password: string): Promise<boolean> {
+    this.message_error = '';
     try {
       const response = await axios.post(`${this.BASE_URL}/authModule/login`, {
         email: username,
@@ -56,7 +57,9 @@ export class AuthService {
 
       return false;
     } catch (error) {
-      
+      if (axios.isAxiosError(error) && error.response?.data?.code === 'MAINTENANCE') {
+        this.message_error = error.response.data.message;
+      }
       return false;
     }
   }

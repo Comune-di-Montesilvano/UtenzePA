@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { catchError, throwError } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
+import { MAINTENANCE_CODE } from '../../pages/manutenzione/manutenzione.component';
 
 // Sessione scaduta/non valida (token assente, scaduto o revocato): logout e
 // redirect al login invece di lasciare la UI in uno stato inconsistente con
@@ -27,6 +28,12 @@ export const authErrorInterceptor: HttpInterceptorFn = (req, next) => {
         auth.logout();
         dialog.closeAll();
         void router.navigate(['/login']);
+      }
+      // Ripristino da backup in corso: il backend rifiuta tutto con 400 e
+      // codice MAINTENANCE (non 503: il proxy di produzione lo intercetta).
+      if (error instanceof HttpErrorResponse && error.error?.code === MAINTENANCE_CODE) {
+        dialog.closeAll();
+        void router.navigate(['/manutenzione']);
       }
       return throwError(() => error);
     }),

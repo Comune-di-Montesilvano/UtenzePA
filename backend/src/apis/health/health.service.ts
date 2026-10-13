@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TypeOrmHealthIndicator } from '@nestjs/terminus';
+import { maintenance } from '@common/maintenance/maintenance';
 
 @Injectable()
 export class HealthService {
@@ -10,13 +11,15 @@ export class HealthService {
   }
 
   /**
-   * Simple health check
+   * Simple health check. `maintenance`: ripristino da backup in corso (la
+   * pagina di cortesia del frontend aspetta che torni false).
    */
   check() {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: Date.now() - this.startTime.getTime(),
+      maintenance: maintenance.active,
     };
   }
 

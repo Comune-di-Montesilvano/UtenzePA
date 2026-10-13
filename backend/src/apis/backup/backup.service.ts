@@ -1,8 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as tar from 'tar';
 import { createConnection, RowDataPacket } from 'mysql2/promise';
+import { maintenance } from '@common/maintenance/maintenance';
 
 // Due formati: ".sql" (solo dump, sempre) e ".tar.gz" (dump.sql + foto,
 // solo backup manuali — vedi createBackup). Entrambi coesistono nella
@@ -40,10 +42,32 @@ export interface BackupInfo {
   createdAt: Date;
 }
 
+// Creazione e ripristino girano in background: con foto e allegati durano
+// minuti e una richiesta HTTP così lunga verrebbe chiusa dal proxy. La pagina
+// Backup interroga questo stato; durante il ripristino l'app è in
+// manutenzione (vedi common/maintenance).
+export interface BackupJobStatus {
+  creating: { startedAt: Date } | null;
+  lastCreate: { finishedAt: Date; filename?: string; error?: string } | null;
+  restoring: { startedAt: Date } | null;
+  lastRestore: { finishedAt: Date; error?: string } | null;
+}
+
+const DOWNLOAD_TICKET_TTL_MS = 60 * 1000;
+
 @Injectable()
 export class BackupService {
   private readonly logger = new Logger(BackupService.name);
   readonly backupDir: string;
+  private readonly jobs: BackupJobStatus = {
+    creating: null,
+    lastCreate: null,
+    restoring: null,
+    lastRestore: null,
+  };
+  // Download via link monouso: un backup da GB scaricato con HttpClient
+  // finirebbe tutto nella memoria del browser.
+  private readonly downloadTickets = new Map<string, { filename: string; expiresAt: number }>();
 
   constructor() {
     this.backupDir = process.env.BACKUP_DIR ?? path.join(process.cwd(), 'backups');
@@ -176,21 +200,28 @@ export class BackupService {
         const stagingDir = fs.mkdtempSync(path.join(this.backupDir, '.staging-'));
         try {
           fs.renameSync(tmpSqlPath, path.join(stagingDir, 'dump.sql'));
+          // Collegamenti, non copie: con GB di allegati una copia raddoppiava
+          // lo spazio occupato. tar segue i collegamenti (follow).
           const photosDir = this.resolvePhotosDir();
           if (includePhotos && fs.existsSync(photosDir)) {
-            fs.cpSync(photosDir, path.join(stagingDir, 'photos'), { recursive: true });
+            fs.symlinkSync(path.resolve(photosDir), path.join(stagingDir, 'photos'), 'dir');
           }
           const attachmentsDir = this.resolveAttachmentsDir();
           if (includeAttachments && fs.existsSync(attachmentsDir)) {
-            // I pezzi di upload in corso (tmp/) non vanno nel backup.
-            fs.cpSync(attachmentsDir, path.join(stagingDir, 'attachments'), {
-              recursive: true,
-              filter: (src) => path.relative(attachmentsDir, src).split(path.sep)[0] !== 'tmp',
-            });
+            fs.symlinkSync(path.resolve(attachmentsDir), path.join(stagingDir, 'attachments'), 'dir');
           }
           const tmpArchivePath = `${finalPath}.tmp`;
+          // Compressione minima: PDF e foto sono già compressi, il livello
+          // di default costava solo tempo.
           await tar.create(
-            { gzip: true, file: tmpArchivePath, cwd: stagingDir },
+            {
+              gzip: { level: 1 },
+              file: tmpArchivePath,
+              cwd: stagingDir,
+              follow: true,
+              // I pezzi di upload in corso (attachments/tmp) non vanno nel backup.
+              filter: (p) => !/^attachments\/tmp(\/|$)/.test(p),
+            },
             fs.readdirSync(stagingDir),
           );
           fs.renameSync(tmpArchivePath, finalPath);
@@ -272,37 +303,45 @@ export class BackupService {
       return;
     }
 
+    // Solo dump.sql in una cartella temporanea: foto e allegati vengono
+    // estratti direttamente al loro posto (con GB di allegati, estrarre e poi
+    // copiare occupava il doppio dello spazio).
     const extractDir = fs.mkdtempSync(path.join(this.backupDir, '.restore-'));
     try {
-      await tar.extract({ file: filePath, cwd: extractDir });
+      await tar.extract({ file: filePath, cwd: extractDir, filter: (p) => p === 'dump.sql' });
       const sqlPath = path.join(extractDir, 'dump.sql');
       if (!fs.existsSync(sqlPath)) {
         throw new Error('Archivio di backup non valido: dump.sql mancante');
       }
       await this.restoreSqlFile(sqlPath, excludeTables);
-
-      // Foto: copiate per intero sopra la cartella attuale (merge, non
-      // svuotamento preventivo) — un file eventualmente rimasto orfano
-      // (riga cancellata dal dump appena importato) non viene ripulito qui,
-      // stesso comportamento "drift accettabile" già presente per le foto
-      // caricate e poi rimosse dalla UI prima di un backup.
-      const archivedPhotosDir = path.join(extractDir, 'photos');
-      if (fs.existsSync(archivedPhotosDir)) {
-        const photosDir = this.resolvePhotosDir();
-        fs.mkdirSync(photosDir, { recursive: true });
-        fs.cpSync(archivedPhotosDir, photosDir, { recursive: true });
-        this.logger.log(`Restore: foto ripristinate da ${archivedPhotosDir}`);
-      }
-      const archivedAttachmentsDir = path.join(extractDir, 'attachments');
-      if (fs.existsSync(archivedAttachmentsDir)) {
-        const attachmentsDir = this.resolveAttachmentsDir();
-        fs.mkdirSync(attachmentsDir, { recursive: true });
-        fs.cpSync(archivedAttachmentsDir, attachmentsDir, { recursive: true });
-        this.logger.log(`Restore: allegati ripristinati da ${archivedAttachmentsDir}`);
-      }
     } finally {
       fs.rmSync(extractDir, { recursive: true, force: true });
     }
+
+    // Merge sopra le cartelle attuali, nessuno svuotamento preventivo: un
+    // file rimasto orfano (riga assente dal dump appena importato) resta,
+    // "drift accettabile" come per le foto rimosse dalla UI prima di un backup.
+    // Foto sovrascritte; allegati mai (nome univoco, contenuto immutabile):
+    // ricaricare un archivio non riscrive i file già presenti.
+    await this.extractFolder(filePath, 'photos', this.resolvePhotosDir(), false);
+    await this.extractFolder(filePath, 'attachments', this.resolveAttachmentsDir(), true);
+  }
+
+  private async extractFolder(
+    archivePath: string,
+    folder: string,
+    destDir: string,
+    keepExisting: boolean,
+  ): Promise<void> {
+    const prefix = `${folder}/`;
+    fs.mkdirSync(destDir, { recursive: true });
+    await tar.extract({
+      file: archivePath,
+      cwd: destDir,
+      strip: 1,
+      keep: keepExisting,
+      filter: (p) => p.startsWith(prefix),
+    });
   }
 
   private async restoreSqlFile(sqlFilePath: string, excludeTables: string[]): Promise<void> {
@@ -340,7 +379,94 @@ export class BackupService {
     return { deleted };
   }
 
+  status(): BackupJobStatus {
+    return this.jobs;
+  }
+
+  private assertIdle(): void {
+    if (this.jobs.creating || this.jobs.restoring) {
+      throw new BadRequestException(
+        'È già in corso la creazione o il ripristino di un backup: attendere che finisca.',
+      );
+    }
+  }
+
+  /** Avvia la creazione in background; l'esito si legge da status(). */
+  startCreate(includePhotos: boolean, includeAttachments: boolean): BackupJobStatus {
+    this.assertIdle();
+    this.jobs.creating = { startedAt: new Date() };
+    void this.createBackup(includePhotos, includeAttachments)
+      .then((info) => {
+        this.jobs.lastCreate = { finishedAt: new Date(), filename: info.filename };
+      })
+      .catch((err: Error) => {
+        this.jobs.lastCreate = { finishedAt: new Date(), error: err.message };
+      })
+      .finally(() => {
+        this.jobs.creating = null;
+      });
+    return this.jobs;
+  }
+
+  /**
+   * Avvia il ripristino in background e mette l'app in manutenzione fino
+   * alla fine. `prepare` produce il file da ripristinare (riassemblaggio dei
+   * pezzi caricati: con GB anche questo richiede tempo); il file viene
+   * sempre cancellato alla fine. Ritorna la promise del lavoro (per i test;
+   * il controller non la aspetta).
+   */
+  startRestore(prepare: () => string, excludeTables: string[]): Promise<void> {
+    this.assertIdle();
+    this.jobs.restoring = { startedAt: new Date() };
+    maintenance.start();
+    let filePath: string | null = null;
+    return (async () => {
+      filePath = prepare();
+      await this.restoreFromFile(filePath, excludeTables);
+    })()
+      .then(() => {
+        this.jobs.lastRestore = { finishedAt: new Date() };
+      })
+      .catch((err: Error) => {
+        this.logger.error(`Ripristino fallito: ${err.message}`);
+        this.jobs.lastRestore = { finishedAt: new Date(), error: err.message };
+      })
+      .finally(() => {
+        if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        this.jobs.restoring = null;
+        maintenance.end();
+      });
+  }
+
+  createDownloadTicket(filename: string): string {
+    const filePath = this.getBackupPath(filename);
+    if (!fs.existsSync(filePath)) {
+      throw new BadRequestException('Backup non trovato');
+    }
+    const now = Date.now();
+    for (const [key, t] of this.downloadTickets) {
+      if (t.expiresAt < now) this.downloadTickets.delete(key);
+    }
+    const ticket = randomBytes(24).toString('hex');
+    this.downloadTickets.set(ticket, { filename, expiresAt: now + DOWNLOAD_TICKET_TTL_MS });
+    return ticket;
+  }
+
+  /** Monouso: il link scade al primo utilizzo o dopo un minuto. */
+  redeemDownloadTicket(ticket: string): string {
+    const entry = this.downloadTickets.get(ticket);
+    this.downloadTickets.delete(ticket);
+    if (!entry || entry.expiresAt < Date.now()) {
+      throw new BadRequestException('Link di download scaduto: riprovare dalla pagina Backup.');
+    }
+    return entry.filename;
+  }
+
   async handleScheduledBackup(): Promise<void> {
+    if (this.jobs.restoring || maintenance.active) {
+      this.logger.warn('Backup schedulato saltato: ripristino in corso');
+      return;
+    }
     try {
       await this.createBackup();
       const retentionDays = parseInt(process.env.BACKUP_RETENTION_DAYS ?? '30', 10);

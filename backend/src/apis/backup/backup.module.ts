@@ -1,7 +1,7 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { CronJob } from 'cron';
 import { CronExpression, SchedulerRegistry } from '@nestjs/schedule';
-import { BackupController } from './backup.controller';
+import { BackupController, BackupDownloadController } from './backup.controller';
 import { BackupService } from './backup.service';
 import { ChunkedUploadModule } from '@common/chunked-upload/chunked-upload.module';
 import { AuthMysqlModule } from '@apis/auth/auth.module';
@@ -17,7 +17,7 @@ import { AuthMysqlModule } from '@apis/auth/auth.module';
 // NestJS: https://docs.nestjs.com/techniques/task-scheduling#dynamic-schedule-module-api
 @Module({
   imports: [ChunkedUploadModule, AuthMysqlModule],
-  controllers: [BackupController],
+  controllers: [BackupController, BackupDownloadController],
   providers: [BackupService],
 })
 export class BackupModule implements OnModuleInit {

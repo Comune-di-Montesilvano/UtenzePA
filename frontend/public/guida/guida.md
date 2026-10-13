@@ -1,6 +1,6 @@
 # UtenzePA – Guida per gli operatori
 
-_Ultimo aggiornamento: 2026-10-12_
+_Ultimo aggiornamento: 2026-10-13_
 
 ## Cos'è e chi lo usa
 
@@ -146,7 +146,12 @@ Nell'elenco immobili puoi cercare per foglio e particella (valore esatto), natur
 
 ### Fare un backup (solo amministratori)
 
-Da **Impostazioni → Backup e manutenzione** puoi creare un backup, scaricarlo, eliminarlo o ripristinarlo. Il ripristino non tocca utenti e branding. Con **Includi gli allegati** il backup contiene anche i file allegati: può diventare grande. <!-- DA VERIFICARE: cosa contiene il backup (foto incluse?) e se va fatto prima di operazioni particolari -->
+Da **Impostazioni → Backup e manutenzione** puoi creare un backup, scaricarlo, eliminarlo o ripristinarlo. Ogni notte l'applicazione crea da sola un backup dei soli dati. Con **Includi foto** e **Includi gli allegati** il backup contiene anche i file: può diventare di molti GB.
+
+- La creazione avviene in background: puoi continuare a lavorare, l'elenco si aggiorna da solo quando il backup è pronto.
+- **Scarica** avvia il download direttamente nel browser, anche per file molto grandi.
+- Il **ripristino** carica il file (una barra mostra l'avanzamento: non chiudere la pagina), poi sostituisce i dati. Nella conferma puoi scegliere di non toccare utenti e branding attuali. Gli allegati già presenti non vengono sovrascritti.
+- Durante il ripristino l'applicazione è bloccata per tutti: chi la usa vede la pagina «Ripristino dei dati in corso». Al termine bisogna accedere di nuovo; l'esito dell'ultimo ripristino resta scritto nella pagina Backup.
 
 ## Regole e riferimenti
 

@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../services/auth.service';
 import { ChunkedUploadService } from '../../services/chunked-upload.service';
@@ -9,6 +9,15 @@ export interface BackupInfo {
   filename: string;
   size: number;
   createdAt: string;
+}
+
+// Creazione e ripristino girano in background sul server (vedi backend
+// BackupJobStatus): la pagina interroga questo stato.
+export interface BackupJobStatus {
+  creating: { startedAt: string } | null;
+  lastCreate: { finishedAt: string; filename?: string; error?: string } | null;
+  restoring: { startedAt: string } | null;
+  lastRestore: { finishedAt: string; error?: string } | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -27,8 +36,8 @@ export class BackupService {
     return this.http.get<BackupInfo[]>(this.BASE_URL, { headers: this.getAuthHeaders() });
   }
 
-  create(includePhotos = false, includeAttachments = false): Observable<BackupInfo> {
-    return this.http.post<BackupInfo>(
+  create(includePhotos = false, includeAttachments = false): Observable<BackupJobStatus> {
+    return this.http.post<BackupJobStatus>(
       this.BASE_URL,
       { includePhotos, includeAttachments },
       { headers: this.getAuthHeaders() },
@@ -39,21 +48,23 @@ export class BackupService {
     return this.http.delete<void>(`${this.BASE_URL}/${filename}`, { headers: this.getAuthHeaders() });
   }
 
-  downloadUrl(filename: string): string {
-    return `${this.BASE_URL}/${filename}/download`;
+  status(): Observable<BackupJobStatus> {
+    return this.http.get<BackupJobStatus>(`${this.BASE_URL}/status`, { headers: this.getAuthHeaders() });
   }
 
-  download(filename: string): Observable<Blob> {
-    return this.http.get(this.downloadUrl(filename), {
-      headers: this.getAuthHeaders(),
-      responseType: 'blob',
-    });
+  // Link monouso: il browser scarica in streaming (un backup da GB letto
+  // come Blob finirebbe tutto in memoria).
+  downloadUrl(filename: string): Observable<string> {
+    return this.http
+      .post<{ ticket: string }>(`${this.BASE_URL}/${filename}/download-link`, {}, { headers: this.getAuthHeaders() })
+      .pipe(map(({ ticket }) => `${environment.apiUrl}/backup-download/${ticket}`));
   }
 
   restore(
     file: File,
     password: string,
     options?: { excludeUsers?: boolean; excludeBranding?: boolean },
+    onProgress?: (sentBytes: number, totalBytes: number) => void,
   ): Observable<any> {
     return this.chunkedUpload.uploadFile(
       file,
@@ -68,6 +79,7 @@ export class BackupService {
         // sono blob "nudi" senza nome/estensione.
         originalFilename: file.name,
       },
+      onProgress,
     );
   }
 }

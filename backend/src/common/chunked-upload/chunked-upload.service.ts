@@ -4,6 +4,11 @@ import * as path from 'path';
 
 @Injectable()
 export class ChunkedUploadService {
+  // Dimensione dei pezzi ricevuti per upload: ricalcolarla dal disco a ogni
+  // pezzo costava una lettura della cartella per pezzo (backup da GB = decine
+  // di migliaia di pezzi). Persa al riavvio: si ricostruisce dal disco una volta.
+  private readonly sizes = new Map<string, Map<number, number>>();
+
   private chunkFileName(uploadId: string, chunkIndex: number): string {
     return `${uploadId}.chunk${chunkIndex}`;
   }
@@ -29,9 +34,12 @@ export class ChunkedUploadService {
     fs.mkdirSync(destDir, { recursive: true });
     const chunkPath = path.join(destDir, this.chunkFileName(uploadId, chunkIndex));
     fs.writeFileSync(chunkPath, buffer);
+    const sizes = this.chunkSizes(uploadId, destDir);
+    sizes.set(chunkIndex, buffer.length);
 
     if (maxSizeBytes !== undefined) {
-      const totalSize = this.uploadedSize(uploadId, destDir);
+      let totalSize = 0;
+      for (const size of sizes.values()) totalSize += size;
       if (totalSize > maxSizeBytes) {
         this.cleanup(uploadId, totalChunks, destDir);
         throw new Error(
@@ -41,22 +49,27 @@ export class ChunkedUploadService {
     }
   }
 
-  private uploadedSize(uploadId: string, destDir: string): number {
-    const prefix = `${uploadId}.chunk`;
-    let total = 0;
-    let entries: string[];
-    try {
-      entries = fs.readdirSync(destDir);
-    } catch {
-      return 0;
-    }
-    for (const entry of entries) {
-      if (entry.startsWith(prefix)) {
-        const stat = fs.statSync(path.join(destDir, entry));
-        total += stat.size;
+  private sizesKey(uploadId: string, destDir: string): string {
+    return `${destDir}|${uploadId}`;
+  }
+
+  private chunkSizes(uploadId: string, destDir: string): Map<number, number> {
+    const key = this.sizesKey(uploadId, destDir);
+    let sizes = this.sizes.get(key);
+    if (!sizes) {
+      sizes = new Map();
+      const prefix = `${uploadId}.chunk`;
+      for (const entry of fs.readdirSync(destDir)) {
+        if (entry.startsWith(prefix)) {
+          const index = Number(entry.slice(prefix.length));
+          if (Number.isInteger(index)) {
+            sizes.set(index, fs.statSync(path.join(destDir, entry)).size);
+          }
+        }
       }
+      this.sizes.set(key, sizes);
     }
-    return total;
+    return sizes;
   }
 
   isComplete(uploadId: string, totalChunks: number, destDir: string): boolean {
@@ -80,6 +93,9 @@ export class ChunkedUploadService {
         const chunkPath = path.join(destDir, this.chunkFileName(uploadId, i));
         const chunkBuffer = fs.readFileSync(chunkPath);
         fs.writeSync(writeStream, chunkBuffer);
+        // Subito, non a fine ciclo: con file da GB pezzi + file intero
+        // occuperebbero il doppio del disco.
+        fs.unlinkSync(chunkPath);
       }
       fs.closeSync(writeStream);
       return finalPath;
@@ -89,6 +105,7 @@ export class ChunkedUploadService {
   }
 
   cleanup(uploadId: string, totalChunks: number, destDir: string): void {
+    this.sizes.delete(this.sizesKey(uploadId, destDir));
     for (let i = 0; i < totalChunks; i++) {
       const chunkPath = path.join(destDir, this.chunkFileName(uploadId, i));
       if (fs.existsSync(chunkPath)) fs.unlinkSync(chunkPath);
