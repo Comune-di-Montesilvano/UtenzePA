@@ -27,6 +27,7 @@ import {BackupImportComponent} from './pages/backup-import/backup-import.compone
 import {BrandingSettingsComponent} from "./pages/branding-settings/branding-settings.component";
 import {AuditLogPageComponent} from "./pages/audit-log/audit-log-page.component";
 import {GuidaComponent} from "./pages/guida/guida.component";
+import {ManutenzioneComponent} from "./pages/manutenzione/manutenzione.component";
 
 export const routes: Routes = [
   {
@@ -64,5 +65,6 @@ export const routes: Routes = [
   },
   {path: 'setup', component: SetupComponent, canActivate: [SetupGuard]},
   {path: 'login', component: LoginComponent, canActivate: [RedirectToSetupGuard]},
+  {path: 'manutenzione', component: ManutenzioneComponent},
   {path: '**', redirectTo: '', pathMatch: 'full'}
 ];

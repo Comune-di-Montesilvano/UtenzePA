@@ -18,6 +18,7 @@ import { HttpExceptionFilter } from '@core/exceptions/http-exception.filter';
 import { generateHttpOptions } from '@utils/httpOptionsNest/httpOptions';
 import { configureCompression } from '@utils/compression';
 import { assertProductionSecrets } from '@utils/production-guards/production-guards';
+import { maintenanceMiddleware } from '@common/maintenance/maintenance';
 
 // Il default NestJS esclude 'debug'/'verbose': LOG_LEVEL=debug in .env abilita
 // i log di dettaglio senza rebuild (analogo a LOG_LEVELS_BY_NAME in comunicaPA).
@@ -64,6 +65,8 @@ async function bootstrap() {
   // payload (entity_name, coordinate, ecc., trascurabile).
   app.use(json({ limit: '3mb' }));
   app.use(urlencoded({ extended: true, limit: '3mb' }));
+  // Ripristino da backup in corso: API bloccate, il frontend mostra la pagina di cortesia.
+  app.use(maintenanceMiddleware);
 
   const infisicalConfig = app.get(InfisicalConfigService);
 

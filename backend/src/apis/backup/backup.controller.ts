@@ -16,7 +16,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
-import { BackupService, BackupInfo } from './backup.service';
+import { BackupService, BackupInfo, BackupJobStatus } from './backup.service';
 import { ChunkedUploadService } from '@common/chunked-upload/chunked-upload.service';
 import { AuthService } from '@apis/auth/auth.service';
 import { JwtAuthGuard } from '@core/auth/guards/jwt-auth.guard';
@@ -39,9 +39,15 @@ export class BackupController {
     private readonly authService: AuthService,
   ) {}
 
+  // In background: la risposta arriva subito, l'esito si legge da GET status.
   @Post()
-  create(@Body() dto: CreateBackupDto): Promise<BackupInfo> {
-    return this.service.createBackup(dto.includePhotos ?? false, dto.includeAttachments ?? false);
+  create(@Body() dto: CreateBackupDto): BackupJobStatus {
+    return this.service.startCreate(dto.includePhotos ?? false, dto.includeAttachments ?? false);
+  }
+
+  @Get('status')
+  status(): BackupJobStatus {
+    return this.service.status();
   }
 
   @Get()
@@ -49,17 +55,10 @@ export class BackupController {
     return this.service.listBackups();
   }
 
-  @Get(':filename/download')
-  download(
-    @Param('filename') filename: string,
-    @Res({ passthrough: true }) res: Response,
-  ): StreamableFile {
-    const filePath = this.service.getBackupPath(filename);
-    res.set({
-      'Content-Type': filename.endsWith('.tar.gz') ? 'application/gzip' : 'application/sql',
-      'Content-Disposition': `attachment; filename="${filename}"`,
-    });
-    return new StreamableFile(fs.createReadStream(filePath));
+  // Link monouso per il download diretto dal browser (vedi BackupDownloadController).
+  @Post(':filename/download-link')
+  downloadLink(@Param('filename') filename: string): { ticket: string } {
+    return { ticket: this.service.createDownloadTicket(filename) };
   }
 
   @Delete(':filename')
@@ -73,7 +72,7 @@ export class BackupController {
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadChunkDto,
   ): Promise<{ received: boolean }> {
-    const maxSizeBytes = parseInt(process.env.BACKUP_MAX_SIZE_MB ?? '500', 10) * 1024 * 1024;
+    const maxSizeBytes = parseInt(process.env.BACKUP_MAX_SIZE_MB ?? '20480', 10) * 1024 * 1024;
     this.chunkedUpload.saveChunk(
       dto.uploadId,
       dto.chunkIndex,
@@ -85,33 +84,66 @@ export class BackupController {
     return { received: true };
   }
 
+  /**
+   * Avvia il ripristino in background e risponde subito: da qui l'app è in
+   * manutenzione (pagina di cortesia per tutti) fino alla fine.
+   */
   @Post('restore/finalize')
   async restoreFinalize(
     @Body() dto: RestoreFinalizeDto,
     @CurrentUser() user: ICurrentUser,
-  ): Promise<{ restored: boolean }> {
+  ): Promise<{ started: boolean }> {
     const validUser = await this.authService.validateUser(user.email, dto.password);
     if (!validUser) {
       throw new BadRequestException('Password non corretta');
     }
+    if (!this.chunkedUpload.isComplete(dto.uploadId, dto.totalChunks, this.tmpDir)) {
+      throw new BadRequestException('Caricamento del file incompleto: riprovare.');
+    }
 
     const isArchive = dto.originalFilename?.endsWith('.tar.gz') ?? false;
-    const filePath = this.chunkedUpload.assemble(
-      dto.uploadId,
-      dto.totalChunks,
-      this.tmpDir,
-      `${dto.uploadId}${isArchive ? '.tar.gz' : '.sql'}`,
-    );
     const excludeTables: string[] = [
       ...(dto.excludeUsers ? ['system_users'] : []),
       ...(dto.excludeBranding ? ['app_settings'] : []),
     ];
-    try {
-      await this.service.restoreFromFile(filePath, excludeTables);
-    } finally {
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    }
+    void this.service.startRestore(
+      () =>
+        this.chunkedUpload.assemble(
+          dto.uploadId,
+          dto.totalChunks,
+          this.tmpDir,
+          `${dto.uploadId}${isArchive ? '.tar.gz' : '.sql'}`,
+        ),
+      excludeTables,
+    );
+    return { started: true };
+  }
+}
 
-    return { restored: true };
+/**
+ * Download di un backup da link monouso (POST backup/:filename/download-link,
+ * solo Admin): il browser scarica direttamente in streaming, senza passare il
+ * file da HttpClient (un backup da GB finirebbe tutto in memoria). Senza
+ * guard JWT: un link del browser non porta l'header Authorization; vale il
+ * ticket, casuale, monouso e valido un minuto.
+ */
+@Controller('backup-download')
+export class BackupDownloadController {
+  constructor(private readonly service: BackupService) {}
+
+  @Get(':ticket')
+  download(
+    @Param('ticket') ticket: string,
+    @Res({ passthrough: true }) res: Response,
+  ): StreamableFile {
+    const filename = this.service.redeemDownloadTicket(ticket);
+    const filePath = this.service.getBackupPath(filename);
+    const stat = fs.statSync(filePath);
+    res.set({
+      'Content-Type': filename.endsWith('.tar.gz') ? 'application/gzip' : 'application/sql',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': String(stat.size),
+    });
+    return new StreamableFile(fs.createReadStream(filePath));
   }
 }

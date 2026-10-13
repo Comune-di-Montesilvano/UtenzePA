@@ -95,4 +95,22 @@ describe('ChunkedUploadService', () => {
 
     expect(service.isComplete(uploadId, 1, destDir)).toBe(true);
   });
+
+  it('un pezzo rispedito non conta due volte nel limite', () => {
+    const uploadId = 'test-upload-9';
+    service.saveChunk(uploadId, 0, 2, Buffer.from('AAAAAA'), destDir, 10);
+    service.saveChunk(uploadId, 0, 2, Buffer.from('AAAAAA'), destDir, 10);
+
+    expect(() => service.saveChunk(uploadId, 1, 2, Buffer.from('BBBB'), destDir, 10)).not.toThrow();
+  });
+
+  it('dopo un riavvio ricostruisce dal disco la dimensione già ricevuta', () => {
+    const uploadId = 'test-upload-10';
+    service.saveChunk(uploadId, 0, 2, Buffer.from('AAAAAAAA'), destDir, 10);
+    const restarted = new ChunkedUploadService();
+
+    expect(() => restarted.saveChunk(uploadId, 1, 2, Buffer.from('BBBB'), destDir, 10)).toThrow(
+      /supera il limite consentito/,
+    );
+  });
 });

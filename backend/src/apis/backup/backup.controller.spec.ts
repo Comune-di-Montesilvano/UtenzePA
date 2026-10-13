@@ -1,16 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import * as fs from 'fs';
-import { BackupController } from './backup.controller';
+import * as os from 'os';
+import * as path from 'path';
+import { BackupController, BackupDownloadController } from './backup.controller';
 import { BackupService } from './backup.service';
 import { ChunkedUploadService } from '@common/chunked-upload/chunked-upload.service';
 import { AuthService } from '@apis/auth/auth.service';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, StreamableFile } from '@nestjs/common';
 
 describe('BackupController', () => {
   let controller: BackupController;
   let service: jest.Mocked<BackupService>;
   let chunkedUpload: jest.Mocked<ChunkedUploadService>;
   let authService: jest.Mocked<AuthService>;
+  const admin = { id: 1, email: 'admin@example.com', role: 'Admin' };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -19,16 +22,21 @@ describe('BackupController', () => {
         {
           provide: BackupService,
           useValue: {
-            createBackup: jest.fn(),
+            startCreate: jest.fn(),
+            status: jest.fn(),
             listBackups: jest.fn(),
             deleteBackup: jest.fn(),
-            getBackupPath: jest.fn(),
-            restoreFromFile: jest.fn(),
+            createDownloadTicket: jest.fn(),
+            startRestore: jest.fn().mockResolvedValue(undefined),
           },
         },
         {
           provide: ChunkedUploadService,
-          useValue: { saveChunk: jest.fn(), assemble: jest.fn() },
+          useValue: {
+            saveChunk: jest.fn(),
+            assemble: jest.fn(),
+            isComplete: jest.fn().mockReturnValue(true),
+          },
         },
         {
           provide: AuthService,
@@ -43,12 +51,9 @@ describe('BackupController', () => {
     authService = module.get(AuthService);
   });
 
-  it('create delega a service.createBackup', async () => {
-    const info = { filename: 'utenzepa_20260101_000000.sql', size: 10, createdAt: new Date() };
-    service.createBackup.mockResolvedValue(info);
-
-    await expect(controller.create({})).resolves.toEqual(info);
-    expect(service.createBackup).toHaveBeenCalledWith(false);
+  it('create avvia la creazione in background con le opzioni richieste', () => {
+    controller.create({ includeAttachments: true });
+    expect(service.startCreate).toHaveBeenCalledWith(false, true);
   });
 
   it('list delega a service.listBackups', async () => {
@@ -65,7 +70,12 @@ describe('BackupController', () => {
     expect(service.deleteBackup).toHaveBeenCalledWith('utenzepa_20260101_000000.sql');
   });
 
-  it('restoreChunk salva il chunk ricevuto', async () => {
+  it('downloadLink restituisce il ticket monouso', () => {
+    service.createDownloadTicket.mockReturnValue('abc');
+    expect(controller.downloadLink('utenzepa_20260101_000000.sql')).toEqual({ ticket: 'abc' });
+  });
+
+  it('restoreChunk salva il chunk con il limite di default di 20 GB', async () => {
     const file = { buffer: Buffer.from('data') } as Express.Multer.File;
 
     await controller.restoreChunk(file, { uploadId: 'u1', chunkIndex: 0, totalChunks: 2 });
@@ -76,92 +86,79 @@ describe('BackupController', () => {
       2,
       file.buffer,
       expect.stringContaining('tmp'),
-      expect.any(Number),
+      20480 * 1024 * 1024,
     );
   });
 
-  it('restoreFinalize rifiuta password errata senza eseguire il restore', async () => {
+  it('restoreFinalize rifiuta password errata senza avviare il ripristino', async () => {
     authService.validateUser.mockResolvedValue(null);
 
     await expect(
-      controller.restoreFinalize(
-        { uploadId: 'u1', totalChunks: 2, password: 'wrong' },
-        { id: 1, email: 'admin@example.com', role: 'Admin' },
-      ),
+      controller.restoreFinalize({ uploadId: 'u1', totalChunks: 2, password: 'wrong' }, admin),
     ).rejects.toThrow(BadRequestException);
 
-    expect(service.restoreFromFile).not.toHaveBeenCalled();
+    expect(service.startRestore).not.toHaveBeenCalled();
   });
 
-  it('restoreFinalize assembla ed esegue il restore con password corretta', async () => {
-    // assemble() nella realtà crea il file assemblato sul filesystem; qui il mock ritorna
-    // solo il path, quindi va creato per davvero perché il controller lo cancella con
-    // fs.unlinkSync dopo il restore.
-    fs.writeFileSync('/tmp/restore.sql', 'dummy');
+  it('restoreFinalize rifiuta un caricamento incompleto', async () => {
     authService.validateUser.mockResolvedValue({ id: 1 } as any);
-    chunkedUpload.assemble.mockReturnValue('/tmp/restore.sql');
-    service.restoreFromFile.mockResolvedValue(undefined);
+    chunkedUpload.isComplete.mockReturnValue(false);
+
+    await expect(
+      controller.restoreFinalize({ uploadId: 'u1', totalChunks: 2, password: 'correct' }, admin),
+    ).rejects.toThrow('Caricamento del file incompleto');
+
+    expect(service.startRestore).not.toHaveBeenCalled();
+  });
+
+  it('restoreFinalize avvia il ripristino in background e risponde subito', async () => {
+    authService.validateUser.mockResolvedValue({ id: 1 } as any);
+    chunkedUpload.assemble.mockReturnValue('/tmp/u1.tar.gz');
 
     const result = await controller.restoreFinalize(
-      { uploadId: 'u1', totalChunks: 2, password: 'correct' },
-      { id: 1, email: 'admin@example.com', role: 'Admin' },
-    );
-
-    expect(authService.validateUser).toHaveBeenCalledWith('admin@example.com', 'correct');
-    expect(service.restoreFromFile).toHaveBeenCalledWith('/tmp/restore.sql', []);
-    expect(result).toEqual({ restored: true });
-  });
-
-  it('restoreFinalize assembla come .tar.gz quando originalFilename lo indica', async () => {
-    fs.writeFileSync('/tmp/restore.sql', 'dummy');
-    authService.validateUser.mockResolvedValue({ id: 1 } as any);
-    chunkedUpload.assemble.mockReturnValue('/tmp/restore.sql');
-    service.restoreFromFile.mockResolvedValue(undefined);
-
-    await controller.restoreFinalize(
-      { uploadId: 'u1', totalChunks: 2, password: 'correct', originalFilename: 'mio-backup.tar.gz' },
-      { id: 1, email: 'admin@example.com', role: 'Admin' },
-    );
-
-    expect(chunkedUpload.assemble).toHaveBeenCalledWith('u1', 2, expect.any(String), 'u1.tar.gz');
-  });
-
-  it('restoreFinalize traduce excludeUsers/excludeBranding nelle tabelle da escludere', async () => {
-    fs.writeFileSync('/tmp/restore-exclude.sql', 'dummy');
-    authService.validateUser.mockResolvedValue({ id: 1 } as any);
-    chunkedUpload.assemble.mockReturnValue('/tmp/restore-exclude.sql');
-    service.restoreFromFile.mockResolvedValue(undefined);
-
-    await controller.restoreFinalize(
       {
         uploadId: 'u1',
         totalChunks: 2,
         password: 'correct',
+        originalFilename: 'mio-backup.tar.gz',
         excludeUsers: true,
         excludeBranding: true,
       },
-      { id: 1, email: 'admin@example.com', role: 'Admin' },
+      admin,
     );
 
-    expect(service.restoreFromFile).toHaveBeenCalledWith('/tmp/restore-exclude.sql', [
-      'system_users',
-      'app_settings',
-    ]);
+    expect(result).toEqual({ started: true });
+    expect(authService.validateUser).toHaveBeenCalledWith('admin@example.com', 'correct');
+    const [prepare, excludeTables] = service.startRestore.mock.calls[0];
+    expect(excludeTables).toEqual(['system_users', 'app_settings']);
+    // Il riassemblaggio avviene dentro il lavoro in background.
+    expect(chunkedUpload.assemble).not.toHaveBeenCalled();
+    expect(prepare()).toBe('/tmp/u1.tar.gz');
+    expect(chunkedUpload.assemble).toHaveBeenCalledWith('u1', 2, expect.any(String), 'u1.tar.gz');
   });
+});
 
-  it('restoreFinalize elimina il file assemblato anche se il restore fallisce', async () => {
-    fs.writeFileSync('/tmp/restore-fail.sql', 'dummy');
-    authService.validateUser.mockResolvedValue({ id: 1 } as any);
-    chunkedUpload.assemble.mockReturnValue('/tmp/restore-fail.sql');
-    service.restoreFromFile.mockRejectedValue(new Error('mysql error'));
+describe('BackupDownloadController', () => {
+  it('scambia il ticket con lo stream del file', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-download-test-'));
+    const filePath = path.join(dir, 'utenzepa_20260101_000000.sql');
+    fs.writeFileSync(filePath, 'dump');
+    const service = {
+      redeemDownloadTicket: jest.fn().mockReturnValue('utenzepa_20260101_000000.sql'),
+      getBackupPath: jest.fn().mockReturnValue(filePath),
+    } as unknown as BackupService;
+    const res = { set: jest.fn() };
 
-    await expect(
-      controller.restoreFinalize(
-        { uploadId: 'u1', totalChunks: 2, password: 'correct' },
-        { id: 1, email: 'admin@example.com', role: 'Admin' },
-      ),
-    ).rejects.toThrow('mysql error');
+    const result = new BackupDownloadController(service).download('t1', res as any);
 
-    expect(fs.existsSync('/tmp/restore-fail.sql')).toBe(false);
+    expect(result).toBeInstanceOf(StreamableFile);
+    expect(res.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        'Content-Disposition': 'attachment; filename="utenzepa_20260101_000000.sql"',
+        'Content-Length': '4',
+      }),
+    );
+    result.getStream().destroy();
+    fs.rmSync(dir, { recursive: true, force: true });
   });
 });

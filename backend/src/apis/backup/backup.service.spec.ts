@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as mysql2Promise from 'mysql2/promise';
 import { BackupService } from './backup.service';
+import { maintenance } from '@common/maintenance/maintenance';
 
 jest.mock('mysql2/promise');
 
@@ -297,5 +298,115 @@ describe('BackupService', () => {
     expect(result.deleted).toEqual([oldName]);
     expect(fs.existsSync(oldFile)).toBe(false);
     expect(fs.existsSync(recentFile)).toBe(true);
+  });
+
+  it('createBackup con allegati non tocca le cartelle di origine (collegamenti, non copie)', async () => {
+    const attDir = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-service-att-src-'));
+    process.env.ATTACHMENTS_DIR = attDir;
+    fs.mkdirSync(path.join(attDir, 'plant', '7'), { recursive: true });
+    fs.writeFileSync(path.join(attDir, 'plant', '7', 'p.dwg'), 'AC1018');
+    mockConn.query.mockResolvedValueOnce([[], []]);
+
+    await service.createBackup(false, true);
+
+    expect(fs.readFileSync(path.join(attDir, 'plant', '7', 'p.dwg'), 'utf8')).toBe('AC1018');
+    fs.rmSync(attDir, { recursive: true, force: true });
+  });
+
+  it('restoreFromFile non sovrascrive gli allegati già presenti', async () => {
+    const tar = await import('tar');
+    const source = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-keep-src-'));
+    const target = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-keep-dst-'));
+    process.env.ATTACHMENTS_DIR = target;
+    fs.mkdirSync(path.join(source, 'attachments', 'act', '5'), { recursive: true });
+    fs.writeFileSync(path.join(source, 'attachments', 'act', '5', 'b.pdf'), 'dal-backup');
+    fs.writeFileSync(path.join(source, 'attachments', 'act', '5', 'c.pdf'), 'nuovo');
+    fs.writeFileSync(path.join(source, 'dump.sql'), 'INSERT INTO x VALUES (1);');
+    fs.mkdirSync(path.join(target, 'act', '5'), { recursive: true });
+    fs.writeFileSync(path.join(target, 'act', '5', 'b.pdf'), 'gia-presente');
+
+    const archivePath = path.join(backupDir, 'utenzepa_20260101_000000.tar.gz');
+    await tar.create({ gzip: true, file: archivePath, cwd: source }, ['dump.sql', 'attachments']);
+    mockConn.query.mockResolvedValue([[], []]);
+
+    await service.restoreFromFile(archivePath);
+
+    expect(fs.readFileSync(path.join(target, 'act', '5', 'b.pdf'), 'utf8')).toBe('gia-presente');
+    expect(fs.readFileSync(path.join(target, 'act', '5', 'c.pdf'), 'utf8')).toBe('nuovo');
+    fs.rmSync(source, { recursive: true, force: true });
+    fs.rmSync(target, { recursive: true, force: true });
+  });
+
+  describe('lavori in background', () => {
+    afterEach(() => maintenance.end());
+
+    it('startRestore: app in manutenzione durante il lavoro, file sempre cancellato', async () => {
+      const sqlFile = path.join(backupDir, 'u1.sql');
+      fs.writeFileSync(sqlFile, 'INSERT INTO x VALUES (1);');
+      let duringRestore: boolean | undefined;
+      mockConn.query.mockImplementation(async () => {
+        duringRestore = maintenance.active;
+        return [[], []];
+      });
+
+      const job = service.startRestore(() => sqlFile, []);
+      expect(maintenance.active).toBe(true);
+      expect(service.status().restoring).not.toBeNull();
+      await job;
+
+      expect(duringRestore).toBe(true);
+      expect(maintenance.active).toBe(false);
+      expect(service.status().restoring).toBeNull();
+      expect(service.status().lastRestore?.error).toBeUndefined();
+      expect(fs.existsSync(sqlFile)).toBe(false);
+    });
+
+    it("startRestore: un errore toglie la manutenzione e resta nello stato", async () => {
+      const sqlFile = path.join(backupDir, 'u2.sql');
+      fs.writeFileSync(sqlFile, 'INVALID;');
+      mockConn.query.mockRejectedValue(new Error('ERROR 1064'));
+
+      await service.startRestore(() => sqlFile, []);
+
+      expect(maintenance.active).toBe(false);
+      expect(service.status().lastRestore?.error).toBe('ERROR 1064');
+      expect(fs.existsSync(sqlFile)).toBe(false);
+    });
+
+    it('startCreate rifiuta un secondo lavoro mentre il primo è in corso', async () => {
+      let release!: () => void;
+      (mysql2Promise.createConnection as jest.Mock).mockImplementationOnce(
+        () => new Promise((res) => (release = () => res(mockConn))),
+      );
+      mockConn.query.mockResolvedValueOnce([[], []]);
+
+      service.startCreate(false, false);
+      expect(() => service.startCreate(false, false)).toThrow('già in corso');
+      expect(() => service.startRestore(() => 'x', [])).toThrow('già in corso');
+
+      release();
+      await new Promise((r) => setTimeout(r, 50));
+      expect(service.status().creating).toBeNull();
+      expect(service.status().lastCreate?.filename).toMatch(/\.sql$/);
+    });
+
+    it('handleScheduledBackup salta durante un ripristino', async () => {
+      (mysql2Promise.createConnection as jest.Mock).mockClear();
+      maintenance.start();
+      await service.handleScheduledBackup();
+      expect(mysql2Promise.createConnection).not.toHaveBeenCalled();
+    });
+  });
+
+  it('ticket di download: monouso, solo per backup esistenti', () => {
+    const name = 'utenzepa_20260101_000000.sql';
+    expect(() => service.createDownloadTicket(name)).toThrow('Backup non trovato');
+    fs.writeFileSync(path.join(backupDir, name), 'a');
+
+    const ticket = service.createDownloadTicket(name);
+
+    expect(service.redeemDownloadTicket(ticket)).toBe(name);
+    expect(() => service.redeemDownloadTicket(ticket)).toThrow('scaduto');
+    expect(() => service.redeemDownloadTicket('inventato')).toThrow('scaduto');
   });
 });

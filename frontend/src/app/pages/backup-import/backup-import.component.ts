@@ -6,9 +6,11 @@ import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialog } from '@angular/material/dialog';
+import { Router } from '@angular/router';
 import { ToastService } from '../../core/services/toast.service';
-import { BackupService, BackupInfo } from './backup.service';
+import { BackupService, BackupInfo, BackupJobStatus } from './backup.service';
 import { GeocodeService, RegeocodeAllStatus } from './geocode.service';
 import { RestoreConfirmDialogComponent, RestoreConfirmDialogData, RestoreConfirmDialogResult } from './restore-confirm-dialog.component';
 
@@ -28,6 +30,7 @@ const STATUS_POLL_MS = 3000;
     MatButtonModule,
     MatProgressSpinnerModule,
     MatCheckboxModule,
+    MatProgressBarModule,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './backup-import.component.html',
@@ -37,6 +40,7 @@ export class BackupImportComponent implements OnDestroy {
   private geocodeService = inject(GeocodeService);
   private toastService = inject(ToastService);
   private dialog = inject(MatDialog);
+  private router = inject(Router);
 
   backups: BackupInfo[] = [];
   backupColumns = ['filename', 'size', 'createdAt', 'actions'];
@@ -49,6 +53,12 @@ export class BackupImportComponent implements OnDestroy {
 
   restoreFile: File | null = null;
   restoring = false;
+  // Percentuale del file caricato (upload a pezzi): con backup da GB dura minuti.
+  uploadPercent = 0;
+
+  // Creazione e ripristino girano in background sul server.
+  jobStatus: BackupJobStatus | null = null;
+  private jobPollHandle: ReturnType<typeof setInterval> | null = null;
 
   geocodeStatus: RegeocodeAllStatus | null = null;
   geocodeForceAll = false;
@@ -57,10 +67,52 @@ export class BackupImportComponent implements OnDestroy {
   ngOnInit() {
     this.loadBackups();
     this.refreshGeocodeStatus();
+    this.refreshJobStatus();
   }
 
   ngOnDestroy(): void {
     this.stopGeocodePolling();
+    this.stopJobPolling();
+  }
+
+  private refreshJobStatus(): void {
+    this.backupService.status().subscribe({
+      next: (status) => this.applyJobStatus(status),
+      error: () => {
+        // Silenzioso come il poll della geocodifica.
+      },
+    });
+  }
+
+  private applyJobStatus(status: BackupJobStatus): void {
+    const wasCreating = this.creatingBackup;
+    this.jobStatus = status;
+    this.creatingBackup = status.creating !== null;
+    if (this.creatingBackup) {
+      if (!this.jobPollHandle) {
+        this.jobPollHandle = setInterval(() => this.refreshJobStatus(), STATUS_POLL_MS);
+      }
+      return;
+    }
+    this.stopJobPolling();
+    if (wasCreating) {
+      if (status.lastCreate?.error) {
+        this.toastService.add({
+          severity: 'error',
+          summary: 'Errore nella creazione del backup',
+          detail: status.lastCreate.error,
+        });
+      } else {
+        this.toastService.add({ severity: 'success', summary: 'Backup creato' });
+      }
+      this.loadBackups();
+    }
+  }
+
+  private stopJobPolling(): void {
+    if (!this.jobPollHandle) return;
+    clearInterval(this.jobPollHandle);
+    this.jobPollHandle = null;
   }
 
   private refreshGeocodeStatus(): void {
@@ -130,14 +182,11 @@ export class BackupImportComponent implements OnDestroy {
   createBackup() {
     this.creatingBackup = true;
     this.backupService.create(this.includePhotosInBackup, this.includeAttachmentsInBackup).subscribe({
-      next: () => {
+      next: (status) => this.applyJobStatus(status),
+      error: (err: any) => {
         this.creatingBackup = false;
-        this.toastService.add({ severity: 'success', summary: 'Backup creato' });
-        this.loadBackups();
-      },
-      error: () => {
-        this.creatingBackup = false;
-        this.toastService.add({ severity: 'error', summary: 'Errore nella creazione del backup' });
+        const detail = err?.error?.message;
+        this.toastService.add({ severity: 'error', summary: 'Errore nella creazione del backup', detail });
       },
     });
   }
@@ -155,14 +204,10 @@ export class BackupImportComponent implements OnDestroy {
   }
 
   downloadBackup(filename: string) {
-    this.backupService.download(filename).subscribe({
-      next: (blob: Blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        window.URL.revokeObjectURL(url);
+    this.backupService.downloadUrl(filename).subscribe({
+      // Download diretto del browser, in streaming: niente Blob in memoria.
+      next: (url: string) => {
+        window.location.href = url;
       },
       error: () => {
         this.toastService.add({ severity: 'error', summary: 'Errore nel download del backup' });
@@ -192,15 +237,19 @@ export class BackupImportComponent implements OnDestroy {
     if (!this.restoreFile) return;
 
     this.restoring = true;
+    this.uploadPercent = 0;
     this.backupService.restore(this.restoreFile, result.password, {
       excludeUsers: result.excludeUsers,
       excludeBranding: result.excludeBranding,
+    }, (sent, total) => {
+      this.uploadPercent = total > 0 ? Math.floor((sent / total) * 100) : 100;
     }).subscribe({
+      // Ripristino avviato in background: l'app è in manutenzione per tutti,
+      // anche per chi l'ha avviato. La pagina di cortesia riporta al login.
       next: () => {
         this.restoring = false;
         this.restoreFile = null;
-        this.toastService.add({ severity: 'success', summary: 'Ripristino completato' });
-        this.loadBackups();
+        void this.router.navigate(['/manutenzione']);
       },
       error: (err: any) => {
         this.restoring = false;
