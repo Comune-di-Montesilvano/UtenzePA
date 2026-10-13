@@ -6,7 +6,8 @@ export type PlantStatus = 'ACTIVE' | 'DECOMMISSIONED' | 'TO_VERIFY';
 export type InspectionStatus = 'OVERDUE' | 'DUE_SOON' | 'OK' | 'NO_DATE';
 export type PositionQuality = 'PRECISE' | 'FROM_ASSET' | 'ESTIMATED' | 'MISSING';
 export type FireEquipmentType = 'EXTINGUISHER' | 'HYDRANT' | 'HOSE_REEL' | 'FIRE_BRIGADE_CONNECTION'
-  | 'SMOKE_DETECTOR' | 'ALARM_BUTTON' | 'DETECTION_PANEL' | 'ALARM_SIGNAL' | 'SIREN';
+  | 'SMOKE_DETECTOR' | 'ALARM_BUTTON' | 'DETECTION_PANEL' | 'ALARM_SIGNAL' | 'SIREN'
+  | 'FIRE_DOOR' | 'PANIC_BAR' | 'EXIT_SIGN' | 'EMERGENCY_LIGHT';
 
 export const PLANT_TYPE_LABEL: Record<PlantType, string> = {
   THERMAL: 'Termico',
@@ -98,6 +99,10 @@ export const FIRE_EQUIPMENT_LABEL: Record<FireEquipmentType, string> = {
   DETECTION_PANEL: 'Centrale di rivelazione',
   ALARM_SIGNAL: 'Segnalatore ottico-acustico',
   SIREN: 'Sirena / campana',
+  FIRE_DOOR: 'Porta tagliafuoco (REI)',
+  PANIC_BAR: 'Maniglione antipanico',
+  EXIT_SIGN: 'Segnaletica luminosa di uscita',
+  EMERGENCY_LIGHT: 'Lampada di emergenza',
 };
 
 export const FIRE_EQUIPMENT_PLURAL: Record<FireEquipmentType, [string, string]> = {
@@ -110,6 +115,10 @@ export const FIRE_EQUIPMENT_PLURAL: Record<FireEquipmentType, [string, string]> 
   DETECTION_PANEL: ['centrale di rivelazione', 'centrali di rivelazione'],
   ALARM_SIGNAL: ['segnalatore ottico-acustico', 'segnalatori ottico-acustici'],
   SIREN: ['sirena / campana', 'sirene / campane'],
+  FIRE_DOOR: ['porta REI', 'porte REI'],
+  PANIC_BAR: ['maniglione antipanico', 'maniglioni antipanico'],
+  EXIT_SIGN: ['cartello di uscita', 'cartelli di uscita'],
+  EMERGENCY_LIGHT: ['lampada di emergenza', 'lampade di emergenza'],
 };
 
 // Periodicità proposte (stessa tabella di suggestedInspections nel backend).

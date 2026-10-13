@@ -111,7 +111,7 @@ In **Mappa** il livello **Complessi** mostra un solo pin per ogni complesso fisi
 
 ### Registrare i presidi di un impianto antincendio
 
-Nella scheda di un impianto antincendio il tab **Presidi** elenca estintori, idranti, naspi, attacchi VVF e i dispositivi di rivelazione e allarme (rivelatori di fumo, pulsanti di allarme, centrali di rivelazione, segnalatori ottico-acustici, sirene).
+Nella scheda di un impianto antincendio il tab **Presidi** elenca estintori, idranti, naspi, attacchi VVF, i dispositivi di rivelazione e allarme (rivelatori di fumo, pulsanti di allarme, centrali di rivelazione, segnalatori ottico-acustici, sirene) e quelli delle vie di esodo (porte tagliafuoco REI, maniglioni antipanico, segnaletica luminosa di uscita, lampade di emergenza). Nel campo **Capacità** si indica la classe o la variante: «REI 120», «2 ante», «18 W».
 
 1. Premi **Aggiungi presidio** e scegli il tipo.
 2. **Quantità**: per rivelatori, pulsanti e simili basta una riga con il numero di pezzi; gli estintori si registrano uno per riga, con la matricola (quantità fissa a 1).

@@ -73,7 +73,7 @@ import {
             </mat-form-field>
             <mat-form-field style="flex: 1 1 120px;">
               <mat-label>Capacità</mat-label>
-              <input matInput formControlName="capacity" placeholder="es. 6 kg, UNI 45">
+              <input matInput formControlName="capacity" placeholder="es. 6 kg, UNI 45, REI 120, 2 ante, 18 W">
             </mat-form-field>
           </div>
           @if (isExtinguisher) {
