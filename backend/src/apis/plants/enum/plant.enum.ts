@@ -51,4 +51,9 @@ export enum FireEquipmentType {
   DETECTION_PANEL = 'DETECTION_PANEL',
   ALARM_SIGNAL = 'ALARM_SIGNAL',
   SIREN = 'SIREN',
+  // Sicurezza delle vie di esodo (classe REI, ante, watt nella capacità).
+  FIRE_DOOR = 'FIRE_DOOR',
+  PANIC_BAR = 'PANIC_BAR',
+  EXIT_SIGN = 'EXIT_SIGN',
+  EMERGENCY_LIGHT = 'EMERGENCY_LIGHT',
 }
