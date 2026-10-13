@@ -30,7 +30,7 @@ import type {AttachmentEntityType} from './attachment.model';
            (drop)="onDrop($event)">
         <mat-icon>upload_file</mat-icon>
         <span>Trascina qui i file o <button type="button" class="att-pick" (click)="picker.click()">scegli</button></span>
-        <span class="att-hint">PDF, P7M, Office, OpenDocument, immagini, email · massimo {{ maxSizeMb }} MB</span>
+        <span class="att-hint">PDF, P7M, Office, OpenDocument, immagini, AutoCAD, email · massimo {{ maxSizeMb }} MB</span>
         <input #picker type="file" multiple hidden [accept]="accept" (change)="onPick(picker)">
       </div>
     }
@@ -164,6 +164,7 @@ export class AttachmentsComponent implements OnChanges, OnInit {
 
   iconOf(r: Attachment): string {
     if (r.mime_type === 'application/pdf') return 'picture_as_pdf';
+    if (r.mime_type === 'image/vnd.dwg') return 'architecture';
     if (r.mime_type.startsWith('image/')) return 'image';
     return 'description';
   }

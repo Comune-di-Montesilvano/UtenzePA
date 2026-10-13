@@ -50,6 +50,9 @@ describe('checkFile', () => {
     ['atto.p7m', Buffer.from('MIAGCSqGSIb3DQEHAqCAMIA'), 'application/pkcs7-mime'],
     // FatturaPA a volte nominata .xml.p7m ma non firmata: XML, anche con BOM.
     ['fattura.xml.p7m', Buffer.from('﻿<?xml version="1.0"?>'), 'application/pkcs7-mime'],
+    // Disegni AutoCAD: intestazione «AC» + versione (AC1018 = AutoCAD 2004).
+    ['planimetria.dwg', Buffer.from('AC1018\x00\x00\x00'), 'image/vnd.dwg'],
+    ['vecchia.dwg', Buffer.from('AC1015\x00\x00\x00'), 'image/vnd.dwg'],
     ['elenco.csv', Buffer.from('a;b;c\n1;2;3\n'), 'text/csv'],
     ['messaggio.eml', Buffer.from('From: a@example.invalid\r\nSubject: x\r\n'), 'message/rfc822'],
   ])('%s ammesso', (name, head, mime) => {
@@ -77,6 +80,7 @@ describe('checkFile: archivi e p7m non riconosciuti', () => {
   it.each([
     ['archivio rinominato in .docx', 'finto.docx', ZIP],
     ['archivio rinominato in .odt', 'finto.odt', ZIP],
+    ['PDF rinominato in .dwg', 'finto.dwg', PDF],
     ['testo che inizia con «0» rinominato in .p7m', 'finto.p7m', Buffer.from('0 righe di testo')],
     [
       'testo che inizia con «MI» rinominato in .p7m',
