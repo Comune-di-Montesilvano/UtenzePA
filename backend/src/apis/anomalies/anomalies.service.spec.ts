@@ -100,7 +100,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(29);
+    expect(query).toHaveBeenCalledTimes(30);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -452,6 +452,29 @@ describe('AnomaliesService', () => {
       expect(sql).toContain('f.mef_building_type IS NULL');
       expect(sql).toContain('f.deleted = 0');
       expect(sql).toContain('b.ownership = 1');
+    });
+
+    it('impianti con almeno un estintore scaduto (fine mese, controllo +6 mesi)', async () => {
+      only('/* plants_fire_equipment_overdue */', [
+        { id: '9', code: 'ANT-07', name: 'Antincendio campo', type: 'FIRE_PROTECTION' },
+      ]);
+      const r = await service.getAnomalies();
+      expect(r.plants_fire_equipment_overdue).toEqual({
+        count: 1,
+        items: [{ id: 9, code: 'ANT-07', name: 'Antincendio campo', type: 'FIRE_PROTECTION' }],
+      });
+      const sql = sqlOf('/* plants_fire_equipment_overdue */');
+      expect(sql).toContain("e.equipment_type = 'EXTINGUISHER'");
+      expect(sql).toContain('e.deleted = 0');
+      expect(sql).toContain('p.deleted = 0');
+      expect(sql).toContain('LAST_DAY(e.revision_due_on) < t.today');
+      expect(sql).toContain('LAST_DAY(e.test_due_on) < t.today');
+      expect(sql).toContain('INTERVAL 6 MONTH');
+      expect(sql).toContain("p.type = 'FIRE_PROTECTION'");
+      // Stessa data di oggi del calcolo in Node (plant.calc), non CURDATE() di MySQL.
+      expect(sql).not.toContain('CURDATE()');
+      const call = query.mock.calls.find(([s]) => String(s).includes('/* plants_fire_equipment_overdue */'));
+      expect(call?.[1]).toEqual([expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)]);
     });
   });
 });

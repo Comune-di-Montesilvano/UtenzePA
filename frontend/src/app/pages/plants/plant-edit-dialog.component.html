@@ -12,6 +12,9 @@
     @if (inspectionFlag(); as f) {
       <app-status-badge [info]="f" size="sm"></app-status-badge>
     }
+    @if (fireEquipmentFlag(); as f) {
+      <app-status-badge [info]="f" size="sm"></app-status-badge>
+    }
   </ng-container>
 
   @if (loading) {

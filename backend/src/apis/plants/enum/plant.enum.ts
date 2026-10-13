@@ -45,4 +45,10 @@ export enum FireEquipmentType {
   HYDRANT = 'HYDRANT',
   HOSE_REEL = 'HOSE_REEL',
   FIRE_BRIGADE_CONNECTION = 'FIRE_BRIGADE_CONNECTION',
+  // Rivelazione e allarme: contati (quantità), senza matricola.
+  SMOKE_DETECTOR = 'SMOKE_DETECTOR',
+  ALARM_BUTTON = 'ALARM_BUTTON',
+  DETECTION_PANEL = 'DETECTION_PANEL',
+  ALARM_SIGNAL = 'ALARM_SIGNAL',
+  SIREN = 'SIREN',
 }

@@ -21,4 +21,5 @@ export function plantFilters(): FilterDef[] {
 export const PLANT_SIGNALS: SignalDef[] = [
   {key: 'plants_without_position', label: 'Senza posizione'},
   {key: 'plants_without_asset', label: 'Senza immobile'},
+  {key: 'plants_fire_equipment_overdue', label: 'Presidi scaduti'},
 ];

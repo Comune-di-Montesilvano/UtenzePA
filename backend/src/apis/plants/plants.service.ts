@@ -22,12 +22,13 @@ import {
 } from './dto/plant-fire-equipment.dto';
 import { PlantThermalDto } from './dto/plant-thermal.dto';
 import { PlantElevatorDto } from './dto/plant-elevator.dto';
-import { InspectionStatus, PlantType, PositionQuality } from './enum/plant.enum';
+import { FireEquipmentType, InspectionStatus, PlantType, PositionQuality } from './enum/plant.enum';
 import {
   PLANTS_MUNICIPALITY,
   computeNextDate,
   firstLocatedAsset,
   inspectionStatus,
+  plantFireEquipmentStatus,
   resolvePlantPosition,
 } from './plant.calc';
 import { ThermalPlantObligations, thermalPlantObligations } from './thermal-plant-obligations';
@@ -37,6 +38,8 @@ export type PlantRow = Plant & {
   position: { lat: string; lng: string } | null;
   // La verifica messa peggio (scaduta > in scadenza > ok > senza data).
   inspection_status: InspectionStatus | null;
+  // Stato dei presidi: l'estintore messo peggio (solo impianti antincendio).
+  fire_equipment_status: InspectionStatus | null;
   obligations?: ThermalPlantObligations;
 };
 
@@ -48,6 +51,24 @@ export interface PlantSummary {
 }
 
 const isSet = (v: string | null | undefined): boolean => v != null && v.trim() !== '';
+
+// Date dei presidi: solo per gli estintori, in mese/anno (primo del mese).
+const monthStart = (v: string | null | undefined): string | null | undefined =>
+  v ? `${v.slice(0, 7)}-01` : v;
+
+function normalizeFireEquipment<T extends Partial<PlantFireEquipment>>(e: T): T {
+  if (e.equipment_type !== FireEquipmentType.EXTINGUISHER) {
+    return { ...e, last_check_on: null, revision_due_on: null, test_due_on: null };
+  }
+  // Estintori: una riga per pezzo (matricola e scadenze proprie).
+  return {
+    ...e,
+    quantity: 1,
+    last_check_on: monthStart(e.last_check_on),
+    revision_due_on: monthStart(e.revision_due_on),
+    test_due_on: monthStart(e.test_due_on),
+  };
+}
 
 const SEVERITY = [
   InspectionStatus.OVERDUE,
@@ -303,12 +324,14 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
       throw new BadRequestException('Presidi ammessi solo sugli impianti antincendio');
     }
     return this.fireRepo.save(
-      this.fireRepo.create({
-        ...dto,
-        plant_id: plantId,
-        created_by_user_id: userId,
-        updated_by_user_id: userId,
-      }),
+      this.fireRepo.create(
+        normalizeFireEquipment({
+          ...dto,
+          plant_id: plantId,
+          created_by_user_id: userId,
+          updated_by_user_id: userId,
+        }),
+      ),
     );
   }
 
@@ -319,7 +342,10 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
   ): Promise<PlantFireEquipment> {
     const current = await this.fireRepo.findOne({ where: { id, deleted: false } });
     if (!current) throw new BadRequestException('Presidio non trovato');
-    return this.fireRepo.save({ ...current, ...dto, updated_by_user_id: userId });
+    if (dto.quantity === null) throw new BadRequestException('Indicare la quantità (almeno 1).');
+    return this.fireRepo.save(
+      normalizeFireEquipment({ ...current, ...dto, updated_by_user_id: userId }),
+    );
   }
 
   async removeFireEquipment(id: number, userId: number): Promise<void> {
@@ -424,15 +450,18 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     });
     const inspections = (p.inspections ?? []).filter((i) => !i.deleted);
     const statuses = inspections.map((i) => inspectionStatus(i.next_date, today));
+    const fireEquipment = (p.fireEquipment ?? []).filter((f) => !f.deleted);
     const row = {
       ...p,
       inspections,
-      fireEquipment: (p.fireEquipment ?? []).filter((f) => !f.deleted),
+      fireEquipment,
       utilities: (p.utilities ?? []).filter((u) => !u.deleted),
       assets: (p.assets ?? []).filter((a) => !a.deleted),
       position: pos ? { lat: pos.lat, lng: pos.lng } : null,
       position_quality: pos?.quality ?? PositionQuality.MISSING,
       inspection_status: SEVERITY.find((s) => statuses.includes(s)) ?? null,
+      fire_equipment_status:
+        p.type === PlantType.FIRE_PROTECTION ? plantFireEquipmentStatus(fireEquipment, today) : null,
     } as PlantRow;
     if (p.type === PlantType.THERMAL) {
       // decimal MySQL arriva come stringa.
