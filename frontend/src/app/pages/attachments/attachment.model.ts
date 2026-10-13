@@ -17,7 +17,7 @@ export interface Attachment {
 
 // Gemello di backend/src/apis/attachments/attachment-file-policy.ts (estensioni ammesse).
 export const ALLOWED_EXTENSIONS = ['pdf', 'p7m', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'ods', 'csv', 'txt',
-  'jpg', 'jpeg', 'png', 'tif', 'tiff', 'eml', 'msg'];
+  'jpg', 'jpeg', 'png', 'tif', 'tiff', 'dwg', 'eml', 'msg'];
 
 export function extensionOf(name: string): string {
   const base = name.split(/[\\/]/).pop() ?? '';

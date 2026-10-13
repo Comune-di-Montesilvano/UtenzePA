@@ -60,6 +60,9 @@ import {dateIt, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '..
 import {AuthService} from '../../services/auth.service';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {EntityDocumentsComponent} from '../acts/entity-documents.component';
+import {AttachmentService} from '../attachments/attachment.service';
+import {ActService} from '../acts/act.service';
+import {forkJoin} from 'rxjs';
 
 export interface PlantEditDialogData {
   // null = nuovo impianto.
@@ -102,6 +105,8 @@ export class PlantEditDialogComponent implements OnInit {
   private assetService = inject(AssetService);
   private utilityService = inject(UtilityService);
   private navigator = inject(EntityNavigatorService);
+  private attachmentService = inject(AttachmentService);
+  private actService = inject(ActService);
   protected dialogRef = inject(MatDialogRef<PlantEditDialogComponent, Plant | null>);
   protected data = inject<PlantEditDialogData>(MAT_DIALOG_DATA);
 
@@ -454,6 +459,19 @@ export class PlantEditDialogComponent implements OnInit {
       this.savedUtilityIds.add(u.id);
       this.addUtility(u.id);
       this.saved = true;
+    });
+  }
+
+  // Stesso conteggio del tab Documenti (allegati dell'impianto e delle sue
+  // verifiche + atti collegati), aggiornato anche se il tab non è aperto.
+  refreshDocumentCount(): void {
+    if (!this.plant) return;
+    forkJoin([
+      this.attachmentService.list('plant', this.plant.id),
+      this.actService.byEntity('plant', this.plant.id),
+    ]).subscribe({
+      next: ([files, acts]) => this.documentCount = files.length + acts.length,
+      error: err => console.error('Errore conteggio documenti:', err),
     });
   }
 

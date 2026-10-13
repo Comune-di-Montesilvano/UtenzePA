@@ -4,7 +4,7 @@ import * as path from 'path';
 // Tipi ammessi per gli allegati: estensione + firma del contenuto (il MIME del
 // browser non conta, lo decide il server). Niente archivi né eseguibili; il
 // p7m (firmato digitalmente) si conserva così com'è.
-type Kind = 'pdf' | 'ooxml' | 'odf' | 'ole' | 'p7m' | 'jpeg' | 'png' | 'tiff' | 'text';
+type Kind = 'pdf' | 'ooxml' | 'odf' | 'ole' | 'p7m' | 'jpeg' | 'png' | 'tiff' | 'dwg' | 'text';
 
 const TYPES: Record<string, { mime: string; kind: Kind }> = {
   pdf: { mime: 'application/pdf', kind: 'pdf' },
@@ -30,6 +30,8 @@ const TYPES: Record<string, { mime: string; kind: Kind }> = {
   png: { mime: 'image/png', kind: 'png' },
   tif: { mime: 'image/tiff', kind: 'tiff' },
   tiff: { mime: 'image/tiff', kind: 'tiff' },
+  // Disegni AutoCAD (planimetrie, schemi impianti).
+  dwg: { mime: 'image/vnd.dwg', kind: 'dwg' },
 };
 
 export const ALLOWED_EXTENSIONS: readonly string[] = Object.keys(TYPES);
@@ -74,6 +76,9 @@ function matches(kind: Kind, head: Buffer): boolean {
       return startsWith(head, [0xff, 0xd8, 0xff]);
     case 'png':
       return startsWith(head, [0x89, 0x50, 0x4e, 0x47]);
+    // «AC» + versione a 4 caratteri (AC1018 = AutoCAD 2004, AC1032 = 2018).
+    case 'dwg':
+      return /^AC[0-9.]{4}$/.test(head.subarray(0, 6).toString('latin1'));
     case 'tiff':
       return (
         startsWith(head, [0x49, 0x49, 0x2a, 0x00]) || startsWith(head, [0x4d, 0x4d, 0x00, 0x2a])
