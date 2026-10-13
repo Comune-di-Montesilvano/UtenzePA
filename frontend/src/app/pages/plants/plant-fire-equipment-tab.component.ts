@@ -58,20 +58,19 @@ import {
               <input matInput type="number" min="1" step="1" formControlName="quantity">
               <mat-error>Almeno 1</mat-error>
             </mat-form-field>
-            @if (isExtinguisher) {
-              <mat-form-field style="flex: 1 1 160px;">
-                <mat-label>Matricola</mat-label>
-                <input matInput formControlName="serial_number">
-              </mat-form-field>
-              <mat-form-field style="flex: 1 1 140px;">
-                <mat-label>Agente estinguente</mat-label>
-                <input matInput formControlName="agent" placeholder="es. polvere, CO2">
-              </mat-form-field>
-              <mat-form-field style="flex: 1 1 120px;">
-                <mat-label>Capacità</mat-label>
-                <input matInput formControlName="capacity" placeholder="es. 6 kg">
-              </mat-form-field>
-            }
+            <!-- Per tutti i tipi: idranti e naspi hanno la capacità (es. UNI 45). -->
+            <mat-form-field style="flex: 1 1 160px;">
+              <mat-label>Matricola</mat-label>
+              <input matInput formControlName="serial_number">
+            </mat-form-field>
+            <mat-form-field style="flex: 1 1 140px;">
+              <mat-label>Agente estinguente</mat-label>
+              <input matInput formControlName="agent" placeholder="es. polvere, CO2">
+            </mat-form-field>
+            <mat-form-field style="flex: 1 1 120px;">
+              <mat-label>Capacità</mat-label>
+              <input matInput formControlName="capacity" placeholder="es. 6 kg, UNI 45">
+            </mat-form-field>
           </div>
           @if (isExtinguisher) {
             <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
@@ -261,9 +260,9 @@ export class PlantFireEquipmentTabComponent {
     const payload: Partial<PlantFireEquipmentPayload> = {
       equipment_type: v.equipment_type as FireEquipmentType,
       quantity: Number(v.quantity),
-      serial_number: extinguisher ? text(v.serial_number) : null,
-      agent: extinguisher ? text(v.agent) : null,
-      capacity: extinguisher ? text(v.capacity) : null,
+      serial_number: text(v.serial_number),
+      agent: text(v.agent),
+      capacity: text(v.capacity),
       location: text(v.location),
       last_check_on: extinguisher ? monthTextToIso(v.last_check_on) : null,
       revision_due_on: extinguisher ? monthTextToIso(v.revision_due_on) : null,
