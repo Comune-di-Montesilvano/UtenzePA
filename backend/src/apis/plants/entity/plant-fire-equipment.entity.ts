@@ -11,8 +11,9 @@ import {
 import { FireEquipmentType } from '../enum/plant.enum';
 import { Plant } from './plant.entity';
 
-// Presidio antincendio (estintore, idrante, naspo, attacco VVF) di un
-// impianto antincendio.
+// Presidio antincendio di un impianto antincendio: estintori, idranti, naspi,
+// attacchi VVF, rivelazione e allarme (rivelatori, pulsanti, centrali,
+// segnalatori, sirene).
 @Entity('plant_fire_equipment')
 @Index(['plant_id', 'deleted'])
 export class PlantFireEquipment {
@@ -29,6 +30,11 @@ export class PlantFireEquipment {
   @Column({ type: 'enum', enum: FireEquipmentType })
   equipment_type: FireEquipmentType;
 
+  // Pezzi rappresentati dalla riga (rivelatori, pulsanti… si contano);
+  // gli estintori restano uno per riga, con la matricola.
+  @Column({ type: 'int', default: 1 })
+  quantity: number;
+
   @Column({ type: 'varchar', length: 100, nullable: true })
   serial_number: string | null;
 
@@ -43,6 +49,16 @@ export class PlantFireEquipment {
   // Piano / locale.
   @Column({ type: 'varchar', length: 255, nullable: true })
   location: string | null;
+
+  // Solo estintori: mese/anno salvati come primo del mese (scadenze in plant.calc.ts).
+  @Column({ type: 'date', nullable: true })
+  last_check_on: string | null;
+
+  @Column({ type: 'date', nullable: true })
+  revision_due_on: string | null;
+
+  @Column({ type: 'date', nullable: true })
+  test_due_on: string | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
