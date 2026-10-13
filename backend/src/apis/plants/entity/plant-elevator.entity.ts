@@ -44,4 +44,24 @@ export class PlantElevator {
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   speed: string | null;
+
+  // Dalle schede dell'anagrafe comunale ascensori.
+  @Column({ type: 'int', nullable: true })
+  capacity_persons: number | null;
+
+  // Numero di accessi (lati di sbarco) della cabina.
+  @Column({ type: 'int', nullable: true })
+  entrances: number | null;
+
+  // Corsa in metri.
+  @Column({ type: 'decimal', precision: 6, scale: 2, nullable: true })
+  travel_m: number | null;
+
+  // Norma tecnica applicabile (es. "DPR 162/99", "UNI 81-20/50:2014").
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  technical_standard: string | null;
+
+  // SIM del combinatore telefonico di emergenza (null = non noto).
+  @Column({ type: 'boolean', nullable: true })
+  emergency_sim: boolean | null;
 }

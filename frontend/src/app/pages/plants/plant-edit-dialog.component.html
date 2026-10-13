@@ -238,6 +238,30 @@
                 <mat-label>Velocità</mat-label>
                 <input matInput formControlName="speed" placeholder="es. 0,63 m/s">
               </mat-form-field>
+              <mat-form-field>
+                <mat-label>Capienza (persone)</mat-label>
+                <input matInput type="number" min="0" step="1" formControlName="capacity_persons">
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Accessi</mat-label>
+                <input matInput type="number" min="0" step="1" formControlName="entrances">
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Corsa (m)</mat-label>
+                <input matInput type="number" min="0" step="0.01" formControlName="travel_m">
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>Norma tecnica</mat-label>
+                <input matInput formControlName="technical_standard" placeholder="es. DPR 162/99, UNI 81-20/50:2014">
+              </mat-form-field>
+              <mat-form-field>
+                <mat-label>SIM di emergenza</mat-label>
+                <mat-select formControlName="emergency_sim">
+                  <mat-option [value]="null">Non indicato</mat-option>
+                  <mat-option [value]="true">Sì</mat-option>
+                  <mat-option [value]="false">No</mat-option>
+                </mat-select>
+              </mat-form-field>
             </div>
           }
         </mat-tab>
