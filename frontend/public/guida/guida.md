@@ -109,6 +109,15 @@ Un **complesso** raggruppa immobili gestiti o censiti come un insieme: una palaz
 
 In **Mappa** il livello **Complessi** mostra un solo pin per ogni complesso fisico; i complessi amministrativi non hanno un pin e i loro edifici si vedono singolarmente. Il pin del complesso porta il numero dei suoi immobili: clic sul pin = scheda del complesso, clic sul numero = elenco degli immobili. Gli immobili nello stesso punto del complesso stanno nel suo pin; quelli più lontani hanno un proprio pin, collegato al complesso da una linea tratteggiata viola che si evidenzia passando con il mouse.
 
+### Registrare i presidi di un impianto antincendio
+
+Nella scheda di un impianto antincendio il tab **Presidi** elenca estintori, idranti, naspi, attacchi VVF e i dispositivi di rivelazione e allarme (rivelatori di fumo, pulsanti di allarme, centrali di rivelazione, segnalatori ottico-acustici, sirene).
+
+1. Premi **Aggiungi presidio** e scegli il tipo.
+2. **Quantità**: per rivelatori, pulsanti e simili basta una riga con il numero di pezzi; gli estintori si registrano uno per riga, con la matricola.
+3. Per gli estintori indica in formato `mm/aaaa`, come sul cartellino, **Ultimo controllo** (semestrale), **Scadenza revisione** e **Scadenza collaudo**. Una scadenza vale fino all'ultimo giorno del mese; il controllo scade sei mesi dopo l'ultimo.
+4. Lo stato mostra la scadenza messa peggio: **Scaduta**, **Entro 60 giorni**, **In regola**, **Senza data**; passa il mouse sullo stato per vedere quale scadenza lo determina. Le date importate dai censimenti riportano solo l'anno (nota «date importate: solo anno»).
+
 ### Allegare un file a un immobile, impianto o contratto
 
 Nelle schede di **immobili**, **impianti**, **contratti immobiliari** e **contratti di fornitura** il tab **Documenti** raccoglie gli allegati e gli atti collegati.
@@ -209,7 +218,7 @@ Un CIG può essere usato da un solo contratto. Il numero d'ordine CONSIP è unic
 | --- | --- |
 | Utenze | Attive senza contratto di fornitura valido · Attive coperte solo da contratti senza CIG · Con contratti di fornitura sovrapposti · Attive senza tipologia ARERA · Da volturare · Volturate da riprendere · Capitolo non impegnato sul contratto di fornitura · Senza capitolo di spesa · Attive senza posizione |
 | Immobili | Da classificare (tipologia o funzione mancanti) · Non di proprietà senza contratto passivo attivo · Di proprietà senza catasto · Fabbricati di proprietà senza Id MEF · Subalterno da assegnare (stessi via, civico, foglio e particella) |
-| Impianti | Senza posizione · Senza immobile |
+| Impianti | Senza posizione · Senza immobile · Presidi scaduti (almeno un estintore con una scadenza superata) |
 | Fatture | Su utenze cessate · Con righe senza utenza |
 | Contratti di fornitura | Senza CIG (non esclusi) · CIG duplicati |
 | Contratti immobiliari | Senza immobile · Senza parti |

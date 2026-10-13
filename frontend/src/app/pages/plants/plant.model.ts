@@ -5,7 +5,8 @@ export type PlantType = 'THERMAL' | 'ELEVATOR' | 'FIRE_PROTECTION' | 'PHOTOVOLTA
 export type PlantStatus = 'ACTIVE' | 'DECOMMISSIONED' | 'TO_VERIFY';
 export type InspectionStatus = 'OVERDUE' | 'DUE_SOON' | 'OK' | 'NO_DATE';
 export type PositionQuality = 'PRECISE' | 'FROM_ASSET' | 'ESTIMATED' | 'MISSING';
-export type FireEquipmentType = 'EXTINGUISHER' | 'HYDRANT' | 'HOSE_REEL' | 'FIRE_BRIGADE_CONNECTION';
+export type FireEquipmentType = 'EXTINGUISHER' | 'HYDRANT' | 'HOSE_REEL' | 'FIRE_BRIGADE_CONNECTION'
+  | 'SMOKE_DETECTOR' | 'ALARM_BUTTON' | 'DETECTION_PANEL' | 'ALARM_SIGNAL' | 'SIREN';
 
 export const PLANT_TYPE_LABEL: Record<PlantType, string> = {
   THERMAL: 'Termico',
@@ -92,6 +93,23 @@ export const FIRE_EQUIPMENT_LABEL: Record<FireEquipmentType, string> = {
   HYDRANT: 'Idrante',
   HOSE_REEL: 'Naspo',
   FIRE_BRIGADE_CONNECTION: 'Attacco VVF',
+  SMOKE_DETECTOR: 'Rivelatore di fumo',
+  ALARM_BUTTON: 'Pulsante di allarme',
+  DETECTION_PANEL: 'Centrale di rivelazione',
+  ALARM_SIGNAL: 'Segnalatore ottico-acustico',
+  SIREN: 'Sirena / campana',
+};
+
+export const FIRE_EQUIPMENT_PLURAL: Record<FireEquipmentType, [string, string]> = {
+  EXTINGUISHER: ['estintore', 'estintori'],
+  HYDRANT: ['idrante', 'idranti'],
+  HOSE_REEL: ['naspo', 'naspi'],
+  FIRE_BRIGADE_CONNECTION: ['attacco VVF', 'attacchi VVF'],
+  SMOKE_DETECTOR: ['rivelatore di fumo', 'rivelatori di fumo'],
+  ALARM_BUTTON: ['pulsante di allarme', 'pulsanti di allarme'],
+  DETECTION_PANEL: ['centrale di rivelazione', 'centrali di rivelazione'],
+  ALARM_SIGNAL: ['segnalatore ottico-acustico', 'segnalatori ottico-acustici'],
+  SIREN: ['sirena / campana', 'sirene / campane'],
 };
 
 // Periodicità proposte (stessa tabella di suggestedInspections nel backend).
@@ -149,6 +167,54 @@ export function inspectionStatusOf(nextDate: string | null, today = todayIso()):
   return 'OK';
 }
 
+// Date dei presidi in mese/anno: 'mm/aaaa' <-> 'AAAA-MM-01'.
+export const MONTH_TEXT_PATTERN = /^(0[1-9]|1[0-2])\/\d{4}$/;
+
+export function monthTextToIso(text: string | null | undefined): string | null {
+  const t = text?.trim() ?? '';
+  if (!MONTH_TEXT_PATTERN.test(t)) return null;
+  const [m, y] = t.split('/');
+  return `${y}-${m}-01`;
+}
+
+export function isoToMonthText(iso: string | null | undefined): string {
+  return iso ? `${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '';
+}
+
+const lastDayOfMonth = (iso: string): string => {
+  const [y, m] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+};
+const addMonthsToMonth = (iso: string, months: number): string => {
+  const [y, m] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1 + months, 1)).toISOString().slice(0, 10);
+};
+
+// Gemello di fireEquipmentDeadlines (backend plant.calc.ts): tenere allineati.
+// Una scadenza vale fino a fine mese; il controllo scade 6 mesi dopo l'ultimo.
+export function fireEquipmentDeadlinesOf(e: PlantFireEquipment): {kind: string; due: string}[] {
+  if (e.equipment_type !== 'EXTINGUISHER') return [];
+  const out: {kind: string; due: string}[] = [];
+  if (e.last_check_on) out.push({kind: 'Controllo', due: lastDayOfMonth(addMonthsToMonth(e.last_check_on, 6))});
+  if (e.revision_due_on) out.push({kind: 'Revisione', due: lastDayOfMonth(e.revision_due_on)});
+  if (e.test_due_on) out.push({kind: 'Collaudo', due: lastDayOfMonth(e.test_due_on)});
+  return out;
+}
+
+// Stato di un estintore (la scadenza messa peggio) con il motivo; null per gli altri tipi.
+export function fireEquipmentStatusOf(
+  e: PlantFireEquipment,
+  today = todayIso(),
+): {status: InspectionStatus; reason: string} | null {
+  if (e.equipment_type !== 'EXTINGUISHER') return null;
+  const order: InspectionStatus[] = ['OVERDUE', 'DUE_SOON', 'OK'];
+  const items = fireEquipmentDeadlinesOf(e).map(d => ({...d, status: inspectionStatusOf(d.due, today)}));
+  if (items.length === 0) return {status: 'NO_DATE', reason: 'Nessuna scadenza indicata'};
+  items.sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status));
+  const w = items[0];
+  return {status: w.status, reason: `${w.kind}: scadenza ${isoToMonthText(w.due)}`};
+}
+
 // Stato di una certificazione rispetto all'obbligo derivato dalla potenza.
 export function certificationStatus(required: boolean, exempt: boolean, value: string | null): Badge & {text: string} {
   if (value?.trim()) return {text: value.trim(), ...GREEN};
@@ -175,10 +241,15 @@ export interface PlantFireEquipment {
   id: number;
   plant_id: number;
   equipment_type: FireEquipmentType;
+  quantity: number;
   serial_number: string | null;
   agent: string | null;
   capacity: string | null;
   location: string | null;
+  // Solo estintori, 'AAAA-MM-01' (mese/anno).
+  last_check_on: string | null;
+  revision_due_on: string | null;
+  test_due_on: string | null;
   notes: string | null;
 }
 
@@ -249,6 +320,8 @@ export interface Plant extends Omit<PlantPayload, 'utility_ids' | 'asset_ids' | 
   position: {lat: string; lng: string} | null;
   position_quality: PositionQuality;
   inspection_status: InspectionStatus | null;
+  // Estintore messo peggio (solo impianti antincendio).
+  fire_equipment_status: InspectionStatus | null;
   obligations?: ThermalObligations;
   updated_by?: {firstName?: string; lastName?: string} | null;
   update_date?: string;
