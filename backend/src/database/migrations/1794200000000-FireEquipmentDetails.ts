@@ -15,6 +15,17 @@ export class FireEquipmentDetails1794200000000 implements MigrationInterface {
   name = 'FireEquipmentDetails1794200000000';
 
   public async up(q: QueryRunner): Promise<void> {
+    // Dati letti e convertiti prima dei DDL (commit implicito in MySQL): un
+    // errore qui non lascia lo schema a metà.
+    const rows: { id: number; notes: string | null }[] = await q.query(
+      "/* select-notes */ SELECT `id`, `notes` FROM `plant_fire_equipment` WHERE `equipment_type` = 'EXTINGUISHER' AND `deleted` = 0 AND `notes` IS NOT NULL",
+    );
+    const january = (y: number | null) => (y === null ? null : `${y}-01-01`);
+    const updates = rows.flatMap((row) => {
+      const s = splitImportedNotes(row.notes);
+      return s ? [[january(s.revision), january(s.test), january(s.check), s.notes, row.id]] : [];
+    });
+
     await q.query(
       `ALTER TABLE \`plant_fire_equipment\` MODIFY \`equipment_type\` ${enumSql([...OLD_TYPES, ...NEW_TYPES])} NOT NULL`,
     );
@@ -24,16 +35,10 @@ export class FireEquipmentDetails1794200000000 implements MigrationInterface {
     await q.query(
       'ALTER TABLE `plant_fire_equipment` ADD `last_check_on` date NULL AFTER `location`, ADD `revision_due_on` date NULL AFTER `last_check_on`, ADD `test_due_on` date NULL AFTER `revision_due_on`',
     );
-    const rows: { id: number; notes: string | null }[] = await q.query(
-      "/* select-notes */ SELECT `id`, `notes` FROM `plant_fire_equipment` WHERE `equipment_type` = 'EXTINGUISHER' AND `deleted` = 0 AND `notes` IS NOT NULL",
-    );
-    const january = (y: number | null) => (y === null ? null : `${y}-01-01`);
-    for (const row of rows) {
-      const s = splitImportedNotes(row.notes);
-      if (!s) continue;
+    for (const params of updates) {
       await q.query(
         'UPDATE `plant_fire_equipment` SET `revision_due_on` = ?, `test_due_on` = ?, `last_check_on` = ?, `notes` = ?, `update_date` = `update_date` WHERE `id` = ?',
-        [january(s.revision), january(s.test), january(s.check), s.notes, row.id],
+        params,
       );
     }
   }

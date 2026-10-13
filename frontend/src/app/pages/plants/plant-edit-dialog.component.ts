@@ -309,6 +309,15 @@ export class PlantEditDialogComponent implements OnInit {
     return info && (info.tone === 'danger' || info.tone === 'warn') ? info : null;
   }
 
+  // Impianti antincendio: estintori scaduti o in scadenza.
+  fireEquipmentFlag(): StatusInfo | null {
+    switch (this.plant?.fire_equipment_status) {
+      case 'OVERDUE': return {tone: 'danger', label: 'Presidi scaduti', icon: 'fire_extinguisher'};
+      case 'DUE_SOON': return {tone: 'warn', label: 'Presidi in scadenza', icon: 'fire_extinguisher'};
+      default: return null;
+    }
+  }
+
   // Solo il gruppo dati del tipo corrente partecipa alla validazione: un
   // valore invalido in un gruppo nascosto (tipo cambiato, dato importato)
   // bloccherebbe il Salva senza nulla di visibile.

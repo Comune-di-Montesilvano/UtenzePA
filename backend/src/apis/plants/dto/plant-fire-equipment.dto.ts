@@ -1,5 +1,5 @@
 import { PartialType } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, MaxLength, Min, ValidateIf } from 'class-validator';
 import { DateOnly } from '@/common/decorators/date-only.decorator';
 import { FireEquipmentType } from '../enum/plant.enum';
 
@@ -7,7 +7,8 @@ export class CreatePlantFireEquipmentDto {
   @IsEnum(FireEquipmentType)
   equipment_type: FireEquipmentType;
 
-  @IsOptional()
+  // Facoltativa ma mai null: la colonna è NOT NULL (null → 400, non errore SQL).
+  @ValidateIf((_, v) => v !== undefined)
   @IsInt()
   @Min(1)
   quantity?: number;

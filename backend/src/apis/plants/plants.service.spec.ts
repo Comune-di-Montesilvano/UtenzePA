@@ -258,6 +258,20 @@ describe('PlantsService', () => {
     );
   });
 
+  it('quantità null: 400, non errore SQL (colonna NOT NULL)', async () => {
+    fireRepo.findOne.mockResolvedValue({ id: 6, equipment_type: 'HYDRANT', quantity: 2, deleted: false });
+    await expect(
+      service.updateFireEquipment(6, { quantity: null } as never, 3),
+    ).rejects.toThrow(BadRequestException);
+    expect(fireRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('estintore: sempre una riga per pezzo (quantità 1)', async () => {
+    repo.findOne.mockResolvedValue(plant({ type: PlantType.FIRE_PROTECTION }));
+    await service.addFireEquipment(1, { equipment_type: 'EXTINGUISHER', quantity: 3 } as never, 3);
+    expect(fireRepo.save).toHaveBeenCalledWith(expect.objectContaining({ quantity: 1 }));
+  });
+
   it('presidio non estintore: date sempre azzerate, anche cambiando tipo', async () => {
     fireRepo.findOne.mockResolvedValue({
       id: 6,

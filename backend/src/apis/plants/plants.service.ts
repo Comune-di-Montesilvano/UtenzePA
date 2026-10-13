@@ -60,8 +60,10 @@ function normalizeFireEquipment<T extends Partial<PlantFireEquipment>>(e: T): T 
   if (e.equipment_type !== FireEquipmentType.EXTINGUISHER) {
     return { ...e, last_check_on: null, revision_due_on: null, test_due_on: null };
   }
+  // Estintori: una riga per pezzo (matricola e scadenze proprie).
   return {
     ...e,
+    quantity: 1,
     last_check_on: monthStart(e.last_check_on),
     revision_due_on: monthStart(e.revision_due_on),
     test_due_on: monthStart(e.test_due_on),
@@ -340,6 +342,7 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
   ): Promise<PlantFireEquipment> {
     const current = await this.fireRepo.findOne({ where: { id, deleted: false } });
     if (!current) throw new BadRequestException('Presidio non trovato');
+    if (dto.quantity === null) throw new BadRequestException('Indicare la quantità (almeno 1).');
     return this.fireRepo.save(
       normalizeFireEquipment({ ...current, ...dto, updated_by_user_id: userId }),
     );

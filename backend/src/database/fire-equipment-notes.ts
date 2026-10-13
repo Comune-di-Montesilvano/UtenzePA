@@ -41,7 +41,9 @@ export function splitImportedNotes(notes: string | null): Split | null {
   }
   if (!found) return null;
   out.notes = [IMPORTED_PREFIX, ...rest].join('; ');
-  return out;
+  // Solo note che il down ricompone identiche (ordine canonico, nessun pezzo
+  // ripetuto, testo extra in coda): le altre restano testo.
+  return joinImportedNotes(out) === notes ? out : null;
 }
 
 export function joinImportedNotes(r: Split): string | null {

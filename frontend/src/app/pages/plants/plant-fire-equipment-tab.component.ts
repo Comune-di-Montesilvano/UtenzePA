@@ -1,4 +1,5 @@
-import {ChangeDetectionStrategy, Component, EventEmitter, inject, Input, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, DestroyRef, EventEmitter, inject, Input, OnInit, Output} from '@angular/core';
+import {takeUntilDestroyed} from '@angular/core/rxjs-interop';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {HttpErrorResponse} from '@angular/common/http';
 import {MatButtonModule} from '@angular/material/button';
@@ -56,6 +57,9 @@ import {
             <mat-form-field style="flex: 0 1 110px;">
               <mat-label>Quantità</mat-label>
               <input matInput type="number" min="1" step="1" formControlName="quantity">
+              @if (isExtinguisher) {
+                <mat-hint>Uno per riga</mat-hint>
+              }
               <mat-error>Almeno 1</mat-error>
             </mat-form-field>
             <!-- Per tutti i tipi: idranti e naspi hanno la capacità (es. UNI 45). -->
@@ -168,9 +172,10 @@ import {
     </div>
   `,
 })
-export class PlantFireEquipmentTabComponent {
+export class PlantFireEquipmentTabComponent implements OnInit {
   private fb = inject(FormBuilder);
   private service = inject(PlantService);
+  private destroyRef = inject(DestroyRef);
 
   @Input({required: true}) plantId!: number;
   @Input() readOnly = false;
@@ -197,6 +202,25 @@ export class PlantFireEquipmentTabComponent {
     test_due_on: ['', Validators.pattern(MONTH_TEXT_PATTERN)],
     notes: [''],
   });
+
+  ngOnInit(): void {
+    this.form.controls.equipment_type.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.syncType());
+  }
+
+  // Estintori: quantità fissa a 1 (matricola e scadenze proprie). Altri tipi:
+  // niente date, così un valore rimasto nascosto non rende il form invalido.
+  private syncType(): void {
+    const c = this.form.controls;
+    if (this.isExtinguisher) {
+      c.quantity.setValue(1, {emitEvent: false});
+      c.quantity.disable({emitEvent: false});
+    } else {
+      c.quantity.enable({emitEvent: false});
+      for (const d of [c.last_check_on, c.revision_due_on, c.test_due_on]) d.setValue('', {emitEvent: false});
+    }
+  }
 
   get isExtinguisher(): boolean {
     return this.form.controls.equipment_type.value === 'EXTINGUISHER';
@@ -242,16 +266,13 @@ export class PlantFireEquipmentTabComponent {
       test_due_on: isoToMonthText(r?.test_due_on),
       notes: r?.notes ?? '',
     });
+    this.syncType();
     this.editing = true;
   }
 
   save(): void {
-    // Le date contano solo per gli estintori: per gli altri tipi non bloccano.
     const extinguisher = this.isExtinguisher;
-    const dateControls = [this.form.controls.last_check_on, this.form.controls.revision_due_on, this.form.controls.test_due_on];
-    const invalid = this.form.controls.equipment_type.invalid || this.form.controls.quantity.invalid
-      || (extinguisher && dateControls.some(c => c.invalid));
-    if (invalid) {
+    if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }

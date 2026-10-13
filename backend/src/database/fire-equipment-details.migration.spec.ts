@@ -29,6 +29,15 @@ describe('FireEquipmentDetails: note importate', () => {
     expect(splitImportedNotes(null)).toBeNull();
   });
 
+  it('note che il giro all’indietro non ricomporrebbe identiche: nessuna conversione', () => {
+    // ordine diverso da carica, collaudo, verifica
+    expect(splitImportedNotes('scad. collaudo 2018; scad. carica 2017')).toBeNull();
+    // testo prima delle date
+    expect(splitImportedNotes('armeria; scad. carica 2017')).toBeNull();
+    // pezzo ripetuto
+    expect(splitImportedNotes('scad. carica 2017; scad. carica 2019')).toBeNull();
+  });
+
   it('join ricompone la nota originale (giro up → down)', () => {
     for (const original of [
       'scad. carica 2017; scad. collaudo 2018; ultima verifica 2014',
@@ -61,6 +70,8 @@ describe('FireEquipmentDetails: up/down', () => {
     ]);
     await new FireEquipmentDetails1794200000000().up(q);
     const all = sqls.join('\n');
+    // Lettura dei dati prima di ogni DDL (commit implicito in MySQL).
+    expect(sqls[0]).toContain('/* select-notes */');
     expect(all).toContain("'SMOKE_DETECTOR'");
     expect(all).toContain('ADD `quantity` int NOT NULL DEFAULT 1');
     expect(all).toContain('ADD `last_check_on` date NULL');

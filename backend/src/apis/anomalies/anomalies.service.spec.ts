@@ -467,9 +467,14 @@ describe('AnomaliesService', () => {
       expect(sql).toContain("e.equipment_type = 'EXTINGUISHER'");
       expect(sql).toContain('e.deleted = 0');
       expect(sql).toContain('p.deleted = 0');
-      expect(sql).toContain('LAST_DAY(e.revision_due_on) < CURDATE()');
-      expect(sql).toContain('LAST_DAY(e.test_due_on) < CURDATE()');
+      expect(sql).toContain('LAST_DAY(e.revision_due_on) < t.today');
+      expect(sql).toContain('LAST_DAY(e.test_due_on) < t.today');
       expect(sql).toContain('INTERVAL 6 MONTH');
+      expect(sql).toContain("p.type = 'FIRE_PROTECTION'");
+      // Stessa data di oggi del calcolo in Node (plant.calc), non CURDATE() di MySQL.
+      expect(sql).not.toContain('CURDATE()');
+      const call = query.mock.calls.find(([s]) => String(s).includes('/* plants_fire_equipment_overdue */'));
+      expect(call?.[1]).toEqual([expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)]);
     });
   });
 });

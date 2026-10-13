@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ASSET_REQUIRED_TYPES } from '@apis/plants/plant.calc';
+import { todayIso } from '@apis/utilizer-grant/real-estate-contract.calc';
 import { DataSource } from 'typeorm';
 import { partyNameSql } from '@apis/third-parties/third-party.name';
 import { CostStatus, costStatusSql } from '@apis/utility/cost-status';
@@ -428,16 +429,19 @@ export class AnomaliesService {
     );
     // Gemello SQL di fireEquipmentDeadlines (plants/plant.calc.ts): scadenza
     // valida fino a fine mese, controllo semestrale = ultimo controllo + 6 mesi.
+    // Oggi passato da Node (stesso todayIso della scheda impianto), non CURDATE().
     const fireOverdue: { id: unknown; code: string; name: string; type: string }[] =
       await this.dataSource.query(
         `/* plants_fire_equipment_overdue */ SELECT DISTINCT p.id, p.code, p.name, p.type FROM plants p
+           CROSS JOIN (SELECT CAST(? AS DATE) AS today) t
            JOIN plant_fire_equipment e ON e.plant_id = p.id AND e.deleted = 0
                 AND e.equipment_type = 'EXTINGUISHER'
-          WHERE p.deleted = 0
-            AND (LAST_DAY(e.revision_due_on) < CURDATE()
-              OR LAST_DAY(e.test_due_on) < CURDATE()
-              OR LAST_DAY(DATE_ADD(e.last_check_on, INTERVAL 6 MONTH)) < CURDATE())
+          WHERE p.deleted = 0 AND p.type = 'FIRE_PROTECTION'
+            AND (LAST_DAY(e.revision_due_on) < t.today
+              OR LAST_DAY(e.test_due_on) < t.today
+              OR LAST_DAY(DATE_ADD(e.last_check_on, INTERVAL 6 MONTH)) < t.today)
           ORDER BY p.code`,
+        [todayIso()],
       );
     const assetItems = (rows: { id: unknown; asset_name: string }[]) =>
       list(rows.map((a) => ({ id: Number(a.id), asset_name: a.asset_name })));
