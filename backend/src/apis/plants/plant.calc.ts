@@ -1,4 +1,4 @@
-import { InspectionStatus, PlantType, PositionQuality } from './enum/plant.enum';
+import { FireEquipmentType, InspectionStatus, PlantType, PositionQuality } from './enum/plant.enum';
 import { addDays, addMonths } from '@apis/utilizer-grant/real-estate-contract.calc';
 
 export const INSPECTION_DUE_DAYS = 60;
@@ -23,6 +23,65 @@ export function inspectionStatus(nextDate: string | null, today: string): Inspec
   if (next < today) return InspectionStatus.OVERDUE;
   if (next <= addDays(today, INSPECTION_DUE_DAYS)) return InspectionStatus.DUE_SOON;
   return InspectionStatus.OK;
+}
+
+// Ultimo giorno del mese: una scadenza mm/aaaa vale fino a fine mese.
+export function monthEnd(iso: string): string {
+  return addDays(addMonths(`${iso.slice(0, 7)}-01`, 1), -1);
+}
+
+export interface FireDeadlineInput {
+  equipment_type: string;
+  last_check_on: string | null;
+  revision_due_on: string | null;
+  test_due_on: string | null;
+  deleted?: boolean;
+}
+
+type FireDeadlineKind = 'Controllo' | 'Revisione' | 'Collaudo';
+
+// Scadenze di un estintore (gemello frontend: fireEquipmentDeadlinesOf in
+// plant.model.ts; gemello SQL: anomalia plants_fire_equipment_overdue).
+export function fireEquipmentDeadlines(
+  e: FireDeadlineInput,
+): { kind: FireDeadlineKind; due: string }[] {
+  if (e.equipment_type !== FireEquipmentType.EXTINGUISHER) return [];
+  const out: { kind: FireDeadlineKind; due: string }[] = [];
+  if (e.last_check_on) {
+    out.push({ kind: 'Controllo', due: monthEnd(addMonths(e.last_check_on.slice(0, 10), 6)) });
+  }
+  if (e.revision_due_on) out.push({ kind: 'Revisione', due: monthEnd(e.revision_due_on) });
+  if (e.test_due_on) out.push({ kind: 'Collaudo', due: monthEnd(e.test_due_on) });
+  return out;
+}
+
+const STATUS_SEVERITY = [
+  InspectionStatus.OVERDUE,
+  InspectionStatus.DUE_SOON,
+  InspectionStatus.OK,
+  InspectionStatus.NO_DATE,
+];
+const worstStatus = (statuses: InspectionStatus[]): InspectionStatus | null =>
+  STATUS_SEVERITY.find((s) => statuses.includes(s)) ?? null;
+
+// Stato di un presidio: solo gli estintori hanno scadenze (la peggiore vince).
+export function fireEquipmentStatus(e: FireDeadlineInput, today: string): InspectionStatus | null {
+  if (e.equipment_type !== FireEquipmentType.EXTINGUISHER) return null;
+  const deadlines = fireEquipmentDeadlines(e);
+  if (deadlines.length === 0) return InspectionStatus.NO_DATE;
+  return worstStatus(deadlines.map((d) => inspectionStatus(d.due, today)));
+}
+
+export function plantFireEquipmentStatus(
+  list: FireDeadlineInput[],
+  today: string,
+): InspectionStatus | null {
+  return worstStatus(
+    list
+      .filter((e) => !e.deleted)
+      .map((e) => fireEquipmentStatus(e, today))
+      .filter((s): s is InspectionStatus => s !== null),
+  );
 }
 
 interface Coords {

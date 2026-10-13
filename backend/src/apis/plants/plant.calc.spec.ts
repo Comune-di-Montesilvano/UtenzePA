@@ -1,11 +1,15 @@
 import {
   computeNextDate,
+  fireEquipmentDeadlines,
+  fireEquipmentStatus,
   inspectionStatus,
+  monthEnd,
+  plantFireEquipmentStatus,
   positionQuality,
   resolvePlantPosition,
   suggestedInspections,
 } from './plant.calc';
-import { InspectionStatus, PlantType, PositionQuality } from './enum/plant.enum';
+import { FireEquipmentType, InspectionStatus, PlantType, PositionQuality } from './enum/plant.enum';
 
 const TODAY = '2026-10-02';
 
@@ -103,5 +107,75 @@ describe('suggestedInspections', () => {
   });
   it('tipi senza obblighi: nessuna proposta', () => {
     expect(suggestedInspections(PlantType.FOUNTAIN)).toEqual([]);
+  });
+});
+
+describe('scadenze estintori', () => {
+  const ext = (
+    o: Partial<{
+      last_check_on: string | null;
+      revision_due_on: string | null;
+      test_due_on: string | null;
+      deleted: boolean;
+    }> = {},
+  ) => ({
+    equipment_type: FireEquipmentType.EXTINGUISHER as string,
+    last_check_on: null,
+    revision_due_on: null,
+    test_due_on: null,
+    ...o,
+  });
+
+  it('monthEnd: ultimo giorno del mese, anche febbraio', () => {
+    expect(monthEnd('2017-01-01')).toBe('2017-01-31');
+    expect(monthEnd('2024-02-01')).toBe('2024-02-29');
+    expect(monthEnd('2026-02-15')).toBe('2026-02-28');
+  });
+
+  it('scadenze a fine mese, controllo = ultimo controllo + 6 mesi', () => {
+    expect(
+      fireEquipmentDeadlines(
+        ext({ last_check_on: '2026-04-01', revision_due_on: '2027-01-01', test_due_on: '2030-03-01' }),
+      ),
+    ).toEqual([
+      { kind: 'Controllo', due: '2026-10-31' },
+      { kind: 'Revisione', due: '2027-01-31' },
+      { kind: 'Collaudo', due: '2030-03-31' },
+    ]);
+  });
+
+  it('scadenza nel mese corrente: non scaduta ma in scadenza', () => {
+    expect(fireEquipmentStatus(ext({ revision_due_on: '2026-10-01' }), TODAY)).toBe(
+      InspectionStatus.DUE_SOON,
+    );
+    expect(fireEquipmentStatus(ext({ revision_due_on: '2026-09-01' }), TODAY)).toBe(
+      InspectionStatus.OVERDUE,
+    );
+  });
+
+  it('stato = la peggiore delle tre; nessuna data = senza data', () => {
+    expect(
+      fireEquipmentStatus(ext({ revision_due_on: '2030-01-01', test_due_on: '2017-01-01' }), TODAY),
+    ).toBe(InspectionStatus.OVERDUE);
+    expect(fireEquipmentStatus(ext({ test_due_on: '2030-01-01' }), TODAY)).toBe(InspectionStatus.OK);
+    expect(fireEquipmentStatus(ext(), TODAY)).toBe(InspectionStatus.NO_DATE);
+  });
+
+  it('gli altri tipi non hanno stato né scadenze', () => {
+    const hydrant = { ...ext({ test_due_on: '2017-01-01' }), equipment_type: FireEquipmentType.HYDRANT };
+    expect(fireEquipmentDeadlines(hydrant)).toEqual([]);
+    expect(fireEquipmentStatus(hydrant, TODAY)).toBeNull();
+  });
+
+  it('impianto: peggiore tra gli estintori non cancellati, null senza estintori', () => {
+    expect(
+      plantFireEquipmentStatus(
+        [ext({ test_due_on: '2030-01-01' }), ext({ test_due_on: '2017-01-01', deleted: true })],
+        TODAY,
+      ),
+    ).toBe(InspectionStatus.OK);
+    expect(
+      plantFireEquipmentStatus([{ ...ext(), equipment_type: FireEquipmentType.HYDRANT }], TODAY),
+    ).toBeNull();
   });
 });
