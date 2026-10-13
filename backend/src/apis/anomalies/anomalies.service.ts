@@ -43,6 +43,7 @@ export interface Anomalies {
   plants_without_position: AnomalyList<PlantAnomaly>;
   active_utilities_without_position: AnomalyList<UtilityAnomaly>;
   plants_without_asset: AnomalyList<PlantAnomaly>;
+  plants_fire_equipment_overdue: AnomalyList<PlantAnomaly>;
   real_estate_contracts_without_parties: AnomalyList<{ id: number; subject: string | null }>;
   third_parties_without_identifier: AnomalyList<{ id: number; name: string; type: string }>;
   active_utilities_without_arera_category: AnomalyList<UtilityAnomaly>;
@@ -425,6 +426,19 @@ export class AnomaliesService {
           AND EXISTS (SELECT 1 FROM assets b WHERE b.function_id = f.id AND b.deleted = 0 AND b.ownership = 1)
         ORDER BY f.name`,
     );
+    // Gemello SQL di fireEquipmentDeadlines (plants/plant.calc.ts): scadenza
+    // valida fino a fine mese, controllo semestrale = ultimo controllo + 6 mesi.
+    const fireOverdue: { id: unknown; code: string; name: string; type: string }[] =
+      await this.dataSource.query(
+        `/* plants_fire_equipment_overdue */ SELECT DISTINCT p.id, p.code, p.name, p.type FROM plants p
+           JOIN plant_fire_equipment e ON e.plant_id = p.id AND e.deleted = 0
+                AND e.equipment_type = 'EXTINGUISHER'
+          WHERE p.deleted = 0
+            AND (LAST_DAY(e.revision_due_on) < CURDATE()
+              OR LAST_DAY(e.test_due_on) < CURDATE()
+              OR LAST_DAY(DATE_ADD(e.last_check_on, INTERVAL 6 MONTH)) < CURDATE())
+          ORDER BY p.code`,
+      );
     const assetItems = (rows: { id: unknown; asset_name: string }[]) =>
       list(rows.map((a) => ({ id: Number(a.id), asset_name: a.asset_name })));
 
@@ -505,6 +519,9 @@ export class AnomaliesService {
           name: p.name,
           type: p.type,
         })),
+      ),
+      plants_fire_equipment_overdue: list(
+        fireOverdue.map((p) => ({ id: Number(p.id), code: p.code, name: p.name, type: p.type })),
       ),
       plants_without_position: list(
         plantsWithoutPosition.map((p) => ({
