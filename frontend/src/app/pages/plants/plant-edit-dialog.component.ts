@@ -197,6 +197,11 @@ export class PlantEditDialogComponent implements OnInit {
       capacity_kg: [null as number | null, Validators.min(0)],
       stops: [null as number | null, Validators.min(0)],
       speed: [''],
+      capacity_persons: [null as number | null, Validators.min(0)],
+      entrances: [null as number | null, Validators.min(0)],
+      travel_m: [null as number | null, Validators.min(0)],
+      technical_standard: [''],
+      emergency_sim: [null as boolean | null],
     }),
   });
 
@@ -549,6 +554,11 @@ export class PlantEditDialogComponent implements OnInit {
         capacity_kg: e?.capacity_kg ?? null,
         stops: e?.stops ?? null,
         speed: e?.speed ?? '',
+        capacity_persons: e?.capacity_persons ?? null,
+        entrances: e?.entrances ?? null,
+        travel_m: e?.travel_m !== null && e?.travel_m !== undefined ? Number(e.travel_m) : null,
+        technical_standard: e?.technical_standard ?? '',
+        emergency_sim: e?.emergency_sim ?? null,
       },
     });
     this.savedUtilityIds = new Set((p.utilities ?? []).map(u => u.id));
@@ -614,6 +624,11 @@ export class PlantEditDialogComponent implements OnInit {
         capacity_kg: num(e.capacity_kg),
         stops: num(e.stops),
         speed: text(e.speed),
+        capacity_persons: num(e.capacity_persons),
+        entrances: num(e.entrances),
+        travel_m: num(e.travel_m),
+        technical_standard: text(e.technical_standard),
+        emergency_sim: e.emergency_sim ?? null,
       };
       payload.elevator = elevator;
     }

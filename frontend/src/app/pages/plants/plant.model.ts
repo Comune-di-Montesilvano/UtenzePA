@@ -282,6 +282,13 @@ export interface PlantElevatorData {
   capacity_kg: number | null;
   stops: number | null;
   speed: string | null;
+  capacity_persons: number | null;
+  entrances: number | null;
+  // decimal: dal server arriva come stringa.
+  travel_m: number | string | null;
+  technical_standard: string | null;
+  // SIM del combinatore di emergenza; null = non noto.
+  emergency_sim: boolean | null;
 }
 
 export interface PlantPayload {

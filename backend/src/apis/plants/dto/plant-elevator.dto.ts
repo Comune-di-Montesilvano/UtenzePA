@@ -1,5 +1,15 @@
 import { Type } from 'class-transformer';
-import { IsDateString, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class PlantElevatorDto {
   @IsOptional()
@@ -54,4 +64,31 @@ export class PlantElevatorDto {
   @IsString()
   @MaxLength(50)
   speed?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  capacity_persons?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  entrances?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  travel_m?: number | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  technical_standard?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  emergency_sim?: boolean | null;
 }
