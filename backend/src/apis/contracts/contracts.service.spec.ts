@@ -107,6 +107,28 @@ describe('ContractsService', () => {
     });
   });
 
+  describe('create con replaces_contract_id', () => {
+    it('chiude il precedente e ne accorcia la scadenza nella stessa transazione', async () => {
+      repo.findOne.mockResolvedValue({ id: 3, deleted: false, closed: false, supply_expiry_date: null } as unknown as Contract);
+      manager.findOne.mockResolvedValue({ id: 10 } as Contract);
+      await service.create({ cig_contract: 'CIG1', supply_start_date: '2026-07-01', replaces_contract_id: 3 } as never, 5);
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+      expect(manager.save).toHaveBeenCalledWith(
+        Contract,
+        expect.objectContaining({ id: 3, closed: true, supply_expiry_date: '2026-06-30', updated_by_user_id: 5 }),
+      );
+      expect(manager.create).not.toHaveBeenCalledWith(Contract, expect.objectContaining({ replaces_contract_id: 3 }));
+    });
+
+    it('contratto precedente inesistente o cancellato: 400 e nessuna creazione', async () => {
+      repo.findOne.mockResolvedValue(null);
+      await expect(service.create({ cig_contract: 'CIG1', replaces_contract_id: 99 } as never, 5)).rejects.toThrow(
+        'Contratto precedente non trovato.',
+      );
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+  });
+
   describe('update', () => {
     it('sostituisce le associazioni alle utenze quando fornite', async () => {
       repo.findOne.mockResolvedValue({ id: 20, deleted: false, cig_contract: 'CIG20' } as Contract);

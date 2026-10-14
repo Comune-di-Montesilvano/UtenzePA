@@ -61,6 +61,11 @@ export class CreateContractDto {
   @IsInt({ each: true, message: 'Ogni elemento delle utenze deve essere un ID intero.' })
   utility_ids?: number[];
 
+  // Rinnovo: contratto che questo sostituisce (stesse utenze), da chiudere.
+  @IsOptional()
+  @IsInt()
+  replaces_contract_id?: number;
+
   @IsOptional()
   @IsInt()
   created_by_user_id?: number;
