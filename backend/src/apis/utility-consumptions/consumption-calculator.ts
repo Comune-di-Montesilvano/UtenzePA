@@ -16,6 +16,11 @@ export interface ConsumptionRecord {
   period_start?: string | null;
   period_end?: string | null;
   consumption?: number | string | null;
+  consumption_f0?: number | string | null;
+  consumption_f1?: number | string | null;
+  consumption_f2?: number | string | null;
+  consumption_f3?: number | string | null;
+  reactive_penalty?: boolean | null;
 }
 
 export interface MonthlyPoint {
@@ -28,6 +33,12 @@ export interface MonthlyPoint {
 
 const MS_PER_DAY = 86_400_000;
 export const WINDOW_DAYS = 365;
+// Copertura dello storico (giorni negli ultimi 365) oltre la quale la stima
+// da storico prevale su quella manuale ancora valida.
+export const HISTORY_MIN_COVERAGE_DAYS = 300;
+// Scarto ammesso tra somma delle fasce e consumo del periodo (arrotondamenti).
+export const BAND_TOLERANCE_KWH = 1;
+export const BAND_FIELDS = ['consumption_f0', 'consumption_f1', 'consumption_f2', 'consumption_f3'] as const;
 const PAST_MONTHS = 24;
 const FUTURE_MONTHS = 12;
 
@@ -267,6 +278,7 @@ export function decideEstimate(
   state: { source: EstimateSource; setAt: Date | null },
   historyEstimate: number | null,
   now: Date,
+  coverageDays = 0,
 ): {
   estimated_annual_consumption: number;
   estimated_consumption_source: EstimateSource.HISTORY;
@@ -275,7 +287,8 @@ export function decideEstimate(
   const manualValid =
     state.source === EstimateSource.MANUAL &&
     state.setAt !== null &&
-    manualValidUntil(state.setAt) > now;
+    manualValidUntil(state.setAt) > now &&
+    coverageDays < HISTORY_MIN_COVERAGE_DAYS;
   if (manualValid || historyEstimate === null) return null;
   return {
     estimated_annual_consumption: historyEstimate,
@@ -284,11 +297,16 @@ export function decideEstimate(
   };
 }
 
-// Tiene solo i campi del tipo di rilevazione, azzera gli altri.
+// Tiene solo i campi del tipo di rilevazione, azzera gli altri. Fasce e
+// penale reattiva esistono solo per i periodi delle utenze elettriche.
 export function normalizeByKind(
   record: ConsumptionRecord & { notes?: string | null },
+  isElectric = false,
 ): ConsumptionRecord & { notes: string | null } {
   const isReading = record.kind === ConsumptionKind.READING;
+  const keepBands = !isReading && isElectric;
+  const band = (v: number | string | null | undefined): number | null =>
+    keepBands && v !== undefined && v !== null && v !== '' ? Number(v) : null;
   return {
     kind: record.kind,
     reading_date: isReading ? (record.reading_date ?? null) : null,
@@ -297,8 +315,29 @@ export function normalizeByKind(
     period_start: isReading ? null : (record.period_start ?? null),
     period_end: isReading ? null : (record.period_end ?? null),
     consumption: isReading ? null : (record.consumption ?? null),
+    consumption_f0: band(record.consumption_f0),
+    consumption_f1: band(record.consumption_f1),
+    consumption_f2: band(record.consumption_f2),
+    consumption_f3: band(record.consumption_f3),
+    reactive_penalty: keepBands ? (record.reactive_penalty ?? null) : null,
     notes: record.notes ?? null,
   };
+}
+
+const kwhIt = (n: number): string => n.toLocaleString('it-IT', { maximumFractionDigits: 3 });
+
+// Messaggio d'errore o null: le fasce (facoltative) devono sommare al consumo
+// del periodo; quelle vuote valgono 0. Nessun controllo senza fasce.
+export function validateBands(candidate: ConsumptionRecord): string | null {
+  if (candidate.kind !== ConsumptionKind.PERIOD) return null;
+  const values = BAND_FIELDS.map((f) => candidate[f]).filter(
+    (v) => v !== null && v !== undefined && v !== '',
+  );
+  if (!values.length) return null;
+  const sum = Math.round(values.reduce<number>((s, v) => s + Number(v), 0) * 1000) / 1000;
+  const total = Number(candidate.consumption ?? 0);
+  if (Math.abs(sum - total) <= BAND_TOLERANCE_KWH) return null;
+  return `La somma delle fasce (${kwhIt(sum)} kWh) non coincide con il consumo del periodo (${kwhIt(total)} kWh).`;
 }
 
 // Messaggio d'errore (italiano, mostrato all'utente) o null se valida.

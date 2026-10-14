@@ -7,10 +7,12 @@ import {
   ConsumptionRecord,
   decideEstimate,
   fromDay,
+  HISTORY_MIN_COVERAGE_DAYS,
   normalizeByKind,
   readingDeltas,
   toDay,
   todayDay,
+  validateBands,
   validateConsumption,
 } from './consumption-calculator';
 import { ConsumptionKind } from './enum/consumption-kind.enum';
@@ -224,6 +226,47 @@ describe('consumption-calculator', () => {
     it('HISTORY: aggiornata col nuovo valore', () => {
       expect(decideEstimate({ source: EstimateSource.HISTORY, setAt: null }, 400, now)?.estimated_annual_consumption).toBe(400);
     });
+
+    it('manuale ancora valida ma storico ≥ 300 giorni: passa a HISTORY', () => {
+      expect(decideEstimate({ source: EstimateSource.MANUAL, setAt: new Date('2026-09-01') }, 500, now, HISTORY_MIN_COVERAGE_DAYS)).toEqual({
+        estimated_annual_consumption: 500,
+        estimated_consumption_source: EstimateSource.HISTORY,
+        estimated_consumption_set_at: null,
+      });
+    });
+
+    it('manuale ancora valida e storico 299 giorni: non toccata', () => {
+      expect(decideEstimate({ source: EstimateSource.MANUAL, setAt: new Date('2026-09-01') }, 500, now, 299)).toBeNull();
+    });
+  });
+
+  describe('validateBands', () => {
+    type Bands = Partial<Record<'consumption_f0' | 'consumption_f1' | 'consumption_f2' | 'consumption_f3', number | string | null>>;
+    const period = (consumption: number, f: Bands): ConsumptionRecord => ({
+      kind: ConsumptionKind.PERIOD, period_start: '2026-01-01', period_end: '2026-01-31', consumption, ...f,
+    });
+
+    it('nessuna fascia: nessun controllo', () => {
+      expect(validateBands(period(100, {}))).toBeNull();
+    });
+
+    it('somma esatta (decimal come stringa)', () => {
+      expect(validateBands(period(100, { consumption_f1: '50.000', consumption_f2: 30, consumption_f3: 20 }))).toBeNull();
+    });
+
+    it('scarto entro 1 kWh ammesso, fasce vuote = 0', () => {
+      expect(validateBands(period(100.8, { consumption_f1: 100, consumption_f2: null }))).toBeNull();
+    });
+
+    it('scarto oltre 1 kWh: messaggio con i due totali', () => {
+      expect(validateBands(period(15000, { consumption_f1: 10000, consumption_f2: 2000 }))).toBe(
+        'La somma delle fasce (12.000 kWh) non coincide con il consumo del periodo (15.000 kWh).',
+      );
+    });
+
+    it('letture: nessun controllo', () => {
+      expect(validateBands({ kind: ConsumptionKind.READING, reading_value: 5, consumption_f1: 3 })).toBeNull();
+    });
   });
 
   describe('normalizeByKind', () => {
@@ -238,8 +281,28 @@ describe('consumption-calculator', () => {
         period_start: null,
         period_end: null,
         consumption: null,
+        consumption_f0: null,
+        consumption_f1: null,
+        consumption_f2: null,
+        consumption_f3: null,
+        reactive_penalty: null,
         notes: null,
       });
+    });
+
+    it('periodo elettrico: fasce e penale mantenute', () => {
+      const r = normalizeByKind({ kind: ConsumptionKind.PERIOD, period_start: '2026-01-01', period_end: '2026-01-31', consumption: 10, consumption_f1: 10, reactive_penalty: true }, true);
+      expect(r).toMatchObject({ consumption_f1: 10, consumption_f0: null, reactive_penalty: true });
+    });
+
+    it('periodo non elettrico: fasce e penale azzerate', () => {
+      const r = normalizeByKind({ kind: ConsumptionKind.PERIOD, period_start: '2026-01-01', period_end: '2026-01-31', consumption: 10, consumption_f1: 10, reactive_penalty: true }, false);
+      expect(r).toMatchObject({ consumption_f1: null, reactive_penalty: null });
+    });
+
+    it('lettura elettrica: fasce e penale azzerate', () => {
+      const r = normalizeByKind({ kind: ConsumptionKind.READING, reading_date: '2026-01-01', reading_value: 1, meter_number: 'M', consumption_f2: 4, reactive_penalty: false }, true);
+      expect(r).toMatchObject({ consumption_f2: null, reactive_penalty: null });
     });
 
     it('PERIOD: azzera i campi lettura', () => {
