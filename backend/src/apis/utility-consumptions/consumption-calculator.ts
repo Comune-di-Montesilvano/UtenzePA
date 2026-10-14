@@ -23,12 +23,18 @@ export interface ConsumptionRecord {
   reactive_penalty?: boolean | null;
 }
 
+export type BandKey = 'F0' | 'F1' | 'F2' | 'F3';
+
 export interface MonthlyPoint {
   month: string;
   actual: number;
   covered_days: number;
   days: number;
   estimated: number;
+  // Solo se l'utenza ha dati per fascia: parte del reale e dello stimato per
+  // fascia (il resto del totale è «non ripartito»). Chiavi solo se > 0.
+  bands?: Partial<Record<BandKey, number>>;
+  estimated_bands?: Partial<Record<BandKey, number>>;
 }
 
 const MS_PER_DAY = 86_400_000;
@@ -36,6 +42,16 @@ export const WINDOW_DAYS = 365;
 // Scarto ammesso tra somma delle fasce e consumo del periodo (arrotondamenti).
 export const BAND_TOLERANCE_KWH = 1;
 export const BAND_FIELDS = ['consumption_f0', 'consumption_f1', 'consumption_f2', 'consumption_f3'] as const;
+type BandField = (typeof BAND_FIELDS)[number];
+const BAND_KEY: Record<BandField, BandKey> = {
+  consumption_f0: 'F0',
+  consumption_f1: 'F1',
+  consumption_f2: 'F2',
+  consumption_f3: 'F3',
+};
+// Totalizzatori del contatore multiorario: F1–F3 (il monorario ha solo il totale).
+const READING_BAND_FIELDS: BandField[] = ['consumption_f1', 'consumption_f2', 'consumption_f3'];
+const hasValue = (v: unknown): boolean => v !== null && v !== undefined && v !== '';
 const PAST_MONTHS = 24;
 const FUTURE_MONTHS = 12;
 
@@ -179,6 +195,44 @@ export function buildDailyConsumption(records: ConsumptionRecord[]): Map<number,
   return daily;
 }
 
+// Mappe giorno -> consumo per fascia (solo fasce con almeno un dato): dai
+// periodi con la fascia valorizzata e dalle coppie di letture con entrambi i
+// totalizzatori. Come per il totale, i giorni coperti da un periodo ignorano
+// le letture.
+export function buildDailyBands(records: ConsumptionRecord[]): Partial<Record<BandKey, Map<number, number>>> {
+  const periodDays = new Set<number>();
+  for (const r of records) {
+    if (r.kind !== ConsumptionKind.PERIOD || !r.period_start || !r.period_end || r.consumption == null) continue;
+    for (let d = toDay(r.period_start); d <= toDay(r.period_end); d++) periodDays.add(d);
+  }
+  const pairs = readingPairs(records);
+  const out: Partial<Record<BandKey, Map<number, number>>> = {};
+  for (const f of BAND_FIELDS) {
+    const daily = new Map<number, number>();
+    for (const r of records) {
+      if (r.kind !== ConsumptionKind.PERIOD || !r.period_start || !r.period_end || !hasValue(r[f])) continue;
+      const start = toDay(r.period_start);
+      const end = toDay(r.period_end);
+      if (end < start) continue;
+      const rate = Number(r[f]) / (end - start + 1);
+      for (let d = start; d <= end; d++) daily.set(d, (daily.get(d) ?? 0) + rate);
+    }
+    for (const [a, b] of pairs) {
+      if (!hasValue(a[f]) || !hasValue(b[f])) continue;
+      const from = toDay(a.reading_date);
+      const to = toDay(b.reading_date);
+      if (to <= from) continue;
+      const rate = (Number(b[f]) - Number(a[f])) / (to - from);
+      if (rate < 0) continue;
+      for (let d = from + 1; d <= to; d++) {
+        if (!periodDays.has(d)) daily.set(d, (daily.get(d) ?? 0) + rate);
+      }
+    }
+    if (daily.size) out[BAND_KEY[f]] = daily;
+  }
+  return out;
+}
+
 export function computeActual(
   daily: Map<number, number>,
   today: number,
@@ -228,8 +282,25 @@ export function computeSeasonalEstimate(daily: Map<number, number>, today: numbe
   return round2(total);
 }
 
-export function computeMonthlySeries(daily: Map<number, number>, today: number): MonthlyPoint[] {
+export function computeMonthlySeries(
+  daily: Map<number, number>,
+  today: number,
+  bandDaily: Partial<Record<BandKey, Map<number, number>>> = {},
+): MonthlyPoint[] {
   const mean = meanDaily(daily, today);
+  // Stimato per fascia = stimato totale × quota della fascia sul reale
+  // dell'ultimo anno: i segmenti sommano sempre al più al totale.
+  const bandKeys = Object.keys(bandDaily) as BandKey[];
+  const shares: Partial<Record<BandKey, number>> = {};
+  if (bandKeys.length) {
+    let windowTotal = 0;
+    for (let d = today - WINDOW_DAYS + 1; d <= today; d++) windowTotal += daily.get(d) ?? 0;
+    for (const k of bandKeys) {
+      let s = 0;
+      for (let d = today - WINDOW_DAYS + 1; d <= today; d++) s += bandDaily[k].get(d) ?? 0;
+      shares[k] = windowTotal > 0 ? s / windowTotal : 0;
+    }
+  }
   // Giorni passati dopo l'ultimo dato (bolletta non ancora arrivata): stimati
   // come i futuri. I buchi prima dell'ultimo dato restano dati mancanti.
   let lastDataDay = -Infinity;
@@ -258,13 +329,25 @@ export function computeMonthlySeries(daily: Map<number, number>, today: number):
         estimated += estimatedDay(daily, d, today, mean);
       }
     }
-    points.push({
+    const point: MonthlyPoint = {
       month: fromDay(first).slice(0, 7),
       actual: round2(actual),
       covered_days: covered,
       days: next - first,
       estimated: round2(estimated),
-    });
+    };
+    if (bandKeys.length) {
+      point.bands = {};
+      point.estimated_bands = {};
+      for (const k of bandKeys) {
+        let a = 0;
+        for (let d = first; d < next && d <= today; d++) a += bandDaily[k].get(d) ?? 0;
+        if (round2(a) > 0) point.bands[k] = round2(a);
+        const e = round2(estimated * (shares[k] ?? 0));
+        if (e > 0) point.estimated_bands[k] = e;
+      }
+    }
+    points.push(point);
   }
 
   return points;
@@ -298,16 +381,17 @@ export function decideEstimate(
   };
 }
 
-// Tiene solo i campi del tipo di rilevazione, azzera gli altri. Fasce e
-// penale reattiva esistono solo per i periodi delle utenze elettriche.
+// Tiene solo i campi del tipo di rilevazione, azzera gli altri. Solo utenze
+// elettriche: sui periodi fasce F0–F3 (consumo) e penale reattiva, sulle
+// letture i totalizzatori F1–F3 (valore letto sul contatore).
 export function normalizeByKind(
   record: ConsumptionRecord & { notes?: string | null },
   isElectric = false,
 ): ConsumptionRecord & { notes: string | null } {
   const isReading = record.kind === ConsumptionKind.READING;
   const keepBands = !isReading && isElectric;
-  const band = (v: number | string | null | undefined): number | null =>
-    keepBands && v !== undefined && v !== null && v !== '' ? Number(v) : null;
+  const band = (v: number | string | null | undefined, onReadings = true): number | null =>
+    isElectric && (!isReading || onReadings) && hasValue(v) ? Number(v) : null;
   return {
     kind: record.kind,
     reading_date: isReading ? (record.reading_date ?? null) : null,
@@ -316,7 +400,7 @@ export function normalizeByKind(
     period_start: isReading ? null : (record.period_start ?? null),
     period_end: isReading ? null : (record.period_end ?? null),
     consumption: isReading ? null : (record.consumption ?? null),
-    consumption_f0: band(record.consumption_f0),
+    consumption_f0: band(record.consumption_f0, false),
     consumption_f1: band(record.consumption_f1),
     consumption_f2: band(record.consumption_f2),
     consumption_f3: band(record.consumption_f3),
@@ -328,17 +412,20 @@ export function normalizeByKind(
 const kwhIt = (n: number): string => n.toLocaleString('it-IT', { maximumFractionDigits: 3 });
 
 // Messaggio d'errore o null: le fasce (facoltative) devono sommare al consumo
-// del periodo; quelle vuote valgono 0. Nessun controllo senza fasce.
+// del periodo, i totalizzatori al valore letto; quelli vuoti valgono 0.
+// Nessun controllo senza fasce.
 export function validateBands(candidate: ConsumptionRecord): string | null {
-  if (candidate.kind !== ConsumptionKind.PERIOD) return null;
-  const values = BAND_FIELDS.map((f) => candidate[f]).filter(
-    (v) => v !== null && v !== undefined && v !== '',
-  );
+  const isReading = candidate.kind === ConsumptionKind.READING;
+  const values = (isReading ? READING_BAND_FIELDS : [...BAND_FIELDS])
+    .map((f) => candidate[f])
+    .filter(hasValue);
   if (!values.length) return null;
   const sum = Math.round(values.reduce<number>((s, v) => s + Number(v), 0) * 1000) / 1000;
-  const total = Number(candidate.consumption ?? 0);
+  const total = Number((isReading ? candidate.reading_value : candidate.consumption) ?? 0);
   if (Math.abs(sum - total) <= BAND_TOLERANCE_KWH) return null;
-  return `La somma delle fasce (${kwhIt(sum)} kWh) non coincide con il consumo del periodo (${kwhIt(total)} kWh).`;
+  return isReading
+    ? `La somma dei totalizzatori di fascia (${kwhIt(sum)} kWh) non coincide con il valore letto (${kwhIt(total)} kWh).`
+    : `La somma delle fasce (${kwhIt(sum)} kWh) non coincide con il consumo del periodo (${kwhIt(total)} kWh).`;
 }
 
 // Messaggio d'errore (italiano, mostrato all'utente) o null se valida.
@@ -376,6 +463,17 @@ export function validateConsumption(
     const next = sameMeter.find((r) => toDay(r.reading_date) > day);
     if (next && value > Number(next.reading_value)) {
       return `Lettura superiore alla successiva (${Number(next.reading_value)} del ${formatIt(next.reading_date)}) per la stessa matricola.`;
+    }
+    // Anche ogni totalizzatore di fascia cresce nel tempo, a parità di contatore.
+    for (const f of READING_BAND_FIELDS) {
+      if (!hasValue(candidate[f])) continue;
+      const v = Number(candidate[f]);
+      if (prev && hasValue(prev[f]) && v < Number(prev[f])) {
+        return `Totalizzatore ${BAND_KEY[f]} inferiore alla lettura precedente (${Number(prev[f])} del ${formatIt(prev.reading_date)}) per la stessa matricola.`;
+      }
+      if (next && hasValue(next[f]) && v > Number(next[f])) {
+        return `Totalizzatore ${BAND_KEY[f]} superiore alla lettura successiva (${Number(next[f])} del ${formatIt(next.reading_date)}) per la stessa matricola.`;
+      }
     }
     return null;
   }

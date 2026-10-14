@@ -14,6 +14,7 @@ import { ConsumptionKind } from './enum/consumption-kind.enum';
 import { EstimateSource } from './enum/estimate-source.enum';
 import { CONSUMPTION_UNIT } from './consumption-unit';
 import {
+  buildDailyBands,
   buildDailyConsumption,
   computeMonthlySeries,
   currentMeterReading,
@@ -108,7 +109,7 @@ export class UtilityConsumptionsService extends BaseService<
         utility.estimated_consumption_source === EstimateSource.MANUAL && setAt
           ? toLocalIsoDate(manualValidUntil(setAt))
           : null,
-      monthly: computeMonthlySeries(buildDailyConsumption(records), todayDay()),
+      monthly: computeMonthlySeries(buildDailyConsumption(records), todayDay(), buildDailyBands(records)),
     };
   }
 

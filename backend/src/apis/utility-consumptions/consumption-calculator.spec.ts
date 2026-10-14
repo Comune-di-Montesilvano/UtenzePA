@@ -1,4 +1,5 @@
 import {
+  buildDailyBands,
   buildDailyConsumption,
   computeActual,
   computeMonthlySeries,
@@ -183,6 +184,36 @@ describe('consumption-calculator', () => {
       expect(aug26).toEqual({ month: '2026-08', actual: 0, covered_days: 0, days: 31, estimated: 0 });
     });
 
+    it('fasce per mese: reale da periodi e da coppie di letture, stimato ripartito per quota', () => {
+      const records: ConsumptionRecord[] = [
+        // agosto 2026: periodo con fasce (F1 60, F2 30, F3 10 su 100)
+        { ...period(1, '2026-08-01', '2026-08-31', 100), consumption_f1: 60, consumption_f2: 30, consumption_f3: 10 },
+        // luglio 2026: letture con totalizzatori, consumo 50 = F1 30 + F2 15 + F3 5
+        { ...reading(2, '2026-06-30', 1000), consumption_f1: 600, consumption_f2: 300, consumption_f3: 100 },
+        { ...reading(3, '2026-07-31', 1050), consumption_f1: 630, consumption_f2: 315, consumption_f3: 105 },
+        // settembre 2026: periodo senza fasce (tutto «non ripartito»)
+        period(4, '2026-09-01', '2026-09-29', 29),
+      ];
+      const series = computeMonthlySeries(buildDailyConsumption(records), TODAY, buildDailyBands(records));
+      const aug = series.find((p) => p.month === '2026-08');
+      expect(aug?.bands).toEqual({ F1: 60, F2: 30, F3: 10 });
+      const jul = series.find((p) => p.month === '2026-07');
+      expect(jul?.bands).toEqual({ F1: 30, F2: 15, F3: 5 });
+      const sep = series.find((p) => p.month === '2026-09');
+      expect(sep?.bands).toEqual({});
+      // quota su 150 kWh ripartiti: F1 90/150, F2 45/150, F3 15/150
+      const oct = series.find((p) => p.month === '2026-10');
+      expect(oct?.estimated_bands?.F1).toBeCloseTo(oct!.estimated * 0.6 * (150 / 179), 1);
+      const sumEst = Object.values(oct?.estimated_bands ?? {}).reduce((s, v) => s + v, 0);
+      expect(sumEst).toBeLessThanOrEqual(oct!.estimated + 0.01);
+    });
+
+    it('senza fasce: nessuna chiave bands', () => {
+      const records = [period(1, '2026-08-01', '2026-08-31', 100)];
+      const aug = computeMonthlySeries(buildDailyConsumption(records), TODAY, buildDailyBands(records)).find((p) => p.month === '2026-08');
+      expect(aug).not.toHaveProperty('bands');
+    });
+
     it('nessun dato: stime future a 0', () => {
       const series = computeMonthlySeries(buildDailyConsumption([]), TODAY);
       expect(series.every((p) => p.actual === 0 && p.estimated === 0)).toBe(true);
@@ -267,8 +298,14 @@ describe('consumption-calculator', () => {
       );
     });
 
-    it('letture: nessun controllo', () => {
-      expect(validateBands({ kind: ConsumptionKind.READING, reading_value: 5, consumption_f1: 3 })).toBeNull();
+    it('lettura: totalizzatori che sommano al valore letto', () => {
+      expect(validateBands({ kind: ConsumptionKind.READING, reading_value: 15000, consumption_f1: 8000, consumption_f2: 4000, consumption_f3: 3000 })).toBeNull();
+    });
+
+    it('lettura: totalizzatori che non sommano al valore letto', () => {
+      expect(validateBands({ kind: ConsumptionKind.READING, reading_value: 15000, consumption_f1: 8000, consumption_f2: 4000 })).toBe(
+        'La somma dei totalizzatori di fascia (12.000 kWh) non coincide con il valore letto (15.000 kWh).',
+      );
     });
   });
 
@@ -303,9 +340,14 @@ describe('consumption-calculator', () => {
       expect(r).toMatchObject({ consumption_f1: null, reactive_penalty: null });
     });
 
-    it('lettura elettrica: fasce e penale azzerate', () => {
-      const r = normalizeByKind({ kind: ConsumptionKind.READING, reading_date: '2026-01-01', reading_value: 1, meter_number: 'M', consumption_f2: 4, reactive_penalty: false }, true);
-      expect(r).toMatchObject({ consumption_f2: null, reactive_penalty: null });
+    it('lettura elettrica: totalizzatori F1–F3 mantenuti, F0 e penale azzerati', () => {
+      const r = normalizeByKind({ kind: ConsumptionKind.READING, reading_date: '2026-01-01', reading_value: 10, meter_number: 'M', consumption_f0: 1, consumption_f2: 4, reactive_penalty: false }, true);
+      expect(r).toMatchObject({ consumption_f0: null, consumption_f2: 4, reactive_penalty: null });
+    });
+
+    it('lettura non elettrica: totalizzatori azzerati', () => {
+      const r = normalizeByKind({ kind: ConsumptionKind.READING, reading_date: '2026-01-01', reading_value: 10, meter_number: 'M', consumption_f2: 4 }, false);
+      expect(r).toMatchObject({ consumption_f2: null });
     });
 
     it('PERIOD: azzera i campi lettura', () => {
@@ -334,6 +376,20 @@ describe('consumption-calculator', () => {
 
     it('lettura superiore alla successiva stessa matricola rifiutata', () => {
       expect(validateConsumption(reading(9, '2026-02-01', 1400), others, TODAY)).toMatch(/successiva/);
+    });
+
+    it('totalizzatore di fascia inferiore alla lettura precedente stessa matricola rifiutato', () => {
+      const prev = { ...reading(1, '2026-01-01', 1000), consumption_f1: 600, consumption_f2: 400 };
+      const cand = { ...reading(9, '2026-02-01', 1100), consumption_f1: 590, consumption_f2: 510 };
+      expect(validateConsumption(cand, [prev], TODAY)).toBe(
+        'Totalizzatore F1 inferiore alla lettura precedente (600 del 01/01/2026) per la stessa matricola.',
+      );
+    });
+
+    it('totalizzatore di fascia superiore alla lettura successiva rifiutato', () => {
+      const next = { ...reading(2, '2026-03-01', 1300), consumption_f3: 100 };
+      const cand = { ...reading(9, '2026-02-01', 1100), consumption_f3: 150 };
+      expect(validateConsumption(cand, [next], TODAY)).toMatch(/Totalizzatore F3 superiore alla lettura successiva/);
     });
 
     it('lettura inferiore ma con altra matricola ammessa (nuovo contatore)', () => {
