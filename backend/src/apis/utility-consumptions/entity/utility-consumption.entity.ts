@@ -45,6 +45,24 @@ export class UtilityConsumption {
   @Column({ type: 'decimal', precision: 14, scale: 3, nullable: true })
   consumption: number | null;
 
+  // Consumi per fascia (solo periodi di utenze elettriche): F0 = monoraria.
+  // Se valorizzate, la somma coincide col consumo entro 1 kWh.
+  @Column({ type: 'decimal', precision: 14, scale: 3, nullable: true })
+  consumption_f0: number | null;
+
+  @Column({ type: 'decimal', precision: 14, scale: 3, nullable: true })
+  consumption_f1: number | null;
+
+  @Column({ type: 'decimal', precision: 14, scale: 3, nullable: true })
+  consumption_f2: number | null;
+
+  @Column({ type: 'decimal', precision: 14, scale: 3, nullable: true })
+  consumption_f3: number | null;
+
+  // Penale per energia reattiva addebitata nel periodo; null = non noto.
+  @Column({ type: 'boolean', nullable: true })
+  reactive_penalty: boolean | null;
+
   @Column({ type: 'enum', enum: ConsumptionSource, default: ConsumptionSource.MANUAL })
   source: ConsumptionSource;
 
