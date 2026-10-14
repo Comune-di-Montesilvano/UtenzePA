@@ -31,11 +31,12 @@ export interface ConsumptionPayload {
   period_start: string | null;
   period_end: string | null;
   consumption: number | null;
-  consumption_f0: number | null;
-  consumption_f1: number | null;
-  consumption_f2: number | null;
-  consumption_f3: number | null;
-  reactive_penalty: boolean | null;
+  // Solo per i periodi delle utenze elettriche: assenti = invariati.
+  consumption_f0?: number | null;
+  consumption_f1?: number | null;
+  consumption_f2?: number | null;
+  consumption_f3?: number | null;
+  reactive_penalty?: boolean | null;
   notes: string | null;
 }
 

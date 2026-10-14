@@ -155,10 +155,11 @@ export class ConsumptionEditDialogComponent {
     if (!this.isValid()) return;
     const v = this.form.getRawValue();
     const isReading = v.kind === 'READING';
-    // Fasce e penale viaggiano solo per i periodi elettrici (il backend le azzera altrove).
+    // Fasce e penale viaggiano solo per i periodi elettrici: altrimenti non si
+    // inviano (il backend le azzera per letture e utenze non elettriche).
     const bands = !isReading && !!this.data.isElectric;
     const num = (x: number | null | undefined): number | null =>
-      bands && x !== null && x !== undefined && String(x) !== '' ? Number(x) : null;
+      x !== null && x !== undefined && String(x) !== '' ? Number(x) : null;
     const payload: ConsumptionPayload = {
       kind: v.kind as ConsumptionKind,
       reading_date: isReading && v.reading_date ? toIsoDate(v.reading_date) : null,
@@ -167,11 +168,13 @@ export class ConsumptionEditDialogComponent {
       period_start: !isReading && v.period_start ? toIsoDate(v.period_start) : null,
       period_end: !isReading && v.period_end ? toIsoDate(v.period_end) : null,
       consumption: !isReading ? Number(v.consumption) : null,
-      consumption_f0: num(v.consumption_f0),
-      consumption_f1: num(v.consumption_f1),
-      consumption_f2: num(v.consumption_f2),
-      consumption_f3: num(v.consumption_f3),
-      reactive_penalty: bands ? !!v.reactive_penalty : null,
+      ...(bands ? {
+        consumption_f0: num(v.consumption_f0),
+        consumption_f1: num(v.consumption_f1),
+        consumption_f2: num(v.consumption_f2),
+        consumption_f3: num(v.consumption_f3),
+        reactive_penalty: !!v.reactive_penalty,
+      } : {}),
       notes: v.notes?.trim() ? v.notes.trim() : null,
     };
     this.saving = true;

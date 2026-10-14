@@ -65,7 +65,7 @@ const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
                 <th style="padding: 6px;">Matricola</th>
                 <th style="padding: 6px; text-align: right;">Lettura</th>
                 <th style="padding: 6px; text-align: right;">Consumo</th>
-                @if (summary?.unit === 'kWh') {
+                @if (isElectric) {
                   <th style="padding: 6px;">Fasce</th>
                 }
                 <th style="padding: 6px;">Origine</th>
@@ -89,7 +89,7 @@ const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
                       {{ formatQty(row.computed_consumption, summary?.unit) }}
                     }
                   </td>
-                  @if (summary?.unit === 'kWh') {
+                  @if (isElectric) {
                     <td style="padding: 6px; white-space: nowrap;">
                       {{ bandsLabel(row) }}
                       @if (row.reactive_penalty) {
@@ -123,6 +123,8 @@ export class UtilityConsumptionsTabComponent implements OnInit {
 
   @Input({required: true}) utilityId!: number;
   @Input() meterNumber: string | null = null;
+  // Dal tipo dell'utenza (non dal riepilogo, che arriva dopo): fasce e penale reattiva.
+  @Input() isElectric = false;
   @Output() summaryChanged = new EventEmitter<ConsumptionSummary>();
 
   readonly formatQty = formatQty;
@@ -153,7 +155,7 @@ export class UtilityConsumptionsTabComponent implements OnInit {
     this.dialog.open<ConsumptionEditDialogComponent, ConsumptionEditDialogData, boolean>(ConsumptionEditDialogComponent, {
       width: '720px',
       maxWidth: '720px',
-      data: {utilityId: this.utilityId, meterNumber: this.meterNumber, item, isElectric: this.summary?.unit === 'kWh'},
+      data: {utilityId: this.utilityId, meterNumber: this.meterNumber, item, isElectric: this.isElectric},
     }).afterClosed().subscribe(saved => {
       if (saved) this.reload();
     });

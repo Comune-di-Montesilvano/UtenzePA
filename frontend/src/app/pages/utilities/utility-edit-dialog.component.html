@@ -429,6 +429,7 @@
         @if (!isNew && selectedHardType !== HardType.INTERNET) {
           <app-utility-consumptions-tab
             [utilityId]="data.item.id"
+            [isElectric]="showLightFields"
             [meterNumber]="data.item.meter_number ?? null"
             (summaryChanged)="onConsumptionSummary($event)">
           </app-utility-consumptions-tab>

@@ -347,9 +347,13 @@ export class ContractEditDialogComponent implements OnInit {
     this.dialogRef.close(result);
   }
 
+  // Rinnovo in corso: Salva e rinnovo disabilitati finché la scheda non si riallinea.
+  renewing = false;
+
   // Rinnovo: nuovo contratto con le stesse utenze e i dati stabili del
-  // fornitore; il backend chiude il precedente (se spuntato) e la scheda
-  // riallinea chiuso/scadenza, così un Salva successivo non lo riapre.
+  // fornitore. Il backend aggiorna il precedente (chiuso/scadenza): la scheda
+  // rilegge quei valori e si chiude salvandoli, così chi l'ha aperta ricarica
+  // gli elenchi e un Salva con i valori vecchi non può riaprire il contratto.
   renewWithUtilities(): void {
     if (this.form.dirty) {
       this.toast.add({severity: 'warn', summary: 'Modifiche non salvate',
@@ -367,14 +371,20 @@ export class ContractEditDialogComponent implements OnInit {
     const label = cig ? `CIG ${cig}` : `contratto #${this.data.item.id}`;
     this.navigator.createSupplyContract(v.utility_ids ?? [], prefill, {id: this.data.item.id, label}).subscribe(created => {
       if (!created) return;
-      this.contractsService.getById(this.data.item.id).subscribe(fresh => {
-        this.form.patchValue({closed: fresh.closed ?? false, supply_expiry_date: this.toDate(fresh.supply_expiry_date)});
-        this.form.markAsPristine();
-        this.data.item.closed = fresh.closed;
-        this.data.item.supply_expiry_date = fresh.supply_expiry_date;
+      this.renewing = true;
+      this.contractsService.getById(this.data.item.id).subscribe({
+        next: fresh => {
+          this.form.patchValue({closed: fresh.closed ?? false, supply_expiry_date: this.toDate(fresh.supply_expiry_date)});
+          this.toast.add({severity: 'success', summary: 'Nuovo contratto creato',
+            detail: 'Le utenze sono collegate al nuovo contratto.'});
+          this.save();
+        },
+        error: () => {
+          this.toast.add({severity: 'warn', summary: 'Nuovo contratto creato',
+            detail: 'Riapri il contratto precedente per vederlo aggiornato.'});
+          this.dialogRef.close(undefined);
+        },
       });
-      this.toast.add({severity: 'success', summary: 'Nuovo contratto creato',
-        detail: 'Le utenze sono collegate al nuovo contratto.'});
     });
   }
 
