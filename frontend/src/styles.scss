@@ -380,6 +380,12 @@ html.theme-dark .only-dark { display: revert !important; }
   --on-entity: light-dark(#ffffff, #121212);
   // Serie dei grafici consumi (SVG): blu più chiaro su fondo scuro.
   --chart-series: light-dark(#1976d2, #60a5fa);
+  // Fasce orarie dei consumi elettrici (grafico consumi): F1 punta, F3 vuoto.
+  --chart-band-f0: light-dark(#7c3aed, #a78bfa);
+  --chart-band-f1: light-dark(#dc2626, #f87171);
+  --chart-band-f2: light-dark(#d97706, #fbbf24);
+  --chart-band-f3: light-dark(#16a34a, #4ade80);
+  --chart-band-none: light-dark(#9ca3af, #71717a);
 
   --tone-ok-bg: light-dark(#dcfce7, #14361f); --tone-ok-fg: light-dark(#166534, #86efac);
   --tone-warn-bg: light-dark(#fef3c7, #3d2c0b); --tone-warn-fg: light-dark(#92400e, #fcd34d);

@@ -54,6 +54,19 @@ export interface ConsumptionEditDialogData {
               <mat-hint>Matricola diversa = nuovo contatore</mat-hint>
             </mat-form-field>
           </div>
+          @if (data.isElectric) {
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+              @for (f of readingBandFields; track f.key) {
+                <mat-form-field style="flex: 1 1 28%;">
+                  <mat-label>{{ f.label }}</mat-label>
+                  <input matInput type="number" min="0" [formControlName]="f.key">
+                </mat-form-field>
+              }
+            </div>
+            <p style="margin: -0.5rem 0 0; font-size: 0.8rem; color: var(--app-muted);">
+              Totalizzatori di fascia letti sul contatore, facoltativi; se compilati, la somma deve coincidere col valore letto.
+            </p>
+          }
         } @else {
           <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
             <mat-form-field style="flex: 1 1 30%;">
@@ -112,6 +125,11 @@ export class ConsumptionEditDialogComponent {
   protected data = inject<ConsumptionEditDialogData>(MAT_DIALOG_DATA);
 
   readonly today = new Date();
+  readonly readingBandFields = [
+    {key: 'consumption_f1', label: 'Totalizzatore F1'},
+    {key: 'consumption_f2', label: 'Totalizzatore F2'},
+    {key: 'consumption_f3', label: 'Totalizzatore F3'},
+  ] as const;
   readonly bandFields = [
     {key: 'consumption_f0', label: 'F0 (monoraria)'},
     {key: 'consumption_f1', label: 'F1'},
@@ -155,9 +173,10 @@ export class ConsumptionEditDialogComponent {
     if (!this.isValid()) return;
     const v = this.form.getRawValue();
     const isReading = v.kind === 'READING';
-    // Fasce e penale viaggiano solo per i periodi elettrici: altrimenti non si
-    // inviano (il backend le azzera per letture e utenze non elettriche).
+    // Solo utenze elettriche: periodi con fasce F0–F3 e penale, letture con i
+    // totalizzatori F1–F3; altrimenti non si inviano (il backend le azzera).
     const bands = !isReading && !!this.data.isElectric;
+    const registers = isReading && !!this.data.isElectric;
     const num = (x: number | null | undefined): number | null =>
       x !== null && x !== undefined && String(x) !== '' ? Number(x) : null;
     const payload: ConsumptionPayload = {
@@ -174,6 +193,11 @@ export class ConsumptionEditDialogComponent {
         consumption_f2: num(v.consumption_f2),
         consumption_f3: num(v.consumption_f3),
         reactive_penalty: !!v.reactive_penalty,
+      } : {}),
+      ...(registers ? {
+        consumption_f1: num(v.consumption_f1),
+        consumption_f2: num(v.consumption_f2),
+        consumption_f3: num(v.consumption_f3),
       } : {}),
       notes: v.notes?.trim() ? v.notes.trim() : null,
     };

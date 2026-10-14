@@ -84,11 +84,12 @@ Il significato degli stati è in «A carico di: gli stati».
     - **Consumo periodo**: date dal/al e consumo del periodo (es. da una fattura).
 3. Premi **Salva**.
 
-Una matricola diversa dalla precedente indica un nuovo contatore. Il grafico mostra i consumi del mese, distinguendo quelli reali da quelli stimati; i giorni dopo l'ultimo dato registrato (es. bolletta non ancora arrivata) sono stimati, i buchi tra due dati restano vuoti. Le utenze Internet non hanno consumi.
+Una matricola diversa dalla precedente indica un nuovo contatore. Il grafico mostra i consumi del mese, distinguendo quelli reali da quelli stimati; i giorni dopo l'ultimo dato registrato (es. bolletta non ancora arrivata) sono stimati, i buchi tra due dati restano vuoti. Se l'utenza ha dati per fascia, ogni barra è divisa in colori per fascia (F1, F2, F3, F0) più un grigio per la parte senza fasce; la stima è ripartita secondo le quote dell'ultimo anno. Le utenze Internet non hanno consumi.
 
 Per le utenze elettriche il consumo di periodo può avere anche:
 
 - le **fasce** F0 (monoraria), F1, F2, F3: facoltative; se le compili, la loro somma deve coincidere col consumo del periodo (scarto massimo 1 kWh);
+- sulla **lettura contatore**, i **totalizzatori** F1, F2, F3 letti sul contatore: facoltativi; la loro somma deve coincidere col valore letto e ognuno non può scendere rispetto alla lettura precedente dello stesso contatore. Il consumo di ogni fascia è la differenza tra due letture;
 - la casella **Penale per energia reattiva**, se la bolletta addebita una penale per basso fattore di potenza. Le utenze con una penale negli ultimi 12 mesi compaiono nella segnalazione «Penali per energia reattiva»: l'impianto va rifasato.
 
 Nella scheda delle utenze elettriche, tab **Tecnici e stato**, c'è anche il **Codice impianto fornitore**: il codice con cui il fornitore di energia identifica la fornitura, stabile tra i rinnovi del contratto.

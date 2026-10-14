@@ -91,7 +91,7 @@ const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
                   </td>
                   @if (isElectric) {
                     <td style="padding: 6px; white-space: nowrap;">
-                      {{ bandsLabel(row) }}
+                      <span [matTooltip]="row.kind === 'READING' ? 'Totalizzatori di fascia letti sul contatore' : 'Consumo del periodo per fascia'">{{ bandsLabel(row) }}</span>
                       @if (row.reactive_penalty) {
                         <mat-icon style="font-size: 18px; height: 18px; width: 18px; vertical-align: middle; color: var(--tone-warn-fg);"
                                   matTooltip="Penale per energia reattiva" aria-label="Penale per energia reattiva">bolt</mat-icon>

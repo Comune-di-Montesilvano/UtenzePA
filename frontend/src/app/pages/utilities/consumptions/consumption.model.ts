@@ -40,12 +40,18 @@ export interface ConsumptionPayload {
   notes: string | null;
 }
 
+export type BandKey = 'F0' | 'F1' | 'F2' | 'F3';
+
 export interface MonthlyPoint {
   month: string;
   actual: number;
   covered_days: number;
   days: number;
   estimated: number;
+  // Solo utenze con dati per fascia: parte del reale/stimato per fascia
+  // (il resto del totale è «non ripartito»).
+  bands?: Partial<Record<BandKey, number>>;
+  estimated_bands?: Partial<Record<BandKey, number>>;
 }
 
 export interface ConsumptionSummary {
