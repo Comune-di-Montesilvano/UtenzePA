@@ -34,7 +34,7 @@ import {UtilityConsumptionsTabComponent} from './consumptions/utility-consumptio
 import {PlantService} from '../plants/plant.service';
 import {Plant, PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PlantStatus, PlantType} from '../plants/plant.model';
 import {BudgetChapter} from '../budget-chapters/entity/budget-chapter.entity';
-import {CONSUMPTION_UNIT_BY_HARD_TYPE, ConsumptionSummary, formatQty, HISTORY_MIN_COVERAGE_DAYS} from './consumptions/consumption.model';
+import {CONSUMPTION_UNIT_BY_HARD_TYPE, ConsumptionSummary, formatQty} from './consumptions/consumption.model';
 import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
@@ -638,7 +638,7 @@ export class UtilityEditDialogComponent implements OnInit {
         const until = new Date(setAt);
         until.setMonth(until.getMonth() + 12);
         return until > new Date()
-          ? `Manuale, valida fino al ${until.toLocaleDateString('it-IT')} o finché lo storico non copre ${HISTORY_MIN_COVERAGE_DAYS} giorni`
+          ? `Manuale, valida fino al ${until.toLocaleDateString('it-IT')}`
           : 'Manuale scaduta: verrà sostituita dallo storico consumi';
       }
       case 'HISTORY': return 'Calcolata dallo storico consumi';

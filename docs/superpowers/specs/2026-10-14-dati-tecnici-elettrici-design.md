@@ -9,7 +9,7 @@ Il fatturato del fornitore di energia elettrica (tracciato CH80, gen 2025 – se
 1. **codice impianto del fornitore** sull'utenza elettrica (uno per POD, stabile tra i rinnovi annuali);
 2. **consumi per fascia** F0 (monoraria), F1, F2, F3 sui consumi di periodo elettrici;
 3. **penale per energia reattiva** sul consumo di periodo e segnalazione «Penali per energia reattiva» (31 POD la pagano quasi ogni mese: impianti da rifasare);
-4. **stima annua da storico** che prevale sulla manuale quando lo storico è sufficiente;
+4. ~~stima annua da storico che prevale sulla manuale~~ — ritirata il 2026-10-14: la stima manuale resta valida 12 mesi; le stime importate il 03/09/2026 sono state retrodatate al 30/09/2025 (intervento sui dati, non sul codice);
 5. **contratti di fornitura nella scheda utenza** ordinati (in corso in alto, poi dal più recente);
 6. **nuovo contratto con le utenze di uno esistente**, chiudendo il precedente.
 
@@ -21,7 +21,7 @@ Fuori scope: parte contabile del CH80 (importi, fatture), potenza contrattuale d
 |---|---|
 | Penale reattiva | sì/no sul consumo di periodo; segnalazione se almeno un periodo con penale termina negli ultimi 12 mesi; nessun importo |
 | Fasce | facoltative; se almeno una è compilata (le vuote valgono 0) la somma deve coincidere col consumo entro 1 kWh, altrimenti errore |
-| Stima manuale | vale al massimo 12 mesi, ma decade prima se lo storico copre almeno 300 giorni degli ultimi 365 |
+| Stima manuale | regola invariata (12 mesi); la soglia dei 300 giorni è stata ritirata in favore di un intervento sui dati |
 | Ordine contratti | in corso in alto; poi per decorrenza decrescente, senza decorrenza in fondo |
 | Nuovo contratto dalle utenze | azione nella scheda contratto; casella «Chiudi il contratto precedente» spuntata di default: al salvataggio il precedente diventa chiuso e la sua scadenza, se assente o successiva, diventa il giorno prima della decorrenza del nuovo |
 
@@ -55,9 +55,7 @@ Nel service: fasce e penale azzerate anche quando l'utenza non è elettrica. DTO
 
 ### Stima annua
 
-`decideEstimate` riceve anche la copertura dello storico (`coverageDays` già calcolati da `computeActual`): la stima manuale è valida se `source = MANUAL`, `setAt` presente, `manualValidUntil(setAt) > now` **e** `coverageDays < 300`. Costante `HISTORY_MIN_COVERAGE_DAYS = 300` esportata. Il gemello frontend `estimateHint()` della scheda utenza usa la stessa costante (in `consumption.model.ts`) e mostra «Manuale, valida fino al gg/mm/aaaa o finché lo storico non copre 300 giorni».
-
-Effetto atteso sui dati di oggi: le stime manuali del 03/09/2026 delle utenze col CH80 (circa 160 con copertura ≥ 300 giorni) passano a «Calcolata dallo storico» al primo ricalcolo (salvataggio di un consumo o ricalcolo notturno). Quelle senza storico (es. utenze del contratto di servizio luce) restano manuali.
+Ritirata: nessuna modifica a `decideEstimate`. La stima manuale vale 12 mesi come prima; le stime manuali importate il 03/09/2026 sono retrodatate al 30/09/2025 sul DB, così al ricalcolo prevale lo storico.
 
 ### Anomalia «Penali per energia reattiva»
 

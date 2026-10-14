@@ -8,7 +8,7 @@ import {ConfirmDialogComponent, ConfirmDialogData} from '../../../core/component
 import {ConsumptionChartComponent} from './consumption-chart.component';
 import {ConsumptionEditDialogComponent, ConsumptionEditDialogData} from './consumption-edit-dialog.component';
 import {UtilityConsumptionService} from './utility-consumption.service';
-import {bandsLabel, ConsumptionSummary, formatDateIt, formatQty, HISTORY_MIN_COVERAGE_DAYS, UtilityConsumption} from './consumption.model';
+import {bandsLabel, ConsumptionSummary, formatDateIt, formatQty, UtilityConsumption} from './consumption.model';
 
 const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
   MANUAL: 'Manuale', INVOICE: 'Fattura', IMPORT: 'Import', API: 'API',
@@ -141,9 +141,6 @@ export class UtilityConsumptionsTabComponent implements OnInit {
     const s = this.summary;
     if (!s) return {text: '', bg: 'transparent', fg: 'inherit'};
     if (s.estimated_source === 'MANUAL') {
-      if (s.coverage_days >= HISTORY_MIN_COVERAGE_DAYS) {
-        return {text: 'Manuale — sarà sostituita dallo storico al prossimo ricalcolo', bg: 'var(--tone-warn-bg)', fg: 'var(--tone-warn-fg)'};
-      }
       return s.estimated_valid_until && s.estimated_valid_until >= new Date().toISOString().slice(0, 10)
         ? {text: `Manuale — valida fino al ${formatDateIt(s.estimated_valid_until)}`, bg: 'var(--tone-warn-bg)', fg: 'var(--tone-warn-fg)'}
         : {text: 'Manuale — scaduta', bg: 'var(--tone-danger-bg)', fg: 'var(--tone-danger-fg)'};

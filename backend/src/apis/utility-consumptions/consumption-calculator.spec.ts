@@ -7,7 +7,6 @@ import {
   ConsumptionRecord,
   decideEstimate,
   fromDay,
-  HISTORY_MIN_COVERAGE_DAYS,
   normalizeByKind,
   readingDeltas,
   toDay,
@@ -225,18 +224,6 @@ describe('consumption-calculator', () => {
 
     it('HISTORY: aggiornata col nuovo valore', () => {
       expect(decideEstimate({ source: EstimateSource.HISTORY, setAt: null }, 400, now)?.estimated_annual_consumption).toBe(400);
-    });
-
-    it('manuale ancora valida ma storico ≥ 300 giorni: passa a HISTORY', () => {
-      expect(decideEstimate({ source: EstimateSource.MANUAL, setAt: new Date('2026-09-01') }, 500, now, HISTORY_MIN_COVERAGE_DAYS)).toEqual({
-        estimated_annual_consumption: 500,
-        estimated_consumption_source: EstimateSource.HISTORY,
-        estimated_consumption_set_at: null,
-      });
-    });
-
-    it('manuale ancora valida e storico 299 giorni: non toccata', () => {
-      expect(decideEstimate({ source: EstimateSource.MANUAL, setAt: new Date('2026-09-01') }, 500, now, 299)).toBeNull();
     });
   });
 

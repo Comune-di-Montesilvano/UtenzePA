@@ -3,10 +3,6 @@ import {HardType} from '../../utility-types/enum/hard-type.enum';
 export type ConsumptionKind = 'READING' | 'PERIOD';
 export type EstimateSource = 'MANUAL' | 'HISTORY' | 'NONE';
 
-// Gemella di HISTORY_MIN_COVERAGE_DAYS del backend (consumption-calculator.ts):
-// con almeno tanti giorni di storico la stima manuale cede a quella calcolata.
-export const HISTORY_MIN_COVERAGE_DAYS = 300;
-
 export interface UtilityConsumption {
   id: number;
   utility_id_fk: number;

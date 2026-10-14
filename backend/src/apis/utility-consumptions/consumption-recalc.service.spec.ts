@@ -67,7 +67,7 @@ describe('ConsumptionRecalcService', () => {
     expect(patch).not.toHaveProperty('estimated_annual_consumption');
   });
 
-  it('stima manuale valida ma storico ≥ 300 giorni: sostituita dallo storico', async () => {
+  it('stima manuale valida con storico completo: resta manuale (vale 12 mesi)', async () => {
     // 11 periodi mensili ott 2025 – ago 2026: 334 giorni coperti nella finestra
     const months = Array.from({ length: 11 }, (_, i) => {
       const y = 2025 + Math.floor((9 + i) / 12);
@@ -83,7 +83,7 @@ describe('ConsumptionRecalcService', () => {
     await service.recalcUtility(7, NOW);
     const patch = utilityRepo.update.mock.calls[0][1];
     expect(patch.actual_consumption_coverage_days).toBeGreaterThanOrEqual(300);
-    expect(patch.estimated_consumption_source).toBe(EstimateSource.HISTORY);
+    expect(patch).not.toHaveProperty('estimated_consumption_source');
   });
 
   it('manuale scaduta con storico: passa a HISTORY', async () => {

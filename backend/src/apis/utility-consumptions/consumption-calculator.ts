@@ -33,9 +33,6 @@ export interface MonthlyPoint {
 
 const MS_PER_DAY = 86_400_000;
 export const WINDOW_DAYS = 365;
-// Copertura dello storico (giorni negli ultimi 365) oltre la quale la stima
-// da storico prevale su quella manuale ancora valida.
-export const HISTORY_MIN_COVERAGE_DAYS = 300;
 // Scarto ammesso tra somma delle fasce e consumo del periodo (arrotondamenti).
 export const BAND_TOLERANCE_KWH = 1;
 export const BAND_FIELDS = ['consumption_f0', 'consumption_f1', 'consumption_f2', 'consumption_f3'] as const;
@@ -278,7 +275,6 @@ export function decideEstimate(
   state: { source: EstimateSource; setAt: Date | null },
   historyEstimate: number | null,
   now: Date,
-  coverageDays = 0,
 ): {
   estimated_annual_consumption: number;
   estimated_consumption_source: EstimateSource.HISTORY;
@@ -287,8 +283,7 @@ export function decideEstimate(
   const manualValid =
     state.source === EstimateSource.MANUAL &&
     state.setAt !== null &&
-    manualValidUntil(state.setAt) > now &&
-    coverageDays < HISTORY_MIN_COVERAGE_DAYS;
+    manualValidUntil(state.setAt) > now;
   if (manualValid || historyEstimate === null) return null;
   return {
     estimated_annual_consumption: historyEstimate,

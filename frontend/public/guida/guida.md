@@ -91,8 +91,6 @@ Per le utenze elettriche il consumo di periodo può avere anche:
 - le **fasce** F0 (monoraria), F1, F2, F3: facoltative; se le compili, la loro somma deve coincidere col consumo del periodo (scarto massimo 1 kWh);
 - la casella **Penale per energia reattiva**, se la bolletta addebita una penale per basso fattore di potenza. Le utenze con una penale negli ultimi 12 mesi compaiono nella segnalazione «Penali per energia reattiva»: l'impianto va rifasato.
 
-Il **consumo annuo stimato** inserito a mano vale 12 mesi, ma cede prima alla stima calcolata quando lo storico dei consumi copre almeno 300 giorni dell'ultimo anno. Senza storico sufficiente resta quella manuale.
-
 Nella scheda delle utenze elettriche, tab **Tecnici e stato**, c'è anche il **Codice impianto fornitore**: il codice con cui il fornitore di energia identifica la fornitura, stabile tra i rinnovi del contratto.
 
 ### Consultare la mappa
