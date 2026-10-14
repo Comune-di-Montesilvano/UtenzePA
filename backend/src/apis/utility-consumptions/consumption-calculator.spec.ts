@@ -167,6 +167,22 @@ describe('consumption-calculator', () => {
       expect(series.find((p) => p.month === '2027-01')?.estimated).toBe(62);
     });
 
+    it('giorni tra l’ultimo dato e oggi (bolletta non ancora arrivata): stimati', () => {
+      // 2/giorno fino al 15/09/2026, oggi 29/09: 16–29 senza dato ma dopo l'ultimo dato
+      const daily = buildDailyConsumption([period(1, '2025-09-16', '2026-09-15', 730)]);
+      const sep26 = computeMonthlySeries(daily, TODAY).find((p) => p.month === '2026-09');
+      expect(sep26).toEqual({ month: '2026-09', actual: 30, covered_days: 15, days: 30, estimated: 30 });
+    });
+
+    it('buco nei dati prima dell’ultimo dato: resta mancante, non stimato', () => {
+      const daily = buildDailyConsumption([
+        period(1, '2025-09-16', '2026-07-31', 638),
+        period(2, '2026-09-01', '2026-09-29', 58),
+      ]);
+      const aug26 = computeMonthlySeries(daily, TODAY).find((p) => p.month === '2026-08');
+      expect(aug26).toEqual({ month: '2026-08', actual: 0, covered_days: 0, days: 31, estimated: 0 });
+    });
+
     it('nessun dato: stime future a 0', () => {
       const series = computeMonthlySeries(buildDailyConsumption([]), TODAY);
       expect(series.every((p) => p.actual === 0 && p.estimated === 0)).toBe(true);

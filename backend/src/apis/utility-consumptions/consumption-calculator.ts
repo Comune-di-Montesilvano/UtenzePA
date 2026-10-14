@@ -230,6 +230,10 @@ export function computeSeasonalEstimate(daily: Map<number, number>, today: numbe
 
 export function computeMonthlySeries(daily: Map<number, number>, today: number): MonthlyPoint[] {
   const mean = meanDaily(daily, today);
+  // Giorni passati dopo l'ultimo dato (bolletta non ancora arrivata): stimati
+  // come i futuri. I buchi prima dell'ultimo dato restano dati mancanti.
+  let lastDataDay = -Infinity;
+  for (const d of daily.keys()) if (d <= today && d > lastDataDay) lastDataDay = d;
   const t = new Date(today * MS_PER_DAY);
   const year = t.getUTCFullYear();
   const month = t.getUTCMonth();
@@ -247,6 +251,8 @@ export function computeMonthlySeries(daily: Map<number, number>, today: number):
         if (v !== undefined) {
           actual += v;
           covered++;
+        } else if (mean !== null && d > lastDataDay) {
+          estimated += estimatedDay(daily, d, today, mean);
         }
       } else if (mean !== null) {
         estimated += estimatedDay(daily, d, today, mean);

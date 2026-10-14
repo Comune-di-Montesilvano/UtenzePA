@@ -84,7 +84,7 @@ Il significato degli stati è in «A carico di: gli stati».
     - **Consumo periodo**: date dal/al e consumo del periodo (es. da una fattura).
 3. Premi **Salva**.
 
-Una matricola diversa dalla precedente indica un nuovo contatore. Il grafico mostra i consumi del mese, distinguendo quelli reali da quelli stimati. Le utenze Internet non hanno consumi.
+Una matricola diversa dalla precedente indica un nuovo contatore. Il grafico mostra i consumi del mese, distinguendo quelli reali da quelli stimati; i giorni dopo l'ultimo dato registrato (es. bolletta non ancora arrivata) sono stimati, i buchi tra due dati restano vuoti. Le utenze Internet non hanno consumi.
 
 Per le utenze elettriche il consumo di periodo può avere anche:
 
