@@ -45,6 +45,7 @@ export interface Anomalies {
   active_utilities_without_position: AnomalyList<UtilityAnomaly>;
   plants_without_asset: AnomalyList<PlantAnomaly>;
   plants_fire_equipment_overdue: AnomalyList<PlantAnomaly>;
+  utilities_with_reactive_penalty: AnomalyList<UtilityAnomaly>;
   real_estate_contracts_without_parties: AnomalyList<{ id: number; subject: string | null }>;
   third_parties_without_identifier: AnomalyList<{ id: number; name: string; type: string }>;
   active_utilities_without_arera_category: AnomalyList<UtilityAnomaly>;
@@ -443,6 +444,19 @@ export class AnomaliesService {
           ORDER BY p.code`,
         [todayIso()],
       );
+    // Penali per energia reattiva (basso cos φ) in un periodo terminato negli
+    // ultimi 365 giorni: impianto da rifasare. Oggi passato da Node.
+    const reactivePenalty: UtilityAnomaly[] = await this.dataSource.query(
+      `/* utilities_with_reactive_penalty */ SELECT DISTINCT ${utilityColumns}
+         FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
+         CROSS JOIN (SELECT CAST(? AS DATE) AS today) d
+         JOIN utility_consumptions uc ON uc.utility_id_fk = u.id AND uc.deleted = 0
+              AND uc.kind = 'PERIOD' AND uc.reactive_penalty = 1
+              AND uc.period_end > DATE_SUB(d.today, INTERVAL 365 DAY)
+        WHERE u.deleted = 0
+        ORDER BY t.name, u.utility_id`,
+      [todayIso()],
+    );
     const assetItems = (rows: { id: unknown; asset_name: string }[]) =>
       list(rows.map((a) => ({ id: Number(a.id), asset_name: a.asset_name })));
 
@@ -523,6 +537,9 @@ export class AnomaliesService {
           name: p.name,
           type: p.type,
         })),
+      ),
+      utilities_with_reactive_penalty: list(
+        reactivePenalty.map((u) => ({ id: Number(u.id), utility_id: u.utility_id, type: u.type })),
       ),
       plants_fire_equipment_overdue: list(
         fireOverdue.map((p) => ({ id: Number(p.id), code: p.code, name: p.name, type: p.type })),

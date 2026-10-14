@@ -103,4 +103,5 @@ export const UTILITY_SIGNALS: SignalDef[] = [
   {key: 'utilities_with_uncommitted_chapter', label: 'Capitolo non impegnato sul contratto di fornitura'},
   {key: 'active_utilities_without_chapter', label: 'Senza capitolo di spesa'},
   {key: 'active_utilities_without_position', label: 'Attive senza posizione'},
+  {key: 'utilities_with_reactive_penalty', label: 'Penali per energia reattiva'},
 ];
