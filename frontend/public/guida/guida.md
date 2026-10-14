@@ -1,6 +1,6 @@
 # UtenzePA – Guida per gli operatori
 
-_Ultimo aggiornamento: 2026-10-13_
+_Ultimo aggiornamento: 2026-10-14_
 
 ## Cos'è e chi lo usa
 
@@ -84,7 +84,15 @@ Il significato degli stati è in «A carico di: gli stati».
     - **Consumo periodo**: date dal/al e consumo del periodo (es. da una fattura).
 3. Premi **Salva**.
 
-Una matricola diversa dalla precedente indica un nuovo contatore. Il grafico mostra i consumi del mese, distinguendo quelli reali da quelli stimati. Le utenze Internet non hanno consumi.
+Una matricola diversa dalla precedente indica un nuovo contatore. Il grafico mostra i consumi del mese, distinguendo quelli reali da quelli stimati; i giorni dopo l'ultimo dato registrato (es. bolletta non ancora arrivata) sono stimati, i buchi tra due dati restano vuoti. Se l'utenza ha dati per fascia, ogni barra è divisa in colori per fascia (F1, F2, F3, F0) più un grigio per la parte senza fasce; la stima è ripartita secondo le quote dell'ultimo anno. Le utenze Internet non hanno consumi.
+
+Per le utenze elettriche il consumo di periodo può avere anche:
+
+- le **fasce** F0 (monoraria), F1, F2, F3: facoltative; se le compili, la loro somma deve coincidere col consumo del periodo (scarto massimo 1 kWh);
+- sulla **lettura contatore**, i **totalizzatori** F1, F2, F3 letti sul contatore: facoltativi; la loro somma deve coincidere col valore letto e ognuno non può scendere rispetto alla lettura precedente dello stesso contatore. Il consumo di ogni fascia è la differenza tra due letture;
+- la casella **Penale per energia reattiva**, se la bolletta addebita una penale per basso fattore di potenza. Le utenze con una penale negli ultimi 12 mesi compaiono nella segnalazione «Penali per energia reattiva»: l'impianto va rifasato.
+
+Nella scheda delle utenze elettriche, tab **Tecnici e stato**, c'è anche il **Codice impianto fornitore**: il codice con cui il fornitore di energia identifica la fornitura, stabile tra i rinnovi del contratto.
 
 ### Consultare la mappa
 
@@ -216,11 +224,15 @@ Le schede, gli elenchi degli allegati e gli atti sono visibili a tutti. **Aprire
 
 Un CIG può essere usato da un solo contratto. Il numero d'ordine CONSIP è unico.
 
+Nella scheda dell'utenza i contratti di fornitura compaiono con quelli **in corso** in alto, poi dal più recente al più vecchio.
+
+**Rinnovo con le stesse utenze:** nella scheda di un contratto, **Nuovo contratto con queste utenze** apre un nuovo contratto con le stesse utenze collegate e con fornitore, tipologia, convenzione CONSIP e «Manutenzione inclusa» già compilati. CIG, ordine e date vanno inseriti. Con **Chiudi il contratto precedente** spuntata (scelta predefinita), il contratto precedente scade il giorno prima della decorrenza del nuovo (se la sua scadenza manca o non è anteriore), così non risultano contratti sovrapposti. Se la decorrenza del nuovo è già arrivata il precedente diventa subito chiuso; se è futura resta il contratto corrente fino ad allora. Prima di usare l'azione salva o annulla le modifiche alla scheda.
+
 ### Segnalazioni per elenco
 
 | Elenco | Segnalazioni |
 | --- | --- |
-| Utenze | Attive senza contratto di fornitura valido · Attive coperte solo da contratti senza CIG · Con contratti di fornitura sovrapposti · Attive senza tipologia ARERA · Da volturare · Volturate da riprendere · Capitolo non impegnato sul contratto di fornitura · Senza capitolo di spesa · Attive senza posizione |
+| Utenze | Attive senza contratto di fornitura valido · Attive coperte solo da contratti senza CIG · Con contratti di fornitura sovrapposti · Attive senza tipologia ARERA · Da volturare · Volturate da riprendere · Capitolo non impegnato sul contratto di fornitura · Senza capitolo di spesa · Attive senza posizione · Penali per energia reattiva (penale in un periodo terminato negli ultimi 12 mesi) |
 | Immobili | Da classificare (tipologia o funzione mancanti) · Non di proprietà senza contratto passivo attivo · Di proprietà senza catasto · Fabbricati di proprietà senza Id MEF · Subalterno da assegnare (stessi via, civico, foglio e particella) |
 | Impianti | Senza posizione · Senza immobile · Presidi scaduti (almeno un estintore con una scadenza superata) |
 | Fatture | Su utenze cessate · Con righe senza utenza |
@@ -300,6 +312,14 @@ In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni u
 **Soluzione:** correggi la data di attivazione o di cessazione nel tab **Tecnici e stato**.
 
 **Apri un ticket se:** le date sono corrette ma il messaggio resta.
+
+### «La somma delle fasce … non coincide con il consumo del periodo …»
+
+**Causa:** nel consumo di periodo le fasce F0–F3 compilate non sommano al consumo indicato (scarto oltre 1 kWh).
+
+**Soluzione:** ricopia le fasce dalla bolletta o correggi il consumo; se non conosci le fasce, lasciale tutte vuote.
+
+**Apri un ticket se:** la somma torna ma il messaggio resta.
 
 ### Il fatturato supera l'assestato del capitolo
 

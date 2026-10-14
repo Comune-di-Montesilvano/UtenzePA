@@ -120,6 +120,18 @@ export function supplyContractStatus(
   return {tone: 'ok', label: 'In corso', icon: 'check_circle'};
 }
 
+// Contratti di fornitura nella scheda utenza: prima quelli in corso, poi per
+// decorrenza decrescente; senza decorrenza in fondo; a parità id decrescente.
+export function sortSupplyContracts<T extends {id: number; closed?: boolean | null;
+  supply_start_date?: Date | string | null; supply_expiry_date?: Date | string | null}>(
+  contracts: T[], today = todayIso(),
+): T[] {
+  const current = (c: T) => (supplyContractStatus(c, today).tone === 'ok' ? 0 : 1);
+  const start = (c: T) => (c.supply_start_date ? isoOf(c.supply_start_date) : '');
+  return [...contracts].sort((a, b) =>
+    current(a) - current(b) || start(b).localeCompare(start(a)) || b.id - a.id);
+}
+
 const euro = (v: number | null | undefined): string =>
   Number(v ?? 0).toLocaleString('it-IT', {style: 'currency', currency: 'EUR'});
 

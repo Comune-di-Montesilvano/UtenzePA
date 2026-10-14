@@ -42,6 +42,7 @@ export class Utility extends AbstractEntity {
   estimated_annual_consumption?: number;
   power_kw_electric?: number;
   voltage_kw_electric?: string;
+  supplier_plant_code?: string | null;
   phase_type_electric?: Phase;
   latitude?: string;
   longitude?: string;
