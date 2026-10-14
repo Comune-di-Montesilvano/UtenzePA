@@ -123,6 +123,40 @@ describe('UtilityConsumptionsService', () => {
     expect(recalc.recalcUtility).toHaveBeenCalledWith(7);
   });
 
+  const periodDto = (extra: Record<string, unknown> = {}) => ({
+    kind: ConsumptionKind.PERIOD, reading_date: null, reading_value: null, meter_number: null,
+    period_start: '2026-05-01', period_end: '2026-05-31', consumption: 100, ...extra,
+  });
+
+  it('periodo elettrico con fasce coerenti e penale: salvati', async () => {
+    repo.find.mockResolvedValue([]);
+    await service.createForUtility(7, periodDto({ consumption_f1: 60, consumption_f2: 40, reactive_penalty: true }) as never, 3);
+    expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ consumption_f1: 60, consumption_f2: 40, reactive_penalty: true }));
+  });
+
+  it('fasce che non sommano al consumo: 400 e nessun salvataggio', async () => {
+    repo.find.mockResolvedValue([]);
+    await expect(service.createForUtility(7, periodDto({ consumption_f1: 10 }) as never, 3)).rejects.toThrow(
+      'La somma delle fasce (10 kWh) non coincide con il consumo del periodo (100 kWh).',
+    );
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('utenza gas: fasce e penale azzerate senza errore', async () => {
+    repo.find.mockResolvedValue([]);
+    utilityRepo.findOne.mockResolvedValue({ ...lightUtility, utilityType: { hard_type: HardTypeEnum.GAS } });
+    await service.createForUtility(7, periodDto({ consumption_f1: 10, reactive_penalty: true }) as never, 3);
+    expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ consumption_f1: null, reactive_penalty: null }));
+  });
+
+  it('PATCH del solo consumo: la somma è ricontrollata con le fasce già salvate', async () => {
+    const current = { id: 5, utility_id_fk: 7, ...periodDto({ consumption_f1: '60.000', consumption_f2: '40.000' }), deleted: false };
+    repo.findOne.mockResolvedValue(current);
+    repo.find.mockResolvedValue([current]);
+    await expect(service.update(5, { consumption: 150 } as never, 3)).rejects.toThrow('non coincide con il consumo del periodo');
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
   it('PATCH su rilevazione inesistente: 400', async () => {
     repo.findOne.mockResolvedValue(null);
     await expect(service.update(123, { notes: 'x' }, 3)).rejects.toThrow(BadRequestException);

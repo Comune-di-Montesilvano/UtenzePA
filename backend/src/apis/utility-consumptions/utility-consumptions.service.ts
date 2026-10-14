@@ -24,6 +24,7 @@ import {
   normalizeMeter,
   readingDeltas,
   todayDay,
+  validateBands,
   validateConsumption,
 } from './consumption-calculator';
 
@@ -44,6 +45,9 @@ export interface UtilityConsumptionSummary {
 }
 
 const toNumber = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
+
+// Fasce e penale reattiva esistono solo per le utenze elettriche.
+const isElectric = (u: Utility): boolean => u.utilityType?.hard_type === HardTypeEnum.LIGHT;
 
 const toLocalIsoDate = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -76,6 +80,10 @@ export class UtilityConsumptionsService extends BaseService<
         ...r,
         reading_value: toNumber(r.reading_value),
         consumption: toNumber(r.consumption),
+        consumption_f0: toNumber(r.consumption_f0),
+        consumption_f1: toNumber(r.consumption_f1),
+        consumption_f2: toNumber(r.consumption_f2),
+        consumption_f3: toNumber(r.consumption_f3),
         computed_consumption:
           r.kind === ConsumptionKind.PERIOD ? toNumber(r.consumption) : (deltas.get(r.id) ?? null),
       }))
@@ -110,7 +118,10 @@ export class UtilityConsumptionsService extends BaseService<
     userId: number,
   ): Promise<UtilityConsumption> {
     const utility = await this.loadUtility(utilityId);
-    const candidate = normalizeByKind(dto as ConsumptionRecord & { notes?: string | null });
+    const candidate = normalizeByKind(
+      dto as ConsumptionRecord & { notes?: string | null },
+      isElectric(utility),
+    );
     await this.validate(utility, candidate);
     const saved = await super.create({ ...candidate, utility_id_fk: utilityId } as never, userId);
     await this.afterChange(utility, userId);
@@ -125,9 +136,10 @@ export class UtilityConsumptionsService extends BaseService<
     const current = await this.repo.findOne({ where: { id, deleted: false } });
     if (!current) throw new BadRequestException('Rilevazione non trovata');
     const utility = await this.loadUtility(current.utility_id_fk);
-    const merged = normalizeByKind({ ...current, ...dto } as ConsumptionRecord & {
-      notes?: string | null;
-    });
+    const merged = normalizeByKind(
+      { ...current, ...dto } as ConsumptionRecord & { notes?: string | null },
+      isElectric(utility),
+    );
     await this.validate(utility, { ...merged, id });
     const saved = await super.update(id, merged as never, userId);
     await this.afterChange(utility, userId);
@@ -158,6 +170,8 @@ export class UtilityConsumptionsService extends BaseService<
     const others = await this.repo.find({ where: { utility_id_fk: utility.id, deleted: false } });
     const error = validateConsumption(candidate, others, todayDay());
     if (error) throw new BadRequestException(error);
+    const bandError = validateBands(candidate);
+    if (bandError) throw new BadRequestException(bandError);
     // Matricola già dell'utenza (attuale o di letture precedenti): nessun
     // check, i duplicati storici tra utenze bloccano solo un cambio matricola.
     const ownMeters = new Set([

@@ -49,6 +49,7 @@ export class ConsumptionRecalcService {
       },
       computeSeasonalEstimate(daily, today),
       now,
+      coverageDays,
     );
 
     await this.utilityRepo.update(utilityId, {
