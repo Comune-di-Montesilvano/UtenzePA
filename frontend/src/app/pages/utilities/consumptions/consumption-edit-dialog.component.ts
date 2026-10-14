@@ -6,6 +6,7 @@ import {MatInputModule} from '@angular/material/input';
 import {MatButtonModule} from '@angular/material/button';
 import {MatButtonToggleModule} from '@angular/material/button-toggle';
 import {MatDatepickerModule} from '@angular/material/datepicker';
+import {MatCheckboxModule} from '@angular/material/checkbox';
 import {HttpErrorResponse} from '@angular/common/http';
 import {ConsumptionKind, ConsumptionPayload, toIsoDate, UtilityConsumption} from './consumption.model';
 import {UtilityConsumptionService} from './utility-consumption.service';
@@ -14,6 +15,8 @@ export interface ConsumptionEditDialogData {
   utilityId: number;
   meterNumber: string | null;
   item?: UtilityConsumption;
+  // Utenza elettrica: fasce F0–F3 e penale reattiva sui consumi di periodo.
+  isElectric?: boolean;
 }
 
 // Salva da sé (non delega al chiamante) per mostrare inline gli errori di
@@ -22,7 +25,7 @@ export interface ConsumptionEditDialogData {
   selector: 'app-consumption-edit-dialog',
   standalone: true,
   imports: [ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule,
-    MatButtonToggleModule, MatDatepickerModule],
+    MatButtonToggleModule, MatDatepickerModule, MatCheckboxModule],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <h2 mat-dialog-title>{{ data.item ? 'Modifica rilevazione' : 'Nuova rilevazione' }}</h2>
@@ -70,6 +73,20 @@ export interface ConsumptionEditDialogData {
               <input matInput type="number" min="0" formControlName="consumption">
             </mat-form-field>
           </div>
+          @if (data.isElectric) {
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+              @for (f of bandFields; track f.key) {
+                <mat-form-field style="flex: 1 1 20%;">
+                  <mat-label>{{ f.label }}</mat-label>
+                  <input matInput type="number" min="0" [formControlName]="f.key">
+                </mat-form-field>
+              }
+            </div>
+            <p style="margin: -0.5rem 0 0; font-size: 0.8rem; color: var(--app-muted);">
+              Fasce facoltative; se compilate, la somma deve coincidere col consumo.
+            </p>
+            <mat-checkbox formControlName="reactive_penalty">Penale per energia reattiva</mat-checkbox>
+          }
         }
 
         <mat-form-field>
@@ -95,6 +112,12 @@ export class ConsumptionEditDialogComponent {
   protected data = inject<ConsumptionEditDialogData>(MAT_DIALOG_DATA);
 
   readonly today = new Date();
+  readonly bandFields = [
+    {key: 'consumption_f0', label: 'F0 (monoraria)'},
+    {key: 'consumption_f1', label: 'F1'},
+    {key: 'consumption_f2', label: 'F2'},
+    {key: 'consumption_f3', label: 'F3'},
+  ] as const;
   error: string | null = null;
   saving = false;
 
@@ -112,6 +135,11 @@ export class ConsumptionEditDialogComponent {
     period_start: [this.toDate(this.data.item?.period_start)],
     period_end: [this.toDate(this.data.item?.period_end)],
     consumption: [this.data.item?.consumption ?? null as number | null],
+    consumption_f0: [this.data.item?.consumption_f0 ?? null as number | null],
+    consumption_f1: [this.data.item?.consumption_f1 ?? null as number | null],
+    consumption_f2: [this.data.item?.consumption_f2 ?? null as number | null],
+    consumption_f3: [this.data.item?.consumption_f3 ?? null as number | null],
+    reactive_penalty: [this.data.item?.reactive_penalty ?? false],
     notes: [this.data.item?.notes ?? ''],
   });
 
@@ -127,6 +155,10 @@ export class ConsumptionEditDialogComponent {
     if (!this.isValid()) return;
     const v = this.form.getRawValue();
     const isReading = v.kind === 'READING';
+    // Fasce e penale viaggiano solo per i periodi elettrici (il backend le azzera altrove).
+    const bands = !isReading && !!this.data.isElectric;
+    const num = (x: number | null | undefined): number | null =>
+      bands && x !== null && x !== undefined && String(x) !== '' ? Number(x) : null;
     const payload: ConsumptionPayload = {
       kind: v.kind as ConsumptionKind,
       reading_date: isReading && v.reading_date ? toIsoDate(v.reading_date) : null,
@@ -135,6 +167,11 @@ export class ConsumptionEditDialogComponent {
       period_start: !isReading && v.period_start ? toIsoDate(v.period_start) : null,
       period_end: !isReading && v.period_end ? toIsoDate(v.period_end) : null,
       consumption: !isReading ? Number(v.consumption) : null,
+      consumption_f0: num(v.consumption_f0),
+      consumption_f1: num(v.consumption_f1),
+      consumption_f2: num(v.consumption_f2),
+      consumption_f3: num(v.consumption_f3),
+      reactive_penalty: bands ? !!v.reactive_penalty : null,
       notes: v.notes?.trim() ? v.notes.trim() : null,
     };
     this.saving = true;

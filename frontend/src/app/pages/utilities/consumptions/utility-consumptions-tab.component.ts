@@ -8,7 +8,7 @@ import {ConfirmDialogComponent, ConfirmDialogData} from '../../../core/component
 import {ConsumptionChartComponent} from './consumption-chart.component';
 import {ConsumptionEditDialogComponent, ConsumptionEditDialogData} from './consumption-edit-dialog.component';
 import {UtilityConsumptionService} from './utility-consumption.service';
-import {ConsumptionSummary, formatDateIt, formatQty, UtilityConsumption} from './consumption.model';
+import {bandsLabel, ConsumptionSummary, formatDateIt, formatQty, HISTORY_MIN_COVERAGE_DAYS, UtilityConsumption} from './consumption.model';
 
 const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
   MANUAL: 'Manuale', INVOICE: 'Fattura', IMPORT: 'Import', API: 'API',
@@ -65,6 +65,9 @@ const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
                 <th style="padding: 6px;">Matricola</th>
                 <th style="padding: 6px; text-align: right;">Lettura</th>
                 <th style="padding: 6px; text-align: right;">Consumo</th>
+                @if (summary?.unit === 'kWh') {
+                  <th style="padding: 6px;">Fasce</th>
+                }
                 <th style="padding: 6px;">Origine</th>
                 <th style="padding: 6px;">Note</th>
                 <th style="padding: 6px;"></th>
@@ -86,6 +89,15 @@ const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
                       {{ formatQty(row.computed_consumption, summary?.unit) }}
                     }
                   </td>
+                  @if (summary?.unit === 'kWh') {
+                    <td style="padding: 6px; white-space: nowrap;">
+                      {{ bandsLabel(row) }}
+                      @if (row.reactive_penalty) {
+                        <mat-icon style="font-size: 18px; height: 18px; width: 18px; vertical-align: middle; color: var(--tone-warn-fg);"
+                                  matTooltip="Penale per energia reattiva" aria-label="Penale per energia reattiva">bolt</mat-icon>
+                      }
+                    </td>
+                  }
                   <td style="padding: 6px;">{{ sourceLabel[row.source] }}</td>
                   <td style="padding: 6px;">{{ row.notes ?? '' }}</td>
                   <td style="padding: 6px; white-space: nowrap; text-align: right;">
@@ -116,6 +128,7 @@ export class UtilityConsumptionsTabComponent implements OnInit {
   readonly formatQty = formatQty;
   readonly formatDateIt = formatDateIt;
   readonly sourceLabel = SOURCE_LABEL;
+  readonly bandsLabel = bandsLabel;
 
   summary: ConsumptionSummary | null = null;
   rows: UtilityConsumption[] = [];
@@ -128,6 +141,9 @@ export class UtilityConsumptionsTabComponent implements OnInit {
     const s = this.summary;
     if (!s) return {text: '', bg: 'transparent', fg: 'inherit'};
     if (s.estimated_source === 'MANUAL') {
+      if (s.coverage_days >= HISTORY_MIN_COVERAGE_DAYS) {
+        return {text: 'Manuale — sarà sostituita dallo storico al prossimo ricalcolo', bg: 'var(--tone-warn-bg)', fg: 'var(--tone-warn-fg)'};
+      }
       return s.estimated_valid_until && s.estimated_valid_until >= new Date().toISOString().slice(0, 10)
         ? {text: `Manuale — valida fino al ${formatDateIt(s.estimated_valid_until)}`, bg: 'var(--tone-warn-bg)', fg: 'var(--tone-warn-fg)'}
         : {text: 'Manuale — scaduta', bg: 'var(--tone-danger-bg)', fg: 'var(--tone-danger-fg)'};
@@ -140,7 +156,7 @@ export class UtilityConsumptionsTabComponent implements OnInit {
     this.dialog.open<ConsumptionEditDialogComponent, ConsumptionEditDialogData, boolean>(ConsumptionEditDialogComponent, {
       width: '720px',
       maxWidth: '720px',
-      data: {utilityId: this.utilityId, meterNumber: this.meterNumber, item},
+      data: {utilityId: this.utilityId, meterNumber: this.meterNumber, item, isElectric: this.summary?.unit === 'kWh'},
     }).afterClosed().subscribe(saved => {
       if (saved) this.reload();
     });

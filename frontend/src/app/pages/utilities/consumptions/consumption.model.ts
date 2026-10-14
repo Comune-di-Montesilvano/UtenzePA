@@ -17,6 +17,11 @@ export interface UtilityConsumption {
   period_start: string | null;
   period_end: string | null;
   consumption: number | null;
+  consumption_f0: number | null;
+  consumption_f1: number | null;
+  consumption_f2: number | null;
+  consumption_f3: number | null;
+  reactive_penalty: boolean | null;
   source: 'MANUAL' | 'INVOICE' | 'IMPORT' | 'API';
   notes: string | null;
   computed_consumption: number | null;
@@ -30,6 +35,11 @@ export interface ConsumptionPayload {
   period_start: string | null;
   period_end: string | null;
   consumption: number | null;
+  consumption_f0: number | null;
+  consumption_f1: number | null;
+  consumption_f2: number | null;
+  consumption_f3: number | null;
+  reactive_penalty: boolean | null;
   notes: string | null;
 }
 
@@ -73,6 +83,16 @@ export function formatQty(value: number | null | undefined, unit?: string | null
   if (value === null || value === undefined) return '—';
   const text = Number(value).toLocaleString('it-IT', {maximumFractionDigits: 2});
   return unit ? `${text} ${unit}` : text;
+}
+
+// Fasce in forma compatta per la tabella: «F1 1.234 · F2 567 · F3 890» (F0 solo se valorizzata).
+export function bandsLabel(
+  r: Pick<UtilityConsumption, 'consumption_f0' | 'consumption_f1' | 'consumption_f2' | 'consumption_f3'>,
+): string {
+  return ([['F0', r.consumption_f0], ['F1', r.consumption_f1], ['F2', r.consumption_f2], ['F3', r.consumption_f3]] as const)
+    .filter(([, v]) => v !== null && v !== undefined)
+    .map(([k, v]) => `${k} ${formatQty(v)}`)
+    .join(' · ');
 }
 
 export function formatDateIt(iso: string | null | undefined): string {
