@@ -34,13 +34,13 @@ import {UtilityConsumptionsTabComponent} from './consumptions/utility-consumptio
 import {PlantService} from '../plants/plant.service';
 import {Plant, PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PlantStatus, PlantType} from '../plants/plant.model';
 import {BudgetChapter} from '../budget-chapters/entity/budget-chapter.entity';
-import {CONSUMPTION_UNIT_BY_HARD_TYPE, ConsumptionSummary, formatQty} from './consumptions/consumption.model';
+import {CONSUMPTION_UNIT_BY_HARD_TYPE, ConsumptionSummary, formatQty, HISTORY_MIN_COVERAGE_DAYS} from './consumptions/consumption.model';
 import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
 import {PreviewCardComponent, PreviewItem} from '../../core/components/entity-sheet/preview-card.component';
 import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components/entity-sheet/linked-table.component';
-import {assetStatus, costStatus, maintenanceStatus, plantStatus, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
+import {assetStatus, costStatus, maintenanceStatus, plantStatus, sortSupplyContracts, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
 import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import {UtilityService} from './utility.service';
@@ -213,12 +213,13 @@ export class UtilityEditDialogComponent implements OnInit {
     utility_id: [{value: this.data.item.utility_id ?? '', disabled: !this.isNew}, Validators.required],
     utility_type_id_fk: [this.data.item.utility_type_id_fk ?? null, Validators.required],
     voltage_kw_electric: [this.data.item.voltage_kw_electric ?? ''],
+    supplier_plant_code: [this.data.item.supplier_plant_code ?? ''],
     water_concession: [this.toDate(this.data.item.water_concession)],
     wbs_gas_element: [this.data.item.wbs_gas_element ?? ''],
   }, {validators: [atLeastOneLink, lifeDatesInOrder]});
 
   // Collegamenti: campi cache aggiornati da refreshLinks().
-  contracts: Contract[] = this.data.item.contratti ?? [];
+  contracts: Contract[] = sortSupplyContracts(this.data.item.contratti ?? []);
   assetRows: Asset[] = [];
   plantRows: PlantRow[] = [];
   assetPreview: PreviewItem[] = [];
@@ -543,7 +544,7 @@ export class UtilityEditDialogComponent implements OnInit {
 
   private reloadContracts(): void {
     this.contractsService.search({utility_id: this.data.item.id} as never).subscribe(contracts => {
-      this.contracts = contracts;
+      this.contracts = sortSupplyContracts(contracts);
       this.data.item.contratti = contracts;
       this.refreshLinks();
       this.loadCommittedChapters();
@@ -573,6 +574,10 @@ export class UtilityEditDialogComponent implements OnInit {
         internet_technology: null, download_mbps: null, upload_mbps: null,
         guaranteed_mbps: null, modem_included: null, static_ip: null,
       });
+    }
+    // Il codice impianto del fornitore esiste solo per le utenze elettriche.
+    if (this.selectedHardType !== HardType.LIGHT) {
+      this.form.controls.supplier_plant_code.setValue('');
     }
     this.buildBudgetChapterOptions();
   }
@@ -633,7 +638,7 @@ export class UtilityEditDialogComponent implements OnInit {
         const until = new Date(setAt);
         until.setMonth(until.getMonth() + 12);
         return until > new Date()
-          ? `Manuale, valida fino al ${until.toLocaleDateString('it-IT')}`
+          ? `Manuale, valida fino al ${until.toLocaleDateString('it-IT')} o finché lo storico non copre ${HISTORY_MIN_COVERAGE_DAYS} giorni`
           : 'Manuale scaduta: verrà sostituita dallo storico consumi';
       }
       case 'HISTORY': return 'Calcolata dallo storico consumi';

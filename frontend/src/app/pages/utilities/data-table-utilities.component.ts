@@ -64,6 +64,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     {field: 'wbs_gas_element', header: 'Elemento WBS Gas', minWidth: '120px'},
     {field: 'power_kw_electric', header: 'Potenza (kW)', minWidth: '100px'},
     {field: 'voltage_kw_electric', header: 'Tensione (V / kV)', minWidth: '100px'},
+    {field: 'supplier_plant_code', header: 'Codice impianto fornitore', minWidth: '150px'},
     {field: 'phase_type_electric', header: 'Tipo Fase', minWidth: '100px'},
     {field: 'estimated_annual_consumption', header: 'Consumo annuo presunto', minWidth: '150px'},
     {field: 'reported_consumption_year', header: 'Consumo annuo comunicato', minWidth: '150px'},

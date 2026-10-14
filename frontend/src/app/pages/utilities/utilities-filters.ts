@@ -53,6 +53,7 @@ export function utilityFilters(): FilterDef[] {
       options: [{label: 'Non assegnata', value: ARERA_NONE}, ...GAS_USE_OPTIONS]},
     {key: 'power_kw_electric', label: 'Potenza (kW)', type: 'text', group: 'Caratteristiche tecniche'},
     {key: 'voltage_kw_electric', label: 'Tensione (V / kV)', type: 'text', group: 'Caratteristiche tecniche'},
+    {key: 'supplier_plant_code', label: 'Codice impianto fornitore', type: 'text', group: 'Caratteristiche tecniche'},
     {key: 'phase_type_electric', label: 'Tipo fase', type: 'select', group: 'Caratteristiche tecniche', options: Phase.options()},
     {key: 'disconnectable', label: 'Disalimentabilità', type: 'select', group: 'Caratteristiche tecniche',
       options: [{label: 'Sì', value: 'true'}, {label: 'No', value: 'false'}, {label: 'Non noto', value: 'unknown'}]},

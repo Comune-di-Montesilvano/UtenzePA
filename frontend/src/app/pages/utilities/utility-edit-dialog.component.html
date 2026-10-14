@@ -295,6 +295,10 @@
               <input matInput formControlName="voltage_kw_electric">
             </mat-form-field>
             <mat-form-field>
+              <mat-label>Codice impianto fornitore</mat-label>
+              <input matInput formControlName="supplier_plant_code" maxlength="50">
+            </mat-form-field>
+            <mat-form-field>
               <mat-label>Tipo Fase</mat-label>
               <mat-select formControlName="phase_type_electric">
                 @for (opt of phaseTypeOptions; track opt.value) {
