@@ -111,13 +111,23 @@ describe('ContractsService', () => {
     it('chiude il precedente e ne accorcia la scadenza nella stessa transazione', async () => {
       repo.findOne.mockResolvedValue({ id: 3, deleted: false, closed: false, supply_expiry_date: null } as unknown as Contract);
       manager.findOne.mockResolvedValue({ id: 10 } as Contract);
-      await service.create({ cig_contract: 'CIG1', supply_start_date: '2026-07-01', replaces_contract_id: 3 } as never, 5);
+      await service.create({ cig_contract: 'CIG1', supply_start_date: '2026-01-01', replaces_contract_id: 3 } as never, 5);
       expect(dataSource.transaction).toHaveBeenCalledTimes(1);
       expect(manager.save).toHaveBeenCalledWith(
         Contract,
-        expect.objectContaining({ id: 3, closed: true, supply_expiry_date: '2026-06-30', updated_by_user_id: 5 }),
+        expect.objectContaining({ id: 3, closed: true, supply_expiry_date: '2025-12-31', updated_by_user_id: 5 }),
       );
       expect(manager.create).not.toHaveBeenCalledWith(Contract, expect.objectContaining({ replaces_contract_id: 3 }));
+    });
+
+    it('rinnovo anticipato: il precedente resta aperto fino alla nuova decorrenza', async () => {
+      repo.findOne.mockResolvedValue({ id: 3, deleted: false, closed: false, supply_expiry_date: null } as unknown as Contract);
+      manager.findOne.mockResolvedValue({ id: 10 } as Contract);
+      await service.create({ cig_contract: 'CIG1', supply_start_date: '2099-07-01', replaces_contract_id: 3 } as never, 5);
+      expect(manager.save).toHaveBeenCalledWith(
+        Contract,
+        expect.objectContaining({ id: 3, closed: false, supply_expiry_date: '2099-06-30' }),
+      );
     });
 
     it('contratto precedente inesistente o cancellato: 400 e nessuna creazione', async () => {

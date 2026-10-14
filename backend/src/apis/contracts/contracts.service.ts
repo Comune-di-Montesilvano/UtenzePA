@@ -11,6 +11,7 @@ import { SearchContractDto } from '@apis/contracts/dto/search-contract.dto';
 import { BaseService, toFindOptionsRelations } from '@apis/shared/base.service';
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { replacedContractPatch } from './replace-contract';
+import { todayIso } from '@apis/utilizer-grant/real-estate-contract.calc';
 
 // Assente = ordinario.
 const isCigRequired = (kind: ContractKind | null | undefined): boolean =>
@@ -137,7 +138,7 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
       }
 
       if (previous) {
-        previousPatch = replacedContractPatch(previous.supply_expiry_date, rest.supply_start_date);
+        previousPatch = replacedContractPatch(previous.supply_expiry_date, rest.supply_start_date, todayIso());
         Object.assign(previous, previousPatch);
         if (userId !== undefined) previous.updated_by_user_id = userId;
         await manager.save(Contract, previous);
