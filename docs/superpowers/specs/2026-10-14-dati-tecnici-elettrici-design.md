@@ -42,7 +42,7 @@ Nessun dato da spostare: la migration aggiunge solo colonne nullable.
 
 ### Utenza
 
-- `supplier_plant_code` vale solo per le utenze elettriche (`HardTypeEnum.LIGHT`): il service lo svuota se il tipo diventa un altro, come la connettività. Filtro testo e colonna nell'elenco utenze.
+- `supplier_plant_code` vale solo per le utenze elettriche (`HardTypeEnum.LIGHT`): la scheda lo svuota se il tipo diventa un altro, come già fa per la connettività. Filtro testo e colonna (facoltativa) nell'elenco utenze.
 
 ### Consumo di periodo
 
@@ -61,7 +61,7 @@ Effetto atteso sui dati di oggi: le stime manuali del 03/09/2026 delle utenze co
 
 ### Anomalia «Penali per energia reattiva»
 
-`utilities_with_reactive_penalty`, aggiunta in fondo a `getAnomalies()` (la spec usa mock posizionali): utenze non cancellate con almeno un consumo non cancellato `kind = PERIOD`, `reactive_penalty = 1` e `period_end` negli ultimi 365 giorni (data di oggi passata da Node con `todayIso()`, come `plants_fire_equipment_overdue`). Voce in `UTILITY_SIGNALS` e nella card anomalie della dashboard se le utenze vi compaiono già per le altre segnalazioni.
+`utilities_with_reactive_penalty`, aggiunta in fondo a `getAnomalies()` (la spec usa mock posizionali): utenze non cancellate con almeno un consumo non cancellato `kind = PERIOD`, `reactive_penalty = 1` e `period_end` negli ultimi 365 giorni (data di oggi passata da Node con `todayIso()`, come `plants_fire_equipment_overdue`). Voce in `UTILITY_SIGNALS` (la card anomalie della dashboard resta invariata).
 
 ### Contratti di fornitura
 
@@ -83,7 +83,6 @@ Effetto atteso sui dati di oggi: le stime manuali del 03/09/2026 delle utenze co
 - Backend:
   - `consumption-calculator.spec.ts`: `validateBands` (somma esatta, entro 1 kWh, oltre, fasce vuote = 0, nessuna fascia = nessun controllo), azzeramento per le letture, `decideEstimate` con copertura sotto e sopra 300 giorni;
   - `utility-consumptions.service.spec.ts`: fasce e penale azzerate per utenze non elettriche, errore 400 sulla somma;
-  - service utenze: `supplier_plant_code` svuotato al cambio verso un tipo non elettrico;
   - `anomalies.service.spec.ts`: nuova query in fondo;
   - `contracts.service.spec.ts`: `replaces_contract_id` chiude il precedente e ne accorcia la scadenza; scadenza già anteriore invariata; nuovo senza decorrenza; precedente inesistente → 400.
 - Frontend: `ng build`; prova reale con Playwright (consumo con fasce sbagliate → errore, penale → segnalazione, ordine dei contratti, nuovo contratto con le utenze e chiusura del precedente).
