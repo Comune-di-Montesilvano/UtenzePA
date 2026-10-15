@@ -42,6 +42,7 @@ export interface Anomalies {
   active_utilities_without_position: AnomalyList<UtilityAnomaly>;
   plants_without_asset: AnomalyList<{id: number; code: string; name: string; type: string}>;
   plants_fire_equipment_overdue: AnomalyList<{id: number; code: string; name: string; type: string}>;
+  plants_missing_inspections: AnomalyList<{id: number; code: string; name: string; type: string; missing: string}>;
   utilities_with_reactive_penalty: AnomalyList<UtilityAnomaly>;
   real_estate_contracts_without_parties: AnomalyList<{id: number; subject: string | null}>;
   third_parties_without_identifier: AnomalyList<{id: number; name: string; type: string}>;

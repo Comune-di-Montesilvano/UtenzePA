@@ -340,6 +340,15 @@ export class PlantEditDialogComponent implements OnInit {
     return info && (info.tone === 'danger' || info.tone === 'warn') ? info : null;
   }
 
+  // Verifiche obbligatorie per legge non registrate (con data).
+  missingInspectionsFlag(): StatusInfo | null {
+    const missing = this.plant?.missing_inspections ?? [];
+    return missing.length
+      ? {tone: 'warn', label: 'Verifiche obbligatorie mancanti', icon: 'gavel',
+        tooltip: missing.map(m => `${m.kind} (${m.law})`).join(', ')}
+      : null;
+  }
+
   // Impianti antincendio: estintori scaduti o in scadenza.
   fireEquipmentFlag(): StatusInfo | null {
     switch (this.plant?.fire_equipment_status) {

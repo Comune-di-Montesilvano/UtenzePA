@@ -15,6 +15,9 @@
     @if (fireEquipmentFlag(); as f) {
       <app-status-badge [info]="f" size="sm"></app-status-badge>
     }
+    @if (missingInspectionsFlag(); as f) {
+      <app-status-badge [info]="f" size="sm"></app-status-badge>
+    }
   </ng-container>
 
   @if (loading) {
@@ -330,11 +333,9 @@
                 </mat-form-field>
               </div>
               <p class="sheet-hint">
-                Al salvataggio, con la classificazione indicata, il tab Verifiche riceve «Messa a terra (DPR 462/01)»
-                e, se la protezione è presente, «Scariche atmosferiche (DPR 462/01)», con la periodicità giusta.
-                @if (form.controls.electrical.value.lightning_protection && !form.controls.electrical.value.grounding_class) {
-                  Senza classificazione le verifiche non vengono create.
-                }
+                Le verifiche «Messa a terra (DPR 462/01)» e, se la protezione è presente, «Scariche atmosferiche
+                (DPR 462/01)» sono obbligatorie: finché non sono registrate nel tab Verifiche con la data del verbale,
+                l'impianto è tra le segnalazioni. Cambiando la classificazione si aggiorna la periodicità di quelle registrate.
               </p>
             </div>
           }
@@ -358,14 +359,17 @@
       @if (plant && hasTab('inspections')) {
         <mat-tab aria-label="Verifiche">
           <ng-template mat-tab-label>
-            <app-tab-label icon="event" label="Verifiche" [count]="plant.inspections.length"
-                           [tone]="overdueInspections() ? 'danger' : 'info'"></app-tab-label>
+            <app-tab-label icon="event" label="Verifiche"
+                           [count]="plant.inspections.length || (plant.missing_inspections.length ? null : 0)"
+                           [dot]="plant.missing_inspections.length > 0"
+                           [tone]="overdueInspections() ? 'danger' : plant.missing_inspections.length ? 'warn' : 'info'"></app-tab-label>
           </ng-template>
           <app-plant-inspections-tab
             [plantId]="plant.id"
             [plantType]="plant.type"
             [powerKw]="plant.thermal?.power_kw ?? null"
             [rows]="plant.inspections"
+            [missing]="plant.missing_inspections"
             [readOnly]="!canEdit"
             (changed)="reloadPlant()"
             (attachmentsChanged)="refreshDocumentCount()">
