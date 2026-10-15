@@ -1,6 +1,8 @@
 import {
   Component,
+  EventEmitter,
   Input,
+  Output,
   OnChanges,
   OnDestroy,
   OnInit,
@@ -33,6 +35,8 @@ import { ToastService } from '../services/toast.service';
 export class PhotoGalleryComponent implements OnInit, OnChanges, OnDestroy {
   @Input({ required: true }) entityType!: PhotoEntityType;
   @Input({ required: true }) entityId!: number;
+  // Numero di foto dopo ogni caricamento (aggiunte/eliminate comprese).
+  @Output() countChange = new EventEmitter<number>();
 
   private photosService = inject(PhotosService);
   private dialog = inject(MatDialog);
@@ -101,6 +105,7 @@ export class PhotoGalleryComponent implements OnInit, OnChanges, OnDestroy {
     this.photosService.list(this.entityType, this.entityId).subscribe({
       next: (photos) => {
         this.photos = photos;
+        this.countChange.emit(photos.length);
         this.loadThumbnails();
       },
       error: () => this.toast.add({ severity: 'error', summary: 'Errore nel caricamento delle foto' }),

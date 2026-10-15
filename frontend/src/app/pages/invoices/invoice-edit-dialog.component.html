@@ -6,7 +6,7 @@
   [lastModified]="lastModified">
 
   <form [formGroup]="form">
-    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms" [disablePagination]="true">
       <mat-tab aria-label="Riepilogo">
         <ng-template mat-tab-label>
           <app-tab-label icon="dashboard" label="Riepilogo" [error]="invalid('invoice_id', 'invoice_date')"></app-tab-label>

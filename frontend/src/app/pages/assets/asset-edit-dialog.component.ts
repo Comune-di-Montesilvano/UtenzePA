@@ -111,12 +111,15 @@ interface UtilityTypeButton {
     .classification-field { display: flex; align-items: flex-start; gap: 4px; }
     .classification-field app-filterable-select { flex: 1 1 auto; min-width: 0; }
     .classification-help { margin-top: 16px; color: var(--sheet-muted); cursor: help; }
-    .units-scroll { overflow-x: auto; }
-    .units-table { width: 100%; border-collapse: collapse; }
+    /* Colonne a larghezza fissa e campi che si stringono (Material ha una
+       larghezza minima di 180px): la tabella sta nella scheda senza scorrere. */
+    .units-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .units-table ::ng-deep .mat-mdc-form-field-infix { width: auto; min-width: 0; }
     .units-table th { text-align: left; font-weight: 600; color: var(--sheet-muted); padding: 4px 6px; white-space: nowrap; }
     .units-table td { padding: 0 6px; vertical-align: top; }
     .units-table mat-form-field { width: 100%; }
     .units-table .col-short { width: 80px; }
+    @media (max-width: 700px) { .units-table .col-short { width: 56px; } .units-table td { padding: 0 2px; } }
     .units-table .col-action { width: 48px; padding-top: 8px; }
     .mef-list { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
     .mef-list dt { color: var(--sheet-muted); }
@@ -467,6 +470,12 @@ export class AssetEditDialogComponent implements OnInit {
 
   filled(...names: string[]): boolean {
     return hasAnyValue(this.form, ...names);
+  }
+
+  // Tab «Documenti e foto»: somma dei conteggi noti.
+  documentsAndPhotos(): number | null {
+    return this.documentCount === null && this.photoCount === null
+      ? null : (this.documentCount ?? 0) + (this.photoCount ?? 0);
   }
 
   goTo(label: string): void {
