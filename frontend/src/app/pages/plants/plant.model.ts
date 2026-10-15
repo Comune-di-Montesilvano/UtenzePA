@@ -1,7 +1,7 @@
 export type PlantType = 'THERMAL' | 'ELEVATOR' | 'FIRE_PROTECTION' | 'PHOTOVOLTAIC' | 'PUBLIC_LIGHTING'
   | 'TRAFFIC_LIGHT' | 'LIFTING_PUMP' | 'FOUNTAIN' | 'ELECTRICAL_CABIN' | 'WATER_KIOSK' | 'VIDEO_SURVEILLANCE'
   | 'BIKE_STATION' | 'POWER_POINT' | 'WATER_POINT' | 'SEWAGE' | 'IRRIGATION' | 'POWERED_STREET_FURNITURE'
-  | 'COMPACTOR' | 'STORMWATER';
+  | 'COMPACTOR' | 'STORMWATER' | 'ELECTRICAL_SYSTEM';
 export type PlantStatus = 'ACTIVE' | 'DECOMMISSIONED' | 'TO_VERIFY';
 export type InspectionStatus = 'OVERDUE' | 'DUE_SOON' | 'OK' | 'NO_DATE';
 export type PositionQuality = 'PRECISE' | 'FROM_ASSET' | 'ESTIMATED' | 'MISSING';
@@ -29,6 +29,7 @@ export const PLANT_TYPE_LABEL: Record<PlantType, string> = {
   POWERED_STREET_FURNITURE: 'Arredo urbano alimentato',
   COMPACTOR: 'Ecocompattatore',
   STORMWATER: 'Impianto raccolta acque meteoriche',
+  ELECTRICAL_SYSTEM: 'Impianto elettrico',
 };
 
 // Ligature Material Icons.
@@ -52,6 +53,7 @@ export const PLANT_TYPE_ICON: Record<PlantType, string> = {
   POWERED_STREET_FURNITURE: 'signpost',
   COMPACTOR: 'recycling',
   STORMWATER: 'thunderstorm',
+  ELECTRICAL_SYSTEM: 'bolt',
 };
 
 export const PLANT_TYPES = Object.keys(PLANT_TYPE_LABEL) as PlantType[];
@@ -70,6 +72,7 @@ export const PLANT_TYPE_TABS: Partial<Record<PlantType, PlantTab[]>> = {
   THERMAL: ['technical', 'inspections'],
   ELEVATOR: ['technical', 'inspections'],
   FIRE_PROTECTION: ['fire_equipment', 'inspections'],
+  ELECTRICAL_SYSTEM: ['technical', 'inspections'],
 };
 export function plantTabs(type: PlantType): PlantTab[] {
   return PLANT_TYPE_TABS[type] ?? DEFAULT_PLANT_TABS;
@@ -300,6 +303,32 @@ export interface PlantElevatorData {
   emergency_sim: boolean | null;
 }
 
+// Impianto elettrico dell'edificio (DM 37/08, DPR 462/01).
+export type ElectricalSupply = 'LV' | 'MV';
+export type GroundingClass = 'ORDINARY' | 'HIGH_RISK' | 'EXPLOSION';
+export type ConformityType = 'DICO' | 'DIRI';
+
+// Classificazione del luogo: periodicità della verifica di terra (gemella di
+// GROUNDING_PERIOD_MONTHS nel backend).
+export const GROUNDING_CLASS_LABEL: Record<GroundingClass, string> = {
+  ORDINARY: 'Ordinario — verifica ogni 5 anni',
+  HIGH_RISK: 'Maggior rischio (scuole, luoghi aperti al pubblico, locali medici) — 2 anni',
+  EXPLOSION: 'Pericolo di esplosione — 2 anni',
+};
+
+export interface PlantElectricalData {
+  supply: ElectricalSupply | null;
+  grounding_class: GroundingClass | null;
+  // null = non nota.
+  conformity_type: ConformityType | null;
+  conformity_date: string | null;
+  conformity_number: string | null;
+  inail_date: string | null;
+  inail_number: string | null;
+  // null = non nota.
+  lightning_protection: boolean | null;
+}
+
 export interface PlantPayload {
   type: PlantType;
   code: string;
@@ -315,6 +344,7 @@ export interface PlantPayload {
   utility_ids: number[];
   thermal?: PlantThermalData | null;
   elevator?: PlantElevatorData | null;
+  electrical?: PlantElectricalData | null;
 }
 
 export interface ThermalObligations {
@@ -323,7 +353,7 @@ export interface ThermalObligations {
   vvf_required: boolean;
 }
 
-export interface Plant extends Omit<PlantPayload, 'utility_ids' | 'asset_ids' | 'thermal' | 'elevator'> {
+export interface Plant extends Omit<PlantPayload, 'utility_ids' | 'asset_ids' | 'thermal' | 'elevator' | 'electrical'> {
   id: number;
   geocoded_latitude: string | null;
   geocoded_longitude: string | null;
@@ -331,6 +361,7 @@ export interface Plant extends Omit<PlantPayload, 'utility_ids' | 'asset_ids' | 
   utilities: {id: number; utility_id: string}[];
   thermal: PlantThermalData | null;
   elevator: PlantElevatorData | null;
+  electrical: PlantElectricalData | null;
   inspections: PlantInspection[];
   fireEquipment: PlantFireEquipment[];
   position: {lat: string; lng: string} | null;
