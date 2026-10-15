@@ -312,7 +312,7 @@ export type ConformityType = 'DICO' | 'DIRI';
 // GROUNDING_PERIOD_MONTHS nel backend).
 export const GROUNDING_CLASS_LABEL: Record<GroundingClass, string> = {
   ORDINARY: 'Ordinario — verifica ogni 5 anni',
-  HIGH_RISK: 'Maggior rischio (scuole, luoghi aperti al pubblico, locali medici) — 2 anni',
+  HIGH_RISK: 'Maggior rischio (scuole, luoghi a maggior rischio in caso di incendio, locali medici) — 2 anni',
   EXPLOSION: 'Pericolo di esplosione — 2 anni',
 };
 

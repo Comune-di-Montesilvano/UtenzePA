@@ -350,11 +350,20 @@ export class PlantEditDialogComponent implements OnInit {
   }
 
   // Nuovo impianto elettrico collegato a una scuola: classificazione proposta
-  // «maggior rischio», finché l'utente non sceglie da sé.
+  // «maggior rischio», finché l'utente non sceglie da sé; tolta di nuovo se
+  // la scuola viene scollegata o il tipo cambia.
+  private groundingProposed = false;
   private proposeGroundingClass(): void {
     const c = this.form.controls.electrical.controls.grounding_class;
-    if (this.plant || this.currentType() !== 'ELECTRICAL_SYSTEM' || c.dirty || c.value) return;
-    if (this.assetRows.some(isSchool)) c.setValue('HIGH_RISK');
+    if (this.plant || c.dirty) return;
+    const school = this.currentType() === 'ELECTRICAL_SYSTEM' && this.assetRows.some(isSchool);
+    if (school && !c.value) {
+      c.setValue('HIGH_RISK');
+      this.groundingProposed = true;
+    } else if (!school && this.groundingProposed) {
+      c.setValue(null);
+      this.groundingProposed = false;
+    }
   }
 
   // Solo il gruppo dati del tipo corrente partecipa alla validazione: un
