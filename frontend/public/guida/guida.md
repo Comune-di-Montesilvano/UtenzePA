@@ -1,6 +1,6 @@
 # UtenzePA – Guida per gli operatori
 
-_Ultimo aggiornamento: 2026-10-14_
+_Ultimo aggiornamento: 2026-10-15_
 
 ## Cos'è e chi lo usa
 
@@ -129,6 +129,20 @@ Nella scheda di un impianto antincendio il tab **Presidi** elenca estintori, idr
 ### Dati tecnici di un ascensore
 
 Nella scheda di un ascensore il tab **Dati tecnici** riporta i dati dell'anagrafe comunale ascensori: matricola, numero impianto, costruttore, anno e data di collaudo, tipologia, azionamento, portata, fermate, velocità, **capienza** (persone), **accessi**, **corsa** (metri), **norma tecnica** e presenza della **SIM di emergenza** del combinatore telefonico. Le verifiche periodiche si registrano nel tab **Verifiche**.
+
+### Impianto elettrico di un edificio
+
+L'impianto elettrico interno di un edificio (scuola, ufficio, palestra…) è un impianto di tipo **Impianto elettrico**, collegato all'immobile e all'utenza (POD) che lo alimenta. Il tab **Dati tecnici** riporta i dati richiesti dalla normativa:
+
+- **Alimentazione**: bassa tensione, o media tensione con cabina propria.
+- **Classificazione per il DPR 462/01**: stabilisce ogni quanto va verificato l'impianto di terra. **Ordinario**: ogni 5 anni. **Maggior rischio** (scuole, luoghi a maggior rischio di incendio, locali medici): ogni 2 anni. **Pericolo di esplosione**: ogni 2 anni. Per un nuovo impianto collegato a una scuola il campo parte da «maggior rischio»; si può cambiare.
+- **Protezione dalle scariche atmosferiche**: presente, assente o non nota.
+- **Conformità (DM 37/08)**: dichiarazione di conformità dell'installatore (DiCo) o, per gli impianti precedenti al 2008, di rispondenza (DiRi), con data e numero.
+- **Denuncia INAIL**: data di invio e numero pratica della messa in esercizio.
+
+Al salvataggio, con la classificazione indicata, il tab **Verifiche** riceve la verifica **Messa a terra (DPR 462/01)** e, se la protezione dalle scariche atmosferiche è presente, **Scariche atmosferiche (DPR 462/01)**, con la periodicità della classificazione. Una verifica nuova parte senza data: inserisci la data dell'ultimo verbale e la prossima scadenza si calcola da sola. Se cambi la classificazione cambia la periodicità e si ricalcola la prossima scadenza; data ed esito restano. Togliendo la classificazione o la protezione le verifiche non vengono eliminate: se non servono più, eliminale dal tab. Le verifiche scadute o in scadenza compaiono nelle segnalazioni come quelle degli altri impianti.
+
+DiCo o DiRi, verbali di verifica, progetto e denuncia INAIL vanno nel tab **Documenti** (vedi sotto); il verbale di una verifica si allega con la graffetta sulla sua riga.
 
 ### Allegare un file a un immobile, impianto o contratto
 
