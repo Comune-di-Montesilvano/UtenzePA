@@ -7,6 +7,7 @@ describe('PlantsService', () => {
   let repo: Record<string, jest.Mock>;
   let thermalRepo: Record<string, jest.Mock>;
   let elevatorRepo: Record<string, jest.Mock>;
+  let electricalRepo: Record<string, jest.Mock>;
   let inspectionRepo: Record<string, jest.Mock>;
   let fireRepo: Record<string, jest.Mock>;
   let assetRepo: Record<string, jest.Mock>;
@@ -42,10 +43,16 @@ describe('PlantsService', () => {
     };
     thermalRepo = { save: jest.fn(async (d) => d), delete: jest.fn() };
     elevatorRepo = { save: jest.fn(async (d) => d), delete: jest.fn() };
+    electricalRepo = {
+      save: jest.fn(async (d) => d),
+      delete: jest.fn(),
+      findOne: jest.fn().mockResolvedValue(null),
+    };
     inspectionRepo = {
       create: jest.fn((d) => d),
       save: jest.fn(async (d) => ({ id: 5, ...d })),
       findOne: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
     };
     fireRepo = {
       create: jest.fn((d) => d),
@@ -62,6 +69,7 @@ describe('PlantsService', () => {
       repo as never,
       thermalRepo as never,
       elevatorRepo as never,
+      electricalRepo as never,
       inspectionRepo as never,
       fireRepo as never,
       assetRepo as never,
@@ -156,6 +164,120 @@ describe('PlantsService', () => {
       .mockResolvedValue(plant({ id: 1 }));
     await service.update(1, { type: PlantType.FOUNTAIN } as never, 3);
     expect(thermalRepo.delete).toHaveBeenCalledWith({ plant_id: 1 });
+  });
+
+  it('impianto elettrico: salva la scheda senza creare verifiche (si registrano col verbale)', async () => {
+    repo.findOne.mockResolvedValue(plant({ id: 9, type: PlantType.ELECTRICAL_SYSTEM }));
+    await service.create(
+      {
+        type: PlantType.ELECTRICAL_SYSTEM,
+        code: 'EL-1',
+        name: 'Scuola',
+        asset_ids: [1],
+        electrical: { grounding_class: 'HIGH_RISK', lightning_protection: null },
+      } as never,
+      3,
+    );
+    expect(electricalRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ plant_id: 9, grounding_class: 'HIGH_RISK' }),
+    );
+    expect(inspectionRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('impianto elettrico: cambio classificazione ricalcola periodicità e scadenza, data ed esito invariati', async () => {
+    repo.findOne.mockResolvedValue(plant({ id: 9, type: PlantType.ELECTRICAL_SYSTEM }));
+    inspectionRepo.find.mockResolvedValue([
+      {
+        id: 4,
+        plant_id: 9,
+        kind: 'Messa a terra (DPR 462/01)',
+        period_months: 60,
+        last_date: '2024-03-10',
+        next_date: '2029-03-10',
+        outcome: 'Positivo',
+        deleted: false,
+      },
+    ]);
+    await service.update(9, { electrical: { grounding_class: 'HIGH_RISK' } } as never, 3);
+    expect(inspectionRepo.find).toHaveBeenCalledWith({ where: { plant_id: 9, deleted: false } });
+    expect(inspectionRepo.save).toHaveBeenCalledTimes(1);
+    expect(inspectionRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 4,
+        period_months: 24,
+        next_date: '2026-03-10',
+        last_date: '2024-03-10',
+        outcome: 'Positivo',
+        updated_by_user_id: 3,
+      }),
+    );
+  });
+
+  it('impianto elettrico: salvataggio senza cambi di classificazione non tocca la periodicità modificata a mano', async () => {
+    repo.findOne.mockResolvedValue(plant({ id: 9, type: PlantType.ELECTRICAL_SYSTEM }));
+    electricalRepo.findOne.mockResolvedValue({
+      plant_id: 9,
+      grounding_class: 'ORDINARY',
+      lightning_protection: null,
+    });
+    inspectionRepo.find.mockResolvedValue([
+      { id: 4, plant_id: 9, kind: 'Messa a terra (DPR 462/01)', period_months: 12, deleted: false },
+    ]);
+    await service.update(
+      9,
+      {
+        notes: 'nota',
+        electrical: { grounding_class: 'ORDINARY', lightning_protection: null, inail_number: 'P-1' },
+      } as never,
+      3,
+    );
+    expect(electricalRepo.save).toHaveBeenCalled();
+    expect(inspectionRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('impianto elettrico: PATCH parziale usa la scheda salvata (protezione già presente)', async () => {
+    repo.findOne.mockResolvedValue(plant({ id: 9, type: PlantType.ELECTRICAL_SYSTEM }));
+    electricalRepo.findOne.mockResolvedValue({
+      plant_id: 9,
+      grounding_class: 'ORDINARY',
+      lightning_protection: true,
+    });
+    inspectionRepo.find.mockResolvedValue([
+      { id: 5, plant_id: 9, kind: 'Scariche atmosferiche (DPR 462/01)', period_months: 60, deleted: false },
+    ]);
+    await service.update(9, { electrical: { grounding_class: 'HIGH_RISK' } } as never, 3);
+    expect(inspectionRepo.save).toHaveBeenCalledTimes(1);
+    expect(inspectionRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 5, kind: 'Scariche atmosferiche (DPR 462/01)', period_months: 24 }),
+    );
+  });
+
+  it('riga: verifiche obbligatorie mancanti (ascensore senza verifica datata)', async () => {
+    repo.find.mockResolvedValue([
+      plant({ type: PlantType.ELEVATOR, inspections: [{ kind: 'Manutenzione ordinaria', next_date: '2027-01-01', deleted: false }] }),
+      plant({
+        id: 2,
+        type: PlantType.ELEVATOR,
+        inspections: [{ kind: 'Verifica periodica (ente notificato)', last_date: '2025-01-10', next_date: '2027-01-10', deleted: false }],
+      }),
+    ]);
+    const [a, b] = await service.findAll({});
+    expect(a.missing_inspections).toEqual([
+      { kind: 'Verifica periodica (ente notificato)', period_months: 24, law: 'DPR 162/99' },
+    ]);
+    expect(b.missing_inspections).toEqual([]);
+  });
+
+  it('cambio tipo da elettrico: scheda elettrica eliminata, verifiche lasciate', async () => {
+    repo.findOne.mockResolvedValue(plant({ id: 9, type: PlantType.ELECTRICAL_SYSTEM }));
+    await service.update(
+      9,
+      { type: PlantType.ELECTRICAL_CABIN, electrical: { grounding_class: 'HIGH_RISK' } } as never,
+      3,
+    );
+    expect(electricalRepo.delete).toHaveBeenCalledWith({ plant_id: 9 });
+    expect(electricalRepo.save).not.toHaveBeenCalled();
+    expect(inspectionRepo.save).not.toHaveBeenCalled();
   });
 
   it('immobile inesistente', async () => {

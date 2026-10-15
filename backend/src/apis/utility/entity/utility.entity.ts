@@ -84,6 +84,11 @@ export class Utility {
   @Column({ length: 100, nullable: true })
   voltage_kw_electric: string;
 
+  // Codice impianto del fornitore di energia (uno per POD, stabile tra i
+  // rinnovi annuali del contratto). Solo utenze elettriche.
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  supplier_plant_code: string | null;
+
   @Column({
     type: 'enum',
     enum: Phase,

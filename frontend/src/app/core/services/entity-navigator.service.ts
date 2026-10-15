@@ -147,9 +147,17 @@ export class EntityNavigatorService {
     );
   }
 
-  createSupplyContract(utilityIds: number[], prefill: Partial<Contract> = {}): Observable<Contract | null> {
-    return this.sheet<EditDialogData<Contract> & {preselectedUtilityIds: number[]}, Contract>(
-      CONTRACT_DIALOG, {mode: 'create', item: Contract.create(prefill), preselectedUtilityIds: utilityIds},
+  // replacesContract: rinnovo di un contratto con le stesse utenze; il dialog
+  // propone di chiuderlo (replaces_contract_id nel payload).
+  createSupplyContract(
+    utilityIds: number[], prefill: Partial<Contract> = {}, replacesContract?: {id: number; label: string},
+  ): Observable<Contract | null> {
+    return this.sheet<
+      EditDialogData<Contract> & {preselectedUtilityIds: number[]; replacesContract?: {id: number; label: string}},
+      Contract
+    >(
+      CONTRACT_DIALOG,
+      {mode: 'create', item: Contract.create(prefill), preselectedUtilityIds: utilityIds, replacesContract},
     ).pipe(
       switchMap(r => (r ? this.contracts.create(r) : of(null))),
       catchError(err => this.fail('Errore nella creazione del contratto di fornitura', err)),

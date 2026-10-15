@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsNumber,
@@ -45,6 +46,35 @@ export class UpdateUtilityConsumptionDto {
   @IsNumber()
   @Min(0)
   consumption?: number | null;
+
+  // Fasce e penale: solo periodi di utenze elettriche, il service le azzera altrove.
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  consumption_f0?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  consumption_f1?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  consumption_f2?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  consumption_f3?: number | null;
+
+  @IsOptional()
+  @IsBoolean()
+  reactive_penalty?: boolean | null;
 
   @IsOptional()
   @IsString()

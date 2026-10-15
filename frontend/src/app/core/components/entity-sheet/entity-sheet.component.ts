@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, Input} from '@angular/core';
+import {ChangeDetectionStrategy, Component, HostBinding, Input} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 
 // Shell dei dialog scheda: header fisso (icona, titolo, badge, ultima
@@ -63,6 +63,8 @@ import {MatIconModule} from '@angular/material/icon';
 export class EntitySheetComponent {
   @Input({required: true}) icon!: string;
   @Input() color = 'var(--entity-asset)';
+  // Colore dell'entità anche per il tab selezionato (stili .sheet-body in styles.scss).
+  @HostBinding('style.--sheet-accent') get accent(): string { return this.color; }
   @Input({required: true}) title!: string;
   @Input() subtitle: string | null | undefined = null;
   @Input() lastModified: string | null | undefined = null;

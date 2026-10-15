@@ -12,6 +12,7 @@ import {
 import { PlantStatus, PlantType } from '../enum/plant.enum';
 import { PlantThermalDto } from './plant-thermal.dto';
 import { PlantElevatorDto } from './plant-elevator.dto';
+import { PlantElectricalDto } from './plant-electrical.dto';
 
 export class CreatePlantDto {
   @IsEnum(PlantType)
@@ -81,4 +82,9 @@ export class CreatePlantDto {
   @ValidateNested()
   @Type(() => PlantElevatorDto)
   elevator?: PlantElevatorDto | null;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PlantElectricalDto)
+  electrical?: PlantElectricalDto | null;
 }

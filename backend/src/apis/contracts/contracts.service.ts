@@ -10,6 +10,8 @@ import { UpdateContractDto } from '@apis/contracts/dto/update-contract.dto';
 import { SearchContractDto } from '@apis/contracts/dto/search-contract.dto';
 import { BaseService, toFindOptionsRelations } from '@apis/shared/base.service';
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
+import { replacedContractPatch } from './replace-contract';
+import { todayIso } from '@apis/utilizer-grant/real-estate-contract.calc';
 
 // Assente = ordinario.
 const isCigRequired = (kind: ContractKind | null | undefined): boolean =>
@@ -103,9 +105,16 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
   }
 
   async create(dto: CreateContractDto, userId?: number): Promise<Contract> {
-    const { utility_ids, ...rest } = dto;
+    const { utility_ids, replaces_contract_id, ...rest } = dto;
     this.assertCigPresent(rest.cig_contract, rest.contract_kind, rest.closed);
     if (isCigRequired(rest.contract_kind)) await this.assertCigAvailable(rest.cig_contract, null);
+    // Rinnovo: il contratto sostituito si chiude nella stessa transazione.
+    const previous = replaces_contract_id
+      ? await this.repo.findOne({ where: { id: replaces_contract_id, deleted: false } as never })
+      : null;
+    if (replaces_contract_id && !previous) throw new BadRequestException('Contratto precedente non trovato.');
+    const previousSnapshot: Record<string, unknown> | null = previous ? { ...previous } : null;
+    let previousPatch: Record<string, unknown> | null = null;
 
     const saved = await this.dataSource.transaction(async (manager) => {
       const entity = manager.create(Contract, {
@@ -128,6 +137,13 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
         }
       }
 
+      if (previous) {
+        previousPatch = replacedContractPatch(previous.supply_expiry_date, rest.supply_start_date, todayIso());
+        Object.assign(previous, previousPatch);
+        if (userId !== undefined) previous.updated_by_user_id = userId;
+        await manager.save(Contract, previous);
+      }
+
       return manager.findOne(Contract, {
         where: { id: savedEntity.id },
         relations: toFindOptionsRelations<Contract>(this.relations),
@@ -135,6 +151,18 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
     });
 
     await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
+    if (previous && previousSnapshot && previousPatch) {
+      try {
+        const changes = await this.diffFields(
+          previousSnapshot,
+          previous as unknown as Record<string, unknown>,
+          previousPatch,
+        );
+        await this.recordAudit(AuditAction.UPDATE, previous.id, userId ?? saved.updated_by_user_id, changes);
+      } catch (error) {
+        console.error(`[ContractsService] Errore audit del contratto sostituito`, error);
+      }
+    }
     return saved;
   }
 

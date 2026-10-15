@@ -81,6 +81,11 @@ export class UpdateUtilityDto {
   voltage_kw_electric?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  supplier_plant_code?: string | null;
+
+  @IsOptional()
   @IsEnum(Phase)
   phase_type_electric?: Phase;
 

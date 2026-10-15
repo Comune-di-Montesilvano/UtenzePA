@@ -100,7 +100,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(30);
+    expect(query).toHaveBeenCalledTimes(32);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -474,6 +474,53 @@ describe('AnomaliesService', () => {
       // Stessa data di oggi del calcolo in Node (plant.calc), non CURDATE() di MySQL.
       expect(sql).not.toContain('CURDATE()');
       const call = query.mock.calls.find(([s]) => String(s).includes('/* plants_fire_equipment_overdue */'));
+      expect(call?.[1]).toEqual([expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)]);
+    });
+
+    it('impianti senza le verifiche obbligatorie per legge (registrate con data)', async () => {
+      only('/* plants_missing_inspections */', [
+        { id: '1', code: 'MSV 001', name: 'Ascensore', type: 'ELEVATOR', status: 'ACTIVE',
+          grounding_class: null, lightning_protection: null, power_kw: null, dated_kinds: null },
+        { id: '2', code: 'ELE-1', name: 'Scuola', type: 'ELECTRICAL_SYSTEM', status: 'ACTIVE',
+          grounding_class: 'HIGH_RISK', lightning_protection: 1, power_kw: null,
+          dated_kinds: 'Messa a terra (DPR 462/01)' },
+        { id: '3', code: 'TERM-1', name: 'Caldaia piccola', type: 'THERMAL', status: 'ACTIVE',
+          grounding_class: null, lightning_protection: null, power_kw: '8.00', dated_kinds: null },
+        { id: '4', code: 'ELE-2', name: 'In regola', type: 'ELECTRICAL_SYSTEM', status: 'ACTIVE',
+          grounding_class: 'ORDINARY', lightning_protection: 0, power_kw: null,
+          dated_kinds: 'Manutenzione\nMessa a terra (DPR 462/01)' },
+      ]);
+      const r = await service.getAnomalies();
+      expect(r.plants_missing_inspections).toEqual({
+        count: 2,
+        items: [
+          { id: 1, code: 'MSV 001', name: 'Ascensore', type: 'ELEVATOR',
+            missing: 'Verifica periodica (ente notificato)' },
+          { id: 2, code: 'ELE-1', name: 'Scuola', type: 'ELECTRICAL_SYSTEM',
+            missing: 'Scariche atmosferiche (DPR 462/01)' },
+        ],
+      });
+      const sql = sqlOf('/* plants_missing_inspections */');
+      expect(sql).toContain('p.deleted = 0');
+      expect(sql).toContain('i.deleted = 0');
+      expect(sql).toContain('i.last_date IS NOT NULL OR i.next_date IS NOT NULL');
+    });
+
+    it('utenze con penali per energia reattiva negli ultimi 12 mesi', async () => {
+      only('/* utilities_with_reactive_penalty */', [{ id: '31', utility_id: 'IT001E00000001', type: 'energia elettrica' }]);
+      const r = await service.getAnomalies();
+      expect(r.utilities_with_reactive_penalty).toEqual({
+        count: 1,
+        items: [{ id: 31, utility_id: 'IT001E00000001', type: 'energia elettrica' }],
+      });
+      const sql = sqlOf('/* utilities_with_reactive_penalty */');
+      expect(sql).toContain('uc.reactive_penalty = 1');
+      expect(sql).toContain("uc.kind = 'PERIOD'");
+      expect(sql).toContain('uc.deleted = 0');
+      expect(sql).toContain('u.deleted = 0');
+      expect(sql).toContain('INTERVAL 365 DAY');
+      expect(sql).not.toContain('CURDATE()');
+      const call = query.mock.calls.find(([s]) => String(s).includes('/* utilities_with_reactive_penalty */'));
       expect(call?.[1]).toEqual([expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)]);
     });
   });

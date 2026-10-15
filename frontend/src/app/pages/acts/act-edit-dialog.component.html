@@ -14,7 +14,7 @@
     <mat-progress-bar mode="indeterminate"></mat-progress-bar>
   }
   <form [formGroup]="form">
-    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms" [disablePagination]="true">
 
       <mat-tab aria-label="Riepilogo">
         <ng-template mat-tab-label>
@@ -97,7 +97,7 @@
 
       <mat-tab aria-label="Note">
         <ng-template mat-tab-label>
-          <app-tab-label icon="notes" label="Note"></app-tab-label>
+          <app-tab-label icon="notes" label="Note" [dot]="!!form.controls.notes.value?.trim()"></app-tab-label>
         </ng-template>
         <mat-form-field style="width: 100%;">
           <mat-label>Note</mat-label>

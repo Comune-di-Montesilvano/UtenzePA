@@ -123,6 +123,56 @@ describe('UtilityConsumptionsService', () => {
     expect(recalc.recalcUtility).toHaveBeenCalledWith(7);
   });
 
+  const periodDto = (extra: Record<string, unknown> = {}) => ({
+    kind: ConsumptionKind.PERIOD, reading_date: null, reading_value: null, meter_number: null,
+    period_start: '2026-05-01', period_end: '2026-05-31', consumption: 100, ...extra,
+  });
+
+  it('periodo elettrico con fasce coerenti e penale: salvati', async () => {
+    repo.find.mockResolvedValue([]);
+    await service.createForUtility(7, periodDto({ consumption_f1: 60, consumption_f2: 40, reactive_penalty: true }) as never, 3);
+    expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ consumption_f1: 60, consumption_f2: 40, reactive_penalty: true }));
+  });
+
+  it('fasce che non sommano al consumo: 400 e nessun salvataggio', async () => {
+    repo.find.mockResolvedValue([]);
+    await expect(service.createForUtility(7, periodDto({ consumption_f1: 10 }) as never, 3)).rejects.toThrow(
+      'La somma delle fasce (10 kWh) non coincide con il consumo del periodo (100 kWh).',
+    );
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('utenza gas: fasce e penale azzerate senza errore', async () => {
+    repo.find.mockResolvedValue([]);
+    utilityRepo.findOne.mockResolvedValue({ ...lightUtility, utilityType: { hard_type: HardTypeEnum.GAS } });
+    await service.createForUtility(7, periodDto({ consumption_f1: 10, reactive_penalty: true }) as never, 3);
+    expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ consumption_f1: null, reactive_penalty: null }));
+  });
+
+  it('PATCH del solo consumo: la somma è ricontrollata con le fasce già salvate', async () => {
+    const current = { id: 5, utility_id_fk: 7, ...periodDto({ consumption_f1: '60.000', consumption_f2: '40.000' }), deleted: false };
+    repo.findOne.mockResolvedValue(current);
+    repo.find.mockResolvedValue([current]);
+    await expect(service.update(5, { consumption: 150 } as never, 3)).rejects.toThrow('non coincide con il consumo del periodo');
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('lettura elettrica con totalizzatori di fascia: salvati; incoerenti col valore letto: 400', async () => {
+    await service.createForUtility(7, { ...readingDto('2026-04-01', 1400), consumption_f1: 800, consumption_f2: 400, consumption_f3: 200 } as never, 3);
+    expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ consumption_f1: 800, consumption_f3: 200, consumption_f0: null }));
+    await expect(
+      service.createForUtility(7, { ...readingDto('2026-05-01', 1500), consumption_f1: 800 } as never, 3),
+    ).rejects.toThrow('La somma dei totalizzatori di fascia (800 kWh) non coincide con il valore letto (1500 kWh).');
+  });
+
+  it('getSummary: serie mensile con le fasce quando ci sono dati di fascia', async () => {
+    repo.find.mockResolvedValue([
+      { id: 1, kind: ConsumptionKind.PERIOD, period_start: '2026-05-01', period_end: '2026-05-31', consumption: '100.000', consumption_f1: '70.000', consumption_f2: '30.000', deleted: false },
+    ]);
+    const s = await service.getSummary(7);
+    expect(s.monthly.find((p) => p.month === '2026-05')?.bands).toEqual({ F1: 70, F2: 30 });
+  });
+
   it('PATCH su rilevazione inesistente: 400', async () => {
     repo.findOne.mockResolvedValue(null);
     await expect(service.update(123, { notes: 'x' }, 3)).rejects.toThrow(BadRequestException);

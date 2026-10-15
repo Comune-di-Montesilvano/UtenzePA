@@ -146,6 +146,10 @@ export class SearchUtilityDto {
   voltage_kw_electric?: string;
 
   @IsOptional()
+  @IsString()
+  supplier_plant_code?: string;
+
+  @IsOptional()
   @IsEnum(Phase)
   phase_type_electric?: Phase;
 
