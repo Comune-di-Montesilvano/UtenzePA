@@ -10,6 +10,7 @@ import { GeocodingService } from '@apis/geocoding/geocoding.service';
 import { Plant } from './entity/plant.entity';
 import { PlantThermal } from './entity/plant-thermal.entity';
 import { PlantElevator } from './entity/plant-elevator.entity';
+import { PlantElectrical } from './entity/plant-electrical.entity';
 import { PlantInspection } from './entity/plant-inspection.entity';
 import { PlantFireEquipment } from './entity/plant-fire-equipment.entity';
 import { CreatePlantDto } from './dto/create-plant.dto';
@@ -22,10 +23,12 @@ import {
 } from './dto/plant-fire-equipment.dto';
 import { PlantThermalDto } from './dto/plant-thermal.dto';
 import { PlantElevatorDto } from './dto/plant-elevator.dto';
+import { PlantElectricalDto } from './dto/plant-electrical.dto';
 import { FireEquipmentType, InspectionStatus, PlantType, PositionQuality } from './enum/plant.enum';
 import {
   PLANTS_MUNICIPALITY,
   computeNextDate,
+  electricalInspectionPlan,
   firstLocatedAsset,
   inspectionStatus,
   plantFireEquipmentStatus,
@@ -82,6 +85,7 @@ const RELATIONS = {
   utilities: true,
   thermal: true,
   elevator: true,
+  electrical: true,
   fireEquipment: true,
   inspections: true,
   created_by: true,
@@ -97,6 +101,8 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     @InjectRepository(Plant) protected readonly repo: Repository<Plant>,
     @InjectRepository(PlantThermal) private readonly thermalRepo: Repository<PlantThermal>,
     @InjectRepository(PlantElevator) private readonly elevatorRepo: Repository<PlantElevator>,
+    @InjectRepository(PlantElectrical)
+    private readonly electricalRepo: Repository<PlantElectrical>,
     @InjectRepository(PlantInspection)
     private readonly inspectionRepo: Repository<PlantInspection>,
     @InjectRepository(PlantFireEquipment)
@@ -173,7 +179,7 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
   }
 
   async create(dto: CreatePlantDto, userId?: number): Promise<PlantRow> {
-    const { thermal, elevator, utility_ids, asset_ids, ...rest } = dto;
+    const { thermal, elevator, electrical, utility_ids, asset_ids, ...rest } = dto;
     await this.assertCodeFree(rest.code, null);
     const assets = await this.resolveAssets(asset_ids ?? []);
     const utilities = await this.resolveUtilities(utility_ids ?? []);
@@ -186,7 +192,7 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
         ...(userId !== undefined && { created_by_user_id: userId, updated_by_user_id: userId }),
       } as never),
     )) as unknown as Plant;
-    await this.saveDetails(saved.id, rest.type, thermal, elevator);
+    await this.saveDetails(saved.id, rest.type, { thermal, elevator, electrical }, userId ?? saved.updated_by_user_id);
     await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
     if (!isSet(rest.latitude) || !isSet(rest.longitude)) {
       await this.geocode(saved.id, rest.address ?? null, rest.civic_number ?? null).catch(() => undefined);
@@ -195,7 +201,7 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
   }
 
   async update(id: number, dto: UpdatePlantDto, userId?: number): Promise<PlantRow> {
-    const { thermal, elevator, utility_ids, asset_ids, ...rest } = dto;
+    const { thermal, elevator, electrical, utility_ids, asset_ids, ...rest } = dto;
     const current = await this.repo.findOne({
       where: { id, deleted: false },
       relations: { utilities: true },
@@ -227,7 +233,8 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     const type = rest.type ?? current.type;
     if (type !== PlantType.THERMAL) await this.thermalRepo.delete({ plant_id: id });
     if (type !== PlantType.ELEVATOR) await this.elevatorRepo.delete({ plant_id: id });
-    await this.saveDetails(id, type, thermal, elevator);
+    if (type !== PlantType.ELECTRICAL_SYSTEM) await this.electricalRepo.delete({ plant_id: id });
+    await this.saveDetails(id, type, { thermal, elevator, electrical }, userId ?? current.updated_by_user_id);
     if (utilities !== undefined || assets !== undefined) {
       const entity = await this.repo.findOne({
         where: { id },
@@ -429,14 +436,68 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
   private async saveDetails(
     plantId: number,
     type: PlantType,
-    thermal?: PlantThermalDto | null,
-    elevator?: PlantElevatorDto | null,
+    details: {
+      thermal?: PlantThermalDto | null;
+      elevator?: PlantElevatorDto | null;
+      electrical?: PlantElectricalDto | null;
+    },
+    userId: number,
   ): Promise<void> {
+    const { thermal, elevator, electrical } = details;
     if (type === PlantType.THERMAL && thermal) {
       await this.thermalRepo.save({ ...thermal, plant_id: plantId });
     }
     if (type === PlantType.ELEVATOR && elevator) {
       await this.elevatorRepo.save({ ...elevator, plant_id: plantId });
+    }
+    if (type === PlantType.ELECTRICAL_SYSTEM && electrical) {
+      // Scheda risultante = salvata + campi inviati (un PATCH può essere parziale).
+      const prev = await this.electricalRepo.findOne({ where: { plant_id: plantId } });
+      const sent = Object.fromEntries(
+        Object.entries(electrical).filter(([, v]) => v !== undefined),
+      ) as PlantElectricalDto;
+      const next = { ...prev, ...sent };
+      await this.electricalRepo.save({ ...sent, plant_id: plantId });
+      // Verifiche riallineate solo se cambia ciò che le determina: una
+      // periodicità modificata a mano nel tab Verifiche resta com'è.
+      const changed =
+        !prev ||
+        (prev.grounding_class ?? null) !== (next.grounding_class ?? null) ||
+        !!prev.lightning_protection !== !!next.lightning_protection;
+      if (changed) await this.syncElectricalInspections(plantId, next, userId);
+    }
+  }
+
+  // Verifiche DPR 462/01 allineate alla scheda elettrica: create (senza data)
+  // o con periodicità aggiornata e prossima scadenza ricalcolata dall'ultima
+  // data; data, esito ed ente restano. Mai eliminate (storico).
+  private async syncElectricalInspections(
+    plantId: number,
+    electrical: PlantElectricalDto,
+    userId: number,
+  ): Promise<void> {
+    const existing = await this.inspectionRepo.find({ where: { plant_id: plantId, deleted: false } });
+    const plan = electricalInspectionPlan(electrical, existing);
+    for (const c of plan.create) {
+      await this.inspectionRepo.save(
+        this.inspectionRepo.create({
+          ...c,
+          plant_id: plantId,
+          last_date: null,
+          next_date: null,
+          created_by_user_id: userId,
+          updated_by_user_id: userId,
+        }),
+      );
+    }
+    for (const u of plan.update) {
+      const cur = existing.find((i) => i.id === u.id);
+      await this.inspectionRepo.save({
+        ...cur,
+        period_months: u.period_months,
+        next_date: computeNextDate(cur.last_date ?? null, u.period_months) ?? cur.next_date,
+        updated_by_user_id: userId,
+      });
     }
   }
 

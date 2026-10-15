@@ -130,7 +130,7 @@
           <ng-template mat-tab-label>
             <app-tab-label icon="engineering" label="Dati tecnici"
                            [dot]="missingCerts().length > 0" tone="warn"
-                           [error]="invalid('thermal', 'elevator')"></app-tab-label>
+                           [error]="invalid('thermal', 'elevator', 'electrical')"></app-tab-label>
           </ng-template>
           @if (currentType() === 'THERMAL') {
             <div formGroupName="thermal">
@@ -262,6 +262,80 @@
                   <mat-option [value]="false">No</mat-option>
                 </mat-select>
               </mat-form-field>
+            </div>
+          }
+          @if (currentType() === 'ELECTRICAL_SYSTEM') {
+            <div formGroupName="electrical">
+              <div class="sheet-section-title">Impianto elettrico</div>
+              <div class="sheet-grid">
+                <mat-form-field>
+                  <mat-label>Alimentazione</mat-label>
+                  <mat-select formControlName="supply">
+                    <mat-option [value]="null">Non indicata</mat-option>
+                    <mat-option value="LV">Bassa tensione</mat-option>
+                    <mat-option value="MV">Media tensione (cabina propria)</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field class="span-2">
+                  <mat-label>Classificazione per il DPR 462/01</mat-label>
+                  <mat-select formControlName="grounding_class">
+                    <mat-option [value]="null">Non indicata</mat-option>
+                    @for (c of groundingClasses; track c.value) {
+                      <mat-option [value]="c.value">{{ c.label }}</mat-option>
+                    }
+                  </mat-select>
+                  <mat-hint>Scuole, luoghi a maggior rischio di incendio, locali medici: maggior rischio</mat-hint>
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Protezione dalle scariche atmosferiche</mat-label>
+                  <mat-select formControlName="lightning_protection">
+                    <mat-option [value]="null">Non nota</mat-option>
+                    <mat-option [value]="true">Presente</mat-option>
+                    <mat-option [value]="false">Assente</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+              <div class="sheet-section-title">Conformità (DM 37/08)</div>
+              <div class="sheet-grid">
+                <mat-form-field>
+                  <mat-label>Dichiarazione</mat-label>
+                  <mat-select formControlName="conformity_type">
+                    <mat-option [value]="null">Non nota</mat-option>
+                    <mat-option value="DICO">Di conformità (DiCo)</mat-option>
+                    <mat-option value="DIRI">Di rispondenza (DiRi)</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Data</mat-label>
+                  <input matInput [matDatepicker]="conformityPicker" formControlName="conformity_date" placeholder="GG/MM/AAAA">
+                  <mat-datepicker-toggle matIconSuffix [for]="conformityPicker"></mat-datepicker-toggle>
+                  <mat-datepicker #conformityPicker></mat-datepicker>
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Numero</mat-label>
+                  <input matInput formControlName="conformity_number" maxlength="100">
+                </mat-form-field>
+              </div>
+              <div class="sheet-section-title">Denuncia INAIL (DPR 462/01)</div>
+              <div class="sheet-grid">
+                <mat-form-field>
+                  <mat-label>Data di invio</mat-label>
+                  <input matInput [matDatepicker]="inailPicker" formControlName="inail_date" placeholder="GG/MM/AAAA">
+                  <mat-datepicker-toggle matIconSuffix [for]="inailPicker"></mat-datepicker-toggle>
+                  <mat-datepicker #inailPicker></mat-datepicker>
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Numero pratica</mat-label>
+                  <input matInput formControlName="inail_number" maxlength="100">
+                </mat-form-field>
+              </div>
+              <p class="sheet-hint">
+                Al salvataggio, con la classificazione indicata, il tab Verifiche riceve «Messa a terra (DPR 462/01)»
+                e, se la protezione è presente, «Scariche atmosferiche (DPR 462/01)», con la periodicità giusta.
+                @if (form.controls.electrical.value.lightning_protection && !form.controls.electrical.value.grounding_class) {
+                  Senza classificazione le verifiche non vengono create.
+                }
+              </p>
             </div>
           }
         </mat-tab>

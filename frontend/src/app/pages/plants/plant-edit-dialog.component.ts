@@ -26,6 +26,10 @@ import {LatitudeInputDirective} from '../../core/directives/latitude-input.direc
 import {LongitudeInputDirective} from '../../core/directives/longitude-input.directive';
 import {
   certificationStatus,
+  ConformityType,
+  ElectricalSupply,
+  GROUNDING_CLASS_LABEL,
+  GroundingClass,
   inspectionStatusOf,
   missingCertifications,
   Plant,
@@ -33,6 +37,7 @@ import {
   PLANT_TYPE_ICON,
   PLANT_TYPE_LABEL,
   PLANT_TYPES,
+  PlantElectricalData,
   PlantElevatorData,
   PlantPayload,
   PlantStatus,
@@ -79,6 +84,14 @@ const COUNT_FIELDS: {key: 'outdoor_units' | 'indoor_units' | 'fan_coils' | 'air_
   {key: 'chillers_heat_pumps', label: 'Gruppi frigo / pompe di calore'},
 ];
 
+// Immobile scolastico (funzione «Istruzione» o nome da scuola): per il DPR
+// 462/01 l'impianto elettrico è a maggior rischio (verifica ogni 2 anni).
+const SCHOOL_WORDS = ['istruzion', 'scuol', 'asilo', 'nido', 'infanzia', 'primaria'];
+const isSchool = (a: Asset): boolean => {
+  const text = `${a.assetFunction?.name ?? ''} ${a.asset_name ?? ''}`.toLowerCase();
+  return SCHOOL_WORDS.some(w => text.includes(w));
+};
+
 const toDate = (iso?: string | null): Date | null => {
   if (!iso) return null;
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
@@ -119,6 +132,8 @@ export class PlantEditDialogComponent implements OnInit {
   readonly statuses = Object.keys(PLANT_STATUS_LABEL) as PlantStatus[];
   readonly statusLabel = PLANT_STATUS_LABEL;
   readonly countFields = COUNT_FIELDS;
+  readonly groundingClasses = (Object.keys(GROUNDING_CLASS_LABEL) as GroundingClass[])
+    .map(value => ({value, label: GROUNDING_CLASS_LABEL[value]}));
   readonly cert = certificationStatus;
   // Stessa regola delle altre schede (Admin, Operatore).
   readonly canEdit = isEditorRole(inject(AuthService).getCurrentUser()?.role);
@@ -203,6 +218,16 @@ export class PlantEditDialogComponent implements OnInit {
       technical_standard: [''],
       emergency_sim: [null as boolean | null],
     }),
+    electrical: this.fb.group({
+      supply: [null as ElectricalSupply | null],
+      grounding_class: [null as GroundingClass | null],
+      conformity_type: [null as ConformityType | null],
+      conformity_date: [null as Date | null],
+      conformity_number: ['', Validators.maxLength(100)],
+      inail_date: [null as Date | null],
+      inail_number: ['', Validators.maxLength(100)],
+      lightning_protection: [null as boolean | null],
+    }),
   });
 
   // Collegamenti utenze come letti dal server: distinguono un collegamento
@@ -274,6 +299,7 @@ export class PlantEditDialogComponent implements OnInit {
         status: utilityStatus(u.supply_active),
       };
     });
+    this.proposeGroundingClass();
     this.inspectionPreview = [...(this.plant?.inspections ?? [])]
       .sort((a, b) => (a.next_date ?? '9999').localeCompare(b.next_date ?? '9999'))
       .map(i => ({
@@ -323,18 +349,37 @@ export class PlantEditDialogComponent implements OnInit {
     }
   }
 
+  // Nuovo impianto elettrico collegato a una scuola: classificazione proposta
+  // «maggior rischio», finché l'utente non sceglie da sé; tolta di nuovo se
+  // la scuola viene scollegata o il tipo cambia.
+  private groundingProposed = false;
+  private proposeGroundingClass(): void {
+    const c = this.form.controls.electrical.controls.grounding_class;
+    if (this.plant || c.dirty) return;
+    const school = this.currentType() === 'ELECTRICAL_SYSTEM' && this.assetRows.some(isSchool);
+    if (school && !c.value) {
+      c.setValue('HIGH_RISK');
+      this.groundingProposed = true;
+    } else if (!school && this.groundingProposed) {
+      c.setValue(null);
+      this.groundingProposed = false;
+    }
+  }
+
   // Solo il gruppo dati del tipo corrente partecipa alla validazione: un
   // valore invalido in un gruppo nascosto (tipo cambiato, dato importato)
   // bloccherebbe il Salva senza nulla di visibile.
   private syncTypeGroups(): void {
     const type = this.currentType();
-    const toggle = (group: 'thermal' | 'elevator', on: boolean) => {
+    const toggle = (group: 'thermal' | 'elevator' | 'electrical', on: boolean) => {
       const c = this.form.controls[group];
       if (on) c.enable({emitEvent: false});
       else c.disable({emitEvent: false});
     };
     toggle('thermal', type === 'THERMAL');
     toggle('elevator', type === 'ELEVATOR');
+    toggle('electrical', type === 'ELECTRICAL_SYSTEM');
+    this.proposeGroundingClass();
   }
 
   currentType(): PlantType {
@@ -515,6 +560,7 @@ export class PlantEditDialogComponent implements OnInit {
   private patch(p: Plant): void {
     const t = p.thermal;
     const e = p.elevator;
+    const el = p.electrical;
     this.form.patchValue({
       type: p.type,
       code: p.code,
@@ -559,6 +605,16 @@ export class PlantEditDialogComponent implements OnInit {
         travel_m: e?.travel_m !== null && e?.travel_m !== undefined ? Number(e.travel_m) : null,
         technical_standard: e?.technical_standard ?? '',
         emergency_sim: e?.emergency_sim ?? null,
+      },
+      electrical: {
+        supply: el?.supply ?? null,
+        grounding_class: el?.grounding_class ?? null,
+        conformity_type: el?.conformity_type ?? null,
+        conformity_date: toDate(el?.conformity_date),
+        conformity_number: el?.conformity_number ?? '',
+        inail_date: toDate(el?.inail_date),
+        inail_number: el?.inail_number ?? '',
+        lightning_protection: el?.lightning_protection ?? null,
       },
     });
     this.savedUtilityIds = new Set((p.utilities ?? []).map(u => u.id));
@@ -631,6 +687,20 @@ export class PlantEditDialogComponent implements OnInit {
         emergency_sim: e.emergency_sim ?? null,
       };
       payload.elevator = elevator;
+    }
+    if (type === 'ELECTRICAL_SYSTEM') {
+      const el = v.electrical;
+      const electrical: PlantElectricalData = {
+        supply: el.supply ?? null,
+        grounding_class: el.grounding_class ?? null,
+        conformity_type: el.conformity_type ?? null,
+        conformity_date: el.conformity_date ? toIsoDate(el.conformity_date) : null,
+        conformity_number: text(el.conformity_number),
+        inail_date: el.inail_date ? toIsoDate(el.inail_date) : null,
+        inail_number: text(el.inail_number),
+        lightning_protection: el.lightning_protection ?? null,
+      };
+      payload.electrical = electrical;
     }
     this.saving = true;
     this.error = null;

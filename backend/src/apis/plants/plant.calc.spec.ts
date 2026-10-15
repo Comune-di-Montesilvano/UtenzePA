@@ -1,5 +1,6 @@
 import {
   computeNextDate,
+  electricalInspectionPlan,
   fireEquipmentDeadlines,
   fireEquipmentStatus,
   inspectionStatus,
@@ -9,7 +10,13 @@ import {
   resolvePlantPosition,
   suggestedInspections,
 } from './plant.calc';
-import { FireEquipmentType, InspectionStatus, PlantType, PositionQuality } from './enum/plant.enum';
+import {
+  FireEquipmentType,
+  GroundingClass,
+  InspectionStatus,
+  PlantType,
+  PositionQuality,
+} from './enum/plant.enum';
 
 const TODAY = '2026-10-02';
 
@@ -177,5 +184,90 @@ describe('scadenze estintori', () => {
     expect(
       plantFireEquipmentStatus([{ ...ext(), equipment_type: FireEquipmentType.HYDRANT }], TODAY),
     ).toBeNull();
+  });
+});
+
+describe('electricalInspectionPlan', () => {
+  const terra = (over = {}) => ({
+    id: 1,
+    kind: 'Messa a terra (DPR 462/01)',
+    period_months: 60,
+    deleted: false,
+    ...over,
+  });
+
+  it('senza classificazione: niente', () => {
+    expect(electricalInspectionPlan({ grounding_class: null, lightning_protection: true }, [])).toEqual({
+      create: [],
+      update: [],
+    });
+    expect(electricalInspectionPlan(null, [])).toEqual({ create: [], update: [] });
+  });
+
+  it('scuola (maggior rischio): crea la verifica di terra a 24 mesi', () => {
+    expect(electricalInspectionPlan({ grounding_class: GroundingClass.HIGH_RISK }, [])).toEqual({
+      create: [{ kind: 'Messa a terra (DPR 462/01)', period_months: 24 }],
+      update: [],
+    });
+  });
+
+  it('ordinario con scariche atmosferiche: due verifiche a 60 mesi', () => {
+    expect(
+      electricalInspectionPlan({ grounding_class: GroundingClass.ORDINARY, lightning_protection: true }, [])
+        .create,
+    ).toEqual([
+      { kind: 'Messa a terra (DPR 462/01)', period_months: 60 },
+      { kind: 'Scariche atmosferiche (DPR 462/01)', period_months: 60 },
+    ]);
+  });
+
+  it('cambio classificazione: aggiorna solo la periodicità della verifica esistente', () => {
+    expect(electricalInspectionPlan({ grounding_class: GroundingClass.EXPLOSION }, [terra()])).toEqual({
+      create: [],
+      update: [{ id: 1, period_months: 24 }],
+    });
+  });
+
+  it('verifica già allineata: niente', () => {
+    expect(electricalInspectionPlan({ grounding_class: GroundingClass.ORDINARY }, [terra()])).toEqual({
+      create: [],
+      update: [],
+    });
+  });
+
+  it('nome uguale a meno di spazi e maiuscole: riconosciuta', () => {
+    expect(
+      electricalInspectionPlan({ grounding_class: GroundingClass.ORDINARY }, [
+        terra({ kind: ' messa a terra (dpr 462/01) ' }),
+      ]).create,
+    ).toEqual([]);
+  });
+
+  it('nome diverso (verifica inserita a mano): non riconosciuta, si crea quella standard', () => {
+    expect(
+      electricalInspectionPlan({ grounding_class: GroundingClass.ORDINARY }, [
+        terra({ kind: 'Verifica messa a terra' }),
+      ]).create,
+    ).toEqual([{ kind: 'Messa a terra (DPR 462/01)', period_months: 60 }]);
+  });
+
+  it('verifica cancellata ignorata: se ne crea una nuova', () => {
+    expect(
+      electricalInspectionPlan({ grounding_class: GroundingClass.ORDINARY }, [terra({ deleted: true })])
+        .create,
+    ).toHaveLength(1);
+  });
+
+  it('scariche atmosferiche tolte: nessuna eliminazione', () => {
+    const existing = [
+      terra(),
+      { id: 2, kind: 'Scariche atmosferiche (DPR 462/01)', period_months: 60, deleted: false },
+    ];
+    expect(
+      electricalInspectionPlan(
+        { grounding_class: GroundingClass.ORDINARY, lightning_protection: false },
+        existing,
+      ),
+    ).toEqual({ create: [], update: [] });
   });
 });
