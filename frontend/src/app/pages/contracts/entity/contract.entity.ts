@@ -28,6 +28,8 @@ export class Contract extends AbstractEntity implements IContract {
   @DateOnly()
   takeover_termination_date?: Date | null;
   utility_ids?: number[];
+  // Solo in creazione: contratto sostituito da chiudere (rinnovo).
+  replaces_contract_id?: number | null;
 
   @Exclude({ toPlainOnly: true })
   supplier?: ThirdParty;

@@ -1,4 +1,5 @@
 import {
+  buildDailyBands,
   buildDailyConsumption,
   computeActual,
   computeMonthlySeries,
@@ -11,6 +12,7 @@ import {
   readingDeltas,
   toDay,
   todayDay,
+  validateBands,
   validateConsumption,
 } from './consumption-calculator';
 import { ConsumptionKind } from './enum/consumption-kind.enum';
@@ -166,6 +168,52 @@ describe('consumption-calculator', () => {
       expect(series.find((p) => p.month === '2027-01')?.estimated).toBe(62);
     });
 
+    it('giorni tra l’ultimo dato e oggi (bolletta non ancora arrivata): stimati', () => {
+      // 2/giorno fino al 15/09/2026, oggi 29/09: 16–29 senza dato ma dopo l'ultimo dato
+      const daily = buildDailyConsumption([period(1, '2025-09-16', '2026-09-15', 730)]);
+      const sep26 = computeMonthlySeries(daily, TODAY).find((p) => p.month === '2026-09');
+      expect(sep26).toEqual({ month: '2026-09', actual: 30, covered_days: 15, days: 30, estimated: 30 });
+    });
+
+    it('buco nei dati prima dell’ultimo dato: resta mancante, non stimato', () => {
+      const daily = buildDailyConsumption([
+        period(1, '2025-09-16', '2026-07-31', 638),
+        period(2, '2026-09-01', '2026-09-29', 58),
+      ]);
+      const aug26 = computeMonthlySeries(daily, TODAY).find((p) => p.month === '2026-08');
+      expect(aug26).toEqual({ month: '2026-08', actual: 0, covered_days: 0, days: 31, estimated: 0 });
+    });
+
+    it('fasce per mese: reale da periodi e da coppie di letture, stimato ripartito per quota', () => {
+      const records: ConsumptionRecord[] = [
+        // agosto 2026: periodo con fasce (F1 60, F2 30, F3 10 su 100)
+        { ...period(1, '2026-08-01', '2026-08-31', 100), consumption_f1: 60, consumption_f2: 30, consumption_f3: 10 },
+        // luglio 2026: letture con totalizzatori, consumo 50 = F1 30 + F2 15 + F3 5
+        { ...reading(2, '2026-06-30', 1000), consumption_f1: 600, consumption_f2: 300, consumption_f3: 100 },
+        { ...reading(3, '2026-07-31', 1050), consumption_f1: 630, consumption_f2: 315, consumption_f3: 105 },
+        // settembre 2026: periodo senza fasce (tutto «non ripartito»)
+        period(4, '2026-09-01', '2026-09-29', 29),
+      ];
+      const series = computeMonthlySeries(buildDailyConsumption(records), TODAY, buildDailyBands(records));
+      const aug = series.find((p) => p.month === '2026-08');
+      expect(aug?.bands).toEqual({ F1: 60, F2: 30, F3: 10 });
+      const jul = series.find((p) => p.month === '2026-07');
+      expect(jul?.bands).toEqual({ F1: 30, F2: 15, F3: 5 });
+      const sep = series.find((p) => p.month === '2026-09');
+      expect(sep?.bands).toEqual({});
+      // quota su 150 kWh ripartiti: F1 90/150, F2 45/150, F3 15/150
+      const oct = series.find((p) => p.month === '2026-10');
+      expect(oct?.estimated_bands?.F1).toBeCloseTo(oct!.estimated * 0.6 * (150 / 179), 1);
+      const sumEst = Object.values(oct?.estimated_bands ?? {}).reduce((s, v) => s + v, 0);
+      expect(sumEst).toBeLessThanOrEqual(oct!.estimated + 0.01);
+    });
+
+    it('senza fasce: nessuna chiave bands', () => {
+      const records = [period(1, '2026-08-01', '2026-08-31', 100)];
+      const aug = computeMonthlySeries(buildDailyConsumption(records), TODAY, buildDailyBands(records)).find((p) => p.month === '2026-08');
+      expect(aug).not.toHaveProperty('bands');
+    });
+
     it('nessun dato: stime future a 0', () => {
       const series = computeMonthlySeries(buildDailyConsumption([]), TODAY);
       expect(series.every((p) => p.actual === 0 && p.estimated === 0)).toBe(true);
@@ -226,6 +274,41 @@ describe('consumption-calculator', () => {
     });
   });
 
+  describe('validateBands', () => {
+    type Bands = Partial<Record<'consumption_f0' | 'consumption_f1' | 'consumption_f2' | 'consumption_f3', number | string | null>>;
+    const period = (consumption: number, f: Bands): ConsumptionRecord => ({
+      kind: ConsumptionKind.PERIOD, period_start: '2026-01-01', period_end: '2026-01-31', consumption, ...f,
+    });
+
+    it('nessuna fascia: nessun controllo', () => {
+      expect(validateBands(period(100, {}))).toBeNull();
+    });
+
+    it('somma esatta (decimal come stringa)', () => {
+      expect(validateBands(period(100, { consumption_f1: '50.000', consumption_f2: 30, consumption_f3: 20 }))).toBeNull();
+    });
+
+    it('scarto entro 1 kWh ammesso, fasce vuote = 0', () => {
+      expect(validateBands(period(100.8, { consumption_f1: 100, consumption_f2: null }))).toBeNull();
+    });
+
+    it('scarto oltre 1 kWh: messaggio con i due totali', () => {
+      expect(validateBands(period(15000, { consumption_f1: 10000, consumption_f2: 2000 }))).toBe(
+        'La somma delle fasce (12.000 kWh) non coincide con il consumo del periodo (15.000 kWh).',
+      );
+    });
+
+    it('lettura: totalizzatori che sommano al valore letto', () => {
+      expect(validateBands({ kind: ConsumptionKind.READING, reading_value: 15000, consumption_f1: 8000, consumption_f2: 4000, consumption_f3: 3000 })).toBeNull();
+    });
+
+    it('lettura: totalizzatori che non sommano al valore letto', () => {
+      expect(validateBands({ kind: ConsumptionKind.READING, reading_value: 15000, consumption_f1: 8000, consumption_f2: 4000 })).toBe(
+        'La somma dei totalizzatori di fascia (12.000 kWh) non coincide con il valore letto (15.000 kWh).',
+      );
+    });
+  });
+
   describe('normalizeByKind', () => {
     it('READING: azzera i campi periodo e trimma la matricola', () => {
       expect(
@@ -238,8 +321,33 @@ describe('consumption-calculator', () => {
         period_start: null,
         period_end: null,
         consumption: null,
+        consumption_f0: null,
+        consumption_f1: null,
+        consumption_f2: null,
+        consumption_f3: null,
+        reactive_penalty: null,
         notes: null,
       });
+    });
+
+    it('periodo elettrico: fasce e penale mantenute', () => {
+      const r = normalizeByKind({ kind: ConsumptionKind.PERIOD, period_start: '2026-01-01', period_end: '2026-01-31', consumption: 10, consumption_f1: 10, reactive_penalty: true }, true);
+      expect(r).toMatchObject({ consumption_f1: 10, consumption_f0: null, reactive_penalty: true });
+    });
+
+    it('periodo non elettrico: fasce e penale azzerate', () => {
+      const r = normalizeByKind({ kind: ConsumptionKind.PERIOD, period_start: '2026-01-01', period_end: '2026-01-31', consumption: 10, consumption_f1: 10, reactive_penalty: true }, false);
+      expect(r).toMatchObject({ consumption_f1: null, reactive_penalty: null });
+    });
+
+    it('lettura elettrica: totalizzatori F1–F3 mantenuti, F0 e penale azzerati', () => {
+      const r = normalizeByKind({ kind: ConsumptionKind.READING, reading_date: '2026-01-01', reading_value: 10, meter_number: 'M', consumption_f0: 1, consumption_f2: 4, reactive_penalty: false }, true);
+      expect(r).toMatchObject({ consumption_f0: null, consumption_f2: 4, reactive_penalty: null });
+    });
+
+    it('lettura non elettrica: totalizzatori azzerati', () => {
+      const r = normalizeByKind({ kind: ConsumptionKind.READING, reading_date: '2026-01-01', reading_value: 10, meter_number: 'M', consumption_f2: 4 }, false);
+      expect(r).toMatchObject({ consumption_f2: null });
     });
 
     it('PERIOD: azzera i campi lettura', () => {
@@ -268,6 +376,20 @@ describe('consumption-calculator', () => {
 
     it('lettura superiore alla successiva stessa matricola rifiutata', () => {
       expect(validateConsumption(reading(9, '2026-02-01', 1400), others, TODAY)).toMatch(/successiva/);
+    });
+
+    it('totalizzatore di fascia inferiore alla lettura precedente stessa matricola rifiutato', () => {
+      const prev = { ...reading(1, '2026-01-01', 1000), consumption_f1: 600, consumption_f2: 400 };
+      const cand = { ...reading(9, '2026-02-01', 1100), consumption_f1: 590, consumption_f2: 510 };
+      expect(validateConsumption(cand, [prev], TODAY)).toBe(
+        'Totalizzatore F1 inferiore alla lettura precedente (600 del 01/01/2026) per la stessa matricola.',
+      );
+    });
+
+    it('totalizzatore di fascia superiore alla lettura successiva rifiutato', () => {
+      const next = { ...reading(2, '2026-03-01', 1300), consumption_f3: 100 };
+      const cand = { ...reading(9, '2026-02-01', 1100), consumption_f3: 150 };
+      expect(validateConsumption(cand, [next], TODAY)).toMatch(/Totalizzatore F3 superiore alla lettura successiva/);
     });
 
     it('lettura inferiore ma con altra matricola ammessa (nuovo contatore)', () => {

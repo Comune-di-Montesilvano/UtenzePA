@@ -17,6 +17,7 @@ import { SystemUser } from '@apis/system-users/entity/system-user.entity';
 import { PlantStatus, PlantType } from '../enum/plant.enum';
 import { PlantThermal } from './plant-thermal.entity';
 import { PlantElevator } from './plant-elevator.entity';
+import { PlantElectrical } from './plant-electrical.entity';
 import { PlantFireEquipment } from './plant-fire-equipment.entity';
 import { PlantInspection } from './plant-inspection.entity';
 
@@ -100,6 +101,9 @@ export class Plant {
 
   @OneToOne(() => PlantElevator, (elevator) => elevator.plant)
   elevator: PlantElevator | null;
+
+  @OneToOne(() => PlantElectrical, (electrical) => electrical.plant)
+  electrical: PlantElectrical | null;
 
   @OneToMany(() => PlantFireEquipment, (equipment) => equipment.plant)
   fireEquipment: PlantFireEquipment[];

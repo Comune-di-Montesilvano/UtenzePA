@@ -20,6 +20,7 @@ import {
   inspectionStatusOf,
   PlantInspection,
   PlantInspectionPayload,
+  RequiredInspection,
   suggestedInspections,
 } from './plant.model';
 import type {PlantType} from './plant.model';
@@ -38,8 +39,33 @@ const toDate = (iso?: string | null): Date | null => {
   imports: [ReactiveFormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MatFormFieldModule, MatInputModule,
     MatAutocompleteModule, MatDatepickerModule, MatBadgeModule],
   changeDetection: ChangeDetectionStrategy.Eager,
+  styles: [`
+    .missing-box {
+      display: flex; flex-direction: column; gap: 0.4rem; padding: 0.75rem 1rem; border-radius: 6px;
+      background: var(--tone-warn-bg); color: var(--tone-warn-fg);
+    }
+  `],
   template: `
     <div style="display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem 0;">
+      @if (missing.length) {
+        <div class="missing-box">
+          <div style="display: flex; align-items: center; gap: 6px; font-weight: 600;">
+            <mat-icon>gavel</mat-icon> Verifiche obbligatorie non registrate
+          </div>
+          @for (m of missing; track m.kind) {
+            <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+              <span>{{ m.kind }} — {{ m.law }}{{ m.period_months ? ', ogni ' + m.period_months + ' mesi' : '' }}</span>
+              @if (!readOnly && !editing) {
+                <button mat-stroked-button type="button" (click)="startRequired(m)">
+                  <mat-icon>add</mat-icon> Registra
+                </button>
+              }
+            </div>
+          }
+          <div style="font-size: 0.8rem;">Inserisci la data dell'ultimo verbale (o almeno della prossima scadenza).</div>
+        </div>
+      }
+
       @if (!readOnly && !editing) {
         <div>
           <button mat-stroked-button type="button" (click)="startEdit()">
@@ -163,6 +189,8 @@ export class PlantInspectionsTabComponent implements OnInit {
   @Input() powerKw: number | null = null;
   @Input() readOnly = false;
   @Input() rows: PlantInspection[] = [];
+  // Obbligatorie per legge senza una verifica registrata con data.
+  @Input() missing: RequiredInspection[] = [];
   @Output() changed = new EventEmitter<void>();
   // Allegati di una verifica aggiunti o tolti: il conteggio del tab Documenti va ricalcolato.
   @Output() attachmentsChanged = new EventEmitter<void>();
@@ -239,6 +267,12 @@ export class PlantInspectionsTabComponent implements OnInit {
       notes: r?.notes ?? '',
     });
     this.editing = true;
+  }
+
+  // Nuova verifica precompilata con nome e periodicità di legge.
+  startRequired(m: RequiredInspection): void {
+    this.startEdit();
+    this.form.patchValue({kind: m.kind, period_months: m.period_months});
   }
 
   cancel(): void {

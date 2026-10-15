@@ -34,6 +34,8 @@ import {ValidityBarComponent} from '../../core/components/entity-sheet/validity-
 import {StatusInfo, supplyContractFlags, supplyContractStatus, utilityStatus} from '../../core/helpers/entity-status';
 import {isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
+import {ToastService} from '../../core/services/toast.service';
+import {ContractsService} from './contract.service';
 import {ContractCommitmentsTabComponent} from './commitments/contract-commitments-tab.component';
 import {chapterLabel} from './commitments/commitment.model';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
@@ -42,6 +44,8 @@ import {EntityDocumentsComponent} from '../acts/entity-documents.component';
 /** Precompila l'associazione utenze quando aperto dal dettaglio Utenza ("Nuovo contratto"). */
 export interface ContractDialogExtra {
   preselectedUtilityIds?: number[];
+  // Rinnovo: contratto da chiudere alla creazione di questo («Chiudi il contratto precedente»).
+  replacesContract?: {id: number; label: string};
 }
 
 // CIG obbligatorio solo per i contratti ordinari (stessa regola del backend).
@@ -75,6 +79,8 @@ export class ContractEditDialogComponent implements OnInit {
   private utilityService = inject(UtilityService);
   private navigator = inject(EntityNavigatorService);
   private budgetChaptersService = inject(BudgetChaptersService);
+  private contractsService = inject(ContractsService);
+  private toast = inject(ToastService);
   protected data = inject<EditDialogData<Contract> & ContractDialogExtra>(MAT_DIALOG_DATA);
 
   @ViewChild(MatTabGroup) tabGroup?: MatTabGroup;
@@ -137,6 +143,7 @@ export class ContractEditDialogComponent implements OnInit {
     utility_ids: [
       this.data.item.utilities?.map(u => u.id) ?? this.data.preselectedUtilityIds ?? []
     ],
+    close_replaced: [true],
   }, {validators: cigRequiredUnlessExempt});
 
   constructor() {
@@ -330,11 +337,55 @@ export class ContractEditDialogComponent implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
+    const {close_replaced, ...values} = this.form.getRawValue();
+    const replaced = this.isNew && this.data.replacesContract && close_replaced;
     const result = plainToInstance(Contract, {
       id: this.data.item.id,
-      ...this.form.getRawValue()
+      ...values,
+      ...(replaced ? {replaces_contract_id: this.data.replacesContract!.id} : {}),
     });
     this.dialogRef.close(result);
+  }
+
+  // Rinnovo in corso: Salva e rinnovo disabilitati finché la scheda non si riallinea.
+  renewing = false;
+
+  // Rinnovo: nuovo contratto con le stesse utenze e i dati stabili del
+  // fornitore. Il backend aggiorna il precedente (chiuso/scadenza): la scheda
+  // rilegge quei valori e si chiude salvandoli, così chi l'ha aperta ricarica
+  // gli elenchi e un Salva con i valori vecchi non può riaprire il contratto.
+  renewWithUtilities(): void {
+    if (this.form.dirty) {
+      this.toast.add({severity: 'warn', summary: 'Modifiche non salvate',
+        detail: 'Salva o annulla le modifiche prima di creare il nuovo contratto.'});
+      return;
+    }
+    const v = this.form.getRawValue();
+    const prefill: Partial<Contract> = {
+      supplier_id_fk: v.supplier_id_fk ?? undefined,
+      contract_kind: v.contract_kind ?? undefined,
+      consip_agreement_id: v.consip_agreement_id ?? undefined,
+      maintenance_included: v.maintenance_included ?? false,
+    };
+    const cig = (v.cig_contract ?? '').trim();
+    const label = cig ? `CIG ${cig}` : `contratto #${this.data.item.id}`;
+    this.navigator.createSupplyContract(v.utility_ids ?? [], prefill, {id: this.data.item.id, label}).subscribe(created => {
+      if (!created) return;
+      this.renewing = true;
+      this.contractsService.getById(this.data.item.id).subscribe({
+        next: fresh => {
+          this.form.patchValue({closed: fresh.closed ?? false, supply_expiry_date: this.toDate(fresh.supply_expiry_date)});
+          this.toast.add({severity: 'success', summary: 'Nuovo contratto creato',
+            detail: 'Le utenze sono collegate al nuovo contratto.'});
+          this.save();
+        },
+        error: () => {
+          this.toast.add({severity: 'warn', summary: 'Nuovo contratto creato',
+            detail: 'Riapri il contratto precedente per vederlo aggiornato.'});
+          this.dialogRef.close(undefined);
+        },
+      });
+    });
   }
 
   cancel(): void {

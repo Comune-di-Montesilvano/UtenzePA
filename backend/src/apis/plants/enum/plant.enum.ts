@@ -18,6 +18,25 @@ export enum PlantType {
   POWERED_STREET_FURNITURE = 'POWERED_STREET_FURNITURE',
   COMPACTOR = 'COMPACTOR',
   STORMWATER = 'STORMWATER',
+  ELECTRICAL_SYSTEM = 'ELECTRICAL_SYSTEM',
+}
+
+// Impianto elettrico: alimentazione, classificazione del luogo per il DPR
+// 462/01 (periodicità della verifica di terra), tipo di dichiarazione DM 37/08.
+export enum ElectricalSupply {
+  LV = 'LV',
+  MV = 'MV',
+}
+
+export enum GroundingClass {
+  ORDINARY = 'ORDINARY',
+  HIGH_RISK = 'HIGH_RISK',
+  EXPLOSION = 'EXPLOSION',
+}
+
+export enum ConformityType {
+  DICO = 'DICO',
+  DIRI = 'DIRI',
 }
 
 export enum PlantStatus {

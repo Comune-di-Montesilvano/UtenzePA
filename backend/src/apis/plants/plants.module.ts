@@ -5,6 +5,7 @@ import { Utility } from '@apis/utility/entity/utility.entity';
 import { Plant } from './entity/plant.entity';
 import { PlantThermal } from './entity/plant-thermal.entity';
 import { PlantElevator } from './entity/plant-elevator.entity';
+import { PlantElectrical } from './entity/plant-electrical.entity';
 import { PlantInspection } from './entity/plant-inspection.entity';
 import { PlantFireEquipment } from './entity/plant-fire-equipment.entity';
 import { GeocodingModule } from '@apis/geocoding/geocoding.module';
@@ -17,6 +18,7 @@ import { PlantsController } from './plants.controller';
       Plant,
       PlantThermal,
       PlantElevator,
+      PlantElectrical,
       PlantInspection,
       PlantFireEquipment,
       Asset,

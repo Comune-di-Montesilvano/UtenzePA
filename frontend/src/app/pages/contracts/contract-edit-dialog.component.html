@@ -12,7 +12,7 @@
   </ng-container>
 
   <form [formGroup]="form">
-    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms" [disablePagination]="true">
 
       <mat-tab aria-label="Riepilogo">
         <ng-template mat-tab-label>
@@ -26,6 +26,11 @@
         }
 
         <div class="sheet-grid">
+          @if (isNew && data.replacesContract) {
+            <mat-checkbox formControlName="close_replaced" class="span-2">
+              Chiudi il contratto precedente ({{ data.replacesContract.label }})
+            </mat-checkbox>
+          }
           <mat-form-field class="span-2">
             <mat-label>Tipologia</mat-label>
             <mat-select formControlName="contract_kind">
@@ -145,9 +150,12 @@
   </form>
 
   <ng-container sheetActions>
+    @if (canEdit && !isNew && form.controls.utility_ids.value?.length) {
+      <button mat-stroked-button type="button" (click)="renewWithUtilities()" [disabled]="renewing">Nuovo contratto con queste utenze</button>
+    }
     <button mat-stroked-button type="button" (click)="cancel()">{{ canEdit ? 'Annulla' : 'Chiudi' }}</button>
     @if (canEdit) {
-      <button mat-flat-button type="button" (click)="save()">{{ isNew ? 'Crea contratto' : 'Salva contratto' }}</button>
+      <button mat-flat-button type="button" (click)="save()" [disabled]="renewing">{{ isNew ? 'Crea contratto' : 'Salva contratto' }}</button>
     }
   </ng-container>
 </app-entity-sheet>
