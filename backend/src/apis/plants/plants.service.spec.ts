@@ -166,7 +166,7 @@ describe('PlantsService', () => {
     expect(thermalRepo.delete).toHaveBeenCalledWith({ plant_id: 1 });
   });
 
-  it('impianto elettrico: salva la scheda e crea la verifica di terra a 24 mesi', async () => {
+  it('impianto elettrico: salva la scheda senza creare verifiche (si registrano col verbale)', async () => {
     repo.findOne.mockResolvedValue(plant({ id: 9, type: PlantType.ELECTRICAL_SYSTEM }));
     await service.create(
       {
@@ -181,16 +181,7 @@ describe('PlantsService', () => {
     expect(electricalRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ plant_id: 9, grounding_class: 'HIGH_RISK' }),
     );
-    expect(inspectionRepo.save).toHaveBeenCalledTimes(1);
-    expect(inspectionRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        plant_id: 9,
-        kind: 'Messa a terra (DPR 462/01)',
-        period_months: 24,
-        next_date: null,
-        created_by_user_id: 3,
-      }),
-    );
+    expect(inspectionRepo.save).not.toHaveBeenCalled();
   });
 
   it('impianto elettrico: cambio classificazione ricalcola periodicità e scadenza, data ed esito invariati', async () => {
@@ -244,21 +235,37 @@ describe('PlantsService', () => {
     expect(inspectionRepo.save).not.toHaveBeenCalled();
   });
 
-  it('impianto elettrico: PATCH parziale usa la classificazione già salvata', async () => {
+  it('impianto elettrico: PATCH parziale usa la scheda salvata (protezione già presente)', async () => {
     repo.findOne.mockResolvedValue(plant({ id: 9, type: PlantType.ELECTRICAL_SYSTEM }));
     electricalRepo.findOne.mockResolvedValue({
       plant_id: 9,
       grounding_class: 'ORDINARY',
-      lightning_protection: false,
+      lightning_protection: true,
     });
     inspectionRepo.find.mockResolvedValue([
-      { id: 4, plant_id: 9, kind: 'Messa a terra (DPR 462/01)', period_months: 60, deleted: false },
+      { id: 5, plant_id: 9, kind: 'Scariche atmosferiche (DPR 462/01)', period_months: 60, deleted: false },
     ]);
-    await service.update(9, { electrical: { lightning_protection: true } } as never, 3);
+    await service.update(9, { electrical: { grounding_class: 'HIGH_RISK' } } as never, 3);
     expect(inspectionRepo.save).toHaveBeenCalledTimes(1);
     expect(inspectionRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: 'Scariche atmosferiche (DPR 462/01)', period_months: 60 }),
+      expect.objectContaining({ id: 5, kind: 'Scariche atmosferiche (DPR 462/01)', period_months: 24 }),
     );
+  });
+
+  it('riga: verifiche obbligatorie mancanti (ascensore senza verifica datata)', async () => {
+    repo.find.mockResolvedValue([
+      plant({ type: PlantType.ELEVATOR, inspections: [{ kind: 'Manutenzione ordinaria', next_date: '2027-01-01', deleted: false }] }),
+      plant({
+        id: 2,
+        type: PlantType.ELEVATOR,
+        inspections: [{ kind: 'Verifica periodica (ente notificato)', last_date: '2025-01-10', next_date: '2027-01-10', deleted: false }],
+      }),
+    ]);
+    const [a, b] = await service.findAll({});
+    expect(a.missing_inspections).toEqual([
+      { kind: 'Verifica periodica (ente notificato)', period_months: 24, law: 'DPR 162/99' },
+    ]);
+    expect(b.missing_inspections).toEqual([]);
   });
 
   it('cambio tipo da elettrico: scheda elettrica eliminata, verifiche lasciate', async () => {

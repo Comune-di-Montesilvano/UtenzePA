@@ -2,9 +2,11 @@ import {
   FireEquipmentType,
   GroundingClass,
   InspectionStatus,
+  PlantStatus,
   PlantType,
   PositionQuality,
 } from './enum/plant.enum';
+import { thermalPlantObligations } from './thermal-plant-obligations';
 import { addDays, addMonths } from '@apis/utilizer-grant/real-estate-contract.calc';
 
 export const INSPECTION_DUE_DAYS = 60;
@@ -146,29 +148,83 @@ export const GROUNDING_PERIOD_MONTHS: Record<GroundingClass, number> = {
 export const GROUNDING_INSPECTION_KIND = 'Messa a terra (DPR 462/01)';
 export const LIGHTNING_INSPECTION_KIND = 'Scariche atmosferiche (DPR 462/01)';
 
-export interface ElectricalInspectionPlan {
-  create: { kind: string; period_months: number }[];
-  update: { id: number; period_months: number }[];
+const sameKind = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+// Periodicità delle verifiche DPR 462/01 già registrate da allineare alla
+// classificazione della scheda elettrica. Non ne crea: una verifica si
+// registra con il suo verbale; quelle mancanti le segnala missingInspections.
+export function electricalPeriodUpdates(
+  e: { grounding_class?: GroundingClass | null } | null | undefined,
+  existing: { id: number; kind: string; period_months: number | null; deleted?: boolean }[],
+): { id: number; period_months: number }[] {
+  if (!e?.grounding_class) return [];
+  const period = GROUNDING_PERIOD_MONTHS[e.grounding_class];
+  return existing
+    .filter(
+      (i) =>
+        !i.deleted &&
+        i.period_months !== period &&
+        [GROUNDING_INSPECTION_KIND, LIGHTNING_INSPECTION_KIND].some((k) => sameKind(i.kind, k)),
+    )
+    .map((i) => ({ id: i.id, period_months: period }));
 }
 
-// Verifiche da creare o di cui allineare la periodicità dopo il salvataggio
-// della scheda elettrica. Mai eliminazioni: le verifiche restano come storico.
-// Il confronto è sul nome esatto (spazi e maiuscole ignorati).
-export function electricalInspectionPlan(
-  e: { grounding_class?: GroundingClass | null; lightning_protection?: boolean | null } | null | undefined,
-  existing: { id: number; kind: string; period_months: number | null; deleted?: boolean }[],
-): ElectricalInspectionPlan {
-  const plan: ElectricalInspectionPlan = { create: [], update: [] };
-  if (!e?.grounding_class) return plan;
-  const period = GROUNDING_PERIOD_MONTHS[e.grounding_class];
-  const kinds = [GROUNDING_INSPECTION_KIND, ...(e.lightning_protection ? [LIGHTNING_INSPECTION_KIND] : [])];
-  const norm = (s: string) => s.trim().toLowerCase();
-  for (const kind of kinds) {
-    const found = existing.find((i) => !i.deleted && norm(i.kind) === norm(kind));
-    if (!found) plan.create.push({ kind, period_months: period });
-    else if (found.period_months !== period) plan.update.push({ id: found.id, period_months: period });
+export const ELEVATOR_INSPECTION_KIND = 'Verifica periodica (ente notificato)';
+export const EFFICIENCY_INSPECTION_KIND = 'Controllo di efficienza energetica';
+
+export interface RequiredInspection {
+  kind: string;
+  // null = dipende da un dato non ancora indicato (classificazione elettrica).
+  period_months: number | null;
+  law: string;
+}
+
+export interface RequiredInspectionInput {
+  type: PlantType;
+  status?: PlantStatus | null;
+  electrical?: { grounding_class?: GroundingClass | null; lightning_protection?: boolean | null } | null;
+  thermal?: { power_kw?: number | string | null } | null;
+}
+
+// Verifiche periodiche obbligatorie per legge, per tipo d'impianto: ascensori
+// (DPR 162/99), impianto elettrico (DPR 462/01: terra; scariche atmosferiche se
+// c'è la protezione), termico (DPR 74/2013, da 10 kW). Antincendio escluso: i
+// presidi hanno le loro scadenze. Impianti dismessi esclusi.
+export function requiredInspections(p: RequiredInspectionInput): RequiredInspection[] {
+  if (p.status === PlantStatus.DECOMMISSIONED) return [];
+  switch (p.type) {
+    case PlantType.ELEVATOR:
+      return [{ kind: ELEVATOR_INSPECTION_KIND, period_months: 24, law: 'DPR 162/99' }];
+    case PlantType.ELECTRICAL_SYSTEM: {
+      const cls = p.electrical?.grounding_class;
+      const period = cls ? GROUNDING_PERIOD_MONTHS[cls] : null;
+      return [
+        { kind: GROUNDING_INSPECTION_KIND, period_months: period, law: 'DPR 462/01' },
+        ...(p.electrical?.lightning_protection
+          ? [{ kind: LIGHTNING_INSPECTION_KIND, period_months: period, law: 'DPR 462/01' }]
+          : []),
+      ];
+    }
+    case PlantType.THERMAL: {
+      const kw = p.thermal?.power_kw;
+      if (!thermalPlantObligations(kw === null || kw === undefined ? null : Number(kw)).efficiency_check_required) {
+        return [];
+      }
+      return [{ kind: EFFICIENCY_INSPECTION_KIND, period_months: Number(kw) > 100 ? 24 : 48, law: 'DPR 74/2013' }];
+    }
+    default:
+      return [];
   }
-  return plan;
+}
+
+// Obbligatorie senza una verifica registrata con lo stesso nome (spazi e
+// maiuscole ignorati) e almeno una data (ultima o prossima).
+export function missingInspections(
+  p: RequiredInspectionInput,
+  inspections: { kind: string; last_date?: string | null; next_date?: string | null; deleted?: boolean }[],
+): RequiredInspection[] {
+  const dated = inspections.filter((i) => !i.deleted && (i.last_date || i.next_date));
+  return requiredInspections(p).filter((r) => !dated.some((i) => sameKind(i.kind, r.kind)));
 }
 
 // Periodicità proposte (indicative, modificabili dall'utente).
@@ -179,7 +235,7 @@ export function suggestedInspections(
   switch (type) {
     case PlantType.ELEVATOR:
       return [
-        { kind: 'Verifica periodica (ente notificato)', period_months: 24 },
+        { kind: ELEVATOR_INSPECTION_KIND, period_months: 24 },
         { kind: 'Manutenzione ordinaria', period_months: 6 },
       ];
     case PlantType.FIRE_PROTECTION:
@@ -190,7 +246,7 @@ export function suggestedInspections(
     case PlantType.THERMAL:
       return [
         {
-          kind: 'Controllo di efficienza energetica',
+          kind: EFFICIENCY_INSPECTION_KIND,
           period_months: Number(powerKw) > 100 ? 24 : 48,
         },
       ];

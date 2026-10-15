@@ -28,10 +28,12 @@ import { FireEquipmentType, InspectionStatus, PlantType, PositionQuality } from 
 import {
   PLANTS_MUNICIPALITY,
   computeNextDate,
-  electricalInspectionPlan,
+  electricalPeriodUpdates,
   firstLocatedAsset,
   inspectionStatus,
+  missingInspections,
   plantFireEquipmentStatus,
+  RequiredInspection,
   resolvePlantPosition,
 } from './plant.calc';
 import { ThermalPlantObligations, thermalPlantObligations } from './thermal-plant-obligations';
@@ -43,6 +45,8 @@ export type PlantRow = Plant & {
   inspection_status: InspectionStatus | null;
   // Stato dei presidi: l'estintore messo peggio (solo impianti antincendio).
   fire_equipment_status: InspectionStatus | null;
+  // Verifiche obbligatorie per legge senza una verifica registrata con data.
+  missing_inspections: RequiredInspection[];
   obligations?: ThermalPlantObligations;
 };
 
@@ -468,29 +472,16 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     }
   }
 
-  // Verifiche DPR 462/01 allineate alla scheda elettrica: create (senza data)
-  // o con periodicità aggiornata e prossima scadenza ricalcolata dall'ultima
-  // data; data, esito ed ente restano. Mai eliminate (storico).
+  // Verifiche DPR 462/01 già registrate allineate alla classificazione:
+  // periodicità aggiornata e prossima scadenza ricalcolata dall'ultima data;
+  // data, esito ed ente restano. Non ne crea: le mancanti sono segnalate.
   private async syncElectricalInspections(
     plantId: number,
     electrical: PlantElectricalDto,
     userId: number,
   ): Promise<void> {
     const existing = await this.inspectionRepo.find({ where: { plant_id: plantId, deleted: false } });
-    const plan = electricalInspectionPlan(electrical, existing);
-    for (const c of plan.create) {
-      await this.inspectionRepo.save(
-        this.inspectionRepo.create({
-          ...c,
-          plant_id: plantId,
-          last_date: null,
-          next_date: null,
-          created_by_user_id: userId,
-          updated_by_user_id: userId,
-        }),
-      );
-    }
-    for (const u of plan.update) {
+    for (const u of electricalPeriodUpdates(electrical, existing)) {
       const cur = existing.find((i) => i.id === u.id);
       await this.inspectionRepo.save({
         ...cur,
@@ -523,6 +514,7 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
       inspection_status: SEVERITY.find((s) => statuses.includes(s)) ?? null,
       fire_equipment_status:
         p.type === PlantType.FIRE_PROTECTION ? plantFireEquipmentStatus(fireEquipment, today) : null,
+      missing_inspections: missingInspections(p, inspections),
     } as PlantRow;
     if (p.type === PlantType.THERMAL) {
       // decimal MySQL arriva come stringa.
