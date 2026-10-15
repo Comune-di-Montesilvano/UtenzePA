@@ -1,4 +1,10 @@
-import { FireEquipmentType, InspectionStatus, PlantType, PositionQuality } from './enum/plant.enum';
+import {
+  FireEquipmentType,
+  GroundingClass,
+  InspectionStatus,
+  PlantType,
+  PositionQuality,
+} from './enum/plant.enum';
 import { addDays, addMonths } from '@apis/utilizer-grant/real-estate-contract.calc';
 
 export const INSPECTION_DUE_DAYS = 60;
@@ -127,6 +133,42 @@ export function resolvePlantPosition(
 
 export function positionQuality(p: PositionInput): PositionQuality {
   return resolvePlantPosition(p)?.quality ?? PositionQuality.MISSING;
+}
+
+// DPR 462/01: verifica periodica dell'impianto di terra (e delle scariche
+// atmosferiche, se presenti) ogni 2 anni nei luoghi a maggior rischio o con
+// pericolo di esplosione, ogni 5 negli altri.
+export const GROUNDING_PERIOD_MONTHS: Record<GroundingClass, number> = {
+  [GroundingClass.ORDINARY]: 60,
+  [GroundingClass.HIGH_RISK]: 24,
+  [GroundingClass.EXPLOSION]: 24,
+};
+export const GROUNDING_INSPECTION_KIND = 'Messa a terra (DPR 462/01)';
+export const LIGHTNING_INSPECTION_KIND = 'Scariche atmosferiche (DPR 462/01)';
+
+export interface ElectricalInspectionPlan {
+  create: { kind: string; period_months: number }[];
+  update: { id: number; period_months: number }[];
+}
+
+// Verifiche da creare o di cui allineare la periodicità dopo il salvataggio
+// della scheda elettrica. Mai eliminazioni: le verifiche restano come storico.
+// Il confronto è sul nome esatto (spazi e maiuscole ignorati).
+export function electricalInspectionPlan(
+  e: { grounding_class?: GroundingClass | null; lightning_protection?: boolean | null } | null | undefined,
+  existing: { id: number; kind: string; period_months: number | null; deleted?: boolean }[],
+): ElectricalInspectionPlan {
+  const plan: ElectricalInspectionPlan = { create: [], update: [] };
+  if (!e?.grounding_class) return plan;
+  const period = GROUNDING_PERIOD_MONTHS[e.grounding_class];
+  const kinds = [GROUNDING_INSPECTION_KIND, ...(e.lightning_protection ? [LIGHTNING_INSPECTION_KIND] : [])];
+  const norm = (s: string) => s.trim().toLowerCase();
+  for (const kind of kinds) {
+    const found = existing.find((i) => !i.deleted && norm(i.kind) === norm(kind));
+    if (!found) plan.create.push({ kind, period_months: period });
+    else if (found.period_months !== period) plan.update.push({ id: found.id, period_months: period });
+  }
+  return plan;
 }
 
 // Periodicità proposte (indicative, modificabili dall'utente).
