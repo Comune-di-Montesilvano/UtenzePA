@@ -34,7 +34,7 @@ Sopra gli elenchi compaiono le **segnalazioni**: dati incompleti o incoerenti da
 
 ### Aprire e modificare una scheda
 
-1. Clicca una riga dell'elenco: si apre la scheda dell'elemento, divisa in schede (tab). Ad esempio un'utenza ha Riepilogo, Tecnici e stato, Immobili, Impianti, Contratti di fornitura, Consumi, Fatture, Note, Foto, Storico.
+1. Clicca una riga dell'elenco: si apre la scheda dell'elemento, divisa in schede (tab) elencate nella colonna a sinistra; quella aperta è evidenziata con il colore dell'elemento. Ad esempio un'utenza ha Riepilogo, Tecnici e stato, Immobili, Impianti, Contratti di fornitura, Consumi, Fatture, Note, Foto, Storico. Sul telefono i tab stanno in alto, su più righe. Il numero accanto a un tab conta gli elementi collegati; un pallino segnala che il tab ha dati (es. note compilate).
 2. Modifica i campi e premi **Salva**. Se un campo non è valido, il tab che lo contiene è segnato con un pallino rosso.
 3. Dai tab dei collegamenti (es. Immobili, Utenze) puoi collegare un elemento esistente o crearne uno nuovo al volo. **Scollega** chiede sempre conferma e il collegamento viene rimosso al salvataggio della scheda.
 4. Il tab **Storico** mostra chi ha modificato cosa e quando.
@@ -142,7 +142,7 @@ L'impianto elettrico interno di un edificio (scuola, ufficio, palestra…) è un
 
 Le verifiche **Messa a terra (DPR 462/01)** e, se la protezione dalle scariche atmosferiche è presente, **Scariche atmosferiche (DPR 462/01)** sono obbligatorie (vedi [Verifiche obbligatorie per legge](#verifiche-obbligatorie-per-legge)): si registrano nel tab **Verifiche** con la data del verbale. Se cambi la classificazione cambia la periodicità di quelle registrate e, se c'è la data dell'ultima verifica, si ricalcola la prossima scadenza; data ed esito restano. Gli altri salvataggi della scheda non toccano le verifiche: una periodicità modificata a mano resta com'è finché non cambi classificazione o protezione.
 
-DiCo o DiRi, verbali di verifica, progetto e denuncia INAIL vanno nel tab **Documenti** (vedi sotto); il verbale di una verifica si allega con la graffetta sulla sua riga.
+DiCo o DiRi, verbali di verifica, progetto e denuncia INAIL vanno nel tab **Documenti e foto** (vedi sotto); il verbale di una verifica si allega con la graffetta sulla sua riga.
 
 ### Verifiche obbligatorie per legge
 
@@ -159,11 +159,11 @@ Un impianto attivo a cui manca una di queste verifiche, registrata con lo stesso
 
 ### Allegare un file a un immobile, impianto o contratto
 
-Nelle schede di **immobili**, **impianti**, **contratti immobiliari** e **contratti di fornitura** il tab **Documenti** raccoglie gli allegati e gli atti collegati.
+Nelle schede di **immobili**, **impianti**, **contratti immobiliari** e **contratti di fornitura** il tab **Documenti** raccoglie gli allegati e gli atti collegati. In immobili e impianti si chiama **Documenti e foto** e contiene anche le foto, in fondo.
 
 1. Apri il tab **Documenti** e, nella sezione **Allegati**, trascina i file nel riquadro oppure premi **scegli**. Non serve compilare nulla: la descrizione (es. «Contratto firmato», «Planimetria piano terra») è facoltativa e si scrive direttamente nella riga.
 2. Sono ammessi PDF, PDF firmati (.p7m), documenti e fogli di calcolo (Word, Excel, OpenDocument, CSV, testo), immagini (JPG, PNG, TIFF), disegni AutoCAD (.dwg) ed email (.eml, .msg). La dimensione massima per file è indicata nel riquadro (di norma 50 MB).
-3. Il verbale di una verifica di un impianto si allega alla verifica: nel tab **Verifiche** premi la graffetta sulla riga della verifica. Gli allegati delle verifiche compaiono anche nel tab **Documenti** dell'impianto, con l'indicazione «verifica: …».
+3. Il verbale di una verifica di un impianto si allega alla verifica: nel tab **Verifiche** premi la graffetta sulla riga della verifica. Gli allegati delle verifiche compaiono anche nel tab **Documenti e foto** dell'impianto, con l'indicazione «verifica: …».
 4. **Apri** mostra PDF e immagini JPG e PNG in una nuova scheda del browser (gli altri file, TIFF compresi, si scaricano), **Scarica** salva il file. Un allegato eliminato non si vede più.
 
 ### Registrare un atto
@@ -384,7 +384,7 @@ In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni u
 
 **Causa:** ogni elemento può avere al massimo 10 foto.
 
-**Soluzione:** elimina dal tab **Foto** quelle non più utili, poi carica le nuove.
+**Soluzione:** elimina dal tab **Foto** (in immobili e impianti: **Documenti e foto**) quelle non più utili, poi carica le nuove.
 
 **Apri un ticket se:** ti servono stabilmente più di 10 foto per un elemento.
 

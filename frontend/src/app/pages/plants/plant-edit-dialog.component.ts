@@ -67,6 +67,7 @@ import {EntityNavigatorService} from '../../core/services/entity-navigator.servi
 import {EntityDocumentsComponent} from '../acts/entity-documents.component';
 import {AttachmentService} from '../attachments/attachment.service';
 import {ActService} from '../acts/act.service';
+import {PhotosService} from '../../services/photos.service';
 import {forkJoin} from 'rxjs';
 
 export interface PlantEditDialogData {
@@ -120,6 +121,7 @@ export class PlantEditDialogComponent implements OnInit {
   private navigator = inject(EntityNavigatorService);
   private attachmentService = inject(AttachmentService);
   private actService = inject(ActService);
+  private photosService = inject(PhotosService);
   protected dialogRef = inject(MatDialogRef<PlantEditDialogComponent, Plant | null>);
   protected data = inject<PlantEditDialogData>(MAT_DIALOG_DATA);
 
@@ -139,6 +141,7 @@ export class PlantEditDialogComponent implements OnInit {
   readonly canEdit = isEditorRole(inject(AuthService).getCurrentUser()?.role);
   // Tab Documenti: allegati + atti collegati (si aggiorna alla prima apertura).
   documentCount: number | null = null;
+  photoCount: number | null = null;
 
   plant: Plant | null = null;
   private allAssets: Asset[] = [];
@@ -530,17 +533,26 @@ export class PlantEditDialogComponent implements OnInit {
     });
   }
 
-  // Stesso conteggio del tab Documenti (allegati dell'impianto e delle sue
-  // verifiche + atti collegati), aggiornato anche se il tab non è aperto.
+  // Stesso conteggio del tab Documenti e foto (allegati dell'impianto e delle
+  // sue verifiche + atti collegati + foto), aggiornato anche se il tab non è aperto.
   refreshDocumentCount(): void {
     if (!this.plant) return;
     forkJoin([
       this.attachmentService.list('plant', this.plant.id),
       this.actService.byEntity('plant', this.plant.id),
+      this.photosService.list('plant', this.plant.id),
     ]).subscribe({
-      next: ([files, acts]) => this.documentCount = files.length + acts.length,
+      next: ([files, acts, photos]) => {
+        this.documentCount = files.length + acts.length;
+        this.photoCount = photos.length;
+      },
       error: err => console.error('Errore conteggio documenti:', err),
     });
+  }
+
+  documentsAndPhotos(): number | null {
+    return this.documentCount === null && this.photoCount === null
+      ? null : (this.documentCount ?? 0) + (this.photoCount ?? 0);
   }
 
   reloadPlant(): void {
