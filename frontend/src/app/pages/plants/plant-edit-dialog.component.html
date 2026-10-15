@@ -15,13 +15,16 @@
     @if (fireEquipmentFlag(); as f) {
       <app-status-badge [info]="f" size="sm"></app-status-badge>
     }
+    @if (missingInspectionsFlag(); as f) {
+      <app-status-badge [info]="f" size="sm"></app-status-badge>
+    }
   </ng-container>
 
   @if (loading) {
     <mat-progress-bar mode="indeterminate"></mat-progress-bar>
   }
   <form [formGroup]="form">
-    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms" [disablePagination]="true">
 
       <mat-tab aria-label="Riepilogo">
         <ng-template mat-tab-label>
@@ -130,7 +133,7 @@
           <ng-template mat-tab-label>
             <app-tab-label icon="engineering" label="Dati tecnici"
                            [dot]="missingCerts().length > 0" tone="warn"
-                           [error]="invalid('thermal', 'elevator')"></app-tab-label>
+                           [error]="invalid('thermal', 'elevator', 'electrical')"></app-tab-label>
           </ng-template>
           @if (currentType() === 'THERMAL') {
             <div formGroupName="thermal">
@@ -264,6 +267,78 @@
               </mat-form-field>
             </div>
           }
+          @if (currentType() === 'ELECTRICAL_SYSTEM') {
+            <div formGroupName="electrical">
+              <div class="sheet-section-title">Impianto elettrico</div>
+              <div class="sheet-grid">
+                <mat-form-field>
+                  <mat-label>Alimentazione</mat-label>
+                  <mat-select formControlName="supply">
+                    <mat-option [value]="null">Non indicata</mat-option>
+                    <mat-option value="LV">Bassa tensione</mat-option>
+                    <mat-option value="MV">Media tensione (cabina propria)</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field class="span-2">
+                  <mat-label>Classificazione per il DPR 462/01</mat-label>
+                  <mat-select formControlName="grounding_class">
+                    <mat-option [value]="null">Non indicata</mat-option>
+                    @for (c of groundingClasses; track c.value) {
+                      <mat-option [value]="c.value">{{ c.label }}</mat-option>
+                    }
+                  </mat-select>
+                  <mat-hint>Scuole, luoghi a maggior rischio di incendio, locali medici: maggior rischio</mat-hint>
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Protezione dalle scariche atmosferiche</mat-label>
+                  <mat-select formControlName="lightning_protection">
+                    <mat-option [value]="null">Non nota</mat-option>
+                    <mat-option [value]="true">Presente</mat-option>
+                    <mat-option [value]="false">Assente</mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </div>
+              <div class="sheet-section-title">Conformità (DM 37/08)</div>
+              <div class="sheet-grid">
+                <mat-form-field>
+                  <mat-label>Dichiarazione</mat-label>
+                  <mat-select formControlName="conformity_type">
+                    <mat-option [value]="null">Non nota</mat-option>
+                    <mat-option value="DICO">Di conformità (DiCo)</mat-option>
+                    <mat-option value="DIRI">Di rispondenza (DiRi)</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Data</mat-label>
+                  <input matInput [matDatepicker]="conformityPicker" formControlName="conformity_date" placeholder="GG/MM/AAAA">
+                  <mat-datepicker-toggle matIconSuffix [for]="conformityPicker"></mat-datepicker-toggle>
+                  <mat-datepicker #conformityPicker></mat-datepicker>
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Numero</mat-label>
+                  <input matInput formControlName="conformity_number" maxlength="100">
+                </mat-form-field>
+              </div>
+              <div class="sheet-section-title">Denuncia INAIL (DPR 462/01)</div>
+              <div class="sheet-grid">
+                <mat-form-field>
+                  <mat-label>Data di invio</mat-label>
+                  <input matInput [matDatepicker]="inailPicker" formControlName="inail_date" placeholder="GG/MM/AAAA">
+                  <mat-datepicker-toggle matIconSuffix [for]="inailPicker"></mat-datepicker-toggle>
+                  <mat-datepicker #inailPicker></mat-datepicker>
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Numero pratica</mat-label>
+                  <input matInput formControlName="inail_number" maxlength="100">
+                </mat-form-field>
+              </div>
+              <p class="sheet-hint">
+                Le verifiche «Messa a terra (DPR 462/01)» e, se la protezione è presente, «Scariche atmosferiche
+                (DPR 462/01)» sono obbligatorie: finché non sono registrate nel tab Verifiche con la data del verbale,
+                l'impianto è tra le segnalazioni. Cambiando la classificazione si aggiorna la periodicità di quelle registrate.
+              </p>
+            </div>
+          }
         </mat-tab>
       }
 
@@ -284,14 +359,17 @@
       @if (plant && hasTab('inspections')) {
         <mat-tab aria-label="Verifiche">
           <ng-template mat-tab-label>
-            <app-tab-label icon="event" label="Verifiche" [count]="plant.inspections.length"
-                           [tone]="overdueInspections() ? 'danger' : 'info'"></app-tab-label>
+            <app-tab-label icon="event" label="Verifiche"
+                           [count]="plant.inspections.length || (plant.missing_inspections.length ? null : 0)"
+                           [dot]="plant.missing_inspections.length > 0"
+                           [tone]="overdueInspections() ? 'danger' : plant.missing_inspections.length ? 'warn' : 'info'"></app-tab-label>
           </ng-template>
           <app-plant-inspections-tab
             [plantId]="plant.id"
             [plantType]="plant.type"
             [powerKw]="plant.thermal?.power_kw ?? null"
             [rows]="plant.inspections"
+            [missing]="plant.missing_inspections"
             [readOnly]="!canEdit"
             (changed)="reloadPlant()"
             (attachmentsChanged)="refreshDocumentCount()">
@@ -343,21 +421,16 @@
       </mat-tab>
 
       @if (plant) {
-        <mat-tab aria-label="Foto">
+        <mat-tab aria-label="Documenti e foto">
           <ng-template mat-tab-label>
-            <app-tab-label icon="photo_library" label="Foto"></app-tab-label>
-          </ng-template>
-          <ng-template matTabContent>
-            <app-photo-gallery [entityType]="'plant'" [entityId]="plant.id"></app-photo-gallery>
-          </ng-template>
-        </mat-tab>
-        <mat-tab aria-label="Documenti">
-          <ng-template mat-tab-label>
-            <app-tab-label icon="folder_open" label="Documenti" [count]="documentCount"></app-tab-label>
+            <app-tab-label icon="folder_open" label="Documenti e foto" [count]="documentsAndPhotos()"></app-tab-label>
           </ng-template>
           <ng-template matTabContent>
             <app-entity-documents entity="plant" [entityId]="plant.id" [readOnly]="!canEdit"
                                   (countChange)="documentCount = $event"></app-entity-documents>
+            <div class="sheet-section-title"><mat-icon>photo_library</mat-icon>Foto</div>
+            <app-photo-gallery [entityType]="'plant'" [entityId]="plant.id"
+                               (countChange)="photoCount = $event"></app-photo-gallery>
           </ng-template>
         </mat-tab>
         <mat-tab aria-label="Storico">

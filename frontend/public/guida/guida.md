@@ -1,6 +1,6 @@
 # UtenzePA – Guida per gli operatori
 
-_Ultimo aggiornamento: 2026-10-13_
+_Ultimo aggiornamento: 2026-10-15_
 
 ## Cos'è e chi lo usa
 
@@ -34,7 +34,7 @@ Sopra gli elenchi compaiono le **segnalazioni**: dati incompleti o incoerenti da
 
 ### Aprire e modificare una scheda
 
-1. Clicca una riga dell'elenco: si apre la scheda dell'elemento, divisa in schede (tab). Ad esempio un'utenza ha Riepilogo, Tecnici e stato, Immobili, Impianti, Contratti di fornitura, Consumi, Fatture, Note, Foto, Storico.
+1. Clicca una riga dell'elenco: si apre la scheda dell'elemento, divisa in schede (tab) elencate nella colonna a sinistra; quella aperta è evidenziata con il colore dell'elemento. Ad esempio un'utenza ha Riepilogo, Tecnici e stato, Immobili, Impianti, Contratti di fornitura, Consumi, Fatture, Note, Foto, Storico. Sul telefono i tab stanno in alto, su più righe. Il numero accanto a un tab conta gli elementi collegati; un pallino segnala che il tab ha dati (es. note compilate).
 2. Modifica i campi e premi **Salva**. Se un campo non è valido, il tab che lo contiene è segnato con un pallino rosso.
 3. Dai tab dei collegamenti (es. Immobili, Utenze) puoi collegare un elemento esistente o crearne uno nuovo al volo. **Scollega** chiede sempre conferma e il collegamento viene rimosso al salvataggio della scheda.
 4. Il tab **Storico** mostra chi ha modificato cosa e quando.
@@ -84,7 +84,15 @@ Il significato degli stati è in «A carico di: gli stati».
     - **Consumo periodo**: date dal/al e consumo del periodo (es. da una fattura).
 3. Premi **Salva**.
 
-Una matricola diversa dalla precedente indica un nuovo contatore. Il grafico mostra i consumi del mese, distinguendo quelli reali da quelli stimati. Le utenze Internet non hanno consumi.
+Una matricola diversa dalla precedente indica un nuovo contatore. Il grafico mostra i consumi del mese, distinguendo quelli reali da quelli stimati; i giorni dopo l'ultimo dato registrato (es. bolletta non ancora arrivata) sono stimati, i buchi tra due dati restano vuoti. Se l'utenza ha dati per fascia, ogni barra è divisa in colori per fascia (F1, F2, F3, F0) più un grigio per la parte senza fasce; la stima è ripartita secondo le quote dell'ultimo anno. Le utenze Internet non hanno consumi.
+
+Per le utenze elettriche il consumo di periodo può avere anche:
+
+- le **fasce** F0 (monoraria), F1, F2, F3: facoltative; se le compili, la loro somma deve coincidere col consumo del periodo (scarto massimo 1 kWh);
+- sulla **lettura contatore**, i **totalizzatori** F1, F2, F3 letti sul contatore: facoltativi; la loro somma deve coincidere col valore letto e ognuno non può scendere rispetto alla lettura precedente dello stesso contatore. Il consumo di ogni fascia è la differenza tra due letture;
+- la casella **Penale per energia reattiva**, se la bolletta addebita una penale per basso fattore di potenza. Le utenze con una penale negli ultimi 12 mesi compaiono nella segnalazione «Penali per energia reattiva»: l'impianto va rifasato.
+
+Nella scheda delle utenze elettriche, tab **Tecnici e stato**, c'è anche il **Codice impianto fornitore**: il codice con cui il fornitore di energia identifica la fornitura, stabile tra i rinnovi del contratto.
 
 ### Consultare la mappa
 
@@ -122,13 +130,40 @@ Nella scheda di un impianto antincendio il tab **Presidi** elenca estintori, idr
 
 Nella scheda di un ascensore il tab **Dati tecnici** riporta i dati dell'anagrafe comunale ascensori: matricola, numero impianto, costruttore, anno e data di collaudo, tipologia, azionamento, portata, fermate, velocità, **capienza** (persone), **accessi**, **corsa** (metri), **norma tecnica** e presenza della **SIM di emergenza** del combinatore telefonico. Le verifiche periodiche si registrano nel tab **Verifiche**.
 
+### Impianto elettrico di un edificio
+
+L'impianto elettrico interno di un edificio (scuola, ufficio, palestra…) è un impianto di tipo **Impianto elettrico**, collegato all'immobile e all'utenza (POD) che lo alimenta. Il tab **Dati tecnici** riporta i dati richiesti dalla normativa:
+
+- **Alimentazione**: bassa tensione, o media tensione con cabina propria.
+- **Classificazione per il DPR 462/01**: stabilisce ogni quanto va verificato l'impianto di terra. **Ordinario**: ogni 5 anni. **Maggior rischio** (scuole, luoghi a maggior rischio di incendio, locali medici): ogni 2 anni. **Pericolo di esplosione**: ogni 2 anni. Per un nuovo impianto collegato a una scuola il campo parte da «maggior rischio»; si può cambiare.
+- **Protezione dalle scariche atmosferiche**: presente, assente o non nota.
+- **Conformità (DM 37/08)**: dichiarazione di conformità dell'installatore (DiCo) o, per gli impianti precedenti al 2008, di rispondenza (DiRi), con data e numero.
+- **Denuncia INAIL**: data di invio e numero pratica della messa in esercizio.
+
+Le verifiche **Messa a terra (DPR 462/01)** e, se la protezione dalle scariche atmosferiche è presente, **Scariche atmosferiche (DPR 462/01)** sono obbligatorie (vedi [Verifiche obbligatorie per legge](#verifiche-obbligatorie-per-legge)): si registrano nel tab **Verifiche** con la data del verbale. Se cambi la classificazione cambia la periodicità di quelle registrate e, se c'è la data dell'ultima verifica, si ricalcola la prossima scadenza; data ed esito restano. Gli altri salvataggi della scheda non toccano le verifiche: una periodicità modificata a mano resta com'è finché non cambi classificazione o protezione.
+
+DiCo o DiRi, verbali di verifica, progetto e denuncia INAIL vanno nel tab **Documenti e foto** (vedi sotto); il verbale di una verifica si allega con la graffetta sulla sua riga.
+
+### Verifiche obbligatorie per legge
+
+Alcuni impianti hanno verifiche periodiche imposte dalla legge:
+
+| Impianto | Verifica | Norma | Quando |
+|---|---|---|---|
+| Ascensore | Verifica periodica (ente notificato), ogni 2 anni | DPR 162/99 | sempre |
+| Impianto elettrico | Messa a terra (DPR 462/01), ogni 2 o 5 anni secondo la classificazione | DPR 462/01 | sempre |
+| Impianto elettrico | Scariche atmosferiche (DPR 462/01) | DPR 462/01 | se la protezione è presente |
+| Termico | Controllo di efficienza energetica, ogni 2 anni oltre 100 kW, altrimenti 4 | DPR 74/2013 | da 10 kW di potenza |
+
+Un impianto attivo a cui manca una di queste verifiche, registrata con lo stesso nome e almeno una data (ultima o prossima), compare nella segnalazione **Verifiche obbligatorie mancanti** dell'elenco impianti; la sua scheda mostra l'avviso in intestazione e il tab **Verifiche** elenca quelle mancanti con il pulsante **Registra**, che apre la verifica già compilata con nome e periodicità: aggiungi la data dell'ultimo verbale. Le verifiche non si creano da sole e non si registrano senza data: una verifica senza data non fa scattare nessuna scadenza.
+
 ### Allegare un file a un immobile, impianto o contratto
 
-Nelle schede di **immobili**, **impianti**, **contratti immobiliari** e **contratti di fornitura** il tab **Documenti** raccoglie gli allegati e gli atti collegati.
+Nelle schede di **immobili**, **impianti**, **contratti immobiliari** e **contratti di fornitura** il tab **Documenti** raccoglie gli allegati e gli atti collegati. In immobili e impianti si chiama **Documenti e foto** e contiene anche le foto, in fondo.
 
 1. Apri il tab **Documenti** e, nella sezione **Allegati**, trascina i file nel riquadro oppure premi **scegli**. Non serve compilare nulla: la descrizione (es. «Contratto firmato», «Planimetria piano terra») è facoltativa e si scrive direttamente nella riga.
 2. Sono ammessi PDF, PDF firmati (.p7m), documenti e fogli di calcolo (Word, Excel, OpenDocument, CSV, testo), immagini (JPG, PNG, TIFF), disegni AutoCAD (.dwg) ed email (.eml, .msg). La dimensione massima per file è indicata nel riquadro (di norma 50 MB).
-3. Il verbale di una verifica di un impianto si allega alla verifica: nel tab **Verifiche** premi la graffetta sulla riga della verifica. Gli allegati delle verifiche compaiono anche nel tab **Documenti** dell'impianto, con l'indicazione «verifica: …».
+3. Il verbale di una verifica di un impianto si allega alla verifica: nel tab **Verifiche** premi la graffetta sulla riga della verifica. Gli allegati delle verifiche compaiono anche nel tab **Documenti e foto** dell'impianto, con l'indicazione «verifica: …».
 4. **Apri** mostra PDF e immagini JPG e PNG in una nuova scheda del browser (gli altri file, TIFF compresi, si scaricano), **Scarica** salva il file. Un allegato eliminato non si vede più.
 
 ### Registrare un atto
@@ -216,13 +251,17 @@ Le schede, gli elenchi degli allegati e gli atti sono visibili a tutti. **Aprire
 
 Un CIG può essere usato da un solo contratto. Il numero d'ordine CONSIP è unico.
 
+Nella scheda dell'utenza i contratti di fornitura compaiono con quelli **in corso** in alto, poi dal più recente al più vecchio.
+
+**Rinnovo con le stesse utenze:** nella scheda di un contratto, **Nuovo contratto con queste utenze** apre un nuovo contratto con le stesse utenze collegate e con fornitore, tipologia, convenzione CONSIP e «Manutenzione inclusa» già compilati. CIG, ordine e date vanno inseriti. Con **Chiudi il contratto precedente** spuntata (scelta predefinita), il contratto precedente scade il giorno prima della decorrenza del nuovo (se la sua scadenza manca o non è anteriore), così non risultano contratti sovrapposti. Se la decorrenza del nuovo è già arrivata il precedente diventa subito chiuso; se è futura resta il contratto corrente fino ad allora. Prima di usare l'azione salva o annulla le modifiche alla scheda.
+
 ### Segnalazioni per elenco
 
 | Elenco | Segnalazioni |
 | --- | --- |
-| Utenze | Attive senza contratto di fornitura valido · Attive coperte solo da contratti senza CIG · Con contratti di fornitura sovrapposti · Attive senza tipologia ARERA · Da volturare · Volturate da riprendere · Capitolo non impegnato sul contratto di fornitura · Senza capitolo di spesa · Attive senza posizione |
+| Utenze | Attive senza contratto di fornitura valido · Attive coperte solo da contratti senza CIG · Con contratti di fornitura sovrapposti · Attive senza tipologia ARERA · Da volturare · Volturate da riprendere · Capitolo non impegnato sul contratto di fornitura · Senza capitolo di spesa · Attive senza posizione · Penali per energia reattiva (penale in un periodo terminato negli ultimi 12 mesi) |
 | Immobili | Da classificare (tipologia o funzione mancanti) · Non di proprietà senza contratto passivo attivo · Di proprietà senza catasto · Fabbricati di proprietà senza Id MEF · Subalterno da assegnare (stessi via, civico, foglio e particella) |
-| Impianti | Senza posizione · Senza immobile · Presidi scaduti (almeno un estintore con una scadenza superata) |
+| Impianti | Senza posizione · Senza immobile · Presidi scaduti (almeno un estintore con una scadenza superata) · Verifiche obbligatorie mancanti (vedi [Verifiche obbligatorie per legge](#verifiche-obbligatorie-per-legge)) |
 | Fatture | Su utenze cessate · Con righe senza utenza |
 | Contratti di fornitura | Senza CIG (non esclusi) · CIG duplicati |
 | Contratti immobiliari | Senza immobile · Senza parti |
@@ -301,6 +340,14 @@ In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni u
 
 **Apri un ticket se:** le date sono corrette ma il messaggio resta.
 
+### «La somma delle fasce … non coincide con il consumo del periodo …»
+
+**Causa:** nel consumo di periodo le fasce F0–F3 compilate non sommano al consumo indicato (scarto oltre 1 kWh).
+
+**Soluzione:** ricopia le fasce dalla bolletta o correggi il consumo; se non conosci le fasce, lasciale tutte vuote.
+
+**Apri un ticket se:** la somma torna ma il messaggio resta.
+
 ### Il fatturato supera l'assestato del capitolo
 
 **Causa:** con la fattura in corso il fatturato dell'anno sul capitolo supera l'assestato. L'avviso è del tipo «Capitolo …: con questa fattura il fatturato … supera l'assestato».
@@ -337,7 +384,7 @@ In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni u
 
 **Causa:** ogni elemento può avere al massimo 10 foto.
 
-**Soluzione:** elimina dal tab **Foto** quelle non più utili, poi carica le nuove.
+**Soluzione:** elimina dal tab **Foto** (in immobili e impianti: **Documenti e foto**) quelle non più utili, poi carica le nuove.
 
 **Apri un ticket se:** ti servono stabilmente più di 10 foto per un elemento.
 

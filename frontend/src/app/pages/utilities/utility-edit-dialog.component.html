@@ -12,7 +12,7 @@
   </ng-container>
 
   <form [formGroup]="form">
-    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms" [disablePagination]="true">
 
       <mat-tab aria-label="Riepilogo">
         <ng-template mat-tab-label>
@@ -295,6 +295,10 @@
               <input matInput formControlName="voltage_kw_electric">
             </mat-form-field>
             <mat-form-field>
+              <mat-label>Codice impianto fornitore</mat-label>
+              <input matInput formControlName="supplier_plant_code" maxlength="50">
+            </mat-form-field>
+            <mat-form-field>
               <mat-label>Tipo Fase</mat-label>
               <mat-select formControlName="phase_type_electric">
                 @for (opt of phaseTypeOptions; track opt.value) {
@@ -425,6 +429,7 @@
         @if (!isNew && selectedHardType !== HardType.INTERNET) {
           <app-utility-consumptions-tab
             [utilityId]="data.item.id"
+            [isElectric]="showLightFields"
             [meterNumber]="data.item.meter_number ?? null"
             (summaryChanged)="onConsumptionSummary($event)">
           </app-utility-consumptions-tab>

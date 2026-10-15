@@ -380,6 +380,12 @@ html.theme-dark .only-dark { display: revert !important; }
   --on-entity: light-dark(#ffffff, #121212);
   // Serie dei grafici consumi (SVG): blu più chiaro su fondo scuro.
   --chart-series: light-dark(#1976d2, #60a5fa);
+  // Fasce orarie dei consumi elettrici (grafico consumi): F1 punta, F3 vuoto.
+  --chart-band-f0: light-dark(#7c3aed, #a78bfa);
+  --chart-band-f1: light-dark(#dc2626, #f87171);
+  --chart-band-f2: light-dark(#d97706, #fbbf24);
+  --chart-band-f3: light-dark(#16a34a, #4ade80);
+  --chart-band-none: light-dark(#9ca3af, #71717a);
 
   --tone-ok-bg: light-dark(#dcfce7, #14361f); --tone-ok-fg: light-dark(#166534, #86efac);
   --tone-warn-bg: light-dark(#fef3c7, #3d2c0b); --tone-warn-fg: light-dark(#92400e, #fcd34d);
@@ -417,6 +423,37 @@ html.theme-dark .only-dark { display: revert !important; }
 .sheet-body .mat-mdc-tab-header { padding: 0 16px; border-bottom: 1px solid var(--sheet-border); }
 .sheet-body .mat-mdc-tab-body-wrapper { flex: 1 1 auto; min-height: 0; }
 .sheet-body .mat-mdc-tab-body-content { padding: 16px 24px 24px; box-sizing: border-box; }
+
+/* Tab delle schede: colonna a sinistra (tutti visibili, niente scorrimento
+   laterale); su schermo stretto in riga, andando a capo. Il tab selezionato
+   ha fondo e barra del colore dell'entità (--sheet-accent da app-entity-sheet).
+   I mat-tab-group delle schede hanno [disablePagination]="true". */
+.sheet-body .mat-mdc-tab-header-pagination { display: none; }
+.sheet-body .mat-mdc-tab-label-container,
+.sheet-body .mat-mdc-tab-list { overflow: visible; transform: none !important; }
+.sheet-body .mat-mdc-tab-labels { flex-wrap: wrap; }
+.sheet-body .mat-mdc-tab-group .mat-mdc-tab { flex-grow: 0; opacity: 1; }
+.sheet-body .mat-mdc-tab .mdc-tab-indicator { display: none; }
+.sheet-body .mat-mdc-tab.mdc-tab--active {
+  background: color-mix(in srgb, var(--sheet-accent, var(--entity-asset)) 14%, transparent);
+  box-shadow: inset 0 -3px 0 var(--sheet-accent, var(--entity-asset));
+}
+.sheet-body .mat-mdc-tab.mdc-tab--active .mdc-tab__text-label { font-weight: 600; color: var(--app-text); }
+.sheet-body .mat-mdc-tab:not(.mdc-tab--active) .mdc-tab__text-label { color: var(--app-muted); }
+
+@media (min-width: 701px) {
+  .sheet-body .mat-mdc-tab-group { flex-direction: row; }
+  .sheet-body .mat-mdc-tab-header {
+    flex: 0 0 210px; flex-direction: column; padding: 8px 0; overflow-y: auto;
+    border-bottom: 0; border-right: 1px solid var(--sheet-border);
+  }
+  .sheet-body .mat-mdc-tab-labels { flex-direction: column; flex-wrap: nowrap; }
+  .sheet-body .mat-mdc-tab-group .mat-mdc-tab { height: 42px; padding: 0 16px; justify-content: flex-start; }
+  .sheet-body .mat-mdc-tab .mdc-tab__content { width: 100%; justify-content: flex-start; }
+  .sheet-body .mat-mdc-tab .mdc-tab__text-label { width: 100%; }
+  .sheet-body .mat-mdc-tab.mdc-tab--active { box-shadow: inset 4px 0 0 var(--sheet-accent, var(--entity-asset)); }
+  .sheet-body .mat-mdc-tab-body-wrapper { flex: 1 1 auto; min-width: 0; }
+}
 
 .sheet-grid {
   display: grid;

@@ -1,15 +1,24 @@
 import {
   computeNextDate,
+  electricalPeriodUpdates,
   fireEquipmentDeadlines,
   fireEquipmentStatus,
   inspectionStatus,
+  missingInspections,
   monthEnd,
   plantFireEquipmentStatus,
   positionQuality,
   resolvePlantPosition,
   suggestedInspections,
 } from './plant.calc';
-import { FireEquipmentType, InspectionStatus, PlantType, PositionQuality } from './enum/plant.enum';
+import {
+  FireEquipmentType,
+  GroundingClass,
+  InspectionStatus,
+  PlantStatus,
+  PlantType,
+  PositionQuality,
+} from './enum/plant.enum';
 
 const TODAY = '2026-10-02';
 
@@ -177,5 +186,118 @@ describe('scadenze estintori', () => {
     expect(
       plantFireEquipmentStatus([{ ...ext(), equipment_type: FireEquipmentType.HYDRANT }], TODAY),
     ).toBeNull();
+  });
+});
+
+describe('electricalPeriodUpdates', () => {
+  const terra = (over = {}) => ({
+    id: 1,
+    kind: 'Messa a terra (DPR 462/01)',
+    period_months: 60,
+    deleted: false,
+    ...over,
+  });
+
+  it('senza classificazione: niente', () => {
+    expect(electricalPeriodUpdates({ grounding_class: null }, [terra()])).toEqual([]);
+    expect(electricalPeriodUpdates(null, [terra()])).toEqual([]);
+  });
+
+  it('nessuna verifica registrata: non ne crea', () => {
+    expect(
+      electricalPeriodUpdates({ grounding_class: GroundingClass.HIGH_RISK }, []),
+    ).toEqual([]);
+  });
+
+  it('cambio classificazione: aggiorna la periodicità delle verifiche esistenti', () => {
+    const existing = [
+      terra(),
+      { id: 2, kind: 'Scariche atmosferiche (DPR 462/01)', period_months: 60, deleted: false },
+    ];
+    expect(electricalPeriodUpdates({ grounding_class: GroundingClass.EXPLOSION }, existing)).toEqual([
+      { id: 1, period_months: 24 },
+      { id: 2, period_months: 24 },
+    ]);
+  });
+
+  it('verifica già allineata, cancellata o con altro nome: niente', () => {
+    expect(
+      electricalPeriodUpdates({ grounding_class: GroundingClass.ORDINARY }, [
+        terra(),
+        terra({ id: 3, period_months: 24, deleted: true }),
+        terra({ id: 4, period_months: 24, kind: 'Verifica messa a terra' }),
+      ]),
+    ).toEqual([]);
+  });
+
+  it('nome uguale a meno di spazi e maiuscole: riconosciuta', () => {
+    expect(
+      electricalPeriodUpdates({ grounding_class: GroundingClass.HIGH_RISK }, [
+        terra({ kind: ' messa a terra (dpr 462/01) ' }),
+      ]),
+    ).toEqual([{ id: 1, period_months: 24 }]);
+  });
+});
+
+describe('missingInspections (verifiche obbligatorie per legge)', () => {
+  const dated = (kind: string, over = {}) => ({ kind, last_date: '2024-05-10', next_date: '2026-05-10', deleted: false, ...over });
+
+  it('ascensore senza verifica periodica: mancante (DPR 162/99, 24 mesi)', () => {
+    expect(missingInspections({ type: PlantType.ELEVATOR }, [])).toEqual([
+      { kind: 'Verifica periodica (ente notificato)', period_months: 24, law: 'DPR 162/99' },
+    ]);
+  });
+
+  it('ascensore con verifica datata: niente', () => {
+    expect(missingInspections({ type: PlantType.ELEVATOR }, [dated('Verifica periodica (ente notificato)')])).toEqual([]);
+  });
+
+  it('verifica senza date o cancellata non conta', () => {
+    const kind = 'Verifica periodica (ente notificato)';
+    expect(
+      missingInspections({ type: PlantType.ELEVATOR }, [
+        dated(kind, { last_date: null, next_date: null }),
+        dated(kind, { deleted: true }),
+      ]),
+    ).toHaveLength(1);
+  });
+
+  it('basta la sola prossima data (verifica programmata)', () => {
+    expect(
+      missingInspections({ type: PlantType.ELEVATOR }, [
+        dated('Verifica periodica (ente notificato)', { last_date: null }),
+      ]),
+    ).toEqual([]);
+  });
+
+  it('impianto elettrico: messa a terra sempre, periodicità dalla classificazione', () => {
+    expect(
+      missingInspections({ type: PlantType.ELECTRICAL_SYSTEM, electrical: { grounding_class: GroundingClass.HIGH_RISK } }, []),
+    ).toEqual([{ kind: 'Messa a terra (DPR 462/01)', period_months: 24, law: 'DPR 462/01' }]);
+    expect(missingInspections({ type: PlantType.ELECTRICAL_SYSTEM, electrical: null }, [])).toEqual([
+      { kind: 'Messa a terra (DPR 462/01)', period_months: null, law: 'DPR 462/01' },
+    ]);
+  });
+
+  it('impianto elettrico: scariche atmosferiche solo con protezione presente', () => {
+    const e = { grounding_class: GroundingClass.ORDINARY, lightning_protection: true };
+    expect(
+      missingInspections({ type: PlantType.ELECTRICAL_SYSTEM, electrical: e }, [dated(' messa a terra (dpr 462/01)')]),
+    ).toEqual([{ kind: 'Scariche atmosferiche (DPR 462/01)', period_months: 60, law: 'DPR 462/01' }]);
+  });
+
+  it('termico: efficienza energetica solo se dovuta per potenza (>= 10 kW)', () => {
+    expect(missingInspections({ type: PlantType.THERMAL, thermal: { power_kw: 8 } }, [])).toEqual([]);
+    expect(missingInspections({ type: PlantType.THERMAL, thermal: null }, [])).toEqual([]);
+    expect(missingInspections({ type: PlantType.THERMAL, thermal: { power_kw: '120.00' } }, [])).toEqual([
+      { kind: 'Controllo di efficienza energetica', period_months: 24, law: 'DPR 74/2013' },
+    ]);
+    expect(missingInspections({ type: PlantType.THERMAL, thermal: { power_kw: 50 } }, [])[0].period_months).toBe(48);
+  });
+
+  it('impianto dismesso o di altro tipo: niente', () => {
+    expect(missingInspections({ type: PlantType.ELEVATOR, status: PlantStatus.DECOMMISSIONED }, [])).toEqual([]);
+    expect(missingInspections({ type: PlantType.FIRE_PROTECTION }, [])).toEqual([]);
+    expect(missingInspections({ type: PlantType.FOUNTAIN }, [])).toEqual([]);
   });
 });

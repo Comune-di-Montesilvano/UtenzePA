@@ -12,7 +12,7 @@
   </ng-container>
 
   <form [formGroup]="form">
-    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms">
+    <mat-tab-group mat-stretch-tabs="false" mat-align-tabs="start" animationDuration="0ms" [disablePagination]="true">
 
       <mat-tab aria-label="Riepilogo">
         <ng-template mat-tab-label>
@@ -172,7 +172,7 @@
           @if (units.length === 0) {
             <p class="sheet-hint">Nessuna unità catastale: per il MEF l'immobile risulta non accatastato.</p>
           } @else {
-            <div class="units-scroll" formArrayName="cadastral_units">
+            <div formArrayName="cadastral_units">
               <table class="units-table">
                 <thead>
                   <tr>
@@ -453,23 +453,17 @@
         </div>
       </mat-tab>
 
-      <mat-tab aria-label="Foto" [disabled]="isNew">
-        <ng-template mat-tab-label>
-          <app-tab-label icon="photo_library" label="Foto" [count]="photoCount"></app-tab-label>
-        </ng-template>
-        <ng-template matTabContent>
-          <app-photo-gallery [entityType]="'asset'" [entityId]="data.item.id"></app-photo-gallery>
-        </ng-template>
-      </mat-tab>
-
       @if (!isNew) {
-        <mat-tab aria-label="Documenti">
+        <mat-tab aria-label="Documenti e foto">
           <ng-template mat-tab-label>
-            <app-tab-label icon="folder_open" label="Documenti" [count]="documentCount"></app-tab-label>
+            <app-tab-label icon="folder_open" label="Documenti e foto" [count]="documentsAndPhotos()"></app-tab-label>
           </ng-template>
           <ng-template matTabContent>
             <app-entity-documents entity="asset" [entityId]="data.item.id" [readOnly]="!canEdit"
                                   (countChange)="documentCount = $event"></app-entity-documents>
+            <div class="sheet-section-title"><mat-icon>photo_library</mat-icon>Foto</div>
+            <app-photo-gallery [entityType]="'asset'" [entityId]="data.item.id"
+                               (countChange)="photoCount = $event"></app-photo-gallery>
           </ng-template>
         </mat-tab>
       }

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { ASSET_REQUIRED_TYPES } from '@apis/plants/plant.calc';
+import { ASSET_REQUIRED_TYPES, missingInspections } from '@apis/plants/plant.calc';
+import { GroundingClass, PlantStatus, PlantType } from '@apis/plants/enum/plant.enum';
 import { todayIso } from '@apis/utilizer-grant/real-estate-contract.calc';
 import { DataSource } from 'typeorm';
 import { partyNameSql } from '@apis/third-parties/third-party.name';
@@ -45,6 +46,8 @@ export interface Anomalies {
   active_utilities_without_position: AnomalyList<UtilityAnomaly>;
   plants_without_asset: AnomalyList<PlantAnomaly>;
   plants_fire_equipment_overdue: AnomalyList<PlantAnomaly>;
+  plants_missing_inspections: AnomalyList<PlantAnomaly & { missing: string }>;
+  utilities_with_reactive_penalty: AnomalyList<UtilityAnomaly>;
   real_estate_contracts_without_parties: AnomalyList<{ id: number; subject: string | null }>;
   third_parties_without_identifier: AnomalyList<{ id: number; name: string; type: string }>;
   active_utilities_without_arera_category: AnomalyList<UtilityAnomaly>;
@@ -443,6 +446,58 @@ export class AnomaliesService {
           ORDER BY p.code`,
         [todayIso()],
       );
+    // Penali per energia reattiva (basso cos φ) in un periodo terminato negli
+    // ultimi 365 giorni: impianto da rifasare. Oggi passato da Node.
+    const reactivePenalty: UtilityAnomaly[] = await this.dataSource.query(
+      `/* utilities_with_reactive_penalty */ SELECT DISTINCT ${utilityColumns}
+         FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
+         CROSS JOIN (SELECT CAST(? AS DATE) AS today) d
+         JOIN utility_consumptions uc ON uc.utility_id_fk = u.id AND uc.deleted = 0
+              AND uc.kind = 'PERIOD' AND uc.reactive_penalty = 1
+              AND uc.period_end > DATE_SUB(d.today, INTERVAL 365 DAY)
+        WHERE u.deleted = 0
+        ORDER BY t.name, u.utility_id`,
+      [todayIso()],
+    );
+    // Verifiche obbligatorie per legge (plant.calc missingInspections): si
+    // leggono i dati che le determinano e i nomi delle verifiche con data, il
+    // confronto è in Node come nella scheda impianto.
+    const requiredCandidates: {
+      id: unknown;
+      code: string;
+      name: string;
+      type: PlantType;
+      status: PlantStatus;
+      grounding_class: GroundingClass | null;
+      lightning_protection: unknown;
+      power_kw: string | number | null;
+      dated_kinds: string | null;
+    }[] = await this.dataSource.query(
+      `/* plants_missing_inspections */ SELECT p.id, p.code, p.name, p.type, p.status,
+              e.grounding_class, e.lightning_protection, t.power_kw,
+              (SELECT GROUP_CONCAT(i.kind SEPARATOR '\n') FROM plant_inspections i
+                WHERE i.plant_id = p.id AND i.deleted = 0
+                  AND (i.last_date IS NOT NULL OR i.next_date IS NOT NULL)) AS dated_kinds
+         FROM plants p
+         LEFT JOIN plant_electrical e ON e.plant_id = p.id
+         LEFT JOIN plant_thermal t ON t.plant_id = p.id
+        WHERE p.deleted = 0 AND p.type IN ('ELEVATOR', 'ELECTRICAL_SYSTEM', 'THERMAL')
+        ORDER BY p.code`,
+    );
+    const missingRequired = requiredCandidates
+      .map((p) => ({
+        p,
+        missing: missingInspections(
+          {
+            type: p.type,
+            status: p.status,
+            electrical: { grounding_class: p.grounding_class, lightning_protection: !!Number(p.lightning_protection) },
+            thermal: { power_kw: p.power_kw },
+          },
+          (p.dated_kinds ?? '').split('\n').filter(Boolean).map((kind) => ({ kind, last_date: 'x' })),
+        ),
+      }))
+      .filter((x) => x.missing.length > 0);
     const assetItems = (rows: { id: unknown; asset_name: string }[]) =>
       list(rows.map((a) => ({ id: Number(a.id), asset_name: a.asset_name })));
 
@@ -524,8 +579,20 @@ export class AnomaliesService {
           type: p.type,
         })),
       ),
+      utilities_with_reactive_penalty: list(
+        reactivePenalty.map((u) => ({ id: Number(u.id), utility_id: u.utility_id, type: u.type })),
+      ),
       plants_fire_equipment_overdue: list(
         fireOverdue.map((p) => ({ id: Number(p.id), code: p.code, name: p.name, type: p.type })),
+      ),
+      plants_missing_inspections: list(
+        missingRequired.map(({ p, missing }) => ({
+          id: Number(p.id),
+          code: p.code,
+          name: p.name,
+          type: p.type,
+          missing: missing.map((m) => m.kind).join(', '),
+        })),
       ),
       plants_without_position: list(
         plantsWithoutPosition.map((p) => ({

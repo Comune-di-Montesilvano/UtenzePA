@@ -118,6 +118,11 @@
     <td mat-cell *matCellDef="let item">{{ item.voltage_kw_electric }}</td>
   </ng-container>
 
+  <ng-container matColumnDef="supplier_plant_code">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>Codice impianto fornitore</th>
+    <td mat-cell *matCellDef="let item">{{ item.supplier_plant_code }}</td>
+  </ng-container>
+
   <ng-container matColumnDef="phase_type_electric">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Tipo Fase</th>
     <td mat-cell *matCellDef="let item">{{ item.phase_type_electric }}</td>
