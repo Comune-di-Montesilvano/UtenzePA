@@ -329,6 +329,14 @@ export interface PlantElectricalData {
   lightning_protection: boolean | null;
 }
 
+// Verifica periodica obbligatoria per legge (gemella di RequiredInspection
+// nel backend); period_months null = dipende dalla classificazione mancante.
+export interface RequiredInspection {
+  kind: string;
+  period_months: number | null;
+  law: string;
+}
+
 export interface PlantPayload {
   type: PlantType;
   code: string;
@@ -369,6 +377,8 @@ export interface Plant extends Omit<PlantPayload, 'utility_ids' | 'asset_ids' | 
   inspection_status: InspectionStatus | null;
   // Estintore messo peggio (solo impianti antincendio).
   fire_equipment_status: InspectionStatus | null;
+  // Verifiche obbligatorie per legge senza una verifica registrata con data.
+  missing_inspections: RequiredInspection[];
   obligations?: ThermalObligations;
   updated_by?: {firstName?: string; lastName?: string} | null;
   update_date?: string;

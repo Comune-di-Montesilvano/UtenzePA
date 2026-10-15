@@ -140,9 +140,22 @@ L'impianto elettrico interno di un edificio (scuola, ufficio, palestra…) è un
 - **Conformità (DM 37/08)**: dichiarazione di conformità dell'installatore (DiCo) o, per gli impianti precedenti al 2008, di rispondenza (DiRi), con data e numero.
 - **Denuncia INAIL**: data di invio e numero pratica della messa in esercizio.
 
-Al salvataggio, con la classificazione indicata, il tab **Verifiche** riceve la verifica **Messa a terra (DPR 462/01)** e, se la protezione dalle scariche atmosferiche è presente, **Scariche atmosferiche (DPR 462/01)**, con la periodicità della classificazione. Una verifica nuova parte senza data: inserisci la data dell'ultimo verbale e la prossima scadenza si calcola da sola. Se cambi la classificazione cambia la periodicità e, se è registrata la data dell'ultima verifica, si ricalcola la prossima scadenza; data ed esito restano. Gli altri salvataggi della scheda non toccano le verifiche: una periodicità modificata a mano nel tab Verifiche resta com'è finché non cambi classificazione o protezione. Togliendo la classificazione o la protezione le verifiche non vengono eliminate: se non servono più, eliminale dal tab. Le verifiche scadute o in scadenza compaiono nelle segnalazioni come quelle degli altri impianti.
+Le verifiche **Messa a terra (DPR 462/01)** e, se la protezione dalle scariche atmosferiche è presente, **Scariche atmosferiche (DPR 462/01)** sono obbligatorie (vedi [Verifiche obbligatorie per legge](#verifiche-obbligatorie-per-legge)): si registrano nel tab **Verifiche** con la data del verbale. Se cambi la classificazione cambia la periodicità di quelle registrate e, se c'è la data dell'ultima verifica, si ricalcola la prossima scadenza; data ed esito restano. Gli altri salvataggi della scheda non toccano le verifiche: una periodicità modificata a mano resta com'è finché non cambi classificazione o protezione.
 
 DiCo o DiRi, verbali di verifica, progetto e denuncia INAIL vanno nel tab **Documenti** (vedi sotto); il verbale di una verifica si allega con la graffetta sulla sua riga.
+
+### Verifiche obbligatorie per legge
+
+Alcuni impianti hanno verifiche periodiche imposte dalla legge:
+
+| Impianto | Verifica | Norma | Quando |
+|---|---|---|---|
+| Ascensore | Verifica periodica (ente notificato), ogni 2 anni | DPR 162/99 | sempre |
+| Impianto elettrico | Messa a terra (DPR 462/01), ogni 2 o 5 anni secondo la classificazione | DPR 462/01 | sempre |
+| Impianto elettrico | Scariche atmosferiche (DPR 462/01) | DPR 462/01 | se la protezione è presente |
+| Termico | Controllo di efficienza energetica, ogni 2 anni oltre 100 kW, altrimenti 4 | DPR 74/2013 | da 10 kW di potenza |
+
+Un impianto attivo a cui manca una di queste verifiche, registrata con lo stesso nome e almeno una data (ultima o prossima), compare nella segnalazione **Verifiche obbligatorie mancanti** dell'elenco impianti; la sua scheda mostra l'avviso in intestazione e il tab **Verifiche** elenca quelle mancanti con il pulsante **Registra**, che apre la verifica già compilata con nome e periodicità: aggiungi la data dell'ultimo verbale. Le verifiche non si creano da sole e non si registrano senza data: una verifica senza data non fa scattare nessuna scadenza.
 
 ### Allegare un file a un immobile, impianto o contratto
 
@@ -248,7 +261,7 @@ Nella scheda dell'utenza i contratti di fornitura compaiono con quelli **in cors
 | --- | --- |
 | Utenze | Attive senza contratto di fornitura valido · Attive coperte solo da contratti senza CIG · Con contratti di fornitura sovrapposti · Attive senza tipologia ARERA · Da volturare · Volturate da riprendere · Capitolo non impegnato sul contratto di fornitura · Senza capitolo di spesa · Attive senza posizione · Penali per energia reattiva (penale in un periodo terminato negli ultimi 12 mesi) |
 | Immobili | Da classificare (tipologia o funzione mancanti) · Non di proprietà senza contratto passivo attivo · Di proprietà senza catasto · Fabbricati di proprietà senza Id MEF · Subalterno da assegnare (stessi via, civico, foglio e particella) |
-| Impianti | Senza posizione · Senza immobile · Presidi scaduti (almeno un estintore con una scadenza superata) |
+| Impianti | Senza posizione · Senza immobile · Presidi scaduti (almeno un estintore con una scadenza superata) · Verifiche obbligatorie mancanti (vedi [Verifiche obbligatorie per legge](#verifiche-obbligatorie-per-legge)) |
 | Fatture | Su utenze cessate · Con righe senza utenza |
 | Contratti di fornitura | Senza CIG (non esclusi) · CIG duplicati |
 | Contratti immobiliari | Senza immobile · Senza parti |
