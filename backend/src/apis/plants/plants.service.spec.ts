@@ -43,7 +43,11 @@ describe('PlantsService', () => {
     };
     thermalRepo = { save: jest.fn(async (d) => d), delete: jest.fn() };
     elevatorRepo = { save: jest.fn(async (d) => d), delete: jest.fn() };
-    electricalRepo = { save: jest.fn(async (d) => d), delete: jest.fn() };
+    electricalRepo = {
+      save: jest.fn(async (d) => d),
+      delete: jest.fn(),
+      findOne: jest.fn().mockResolvedValue(null),
+    };
     inspectionRepo = {
       create: jest.fn((d) => d),
       save: jest.fn(async (d) => ({ id: 5, ...d })),
@@ -215,6 +219,45 @@ describe('PlantsService', () => {
         outcome: 'Positivo',
         updated_by_user_id: 3,
       }),
+    );
+  });
+
+  it('impianto elettrico: salvataggio senza cambi di classificazione non tocca la periodicità modificata a mano', async () => {
+    repo.findOne.mockResolvedValue(plant({ id: 9, type: PlantType.ELECTRICAL_SYSTEM }));
+    electricalRepo.findOne.mockResolvedValue({
+      plant_id: 9,
+      grounding_class: 'ORDINARY',
+      lightning_protection: null,
+    });
+    inspectionRepo.find.mockResolvedValue([
+      { id: 4, plant_id: 9, kind: 'Messa a terra (DPR 462/01)', period_months: 12, deleted: false },
+    ]);
+    await service.update(
+      9,
+      {
+        notes: 'nota',
+        electrical: { grounding_class: 'ORDINARY', lightning_protection: null, inail_number: 'P-1' },
+      } as never,
+      3,
+    );
+    expect(electricalRepo.save).toHaveBeenCalled();
+    expect(inspectionRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('impianto elettrico: PATCH parziale usa la classificazione già salvata', async () => {
+    repo.findOne.mockResolvedValue(plant({ id: 9, type: PlantType.ELECTRICAL_SYSTEM }));
+    electricalRepo.findOne.mockResolvedValue({
+      plant_id: 9,
+      grounding_class: 'ORDINARY',
+      lightning_protection: false,
+    });
+    inspectionRepo.find.mockResolvedValue([
+      { id: 4, plant_id: 9, kind: 'Messa a terra (DPR 462/01)', period_months: 60, deleted: false },
+    ]);
+    await service.update(9, { electrical: { lightning_protection: true } } as never, 3);
+    expect(inspectionRepo.save).toHaveBeenCalledTimes(1);
+    expect(inspectionRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'Scariche atmosferiche (DPR 462/01)', period_months: 60 }),
     );
   });
 

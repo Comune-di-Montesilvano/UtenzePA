@@ -451,8 +451,20 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
       await this.elevatorRepo.save({ ...elevator, plant_id: plantId });
     }
     if (type === PlantType.ELECTRICAL_SYSTEM && electrical) {
-      await this.electricalRepo.save({ ...electrical, plant_id: plantId });
-      await this.syncElectricalInspections(plantId, electrical, userId);
+      // Scheda risultante = salvata + campi inviati (un PATCH può essere parziale).
+      const prev = await this.electricalRepo.findOne({ where: { plant_id: plantId } });
+      const sent = Object.fromEntries(
+        Object.entries(electrical).filter(([, v]) => v !== undefined),
+      ) as PlantElectricalDto;
+      const next = { ...prev, ...sent };
+      await this.electricalRepo.save({ ...sent, plant_id: plantId });
+      // Verifiche riallineate solo se cambia ciò che le determina: una
+      // periodicità modificata a mano nel tab Verifiche resta com'è.
+      const changed =
+        !prev ||
+        (prev.grounding_class ?? null) !== (next.grounding_class ?? null) ||
+        !!prev.lightning_protection !== !!next.lightning_protection;
+      if (changed) await this.syncElectricalInspections(plantId, next, userId);
     }
   }
 
