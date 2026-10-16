@@ -97,7 +97,7 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
       const getVal = (obj: any, path: string): any => path === 'contratto.supplier'
         ? this.supplierOf(obj) || null
         : path.split('.').reduce((acc: any, key: string) => acc?.[key], obj);
-      return [...data].sort((a, b) => {
+      const cmp = (a: Invoice, b: Invoice): number => {
         const v1 = getVal(a, active);
         const v2 = getVal(b, active);
         if (v1 == null && v2 == null) return 0;
@@ -109,7 +109,10 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
         const n1 = Number(v1), n2 = Number(v2);
         if (!isNaN(n1) && !isNaN(n2)) return order * (n1 - n2);
         return order * String(v1).localeCompare(String(v2), 'it');
-      });
+      };
+      // Di default le più recenti in alto; a parità di data l'ultima inserita prima.
+      const tieBreak = (a: Invoice, b: Invoice): number => active === 'invoice_date' ? order * (a.id - b.id) : 0;
+      return [...data].sort((a, b) => cmp(a, b) || tieBreak(a, b));
     };
   }
 

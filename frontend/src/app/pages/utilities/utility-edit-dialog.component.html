@@ -399,7 +399,7 @@
       @if (isMetered) {
       <mat-tab aria-label="Consumi">
         <ng-template mat-tab-label>
-          <app-tab-label icon="insights" label="Consumi"
+          <app-tab-label icon="insights" label="Consumi" [badge]="consumptionBadge()"
                          [error]="invalid('estimated_annual_consumption', 'reported_consumption_year')"></app-tab-label>
         </ng-template>
         <div class="sheet-grid">
@@ -440,9 +440,10 @@
       @if (!isNew) {
         <mat-tab aria-label="Fatture">
           <ng-template mat-tab-label>
-            <app-tab-label icon="receipt_long" label="Fatture"></app-tab-label>
+            <app-tab-label icon="receipt_long" label="Fatture" [count]="invoiceCount"></app-tab-label>
           </ng-template>
-          <app-utility-invoices-tab [utilityId]="data.item.id" [canEdit]="canEdit" [contractId]="currentContractId()"></app-utility-invoices-tab>
+          <app-utility-invoices-tab [utilityId]="data.item.id" [canEdit]="canEdit" [contractId]="currentContractId()"
+                                    (countChange)="invoiceCount = $event"></app-utility-invoices-tab>
         </mat-tab>
       }
 

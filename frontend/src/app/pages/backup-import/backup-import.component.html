@@ -123,4 +123,28 @@
       }
     </div>
   </mat-tab>
+
+  <mat-tab label="Consumi">
+    <div style="display: flex; flex-direction: column; gap: 1rem; padding: 1rem 0; max-width: 500px;">
+      <p>
+        Ricalcola per tutte le utenze il consumo effettivo degli ultimi 12 mesi, i giorni coperti e la stima
+        annua dallo storico consumi. Avviene già ogni notte: serve dopo un'importazione diretta dei dati, per
+        non aspettare. Le stime manuali ancora valide non vengono toccate.
+      </p>
+
+      <button mat-flat-button [disabled]="recalcRunning" (click)="startConsumptionRecalc()">
+        @if (recalcRunning) {
+          <mat-spinner diameter="18" style="display: inline-block; margin-right: 0.5rem;"></mat-spinner>
+        }
+        Ricalcola consumi
+      </button>
+
+      @if (recalcResult) {
+        <p>
+          Ultimo ricalcolo ({{ recalcResult.at | date: 'dd/MM/yyyy HH:mm' }}): {{ recalcResult.processed }} utenze
+          aggiornate{{ recalcResult.failed ? ', ' + recalcResult.failed + ' errori' : '' }}.
+        </p>
+      }
+    </div>
+  </mat-tab>
 </mat-tab-group>

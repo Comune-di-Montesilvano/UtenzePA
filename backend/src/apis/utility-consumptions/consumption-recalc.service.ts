@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Utility } from '@apis/utility/entity/utility.entity';
@@ -82,8 +82,30 @@ export class ConsumptionRecalcService {
     return { processed, failed };
   }
 
+  // Ricalcolo completo su richiesta di un Admin (es. dopo un import diretto
+  // sul DB): uno alla volta, anche rispetto a quello notturno.
+  async recalcAllManual(): Promise<{ processed: number; failed: number }> {
+    if (this.running) throw new BadRequestException('Ricalcolo dei consumi già in corso, riprova tra poco.');
+    return this.exclusive(() => this.recalcAll());
+  }
+
   async handleNightlyRecalc(): Promise<void> {
-    const { processed, failed } = await this.recalcAll();
+    if (this.running) {
+      this.logger.warn('Ricalcolo consumi notturno saltato: un ricalcolo è già in corso');
+      return;
+    }
+    const { processed, failed } = await this.exclusive(() => this.recalcAll());
     this.logger.log(`Ricalcolo consumi notturno: ${processed} utenze aggiornate, ${failed} errori`);
+  }
+
+  private running = false;
+
+  private async exclusive<T>(fn: () => Promise<T>): Promise<T> {
+    this.running = true;
+    try {
+      return await fn();
+    } finally {
+      this.running = false;
+    }
   }
 }

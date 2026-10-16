@@ -33,6 +33,11 @@ export class UtilityConsumptionService {
     return this.http.patch<UtilityConsumption>(`${this.api}/utility-consumptions/${id}`, payload, {headers: this.headers()});
   }
 
+  // Ricalcolo di effettivo, copertura e stima su tutte le utenze (solo Admin).
+  recalcAll(): Observable<{processed: number; failed: number}> {
+    return this.http.post<{processed: number; failed: number}>(`${this.api}/utility-consumptions/recalc`, {}, {headers: this.headers()});
+  }
+
   delete(id: number): Observable<void> {
     return this.http.delete<void>(`${this.api}/utility-consumptions/${id}`, {headers: this.headers()});
   }

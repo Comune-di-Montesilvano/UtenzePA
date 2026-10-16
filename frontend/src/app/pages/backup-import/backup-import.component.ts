@@ -12,6 +12,7 @@ import { Router } from '@angular/router';
 import { ToastService } from '../../core/services/toast.service';
 import { BackupService, BackupInfo, BackupJobStatus } from './backup.service';
 import { GeocodeService, RegeocodeAllStatus } from './geocode.service';
+import { UtilityConsumptionService } from '../utilities/consumptions/utility-consumption.service';
 import { RestoreConfirmDialogComponent, RestoreConfirmDialogData, RestoreConfirmDialogResult } from './restore-confirm-dialog.component';
 
 // Poll piu' rado di quanto Nominatim possa mai completare una singola
@@ -38,6 +39,7 @@ const STATUS_POLL_MS = 3000;
 export class BackupImportComponent implements OnDestroy {
   private backupService = inject(BackupService);
   private geocodeService = inject(GeocodeService);
+  private consumptionService = inject(UtilityConsumptionService);
   private toastService = inject(ToastService);
   private dialog = inject(MatDialog);
   private router = inject(Router);
@@ -62,6 +64,8 @@ export class BackupImportComponent implements OnDestroy {
 
   geocodeStatus: RegeocodeAllStatus | null = null;
   geocodeForceAll = false;
+  recalcRunning = false;
+  recalcResult: {processed: number; failed: number; at: Date} | null = null;
   private geocodePollHandle: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit() {
@@ -142,6 +146,27 @@ export class BackupImportComponent implements OnDestroy {
     if (!this.geocodePollHandle) return;
     clearInterval(this.geocodePollHandle);
     this.geocodePollHandle = null;
+  }
+
+  // Sincrono: poche centinaia di utenze, qualche secondo.
+  startConsumptionRecalc(): void {
+    this.recalcRunning = true;
+    this.consumptionService.recalcAll().subscribe({
+      next: (res) => {
+        this.recalcRunning = false;
+        this.recalcResult = { ...res, at: new Date() };
+        this.toastService.add({
+          severity: res.failed ? 'warn' : 'success',
+          summary: 'Ricalcolo consumi completato',
+          detail: `${res.processed} utenze aggiornate` + (res.failed ? `, ${res.failed} errori` : ''),
+        });
+      },
+      error: (err: any) => {
+        this.recalcRunning = false;
+        const detail = err?.error?.message ?? 'Errore nel ricalcolo dei consumi';
+        this.toastService.add({ severity: 'error', summary: 'Errore', detail });
+      },
+    });
   }
 
   startRegeocodeAll(): void {
