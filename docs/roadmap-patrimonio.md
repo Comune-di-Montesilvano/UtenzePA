@@ -39,6 +39,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 19 | Allegati di contratti, immobili e impianti | fatto, v1.22.0 (allegati e atti; utenze e complessi, ricerca nei PDF e firma digitale rimandati) |
 | 20 | Assestato dei capitoli e disponibilità | fatto in v1.14.0 (mandati non ancora) |
 | 21 | Scadenzario degli obblighi dell'immobile | da approfondire |
+| 22 | Storico di attivazione delle utenze | da approfondire |
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
 
@@ -416,6 +417,18 @@ Richiesta utente (2026-10-06), partendo dalla schermata "Competenza" del gestion
 Fuori: FPV, impegni prenotati, pre-impegni, pre-liquidazioni, economie, riaccertamenti, cassa, previsione definitiva dell'anno precedente (contabilità della ragioneria; la spesa degli anni passati è già nella spesa storica, `budget_chapter_spending`).
 
 Da approfondire: tabella dedicata per capitolo + esercizio o colonne su `budget_chapter_spending` (oggi una riga per anno con importo e note); tab della scheda capitolo (oggi "Spesa storica") che mostri per esercizio assestato, impegnato, fatturato e disponibilità.
+
+## 22. Storico di attivazione delle utenze
+
+Richiesta utente (2026-10-16): un'utenza nella sua vita viene attivata, disattivata, riattivata; oggi c'è solo lo stato. Situazione attuale:
+
+- `supply_active` = stato di adesso; `activated_on`/`ceased_on` = una sola data ciascuna (una riattivazione sovrascrive la precedente) e non cambiano `supply_active`, quindi possono essere incoerenti con lo stato;
+- il log attività registra i cambi, ma le righe con `field_name` si cancellano dopo 60 giorni: non è uno storico;
+- indizi indiretti: date dei contratti di fornitura collegati (chi forniva e quando), voltura (`transferred_on`).
+
+Effetti: «era attiva nel 2025?» o «giorni di fornitura nell'anno» senza risposta affidabile; l'anomalia «Fatture su utenze cessate» non sa se la fattura cade in un periodo di attività precedente; i periodi di non attività compaiono come «Periodi senza dati» nei consumi.
+
+Direzione da valutare: tabella dei **periodi di attività** per utenza (inizio, fine vuota = in corso, motivo: attivazione, subentro, cessazione, sospensione…, eventuale riferimento ad atto o pratica); stato attuale e date calcolati dall'ultimo periodo (come «A carico di»), buchi di consumo esclusi fuori dai periodi, fatture confrontate col periodo giusto. Dati di partenza ricostruibili in parte da `activated_on`/`ceased_on` e dalle date dei contratti collegati.
 
 ## Fuori scope (decisioni prese)
 
