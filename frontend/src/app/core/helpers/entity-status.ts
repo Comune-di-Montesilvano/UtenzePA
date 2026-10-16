@@ -22,6 +22,15 @@ export interface StatusInfo {
   tooltip?: string;
 }
 
+// Fattura con totale documento negativo.
+export const CREDIT_NOTE_BADGE: StatusInfo = {
+  tone: 'info', label: 'Nota di credito', icon: 'undo', tooltip: 'Totale documento negativo',
+};
+
+export function isCreditNote(total: number | string | null | undefined): boolean {
+  return total !== null && total !== undefined && `${total}` !== '' && Number(total) < 0;
+}
+
 const isoOf = (v: Date | string): string => (typeof v === 'string' ? v.slice(0, 10) : toIsoDate(v));
 
 export function assetStatus(status: string | null | undefined): StatusInfo {

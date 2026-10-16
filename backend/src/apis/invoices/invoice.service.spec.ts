@@ -97,6 +97,23 @@ describe('InvoicesService', () => {
       ).rejects.toThrow('Riga 1: la fine del periodo è prima dell’inizio');
     });
 
+    it('nota di credito: imponibile negativo ammesso solo con totale negativo', async () => {
+      await expect(
+        service.create(
+          { invoice_id: 'NC-1', invoice_date: '2026-06-29', total_amount: -23.52, net_amount_excl_vat: -19.28 } as never,
+          3,
+        ),
+      ).resolves.toBeDefined();
+      for (const total_amount of [10, null]) {
+        await expect(
+          service.create(
+            { invoice_id: 'F-2', invoice_date: '2026-06-29', total_amount, net_amount_excl_vat: -5 } as never,
+            3,
+          ),
+        ).rejects.toThrow('nota di credito');
+      }
+    });
+
     it('registra un evento CREATE in audit log', async () => {
       const auditLogService = { record: jest.fn() };
       (service as any).auditLogService = auditLogService;
@@ -116,6 +133,13 @@ describe('InvoicesService', () => {
         deleted: false,
       });
       manager.findOne.mockResolvedValue({ id: 20, invoice_id: 'OLD', contratto_id_fk: 1 });
+    });
+
+    it('PATCH del solo imponibile negativo: vale il totale già salvato', async () => {
+      repo.findOne.mockResolvedValue({ id: 20, invoice_id: 'NC', total_amount: '-90.79', deleted: false });
+      await expect(service.update(20, { net_amount_excl_vat: -74.42 } as never, 7)).resolves.toBeDefined();
+      repo.findOne.mockResolvedValue({ id: 20, invoice_id: 'F', total_amount: '90.79', deleted: false });
+      await expect(service.update(20, { net_amount_excl_vat: -74.42 } as never, 7)).rejects.toThrow('nota di credito');
     });
 
     it('senza lines non tocca le righe (Review Focus 2)', async () => {

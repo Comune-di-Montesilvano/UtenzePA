@@ -26,6 +26,8 @@ import {CommitmentService} from '../contracts/commitments/commitment.service';
 import {chapterLabel} from '../contracts/commitments/commitment.model';
 import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
+import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
+import {CREDIT_NOTE_BADGE, isCreditNote} from '../../core/helpers/entity-status';
 import {hasInvalid, isEditorRole, lastModifiedLabel} from '../../core/components/entity-sheet/sheet-utils';
 import {ToastService} from '../../core/services/toast.service';
 import {InvoiceLinesTabComponent} from './invoice-lines-tab.component';
@@ -50,6 +52,7 @@ const toNumberOrNull = (v: unknown): number | null => (v === null || v === undef
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatDatepickerModule, MatButtonModule,
     MatTabsModule, MatIconModule, FilterableSelectComponent, EntitySheetComponent, TabLabelComponent, InvoiceLinesTabComponent,
+    StatusBadgeComponent,
   ],
   styles: [`
     .budget-warning { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 6px; margin-top: 12px; }
@@ -76,6 +79,8 @@ export class InvoiceEditDialogComponent implements OnInit {
 
   isNew = this.data.mode === 'create';
   readonly canEdit = isEditorRole(this.authService.getCurrentUser()?.role);
+  readonly creditNoteBadge = CREDIT_NOTE_BADGE;
+  readonly isCreditNote = isCreditNote;
   readonly lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
 
   private contracts: Contract[] = [];

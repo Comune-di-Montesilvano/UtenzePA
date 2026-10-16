@@ -21,6 +21,8 @@ import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
 import {TruncatePipe} from '../../core/pipes/truncate.pipe';
 import {ExportHelper} from '../../core/helpers/export.helper';
 import {partyName} from '../../core/helpers/party-name.helper';
+import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
+import {CREDIT_NOTE_BADGE, isCreditNote} from '../../core/helpers/entity-status';
 
 @Component({
   selector: 'app-data-table-invoices',
@@ -28,13 +30,15 @@ import {partyName} from '../../core/helpers/party-name.helper';
   imports: [ListToolbarComponent, 
     MatTableModule, MatSortModule, MatPaginatorModule, MatButtonModule, MatIconModule,
     MatTooltipModule, MatProgressBarModule, MatSelectModule, MatFormFieldModule, FormsModule,
-    DatePipe, HasRoleDirective, FormatAmountPipe, TruncatePipe
+    DatePipe, HasRoleDirective, FormatAmountPipe, TruncatePipe, StatusBadgeComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './data-table-invoices.component.html'
 })
 export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoice> {
   readonly partyName = partyName;
+  readonly creditNoteBadge = CREDIT_NOTE_BADGE;
+  readonly isCreditNote = isCreditNote;
 
   readonly allColumns: IColumnDef[] = [
     {field: 'invoice_id', header: 'ID Fattura', minWidth: '120px'},

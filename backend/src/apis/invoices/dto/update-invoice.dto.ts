@@ -35,8 +35,8 @@ export class UpdateInvoiceDto {
 
   @IsOptional()
   @ValidateIf((object, value) => value !== null && value !== undefined)
+  // Negativo solo per le note di credito (totale negativo): controllo nel service.
   @IsNumber()
-  @Min(0)
   net_amount_excl_vat?: number | null;
 
   @IsOptional()

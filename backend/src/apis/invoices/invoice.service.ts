@@ -27,6 +27,17 @@ const lineKey = (l: Partial<InvoiceLine>): string =>
 const sameLines = (a: Partial<InvoiceLine>[], b: Partial<InvoiceLine>[]): boolean =>
   a.length === b.length && a.every((l, i) => lineKey(l) === lineKey(b[i]));
 
+// Nota di credito = totale documento negativo: solo lì l'imponibile può
+// essere negativo. Le decimal arrivano da mysql2 come stringa.
+function checkCreditNote(total: unknown, net: unknown): void {
+  const isSet = (v: unknown) => v !== null && v !== undefined && v !== '';
+  if (isSet(net) && Number(net) < 0 && !(isSet(total) && Number(total) < 0)) {
+    throw new BadRequestException(
+      "L'imponibile può essere negativo solo in una nota di credito (totale documento negativo).",
+    );
+  }
+}
+
 @Injectable()
 export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, UpdateInvoiceDto> {
   protected readonly entityName = 'Invoice';
@@ -121,6 +132,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
 
   async create(dto: CreateInvoiceDto, userId?: number): Promise<Invoice> {
     const { lines, ...rest } = dto;
+    checkCreditNote(rest.total_amount, rest.net_amount_excl_vat);
     const header = await this.withSupplier(rest);
     const saved = await this.dataSource.transaction(async (manager) => {
       if (lines?.length) await this.checkLines(manager, lines, header.contratto_id_fk ?? null);
@@ -143,6 +155,10 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     const { lines, ...rest } = updateDto;
     const before = await this.repo.findOne({ where: { id } as never });
     if (!before) throw new BadRequestException('Fattura non trovata');
+    checkCreditNote(
+      rest.total_amount !== undefined ? rest.total_amount : before.total_amount,
+      rest.net_amount_excl_vat !== undefined ? rest.net_amount_excl_vat : before.net_amount_excl_vat,
+    );
     const beforeSnapshot: Record<string, unknown> = { ...before };
     const contractId =
       rest.contratto_id_fk !== undefined ? rest.contratto_id_fk : before.contratto_id_fk;
