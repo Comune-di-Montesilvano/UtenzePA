@@ -31,8 +31,8 @@ export class CreateInvoiceDto {
 
   @IsOptional()
   @ValidateIf((_o, v) => v !== null)
+  // Negativo solo per le note di credito (totale negativo): controllo nel service.
   @IsNumber({}, { message: "L'importo netto deve essere un numero valido." })
-  @Min(0, { message: "L'importo netto non può essere negativo." })
   net_amount_excl_vat?: number | null;
 
   @IsOptional()

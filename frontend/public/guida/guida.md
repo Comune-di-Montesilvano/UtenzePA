@@ -49,7 +49,7 @@ Eliminare un elemento non lo cancella davvero: sparisce dagli elenchi ma resta r
 ### Registrare una fattura
 
 1. Apri **Fatture** e crea una nuova fattura.
-2. Nel **Riepilogo** inserisci fornitore, contratto di fornitura, numero e data della fattura, numero di protocollo, totale documento IVA inclusa. Imponibile, morosità e note sono facoltativi.
+2. Nel **Riepilogo** inserisci fornitore, contratto di fornitura, numero e data della fattura, numero di protocollo, totale documento IVA inclusa. Imponibile, morosità e note sono facoltativi. Per una **nota di credito** inserisci il totale, l'imponibile e gli importi delle righe con il segno meno: la fattura è segnata «Nota di credito» e riduce la spesa. L'imponibile può essere negativo solo se lo è anche il totale.
 3. Nel tab **Righe** premi **Aggiungi riga** per ogni utenza fatturata. Cerca l'utenza per POD/PDR o codice cliente, indica l'importo IVA inclusa e, se serve, consumo e descrizione.
 4. Per ogni riga scegli l'**Impegno**: gli impegni disponibili sono quelli del contratto scelto. Se non ne scegli uno, vale il capitolo dell'utenza.
 5. Premi **Salva**.

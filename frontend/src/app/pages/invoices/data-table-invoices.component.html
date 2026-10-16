@@ -81,7 +81,12 @@
 
     <ng-container matColumnDef="total_amount">
       <th mat-header-cell *matHeaderCellDef mat-sort-header>Totale documento</th>
-      <td mat-cell *matCellDef="let item">{{ item.total_amount != null ? (item.total_amount | formatAmount) : '' }}</td>
+      <td mat-cell *matCellDef="let item">
+        {{ item.total_amount != null ? (item.total_amount | formatAmount) : '' }}
+        @if (isCreditNote(item.total_amount)) {
+          <app-status-badge [info]="creditNoteBadge" size="sm"></app-status-badge>
+        }
+      </td>
     </ng-container>
 
     <ng-container matColumnDef="is_paid">
