@@ -5,6 +5,7 @@ import {
   computeMonthlySeries,
   computeSeasonalEstimate,
   currentMeterReading,
+  dataGaps,
   ConsumptionRecord,
   decideEstimate,
   fromDay,
@@ -59,7 +60,7 @@ describe('consumption-calculator', () => {
       expect(daily.get(toDay('2026-01-01'))).toBeUndefined();
       expect(daily.get(toDay('2026-01-02'))).toBeCloseTo(10);
       expect(daily.get(toDay('2026-01-11'))).toBeCloseTo(10);
-      expect(computeActual(daily, TODAY)).toEqual({ actual: 100, coverageDays: 10 });
+      expect(computeActual(daily, TODAY)).toMatchObject({ actual: 100, coverageDays: 10 });
     });
 
     it('valori decimal come stringa (mysql2) sommati come numeri', () => {
@@ -68,9 +69,13 @@ describe('consumption-calculator', () => {
     });
 
     it('intervallo a cavallo della finestra: solo la quota dentro', () => {
-      // finestra = 2025-09-30 .. 2026-09-29; intervallo 2025-09-21..2025-10-10, 10/giorno
-      const daily = buildDailyConsumption([reading(1, '2025-09-20', 0), reading(2, '2025-10-10', 200)]);
-      expect(computeActual(daily, TODAY)).toEqual({ actual: 110, coverageDays: 11 });
+      // finestra = 2025-09-30 .. 2026-09-29 (ultimo dato oggi); intervallo 2025-09-21..2025-10-10, 10/giorno
+      const daily = buildDailyConsumption([
+        reading(1, '2025-09-20', 0),
+        reading(2, '2025-10-10', 200),
+        period(3, '2026-09-29', '2026-09-29', 0),
+      ]);
+      expect(computeActual(daily, TODAY)).toMatchObject({ actual: 110, coverageDays: 12 });
     });
 
     it('cambio matricola: nessun intervallo tra contatori diversi', () => {
@@ -79,7 +84,7 @@ describe('consumption-calculator', () => {
         reading(2, '2026-01-11', 5, 'B'),
         reading(3, '2026-01-21', 105, 'B'),
       ]);
-      expect(computeActual(daily, TODAY)).toEqual({ actual: 100, coverageDays: 10 });
+      expect(computeActual(daily, TODAY)).toMatchObject({ actual: 100, coverageDays: 10 });
     });
 
     it('sostituzione contatore con chiusura e apertura nella stessa data, inserite in ordine qualsiasi', () => {
@@ -89,7 +94,7 @@ describe('consumption-calculator', () => {
         reading(6, '2026-01-10', 5000, 'A'),
         reading(7, '2026-01-20', 50, 'B'),
       ];
-      expect(computeActual(buildDailyConsumption(records), TODAY)).toEqual({ actual: 4950, coverageDays: 19 });
+      expect(computeActual(buildDailyConsumption(records), TODAY)).toMatchObject({ actual: 4950, coverageDays: 19 });
       const deltas = readingDeltas(records);
       expect(deltas.get(6)).toBe(4900);
       expect(deltas.get(7)).toBe(50);
@@ -114,11 +119,54 @@ describe('consumption-calculator', () => {
         period(3, '2026-01-05', '2026-01-06', 50),
       ]);
       expect(daily.get(toDay('2026-01-05'))).toBeCloseTo(25);
-      expect(computeActual(daily, TODAY)).toEqual({ actual: 130, coverageDays: 10 });
+      expect(computeActual(daily, TODAY)).toMatchObject({ actual: 130, coverageDays: 10 });
     });
 
     it('nessun dato: effettivo 0, copertura 0', () => {
-      expect(computeActual(buildDailyConsumption([]), TODAY)).toEqual({ actual: 0, coverageDays: 0 });
+      expect(computeActual(buildDailyConsumption([]), TODAY)).toMatchObject({ actual: 0, coverageDays: 0 });
+    });
+
+    it('finestra fino all’ultimo dato: i giorni dopo (bolletta non arrivata) non contano', () => {
+      // dati 01/07/2025–31/08/2026 senza maggio–giugno 2026, oggi 16/10/2026
+      const daily = buildDailyConsumption([
+        period(1, '2025-07-01', '2026-04-30', 304),
+        period(2, '2026-07-01', '2026-08-31', 62),
+      ]);
+      expect(computeActual(daily, toDay('2026-10-16'))).toEqual({
+        actual: 304 - 62 + 62,
+        coverageDays: 365 - 61,
+        windowStart: '2025-09-01',
+        windowEnd: '2026-08-31',
+      });
+    });
+
+    it('ultimo dato più vecchio di un anno: finestra fino a oggi', () => {
+      const daily = buildDailyConsumption([period(1, '2024-01-01', '2024-01-10', 50)]);
+      expect(computeActual(daily, TODAY)).toEqual({
+        actual: 0,
+        coverageDays: 0,
+        windowStart: '2025-09-30',
+        windowEnd: '2026-09-29',
+      });
+    });
+  });
+
+  describe('dataGaps', () => {
+    it('buchi tra primo e ultimo dato; non prima del primo né dopo l’ultimo', () => {
+      const daily = buildDailyConsumption([
+        period(1, '2025-07-01', '2026-04-30', 304),
+        period(2, '2026-07-01', '2026-08-31', 62),
+        period(3, '2026-09-02', '2026-09-10', 9),
+      ]);
+      expect(dataGaps(daily, TODAY)).toEqual([
+        { start: '2026-05-01', end: '2026-06-30' },
+        { start: '2026-09-01', end: '2026-09-01' },
+      ]);
+    });
+
+    it('nessun dato o dati continui: nessun buco', () => {
+      expect(dataGaps(buildDailyConsumption([]), TODAY)).toEqual([]);
+      expect(dataGaps(buildDailyConsumption([period(1, '2026-01-01', '2026-08-31', 10)]), TODAY)).toEqual([]);
     });
   });
 
@@ -139,7 +187,7 @@ describe('consumption-calculator', () => {
 
     it('solo storico vecchio: media su tutto lo storico', () => {
       const daily = buildDailyConsumption([period(1, '2024-01-01', '2024-01-10', 50)]);
-      expect(computeActual(daily, TODAY)).toEqual({ actual: 0, coverageDays: 0 });
+      expect(computeActual(daily, TODAY)).toMatchObject({ actual: 0, coverageDays: 0 });
       expect(computeSeasonalEstimate(daily, TODAY)).toBe(1825);
     });
 
@@ -149,16 +197,16 @@ describe('consumption-calculator', () => {
   });
 
   describe('computeMonthlySeries', () => {
-    it('36 punti: 24 mesi fino al corrente + 12 futuri, stima stagionale sui futuri', () => {
+    it('mesi dal primo dato fino al corrente + 12 futuri, stima stagionale sui futuri', () => {
       const daily = buildDailyConsumption([
         period(1, '2025-09-30', '2026-03-29', 362),
         period(2, '2026-03-30', '2026-09-29', 184),
       ]);
       const series = computeMonthlySeries(daily, TODAY);
-      expect(series).toHaveLength(36);
-      expect(series[0].month).toBe('2024-10');
-      expect(series[23].month).toBe('2026-09');
-      expect(series[35].month).toBe('2027-09');
+      expect(series).toHaveLength(25);
+      expect(series[0].month).toBe('2025-09');
+      expect(series[12].month).toBe('2026-09');
+      expect(series[24].month).toBe('2027-09');
 
       const jan26 = series.find((p) => p.month === '2026-01');
       expect(jan26).toEqual({ month: '2026-01', actual: 62, covered_days: 31, days: 31, estimated: 0 });
@@ -214,9 +262,17 @@ describe('consumption-calculator', () => {
       expect(aug).not.toHaveProperty('bands');
     });
 
-    it('nessun dato: stime future a 0', () => {
+    it('nessun dato: solo mese corrente e futuri, a 0', () => {
       const series = computeMonthlySeries(buildDailyConsumption([]), TODAY);
+      expect(series).toHaveLength(13);
+      expect(series[0].month).toBe('2026-09');
       expect(series.every((p) => p.actual === 0 && p.estimated === 0)).toBe(true);
+    });
+
+    it('storico oltre 24 mesi: al massimo 24 mesi passati', () => {
+      const series = computeMonthlySeries(buildDailyConsumption([period(1, '2020-01-01', '2026-09-29', 2465)]), TODAY);
+      expect(series).toHaveLength(36);
+      expect(series[0].month).toBe('2024-10');
     });
   });
 

@@ -27,7 +27,8 @@ const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
             <div style="color: var(--app-muted); font-size: 0.85rem;">Consumo effettivo ultimi 12 mesi</div>
             <div style="font-size: 1.5rem; font-weight: 600;">{{ formatQty(summary.actual_consumption, summary.unit) }}</div>
             <div style="color: var(--app-muted); font-size: 0.8rem;">
-              Dati su {{ summary.coverage_days }}/365 giorni
+              Dal {{ formatDateIt(summary.window_start) }} al {{ formatDateIt(summary.window_end) }}
+              · dati su {{ summary.coverage_days }}/365 giorni
               @if (summary.coverage_days < 365) { · valore parziale }
             </div>
           </div>
@@ -41,8 +42,23 @@ const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
           </div>
         </div>
 
+        @if (summary.gaps.length) {
+          <div role="status" style="display: flex; gap: 0.5rem; align-items: flex-start; border-radius: 6px; padding: 0.75rem 1rem; background: var(--tone-warn-bg); color: var(--tone-warn-fg);">
+            <mat-icon aria-hidden="true">warning</mat-icon>
+            <div>
+              <div style="font-weight: 600;">Periodi senza dati</div>
+              <div style="font-size: 0.875rem;">
+                @for (gap of summary.gaps; track gap.start; let last = $last) {
+                  {{ gapLabel(gap) }}@if (!last) {; }
+                }
+              </div>
+              <div style="font-size: 0.8rem;">Mancano bollette o letture: aggiungi le rilevazioni del periodo.</div>
+            </div>
+          </div>
+        }
+
         <div>
-          <div style="font-weight: 600; margin-bottom: 0.5rem;">Andamento mensile (24 mesi reali + 12 stimati)</div>
+          <div style="font-weight: 600; margin-bottom: 0.5rem;">{{ chartTitle }}</div>
           <app-consumption-chart [points]="summary.monthly" [unit]="summary.unit"></app-consumption-chart>
         </div>
       }
@@ -134,9 +150,27 @@ export class UtilityConsumptionsTabComponent implements OnInit {
 
   summary: ConsumptionSummary | null = null;
   rows: UtilityConsumption[] = [];
+  chartTitle = 'Andamento mensile';
 
   ngOnInit(): void {
     this.reload();
+  }
+
+  gapLabel(gap: {start: string; end: string}): string {
+    return gap.start === gap.end
+      ? formatDateIt(gap.start)
+      : `${formatDateIt(gap.start)} – ${formatDateIt(gap.end)}`;
+  }
+
+  // Titolo dai mesi effettivamente coperti, non un numero fisso di mesi.
+  private buildChartTitle(summary: ConsumptionSummary): string {
+    const withData = summary.monthly.filter(p => p.covered_days > 0).map(p => p.month);
+    const month = (m: string) => `${m.slice(5, 7)}/${m.slice(0, 4)}`;
+    if (!withData.length) return 'Andamento mensile (stima a 12 mesi)';
+    const first = month(withData[0]);
+    const last = month(withData[withData.length - 1]);
+    const range = first === last ? `dati di ${first}` : `dati da ${first} a ${last}`;
+    return `Andamento mensile (${range} + stima a 12 mesi)`;
   }
 
   estimateBadge(): {text: string; bg: string; fg: string} {
@@ -185,6 +219,7 @@ export class UtilityConsumptionsTabComponent implements OnInit {
     this.service.summary(this.utilityId).subscribe({
       next: summary => {
         this.summary = summary;
+        this.chartTitle = this.buildChartTitle(summary);
         this.summaryChanged.emit(summary);
       },
       error: err => console.error('Errore caricamento riepilogo consumi:', err),

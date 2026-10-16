@@ -202,6 +202,10 @@ describe('UtilityConsumptionsService', () => {
     expect(summary.estimated_annual_consumption).toBe(1800);
     expect(summary.estimated_valid_until).toBe('2027-02-10');
     expect(summary.estimated_set_at).toBe(new Date('2026-02-10T00:00:00').toISOString());
-    expect(summary.monthly).toHaveLength(36);
+    // Effettivo e finestra dallo storico (2/1–1/3/2026), mesi dal primo dato.
+    expect(summary.coverage_days).toBe(59);
+    expect(summary.window_end).toBe('2026-03-01');
+    expect(summary.gaps).toEqual([]);
+    expect(summary.monthly[0].month).toBe('2026-01');
   });
 });
