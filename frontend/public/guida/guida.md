@@ -48,9 +48,9 @@ Eliminare un elemento non lo cancella davvero: sparisce dagli elenchi ma resta r
 
 ### Registrare una fattura
 
-1. Apri **Fatture** e crea una nuova fattura.
+1. Apri **Fatture** (l'elenco parte dalle fatture più recenti) e crea una nuova fattura.
 2. Nel **Riepilogo** inserisci fornitore, contratto di fornitura, numero e data della fattura, numero di protocollo, totale documento IVA inclusa. Imponibile, morosità e note sono facoltativi. Per una **nota di credito** inserisci il totale, l'imponibile e gli importi delle righe con il segno meno: la fattura è segnata «Nota di credito» e riduce la spesa. L'imponibile può essere negativo solo se lo è anche il totale.
-3. Nel tab **Righe** premi **Aggiungi riga** per ogni utenza fatturata. Cerca l'utenza per POD/PDR o codice cliente, indica l'importo IVA inclusa e, se serve, consumo e descrizione.
+3. Nel tab **Righe** premi **Aggiungi riga** per ogni utenza fatturata. Cerca l'utenza per POD/PDR o codice cliente, indica l'importo IVA inclusa e, se serve, consumo e descrizione. Con il pulsante accanto all'utenza ne apri la scheda; nella scheda dell'utenza il tab **Fatture** mostra quante fatture ha. Il consumo della riga resta sulla fattura: lo storico consumi dell'utenza si registra nel suo tab **Consumi**.
 4. Per ogni riga scegli l'**Impegno**: gli impegni disponibili sono quelli del contratto scelto. Se non ne scegli uno, vale il capitolo dell'utenza.
 5. Premi **Salva**.
 
@@ -84,7 +84,7 @@ Il significato degli stati è in «A carico di: gli stati».
     - **Consumo periodo**: date dal/al e consumo del periodo (es. da una fattura).
 3. Premi **Salva**.
 
-Una matricola diversa dalla precedente indica un nuovo contatore. Il **consumo effettivo ultimi 12 mesi** copre i 12 mesi che finiscono con l'ultimo dato registrato (se è dell'ultimo anno): i giorni dopo, come la bolletta non ancora arrivata, non lo rendono parziale. Il riquadro **Periodi senza dati** elenca i buchi tra il primo e l'ultimo dato (bollette o letture mancanti): aggiungi le rilevazioni di quei periodi. Il grafico parte dal primo mese con dati (al massimo 24 mesi indietro) e mostra i consumi del mese, distinguendo quelli reali da quelli stimati; i giorni dopo l'ultimo dato sono stimati, i buchi tra due dati restano vuoti. Se l'utenza ha dati per fascia, ogni barra è divisa in colori per fascia (F1, F2, F3, F0) più un grigio per la parte senza fasce; la stima è ripartita secondo le quote dell'ultimo anno. Le utenze Internet non hanno consumi.
+Sull'etichetta del tab **Consumi** compare il consumo effettivo degli ultimi 12 mesi in forma compatta (es. «1,2 MWh» per la luce, «1,2k Smc» per il gas). Una matricola diversa dalla precedente indica un nuovo contatore. Il **consumo effettivo ultimi 12 mesi** copre i 12 mesi che finiscono con l'ultimo dato registrato (se è dell'ultimo anno): i giorni dopo, come la bolletta non ancora arrivata, non lo rendono parziale. Il riquadro **Periodi senza dati** elenca i buchi tra il primo e l'ultimo dato (bollette o letture mancanti): aggiungi le rilevazioni di quei periodi. Il grafico parte dal primo mese con dati (al massimo 24 mesi indietro) e mostra i consumi del mese, distinguendo quelli reali da quelli stimati; i giorni dopo l'ultimo dato sono stimati, i buchi tra due dati restano vuoti. Se l'utenza ha dati per fascia, ogni barra è divisa in colori per fascia (F1, F2, F3, F0) più un grigio per la parte senza fasce; la stima è ripartita secondo le quote dell'ultimo anno. Le utenze Internet non hanno consumi.
 
 Per le utenze elettriche il consumo di periodo può avere anche:
 
@@ -196,6 +196,8 @@ Nell'elenco immobili puoi cercare per foglio e particella (valore esatto), natur
 
 Da **Impostazioni → Backup e manutenzione** puoi creare un backup, scaricarlo, eliminarlo o ripristinarlo. Ogni notte l'applicazione crea da sola un backup dei soli dati. Con **Includi foto** e **Includi gli allegati** il backup contiene anche i file: può diventare di molti GB.
 
+Nel tab **Consumi** della stessa pagina, **Ricalcola consumi** aggiorna subito per tutte le utenze il consumo effettivo degli ultimi 12 mesi, i giorni coperti e la stima annua. Lo stesso ricalcolo avviene ogni notte: serve dopo un'importazione di dati, per non aspettare.
+
 - La creazione avviene in background: puoi continuare a lavorare, l'elenco si aggiorna da solo quando il backup è pronto.
 - **Scarica** avvia il download direttamente nel browser, anche per file molto grandi.
 - Il **ripristino** carica il file (una barra mostra l'avanzamento: non chiudere la pagina), poi sostituisce i dati. Nella conferma puoi scegliere di non toccare utenti e branding attuali. Gli allegati già presenti non vengono sovrascritti.
@@ -209,7 +211,7 @@ Da **Impostazioni → Backup e manutenzione** puoi creare un backup, scaricarlo,
 | --- | --- |
 | Lettore | Consulta tutto, non modifica nulla. È il ruolo di chi entra la prima volta con l'account di dominio. |
 | Operatore | Crea, modifica ed elimina immobili, utenze, impianti, contratti, fatture e capitoli. |
-| Admin | Come l'Operatore, più utenti e ruoli, log attività completo, backup, branding e rigeocodifica degli immobili. |
+| Admin | Come l'Operatore, più utenti e ruoli, log attività completo, backup, branding, rigeocodifica degli immobili e ricalcolo dei consumi. |
 
 I ruoli si assegnano da **Impostazioni → Utenti e ruoli**, pagina riservata agli Admin: Operatori e Lettori non vedono l'elenco degli utenti.
 

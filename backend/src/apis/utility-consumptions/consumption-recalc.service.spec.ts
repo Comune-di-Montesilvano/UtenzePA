@@ -113,6 +113,19 @@ describe('ConsumptionRecalcService', () => {
     expect(utilityRepo.update).not.toHaveBeenCalled();
   });
 
+  it('recalcAllManual: un ricalcolo alla volta, anche rispetto al notturno', async () => {
+    let release: (v: { id: number }[]) => void = () => undefined;
+    qb.getRawMany.mockReturnValueOnce(new Promise((r) => (release = r)));
+    const first = service.recalcAllManual();
+    await expect(service.recalcAllManual()).rejects.toThrow('già in corso');
+    await service.handleNightlyRecalc();
+    release([{ id: 7 }]);
+    await expect(first).resolves.toEqual({ processed: 1, failed: 0 });
+    qb.getRawMany.mockResolvedValue([]);
+    await expect(service.recalcAllManual()).resolves.toEqual({ processed: 0, failed: 0 });
+    expect(qb.getRawMany).toHaveBeenCalledTimes(2);
+  });
+
   it('recalcAll: continua dopo un errore su una utenza', async () => {
     qb.getRawMany.mockResolvedValue([{ id: 1 }, { id: 2 }]);
     utilityRepo.findOne.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce(utility({ id: 2 }));

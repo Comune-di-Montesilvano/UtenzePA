@@ -34,7 +34,7 @@ import {UtilityConsumptionsTabComponent} from './consumptions/utility-consumptio
 import {PlantService} from '../plants/plant.service';
 import {Plant, PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PlantStatus, PlantType} from '../plants/plant.model';
 import {BudgetChapter} from '../budget-chapters/entity/budget-chapter.entity';
-import {CONSUMPTION_UNIT_BY_HARD_TYPE, ConsumptionSummary, formatQty} from './consumptions/consumption.model';
+import {compactQty, CONSUMPTION_UNIT_BY_HARD_TYPE, ConsumptionSummary, formatQty} from './consumptions/consumption.model';
 import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
@@ -221,6 +221,8 @@ export class UtilityEditDialogComponent implements OnInit {
   // Collegamenti: campi cache aggiornati da refreshLinks().
   contracts: Contract[] = sortSupplyContracts(this.data.item.contratti ?? []);
   assetRows: Asset[] = [];
+  // Dal tab Fatture appena caricato (il tab parte già all'apertura della scheda).
+  invoiceCount: number | null = null;
   plantRows: PlantRow[] = [];
   assetPreview: PreviewItem[] = [];
   plantPreview: PreviewItem[] = [];
@@ -624,6 +626,14 @@ export class UtilityEditDialogComponent implements OnInit {
           searchText: `${label(c)} ${c.pdc ?? ''}`,
         };
       });
+  }
+
+  // Consumo effettivo degli ultimi 12 mesi, in forma compatta, sull'etichetta del
+  // tab Consumi; nessun badge senza giorni coperti (o per le utenze Internet).
+  consumptionBadge(): string | null {
+    const item = this.data.item;
+    if (this.isNew || !this.isMetered || !item.actual_consumption_coverage_days) return null;
+    return compactQty(Number(item.actual_consumption ?? 0), this.consumptionUnit);
   }
 
   get consumptionUnit(): string | null {

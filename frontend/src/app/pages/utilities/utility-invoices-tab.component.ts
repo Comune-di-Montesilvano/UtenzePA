@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, inject, Input, OnInit} from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, Input, OnInit, EventEmitter, Output} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {forkJoin} from 'rxjs';
@@ -76,6 +76,8 @@ export class UtilityInvoicesTabComponent implements OnInit {
   @Input() canEdit = false;
   // Contratto aperto dell'utenza (se uno solo): precompila la nuova fattura.
   @Input() contractId: number | null = null;
+  // Numero di fatture dell'utenza, per il conteggio sull'etichetta del tab.
+  @Output() countChange = new EventEmitter<number>();
 
   private invoices = inject(InvoicesService);
   private spending = inject(SpendingService);
@@ -109,6 +111,7 @@ export class UtilityInvoicesTabComponent implements OnInit {
                 : '',
             })))
           .sort((a, b) => b.iso.localeCompare(a.iso));
+        this.countChange.emit(new Set(this.rows.map(r => r.invoiceId)).size);
       });
   }
 

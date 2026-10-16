@@ -93,6 +93,17 @@ export function formatQty(value: number | null | undefined, unit?: string | null
   return unit ? `${text} ${unit}` : text;
 }
 
+// Quantità compatta per badge: kWh con i multipli veri (1,2 MWh, 1,2 GWh),
+// Smc e m³ col suffisso k (1,2k Smc); sotto 1.000 il numero intero.
+export function compactQty(value: number, unit: string | null): string {
+  const n = Math.round(value);
+  const one = (x: number) => x.toLocaleString('it-IT', {maximumFractionDigits: 1});
+  const withUnit = (text: string, u: string | null) => (u ? `${text} ${u}` : text);
+  if (Math.abs(n) < 1000) return withUnit(n.toLocaleString('it-IT'), unit);
+  if (unit === 'kWh') return Math.abs(n) < 1_000_000 ? `${one(n / 1000)} MWh` : `${one(n / 1_000_000)} GWh`;
+  return Math.abs(n) < 1_000_000 ? withUnit(`${one(n / 1000)}k`, unit) : withUnit(`${one(n / 1_000_000)}M`, unit);
+}
+
 // Fasce in forma compatta per la tabella: «F1 1.234 · F2 567 · F3 890» (F0 solo se valorizzata).
 export function bandsLabel(
   r: Pick<UtilityConsumption, 'consumption_f0' | 'consumption_f1' | 'consumption_f2' | 'consumption_f3'>,

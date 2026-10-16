@@ -21,13 +21,25 @@ import {
 import { CreateUtilityConsumptionDto } from './dto/create-utility-consumption.dto';
 import { UpdateUtilityConsumptionDto } from './dto/update-utility-consumption.dto';
 import { UtilityConsumption } from './entity/utility-consumption.entity';
+import { ConsumptionRecalcService } from './consumption-recalc.service';
 
 // Route annidate sotto utilities/:utilityId (lista/creazione/riepilogo) e
 // dirette su utility-consumptions/:id (modifica/eliminazione).
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UtilityConsumptionsController {
-  constructor(private readonly service: UtilityConsumptionsService) {}
+  constructor(
+    private readonly service: UtilityConsumptionsService,
+    private readonly recalc: ConsumptionRecalcService,
+  ) {}
+
+  // Riallinea effettivo, copertura e stima salvati su tutte le utenze, senza
+  // aspettare il ricalcolo notturno.
+  @Roles('Admin')
+  @Post('utility-consumptions/recalc')
+  recalcAll(): Promise<{ processed: number; failed: number }> {
+    return this.recalc.recalcAllManual();
+  }
 
   @Get('utilities/:utilityId/consumptions')
   list(@Param('utilityId', ParseIntPipe) utilityId: number): Promise<UtilityConsumptionRow[]> {

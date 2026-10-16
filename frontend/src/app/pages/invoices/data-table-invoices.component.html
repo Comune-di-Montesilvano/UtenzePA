@@ -12,7 +12,7 @@
   <mat-progress-bar mode="indeterminate"></mat-progress-bar>
 }
 
-<table mat-table [dataSource]="dataSource" matSort matSortActive="invoice_id" matSortDirection="asc" #sort="matSort" class="mat-elevation-z1">
+<table mat-table [dataSource]="dataSource" matSort matSortActive="invoice_date" matSortDirection="desc" #sort="matSort" class="mat-elevation-z1">
 
     <ng-container matColumnDef="actions">
       <th mat-header-cell *matHeaderCellDef>Azioni</th>

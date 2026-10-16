@@ -5,6 +5,7 @@ import {MatInputModule} from '@angular/material/input';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatDatepickerModule} from '@angular/material/datepicker';
+import {MatTooltipModule} from '@angular/material/tooltip';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import type {TOption} from '../../core/types/option.interface';
 import {InvoiceLine} from './entity/invoice-line.model';
@@ -33,7 +34,7 @@ const eur = (n: number | null | undefined): string =>
 @Component({
   selector: 'app-invoice-lines-tab',
   standalone: true,
-  imports: [FormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatDatepickerModule, FilterableSelectComponent],
+  imports: [FormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatIconModule, MatDatepickerModule, MatTooltipModule, FilterableSelectComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <p class="lines-total">
@@ -50,6 +51,12 @@ const eur = (n: number | null | undefined): string =>
           <app-filterable-select label="Utenza" placeholder="POD/PDR o codice cliente..." [options]="utilityOptions"
             [ngModel]="l.utility_id_fk" [ngModelOptions]="{standalone: true}" (ngModelChange)="set(l, 'utility_id_fk', $event)" [disabled]="readOnly"
             [createLabel]="readOnly ? null : 'Nuova utenza'" (create)="newUtility(l)"></app-filterable-select>
+          @if (l.utility_id_fk) {
+            <button mat-icon-button type="button" class="open-utility" aria-label="Apri scheda utenza"
+                    matTooltip="Apri scheda utenza" (click)="openUtility(l.utility_id_fk)">
+              <mat-icon>open_in_new</mat-icon>
+            </button>
+          }
         </div>
         <div class="f-commitment">
           <app-filterable-select label="Impegno" placeholder="Esercizio o capitolo..." [options]="commitmentOptions"
@@ -111,7 +118,9 @@ const eur = (n: number | null | undefined): string =>
     }
     .line-row > * { flex: 0 0 auto; }
     .line-n { width: 1.5rem; padding-top: 18px; color: var(--sheet-muted); }
-    .f-utility { width: 260px; }
+    .f-utility { width: 300px; display: flex; align-items: flex-start; gap: 4px; }
+    .f-utility > app-filterable-select { flex: 1 1 auto; min-width: 0; }
+    .open-utility { margin-top: 4px; }
     .f-commitment { width: 240px; }
     .f-date { width: 150px; }
     .f-num { width: 120px; }
@@ -167,6 +176,14 @@ export class InvoiceLinesTabComponent implements OnChanges {
     if (key === 'start') l.period_start = iso;
     else l.period_end = iso;
     this.emit();
+  }
+
+  // Scheda dell'utenza sopra quella della fattura; se salvata, etichette
+  // delle opzioni ricaricate (POD o codice possono essere cambiati).
+  openUtility(id: number): void {
+    this.navigator.openUtility(id).subscribe(saved => {
+      if (saved) this.optionsStale.emit('utilities');
+    });
   }
 
   newUtility(l: EditableLine): void {

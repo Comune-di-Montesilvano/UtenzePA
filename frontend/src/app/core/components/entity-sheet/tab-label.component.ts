@@ -3,7 +3,7 @@ import {MatIconModule} from '@angular/material/icon';
 import type {Tone} from '../../helpers/entity-status';
 
 // Etichetta di un mat-tab: icona, testo e un indicatore. Priorità:
-// errore (pallino rosso) > conteggio > pallino "contiene dati".
+// errore (pallino rosso) > testo breve > conteggio > pallino "contiene dati".
 @Component({
   selector: 'app-tab-label',
   standalone: true,
@@ -14,6 +14,8 @@ import type {Tone} from '../../helpers/entity-status';
     <span>{{ label }}</span>
     @if (error) {
       <span class="tl-dot tone-danger" title="Campi da correggere"></span>
+    } @else if (badge) {
+      <span [class]="'tl-count tone-' + tone">{{ badge }}</span>
     } @else if (count !== null && count !== undefined) {
       <span [class]="'tl-count tone-' + (count === 0 ? 'off' : tone)">{{ count }}</span>
     } @else if (dot) {
@@ -35,6 +37,8 @@ export class TabLabelComponent {
   @Input({required: true}) icon!: string;
   @Input({required: true}) label!: string;
   @Input() count: number | null | undefined = null;
+  // Valore breve al posto del conteggio (es. «1.235 kWh»).
+  @Input() badge: string | null | undefined = null;
   @Input() tone: Tone = 'info';
   @Input() dot = false;
   @Input() error = false;

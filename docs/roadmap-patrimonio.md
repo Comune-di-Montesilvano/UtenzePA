@@ -23,7 +23,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 3 | Impianto unificato | fatto, v1.7.0 (immobili convertiti in impianti e consistenze 2025 importate sul DB locale, da portare in produzione) |
 | 4 | Complessi | da approfondire |
 | 5 | Aree verdi | da approfondire |
-| 6 | Fatture per utenza | fatto, v1.10.0 (fatture ACA 2025–2026 caricate sul DB locale, da portare in produzione; import FatturaPA in un giro successivo) |
+| 6 | Fatture per utenza | fatto, v1.10.0 (fatture ACA 2025–2026 caricate sul DB locale; il 2026-10-16 importate dal registro della contabilità 4.676 fatture luce/gas 2025–2026; tutto da portare in produzione; import FatturaPA in un giro successivo) |
 | 7 | Contratti di servizio e manutenzione | da approfondire (ditte esterne sugli impianti; i gestori manutenzione sono stati sostituiti in v1.9.0) |
 | 8 | Permessi di scrittura granulari | da approfondire |
 | 9 | Soggetti terzi (controparti + fornitori) | fatto, v1.8.0 (pulizia dati fatta sul DB locale; restano CF delle persone, P.IVA Open Fiber, 2 locatori SPRAR) |
@@ -155,6 +155,9 @@ Gotcha per l'import FatturaPA (da una fattura elettronica A2A luce, 2026-10-05):
 - consumo (kWh) e matricola del contatore solo nel testo di `Causale`: serve un parser per fornitore, non c'è un campo strutturato;
 - l'impegno (contratto + capitolo dell'utenza + esercizio) può non esistere ancora: l'import deve crearlo o segnalarlo, mai inventare il capitolo;
 - il PDF della fattura è allegato in base64 (quasi tutto il peso del file): da decidere se conservarlo collegato alla fattura.
+- **consumo della riga → storico consumi dell'utenza** (decisione 2026-10-16, da confermare con l'import definitivo): oggi `invoice_lines.consumption` è solo informativo, nessun calcolo lo legge. Orientamento: riga con utenza, periodo e consumo = rilevazione `INVOICE` nel tab Consumi collegata alla riga (migration del collegamento; segue modifica ed eliminazione della riga; se un periodo è già coperto da un'altra rilevazione non duplica e segnala).
+
+Import dal registro della contabilità (2026-10-16, script una tantum fuori dal repo, solo DB locale): «Esportazione» del gestionale contabile (registro fatture passive 2025–2026, con CIG, protocollo e nelle note A2A periodo/POD/kWh) abbinata per numero fattura ai «Flussi» (POD/PDR, capitolo). Importate 4.676 fatture (A2A, Dolomiti, HERA, AGSM, ACA mancanti), contratto dal CIG, 155 consumi `INVOICE` dove il periodo mancava, PDR portati a 14 cifre, totali e righe ACA allineati al registro. Senza utenza: AGSM (bollette massive senza PDR), ACA, HERA 2025 (servono gli XML; richiesta a Tinn di download massivo/web service). Incongruenze girate ai colleghi (capitoli, salvaguardia HERA senza contratto, 18 CIG senza contratto, utenze doppie).
 
 Rifiniture rimandate dalla revisione finale di v1.10.0, non bloccanti:
 
