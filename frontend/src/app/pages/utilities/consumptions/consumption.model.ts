@@ -59,6 +59,11 @@ export interface ConsumptionSummary {
   meter_number: string | null;
   actual_consumption: number;
   coverage_days: number;
+  // Finestra dei 12 mesi: fino all'ultimo dato, se è dell'ultimo anno.
+  window_start: string;
+  window_end: string;
+  // Periodi senza dati tra il primo e l'ultimo dato.
+  gaps: {start: string; end: string}[];
   estimated_annual_consumption: number;
   estimated_source: EstimateSource;
   estimated_valid_until: string | null;

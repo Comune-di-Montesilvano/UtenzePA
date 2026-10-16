@@ -233,20 +233,51 @@ export function buildDailyBands(records: ConsumptionRecord[]): Partial<Record<Ba
   return out;
 }
 
+function lastDataDay(daily: Map<number, number>, today: number): number | null {
+  let last: number | null = null;
+  for (const d of daily.keys()) if (d <= today && (last === null || d > last)) last = d;
+  return last;
+}
+
+// Ultimo giorno della finestra di 12 mesi: l'ultimo giorno con dati se
+// cade nell'ultimo anno (i giorni dopo, bolletta non ancora arrivata, non
+// contano come mancanti), altrimenti oggi (storico vecchio = nessun dato recente).
+export function windowEnd(daily: Map<number, number>, today: number): number {
+  const last = lastDataDay(daily, today);
+  return last !== null && last > today - WINDOW_DAYS ? last : today;
+}
+
 export function computeActual(
   daily: Map<number, number>,
   today: number,
-): { actual: number; coverageDays: number } {
+): { actual: number; coverageDays: number; windowStart: string; windowEnd: string } {
+  const end = windowEnd(daily, today);
   let actual = 0;
   let coverageDays = 0;
-  for (let d = today - WINDOW_DAYS + 1; d <= today; d++) {
+  for (let d = end - WINDOW_DAYS + 1; d <= end; d++) {
     const v = daily.get(d);
     if (v !== undefined) {
       actual += v;
       coverageDays++;
     }
   }
-  return { actual: round2(actual), coverageDays };
+  return {
+    actual: round2(actual),
+    coverageDays,
+    windowStart: fromDay(end - WINDOW_DAYS + 1),
+    windowEnd: fromDay(end),
+  };
+}
+
+// Periodi senza dati tra il primo e l'ultimo dato (fino a oggi): bollette o
+// letture mancanti. Prima del primo dato e dopo l'ultimo non sono buchi.
+export function dataGaps(daily: Map<number, number>, today: number): { start: string; end: string }[] {
+  const days = [...daily.keys()].filter((d) => d <= today).sort((a, b) => a - b);
+  const gaps: { start: string; end: string }[] = [];
+  for (let i = 1; i < days.length; i++) {
+    if (days[i] - days[i - 1] > 1) gaps.push({ start: fromDay(days[i - 1] + 1), end: fromDay(days[i] - 1) });
+  }
+  return gaps;
 }
 
 // Media giornaliera di riferimento: giorni coperti nella finestra, se
@@ -254,7 +285,8 @@ export function computeActual(
 function meanDaily(daily: Map<number, number>, today: number): number | null {
   const average = (days: number[]) => days.reduce((sum, d) => sum + daily.get(d), 0) / days.length;
   const all = [...daily.keys()].filter((d) => d <= today);
-  const inWindow = all.filter((d) => d > today - WINDOW_DAYS);
+  const end = windowEnd(daily, today);
+  const inWindow = all.filter((d) => d > end - WINDOW_DAYS);
   if (inWindow.length) return average(inWindow);
   if (all.length) return average(all);
   return null;
@@ -292,25 +324,34 @@ export function computeMonthlySeries(
   // dell'ultimo anno: i segmenti sommano sempre al più al totale.
   const bandKeys = Object.keys(bandDaily) as BandKey[];
   const shares: Partial<Record<BandKey, number>> = {};
+  const end = windowEnd(daily, today);
   if (bandKeys.length) {
     let windowTotal = 0;
-    for (let d = today - WINDOW_DAYS + 1; d <= today; d++) windowTotal += daily.get(d) ?? 0;
+    for (let d = end - WINDOW_DAYS + 1; d <= end; d++) windowTotal += daily.get(d) ?? 0;
     for (const k of bandKeys) {
       let s = 0;
-      for (let d = today - WINDOW_DAYS + 1; d <= today; d++) s += bandDaily[k].get(d) ?? 0;
+      for (let d = end - WINDOW_DAYS + 1; d <= end; d++) s += bandDaily[k].get(d) ?? 0;
       shares[k] = windowTotal > 0 ? s / windowTotal : 0;
     }
   }
   // Giorni passati dopo l'ultimo dato (bolletta non ancora arrivata): stimati
   // come i futuri. I buchi prima dell'ultimo dato restano dati mancanti.
-  let lastDataDay = -Infinity;
-  for (const d of daily.keys()) if (d <= today && d > lastDataDay) lastDataDay = d;
+  const lastData = lastDataDay(daily, today) ?? -Infinity;
   const t = new Date(today * MS_PER_DAY);
   const year = t.getUTCFullYear();
   const month = t.getUTCMonth();
+  // Mesi passati dal primo mese con dati (al massimo 24): senza storico solo
+  // il mese corrente, nessun mese vuoto spacciato per «reale».
+  let firstData = Infinity;
+  for (const d of daily.keys()) if (d <= today && d < firstData) firstData = d;
+  let firstOffset = 0;
+  if (firstData !== Infinity) {
+    const f = new Date(firstData * MS_PER_DAY);
+    firstOffset = (f.getUTCFullYear() - year) * 12 + f.getUTCMonth() - month;
+  }
   const points: MonthlyPoint[] = [];
 
-  for (let offset = -(PAST_MONTHS - 1); offset <= FUTURE_MONTHS; offset++) {
+  for (let offset = Math.max(-(PAST_MONTHS - 1), firstOffset); offset <= FUTURE_MONTHS; offset++) {
     const first = Math.round(Date.UTC(year, month + offset, 1) / MS_PER_DAY);
     const next = Math.round(Date.UTC(year, month + offset + 1, 1) / MS_PER_DAY);
     let actual = 0;
@@ -322,7 +363,7 @@ export function computeMonthlySeries(
         if (v !== undefined) {
           actual += v;
           covered++;
-        } else if (mean !== null && d > lastDataDay) {
+        } else if (mean !== null && d > lastData) {
           estimated += estimatedDay(daily, d, today, mean);
         }
       } else if (mean !== null) {

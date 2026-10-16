@@ -16,8 +16,10 @@ import { CONSUMPTION_UNIT } from './consumption-unit';
 import {
   buildDailyBands,
   buildDailyConsumption,
+  computeActual,
   computeMonthlySeries,
   currentMeterReading,
+  dataGaps,
   ConsumptionRecord,
   manualValidUntil,
   MonthlyPoint,
@@ -38,6 +40,11 @@ export interface UtilityConsumptionSummary {
   meter_number: string | null;
   actual_consumption: number;
   coverage_days: number;
+  // Finestra dei 12 mesi (fino all'ultimo dato dell'ultimo anno) e periodi
+  // senza dati tra il primo e l'ultimo dato.
+  window_start: string;
+  window_end: string;
+  gaps: { start: string; end: string }[];
   estimated_annual_consumption: number;
   estimated_source: EstimateSource;
   estimated_valid_until: string | null;
@@ -97,11 +104,19 @@ export class UtilityConsumptionsService extends BaseService<
     const setAt = utility.estimated_consumption_set_at
       ? new Date(utility.estimated_consumption_set_at)
       : null;
+    const daily = buildDailyConsumption(records);
+    const today = todayDay();
+    // Effettivo dallo storico, non dal valore persistito: stesso calcolo del
+    // ricalcolo, coerente con finestra e buchi anche prima del ricalcolo notturno.
+    const actual = computeActual(daily, today);
     return {
       unit: CONSUMPTION_UNIT[utility.utilityType?.hard_type] ?? null,
       meter_number: utility.meter_number ?? null,
-      actual_consumption: Number(utility.actual_consumption ?? 0),
-      coverage_days: Number(utility.actual_consumption_coverage_days ?? 0),
+      actual_consumption: actual.actual,
+      coverage_days: actual.coverageDays,
+      window_start: actual.windowStart,
+      window_end: actual.windowEnd,
+      gaps: dataGaps(daily, today),
       estimated_annual_consumption: Number(utility.estimated_annual_consumption ?? 0),
       estimated_source: utility.estimated_consumption_source,
       estimated_set_at: setAt ? setAt.toISOString() : null,
@@ -109,7 +124,7 @@ export class UtilityConsumptionsService extends BaseService<
         utility.estimated_consumption_source === EstimateSource.MANUAL && setAt
           ? toLocalIsoDate(manualValidUntil(setAt))
           : null,
-      monthly: computeMonthlySeries(buildDailyConsumption(records), todayDay(), buildDailyBands(records)),
+      monthly: computeMonthlySeries(daily, today, buildDailyBands(records)),
     };
   }
 
