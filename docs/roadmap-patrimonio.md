@@ -430,6 +430,34 @@ Effetti: «era attiva nel 2025?» o «giorni di fornitura nell'anno» senza risp
 
 Direzione da valutare: tabella dei **periodi di attività** per utenza (inizio, fine vuota = in corso, motivo: attivazione, subentro, cessazione, sospensione…, eventuale riferimento ad atto o pratica); stato attuale e date calcolati dall'ultimo periodo (come «A carico di»), buchi di consumo esclusi fuori dai periodi, fatture confrontate col periodo giusto. Dati di partenza ricostruibili in parte da `activated_on`/`ceased_on` e dalle date dei contratti collegati.
 
+## Archivio 4_IMMOBILIARE: stato degli import
+
+Archivio dell'ufficio patrimonio classificato il 2026-10-15 (12.191 file, script e report in `.audit-w/immobiliare/`: `classifica_report.md`, `import_*_report.md`). Import una tantum solo sul DB locale (produzione via export). Stato per area:
+
+| Area | File | Stato |
+|---|---:|---|
+| 01_CONSISTENZE_CENSIMENTI | 168 | fatto: consistenze 2025 antincendio e ascensori (impianti, presidi, verifiche, determine di manutenzione), censimento antincendio 2025, planimetrie DWG aggiornate |
+| 01_MUNICIPIO | 138 | da fare: vulnerabilità sismica (39), finanziamenti, progetti |
+| 02_APPARTAMENTI E CASE COMUNALI | 488 | parziale: documenti dei contratti; da fare catasto (55), utenze/volture (49), **condominio (36)** |
+| 02_FABBRICATI / 03_SCUOLE | 3.607 | parziale: documenti degli immobili (antincendio, collaudi), impianti elettrici delle scuole (progetto 2011, DiCo), contratti mancanti; il resto da vagliare |
+| 03_AREE… / 2_DEMANIO e ATTRAVERSAMENTI | 236 | fatto: contratti di attraversamento RFI e canoni |
+| 03_AREE… / 3_ILLUMINAZIONE PUBBLICA | 1.047 | parziale: solo contratto Engie 2024–2033 e documenti |
+| 03_AREE… / 6_TRASPORTI | 396 | parziale: solo autostazione TUA (68) |
+| 03_AREE… / 8_FONTANE | 296 | parziale: rimodulazione giugno 2025 (fontane dismesse, utenze cessate) |
+| 04_SPORT, 06_SOCCORSO, 07_ATTIVITA SOCIALI, 08_FORZE DELL'ORDINE | 1.523 | parziale: documenti dei contratti immobiliari; il resto da vagliare |
+| **06_CONDOMINI** | 105 | **da fare**: nessun import (con i 36 delle case comunali, 102 file classificati «Condominio»). Prima va deciso cosa serve: quote e spese condominiali, amministratori come soggetti terzi, collegamento agli immobili (oggi «Condomini» è tra i fuori scope del 2026-10-01: da rivedere) |
+| ACQUISTI IMMOBILI | 104 | parziale: acquisto via Verrotti 60 (D.C. 29/2024) |
+| federalismo demaniale | 203 | fatto: atti di trasferimento e contratti PEB |
+| 05_CULTURA E MANIFESTAZIONI | 1.597 | da fare |
+| 05 VIDEOSORVEGLIANZA | 219 | da fare |
+| 09_CIMITERO | 451 | da fare |
+| 10_CHIOSCHI E CASETTE ACQUA | 187 | da fare |
+| ALTRI FABBRICATI | 842 | da fare |
+| ricostruzione immobili | 509 | da fare |
+| registri agibilità 1986–2023 | 2 | fuori scope (edilizia privata) |
+
+Contratti immobiliari: 339 attivi, 167 senza immobile (`contratti_abbina_report.md`, 6 abbinabili da foglio/particella).
+
 ## Fuori scope (decisioni prese)
 
 - **Condomini**: non è ciò che serve (2026-10-01).
