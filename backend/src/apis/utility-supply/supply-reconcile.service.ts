@@ -110,6 +110,19 @@ export class SupplyReconcileService {
     for (const id of [...new Set(utilityIds)]) await this.reconcile(id, userId);
   }
 
+  // Dopo un salvataggio già confermato (contratto, immobili dell'utenza): un
+  // errore su un'utenza non deve far fallire la richiesta né fermare le altre.
+  // Il giro notturno riallinea quello che è rimasto indietro.
+  async reconcileManySafe(utilityIds: number[], userId?: number): Promise<void> {
+    for (const id of [...new Set(utilityIds)]) {
+      try {
+        await this.reconcile(id, userId);
+      } catch (error) {
+        this.logger.error(`Riconciliazione fallita per utenza ${id}`, error as Error);
+      }
+    }
+  }
+
   // Tutte le utenze (job notturno e avvio): i contratti finiscono per data
   // senza che nessuno li salvi.
   async reconcileAll(): Promise<{ processed: number; changed: number; failed: number }> {

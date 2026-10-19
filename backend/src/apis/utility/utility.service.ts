@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Utility } from './entity/utility.entity';
@@ -40,6 +40,7 @@ function withoutSupplyFields<T extends object>(dto: T): T {
 
 @Injectable()
 export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, UpdateUtilityDto> {
+  private readonly logger = new Logger(UtilitiesService.name);
   protected readonly entityName = 'utilities';
   protected readonly relations = ['created_by', 'updated_by'];
 
@@ -627,7 +628,15 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
         userId ?? saved.updated_by_user_id,
       );
     } catch (error) {
-      await this.repo.delete(saved.id).catch(() => undefined);
+      try {
+        await this.repo.delete(saved.id);
+      } catch (deleteError) {
+        // Utenza rimasta senza storico: segnalarlo, ma rilanciare l'errore originale.
+        this.logger.error(
+          `Utenza ${saved.id} creata senza storico e non rimossa: creazione della riga iniziale e compensazione fallite`,
+          deleteError as Error,
+        );
+      }
       throw error;
     }
     try {
@@ -719,7 +728,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
             .map((a) => a.id)
             .sort((x, y) => x - y)
             .join(',');
-        if (key(beforeAssets) !== key(assets)) await this.supplyReconcile.reconcile(id, userId);
+        if (key(beforeAssets) !== key(assets)) await this.supplyReconcile.reconcileManySafe([id], userId);
       }
     }
 

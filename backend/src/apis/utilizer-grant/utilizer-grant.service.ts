@@ -200,7 +200,7 @@ export class UtilizerGrantService extends BaseService<
     }
     await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
     // Storico utenze: il contratto nuovo cambia «A carico di» sulle utenze dei suoi immobili.
-    await this.supply.reconcileMany(await this.supply.utilityIdsOfGrant(saved.id), userId);
+    await this.supply.reconcileManySafe(await this.supply.utilityIdsOfGrant(saved.id), userId);
     return this.findOne(saved.id);
   }
 
@@ -227,7 +227,7 @@ export class UtilizerGrantService extends BaseService<
       await this.repo.save(entity);
     }
     const after = await this.supply.utilityIdsOfGrant(id);
-    await this.supply.reconcileMany([...new Set([...before, ...after])], userId);
+    await this.supply.reconcileManySafe([...new Set([...before, ...after])], userId);
     return this.findOne(id);
   }
 
@@ -242,7 +242,7 @@ export class UtilizerGrantService extends BaseService<
     await this.repo.save(entity);
     await this.recordAudit(AuditAction.DELETE, id, updatedByUserId, []);
     const after = await this.supply.utilityIdsOfGrant(id);
-    await this.supply.reconcileMany([...new Set([...before, ...after])], updatedByUserId);
+    await this.supply.reconcileManySafe([...new Set([...before, ...after])], updatedByUserId);
   }
 
   private async assertValid(c: Record<string, unknown>, id: number | null): Promise<void> {

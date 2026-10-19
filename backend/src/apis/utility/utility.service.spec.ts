@@ -1,4 +1,5 @@
-import { BadRequestException, HttpException } from '@nestjs/common';
+import { BadRequestException, HttpException, Logger } from '@nestjs/common';
+import { BaseService } from '@apis/shared/base.service';
 import { UtilitiesService } from './utility.service';
 import { Utility } from './entity/utility.entity';
 import { ExpiryStatus } from './enum/ExpiryStatus.enum';
@@ -45,7 +46,7 @@ describe('UtilitiesService', () => {
   let assetRepo: { count: jest.Mock; find: jest.Mock };
   let plantRepo: { count: jest.Mock; find: jest.Mock };
   let recalc: { recalcUtility: jest.Mock };
-  let supplyReconcile: { reconcile: jest.Mock };
+  let supplyReconcile: { reconcileManySafe: jest.Mock };
   let supplyEvents: { createInitial: jest.Mock };
 
   beforeEach(() => {
@@ -79,7 +80,7 @@ describe('UtilitiesService', () => {
     assetRepo = { count: jest.fn().mockResolvedValue(1), find: jest.fn().mockResolvedValue([]) };
     recalc = { recalcUtility: jest.fn().mockResolvedValue(undefined) };
     plantRepo = { count: jest.fn().mockResolvedValue(1), find: jest.fn().mockResolvedValue([]) };
-    supplyReconcile = { reconcile: jest.fn().mockResolvedValue(undefined) };
+    supplyReconcile = { reconcileManySafe: jest.fn().mockResolvedValue(undefined) };
     supplyEvents = { createInitial: jest.fn().mockResolvedValue({ id: 1 }) };
     service = new UtilitiesService(
       repo as never,
@@ -607,6 +608,18 @@ describe('UtilitiesService', () => {
       expect(repo.delete).toHaveBeenCalledWith(79);
     });
 
+    it('se riga iniziale e compensazione falliscono, logga l’id e rilancia l’errore originale', async () => {
+      const logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      repo.save.mockImplementation(async (d: object) => ({ id: 80, ...d }));
+      const original = new Error('createInitial ko');
+      supplyEvents.createInitial.mockRejectedValue(original);
+      repo.delete.mockRejectedValue(new Error('delete ko'));
+      await expect(service.create({ asset_ids: [1] } as never, 4)).rejects.toBe(original);
+      expect(logged).toHaveBeenCalledTimes(1);
+      expect(String(logged.mock.calls[0][0])).toContain('80');
+      logged.mockRestore();
+    });
+
     it('registra un evento CREATE in audit log', async () => {
       const auditLogService = { record: jest.fn() };
       (service as any).auditLogService = auditLogService;
@@ -817,7 +830,7 @@ describe('UtilitiesService', () => {
       assetRepo.count.mockResolvedValue(1);
       repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false, assets: [{ id: 3 }] });
       await service.update(10, { asset_ids: [5] } as never, 1);
-      expect(supplyReconcile.reconcile).toHaveBeenCalledWith(10, 1);
+      expect(supplyReconcile.reconcileManySafe).toHaveBeenCalledWith([10], 1);
     });
 
     it('update con gli stessi immobili (ordine diverso) o senza asset_ids non riconcilia', async () => {
@@ -826,17 +839,28 @@ describe('UtilitiesService', () => {
       await service.update(10, { asset_ids: [4, 3] } as never, 1);
       repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false });
       await service.update(10, { notes: 'x' } as never, 1);
-      expect(supplyReconcile.reconcile).not.toHaveBeenCalled();
+      expect(supplyReconcile.reconcileManySafe).not.toHaveBeenCalled();
     });
 
     it('i campi dello storico nel payload non vengono scritti', async () => {
       repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false });
-      await service.update(10, { notes: 'x', supply_active: false, ceased_on: '2026-01-01', transferred_on: '2026-01-01' } as never, 1);
-      for (const call of repo.save.mock.calls) {
-        expect(call[0]).not.toHaveProperty('supply_active', false);
+      const spy = jest.spyOn(BaseService.prototype, 'update').mockResolvedValue({ id: 10 } as never);
+      await service.update(
+        10,
+        { notes: 'x', supply_active: false, activated_on: '2026-01-01', ceased_on: '2026-01-02', transferred_to_third_party_id: 3, transferred_on: '2026-01-03' } as never,
+        1,
+      );
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(Object.keys(spy.mock.calls[0][1] as object).sort()).toEqual(['notes']);
+      spy.mockRestore();
+    });
+
+    it('create: i campi dello storico non arrivano all’entity', async () => {
+      await service.create({ asset_ids: [1], supply_active: false, ceased_on: '2026-01-02', transferred_on: '2026-01-03' } as never, 4);
+      const keys = Object.keys(repo.create.mock.calls[0][0]);
+      for (const k of ['supply_active', 'activated_on', 'ceased_on', 'transferred_to_third_party_id', 'transferred_on']) {
+        expect(keys).not.toContain(k);
       }
-      const payloads = [...repo.update.mock.calls, ...repo.save.mock.calls].map((c) => JSON.stringify(c[1] ?? c[0]));
-      expect(payloads.join('')).not.toContain('2026-01-01');
     });
 
     it('update senza asset_ids non tocca gli immobili collegati', async () => {

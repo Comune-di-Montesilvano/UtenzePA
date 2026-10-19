@@ -15,7 +15,7 @@ describe('UtilizerGrantService', () => {
   };
   let assetRepo: { count: jest.Mock };
   let partyRepo: { count: jest.Mock };
-  let supply: { utilityIdsOfGrant: jest.Mock; reconcileMany: jest.Mock };
+  let supply: { utilityIdsOfGrant: jest.Mock; reconcileManySafe: jest.Mock };
 
   const row = (over: Record<string, unknown> = {}) => ({
     id: 1,
@@ -50,7 +50,7 @@ describe('UtilizerGrantService', () => {
     partyRepo = { count: jest.fn().mockResolvedValue(1) };
     supply = {
       utilityIdsOfGrant: jest.fn().mockResolvedValue([]),
-      reconcileMany: jest.fn().mockResolvedValue(undefined),
+      reconcileManySafe: jest.fn().mockResolvedValue(undefined),
     };
     service = new UtilizerGrantService(repo as never, assetRepo as never, partyRepo as never, supply as never);
     jest.spyOn(service as never, 'today' as never).mockReturnValue('2026-10-02' as never);
@@ -202,7 +202,7 @@ describe('UtilizerGrantService', () => {
       supply.utilityIdsOfGrant.mockResolvedValue([11, 12]);
       await service.create({ party_ids: [1], asset_ids: [7] } as never, 3);
       expect(supply.utilityIdsOfGrant).toHaveBeenCalledWith(99);
-      expect(supply.reconcileMany).toHaveBeenCalledWith([11, 12], 3);
+      expect(supply.reconcileManySafe).toHaveBeenCalledWith([11, 12], 3);
     });
 
     it('update: unione delle utenze prima e dopo (immobili tolti inclusi)', async () => {
@@ -210,8 +210,8 @@ describe('UtilizerGrantService', () => {
       jest.spyOn(BaseService.prototype, 'update').mockResolvedValue({ id: 1 } as never);
       supply.utilityIdsOfGrant.mockResolvedValueOnce([1, 2]).mockResolvedValueOnce([2, 3]);
       await service.update(1, { asset_ids: [4] } as never, 3);
-      expect(supply.reconcileMany).toHaveBeenCalledTimes(1);
-      const [ids, user] = supply.reconcileMany.mock.calls[0];
+      expect(supply.reconcileManySafe).toHaveBeenCalledTimes(1);
+      const [ids, user] = supply.reconcileManySafe.mock.calls[0];
       expect([...ids].sort()).toEqual([1, 2, 3]);
       expect(user).toBe(3);
     });
@@ -231,11 +231,19 @@ describe('UtilizerGrantService', () => {
       expect(order).toEqual(['ids', 'save', 'ids']);
     });
 
+    it('update: se la riconciliazione fallisce il contratto salvato risponde comunque', async () => {
+      repo.findOne.mockResolvedValue({ id: 1, deleted: false });
+      jest.spyOn(BaseService.prototype, 'update').mockResolvedValue({ id: 1 } as never);
+      supply.utilityIdsOfGrant.mockResolvedValue([1, 2]);
+      supply.reconcileManySafe.mockResolvedValue(undefined);
+      await expect(service.update(1, { subject: 'x' } as never, 3)).resolves.toBeDefined();
+    });
+
     it('remove: riconcilia le utenze coperte dal contratto', async () => {
       repo.findOne.mockResolvedValue({ id: 5, deleted: false, updated_by_user_id: 1 });
       supply.utilityIdsOfGrant.mockResolvedValue([8]);
       await service.remove(5, 3);
-      expect(supply.reconcileMany).toHaveBeenCalledWith([8], 3);
+      expect(supply.reconcileManySafe).toHaveBeenCalledWith([8], 3);
       expect(supply.utilityIdsOfGrant).toHaveBeenCalledTimes(2);
     });
   });

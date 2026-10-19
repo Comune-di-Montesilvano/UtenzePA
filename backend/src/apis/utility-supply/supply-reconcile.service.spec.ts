@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { BadRequestException } from '@nestjs/common';
 import { SupplyReconcileService } from './supply-reconcile.service';
 import { UtilitySupplyEvent } from './entity/utility-supply-event.entity';
@@ -584,5 +585,21 @@ describe('SupplyReconcileService concorrenza e dati grezzi', () => {
     await build(db).reconcile(7);
     expect(db.events.find((e) => e.id === 2)?.cancelled_on).toBeNull();
     expect(db.repo(Utility).update.mock.calls[0][1]).toMatchObject({ cost_status: 'TO_TRANSFER' });
+  });
+});
+
+describe('SupplyReconcileService.reconcileManySafe', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('un’utenza che fallisce viene registrata con il suo id e le altre proseguono', async () => {
+    const service = new SupplyReconcileService({} as never);
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const reconcile = jest.spyOn(service, 'reconcile').mockImplementation(async (id: number) => {
+      if (id === 2) throw new Error('boom');
+    });
+    await expect(service.reconcileManySafe([1, 2, 3, 3], 9)).resolves.toBeUndefined();
+    expect(reconcile.mock.calls.map((c) => c[0])).toEqual([1, 2, 3]);
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(String(error.mock.calls[0][0])).toContain('2');
   });
 });
