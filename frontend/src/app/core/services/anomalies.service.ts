@@ -72,6 +72,8 @@ export interface Anomalies {
   invoice_import_stalled: AnomalyList<{last_success_at: string | null; last_error: string | null}>;
   invoice_import_pending: AnomalyList<{id: number; supplier: string | null; number: string | null; date: string | null}>;
   invoice_sdi_outcome_discarded: AnomalyList<{invoice_id: number; number: string}>;
+  invoice_patterns_unknown: AnomalyList<{supplier_id: number; supplier: string; structure_key: string; count: number; message_id: number}>;
+  invoice_import_issues: AnomalyList<{invoice_id: number | null; number: string | null; type: string; detail: string}>;
 }
 
 // Non estende AbstractService: header Authorization messo a mano (nessun

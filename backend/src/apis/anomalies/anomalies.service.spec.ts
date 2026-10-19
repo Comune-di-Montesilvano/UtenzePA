@@ -111,7 +111,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(37);
+    expect(query).toHaveBeenCalledTimes(39);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -713,6 +713,35 @@ describe('AnomaliesService', () => {
       });
       const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('/* invoice_import_pending */'));
       expect(sql).toContain("m.status = 'PENDING'");
+    });
+
+    it('strutture di fattura da mappare, per fornitore', async () => {
+      only('/* invoice_patterns_unknown */', [
+        { supplier_id: '46', supplier: 'Energia Prova S.p.A.', structure_key: 'abc', count: '3', message_id: '12' },
+      ]);
+      const r = await service.getAnomalies();
+      expect(r.invoice_patterns_unknown).toEqual({
+        count: 1,
+        items: [{ supplier_id: 46, supplier: 'Energia Prova S.p.A.', structure_key: 'abc', count: 3, message_id: 12 }],
+      });
+    });
+
+    it('differenze trovate dall’import, escluse fatture rifiutate e strutture ignorate', async () => {
+      only('/* invoice_import_issues */', [
+        { invoice_id: '77', number: 'EP 7/26', type: 'CIG_MISMATCH', detail: 'CIG fattura A, contratto B' },
+        { invoice_id: null, number: null, type: 'BATCH_NOT_SUPPORTED', detail: 'Lotto' },
+      ]);
+      const r = await service.getAnomalies();
+      expect(r.invoice_import_issues).toEqual({
+        count: 2,
+        items: [
+          { invoice_id: 77, number: 'EP 7/26', type: 'CIG_MISMATCH', detail: 'CIG fattura A, contratto B' },
+          { invoice_id: null, number: null, type: 'BATCH_NOT_SUPPORTED', detail: 'Lotto' },
+        ],
+      });
+      const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('/* invoice_import_issues */'));
+      expect(sql).toContain("<> 'REJECTED'");
+      expect(sql).toContain("<> 'IGNORED'");
     });
 
     it('fatture con esito scartato dallo SDI', async () => {

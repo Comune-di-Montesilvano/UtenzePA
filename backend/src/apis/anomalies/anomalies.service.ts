@@ -98,6 +98,20 @@ export interface Anomalies {
     date: string | null;
   }>;
   invoice_sdi_outcome_discarded: AnomalyList<{ invoice_id: number; number: string }>;
+  invoice_patterns_unknown: AnomalyList<{
+    supplier_id: number;
+    supplier: string;
+    structure_key: string;
+    count: number;
+    // Fattura più recente della struttura: apre l'editor.
+    message_id: number;
+  }>;
+  invoice_import_issues: AnomalyList<{
+    invoice_id: number | null;
+    number: string | null;
+    type: string;
+    detail: string;
+  }>;
 }
 
 // Import fatture fermo: nessun giro riuscito da più di 2 ore (giro ogni 15 minuti).
@@ -677,6 +691,27 @@ export class AnomaliesService {
         WHERE i.deleted = 0 AND i.sdi_outcome_discarded = 1
         ORDER BY i.invoice_date DESC, i.id DESC`,
     );
+    const patternsUnknown: Record<string, unknown>[] = await this.dataSource.query(
+      `/* invoice_patterns_unknown */
+       SELECT m.supplier_id_fk AS supplier_id, ${partyNameSql('tp')} AS supplier, m.structure_key,
+              COUNT(*) AS count, MAX(m.id) AS message_id
+         FROM sdi_messages m
+         JOIN third_parties tp ON tp.id = m.supplier_id_fk
+        WHERE m.kind = 'INVOICE' AND m.status IN ('PENDING', 'LINKED') AND m.pattern_id_fk IS NULL
+          AND m.structure_key IS NOT NULL AND m.structure_key <> ''
+        GROUP BY m.supplier_id_fk, supplier, m.structure_key
+        ORDER BY count DESC, supplier`,
+    );
+    const importIssues: Record<string, unknown>[] = await this.dataSource.query(
+      `/* invoice_import_issues */
+       SELECT ii.invoice_id_fk AS invoice_id, i.invoice_id AS number, ii.type, ii.detail
+         FROM invoice_import_issues ii
+         JOIN sdi_messages m ON m.id = ii.sdi_message_id_fk
+         LEFT JOIN invoices i ON i.id = ii.invoice_id_fk
+        WHERE m.status <> 'IGNORED'
+          AND (ii.invoice_id_fk IS NULL OR (i.deleted = 0 AND COALESCE(i.sdi_status, '') <> 'REJECTED'))
+        ORDER BY ii.type, ii.id DESC`,
+    );
     const lastSuccess = importState?.last_success_at
       ? new Date(importState.last_success_at as string | Date)
       : null;
@@ -713,6 +748,23 @@ export class AnomaliesService {
       ),
       invoice_sdi_outcome_discarded: list(
         outcomeDiscarded.map((r) => ({ invoice_id: Number(r.invoice_id), number: String(r.number) })),
+      ),
+      invoice_patterns_unknown: list(
+        patternsUnknown.map((r) => ({
+          supplier_id: Number(r.supplier_id),
+          supplier: String(r.supplier),
+          structure_key: String(r.structure_key),
+          count: Number(r.count),
+          message_id: Number(r.message_id),
+        })),
+      ),
+      invoice_import_issues: list(
+        importIssues.map((r) => ({
+          invoice_id: r.invoice_id == null ? null : Number(r.invoice_id),
+          number: (r.number as string) ?? null,
+          type: String(r.type),
+          detail: String(r.detail),
+        })),
       ),
       assets_without_cadastre: assetItems(withoutCadastre),
       assets_without_mef_id: assetItems(withoutMefId),
