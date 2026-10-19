@@ -655,12 +655,15 @@ describe('UtilitiesService', () => {
       repo.save.mockImplementation(async (d: object) => ({ id: 82, ...d }));
       repo.findOne.mockRejectedValue(new Error('findOne ko'));
 
-      const result = await service.create({ asset_ids: [1] } as never, 4);
+      try {
+        const result = await service.create({ asset_ids: [1] } as never, 4);
 
-      expect((result as unknown as { id: number }).id).toBe(82);
-      expect(logged).toHaveBeenCalledTimes(1);
-      expect(String(logged.mock.calls[0][0])).toContain('82');
-      logged.mockRestore();
+        expect((result as unknown as { id: number }).id).toBe(82);
+        expect(logged).toHaveBeenCalledTimes(1);
+        expect(String(logged.mock.calls[0][0])).toContain('82');
+      } finally {
+        logged.mockRestore();
+      }
     });
 
     it('rilancia un errore gestito se il salvataggio fallisce', async () => {
@@ -700,10 +703,13 @@ describe('UtilitiesService', () => {
       const original = new Error('createInitial ko');
       supplyEvents.createInitial.mockRejectedValue(original);
       repo.delete.mockRejectedValue(new Error('delete ko'));
-      await expect(service.create({ asset_ids: [1] } as never, 4)).rejects.toBe(original);
-      expect(logged).toHaveBeenCalledTimes(1);
-      expect(String(logged.mock.calls[0][0])).toContain('80');
-      logged.mockRestore();
+      try {
+        await expect(service.create({ asset_ids: [1] } as never, 4)).rejects.toBe(original);
+        expect(logged).toHaveBeenCalledTimes(1);
+        expect(String(logged.mock.calls[0][0])).toContain('80');
+      } finally {
+        logged.mockRestore();
+      }
     });
 
     it('registra un evento CREATE in audit log', async () => {
