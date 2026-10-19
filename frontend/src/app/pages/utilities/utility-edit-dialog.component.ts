@@ -42,6 +42,7 @@ import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.co
 import {PreviewCardComponent, PreviewItem} from '../../core/components/entity-sheet/preview-card.component';
 import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components/entity-sheet/linked-table.component';
 import {assetStatus, costStatus, isInChargeUtility, isTransferredUtility, maintenanceStatus, plantStatus, sortSupplyContracts, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
+import type {Tone} from '../../core/helpers/entity-status';
 import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab, SHEET_REFRESH, SheetRefresh, sinceDays} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import {UtilityService} from './utility.service';
@@ -210,8 +211,6 @@ export class UtilityEditDialogComponent implements OnInit {
     requested_on: [null as Date | null],
   });
   readonly today = new Date();
-  // Cambiamenti in sospeso, dal tab «Attivazioni e volture».
-  supplyPendingCount: number | null = null;
 
   // Collegamenti: campi cache aggiornati da refreshLinks().
   contracts: Contract[] = sortSupplyContracts(this.data.item.contratti ?? []);
@@ -700,10 +699,11 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   // A carico di: stato calcolato dal backend sullo storico (si aggiorna dopo
-  // Salva o dopo una modifica dal tab «Attivazioni e volture»).
+  // Salva o dopo una modifica dal tab «Fornitura»).
   costInfo = this.data.item.cost_info;
   costStatusInfo = costStatus(this.data.item.cost_info);
   supplyText = this.supplyTextOf();
+  supplyBadge = this.supplyBadgeOf();
   holderText = this.holderTextOf(this.costInfo);
   pendingText = this.pendingTextOf(this.costInfo);
   // Manutenzione: calcolata dal backend sui contratti salvati (si aggiorna dopo il Salva).
@@ -722,6 +722,18 @@ export class UtilityEditDialogComponent implements OnInit {
     return item.ceased_on ? `Cessata il ${dateIt(item.ceased_on)}` : 'Non attiva';
   }
 
+  // Badge del tab «Fornitura»: prima le cose da fare, poi lo stato.
+  private supplyBadgeOf(): {text: string; tone: Tone} {
+    const item = this.data.item;
+    const status = item.cost_info?.status ?? item.cost_status;
+    if (status === 'TO_DECIDE') return {text: 'Da decidere', tone: 'warn'};
+    if (status === 'TO_TRANSFER') return {text: 'Da volturare', tone: 'warn'};
+    if (status === 'TO_RECOVER') return {text: 'Da reintestare', tone: 'warn'};
+    if (item.cost_info?.pending) return {text: 'In sospeso', tone: 'warn'};
+    if (isTransferredUtility(item)) return {text: 'Volturata', tone: 'off'};
+    return item.supply_active ? {text: 'Attiva', tone: 'ok'} : {text: 'Cessata', tone: 'off'};
+  }
+
   // null se volturata: l'intestatario è già nel testo della fornitura.
   private holderTextOf(info: CostInfo | undefined): string | null {
     if (isTransferredUtility(this.data.item)) return null;
@@ -737,7 +749,7 @@ export class UtilityEditDialogComponent implements OnInit {
     return `${label} in sospeso ${sinceDays(p.days)}`;
   }
 
-  // Dopo una modifica dal tab «Attivazioni e volture»: il backend ha
+  // Dopo una modifica dal tab «Fornitura»: il backend ha
   // riconciliato l'utenza. Si rilegge e si riallineano stato, Riepilogo e i
   // controlli non toccati (altrimenti Salva rimanderebbe i valori vecchi).
   onSupplyChanged(): void {
@@ -760,6 +772,7 @@ export class UtilityEditDialogComponent implements OnInit {
         this.costInfo = u.cost_info;
         this.costStatusInfo = costStatus(u.cost_info);
         this.supplyText = this.supplyTextOf();
+        this.supplyBadge = this.supplyBadgeOf();
         this.holderText = this.holderTextOf(u.cost_info);
         this.pendingText = this.pendingTextOf(u.cost_info);
         this.maintenanceInfo = u.maintenance_info;

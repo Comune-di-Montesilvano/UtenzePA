@@ -29,7 +29,7 @@ interface Row {
 
 const isPending = (e: SupplyEvent): boolean => !e.cancelled_on && !e.effective_on && !e.date_unknown;
 
-// Tab «Attivazioni e volture» della scheda utenza: storico dei cambiamenti
+// Tab «Fornitura» della scheda utenza: storico dei cambiamenti
 // (attivazioni, cessazioni, volture, reintestazioni). Ogni modifica emette
 // `changed`: la scheda ricarica l'utenza per stato e Riepilogo.
 @Component({
@@ -112,8 +112,6 @@ export class UtilitySupplyTabComponent implements OnInit {
   @Input() canEdit = false;
   // Dopo ogni modifica: la scheda ricarica l'utenza.
   @Output() changed = new EventEmitter<void>();
-  // Cambiamenti in sospeso, per il badge sull'etichetta del tab.
-  @Output() pendingCount = new EventEmitter<number>();
 
   private supply = inject(SupplyService);
   private thirdParties = inject(ThirdPartiesService);
@@ -138,17 +136,21 @@ export class UtilitySupplyTabComponent implements OnInit {
 
   private apply(list: SupplyEventsList): void {
     this.warnings = list.warnings ?? [];
+    // Più righe con data non nota: contano nell'ordine di inserimento (quello
+    // della lista), da mostrare perché decide lo stato.
+    const unknownCount = list.events.filter(e => e.date_unknown).length;
+    let unknownIndex = 0;
+    const unknownLabel = (): string => (unknownCount > 1 ? `non nota (${++unknownIndex}ª)` : 'data non nota');
     this.rows = list.events.map(e => ({
       event: e,
       type: SUPPLY_EVENT_LABEL[e.type] ?? e.type,
       holder: e.type === 'TRANSFER' ? (e.third_party_name ?? '') : e.type === 'RETURN' ? 'Comune' : '',
       requested: dateIt(e.requested_on),
-      effective: e.date_unknown ? 'data non nota' : dateIt(e.effective_on),
+      effective: e.date_unknown ? unknownLabel() : dateIt(e.effective_on),
       cancelled: dateIt(e.cancelled_on),
       pending: isPending(e),
       automatic: e.utilizer_grant_id_fk != null,
     }));
-    this.pendingCount.emit(this.rows.filter(r => r.pending).length);
   }
 
   private afterChange(list: SupplyEventsList | null): void {

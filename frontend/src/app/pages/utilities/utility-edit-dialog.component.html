@@ -200,11 +200,21 @@
         </div>
       </mat-tab>
 
-      <mat-tab aria-label="Tecnici e stato">
+      @if (!isNew) {
+        <mat-tab aria-label="Fornitura">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="swap_horiz" label="Fornitura" [badge]="supplyBadge.text" [tone]="supplyBadge.tone"></app-tab-label>
+          </ng-template>
+          <app-utility-supply-tab [utilityId]="data.item.id" [canEdit]="canEdit"
+                                  (changed)="onSupplyChanged()"></app-utility-supply-tab>
+        </mat-tab>
+      }
+
+      <mat-tab aria-label="Dati tecnici">
         <ng-template mat-tab-label>
-          <app-tab-label icon="tune" label="Tecnici e stato"></app-tab-label>
+          <app-tab-label icon="tune" label="Dati tecnici"></app-tab-label>
         </ng-template>
-        <div class="sheet-section-title">Stato utenza</div>
+        <div class="sheet-section-title">Contatore</div>
         <div class="sheet-grid">
           @if (isMetered) {
           <mat-form-field>
@@ -454,17 +464,6 @@
           <app-photo-gallery [entityType]="'utility'" [entityId]="data.item.id"></app-photo-gallery>
         </ng-template>
       </mat-tab>
-
-      @if (!isNew) {
-        <mat-tab aria-label="Attivazioni e volture">
-          <ng-template mat-tab-label>
-            <app-tab-label icon="swap_horiz" label="Attivazioni e volture" [count]="supplyPendingCount || null" tone="warn"></app-tab-label>
-          </ng-template>
-          <app-utility-supply-tab [utilityId]="data.item.id" [canEdit]="canEdit"
-                                  (pendingCount)="supplyPendingCount = $event"
-                                  (changed)="onSupplyChanged()"></app-utility-supply-tab>
-        </mat-tab>
-      }
 
       <mat-tab aria-label="Storico" [disabled]="isNew">
         <ng-template mat-tab-label>
