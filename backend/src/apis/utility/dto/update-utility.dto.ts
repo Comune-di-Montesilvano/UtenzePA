@@ -13,6 +13,7 @@ import { Phase } from '../../shared/enum/user.enums';
 import { AreraCategory, GasUseCategory } from '../arera-category';
 import { InternetTechnology } from '../internet-technology';
 import { DateOnly } from '@/common/decorators/date-only.decorator';
+import { EmptyToNull, NullableNumber } from '@/common/decorators/empty-to-null.decorator';
 import { Transform } from 'class-transformer';
 
 export class UpdateUtilityDto {
@@ -29,16 +30,19 @@ export class UpdateUtilityDto {
   utility_id?: string;
 
   @IsOptional()
+  @EmptyToNull()
   @IsString()
   @MaxLength(255)
   utility_code?: string;
 
   @IsOptional()
+  @EmptyToNull()
   @IsString()
   @MaxLength(255)
   meter_number?: string;
 
   @IsOptional()
+  @EmptyToNull()
   @IsString()
   @MaxLength(255)
   supplier_address?: string;
@@ -60,23 +64,25 @@ export class UpdateUtilityDto {
   estimated_annual_consumption?: number | null;
 
   @IsOptional()
-  @Transform(({ value }) => (value === '' ? null : Number(value)))
+  @NullableNumber()
   @IsNumber()
   @Min(0)
   security_deposit?: number | null;
 
   @IsOptional()
-  @Transform(({ value }) => (value === '' ? null : Number(value)))
+  @NullableNumber()
   @IsNumber()
   @Min(0)
   power_kw_electric?: number | null;
 
   @IsOptional()
+  @EmptyToNull()
   @IsString()
   @MaxLength(100)
   voltage_kw_electric?: string;
 
   @IsOptional()
+  @EmptyToNull()
   @IsString()
   @MaxLength(50)
   supplier_plant_code?: string | null;
@@ -86,20 +92,24 @@ export class UpdateUtilityDto {
   phase_type_electric?: Phase;
 
   @IsOptional()
+  @EmptyToNull()
   @IsString()
   @MaxLength(20)
   latitude?: string;
 
   @IsOptional()
+  @EmptyToNull()
   @IsString()
   @MaxLength(20)
   longitude?: string;
 
   @IsOptional()
+  @EmptyToNull()
   @IsString()
   notes?: string;
 
   @IsOptional()
+  @EmptyToNull()
   @IsString()
   @MaxLength(255)
   wbs_gas_element?: string;
@@ -126,19 +136,19 @@ export class UpdateUtilityDto {
 
   // Mbit/s; vuoto = non noto (null).
   @IsOptional()
-  @Transform(({ value }) => (value === '' ? null : value === null || value === undefined ? value : Number(value)))
+  @NullableNumber()
   @IsNumber()
   @Min(0)
   download_mbps?: number | null;
 
   @IsOptional()
-  @Transform(({ value }) => (value === '' ? null : value === null || value === undefined ? value : Number(value)))
+  @NullableNumber()
   @IsNumber()
   @Min(0)
   upload_mbps?: number | null;
 
   @IsOptional()
-  @Transform(({ value }) => (value === '' ? null : value === null || value === undefined ? value : Number(value)))
+  @NullableNumber()
   @IsNumber()
   @Min(0)
   guaranteed_mbps?: number | null;
