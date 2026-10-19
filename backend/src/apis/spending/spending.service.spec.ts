@@ -20,6 +20,7 @@ describe('SpendingService', () => {
     ]);
     const [sql, params] = query.mock.calls[0];
     expect(sql).toContain('i.deleted = 0');
+    expect(sql).toContain("(i.sdi_status IS NULL OR i.sdi_status <> 'REJECTED')");
     expect(sql).toContain('COALESCE(bcm.fiscal_year, YEAR(i.invoice_date))');
     expect(params).toEqual([3]);
   });

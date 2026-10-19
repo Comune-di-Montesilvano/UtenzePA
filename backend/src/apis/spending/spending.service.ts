@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
 import { DataSource } from 'typeorm';
 import { partyNameSql } from '@apis/third-parties/third-party.name';
 import { inChargeSql } from '@apis/utility/cost-status';
@@ -65,7 +66,7 @@ export interface BudgetWarning {
 // Anno di una riga: esercizio dell'impegno, altrimenti anno della fattura.
 const YEAR = 'COALESCE(bcm.fiscal_year, YEAR(i.invoice_date))';
 const LINES = `FROM invoice_lines il
-  JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0
+  JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
   LEFT JOIN budget_commitments bcm ON bcm.id = il.commitment_id_fk`;
 
 const toYears = (rows: Record<string, unknown>[]): YearSpending[] =>

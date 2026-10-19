@@ -253,6 +253,9 @@ describe('InvoicesService', () => {
       expect(qb.andWhere).toHaveBeenCalledWith('MONTH(Invoice.invoice_date) = :month', {
         month: new Date().getMonth() + 1,
       });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        "(Invoice.sdi_status IS NULL OR Invoice.sdi_status <> 'REJECTED')",
+      );
     });
 
     it('restituisce 0 se non ci sono fatture nel mese', async () => {

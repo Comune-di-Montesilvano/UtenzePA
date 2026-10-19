@@ -1,3 +1,5 @@
+import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
+
 // Esercizio di un capitolo: dati della ragioneria (budget_chapter_spending) +
 // impegni + fatturato, sempre calcolati. Condiviso da spesa e anomalie.
 export type Query = (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
@@ -7,7 +9,7 @@ export type Query = (sql: string, params?: unknown[]) => Promise<Record<string, 
 export const LINE_YEAR = 'COALESCE(bcm.fiscal_year, YEAR(i.invoice_date))';
 export const LINE_CHAPTER = 'COALESCE(bcm.budget_chapter_id_fk, u.budget_chapter_code_fk)';
 export const CHAPTER_LINES = `FROM invoice_lines il
-  JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0
+  JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
   LEFT JOIN budget_commitments bcm ON bcm.id = il.commitment_id_fk
   LEFT JOIN utilities u ON u.id = il.utility_id_fk`;
 

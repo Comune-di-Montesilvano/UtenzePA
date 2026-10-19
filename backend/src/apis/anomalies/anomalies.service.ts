@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
 import { ASSET_REQUIRED_TYPES, missingInspections } from '@apis/plants/plant.calc';
 import { GroundingClass, PlantStatus, PlantType } from '@apis/plants/enum/plant.enum';
 import { todayIso } from '@apis/utilizer-grant/real-estate-contract.calc';
@@ -374,7 +375,7 @@ export class AnomaliesService {
 
     const withoutUtility: Record<string, unknown>[] = await this.dataSource.query(
       `SELECT i.id AS invoice_id, i.invoice_id AS number, il.supply_code, il.amount
-       FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0
+       FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
        WHERE il.utility_id_fk IS NULL
        ORDER BY i.invoice_date DESC, i.id`,
     );
@@ -573,7 +574,7 @@ export class AnomaliesService {
       `SELECT i.id AS invoice_id, i.invoice_id AS number, i.invoice_date,
               u.id AS utility_id, u.utility_id AS utility_code, il.period_start, il.period_end
          FROM invoice_lines il
-         JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0
+         JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
          JOIN utilities u ON u.id = il.utility_id_fk AND u.deleted = 0
         WHERE COALESCE(il.period_end, i.invoice_date) >= CAST(? AS DATE) - INTERVAL 12 MONTH`,
       [today],

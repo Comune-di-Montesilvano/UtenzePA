@@ -11,6 +11,17 @@ describe('AnomaliesService', () => {
     service = new AnomaliesService({ query } as never);
   });
 
+  it('righe senza utenza e fuori periodo: fatture rifiutate escluse', async () => {
+    await service.getAnomalies();
+    const sqls = query.mock.calls.map(([s]) => String(s));
+    const withoutUtility = sqls.find((s) => s.includes('il.utility_id_fk IS NULL'));
+    const outOfPeriod = sqls.find(
+      (s) => s.includes('INTERVAL 12 MONTH') && s.includes('invoice_lines il'),
+    );
+    expect(withoutUtility).toContain("(i.sdi_status IS NULL OR i.sdi_status <> 'REJECTED')");
+    expect(outOfPeriod).toContain("(i.sdi_status IS NULL OR i.sdi_status <> 'REJECTED')");
+  });
+
   it('immobili senza natura o funzione, esclusi i cancellati', async () => {
     query.mockImplementation(async (sql: string) =>
       sql.includes('FROM assets a')
