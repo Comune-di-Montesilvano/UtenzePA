@@ -240,15 +240,42 @@ Nel tab **Consumi** della stessa pagina, **Ricalcola consumi** aggiorna subito p
 
 ### Importare le fatture dalla PEC (solo amministratori)
 
-In **Impostazioni → Backup e manutenzione**, tab **Import fatture**:
+In **Impostazioni → Import fatture**, tab **Motore** (visibile solo agli amministratori):
 
 - l'interruttore accende o spegne la lettura automatica della casella PEC (ogni 15 minuti, in sola lettura: nessun messaggio viene segnato, spostato o cancellato);
 - **Esegui ora** avvia subito un giro in background, senza aspettare il prossimo quarto d'ora: puoi lasciare la pagina, e al termine compare un messaggio (il primo giro, che legge tutta la casella, può durare alcuni minuti);
-- sotto trovi l'ultimo giro, l'ultimo giro riuscito, l'eventuale errore e quanti file sono stati letti per esito (collegate, in attesa, fuori perimetro, esiti e notifiche, errori).
+- sotto trovi l'ultimo giro, l'ultimo giro riuscito, l'eventuale errore, quanti file sono stati letti per esito (importate con un pattern, collegate, in attesa, strutture ignorate, fuori perimetro, esiti e notifiche, errori) e gli ultimi 10 file in errore con il motivo.
 
-Sono considerate solo le fatture dei fornitori in anagrafica con partita IVA e almeno un contratto di fornitura; le altre restano «fuori perimetro». Una fattura di un fornitore in perimetro che non è ancora in UtenzePA resta «in attesa» e compare in dashboard: quando la inserisci con lo stesso fornitore, numero e data, viene collegata al giro successivo. L'import non crea fatture e non modifica le anagrafiche.
+Sono considerate solo le fatture dei fornitori in anagrafica con partita IVA e almeno un contratto di fornitura; le altre restano «fuori perimetro». Per leggere i dati di una fattura (utenze, importi, periodi, consumi) l'import ha bisogno di un **pattern** del fornitore per quella struttura di XML (vedi [Mappare una struttura di fattura](#mappare-una-struttura-di-fattura)). Senza pattern la fattura resta «in attesa» e compare in dashboard; se la inserisci a mano con lo stesso fornitore, numero e data viene collegata al giro successivo. L'import non modifica mai le anagrafiche: le differenze diventano segnalazioni.
 
 **Spegni il motore prima di esportare o importare il database** e riaccendilo dopo: l'interruttore è salvato nel database, quindi un database importato porta con sé il suo stato.
+
+### Mappare una struttura di fattura
+
+Ogni fornitore manda le fatture con una sua struttura di XML: il pattern dice da quale campo leggere ciascun dato di UtenzePA. Si fa una volta per fornitore e struttura; amministratori e operatori possono salvare, i lettori solo consultare.
+
+1. Apri la segnalazione **Strutture di fattura da mappare** in dashboard, oppure **Impostazioni → Import fatture**, tab **Pattern**, e premi **Mappa** sulla riga del fornitore.
+2. Nell'editor, a sinistra, per ogni campo (testata e righe) scegli dall'elenco il campo dell'XML: le voci più probabili sono in cima, con accanto il valore letto da questa fattura; i dati del Comune (committente) sono in fondo. Le altre scelte possibili:
+   - **Non presente**: il fornitore non manda il dato;
+   - **Calcolato: imponibile × IVA**: solo per l'importo della riga, quando l'XML ha l'importo senza IVA;
+   - campi segnati **(dalla testata)**: lo stesso valore della testata per tutte le righe;
+   - **Numero dopo la parola**: per utenza, consumo, CIG, contratto e matricola scritti dentro una descrizione (es. «POD IT001E…»);
+   - **Consumo solo dalle righe che contengono**: quando il consumo va preso solo da alcune righe (es. «Energia»).
+3. A destra c'è l'XML della fattura, con il valore del campo su cui sei evidenziato; **Vedi PDF** apre il PDF allegato.
+4. Accanto a ogni campo i bollini dicono come va l'anteprima: verde = letto e riconosciuto (es. utenza trovata in anagrafica, somma delle righe uguale al totale), giallo = da controllare, grigio = non mappato. L'anteprima si aggiorna a ogni modifica e non salva nulla.
+5. Con le frecce in alto scorri le altre fatture della stessa struttura: le scelte restano, e «la mappatura regge su K di N viste» dice su quante le regole funzionano con le utenze riconosciute.
+6. **Salva pattern** (servono almeno utenza e importo della riga). Le fatture del fornitore in attesa vengono importate subito in background; il messaggio dice quante.
+
+Se una struttura non va importata (es. documenti che non sono fatture di utenze), usa **Ignora questa struttura**: le sue fatture non verranno più proposte. Per tornare indietro elimina la struttura ignorata dall'elenco dei pattern.
+
+Con un pattern, a ogni fattura l'import:
+
+- **crea** la fattura se non c'è, oppure **arricchisce** quella già inserita a mano (stesso fornitore, numero e data), che mantiene il suo numero interno;
+- sostituisce le righe con quelle dell'XML (utenza, periodo, importo IVA inclusa, descrizione, consumo), con il capitolo dall'impegno o, se manca, dall'utenza;
+- registra i **consumi** delle righe nello storico dell'utenza, salvo i periodi già coperti da una rilevazione;
+- la spesa conta subito; una fattura **rifiutata** non ha effetti e i suoi consumi vengono tolti.
+
+Una fattura importata che modifichi a mano non viene più aggiornata dall'import. Le fatture già importate con un pattern che correggi vengono rielaborate al salvataggio. I file con più fatture (lotti) non vengono importati: vanno inseriti a mano.
 
 ## Regole e riferimenti
 
@@ -323,13 +350,27 @@ Se lo SDI scarta un esito inviato dal Comune, la fattura torna allo stato preced
 | Utenze | Attive senza contratto di fornitura valido · Attive coperte solo da contratti senza CIG · Con contratti di fornitura sovrapposti · Attive senza tipologia ARERA · Da volturare · Da reintestare · Da decidere · Attivazioni in sospeso · Cessazioni in sospeso · Capitolo non impegnato sul contratto di fornitura · Senza capitolo di spesa · Attive senza posizione · Penali per energia reattiva (penale in un periodo terminato negli ultimi 12 mesi) |
 | Immobili | Da classificare (tipologia o funzione mancanti) · Non di proprietà senza contratto passivo attivo · Di proprietà senza catasto · Fabbricati di proprietà senza Id MEF · Subalterno da assegnare (stessi via, civico, foglio e particella) |
 | Impianti | Senza posizione · Senza immobile · Presidi scaduti (almeno un estintore con una scadenza superata) · Verifiche obbligatorie mancanti (vedi [Verifiche obbligatorie per legge](#verifiche-obbligatorie-per-legge)) |
-| Fatture | Fuori dai periodi di attività · Con righe senza utenza · Esito scartato dallo SDI |
+| Fatture | Fuori dai periodi di attività · Con righe senza utenza · Esito scartato dallo SDI · Differenze trovate dall'import (vedi sotto) |
 | Contratti di fornitura | Senza CIG (non esclusi) · CIG duplicati |
 | Contratti immobiliari | Senza immobile · Senza parti |
 | Capitoli di spesa | Oltre l'assestato dell'anno · Senza assestato dell'anno |
 | Soggetti terzi | Senza P.IVA o codice fiscale |
 
-In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni usate da immobili di proprietà a cui manca la tipologia del censimento MEF. Per l'import dalla PEC compaiono **Import fatture fermo** (nessun giro riuscito da più di 2 ore) e **Fatture PEC in attesa di import** (fatture di fornitori in perimetro non ancora inserite).
+In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni usate da immobili di proprietà a cui manca la tipologia del censimento MEF. Per l'import dalla PEC compaiono **Import fatture fermo** (nessun giro riuscito da più di 2 ore), **Fatture PEC in attesa di import** (fatture di fornitori in perimetro non ancora inserite), **Strutture di fattura da mappare** (un clic apre l'editor) e **Differenze trovate dall'import fatture**.
+
+### Differenze trovate dall'import
+
+L'import non corregge mai le anagrafiche: segnala le differenze, che trovi in dashboard e, per tipo, tra le segnalazioni dell'elenco fatture. Non sono segnalate quelle delle fatture rifiutate.
+
+| Segnalazione | Significato | Cosa fare |
+| --- | --- | --- |
+| Utenza sconosciuta | Il codice letto (POD, PDR, codice cliente) non è di nessuna utenza: la riga resta senza utenza. | Aggiungi il codice all'utenza giusta (o crea l'utenza), poi salva di nuovo il pattern per rielaborare. |
+| CIG diverso dal contratto | Il CIG della fattura non è quello del contratto di fornitura dell'utenza. | Verifica la fattura o il contratto. |
+| Ragione sociale diversa | Il nome del fornitore in fattura è diverso da quello in anagrafica (stessa partita IVA). | Aggiorna l'anagrafica se il fornitore ha cambiato nome. |
+| Impegno mancante | Non c'è un impegno per contratto, capitolo ed esercizio: la riga usa il capitolo dell'utenza. | Inserisci l'impegno nel contratto di fornitura. |
+| Periodo di consumo già coperto | Il periodo della riga è già coperto da una rilevazione: il consumo della fattura non è stato registrato. | Controlla lo storico consumi dell'utenza. |
+| Contratti diversi sulle righe | Le righe sono su utenze di contratti di fornitura diversi. | Verifica che utenze e contratti siano giusti. |
+| File con più fatture (lotto) | Il file contiene più fatture: non è stato importato. | Inserisci le fatture a mano. |
 
 ## Problemi frequenti
 
@@ -493,9 +534,25 @@ In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni u
 
 **Causa:** da più di 2 ore nessun giro di lettura della PEC è riuscito: casella non raggiungibile, password cambiata o problema di rete del server.
 
-**Soluzione:** un amministratore apre **Backup e manutenzione → Import fatture**, legge l'ultimo errore e prova **Esegui ora**.
+**Soluzione:** un amministratore apre **Impostazioni → Import fatture**, tab **Motore**, legge l'ultimo errore e prova **Esegui ora**.
 
 **Apri un ticket se:** l'errore resta dopo qualche tentativo o riguarda la connessione o le credenziali.
+
+### Ho corretto il pattern ma le fatture vecchie non cambiano
+
+**Causa:** al salvataggio vengono rielaborate le fatture rilette dalla PEC; restano come sono quelle il cui messaggio non è più sulla casella (il gestore cancella i più vecchi) e quelle modificate a mano dopo l'import.
+
+**Soluzione:** correggi a mano le fatture rimaste, dalla scheda della fattura.
+
+**Apri un ticket se:** una fattura recente, mai modificata a mano, non si aggiorna dopo qualche minuto.
+
+### Una fattura importata che ho corretto non si aggiorna più
+
+**Causa:** è voluto: quando modifichi a mano una fattura importata, l'import non la tocca più, per non cancellare le tue correzioni.
+
+**Soluzione:** completa le correzioni a mano dalla scheda della fattura.
+
+**Apri un ticket se:** serve rimettere la fattura sotto l'import (va fatto sul database).
 
 ## Contatti
 
