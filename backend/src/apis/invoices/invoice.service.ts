@@ -12,6 +12,7 @@ import { BaseService, toFindOptionsRelations } from '@apis/shared/base.service';
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { Contract } from '@apis/contracts/entity/contract.entity';
 import { BudgetCommitment } from '@apis/budget-commitments/entity/budget-commitment.entity';
+import { SdiMessage } from '@apis/invoice-import/entity/sdi-message.entity';
 
 // Confronto righe per l'audit: stessi valori normalizzati, stesso ordine.
 const lineKey = (l: Partial<InvoiceLine>): string =>
@@ -185,6 +186,10 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       const entity = await manager.findOne(Invoice, { where: { id } });
       Object.assign(entity, header);
       if (userId !== undefined) entity.updated_by_user_id = userId;
+      // Fattura nata o arricchita dall'import: dopo una modifica a mano non si rielabora.
+      if (await manager.count(SdiMessage, { where: { invoice_id_fk: id } })) {
+        entity.import_locked = true;
+      }
       await manager.save(Invoice, entity);
       if (lines !== undefined) {
         await manager.delete(InvoiceLine, { invoice_id_fk: id });

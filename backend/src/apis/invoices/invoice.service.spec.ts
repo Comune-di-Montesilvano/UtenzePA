@@ -2,6 +2,7 @@ import { SdiStatus } from './enum/sdi-status.enum';
 import { InvoicesService } from './invoice.service';
 import { Invoice } from './entity/invoice.entity';
 import { InvoiceLine } from './entity/invoice-line.entity';
+import { SdiMessage } from '@apis/invoice-import/entity/sdi-message.entity';
 
 describe('InvoicesService', () => {
   let service: InvoicesService;
@@ -161,6 +162,19 @@ describe('InvoicesService', () => {
       await service.update(20, { lines: [] } as never, 7);
       expect(manager.delete).toHaveBeenCalledWith(InvoiceLine, { invoice_id_fk: 20 });
       expect(manager.save).not.toHaveBeenCalledWith(InvoiceLine, expect.anything());
+    });
+
+    it('fattura nata o arricchita dall’import: la modifica a mano la blocca', async () => {
+      manager.count.mockResolvedValue(1);
+      await service.update(20, { notes_on_invoices: 'nota' } as never, 7);
+      expect(manager.count).toHaveBeenCalledWith(SdiMessage, { where: { invoice_id_fk: 20 } });
+      expect(manager.save).toHaveBeenCalledWith(Invoice, expect.objectContaining({ import_locked: true }));
+    });
+
+    it('fattura non importata: import_locked non toccato', async () => {
+      await service.update(20, { notes_on_invoices: 'nota' } as never, 7);
+      const saved = manager.save.mock.calls.find(([e]) => e === Invoice)[1];
+      expect(saved).not.toHaveProperty('import_locked');
     });
 
     it('registra in audit il numero di righe prima/dopo', async () => {
