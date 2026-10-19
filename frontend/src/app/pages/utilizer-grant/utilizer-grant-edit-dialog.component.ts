@@ -126,7 +126,7 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   readonly utilityColumns: LinkedColumn<Utility>[] = [
     {label: 'POD/PDR', value: u => u.utility_id ?? ''},
     {label: 'Tipo', value: u => u.utilityType?.name ?? ''},
-    {label: 'Volturata a', value: u => u.cost_info?.transferred_to?.name ?? ''},
+    {label: 'Volturata a', value: u => u.cost_info?.holder?.name ?? ''},
   ];
   // Utenza cessata: niente stato di voltura (come la dashboard, che conta solo le attive).
   readonly utilityStatusOf = (u: Utility): StatusInfo =>

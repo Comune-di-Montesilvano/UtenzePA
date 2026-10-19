@@ -42,6 +42,6 @@ export function invoiceFilters(): FilterDef[] {
 
 // Segnalazioni dell'elenco (anomalie della dashboard).
 export const INVOICE_SIGNALS: SignalDef[] = [
-  {key: 'invoices_on_ceased_utilities', label: 'Su utenze cessate', ids: items => items.map(i => i.invoice_id)},
+  {key: 'invoices_outside_supply_periods', label: 'Fuori dai periodi di attività', ids: items => items.map(i => i.invoice_id)},
   {key: 'invoice_lines_without_utility', label: 'Con righe senza utenza', ids: items => items.map(i => i.invoice_id)},
 ];

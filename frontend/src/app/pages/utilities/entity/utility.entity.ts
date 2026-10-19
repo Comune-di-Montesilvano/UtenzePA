@@ -1,5 +1,5 @@
 import {AbstractEntity} from '../../../core/entities/abstract.entity';
-import type {CostInfo, MaintenanceInfo} from './utility.interface';
+import type {CostInfo, CostStatus, MaintenanceInfo} from './utility.interface';
 import {Phase} from '../enum/phase.enum';
 import {ExpireState} from '../enum/expire-state.enum';
 import {ConsipAgreement} from '../../consip-agreement/entity/consip-agreement.entity';
@@ -24,6 +24,8 @@ export class Utility extends AbstractEntity {
   consip_order?: string;
   @Exclude({toPlainOnly: true})
   consip_agreement_id?: number;
+  // Dallo storico (utility-supply): solo lettura, mai inviati in scrittura.
+  @Exclude({toPlainOnly: true})
   supply_active?: boolean;
   meter_removed?: boolean;
   // Deposito cauzionale del punto di fornitura (dato dell'utenza).
@@ -54,16 +56,19 @@ export class Utility extends AbstractEntity {
   @DateOnly()
   water_concession?: Date;
   utility_type_id_fk!: number;
+  @Exclude({toPlainOnly: true})
   transferred_to_third_party_id?: number | null;
-  @DateOnly()
-  transferred_on?: Date | string | null;
-  // Da volturare deciso sull'utenza: null = come da contratto immobiliare.
-  transfer_required?: boolean | null;
-  // Vita dell'utenza, distinta da quella del contratto di fornitura.
-  @DateOnly()
-  activated_on?: Date | string | null;
-  @DateOnly()
-  ceased_on?: Date | string | null;
+  @Exclude({toPlainOnly: true})
+  transferred_on?: string | null;
+  // Vita dell'utenza (dallo storico), distinta da quella del contratto di fornitura.
+  @Exclude({toPlainOnly: true})
+  activated_on?: string | null;
+  @Exclude({toPlainOnly: true})
+  ceased_on?: string | null;
+  @Exclude({toPlainOnly: true})
+  cost_status?: CostStatus;
+  @Exclude({toPlainOnly: true})
+  pending_since?: string | null;
   // Connettività.
   internet_technology?: InternetTechnology | null;
   download_mbps?: number | null;

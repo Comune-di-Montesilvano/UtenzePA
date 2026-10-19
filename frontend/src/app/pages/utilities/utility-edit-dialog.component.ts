@@ -58,13 +58,6 @@ function atLeastOneLink(group: AbstractControl): ValidationErrors | null {
   return assets.length + plants.length > 0 ? null : {noLink: true};
 }
 
-// Cessazione non prima dell'attivazione (stessa regola del backend).
-function lifeDatesInOrder(group: AbstractControl): ValidationErrors | null {
-  const from = group.get('activated_on')?.value as Date | null;
-  const to = group.get('ceased_on')?.value as Date | null;
-  return from && to && to.getTime() < from.getTime() ? {ceasedBeforeActivated: true} : null;
-}
-
 // Riga impianto: dall'elenco completo, o dai dati parziali dell'utenza
 // finché l'elenco non è caricato.
 interface PlantRow {
@@ -153,11 +146,6 @@ export class UtilityEditDialogComponent implements OnInit {
   get isMetered(): boolean { return this.selectedHardType !== HardType.INTERNET; }
   get showInternetFields(): boolean { return this.selectedHardType === HardType.INTERNET; }
 
-  // Cessazione già passata ma fornitura ancora segnata attiva.
-  get ceasedButActive(): boolean {
-    const ceased = this.form.controls.ceased_on.value as Date | null;
-    return !!ceased && ceased.getTime() <= new Date().setHours(0, 0, 0, 0) && this.form.controls.supply_active.value === true;
-  }
   get isWater(): boolean { return this.selectedHardType === HardType.WATER; }
 
   // Se la relazione non è popolata (FK orfana o non caricata), il campo FK
@@ -183,11 +171,6 @@ export class UtilityEditDialogComponent implements OnInit {
     plant_ids: [this.data.item.plant_ids ?? (this.data.item.plants ?? []).map(p => p.id)],
     // Facoltativo: senza capitolo l'utenza va tra le segnalazioni, salvo contratto a titolo gratuito.
     budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null],
-    transferred_to_third_party_id: [this.data.item.transferred_to_third_party_id ?? null],
-    transferred_on: [this.toDate(this.data.item.transferred_on)],
-    transfer_required: [(this.data.item.transfer_required ?? null) as boolean | null],
-    activated_on: [this.toDate(this.data.item.activated_on)],
-    ceased_on: [this.toDate(this.data.item.ceased_on)],
     internet_technology: [this.data.item.internet_technology ?? null],
     download_mbps: [this.data.item.download_mbps ?? null as number | null],
     upload_mbps: [this.data.item.upload_mbps ?? null as number | null],
@@ -208,7 +191,6 @@ export class UtilityEditDialogComponent implements OnInit {
     security_deposit: [this.data.item.security_deposit ?? null as number | null],
     reported_consumption_year: [this.data.item.reported_consumption_year ?? 0, Validators.required],
     supplier_address: [this.data.item.supplier_address ?? ''],
-    supply_active: [this.data.item.supply_active ?? null],
     utility_code: [this.data.item.utility_code ?? ''],
     utility_id: [{value: this.data.item.utility_id ?? '', disabled: !this.isNew}, Validators.required],
     utility_type_id_fk: [this.data.item.utility_type_id_fk ?? null, Validators.required],
@@ -216,7 +198,7 @@ export class UtilityEditDialogComponent implements OnInit {
     supplier_plant_code: [this.data.item.supplier_plant_code ?? ''],
     water_concession: [this.toDate(this.data.item.water_concession)],
     wbs_gas_element: [this.data.item.wbs_gas_element ?? ''],
-  }, {validators: [atLeastOneLink, lifeDatesInOrder]});
+  }, {validators: [atLeastOneLink]});
 
   // Collegamenti: campi cache aggiornati da refreshLinks().
   contracts: Contract[] = sortSupplyContracts(this.data.item.contratti ?? []);
@@ -257,7 +239,6 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    if (!this.isNew) this.loadTransferOptions();
     this.refreshLinks();
     this.loadPlants();
     this.loadAssets();
@@ -408,12 +389,12 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   statusInfo(): StatusInfo {
-    return utilityStatus(this.form.controls.supply_active.value);
+    return utilityStatus(this.data.item.supply_active);
   }
 
   flags(): StatusInfo[] {
     const meterRemoved = this.isMetered && this.form.controls.meter_removed.value;
-    const withoutPosition = this.form.controls.supply_active.value === true && this.hasPosition() === false;
+    const withoutPosition = this.data.item.supply_active === true && this.hasPosition() === false;
     return utilityFlags(meterRemoved, withoutPosition);
   }
 
@@ -691,67 +672,12 @@ export class UtilityEditDialogComponent implements OnInit {
     return this.assetRows.find(a => (a.latitude ?? a.geocoded_latitude) && (a.longitude ?? a.geocoded_longitude)) ?? this.assetRows[0];
   }
 
-  // A carico di: stato calcolato dal backend sui dati salvati (si aggiorna
-  // dopo Salva); la voltura si segna nei due campi del form.
+  // A carico di: stato calcolato dal backend sullo storico (si aggiorna dopo Salva).
   readonly costInfo = this.data.item.cost_info;
   readonly costStatusInfo = costStatus(this.data.item.cost_info);
   // Manutenzione: calcolata dal backend sui contratti salvati (si aggiorna dopo il Salva).
   readonly maintenanceInfo = this.data.item.maintenance_info;
   readonly maintenanceStatusInfo = maintenanceStatus(this.data.item.maintenance_info);
-  // Soggetti a cui volturare: prima le parti dei contratti attivi e
-  // l'intestatario attuale, poi tutti gli altri soggetti terzi (la voltura
-  // può essere decisa sull'utenza anche senza contratto).
-  transferOptions: TOption[] = this.contractTransferOptions();
-
-  private contractTransferOptions(): TOption[] {
-    const opts = new Map<number, TOption>();
-    for (const p of this.costInfo?.active_parties ?? []) {
-      opts.set(p.third_party_id, {value: p.third_party_id, label: p.name, sublabel: 'Parte di un contratto immobiliare attivo'});
-    }
-    const t = this.costInfo?.transferred_to;
-    if (t && !opts.has(t.id)) opts.set(t.id, {value: t.id, label: t.name, sublabel: 'Intestatario attuale'});
-    return [...opts.values()];
-  }
-
-  private loadTransferOptions(): void {
-    this.thirdPartiesService.search({deleted: false}).subscribe({
-      next: list => {
-        const first = this.contractTransferOptions();
-        const seen = new Set(first.map(o => o.value));
-        const others = list
-          .filter(tp => !seen.has(tp.id))
-          .map(tp => ({value: tp.id, label: partyName(tp)}))
-          .sort((a, b) => a.label.localeCompare(b.label));
-        this.transferOptions = [...first, ...others];
-      },
-      error: err => console.error('Errore caricamento soggetti terzi:', err),
-    });
-  }
-
-  // Voltura decisa sull'utenza: "come da contratto" dice cosa prevede il contratto.
-  get transferRequiredOptions(): {value: boolean | null; label: string}[] {
-    const contract = this.costInfo?.contract_requires ? 'da volturare' : 'non da volturare';
-    return [
-      {value: null, label: `Come da contratto (${contract})`},
-      {value: true, label: 'Da volturare'},
-      {value: false, label: 'Non da volturare'},
-    ];
-  }
-
-  markTransferredToday(): void {
-    const parties = this.costInfo?.parties ?? [];
-    if (parties.length !== 1) return;
-    // Mezzanotte locale, come il datepicker: in invio vale il giorno locale (@DateOnly).
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    this.form.patchValue({transferred_to_third_party_id: parties[0].third_party_id, transferred_on: today});
-    this.form.markAsDirty();
-  }
-
-  recoverToComune(): void {
-    this.form.patchValue({transferred_to_third_party_id: null, transferred_on: null});
-    this.form.markAsDirty();
-  }
 
   openGrant(id: number): void {
     this.navigator.openGrant(id).subscribe();

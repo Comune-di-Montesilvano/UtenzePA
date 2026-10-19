@@ -80,7 +80,8 @@ export function costStatus(info: {status: string} | null | undefined): StatusInf
   switch (info?.status) {
     case 'TO_TRANSFER': return {tone: 'warn', label: 'Da volturare', icon: 'pending_actions'};
     case 'TRANSFERRED': return {tone: 'info', label: 'Volturata', icon: 'swap_horiz'};
-    case 'TO_RECOVER': return {tone: 'danger', label: 'Da riprendere', icon: 'assignment_return'};
+    case 'TO_RECOVER': return {tone: 'danger', label: 'Da reintestare', icon: 'assignment_return'};
+    case 'TO_DECIDE': return {tone: 'warn', label: 'Da decidere', icon: 'help'};
     default: return {tone: 'ok', label: 'Comune', icon: 'account_balance'};
   }
 }

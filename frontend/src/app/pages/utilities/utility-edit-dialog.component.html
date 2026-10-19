@@ -90,34 +90,13 @@
           <div class="sheet-grid">
             <div class="span-all" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
               <app-status-badge [info]="costStatusInfo"></app-status-badge>
-              @for (p of costInfo?.parties ?? []; track p.grant_id + '-' + p.third_party_id) {
-                <a href="javascript:void(0)" (click)="openGrant(p.grant_id)" matTooltip="Apri il contratto immobiliare">{{ p.name }}</a>
+              @if (costInfo?.holder; as holder) {
+                <span>{{ holder.name }}</span>
               }
-              @if (canEdit && costInfo?.status === 'TO_TRANSFER' && costInfo?.parties?.length === 1 && !form.controls.transferred_to_third_party_id.value) {
-                <button mat-stroked-button type="button" (click)="markTransferredToday()">Segna volturata oggi</button>
-              }
-              @if (canEdit && form.controls.transferred_to_third_party_id.value) {
-                <button mat-button type="button" (click)="recoverToComune()">Ripresa dal Comune</button>
+              @for (g of costInfo?.grants ?? []; track g.grant_id) {
+                <a href="javascript:void(0)" (click)="openGrant(g.grant_id)" matTooltip="Apri il contratto immobiliare">{{ g.name }}</a>
               }
             </div>
-            <mat-form-field>
-              <mat-label>Voltura</mat-label>
-              <mat-select formControlName="transfer_required">
-                @for (opt of transferRequiredOptions; track opt.value) {
-                  <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                }
-              </mat-select>
-              <mat-hint>Prevale su quanto previsto dal contratto immobiliare</mat-hint>
-            </mat-form-field>
-            <app-filterable-select label="Volturata a" placeholder="Cerca soggetto... (vuoto = Comune)"
-              [options]="transferOptions" formControlName="transferred_to_third_party_id">
-            </app-filterable-select>
-            <mat-form-field>
-              <mat-label>Volturata il</mat-label>
-              <input matInput [matDatepicker]="transferredOnPicker" formControlName="transferred_on">
-              <mat-datepicker-toggle matSuffix [for]="transferredOnPicker"></mat-datepicker-toggle>
-              <mat-datepicker #transferredOnPicker></mat-datepicker>
-            </mat-form-field>
           </div>
 
           <div class="sheet-section-title"><mat-icon>build</mat-icon>Manutenzione</div>
@@ -193,29 +172,6 @@
         </ng-template>
         <div class="sheet-section-title">Stato utenza</div>
         <div class="sheet-grid">
-          <mat-form-field>
-            <mat-label>Fornitura Attiva</mat-label>
-            <mat-select formControlName="supply_active">
-              @for (opt of booleanOptions; track opt.value) {
-                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Data attivazione</mat-label>
-            <input matInput [matDatepicker]="activatedPicker" formControlName="activated_on">
-            <mat-datepicker-toggle matSuffix [for]="activatedPicker"></mat-datepicker-toggle>
-            <mat-datepicker #activatedPicker></mat-datepicker>
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Data cessazione</mat-label>
-            <input matInput [matDatepicker]="ceasedPicker" formControlName="ceased_on">
-            <mat-datepicker-toggle matSuffix [for]="ceasedPicker"></mat-datepicker-toggle>
-            <mat-datepicker #ceasedPicker></mat-datepicker>
-            @if (ceasedButActive) {
-              <mat-hint>Fornitura ancora segnata attiva</mat-hint>
-            }
-          </mat-form-field>
           @if (isMetered) {
           <mat-form-field>
             <mat-label>Contatore Rimosso</mat-label>
@@ -235,9 +191,6 @@
           </mat-form-field>
           }
         </div>
-        @if (form.hasError('ceasedBeforeActivated')) {
-          <div class="sheet-hint" style="color: var(--mat-sys-error, #b3261e);">La data di cessazione non può precedere quella di attivazione.</div>
-        }
 
         @if (showInternetFields) {
         <div class="sheet-section-title">Caratteristiche della linea</div>

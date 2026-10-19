@@ -171,7 +171,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
   // A carico di: stato calcolato + intestatario (o parti del contratto con voltura).
   payerName(utility: Utility): string {
     const info = utility.cost_info;
-    return info?.transferred_to?.name || (info?.parties ?? []).map(p => p.name).join(', ');
+    return info?.holder?.name ?? '';
   }
 
   payerLabel(utility: Utility): string {
