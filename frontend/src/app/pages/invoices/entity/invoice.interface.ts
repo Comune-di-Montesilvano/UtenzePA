@@ -1,4 +1,5 @@
 import type {InvoiceLine} from './invoice-line.model';
+import type {SdiStatus} from '../sdi-status';
 import {IContract} from '../../contracts/entity/contract.interface';
 
 export interface IInvoice {
@@ -20,4 +21,7 @@ export interface IInvoice {
   contratto?: IContract | null;
   lines?: InvoiceLine[];
   is_paid?: boolean;
+  sdi_identifier?: string | null;
+  sdi_status?: SdiStatus | null;
+  sdi_outcome_discarded?: boolean;
 }

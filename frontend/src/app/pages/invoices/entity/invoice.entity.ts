@@ -6,6 +6,7 @@ import {InvoiceLine, toLinePayload} from './invoice-line.model';
 import {Contract} from '../../contracts/entity/contract.entity';
 import {DateOnly} from '../../../core/helpers/date.helper';
 import {SystemUser} from '../../system-users/entity/system-user.entity';
+import type {SdiStatus} from '../sdi-status';
 
 export class Invoice extends AbstractEntity implements IInvoice {
   invoice_id!: string;
@@ -48,6 +49,16 @@ export class Invoice extends AbstractEntity implements IInvoice {
 
   @Exclude({toPlainOnly: true})
   is_paid?: boolean;
+
+  // Dalla PEC dello SDI (import fatture), mai inviati.
+  @Exclude({toPlainOnly: true})
+  sdi_identifier?: string | null;
+
+  @Exclude({toPlainOnly: true})
+  sdi_status?: SdiStatus | null;
+
+  @Exclude({toPlainOnly: true})
+  sdi_outcome_discarded?: boolean;
 
   static create(data?: Partial<Invoice>): Invoice {
     return plainToInstance(Invoice, {

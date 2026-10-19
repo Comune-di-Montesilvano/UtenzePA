@@ -8,8 +8,14 @@ import {
   Patch,
   Post,
   Query,
+  Res,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { contentDisposition } from '@apis/attachments/attachment-file-policy';
+import { InvoiceImportService } from '@apis/invoice-import/invoice-import.service';
+import { SdiDocumentQueryDto } from './dto/sdi-document-query.dto';
 import { InvoicesService } from './invoice.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
@@ -33,7 +39,10 @@ const maskInvoice = (i: Invoice, role?: string): Invoice => {
 @Controller('invoices')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class InvoicesController {
-  constructor(private readonly service: InvoicesService) {}
+  constructor(
+    private readonly service: InvoicesService,
+    private readonly invoiceImport: InvoiceImportService,
+  ) {}
 
   @Get()
   // Fornitore del contratto persona fisica: CF e telefono oscurati per il Lettore.
@@ -55,6 +64,24 @@ export class InvoicesController {
     @CurrentUser() user: ICurrentUser,
   ): Promise<Invoice> {
     return maskInvoice(await this.service.findOne(id), user?.role);
+  }
+
+  // XML o PDF della fattura riletti dalla PEC dello SDI, per la sola visualizzazione.
+  @Get(':id/sdi-document')
+  async sdiDocument(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() query: SdiDocumentQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const doc = await this.invoiceImport.getDocument(id, query.type);
+    res.set({
+      'Content-Type': doc.contentType,
+      'Content-Disposition': contentDisposition(doc.fileName, true),
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': 'sandbox',
+      'Cache-Control': 'private, no-store',
+    });
+    return new StreamableFile(doc.data);
   }
 
   @Roles('Admin', 'Operatore')

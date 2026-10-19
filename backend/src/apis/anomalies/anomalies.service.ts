@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
 import { ASSET_REQUIRED_TYPES, missingInspections } from '@apis/plants/plant.calc';
 import { GroundingClass, PlantStatus, PlantType } from '@apis/plants/enum/plant.enum';
 import { todayIso } from '@apis/utilizer-grant/real-estate-contract.calc';
@@ -10,6 +11,7 @@ import { dbDay, romeDay } from '@apis/utility-supply/supply-reconcile.service';
 import { SupplyEventLike } from '@apis/utility-supply/supply-state';
 import { outOfPeriod } from '@apis/utility-supply/out-of-period';
 import { SupplyEventType } from '@apis/utility-supply/enum/supply-event-type.enum';
+import { imapConfigFromEnv, importForcedOff } from '@apis/invoice-import/pec-imap.client';
 
 // Contratto valido oggi: stessa definizione di "contratto corrente" usata in
 // UtilitiesService (scadenza assente o non ancora passata).
@@ -88,7 +90,18 @@ export interface Anomalies {
   utilities_to_decide: AnomalyList<PendingUtilityAnomaly>;
   pending_activations: AnomalyList<PendingUtilityAnomaly>;
   pending_cessations: AnomalyList<PendingUtilityAnomaly>;
+  invoice_import_stalled: AnomalyList<{ last_success_at: string | null; last_error: string | null }>;
+  invoice_import_pending: AnomalyList<{
+    id: number;
+    supplier: string | null;
+    number: string | null;
+    date: string | null;
+  }>;
+  invoice_sdi_outcome_discarded: AnomalyList<{ invoice_id: number; number: string }>;
 }
+
+// Import fatture fermo: nessun giro riuscito da più di 2 ore (giro ogni 15 minuti).
+const IMPORT_STALLED_MS = 2 * 60 * 60 * 1000;
 
 // Pratica in sospeso: giorni dalla data evento (giorno di Roma).
 export type PendingUtilityAnomaly = UtilityAnomaly & { pending_days: number };
@@ -374,7 +387,7 @@ export class AnomaliesService {
 
     const withoutUtility: Record<string, unknown>[] = await this.dataSource.query(
       `SELECT i.id AS invoice_id, i.invoice_id AS number, il.supply_code, il.amount
-       FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0
+       FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
        WHERE il.utility_id_fk IS NULL
        ORDER BY i.invoice_date DESC, i.id`,
     );
@@ -573,7 +586,7 @@ export class AnomaliesService {
       `SELECT i.id AS invoice_id, i.invoice_id AS number, i.invoice_date,
               u.id AS utility_id, u.utility_id AS utility_code, il.period_start, il.period_end
          FROM invoice_lines il
-         JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0
+         JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
          JOIN utilities u ON u.id = il.utility_id_fk AND u.deleted = 0
         WHERE COALESCE(il.period_end, i.invoice_date) >= CAST(? AS DATE) - INTERVAL 12 MONTH`,
       [today],
@@ -644,10 +657,63 @@ export class AnomaliesService {
         pending_days: daysSince(dbDay(r.pending_since), today),
       }));
 
+    // Import fatture dalla PEC dello SDI.
+    const [importState]: Record<string, unknown>[] = await this.dataSource.query(
+      `/* invoice_import_stalled */
+       SELECT enabled, last_run_at, last_success_at, last_error FROM invoice_import_state WHERE id = 1`,
+    );
+    const importPending: Record<string, unknown>[] = await this.dataSource.query(
+      `/* invoice_import_pending */
+       SELECT m.id, ${partyNameSql('tp')} AS supplier, m.document_number, m.document_date
+         FROM sdi_messages m
+         LEFT JOIN third_parties tp ON tp.id = m.supplier_id_fk
+        WHERE m.status = 'PENDING'
+        ORDER BY m.document_date DESC, m.id DESC`,
+    );
+    const outcomeDiscarded: Record<string, unknown>[] = await this.dataSource.query(
+      `/* invoice_sdi_outcome_discarded */
+       SELECT i.id AS invoice_id, i.invoice_id AS number
+         FROM invoices i
+        WHERE i.deleted = 0 AND i.sdi_outcome_discarded = 1
+        ORDER BY i.invoice_date DESC, i.id DESC`,
+    );
+    const lastSuccess = importState?.last_success_at
+      ? new Date(importState.last_success_at as string | Date)
+      : null;
+    const importStalled =
+      !!importState &&
+      !!Number(importState.enabled) &&
+      imapConfigFromEnv(process.env) !== null &&
+      !importForcedOff(process.env) &&
+      (lastSuccess
+        ? this.now().getTime() - lastSuccess.getTime() > IMPORT_STALLED_MS
+        : importState.last_run_at != null);
+
     const assetItems = (rows: { id: unknown; asset_name: string }[]) =>
       list(rows.map((a) => ({ id: Number(a.id), asset_name: a.asset_name })));
 
     return {
+      invoice_import_stalled: list(
+        importStalled
+          ? [
+              {
+                last_success_at: lastSuccess ? lastSuccess.toISOString() : null,
+                last_error: (importState.last_error as string) ?? null,
+              },
+            ]
+          : [],
+      ),
+      invoice_import_pending: list(
+        importPending.map((r) => ({
+          id: Number(r.id),
+          supplier: (r.supplier as string) ?? null,
+          number: (r.document_number as string) ?? null,
+          date: dbDay(r.document_date),
+        })),
+      ),
+      invoice_sdi_outcome_discarded: list(
+        outcomeDiscarded.map((r) => ({ invoice_id: Number(r.invoice_id), number: String(r.number) })),
+      ),
       assets_without_cadastre: assetItems(withoutCadastre),
       assets_without_mef_id: assetItems(withoutMefId),
       units_without_subordinate: assetItems(withoutSubordinate),

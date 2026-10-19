@@ -507,6 +507,53 @@ const formatDate = (iso: string | null): string => {
               </ul>
             </mat-expansion-panel>
             }
+            @if (data.invoice_import_stalled.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.invoice_import_stalled.count }}</span>
+                  Import fatture fermo
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (s of data.invoice_import_stalled.items; track $index) {
+                  <li (click)="openInvoiceImport()">
+                    Ultimo giro riuscito: {{ s.last_success_at ? dateTimeIt(s.last_success_at) : 'mai' }}{{ s.last_error ? ' · ' + s.last_error : '' }}
+                  </li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
+            @if (data.invoice_import_pending.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.invoice_import_pending.count }}</span>
+                  Fatture PEC in attesa di import
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list plain">
+                @for (p of data.invoice_import_pending.items; track p.id) {
+                  <li>{{ p.supplier || 'Fornitore' }} · {{ p.number }}{{ p.date ? ' del ' + dateIt(p.date) : '' }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
+            @if (data.invoice_sdi_outcome_discarded.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.invoice_sdi_outcome_discarded.count }}</span>
+                  Fatture con esito scartato dallo SDI
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (d of data.invoice_sdi_outcome_discarded.items; track d.invoice_id) {
+                  <li (click)="openInvoice(d.invoice_id)">{{ d.number }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
             @if (data.plants_without_position.count > 0) {
             <mat-expansion-panel>
               <mat-expansion-panel-header>
@@ -540,6 +587,8 @@ const formatDate = (iso: string | null): string => {
     .anomaly-list { max-height: 40vh; overflow-y: auto; margin: 0; padding-left: 1.25rem; font-size: 0.875rem; }
     .anomaly-list li { cursor: pointer; padding: 2px 0; }
     .anomaly-list li:hover { text-decoration: underline; }
+    .anomaly-list.plain li { cursor: default; }
+    .anomaly-list.plain li:hover { text-decoration: none; }
   `],
 })
 export class AnomaliesCardComponent implements OnInit {
@@ -619,6 +668,10 @@ export class AnomaliesCardComponent implements OnInit {
     });
   }
 
+  dateTimeIt(iso: string): string {
+    return new Date(iso).toLocaleString('it-IT', {dateStyle: 'short', timeStyle: 'short'});
+  }
+
   dateIt(iso: string): string {
     return iso.split('-').reverse().join('/');
   }
@@ -629,6 +682,10 @@ export class AnomaliesCardComponent implements OnInit {
 
   openChapter(id: number): void {
     this.navigator.openBudgetChapter(id).subscribe(() => this.load());
+  }
+
+  openInvoiceImport(): void {
+    this.router.navigate(['/backup-import']);
   }
 
   openUtility(id: number): void {

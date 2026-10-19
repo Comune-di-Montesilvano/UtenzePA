@@ -6,3 +6,6 @@
 # stato LF (i checkout CI/Linux non sono mai stati affetti); questo evita il
 # problema anche per build Docker locali su Windows.
 *.sh text eol=lf
+
+# Fixture SDI byte per byte: il contenuto firmato nelle .p7m deve coincidere con gli XML.
+backend/src/apis/invoice-import/sdi/fixtures/** -text

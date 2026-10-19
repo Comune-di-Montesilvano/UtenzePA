@@ -69,6 +69,9 @@ export interface Anomalies {
   assets_without_mef_id: AnomalyList<{id: number; asset_name: string}>;
   units_without_subordinate: AnomalyList<{id: number; asset_name: string}>;
   functions_without_mef_type: AnomalyList<{id: number; name: string}>;
+  invoice_import_stalled: AnomalyList<{last_success_at: string | null; last_error: string | null}>;
+  invoice_import_pending: AnomalyList<{id: number; supplier: string | null; number: string | null; date: string | null}>;
+  invoice_sdi_outcome_discarded: AnomalyList<{invoice_id: number; number: string}>;
 }
 
 // Non estende AbstractService: header Authorization messo a mano (nessun

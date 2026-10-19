@@ -1,6 +1,6 @@
 import {ChangeDetectionStrategy, Component, inject, OnInit} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
-import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
+import {MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatDatepickerModule} from '@angular/material/datepicker';
@@ -34,6 +34,8 @@ import {InvoiceLinesTabComponent} from './invoice-lines-tab.component';
 import {ChapterBudgetService} from '../budget-chapters/chapter-budget.service';
 import {BudgetWarning} from '../budget-chapters/chapter-budget.model';
 import {toIsoDate} from '../../core/helpers/date.helper';
+import {sdiStatusBadge} from './sdi-status';
+import {SdiDocumentDialogComponent, SdiDocumentDialogData} from './sdi-document-dialog.component';
 
 // Data 'AAAA-MM-GG' letta come giorno locale (new Date(v) = mezzanotte UTC).
 const toLocalDate = (v: unknown): Date | null => {
@@ -71,6 +73,7 @@ export class InvoiceEditDialogComponent implements OnInit {
   private commitmentService = inject(CommitmentService);
   private toast = inject(ToastService);
   private budget = inject(ChapterBudgetService);
+  private dialog = inject(MatDialog);
   protected data = inject<EditDialogData<Invoice>>(MAT_DIALOG_DATA);
 
   // Capitoli che con questa fattura superano l'assestato: solo avviso, mai blocco.
@@ -81,6 +84,9 @@ export class InvoiceEditDialogComponent implements OnInit {
   readonly canEdit = isEditorRole(this.authService.getCurrentUser()?.role);
   readonly creditNoteBadge = CREDIT_NOTE_BADGE;
   readonly isCreditNote = isCreditNote;
+  // Stato SDI e documenti dalla PEC: solo lettura, mai nel form.
+  readonly sdiBadge = sdiStatusBadge(this.data.item.sdi_status, this.data.item.sdi_outcome_discarded);
+  readonly hasSdiDocument = !this.isNew && !!this.data.item.sdi_identifier;
   readonly lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
 
   private contracts: Contract[] = [];
@@ -131,6 +137,18 @@ export class InvoiceEditDialogComponent implements OnInit {
   // Righe, importi, impegni o data cambiati: si ricontrolla l'assestato.
   checkBudget(): void {
     this.budgetCheck$.next();
+  }
+
+  openSdiDocument(type: 'xml' | 'pdf'): void {
+    this.dialog.open<SdiDocumentDialogComponent, SdiDocumentDialogData>(SdiDocumentDialogComponent, {
+      width: '960px',
+      maxWidth: '95vw',
+      data: {
+        invoiceId: this.data.item.id,
+        type,
+        title: `${type === 'xml' ? 'XML' : 'PDF'} della fattura ${this.data.item.invoice_id ?? ''}`,
+      },
+    });
   }
 
   eur(n: number): string {

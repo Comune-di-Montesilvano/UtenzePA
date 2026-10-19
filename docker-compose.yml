@@ -63,6 +63,14 @@ services:
       - BACKUP_CRON_SCHEDULE=${BACKUP_CRON_SCHEDULE:-0 0 * * *}
       - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
       - BACKUP_MAX_SIZE_MB=${BACKUP_MAX_SIZE_MB:-20480}
+      # Import fatture dalla PEC dello SDI (IMAP in sola lettura) — host vuoto = non configurato
+      - PEC_IMAP_HOST=${PEC_IMAP_HOST:-}
+      - PEC_IMAP_PORT=${PEC_IMAP_PORT:-993}
+      - PEC_IMAP_TLS=${PEC_IMAP_TLS:-true}
+      - PEC_IMAP_USER=${PEC_IMAP_USER:-}
+      - PEC_IMAP_PASSWORD=${PEC_IMAP_PASSWORD:-}
+      - INVOICE_IMPORT_CRON=${INVOICE_IMPORT_CRON:-*/15 * * * *}
+      - INVOICE_IMPORT_DISABLED=${INVOICE_IMPORT_DISABLED:-false}
       # Allegati — dimensione massima per file (MB)
       - ATTACHMENT_MAX_SIZE_MB=${ATTACHMENT_MAX_SIZE_MB:-50}
     volumes:

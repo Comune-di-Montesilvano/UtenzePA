@@ -1,3 +1,4 @@
+import { SdiStatus } from './enum/sdi-status.enum';
 import { InvoicesService } from './invoice.service';
 import { Invoice } from './entity/invoice.entity';
 import { InvoiceLine } from './entity/invoice-line.entity';
@@ -253,6 +254,9 @@ describe('InvoicesService', () => {
       expect(qb.andWhere).toHaveBeenCalledWith('MONTH(Invoice.invoice_date) = :month', {
         month: new Date().getMonth() + 1,
       });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        "(Invoice.sdi_status IS NULL OR Invoice.sdi_status <> 'REJECTED')",
+      );
     });
 
     it('restituisce 0 se non ci sono fatture nel mese', async () => {
@@ -264,6 +268,38 @@ describe('InvoicesService', () => {
       };
       repo.createQueryBuilder.mockReturnValue(qb);
       expect(await service.getMonthlyCosts()).toBe(0);
+    });
+  });
+
+  describe('findAll: filtro stato SDI', () => {
+    const qbFor = () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      };
+      repo.createQueryBuilder.mockReturnValue(qb);
+      return qb;
+    };
+
+    it('stato indicato', async () => {
+      const qb = qbFor();
+      await service.findAll({ sdi_status: SdiStatus.REJECTED });
+      expect(qb.andWhere).toHaveBeenCalledWith('Invoice.sdi_status = :sdiStatus', {
+        sdiStatus: 'REJECTED',
+      });
+    });
+
+    it('NONE: fatture senza messaggio SDI', async () => {
+      const qb = qbFor();
+      await service.findAll({ sdi_status: 'NONE' });
+      expect(qb.andWhere).toHaveBeenCalledWith('Invoice.sdi_status IS NULL');
+      expect(qb.andWhere).not.toHaveBeenCalledWith(
+        expect.stringContaining('sdi_status'),
+        expect.objectContaining({ sdi_status: 'NONE' }),
+      );
     });
   });
 });

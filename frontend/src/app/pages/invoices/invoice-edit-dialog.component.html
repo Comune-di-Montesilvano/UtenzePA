@@ -8,6 +8,9 @@
     @if (isCreditNote(form.controls.total_amount.value)) {
       <app-status-badge [info]="creditNoteBadge"></app-status-badge>
     }
+    @if (sdiBadge) {
+      <app-status-badge [info]="sdiBadge"></app-status-badge>
+    }
   </ng-container>
 
   <form [formGroup]="form">
@@ -92,6 +95,14 @@
   </form>
 
   <ng-container sheetActions>
+    @if (hasSdiDocument) {
+      <button mat-stroked-button type="button" (click)="openSdiDocument('xml')">
+        <mat-icon>code</mat-icon> Vedi XML
+      </button>
+      <button mat-stroked-button type="button" (click)="openSdiDocument('pdf')" style="margin-right: auto;">
+        <mat-icon>picture_as_pdf</mat-icon> Vedi PDF
+      </button>
+    }
     <button mat-stroked-button type="button" (click)="cancel()">{{ canEdit ? 'Annulla' : 'Chiudi' }}</button>
     @if (canEdit) {
       <button mat-flat-button type="button" (click)="save()">{{ isNew ? 'Crea fattura' : 'Salva fattura' }}</button>
