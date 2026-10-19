@@ -103,17 +103,24 @@ export function sortedReadings(records: ConsumptionRecord[]): ConsumptionRecord[
 
 const isEst = (r: ConsumptionRecord): boolean => !!r.is_estimated;
 
-// Letture che contano: le reali e le stimate senza una lettura reale della
-// stessa matricola alla stessa data o dopo (il conguaglio le supera).
+// Letture che contano: le reali e le stimate non smentite dal dato reale.
+// Una stima è superata se della stessa matricola c'è una lettura reale alla
+// stessa data o dopo (conguaglio) o una reale precedente più alta, oppure se a
+// quella data il contatore attuale (dalle reali) è un altro: stima del
+// fornitore sul contatore già sostituito.
 function validReadings(records: ConsumptionRecord[]): ConsumptionRecord[] {
   const readings = sortedReadings(records);
-  const lastReal = new Map<string, number>();
-  for (const r of readings) {
-    if (!isEst(r)) lastReal.set(normalizeMeter(r.meter_number), toDay(r.reading_date));
-  }
-  return readings.filter(
-    (r) => !isEst(r) || (lastReal.get(normalizeMeter(r.meter_number)) ?? -Infinity) < toDay(r.reading_date),
-  );
+  const reals = readings.filter((r) => !isEst(r));
+  return readings.filter((r) => {
+    if (!isEst(r)) return true;
+    const meter = normalizeMeter(r.meter_number);
+    const day = toDay(r.reading_date);
+    const sameMeter = reals.filter((x) => normalizeMeter(x.meter_number) === meter);
+    if (sameMeter.some((x) => toDay(x.reading_date) >= day)) return false;
+    if (sameMeter.some((x) => Number(x.reading_value) > Number(r.reading_value))) return false;
+    const current = latestMeterReading(reals.filter((x) => toDay(x.reading_date) <= day));
+    return !current || normalizeMeter(current.meter_number) === meter;
+  });
 }
 
 // Coppie di letture valide consecutive della stessa matricola che delimitano
@@ -152,17 +159,25 @@ export function readingDeltas(records: ConsumptionRecord[]): Map<number, number 
     if (r.id !== undefined) result.set(r.id, null);
   }
   for (const [a, b] of readingPairs(records)) {
-    if (b.id !== undefined)
-      result.set(b.id, round2(Number(b.reading_value) - Number(a.reading_value)));
+    // Delta negativo (stima più bassa della lettura precedente): non calcolabile.
+    const delta = round2(Number(b.reading_value) - Number(a.reading_value));
+    if (b.id !== undefined) result.set(b.id, delta < 0 ? null : delta);
   }
   return result;
 }
 
-// Lettura che determina la matricola attuale dell'utenza: la più recente;
-// a parità di data preferisce la matricola che non compare prima (apertura
-// del contatore nuovo) rispetto alla chiusura del vecchio.
+// Lettura che determina la matricola attuale dell'utenza: la reale più
+// recente (le stime solo se non ci sono reali).
 export function currentMeterReading(records: ConsumptionRecord[]): ConsumptionRecord | undefined {
-  const readings = validReadings(records);
+  const valid = validReadings(records);
+  const reals = valid.filter((r) => !isEst(r));
+  return latestMeterReading(reals.length ? reals : valid);
+}
+
+// La più recente di letture ordinate; a parità di data preferisce la
+// matricola che non compare prima (apertura del contatore nuovo) rispetto
+// alla chiusura del vecchio.
+function latestMeterReading(readings: ConsumptionRecord[]): ConsumptionRecord | undefined {
   if (!readings.length) return undefined;
   const lastDay = toDay(readings[readings.length - 1].reading_date);
   const sameDay = readings.filter((r) => toDay(r.reading_date) === lastDay);

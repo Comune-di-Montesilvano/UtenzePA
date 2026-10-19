@@ -663,3 +663,31 @@ describe('letture stimate', () => {
     expect(normalizeByKind(period(1, '2026-01-01', '2026-01-31', 1)).is_estimated).toBe(false);
   });
 });
+
+// Revisione finale: stime contraddette dal dato reale e stime del contatore sostituito.
+describe('letture stimate: casi della revisione', () => {
+  const est = (r: ConsumptionRecord): ConsumptionRecord => ({ ...r, is_estimated: true });
+
+  it('stima più bassa di una reale precedente inserita dopo: superata, nessun consumo negativo', () => {
+    const records = [reading(1, '2026-01-01', 100), est(reading(2, '2026-03-01', 120)), reading(3, '2026-02-01', 200)];
+    expect([...supersededIds(records)]).toEqual([2]);
+    expect(readingDeltas(records).get(2)).toBeNull();
+  });
+
+  it('stima più bassa della stima precedente: consumo non calcolabile, mai negativo', () => {
+    const records = [reading(1, '2026-01-01', 100), est(reading(2, '2026-02-01', 150)), est(reading(3, '2026-03-01', 130))];
+    expect(readingDeltas(records).get(3)).toBeNull();
+  });
+
+  it('stima del vecchio contatore dopo l’apertura del nuovo: superata, matricola attuale invariata', () => {
+    const records = [
+      reading(1, '2026-01-01', 10, 'A'),
+      reading(2, '2026-02-15', 40, 'A'),
+      reading(3, '2026-02-15', 0, 'B'),
+      est(reading(4, '2026-03-31', 60, 'A')),
+    ];
+    expect([...supersededIds(records)]).toEqual([4]);
+    expect(currentMeterReading(records)?.id).toBe(3);
+    expect(buildDailyConsumption(records).get(toDay('2026-03-01')) ?? 0).toBe(0);
+  });
+});
