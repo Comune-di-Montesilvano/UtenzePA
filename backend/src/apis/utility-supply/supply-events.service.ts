@@ -220,18 +220,25 @@ export class SupplyEventsService extends BaseService<
   // Una transazione per scrittura: blocco dell'utenza, rilettura della riga,
   // validazione, salvataggio e riconciliazione. Se la riconciliazione fallisce
   // la riga non resta salvata; due salvataggi in parallelo si mettono in coda.
-  private locked<T>(
+  // L'utenza della riga si cerca FUORI dalla transazione: in REPEATABLE READ
+  // la prima lettura semplice fissa la fotografia della transazione, quindi il
+  // blocco deve essere la prima istruzione e tutto il resto si legge dopo.
+  private async locked<T>(
     id: number,
     fn: (m: EntityManager, current: UtilitySupplyEvent) => Promise<T>,
   ): Promise<T> {
+    const first = await this.repo.findOne({ where: { id, deleted: false } });
+    if (!first) throw new BadRequestException('Cambiamento non trovato.');
+    const utilityId = first.utility_id_fk;
     return this.dataSource.transaction(async (m) => {
-      const repo = m.getRepository(UtilitySupplyEvent);
-      const first = await repo.findOne({ where: { id, deleted: false } });
-      if (!first) throw new BadRequestException('Cambiamento non trovato.');
-      await this.reconcileService.lockUtility(m, first.utility_id_fk);
-      // Riletta dopo il blocco: può essere cambiata nel frattempo.
-      const current = await repo.findOne({ where: { id, deleted: false } });
-      if (!current) throw new BadRequestException('Cambiamento non trovato.');
+      await this.reconcileService.lockUtility(m, utilityId);
+      const current = await m
+        .getRepository(UtilitySupplyEvent)
+        .findOne({ where: { id, deleted: false } });
+      // Cancellata o spostata nel frattempo.
+      if (!current || current.utility_id_fk !== utilityId) {
+        throw new BadRequestException('Riga non trovata.');
+      }
       return fn(m, current);
     });
   }

@@ -193,8 +193,11 @@ describe('SupplyEventsService', () => {
       else if (op === 'cancel') await service.cancel(2, 42);
       else await service.remove(2, 42);
       expect(dataSource.transaction).toHaveBeenCalledTimes(1);
-      expect(calls.every((c) => !c.endsWith('(fuori)'))).toBe(true);
-      expect(calls.slice(0, 3)).toEqual(['findOne', 'lock:7', 'findOne']);
+      // Utenza cercata fuori dalla transazione, poi il blocco come prima istruzione.
+      expect(calls[0]).toBe('findOne(fuori)');
+      const inside = calls.slice(1);
+      expect(inside.every((c) => !c.endsWith('(fuori)'))).toBe(true);
+      expect(inside.slice(0, 2)).toEqual(['lock:7', 'findOne']);
       expect(calls[calls.length - 1]).toBe('reconcile');
     }
   });
@@ -205,5 +208,19 @@ describe('SupplyEventsService', () => {
     await expect(
       service.create({ utility_id_fk: 7, type: SupplyEventType.CESSATION }, 42),
     ).rejects.toThrow('boom');
+  });
+
+  it('update: riga spostata su un\'altra utenza nel frattempo → 400', async () => {
+    const manual = event({ id: 2, type: SupplyEventType.CESSATION });
+    const { service, repo, rows } = build([activation, manual]);
+    const original = repo.findOne.getMockImplementation() as (a: unknown) => Promise<unknown>;
+    repo.findOne.mockImplementationOnce(async (a: unknown) => {
+      const r = await original(a);
+      rows.find((x) => x.id === 2)!.utility_id_fk = 8;
+      return r;
+    });
+    await expect(service.update(2, { notes: 'x' }, 42)).rejects.toThrow(
+      new BadRequestException('Riga non trovata.'),
+    );
   });
 });

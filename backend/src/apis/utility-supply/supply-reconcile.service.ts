@@ -207,13 +207,22 @@ export class SupplyReconcileService {
 
   // Decisioni vuote → proposta del contratto (FOLLOWS con l'unica parte).
   // Con più parti la scelta resta all'ufficio, riga per riga.
+  // Contratto e utenze si cercano fuori dalla transazione; dentro, prima
+  // istruzione: blocco di tutte le utenze in ordine di id (niente stallo tra
+  // due proposte in parallelo), poi si ricontrolla il contratto.
   async applyProposal(grantId: number, userId: number): Promise<GrantDecisionRow[]> {
+    await this.activeGrant(this.dataSource.manager, grantId);
+    const utilityIds = [...(await this.coveredUtilityIds(this.dataSource.manager, grantId))].sort(
+      (a, b) => a - b,
+    );
     await this.dataSource.transaction(async (m) => {
+      for (const utilityId of utilityIds) await this.lockUtility(m, utilityId);
       const grant = await this.activeGrant(m, grantId);
       if (!grant.utilities_to_be_taken_over || grant.party_ids.length !== 1) return;
+      const covered = new Set(await this.coveredUtilityIds(m, grantId));
       const decisionRepo = m.getRepository(GrantUtilityDecision);
-      for (const utilityId of await this.coveredUtilityIds(m, grantId)) {
-        await this.lockUtility(m, utilityId);
+      // Solo le utenze bloccate: una collegata nel frattempo resta da decidere.
+      for (const utilityId of utilityIds.filter((id) => covered.has(id))) {
         const row = await decisionRepo.findOne({
           where: { utilizer_grant_id_fk: grantId, utility_id_fk: utilityId },
         });

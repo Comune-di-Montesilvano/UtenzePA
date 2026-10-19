@@ -497,15 +497,58 @@ describe('SupplyReconcileService concorrenza e dati grezzi', () => {
     expect(db.calls.indexOf('lock:7')).toBeLessThan(db.calls.indexOf('findOne:decision'));
   });
 
-  it("utente di sistema riletto a ogni giro (nessuna cache)", async () => {
-    const a = followsDb();
-    const service = build(a);
+  it('utente di sistema riletto a ogni giro (nessuna cache)', async () => {
+    const db = followsDb();
+    const service = build(db);
     await service.reconcile(7);
-    const b = followsDb();
-    (service as unknown as { dataSource: unknown }).dataSource = b.dataSource;
+    // Il secondo giro deve di nuovo scrivere: si toglie la riga creata dal primo.
+    db.events.splice(db.events.findIndex((e) => e.type === SupplyEventType.TRANSFER), 1);
     await service.reconcile(7);
-    expect(a.calls.filter((c) => c === 'system_user')).toHaveLength(1);
-    expect(b.calls.filter((c) => c === 'system_user')).toHaveLength(1);
+    expect(db.calls.filter((c) => c === 'system_user')).toHaveLength(2);
+  });
+
+  it('apply-proposal: blocchi per primi, in ordine di id, nessuna lettura prima', async () => {
+    const db = fakeDb({
+      utilities: [utility({ id: 9 }), utility({ id: 7 }), utility({ id: 8 })],
+      events: [
+        activation,
+        event({ id: 2, utility_id_fk: 8, type: SupplyEventType.ACTIVATION, date_unknown: true }),
+        event({ id: 3, utility_id_fk: 9, type: SupplyEventType.ACTIVATION, date_unknown: true }),
+      ],
+      grants: [{ id: 10, utilities_to_be_taken_over: 1 }],
+      parties: [{ utilizer_grant_id: 10, third_party_id: 5 }],
+      covered: [
+        { grant_id: 10, utility_id: 9 },
+        { grant_id: 10, utility_id: 7 },
+        { grant_id: 10, utility_id: 8 },
+      ],
+    });
+    // Le query dentro la transazione sono segnate «tx».
+    let inTx = false;
+    const tx = db.dataSource.transaction.getMockImplementation() as (
+      fn: (m: unknown) => Promise<unknown>,
+    ) => Promise<unknown>;
+    db.dataSource.transaction.mockImplementation(async (fn: (m: never) => Promise<unknown>) => {
+      inTx = true;
+      db.calls.push('begin');
+      try {
+        return await tx(fn as never);
+      } finally {
+        inTx = false;
+        db.calls.push('commit');
+      }
+    });
+    const query = db.query.getMockImplementation() as (s: string, p?: unknown[]) => Promise<never>;
+    db.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+      if (inTx && !sql.includes('FOR UPDATE')) db.calls.push('read');
+      return query(sql, params);
+    });
+    await build(db).applyProposal(10, 42);
+    const begin = db.calls.indexOf('begin');
+    const inside = db.calls.slice(begin + 1);
+    expect(inside.slice(0, 3)).toEqual(['lock:7', 'lock:8', 'lock:9']);
+    expect(db.decisions.map((d) => d.utility_id_fk).sort()).toEqual([7, 8, 9]);
+    expect(db.decisions.every((d) => d.decision === 'FOLLOWS' && d.third_party_id_fk === 5)).toBe(true);
   });
 
   it('dbDay: Date di mysql2 (mezzanotte locale) e stringhe', () => {
