@@ -248,7 +248,7 @@ I ruoli si assegnano da **Impostazioni → Utenti e ruoli**, pagina riservata ag
 | Comune | L'utenza è intestata al Comune e non c'è nessuna voltura da fare. |
 | Da decidere | Un contratto immobiliare in corso non ha ancora una decisione per questa utenza: va scelto se segue il contratto o resta al Comune. |
 | Da volturare | Il contratto prevede la voltura, ma il terzo non l'ha ancora fatta (voltura in sospeso): intanto paga il Comune. |
-| Volturata | L'utenza è intestata a un soggetto terzo (con il contratto immobiliare o con una voltura registrata a mano) e non ci sono pratiche in sospeso. Per il Comune non è né attiva né cessata: non compare nelle segnalazioni sulle utenze attive, nella spesa dei capitoli e nel filtro «Fornitura attiva», e nelle schede risulta «Volturata». |
+| Volturata | L'utenza è intestata a un soggetto terzo (con il contratto immobiliare o con una voltura registrata a mano) e non ci sono pratiche in sospeso. Per il Comune non è né attiva né cessata: non compare nelle segnalazioni sulle utenze attive, non è contata tra le utenze dei capitoli (riepilogo del contratto di fornitura, capitoli senza impegno o senza assestato) e non compare nel filtro «Fornitura attiva»; nelle schede risulta «Volturata». Le fatture già registrate sull'utenza restano nella spesa del capitolo, dell'utenza e dell'immobile. |
 | Da reintestare | L'utenza è intestata a un terzo che non ha più un contratto in corso: il Comune deve riprenderla (reintestazione in sospeso). |
 
 **Manutenzione a carico di** è calcolata allo stesso modo: Fornitore se il contratto di fornitura include la manutenzione, Controparte se lo prevede il contratto immobiliare, altrimenti Comune.
