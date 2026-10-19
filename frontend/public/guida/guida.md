@@ -84,7 +84,7 @@ Altre azioni sulle righe:
 
 Sopra la tabella possono comparire **avvisi** (per esempio due cessazioni di fila: probabilmente manca un'attivazione). Il numero accanto al nome del tab indica i cambiamenti in sospeso.
 
-Nel **Riepilogo** dell'utenza, la sezione **A carico di** mostra lo stato (vedi «A carico di: gli stati»), se l'utenza è attiva o cessata, l'intestatario («Intestata al Comune» oppure «Intestata a … dal …») e, se c'è una pratica aperta, un avviso come «Voltura in sospeso da 12 giorni».
+Nel **Riepilogo** dell'utenza, la sezione **A carico di** mostra lo stato (vedi «A carico di: gli stati»), se l'utenza è attiva o cessata, l'intestatario («Intestata al Comune» oppure «Intestata a … dal …») e, se c'è una pratica aperta, un avviso come «Voltura in sospeso da 12 giorni». Un'utenza volturata a un terzo mostra invece «Volturata a … dal …»: per il Comune non è né attiva né cessata (vedi «A carico di: gli stati»).
 
 Quando crei una nuova utenza, nella sezione **Fornitura** scegli **Già attiva**: con **Sì** indica da quando è attiva (**Attiva dal**, facoltativa: vuota significa data non nota); con **No, da attivare** indica quando l'hai richiesta (**Richiesta il**) e l'attivazione resta in sospeso fino alla data effettiva.
 
@@ -125,7 +125,7 @@ Nella scheda delle utenze elettriche, tab **Tecnici e stato**, c'è anche il **C
 **Mappa** mostra immobili, utenze e impianti con livelli separati.
 
 - Tipologia e funzione dell'immobile filtrano anche utenze e impianti; lo stato filtra solo gli immobili.
-- Di default immobili dismessi e utenze cessate sono nascosti.
+- Di default immobili dismessi, utenze cessate e utenze volturate sono nascosti: **Includi utenze cessate e volturate** li mostra. Le utenze volturate a un terzo hanno il segnaposto grigio.
 - La ricerca indirizzo cerca prima nel territorio del Comune, poi altrove.
 - Il livello **Complessi** raggruppa gli immobili di un complesso in un solo pin (vedi «Gestire i complessi»).
 
@@ -248,7 +248,7 @@ I ruoli si assegnano da **Impostazioni → Utenti e ruoli**, pagina riservata ag
 | Comune | L'utenza è intestata al Comune e non c'è nessuna voltura da fare. |
 | Da decidere | Un contratto immobiliare in corso non ha ancora una decisione per questa utenza: va scelto se segue il contratto o resta al Comune. |
 | Da volturare | Il contratto prevede la voltura, ma il terzo non l'ha ancora fatta (voltura in sospeso): intanto paga il Comune. |
-| Volturata | L'utenza è intestata a un soggetto terzo (con il contratto immobiliare o con una voltura registrata a mano) e non ci sono pratiche in sospeso. |
+| Volturata | L'utenza è intestata a un soggetto terzo (con il contratto immobiliare o con una voltura registrata a mano) e non ci sono pratiche in sospeso. Per il Comune non è né attiva né cessata: non compare nelle segnalazioni sulle utenze attive, nella spesa dei capitoli e nel filtro «Fornitura attiva», e nelle schede risulta «Volturata». |
 | Da reintestare | L'utenza è intestata a un terzo che non ha più un contratto in corso: il Comune deve riprenderla (reintestazione in sospeso). |
 
 **Manutenzione a carico di** è calcolata allo stesso modo: Fornitore se il contratto di fornitura include la manutenzione, Controparte se lo prevede il contratto immobiliare, altrimenti Comune.
@@ -419,9 +419,9 @@ In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni u
 
 ### Una fattura risulta fuori dai periodi di attività
 
-**Causa:** il periodo della fattura cade oltre 30 giorni fuori dagli intervalli in cui l'utenza era attiva secondo lo storico (le spese di chiusura entro 30 giorni dalla cessazione, o poco prima dell'attivazione, non contano). Di solito manca una attivazione o una cessazione, oppure una data è sbagliata.
+**Causa:** il periodo della fattura cade oltre 30 giorni fuori dagli intervalli in cui l'utenza era attiva e intestata al Comune secondo lo storico (le spese di chiusura entro 30 giorni dalla cessazione o dalla voltura, o poco prima dell'attivazione o della reintestazione, non contano). Durante una voltura le bollette vanno al terzo: una fattura al Comune in quel periodo è segnalata. Di solito manca una attivazione, una cessazione, una voltura o una reintestazione, oppure una data è sbagliata.
 
-**Soluzione:** apri l'utenza, tab **Attivazioni e volture**, e controlla le date di attivazione e cessazione; inserisci lo storico mancante (anche con «Avvenuta, data non nota» se non conosci il giorno). Le segnalazioni si ricalcolano dopo il salvataggio.
+**Soluzione:** apri l'utenza, tab **Attivazioni e volture**, e controlla le date di attivazione, cessazione, voltura e reintestazione; inserisci lo storico mancante (anche con «Avvenuta, data non nota» se non conosci il giorno). Le segnalazioni si ricalcolano dopo il salvataggio.
 
 **Apri un ticket se:** le date dello storico sono giuste e la fattura è corretta ma resta segnalata.
 
