@@ -11,6 +11,8 @@ import { InvoicePattern } from './entity/invoice-pattern.entity';
 import { SdiMessage } from './entity/sdi-message.entity';
 import { InvoiceApplier } from './invoice-applier.service';
 import { InvoiceMatcher } from './invoice-matcher.service';
+import { InvoicePatternsController } from './invoice-patterns.controller';
+import { InvoicePatternsService } from './invoice-patterns.service';
 import { InvoiceImportController } from './invoice-import.controller';
 import { InvoiceImportService } from './invoice-import.service';
 import {
@@ -38,6 +40,7 @@ import {
     InvoiceMatcher,
     InvoiceApplier,
     ConsumptionLinker,
+    InvoicePatternsService,
     {
       provide: PEC_MAILBOX_FACTORY,
       useValue: (() => {
@@ -47,7 +50,7 @@ import {
       }) satisfies PecMailboxFactory,
     },
   ],
-  controllers: [InvoiceImportController],
+  controllers: [InvoiceImportController, InvoicePatternsController],
   exports: [InvoiceImportService],
 })
 export class InvoiceImportModule implements OnModuleInit {

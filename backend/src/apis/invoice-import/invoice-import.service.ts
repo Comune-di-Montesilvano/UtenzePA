@@ -206,24 +206,7 @@ export class InvoiceImportService {
       ? ((await byStatus(SdiMessageStatus.EXTRACTED)) ?? (await byStatus(SdiMessageStatus.LINKED)))
       : null;
     if (!row) throw new BadRequestException('Fattura senza messaggio SDI.');
-    if (!this.configured) throw new BadRequestException('Import non configurato.');
-
-    const mailbox = this.mailboxFactory();
-    let raw: Buffer | null;
-    try {
-      await mailbox.open();
-      raw = await mailbox.fetchRaw(Number(row.uid_validity), Number(row.uid), row.message_id);
-    } finally {
-      await mailbox.close().catch(() => undefined);
-    }
-    const file = raw
-      ? (await parsePecMessage(raw)).files.find((f) => f.fileName === row.file_name)
-      : undefined;
-    if (!file) {
-      throw new BadRequestException(
-        'Non più disponibile sulla PEC: cercare la fattura nel protocollo.',
-      );
-    }
+    const file = await this.readMessageFile(row);
     const xmlName = row.file_name.replace(/\.p7m$/i, '');
     if (type === 'xml')
       return { contentType: 'application/xml', fileName: xmlName, data: file.content };
@@ -234,6 +217,23 @@ export class InvoiceImportService {
       fileName: pdf.name || `${xmlName}.pdf`,
       data: pdf.data,
     };
+  }
+
+  /** File del messaggio riletto dalla casella; 400 se non configurato o sparito dalla PEC. */
+  async readMessageFile(row: SdiMessage): Promise<SdiFile> {
+    if (!this.configured) throw new BadRequestException('Import non configurato.');
+    const raw = await this.withMailbox((mailbox) =>
+      mailbox.fetchRaw(Number(row.uid_validity), Number(row.uid), row.message_id),
+    );
+    const file = raw
+      ? (await parsePecMessage(raw)).files.find((f) => f.fileName === row.file_name)
+      : undefined;
+    if (!file) {
+      throw new BadRequestException(
+        'Non più disponibile sulla PEC: cercare la fattura nel protocollo.',
+      );
+    }
+    return file;
   }
 
   private state(): Promise<InvoiceImportState | null> {
