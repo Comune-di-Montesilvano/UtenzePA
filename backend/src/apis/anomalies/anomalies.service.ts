@@ -708,8 +708,17 @@ export class AnomaliesService {
          FROM invoice_import_issues ii
          JOIN sdi_messages m ON m.id = ii.sdi_message_id_fk
          LEFT JOIN invoices i ON i.id = ii.invoice_id_fk
+         LEFT JOIN third_parties tp ON tp.id = m.supplier_id_fk
         WHERE m.status <> 'IGNORED'
-          AND (ii.invoice_id_fk IS NULL OR (i.deleted = 0 AND COALESCE(i.sdi_status, '') <> 'REJECTED'))
+          AND (ii.invoice_id_fk IS NULL
+               OR (i.deleted = 0 AND i.import_locked = 0 AND COALESCE(i.sdi_status, '') <> 'REJECTED'))
+          -- Ricontrollate al momento: spariscono quando la causa è sistemata.
+          AND (ii.type <> 'UNKNOWN_UTILITY' OR EXISTS (SELECT 1 FROM invoice_lines l
+                 WHERE l.invoice_id_fk = ii.invoice_id_fk AND l.utility_id_fk IS NULL))
+          AND (ii.type <> 'MISSING_COMMITMENT' OR EXISTS (SELECT 1 FROM invoice_lines l
+                 WHERE l.invoice_id_fk = ii.invoice_id_fk AND l.utility_id_fk IS NOT NULL AND l.commitment_id_fk IS NULL))
+          AND (ii.type <> 'SUPPLIER_NAME_MISMATCH' OR tp.update_date <= ii.create_date)
+          AND (ii.type <> 'BATCH_NOT_SUPPORTED' OR m.status = 'PENDING')
         ORDER BY ii.type, ii.id DESC`,
     );
     const lastSuccess = importState?.last_success_at

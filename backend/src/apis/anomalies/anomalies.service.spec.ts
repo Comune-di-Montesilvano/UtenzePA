@@ -744,6 +744,19 @@ describe('AnomaliesService', () => {
       expect(sql).toContain("<> 'IGNORED'");
     });
 
+    it('differenze ricontrollate al momento: spariscono quando la causa è sistemata', async () => {
+      await service.getAnomalies();
+      const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('/* invoice_import_issues */'));
+      // Fattura corretta a mano: segnalazioni considerate viste.
+      expect(sql).toContain('i.import_locked = 0');
+      // Utenza sconosciuta finché resta una riga senza utenza; impegno mancante finché manca su una riga.
+      expect(sql).toMatch(/UNKNOWN_UTILITY'[\s\S]*l\.utility_id_fk IS NULL/);
+      expect(sql).toMatch(/MISSING_COMMITMENT'[\s\S]*l\.commitment_id_fk IS NULL/);
+      // Ragione sociale: sparisce se l'anagrafica è stata aggiornata dopo; lotto: finché il file è in attesa.
+      expect(sql).toMatch(/SUPPLIER_NAME_MISMATCH'[\s\S]*tp\.update_date <= ii\.create_date/);
+      expect(sql).toMatch(/BATCH_NOT_SUPPORTED'[\s\S]*m\.status = 'PENDING'/);
+    });
+
     it('fatture con esito scartato dallo SDI', async () => {
       only('/* invoice_sdi_outcome_discarded */', [{ invoice_id: '50', number: 'FPR 1/26' }]);
       const r = await service.getAnomalies();
