@@ -71,8 +71,10 @@ Ogni utenza ha uno **storico dei cambiamenti**: attivazioni, cessazioni, volture
 1. Apri la scheda dell'utenza e il tab **Attivazioni e volture**. Ogni riga ha Tipo (Attivazione, Cessazione, Voltura, Reintestazione al Comune), Intestatario, data **Richiesta** e data **Effettiva**. Se il cambiamento è avvenuto ma non si conosce il giorno, la data effettiva mostra «data non nota».
 2. Quando chiedi un cambiamento (al fornitore o alla controparte) premi **Nuovo cambiamento**, scegli il tipo, la **Data richiesta** e, per la voltura, l'**Intestatario** tra i soggetti terzi. Lascia vuota la **Data effettiva**: la riga resta **in sospeso** e compare evidenziata.
 3. Quando il cambiamento avviene davvero (lo verifichi sulla bolletta) apri la riga con la matita, inserisci la **Data effettiva** e salva.
-4. Per registrare un cambiamento già avvenuto compila subito la data effettiva. Se è avvenuto ma non conosci il giorno, spunta **Avvenuta, data non nota**.
-5. Lo storico si può inserire a mano anche per volture avvenute e mai registrate, anche in passato: l'utenza risulta così intestata al terzo dalla data giusta.
+4. Per registrare un cambiamento già avvenuto compila subito la data effettiva. Se è avvenuto ma non conosci il giorno, spunta **Avvenuta, data non nota** (vale per tutti i tipi, anche voltura e reintestazione).
+5. Lo storico si può inserire a mano anche per volture avvenute e mai registrate, anche in passato: l'utenza risulta così intestata al terzo dalla data giusta, oppure da prima di tutte le altre date se usi «data non nota».
+
+Una riga con «data non nota» vale come avvenuta **prima di tutte le altre**. Per questo un'attivazione o una cessazione con «data non nota» si può registrare solo se l'utenza non ha ancora nessuna data effettiva nello storico: altrimenti cambierebbe lo stato di periodi già noti. In quel caso indica una data effettiva, anche stimata (per esempio la fine dell'ultimo periodo fatturato), e scrivi nelle note che è stimata.
 
 Altre azioni sulle righe:
 
@@ -246,7 +248,7 @@ I ruoli si assegnano da **Impostazioni → Utenti e ruoli**, pagina riservata ag
 | Comune | L'utenza è intestata al Comune e non c'è nessuna voltura da fare. |
 | Da decidere | Un contratto immobiliare in corso non ha ancora una decisione per questa utenza: va scelto se segue il contratto o resta al Comune. |
 | Da volturare | Il contratto prevede la voltura, ma il terzo non l'ha ancora fatta (voltura in sospeso): intanto paga il Comune. |
-| Volturata | L'utenza è intestata a un terzo, parte di un contratto immobiliare in corso. |
+| Volturata | L'utenza è intestata a un soggetto terzo (con il contratto immobiliare o con una voltura registrata a mano) e non ci sono pratiche in sospeso. |
 | Da reintestare | L'utenza è intestata a un terzo che non ha più un contratto in corso: il Comune deve riprenderla (reintestazione in sospeso). |
 
 **Manutenzione a carico di** è calcolata allo stesso modo: Fornitore se il contratto di fornitura include la manutenzione, Controparte se lo prevede il contratto immobiliare, altrimenti Comune.
@@ -289,7 +291,7 @@ Nella scheda dell'utenza i contratti di fornitura compaiono con quelli **in cors
 | Utenze | Attive senza contratto di fornitura valido · Attive coperte solo da contratti senza CIG · Con contratti di fornitura sovrapposti · Attive senza tipologia ARERA · Da volturare · Da reintestare · Da decidere · Attivazioni in sospeso · Cessazioni in sospeso · Capitolo non impegnato sul contratto di fornitura · Senza capitolo di spesa · Attive senza posizione · Penali per energia reattiva (penale in un periodo terminato negli ultimi 12 mesi) |
 | Immobili | Da classificare (tipologia o funzione mancanti) · Non di proprietà senza contratto passivo attivo · Di proprietà senza catasto · Fabbricati di proprietà senza Id MEF · Subalterno da assegnare (stessi via, civico, foglio e particella) |
 | Impianti | Senza posizione · Senza immobile · Presidi scaduti (almeno un estintore con una scadenza superata) · Verifiche obbligatorie mancanti (vedi [Verifiche obbligatorie per legge](#verifiche-obbligatorie-per-legge)) |
-| Fatture | Su utenze cessate · Fuori dai periodi di attività · Con righe senza utenza |
+| Fatture | Fuori dai periodi di attività · Con righe senza utenza |
 | Contratti di fornitura | Senza CIG (non esclusi) · CIG duplicati |
 | Contratti immobiliari | Senza immobile · Senza parti |
 | Capitoli di spesa | Oltre l'assestato dell'anno · Senza assestato dell'anno |
@@ -359,13 +361,13 @@ In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni u
 
 **Apri un ticket se:** la tipologia corretta non compare tra quelle proposte.
 
-### «La data di cessazione non può precedere quella di attivazione.»
+### «L'utenza ha già date note: indica una data effettiva, anche stimata, e scrivilo nelle note.»
 
-**Causa:** le date dell'utenza sono invertite.
+**Causa:** stai registrando un'attivazione o una cessazione con «Avvenuta, data non nota» su un'utenza che ha già cambiamenti con una data effettiva. Una riga senza data vale come avvenuta prima di tutte le altre e cambierebbe lo stato dei periodi già noti.
 
-**Soluzione:** correggi le date nel tab **Attivazioni e volture** (modifica la riga dell'attivazione o della cessazione).
+**Soluzione:** togli la spunta e indica una data effettiva, anche stimata (per esempio la fine dell'ultimo periodo fatturato); scrivi nelle note che la data è stimata.
 
-**Apri un ticket se:** le date sono corrette ma il messaggio resta.
+**Apri un ticket se:** l'utenza non ha cambiamenti con data effettiva ma il messaggio resta.
 
 ### «La somma delle fasce … non coincide con il consumo del periodo …»
 

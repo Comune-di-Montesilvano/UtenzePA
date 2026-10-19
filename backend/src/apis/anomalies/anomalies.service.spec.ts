@@ -246,6 +246,20 @@ describe('AnomaliesService', () => {
     expect(toTransfer).toContain('LEFT JOIN');
   });
 
+  it('parti dei contratti in corso: stato ACTIVE e fine effettiva non passata (oggi da Node)', async () => {
+    service.now = () => new Date('2026-10-19T10:00:00Z');
+    await service.getAnomalies();
+    for (const status of [CostStatus.TO_TRANSFER, CostStatus.TO_DECIDE]) {
+      const call = query.mock.calls.find(([s]) => String(s).includes(costStatusSql(status, 'u')));
+      const sql = String(call?.[0]);
+      expect(sql).toContain("g.status = 'ACTIVE'");
+      expect(sql).toMatch(
+        /g\.end_date IS NULL OR g\.end_date >= \?\s+OR \(g\.tacit_renewal = 1 AND IFNULL\(g\.renewal_months, 0\) > 0\)/,
+      );
+      expect(call?.[1]).toEqual(['2026-10-19']);
+    }
+  });
+
   describe('storico utenze (query in fondo)', () => {
     beforeEach(() => {
       service.now = () => new Date('2026-10-19T10:00:00Z');

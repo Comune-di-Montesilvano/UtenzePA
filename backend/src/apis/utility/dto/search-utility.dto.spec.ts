@@ -23,8 +23,8 @@ describe('SearchUtilityDto filtri nuovi', () => {
     expect((await parse({ plant_types: 'XYZ' })).errors).not.toEqual([]);
   });
 
-  it('cost_status accetta solo i quattro stati', async () => {
-    for (const s of ['COMUNE', 'TO_TRANSFER', 'TRANSFERRED', 'TO_RECOVER']) {
+  it('cost_status accetta solo i cinque stati', async () => {
+    for (const s of ['COMUNE', 'TO_DECIDE', 'TO_TRANSFER', 'TRANSFERRED', 'TO_RECOVER']) {
       expect((await parse({ cost_status: s })).errors).toEqual([]);
     }
     expect((await parse({ cost_status: 'ALTRO' })).errors).not.toEqual([]);

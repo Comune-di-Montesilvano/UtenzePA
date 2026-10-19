@@ -278,7 +278,9 @@ export class AnomaliesService {
 
     // «A carico di» dalla colonna di stato (SupplyReconcileService), giorni
     // di attesa da pending_since. Contratti = parti dei contratti immobiliari
-    // attivi sugli immobili dell'utenza (possono mancare). Le più vecchie prima.
+    // in corso sugli immobili dell'utenza (possono mancare). Le più vecchie prima.
+    // In corso come isGrantActive: stato ACTIVE e fine effettiva non passata
+    // (con il rinnovo tacito la fine effettiva non è mai passata).
     const grantPartiesJoin = `LEFT JOIN (SELECT ua.utility_id,
                     GROUP_CONCAT(DISTINCT ${partyNameSql('tp')} ORDER BY tp.id SEPARATOR ', ') AS parties
                FROM utility_assets ua
@@ -286,12 +288,19 @@ export class AnomaliesService {
                JOIN utilizer_grant_assets uga ON uga.asset_id = ua.asset_id
                JOIN utilizer_grant g ON g.id = uga.utilizer_grant_id AND g.deleted = 0
                  AND g.status = 'ACTIVE' AND g.direction = 'ACTIVE'
+                 AND (g.end_date IS NULL OR g.end_date >= ?
+                   OR (g.tacit_renewal = 1 AND IFNULL(g.renewal_months, 0) > 0))
                JOIN utilizer_grant_parties gp ON gp.utilizer_grant_id = g.id
                JOIN third_parties tp ON tp.id = gp.third_party_id AND tp.deleted = 0
               GROUP BY ua.utility_id) x ON x.utility_id = u.id`;
     const pendingColumns = `${utilityColumns}, DATE_FORMAT(u.pending_since, '%Y-%m-%d') AS pending_since`;
     const pendingOrder = 'ORDER BY u.pending_since IS NULL, u.pending_since, u.utility_id';
-    const byCostStatus = (status: CostStatus, contractsSql: string, join: string) =>
+    const byCostStatus = (
+      status: CostStatus,
+      contractsSql: string,
+      join: string,
+      params: unknown[] = [],
+    ) =>
       this.dataSource.query(
         `SELECT ${pendingColumns}, ${contractsSql} AS contracts
          FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
@@ -299,8 +308,11 @@ export class AnomaliesService {
          WHERE u.deleted = 0 AND u.supply_active = 1
            AND ${costStatusSql(status, 'u')}
          ${pendingOrder}`,
+        params,
       ) as Promise<Record<string, unknown>[]>;
-    const toTransfer = await byCostStatus(CostStatus.TO_TRANSFER, 'x.parties', grantPartiesJoin);
+    const toTransfer = await byCostStatus(CostStatus.TO_TRANSFER, 'x.parties', grantPartiesJoin, [
+      today,
+    ]);
     // Da reintestare: conta a chi è volturata oggi.
     const toRecover = await byCostStatus(
       CostStatus.TO_RECOVER,
@@ -517,7 +529,9 @@ export class AnomaliesService {
       }))
       .filter((x) => x.missing.length > 0);
     // Storico utenze (roadmap voce 22): query nuove in fondo (spec posizionale).
-    const toDecide = await byCostStatus(CostStatus.TO_DECIDE, 'x.parties', grantPartiesJoin);
+    const toDecide = await byCostStatus(CostStatus.TO_DECIDE, 'x.parties', grantPartiesJoin, [
+      today,
+    ]);
 
     // Attivazioni e cessazioni manuali in sospeso; data evento = richiesta,
     // altrimenti giorno di inserimento (Roma). Una per utenza, la più vecchia.
