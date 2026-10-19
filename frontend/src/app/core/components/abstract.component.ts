@@ -153,6 +153,12 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
       });
   }
 
+  // Scheda chiusa senza salvare dopo modifiche fatte da un suo tab.
+  onRefresh() {
+    this.loadAll();
+    this.signalsToken++;
+  }
+
   onDelete(entity: T) {
     this.service.delete(entity.id).subscribe(
       {

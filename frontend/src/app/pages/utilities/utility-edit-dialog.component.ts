@@ -42,7 +42,7 @@ import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.co
 import {PreviewCardComponent, PreviewItem} from '../../core/components/entity-sheet/preview-card.component';
 import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components/entity-sheet/linked-table.component';
 import {assetStatus, costStatus, maintenanceStatus, plantStatus, sortSupplyContracts, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
-import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab, sinceDays} from '../../core/components/entity-sheet/sheet-utils';
+import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab, SHEET_REFRESH, SheetRefresh, sinceDays} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import {UtilityService} from './utility.service';
 import {partyName} from '../../core/helpers/party-name.helper';
@@ -88,7 +88,7 @@ interface PlantRow {
 })
 export class UtilityEditDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private dialogRef = inject(MatDialogRef<UtilityEditDialogComponent, Utility | undefined>);
+  private dialogRef = inject(MatDialogRef<UtilityEditDialogComponent, Utility | SheetRefresh | undefined>);
   private authService = inject(AuthService);
   private assetsService = inject(AssetService);
   private plantService = inject(PlantService);
@@ -245,10 +245,22 @@ export class UtilityEditDialogComponent implements OnInit {
   ];
   readonly contractStatusOf = (c: Contract): StatusInfo => supplyContractStatus(c);
 
+  // Valori dei controlli all'apertura (o dopo l'ultimo riallineamento): un
+  // controllo si riallinea al server solo se nessuno l'ha cambiato, né
+  // l'utente né il codice (posizione dalla mappa, reset al cambio tipo...).
+  private snapshot = new Map<string, unknown>();
+  // Storico cambiato dal tab: anche chiudendo senza salvare l'elenco si ricarica.
+  private supplyChanged = false;
+
   constructor() {
     if (!this.canEdit) {
       this.form.disable();
     }
+    this.takeSnapshot();
+  }
+
+  private takeSnapshot(): void {
+    for (const [name, control] of Object.entries(this.form.controls)) this.snapshot.set(name, control.value);
   }
 
   ngOnInit(): void {
@@ -402,7 +414,8 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   statusInfo(): StatusInfo {
-    return utilityStatus(this.data.item.supply_active);
+    // In creazione: dalla sezione «Fornitura» (Già attiva sì/no).
+    return utilityStatus(this.isNew ? this.supplyForm.controls.active.value : this.data.item.supply_active);
   }
 
   flags(): StatusInfo[] {
@@ -719,6 +732,7 @@ export class UtilityEditDialogComponent implements OnInit {
   // riconciliato l'utenza. Si rilegge e si riallineano stato, Riepilogo e i
   // controlli non toccati (altrimenti Salva rimanderebbe i valori vecchi).
   onSupplyChanged(): void {
+    this.supplyChanged = true;
     this.utilityService.getById(this.data.item.id).subscribe({
       next: raw => {
         const u = plainToInstance(Utility, raw);
@@ -752,15 +766,20 @@ export class UtilityEditDialogComponent implements OnInit {
   // impianti) hanno il loro riallineamento.
   private realignPristine(u: Utility): void {
     const skip = new Set(['asset_ids', 'plant_ids', 'utility_id']);
+    // Stessi default dell'inizializzazione del form.
+    const zeroDefault = new Set(['estimated_annual_consumption', 'reported_consumption_year']);
     const iso = (v: unknown) => (v instanceof Date ? toIsoDate(v) : v);
     for (const [name, control] of Object.entries(this.form.controls)) {
       if (skip.has(name) || !control.pristine) continue;
+      // Cambiato dal codice (patchValue/setValue non lo rendono dirty).
+      if (iso(control.value) !== iso(this.snapshot.get(name))) continue;
       const server = (u as unknown as Record<string, unknown>)[name];
       const next = name === 'water_concession'
         ? this.toDate(server)
         : name === 'budget_chapter_code_fk'
           ? this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', u)
-          : server ?? (typeof control.value === 'string' ? '' : null);
+          : server ?? (zeroDefault.has(name) ? 0 : typeof control.value === 'string' ? '' : null);
+      this.snapshot.set(name, next);
       if (iso(next) === iso(control.value)) continue;
       control.setValue(next as never, {emitEvent: false});
       control.markAsPristine();
@@ -793,6 +812,8 @@ export class UtilityEditDialogComponent implements OnInit {
     if (control.pristine) {
       control.setValue(summary.estimated_annual_consumption);
       control.markAsPristine();
+      // Valore del server: resta riallineabile.
+      this.snapshot.set('estimated_annual_consumption', control.value);
     }
     // Una lettura con matricola nuova aggiorna la matricola dell'utenza:
     // senza riallineare il form, "Salva" la riporterebbe a quella vecchia.
@@ -801,6 +822,7 @@ export class UtilityEditDialogComponent implements OnInit {
     if (meter.pristine) {
       meter.setValue(summary.meter_number ?? '');
       meter.markAsPristine();
+      this.snapshot.set('meter_number', meter.value);
     }
   }
 
@@ -826,6 +848,6 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   cancel(): void {
-    this.dialogRef.close(undefined);
+    this.dialogRef.close(this.supplyChanged ? SHEET_REFRESH : undefined);
   }
 }
