@@ -253,8 +253,9 @@
 ### Task 10: Editor dei pattern (frontend)
 
 **Files:**
-- Create: `frontend/src/app/pages/invoice-patterns/invoice-patterns.component.ts` (elenco: strutture da mappare + pattern esistenti), `pattern-editor.component.ts` (+ `.html`), `invoice-patterns.service.ts`, `pattern-rules.model.ts` (gemello dei tipi del Task 3), `target-fields.ts` (etichette dei campi UtenzePA)
-- Modify: `frontend/src/app/app.routes.ts` (`invoice-patterns`, `invoice-patterns/editor/:messageId`), menu laterale (voce «Pattern fatture» sotto Fatture), `pages/guida/guida.ts` (`GUIDA_PER_PAGINA`)
+- Create: `frontend/src/app/pages/invoice-import/invoice-import-page.component.ts` (pagina Impostazioni → «Import fatture», tab «Motore» e «Pattern»), `invoice-patterns-tab.component.ts` (strutture da mappare + pattern esistenti), `pattern-editor.component.ts` (+ `.html`), `invoice-patterns.service.ts`, `pattern-rules.model.ts` (gemello dei tipi del Task 3), `target-fields.ts` (etichette dei campi UtenzePA)
+- Move: `pages/backup-import/invoice-import-tab.component.ts` e `invoice-import.service.ts` → `pages/invoice-import/` (tab «Motore»: in più gli ultimi 10 messaggi in `ERROR` con file e motivo, da `GET /invoice-import/status` → `recentErrors: {file_name, error, create_date}[]`, backend + spec nel task); tolto il tab da `backup-import.component.html`
+- Modify: `frontend/src/app/app.routes.ts` (`invoice-import`, `invoice-import/editor/:messageId`), `comp/sidebar/sidebar.component.ts` (voce «Import fatture», icona `mark_email_read`, in Impostazioni dopo «Backup e manutenzione»), `dashboard/anomalies-card.component.ts` (`openInvoiceImport()` → `/invoice-import`), `pages/guida/guida.ts` (`GUIDA_PER_PAGINA`)
 
 **Interfaces:**
 - Consumes: API del Task 8.
