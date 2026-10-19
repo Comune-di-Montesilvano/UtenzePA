@@ -5,6 +5,7 @@ import {
   inChargeSql,
   isInCharge,
   isTransferred,
+  supplyPending,
 } from './cost-status';
 import {
   ContractDirection,
@@ -135,5 +136,32 @@ describe('costInfo', () => {
   it('input minimi: Comune', () => {
     expect(costInfo({}, TODAY).status).toBe(CostStatus.COMUNE);
     expect(costInfo({ assets: [{}] } as never, TODAY).grants).toEqual([]);
+  });
+});
+
+// Attivazione o cessazione richiesta e non ancora avvenuta: per il badge del
+// tab «Fornitura» («In attivazione» / «In cessazione»).
+describe('supplyPending', () => {
+  it('nessuna richiesta: null', () => {
+    expect(supplyPending([], TODAY)).toBeNull();
+  });
+
+  it('attivazione richiesta: tipo, data e giorni', () => {
+    expect(supplyPending([{ type: SupplyEventType.ACTIVATION, since: '2026-10-07' }], TODAY)).toEqual({
+      type: SupplyEventType.ACTIVATION,
+      since: '2026-10-07',
+      days: 12,
+    });
+  });
+
+  it('più richieste: la più recente', () => {
+    const r = supplyPending(
+      [
+        { type: SupplyEventType.ACTIVATION, since: '2026-09-01' },
+        { type: SupplyEventType.CESSATION, since: '2026-10-19' },
+      ],
+      TODAY,
+    );
+    expect(r).toEqual({ type: SupplyEventType.CESSATION, since: '2026-10-19', days: 0 });
   });
 });

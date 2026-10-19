@@ -729,6 +729,8 @@ export class UtilityEditDialogComponent implements OnInit {
     if (status === 'TO_DECIDE') return {text: 'Da decidere', tone: 'warn'};
     if (status === 'TO_TRANSFER') return {text: 'Da volturare', tone: 'warn'};
     if (status === 'TO_RECOVER') return {text: 'Da reintestare', tone: 'warn'};
+    if (item.supply_pending?.type === 'ACTIVATION') return {text: 'In attivazione', tone: 'warn'};
+    if (item.supply_pending?.type === 'CESSATION') return {text: 'In cessazione', tone: 'warn'};
     if (item.cost_info?.pending) return {text: 'In sospeso', tone: 'warn'};
     if (isTransferredUtility(item)) return {text: 'Volturata', tone: 'off'};
     return item.supply_active ? {text: 'Attiva', tone: 'ok'} : {text: 'Cessata', tone: 'off'};
@@ -742,8 +744,9 @@ export class UtilityEditDialogComponent implements OnInit {
     return `Intestata a ${info.holder.name}${since}`;
   }
 
+  // Prima la pratica su «A carico di», poi attivazione/cessazione richiesta.
   private pendingTextOf(info: CostInfo | undefined): string | null {
-    const p = info?.pending;
+    const p = info?.pending ?? this.data.item.supply_pending;
     if (!p) return null;
     const label = p.type === 'DECISION' ? 'Decisione sul contratto immobiliare' : SUPPLY_EVENT_LABEL[p.type];
     return `${label} in sospeso ${sinceDays(p.days)}`;
@@ -765,6 +768,7 @@ export class UtilityEditDialogComponent implements OnInit {
         item.transferred_on = u.transferred_on;
         item.cost_status = u.cost_status;
         item.pending_since = u.pending_since;
+        item.supply_pending = u.supply_pending;
         item.cost_info = u.cost_info;
         item.maintenance_info = u.maintenance_info;
         item.update_date = u.update_date;

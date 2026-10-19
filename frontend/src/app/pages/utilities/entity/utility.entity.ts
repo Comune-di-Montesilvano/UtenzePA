@@ -69,6 +69,9 @@ export class Utility extends AbstractEntity {
   cost_status?: CostStatus;
   @Exclude({toPlainOnly: true})
   pending_since?: string | null;
+  // Attivazione o cessazione richiesta e non ancora avvenuta (calcolata dal backend).
+  @Exclude({toPlainOnly: true})
+  supply_pending?: {type: 'ACTIVATION' | 'CESSATION'; since: string; days: number} | null;
   // Solo in creazione: riga di partenza dello storico (assente = attiva, data non nota).
   initial_supply?: {active: boolean; effective_on?: string | null; requested_on?: string | null};
   // Connettività.

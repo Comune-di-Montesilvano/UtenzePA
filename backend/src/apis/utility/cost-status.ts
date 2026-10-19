@@ -68,6 +68,24 @@ const PENDING_TYPE_BY_STATUS: Partial<Record<CostStatus, SupplyEventType | 'DECI
   [CostStatus.TO_RECOVER]: SupplyEventType.RETURN,
 };
 
+// Attivazione o cessazione richiesta e non ancora avvenuta (la più recente):
+// fuori da costInfo perché non riguarda «A carico di».
+export type SupplyPendingType = SupplyEventType.ACTIVATION | SupplyEventType.CESSATION;
+export interface SupplyPending {
+  type: SupplyPendingType;
+  since: string;
+  days: number;
+}
+
+export function supplyPending(
+  requests: { type: SupplyPendingType; since: string }[],
+  today: string,
+): SupplyPending | null {
+  if (!requests.length) return null;
+  const latest = requests.reduce((a, b) => (b.since > a.since ? b : a));
+  return { ...latest, days: Math.max(0, daysBetween(latest.since, today)) };
+}
+
 export function costInfo(utility: CostInput, today: string): CostInfo {
   const status = utility.cost_status ?? CostStatus.COMUNE;
   const toId = utility.transferred_to_third_party_id ?? null;
