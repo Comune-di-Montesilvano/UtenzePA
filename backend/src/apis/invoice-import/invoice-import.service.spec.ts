@@ -503,6 +503,13 @@ describe('InvoiceImportService con i pattern', () => {
       expect(mailbox.open).toHaveBeenCalledTimes(1);
     });
 
+    it('fattura importata poi eliminata: non si ricrea rielaborando', async () => {
+      messages.rows.push(stored(4, '4', { status: SdiMessageStatus.EXTRACTED, invoice_id_fk: 61 }));
+      invoices.rows.push({ id: 61, deleted: true, import_locked: false });
+      expect(await service().reprocess([4])).toEqual({ extracted: 0, skipped: 1, queued: 0 });
+      expect(applier.apply).not.toHaveBeenCalled();
+    });
+
     it('con un giro in corso: in coda, elaborati alla fine del giro', async () => {
       mailbox = fakeMailbox([]);
       mailbox.fetchRaw.mockImplementation((async () => invoiceEml('<m@pec>')) as never);

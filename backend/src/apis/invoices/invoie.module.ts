@@ -7,11 +7,13 @@ import { InvoiceLine } from './entity/invoice-line.entity';
 import { BudgetCommitment } from '@apis/budget-commitments/entity/budget-commitment.entity';
 import { Contract } from '@apis/contracts/entity/contract.entity';
 import { InvoiceImportModule } from '@apis/invoice-import/invoice-import.module';
+import { UtilityConsumptionsModule } from '@apis/utility-consumptions/utility-consumptions.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Invoice, InvoiceLine, BudgetCommitment, Contract]),
     InvoiceImportModule,
+    UtilityConsumptionsModule,
   ],
   providers: [InvoicesService],
   controllers: [InvoicesController],

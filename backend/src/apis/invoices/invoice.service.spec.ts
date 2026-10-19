@@ -9,6 +9,8 @@ describe('InvoicesService', () => {
   let repo: { createQueryBuilder: jest.Mock; findOne: jest.Mock };
   let contractRepo: { findOne: jest.Mock };
   let dataSource: { transaction: jest.Mock };
+  let linker: { follow: jest.Mock; unlink: jest.Mock };
+  let recalc: { recalcUtility: jest.Mock };
   let manager: {
     create: jest.Mock;
     save: jest.Mock;
@@ -30,7 +32,15 @@ describe('InvoicesService', () => {
     repo = { createQueryBuilder: jest.fn(), findOne: jest.fn() };
     contractRepo = { findOne: jest.fn().mockResolvedValue({ id: 1, supplier_id_fk: 44 }) };
     dataSource = { transaction: jest.fn((cb) => cb(manager)) };
-    service = new InvoicesService(repo as never, contractRepo as never, dataSource as never);
+    linker = { follow: jest.fn().mockResolvedValue([]), unlink: jest.fn().mockResolvedValue([]) };
+    recalc = { recalcUtility: jest.fn() };
+    service = new InvoicesService(
+      repo as never,
+      contractRepo as never,
+      dataSource as never,
+      linker as never,
+      recalc as never,
+    );
   });
 
   describe('create', () => {
@@ -158,6 +168,20 @@ describe('InvoicesService', () => {
       ]);
     });
 
+    it('righe reinviate: le rilevazioni dei consumi seguono le righe, utenze ricalcolate', async () => {
+      const previous = [{ id: 1, invoice_id_fk: 20, consumption_id_fk: 70 }];
+      manager.find.mockResolvedValue(previous);
+      linker.follow.mockResolvedValue([812]);
+      await service.update(20, { lines: [{ amount: 5 }] } as never, 7);
+      expect(linker.follow).toHaveBeenCalledWith(manager, 20, previous);
+      expect(recalc.recalcUtility).toHaveBeenCalledWith(812);
+    });
+
+    it('senza lines le rilevazioni non si toccano', async () => {
+      await service.update(20, { notes_on_invoices: 'nota' } as never, 7);
+      expect(linker.follow).not.toHaveBeenCalled();
+    });
+
     it('lines vuoto cancella tutte le righe', async () => {
       await service.update(20, { lines: [] } as never, 7);
       expect(manager.delete).toHaveBeenCalledWith(InvoiceLine, { invoice_id_fk: 20 });
@@ -189,6 +213,17 @@ describe('InvoicesService', () => {
           ]),
         }),
       );
+    });
+  });
+
+  describe('remove', () => {
+    it('eliminando la fattura si tolgono i suoi consumi e le utenze si ricalcolano', async () => {
+      repo.findOne.mockResolvedValue({ id: 20, deleted: false });
+      (repo as unknown as { save: jest.Mock }).save = jest.fn();
+      linker.unlink.mockResolvedValue([812]);
+      await service.remove(20, 7);
+      expect(linker.unlink).toHaveBeenCalledWith(manager, 20);
+      expect(recalc.recalcUtility).toHaveBeenCalledWith(812);
     });
   });
 

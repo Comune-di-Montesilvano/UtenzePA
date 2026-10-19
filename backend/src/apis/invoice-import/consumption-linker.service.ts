@@ -24,9 +24,11 @@ const ADOPT_SQL =
   "/* c_adopt */ SELECT c.id FROM utility_consumptions c WHERE c.utility_id_fk = ? AND c.kind = 'PERIOD' " +
   "AND c.source = 'INVOICE' AND c.deleted = 0 AND c.period_start = ? AND c.period_end = ? " +
   'AND NOT EXISTS (SELECT 1 FROM invoice_lines l WHERE l.consumption_id_fk = c.id) ORDER BY c.id LIMIT 1';
+// Come il calcolo dei consumi: una stima non copre il dato reale della fattura.
 const OVERLAP_SQL =
   "/* c_overlap */ SELECT c.id, c.period_start, c.period_end FROM utility_consumptions c WHERE c.utility_id_fk = ? AND c.kind = 'PERIOD' " +
-  'AND c.deleted = 0 AND c.period_start <= ? AND c.period_end >= ? AND c.id NOT IN (?) ORDER BY c.id LIMIT 1';
+  'AND c.deleted = 0 AND c.is_estimated = 0 AND c.period_start <= ? AND c.period_end >= ? AND c.id NOT IN (?) ' +
+  'ORDER BY c.id LIMIT 1';
 const LINKED_SQL =
   '/* c_linked */ SELECT DISTINCT c.id, c.utility_id_fk FROM invoice_lines l ' +
   'JOIN utility_consumptions c ON c.id = l.consumption_id_fk WHERE l.invoice_id_fk = ?';
@@ -91,7 +93,9 @@ export class ConsumptionLinker {
         consumptionId = adoptable?.id ?? null;
       }
       if (consumptionId === null) {
-        const exclude = previousIds.length ? previousIds : [0];
+        // Le proprie rilevazioni non ancora riusate in questo giro non coprono; quelle riusate sì.
+        const pending = previousIds.filter((id) => !used.has(id));
+        const exclude = pending.length ? pending : [0];
         const [covering] = await manager.query(OVERLAP_SQL, [utilityId, end, start, exclude]);
         if (covering) {
           issues.push({
@@ -114,11 +118,8 @@ export class ConsumptionLinker {
         });
         consumptionId = saved.id;
       } else {
-        await manager.update(UtilityConsumption, consumptionId, {
-          consumption: value,
-          is_estimated: false,
-          deleted: false,
-        });
+        // Il flag stimata impostato dall'utente resta.
+        await manager.update(UtilityConsumption, consumptionId, { consumption: value, deleted: false });
       }
       used.add(consumptionId);
       utilityIds.add(utilityId);
@@ -138,6 +139,42 @@ export class ConsumptionLinker {
       );
     }
     return { issues, utilityIds: [...utilityIds] };
+  }
+
+  // Righe modificate a mano: la rilevazione segue la riga con stessa utenza e
+  // periodo (consumo aggiornato), quelle senza più una riga si tolgono.
+  async follow(manager: EntityManager, invoiceId: number, previous: InvoiceLine[]): Promise<number[]> {
+    const key = (l: InvoiceLine) => `${l.utility_id_fk}|${day(l.period_start)}|${day(l.period_end)}`;
+    const linked = new Map<string, number>();
+    const utilityIds = new Set<number>();
+    for (const l of previous) {
+      if (!l.consumption_id_fk || !l.utility_id_fk || !l.period_start || !l.period_end) continue;
+      linked.set(key(l), l.consumption_id_fk);
+      utilityIds.add(Number(l.utility_id_fk));
+    }
+    if (!linked.size) return [];
+
+    const lines = await manager.find(InvoiceLine, { where: { invoice_id_fk: invoiceId } });
+    const groups = new Map<number, InvoiceLine[]>();
+    for (const l of lines) {
+      if (l.consumption === null || !l.utility_id_fk || !l.period_start || !l.period_end) continue;
+      const id = linked.get(key(l));
+      if (id) groups.set(id, [...(groups.get(id) ?? []), l]);
+    }
+    for (const [id, group] of groups) {
+      await manager.update(InvoiceLine, { id: In(group.map((l) => l.id)) }, { consumption_id_fk: id });
+      const value = Math.round(group.reduce((sum, l) => sum + Number(l.consumption), 0) * 1000) / 1000;
+      await manager.update(UtilityConsumption, id, { consumption: value });
+    }
+    const leftovers = [...new Set(linked.values())].filter((id) => !groups.has(id));
+    if (leftovers.length) {
+      await manager.update(
+        UtilityConsumption,
+        { id: In(leftovers), source: ConsumptionSource.INVOICE },
+        { deleted: true },
+      );
+    }
+    return [...utilityIds];
   }
 
   // Fattura rifiutata: nessun effetto sui consumi.

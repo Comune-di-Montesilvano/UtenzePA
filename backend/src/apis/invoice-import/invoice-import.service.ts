@@ -281,7 +281,8 @@ export class InvoiceImportService {
       }
       if (row.invoice_id_fk) {
         const invoice = await this.invoicesRepo.findOneBy({ id: row.invoice_id_fk });
-        if (invoice?.import_locked) {
+        // Modificata a mano o eliminata: l'import non la tocca e non la ricrea.
+        if (invoice?.import_locked || invoice?.deleted) {
           result.skipped++;
           continue;
         }

@@ -13,6 +13,8 @@ import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { Contract } from '@apis/contracts/entity/contract.entity';
 import { BudgetCommitment } from '@apis/budget-commitments/entity/budget-commitment.entity';
 import { SdiMessage } from '@apis/invoice-import/entity/sdi-message.entity';
+import { ConsumptionLinker } from '@apis/invoice-import/consumption-linker.service';
+import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
 
 // Confronto righe per l'audit: stessi valori normalizzati, stesso ordine.
 const lineKey = (l: Partial<InvoiceLine>): string =>
@@ -62,8 +64,27 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     @InjectRepository(Contract)
     private readonly contractRepo: Repository<Contract>,
     private readonly dataSource: DataSource,
+    private readonly linker: ConsumptionLinker,
+    private readonly recalc: ConsumptionRecalcService,
   ) {
     super();
+  }
+
+  // Eliminata la fattura, i suoi consumi da fattura non contano più.
+  override async remove(id: number, updatedByUserId: number): Promise<void> {
+    await super.remove(id, updatedByUserId);
+    const utilityIds = await this.dataSource.transaction((manager) => this.linker.unlink(manager, id));
+    await this.recalcUtilities(utilityIds);
+  }
+
+  private async recalcUtilities(utilityIds: number[]): Promise<void> {
+    for (const utilityId of utilityIds) {
+      try {
+        await this.recalc.recalcUtility(utilityId);
+      } catch (error) {
+        console.error(`[InvoicesService] Ricalcolo consumi dell'utenza ${utilityId} non riuscito`, error);
+      }
+    }
   }
 
   async findAll(filters?: Partial<SearchInvoiceDto>): Promise<Invoice[]> {
@@ -172,6 +193,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       rest.contratto_id_fk !== undefined ? rest.contratto_id_fk : before.contratto_id_fk;
     const header = await this.withSupplier({ ...rest, contratto_id_fk: contractId });
     let previousLines: InvoiceLine[] = [];
+    let utilityIds: number[] = [];
 
     const result = await this.dataSource.transaction(async (manager) => {
       if (lines !== undefined) {
@@ -194,6 +216,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       if (lines !== undefined) {
         await manager.delete(InvoiceLine, { invoice_id_fk: id });
         if (lines.length) await manager.save(InvoiceLine, this.toRows(id, lines));
+        utilityIds = await this.linker.follow(manager, id, previousLines);
       }
       return manager.findOne(Invoice, {
         where: { id },
@@ -215,6 +238,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     } catch (error) {
       console.error(`[InvoicesService] Errore durante il calcolo/registrazione audit`, error);
     }
+    await this.recalcUtilities(utilityIds);
     return result;
   }
 

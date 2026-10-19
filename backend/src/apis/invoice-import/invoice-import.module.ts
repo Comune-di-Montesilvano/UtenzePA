@@ -51,7 +51,7 @@ import {
     },
   ],
   controllers: [InvoiceImportController, InvoicePatternsController],
-  exports: [InvoiceImportService],
+  exports: [InvoiceImportService, ConsumptionLinker],
 })
 export class InvoiceImportModule implements OnModuleInit {
   constructor(
