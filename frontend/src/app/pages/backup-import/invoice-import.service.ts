@@ -16,12 +16,6 @@ export interface InvoiceImportStatus {
   counts: Record<string, number>;
 }
 
-export interface InvoiceImportRunResult {
-  processed: number;
-  linked: number;
-  pending: number;
-}
-
 @Injectable({ providedIn: 'root' })
 export class InvoiceImportService {
   private http = inject(HttpClient);
@@ -40,7 +34,8 @@ export class InvoiceImportService {
     return this.http.patch<InvoiceImportStatus>(this.BASE_URL, { enabled }, { headers: this.getAuthHeaders() });
   }
 
-  run(): Observable<InvoiceImportRunResult> {
-    return this.http.post<InvoiceImportRunResult>(`${this.BASE_URL}/run`, {}, { headers: this.getAuthHeaders() });
+  // Avvia un giro in background: risponde subito con running = true.
+  run(): Observable<InvoiceImportStatus> {
+    return this.http.post<InvoiceImportStatus>(`${this.BASE_URL}/run`, {}, { headers: this.getAuthHeaders() });
   }
 }

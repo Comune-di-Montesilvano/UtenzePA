@@ -102,6 +102,7 @@ export class InvoiceImportService {
     await this.stateRepo.update(STATE_ID, { enabled });
   }
 
+  // Non lancia mai: gli errori finiscono nello stato (cron e "Esegui ora" in background).
   async runOnce(): Promise<ImportRunResult> {
     if (this.running) return { ...EMPTY };
     this.running = true;
@@ -109,7 +110,12 @@ export class InvoiceImportService {
       if (!this.configured || this.forcedOff || maintenance.active) return { ...EMPTY };
       const state = await this.state();
       if (!state?.enabled) return { ...EMPTY };
-      return await this.read(state);
+      const relinked = await this.relinkPending();
+      const result = await this.read(state);
+      return { ...result, linked: result.linked + relinked };
+    } catch (error) {
+      await this.recordError(error).catch(() => undefined);
+      return { ...EMPTY };
     } finally {
       this.running = false;
     }
@@ -196,16 +202,43 @@ export class InvoiceImportService {
         last_error: null,
       });
     } catch (error) {
-      const text = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Import fatture dalla PEC interrotto: ${text}`);
-      await this.stateRepo.update(STATE_ID, {
-        last_run_at: new Date(),
-        last_error: text.slice(0, 500),
-      });
+      await this.recordError(error);
     } finally {
       await mailbox.close().catch(() => undefined);
     }
     return result;
+  }
+
+  private async recordError(error: unknown): Promise<void> {
+    const text = error instanceof Error ? error.message : String(error);
+    this.logger.error(`Import fatture dalla PEC interrotto: ${text}`);
+    await this.stateRepo.update(STATE_ID, {
+      last_run_at: new Date(),
+      last_error: text.slice(0, 500),
+    });
+  }
+
+  // Fatture inserite dopo l'arrivo del messaggio: le righe in attesa si
+  // ricontrollano a ogni giro con lo stesso abbinamento (fornitore, numero, data).
+  private async relinkPending(): Promise<number> {
+    const rows: { id: number; sdi_identifier: string; invoice_id: number }[] =
+      await this.dataSource.query(
+        `SELECT m.id, m.sdi_identifier, MIN(i.id) AS invoice_id
+           FROM sdi_messages m
+           JOIN invoices i ON i.supplier_id_fk = m.supplier_id_fk AND i.invoice_id = m.document_number
+                          AND i.invoice_date = m.document_date AND i.deleted = 0
+          WHERE m.status = 'PENDING' AND m.sdi_identifier IS NOT NULL
+          GROUP BY m.id, m.sdi_identifier`,
+      );
+    for (const row of rows) {
+      await this.invoicesRepo.update(Number(row.invoice_id), {
+        sdi_identifier: row.sdi_identifier,
+        ...KEEP_UPDATE_DATE,
+      });
+      await this.messagesRepo.update(Number(row.id), { status: SdiMessageStatus.LINKED });
+      await this.refreshInvoiceStatus(row.sdi_identifier);
+    }
+    return rows.length;
   }
 
   private async processMessage(

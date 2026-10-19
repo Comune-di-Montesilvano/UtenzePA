@@ -3,11 +3,7 @@ import { JwtAuthGuard } from '@core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@core/auth/guards/roles.guard';
 import { Roles } from '@core/auth/decorators/roles.decorator';
 import { UpdateInvoiceImportDto } from './dto/update-invoice-import.dto';
-import {
-  InvoiceImportService,
-  type ImportRunResult,
-  type InvoiceImportStatus,
-} from './invoice-import.service';
+import { InvoiceImportService, type InvoiceImportStatus } from './invoice-import.service';
 
 @Controller('invoice-import')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -26,13 +22,15 @@ export class InvoiceImportController {
     return this.service.getStatus();
   }
 
-  // Giro immediato, senza aspettare il prossimo quarto d'ora.
+  // Giro immediato in background (il primo può durare minuti): la risposta
+  // arriva subito con running = true, l'esito si legge da GET status.
   @Post('run')
-  async run(): Promise<ImportRunResult> {
+  async run(): Promise<InvoiceImportStatus> {
     if (!this.service.configured) throw new BadRequestException('Import non configurato.');
     const status = await this.service.getStatus();
     if (status.forcedOff || !status.enabled) throw new BadRequestException('Import spento.');
     if (this.service.isRunning) throw new BadRequestException('Import già in corso.');
-    return this.service.runOnce();
+    void this.service.runOnce();
+    return { ...status, running: true };
   }
 }

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -7,6 +7,9 @@ import { ToastService } from '../../core/services/toast.service';
 import { InvoiceImportService, InvoiceImportStatus } from './invoice-import.service';
 
 // Etichette degli esiti del registro messaggi SDI (backend SdiMessageStatus).
+// Il giro gira in background sul server: lo stato si interroga finché è in corso.
+const STATUS_POLL_MS = 3000;
+
 const MESSAGE_STATUS_LABELS: Record<string, string> = {
   LINKED: 'Collegate a una fattura',
   PENDING: 'In attesa di import',
@@ -28,6 +31,7 @@ const MESSAGE_STATUS_LABELS: Record<string, string> = {
         Considera solo i fornitori in anagrafica con partita IVA e almeno un contratto di fornitura.
       </p>
       <p style="color: var(--app-muted);">
+        Il giro avviene in background: puoi lasciare la pagina, il primo può durare alcuni minuti.
         Spegnere il motore prima di esportare o importare il database e riaccenderlo dopo.
       </p>
 
@@ -52,13 +56,15 @@ const MESSAGE_STATUS_LABELS: Record<string, string> = {
           </mat-slide-toggle>
           <button
             mat-flat-button
-            [disabled]="running || s.running || !s.configured || s.forcedOff || !s.enabled"
+            [disabled]="running || !s.configured || s.forcedOff || !s.enabled"
             (click)="runNow()"
           >
-            @if (running || s.running) {
+            @if (running) {
               <mat-spinner diameter="18" style="display: inline-block; margin-right: 0.5rem;"></mat-spinner>
+              In corso…
+            } @else {
+              Esegui ora
             }
-            Esegui ora
           </button>
         </div>
 
@@ -88,7 +94,7 @@ const MESSAGE_STATUS_LABELS: Record<string, string> = {
     </div>
   `,
 })
-export class InvoiceImportTabComponent implements OnInit {
+export class InvoiceImportTabComponent implements OnInit, OnDestroy {
   private service = inject(InvoiceImportService);
   private toastService = inject(ToastService);
 
@@ -96,9 +102,14 @@ export class InvoiceImportTabComponent implements OnInit {
   countRows: { key: string; label: string; count: number }[] = [];
   saving = false;
   running = false;
+  private pollHandle: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
     this.load();
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollHandle) clearTimeout(this.pollHandle);
   }
 
   private load(): void {
@@ -109,7 +120,18 @@ export class InvoiceImportTabComponent implements OnInit {
   }
 
   private apply(status: InvoiceImportStatus): void {
+    const finished = this.running && !status.running;
     this.status = status;
+    this.running = status.running;
+    if (this.pollHandle) clearTimeout(this.pollHandle);
+    this.pollHandle = status.running ? setTimeout(() => this.load(), STATUS_POLL_MS) : null;
+    if (finished) {
+      this.toastService.add(
+        status.lastError
+          ? { severity: 'error', summary: 'Import non riuscito', detail: status.lastError }
+          : { severity: 'success', summary: 'Import completato' },
+      );
+    }
     this.countRows = Object.keys(MESSAGE_STATUS_LABELS)
       .filter((key) => status.counts[key])
       .map((key) => ({ key, label: MESSAGE_STATUS_LABELS[key], count: status.counts[key] }));
@@ -133,18 +155,10 @@ export class InvoiceImportTabComponent implements OnInit {
   runNow(): void {
     this.running = true;
     this.service.run().subscribe({
-      next: (result) => {
-        this.running = false;
-        this.toastService.add({
-          severity: 'success',
-          summary: 'Import eseguito',
-          detail: `${result.processed} messaggi letti, ${result.linked} fatture collegate, ${result.pending} in attesa.`,
-        });
-        this.load();
-      },
+      next: (status) => this.apply(status),
       error: (err) => {
         this.running = false;
-        this.error('Import non eseguito', err);
+        this.error('Import non avviato', err);
         this.load();
       },
     });

@@ -210,6 +210,38 @@ describe('InvoiceImportService.runOnce', () => {
     expect(mailbox.close).toHaveBeenCalled();
   });
 
+  it('fattura inserita dopo il messaggio: collegata al giro successivo', async () => {
+    messages.rows.push({
+      id: 1,
+      kind: 'INVOICE',
+      status: SdiMessageStatus.PENDING,
+      sdi_identifier: '99000000001',
+      supplier_id_fk: 9,
+      document_number: 'FPR 1/26',
+      document_date: '2026-07-10',
+      received_at: new Date(2026, 6, 10),
+    });
+    query.mockImplementation(async (sql: string) =>
+      sql.includes("m.status = 'PENDING'")
+        ? [{ id: 1, sdi_identifier: '99000000001', invoice_id: 50 }]
+        : [],
+    );
+    const result = await service().runOnce();
+    expect(result.linked).toBe(1);
+    expect(messages.rows[0].status).toBe(SdiMessageStatus.LINKED);
+    expect(invoices.rows[0]).toMatchObject({
+      sdi_identifier: '99000000001',
+      sdi_status: SdiStatus.RECEIVED,
+    });
+    expect(invoices.updates.every((u) => typeof u.patch.update_date === 'function')).toBe(true);
+  });
+
+  it('errore prima della casella: registrato, nessuna eccezione', async () => {
+    query.mockRejectedValue(new Error('db giù'));
+    await expect(service().runOnce()).resolves.toEqual({ processed: 0, linked: 0, pending: 0 });
+    expect(state.rows[0].last_error).toBe('db giù');
+  });
+
   it('giro già in corso: il secondo esce senza collegarsi', async () => {
     let release: () => void = () => undefined;
     mailbox = fakeMailbox([]);
@@ -218,6 +250,8 @@ describe('InvoiceImportService.runOnce', () => {
     );
     const svc = service();
     const first = svc.runOnce();
+    // Il primo giro arriva alla casella dopo le query sul DB.
+    while (!mailbox.open.mock.calls.length) await new Promise((r) => setImmediate(r));
     await svc.runOnce();
     expect(mailbox.open).toHaveBeenCalledTimes(1);
     release();

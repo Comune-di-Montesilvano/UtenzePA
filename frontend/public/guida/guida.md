@@ -243,10 +243,10 @@ Nel tab **Consumi** della stessa pagina, **Ricalcola consumi** aggiorna subito p
 In **Impostazioni → Backup e manutenzione**, tab **Import fatture**:
 
 - l'interruttore accende o spegne la lettura automatica della casella PEC (ogni 15 minuti, in sola lettura: nessun messaggio viene segnato, spostato o cancellato);
-- **Esegui ora** fa subito un giro, senza aspettare il prossimo quarto d'ora;
+- **Esegui ora** avvia subito un giro in background, senza aspettare il prossimo quarto d'ora: puoi lasciare la pagina, e al termine compare un messaggio (il primo giro, che legge tutta la casella, può durare alcuni minuti);
 - sotto trovi l'ultimo giro, l'ultimo giro riuscito, l'eventuale errore e quanti file sono stati letti per esito (collegate, in attesa, fuori perimetro, esiti e notifiche, errori).
 
-Sono considerate solo le fatture dei fornitori in anagrafica con partita IVA e almeno un contratto di fornitura; le altre restano «fuori perimetro». Una fattura di un fornitore in perimetro che non è ancora in UtenzePA resta «in attesa» e compare in dashboard. L'import non crea fatture e non modifica le anagrafiche.
+Sono considerate solo le fatture dei fornitori in anagrafica con partita IVA e almeno un contratto di fornitura; le altre restano «fuori perimetro». Una fattura di un fornitore in perimetro che non è ancora in UtenzePA resta «in attesa» e compare in dashboard: quando la inserisci con lo stesso fornitore, numero e data, viene collegata al giro successivo. L'import non crea fatture e non modifica le anagrafiche.
 
 **Spegni il motore prima di esportare o importare il database** e riaccendilo dopo: l'interruttore è salvato nel database, quindi un database importato porta con sé il suo stato.
 
