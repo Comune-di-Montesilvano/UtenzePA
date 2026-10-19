@@ -4,192 +4,115 @@ import {
   ContractStatus,
 } from '@apis/utilizer-grant/enum/real-estate-contract.enum';
 import { ThirdPartyType } from '@apis/third-parties/enum/third-party.enum';
+import {
+  GrantUtilityDecisionValue,
+  SupplyEventType,
+} from '@apis/utility-supply/enum/supply-event-type.enum';
 
-const party = (id: number, name: string, extra = {}) => ({
-  id,
-  type: ThirdPartyType.LEGAL,
-  company_name: name,
-  deleted: false,
-  ...extra,
-});
-const grant = (id: number, parties: unknown[], extra = {}) => ({
+const TODAY = '2026-10-19';
+
+const grant = (id: number, extra = {}) => ({
   id,
   deleted: false,
   status: ContractStatus.ACTIVE,
   direction: ContractDirection.ACTIVE,
-  utilities_to_be_taken_over: true,
-  parties,
+  subject: null,
+  concession_act: null,
   ...extra,
 });
-const utility = (grantsPerAsset: unknown[][], extra = {}) =>
+const withGrants = (grantsPerAsset: unknown[][], extra = {}) =>
   ({
+    cost_status: CostStatus.COMUNE,
     assets: grantsPerAsset.map((utilizerGrants) => ({ utilizerGrants })),
     ...extra,
   }) as never;
-const transferred = (p: ReturnType<typeof party>, on: string | null = null) => ({
-  transferred_to_third_party_id: p.id,
-  transferredTo: p,
-  transferred_on: on,
+
+describe('costStatusSql', () => {
+  it('filtra sulla colonna salvata', () => {
+    expect(costStatusSql(CostStatus.TO_DECIDE, 'u')).toBe("u.cost_status = 'TO_DECIDE'");
+  });
+
+  it("alias di default 'Utility'", () => {
+    expect(costStatusSql(CostStatus.COMUNE)).toBe("Utility.cost_status = 'COMUNE'");
+  });
 });
 
 describe('costInfo', () => {
-  it('nessun contratto con voltura: Comune', () => {
-    expect(
-      costInfo(
-        utility([[grant(7, [party(3, 'Alfa Srl')], { utilities_to_be_taken_over: false })]]),
-      ),
-    ).toEqual({
+  it('Comune senza nulla in sospeso', () => {
+    expect(costInfo({ cost_status: CostStatus.COMUNE }, TODAY)).toEqual({
       status: CostStatus.COMUNE,
-      parties: [],
-      active_parties: [{ grant_id: 7, third_party_id: 3, name: 'Alfa Srl' }],
-      transferred_to: null,
-      transferred_on: null,
-      contract_requires: false,
+      holder: null,
+      holder_since: null,
+      pending: null,
+      grants: [],
     });
   });
 
-  it('active_parties: parti di tutti i contratti attivi, con o senza voltura', () => {
+  it('giorni in sospeso dal pending_since, con tipo ricavato dallo stato', () => {
     const info = costInfo(
-      utility([
+      { cost_status: CostStatus.TO_DECIDE, pending_since: '2026-09-15' },
+      TODAY,
+    );
+    expect(info.pending).toEqual({ type: 'DECISION', since: '2026-09-15', days: 34 });
+  });
+
+  it('tipo dell evento in sospeso esplicito prevale; TO_TRANSFER e TO_RECOVER ricavati', () => {
+    expect(
+      costInfo(
+        {
+          cost_status: CostStatus.TO_TRANSFER,
+          pending_since: '2026-10-19',
+          pending_type: SupplyEventType.TRANSFER,
+        },
+        TODAY,
+      ).pending,
+    ).toEqual({ type: SupplyEventType.TRANSFER, since: '2026-10-19', days: 0 });
+    expect(
+      costInfo({ cost_status: CostStatus.TO_RECOVER, pending_since: '2026-10-01' }, TODAY).pending
+        ?.type,
+    ).toBe(SupplyEventType.RETURN);
+  });
+
+  it('nessun pending_since: nessun in sospeso', () => {
+    expect(costInfo({ cost_status: CostStatus.TO_DECIDE }, TODAY).pending).toBeNull();
+  });
+
+  it('intestatario dal soggetto della voltura', () => {
+    const info = costInfo(
+      {
+        cost_status: CostStatus.TRANSFERRED,
+        transferred_to_third_party_id: 3,
+        transferredTo: { type: ThirdPartyType.LEGAL, company_name: 'Alfa Srl' },
+        transferred_on: '2026-05-01',
+      },
+      TODAY,
+    );
+    expect(info.holder).toEqual({ id: 3, name: 'Alfa Srl' });
+    expect(info.holder_since).toBe('2026-05-01');
+    expect(info.pending).toBeNull();
+  });
+
+  it('contratti attivi con la decisione, senza duplicati e senza i non attivi', () => {
+    const info = costInfo(
+      withGrants([
         [
-          grant(7, [party(3, 'Alfa Srl')], { utilities_to_be_taken_over: false }),
-          grant(8, [party(4, 'Beta Spa'), party(5, 'Gamma', { deleted: true })]),
-          grant(9, [party(6, 'Delta')], { status: ContractStatus.TERMINATED }),
+          grant(7, { subject: 'Locazione sede', decision: GrantUtilityDecisionValue.FOLLOWS }),
+          grant(8, { concession_act: 'Atto 12' }),
+          grant(9, { status: ContractStatus.TERMINATED }),
+          grant(10, { deleted: true }),
         ],
+        [grant(7, { subject: 'Locazione sede' })],
       ]),
+      TODAY,
     );
-    expect(info.active_parties.map((p) => p.third_party_id)).toEqual([3, 4]);
-    expect(info.parties.map((p) => p.third_party_id)).toEqual([4]);
+    expect(info.grants).toEqual([
+      { grant_id: 7, name: 'Locazione sede', decision: GrantUtilityDecisionValue.FOLLOWS },
+      { grant_id: 8, name: 'Atto 12', decision: null },
+    ]);
   });
 
-  it('contratto con voltura, utenza non volturata: da volturare, con le parti', () => {
-    const info = costInfo(utility([[grant(7, [party(3, 'Alfa Srl')])]]));
-    expect(info.status).toBe(CostStatus.TO_TRANSFER);
-    expect(info.parties).toEqual([{ grant_id: 7, third_party_id: 3, name: 'Alfa Srl' }]);
-  });
-
-  it('volturata a una parte del contratto: volturata', () => {
-    const p = party(3, 'Alfa Srl');
-    const info = costInfo(utility([[grant(7, [p])]], transferred(p, '2026-05-01')));
-    expect(info.status).toBe(CostStatus.TRANSFERRED);
-    expect(info.transferred_to).toEqual({ id: 3, name: 'Alfa Srl' });
-    expect(info.transferred_on).toBe('2026-05-01');
-  });
-
-  it('volturata a una parte di un contratto attivo senza voltura: volturata', () => {
-    const p = party(3, 'Alfa Srl');
-    const g = grant(7, [p], { utilities_to_be_taken_over: false });
-    expect(costInfo(utility([[g]], transferred(p))).status).toBe(CostStatus.TRANSFERRED);
-  });
-
-  it('volturata a un soggetto senza contratto attivo: da riprendere', () => {
-    const old = party(3, 'Alfa Srl');
-    const g = grant(7, [party(4, 'Beta Spa')]);
-    expect(costInfo(utility([[g]], transferred(old))).status).toBe(CostStatus.TO_RECOVER);
-    expect(costInfo(utility([], transferred(old))).status).toBe(CostStatus.TO_RECOVER);
-  });
-
-  it('flag voltura 1/0 da MySQL', () => {
-    expect(
-      costInfo(utility([[grant(7, [party(3, 'A')], { utilities_to_be_taken_over: 1 })]])).status,
-    ).toBe(CostStatus.TO_TRANSFER);
-    expect(
-      costInfo(utility([[grant(7, [party(3, 'A')], { utilities_to_be_taken_over: 0 })]])).status,
-    ).toBe(CostStatus.COMUNE);
-  });
-
-  it.each([
-    ['restituito', { status: ContractStatus.RETURNED }],
-    ['cessato', { status: ContractStatus.TERMINATED }],
-    ['in contenzioso', { status: ContractStatus.DISPUTED }],
-    ['passivo', { direction: ContractDirection.PASSIVE }],
-    ['cancellato', { deleted: true }],
-    ['cancellato (1 da MySQL)', { deleted: 1 }],
-  ])('contratto %s non conta', (_label, extra) => {
-    const p = party(3, 'Alfa Srl');
-    expect(costInfo(utility([[grant(7, [p], extra)]])).status).toBe(CostStatus.COMUNE);
-    expect(costInfo(utility([[grant(7, [p], extra)]], transferred(p))).status).toBe(
-      CostStatus.TO_RECOVER,
-    );
-  });
-
-  it('contratto con voltura senza parti (o con parti cancellate): Comune', () => {
-    expect(costInfo(utility([[grant(7, [])]])).status).toBe(CostStatus.COMUNE);
-    expect(costInfo(utility([[grant(7, [party(3, 'A', { deleted: true })])]])).status).toBe(
-      CostStatus.COMUNE,
-    );
-  });
-
-  it('volturata a una parte cancellata dal contratto: da riprendere', () => {
-    const p = party(3, 'Alfa Srl');
-    const g = grant(7, [{ ...p, deleted: true }]);
-    expect(costInfo(utility([[g]], transferred(p))).status).toBe(CostStatus.TO_RECOVER);
-  });
-
-  it('due contratti: entrambe le parti; stesso contratto su due immobili: una volta', () => {
-    const g = grant(7, [party(3, 'Alfa Srl')]);
-    expect(
-      costInfo(utility([[g, grant(8, [party(4, 'Beta Spa')])]])).parties.map(
-        (p) => p.third_party_id,
-      ),
-    ).toEqual([3, 4]);
-    expect(costInfo(utility([[g], [g]])).parties).toHaveLength(1);
-  });
-
-  it('persona fisica: cognome nome', () => {
-    const p = {
-      id: 5,
-      type: ThirdPartyType.NATURAL,
-      last_name: 'Rossi',
-      first_name: 'Mario',
-      deleted: false,
-    };
-    expect(costInfo(utility([[grant(7, [p])]])).parties[0].name).toBe('Rossi Mario');
-  });
-
-  it('solo impianti o dati mancanti: Comune', () => {
-    expect(costInfo({ assets: [] }).status).toBe(CostStatus.COMUNE);
-    expect(costInfo({}).status).toBe(CostStatus.COMUNE);
-    expect(costInfo({ assets: [{}] } as never).status).toBe(CostStatus.COMUNE);
-  });
-
-  it('transferredTo non caricato: nome vuoto ma id presente', () => {
-    const info = costInfo({ assets: [], transferred_to_third_party_id: 9 });
-    expect(info.transferred_to).toEqual({ id: 9, name: '' });
-  });
-});
-
-describe('costStatusSql', () => {
-  const ACTIVE = "g.deleted = 0 AND g.status = 'ACTIVE' AND g.direction = 'ACTIVE'";
-
-  it.each([
-    [CostStatus.COMUNE, 'IS NULL', 'NOT EXISTS', 'g.utilities_to_be_taken_over = 1'],
-    [CostStatus.TO_TRANSFER, 'IS NULL', 'EXISTS', 'g.utilities_to_be_taken_over = 1'],
-    [
-      CostStatus.TRANSFERRED,
-      'IS NOT NULL',
-      'EXISTS',
-      'tp.id = Utility.transferred_to_third_party_id',
-    ],
-    [
-      CostStatus.TO_RECOVER,
-      'IS NOT NULL',
-      'NOT EXISTS',
-      'tp.id = Utility.transferred_to_third_party_id',
-    ],
-  ])('%s', (status, nullCheck, exists, extra) => {
-    const sql = costStatusSql(status);
-    expect(sql).toContain(`Utility.transferred_to_third_party_id ${nullCheck}`);
-    expect(sql).toContain(`${exists} (`);
-    if (exists === 'EXISTS') expect(sql).not.toContain('NOT EXISTS');
-    expect(sql).toContain(ACTIVE);
-    expect(sql).toContain(extra);
-    expect(sql).toContain('sa.deleted = 0');
-    expect(sql).toContain('tp.deleted = 0');
-    expect(sql).toContain('ua.utility_id = Utility.id');
-  });
-
-  it('alias personalizzato (anomalie)', () => {
-    expect(costStatusSql(CostStatus.TO_TRANSFER, 'u')).toContain('ua.utility_id = u.id');
+  it('input minimi: Comune', () => {
+    expect(costInfo({}, TODAY).status).toBe(CostStatus.COMUNE);
+    expect(costInfo({ assets: [{}] } as never, TODAY).grants).toEqual([]);
   });
 });

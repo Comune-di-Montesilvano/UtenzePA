@@ -17,9 +17,13 @@ import { EstimateSource } from '@apis/utility-consumptions/enum/estimate-source.
 import { findMeterConflict } from './meter-number.helper';
 import { AreraCategory, ARERA_NONE, GasUseCategory, isAreraCategoryAllowed } from './arera-category';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
-import { costInfo, costStatusSql } from './cost-status';
+import { CostInput, costInfo, costStatusSql } from './cost-status';
+import { GrantUtilityDecisionValue } from '@apis/utility-supply/enum/supply-event-type.enum';
 import { maintenanceInfo, maintenanceStatusSql } from './maintenance-status';
-import { SupplyReconcileService } from '@apis/utility-supply/supply-reconcile.service';
+import { SupplyReconcileService, romeDay, toEventLike } from '@apis/utility-supply/supply-reconcile.service';
+import { GrantUtilityDecision } from '@apis/utility-supply/entity/grant-utility-decision.entity';
+import { UtilitySupplyEvent } from '@apis/utility-supply/entity/utility-supply-event.entity';
+import { pending as pendingEvents } from '@apis/utility-supply/supply-state';
 import { SupplyEventsService } from '@apis/utility-supply/supply-events.service';
 
 // Colonne scritte solo dalla riconciliazione dello storico (apis/utility-supply):
@@ -209,7 +213,12 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
    * ancora quei campi direttamente da Utility (rimossi dallo schema nel
    * task successivo).
    */
-  private withCurrentContractFields(utility: Utility, current: Contract | undefined): Utility {
+  private withCurrentContractFields(
+    utility: Utility,
+    current: Contract | undefined,
+    costExtras?: Pick<CostInput, 'pending_type'> & { decisions: Map<number, GrantUtilityDecisionValue | null> },
+  ): Utility {
+    const decisions = costExtras?.decisions;
     return {
       ...utility,
       supplier: current?.supplier ?? null,
@@ -224,7 +233,22 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       takeover_termination_date: current?.takeover_termination_date ?? null,
       expiryStatus: this.getExpiryStatus(this.toDate(current?.supply_expiry_date ?? null)),
       utilityType: utility.utilityType ?? null,
-      cost_info: costInfo(utility),
+      cost_info: costInfo(
+        {
+          ...utility,
+          pending_type: costExtras?.pending_type ?? null,
+          // findAll non carica le decisioni (N+1): grants vuoto.
+          assets: decisions
+            ? (utility.assets ?? []).map((a) => ({
+                utilizerGrants: (a.utilizerGrants ?? []).map((g) => ({
+                  ...g,
+                  decision: decisions.get(g.id) ?? null,
+                })),
+              }))
+            : [],
+        },
+        romeDay(new Date()),
+      ),
       maintenance_info: maintenanceInfo(utility),
     } as Utility;
   }
@@ -553,7 +577,25 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     }
 
     const currentContracts = await this.loadCurrentContracts([utility.id]);
-    return this.withCurrentContractFields(utility, currentContracts.get(utility.id));
+    const costExtras = await this.loadCostExtras(utility.id);
+    return this.withCurrentContractFields(utility, currentContracts.get(utility.id), costExtras);
+  }
+
+  // Decisioni sui contratti e tipo dell'evento in sospeso: solo per la scheda.
+  private async loadCostExtras(utilityId: number) {
+    const [rows, events] = await Promise.all([
+      this.repo.manager
+        .getRepository(GrantUtilityDecision)
+        .find({ where: { utility_id_fk: utilityId } }),
+      this.repo.manager
+        .getRepository(UtilitySupplyEvent)
+        .find({ where: { utility_id_fk: utilityId, deleted: false } }),
+    ]);
+    const decisions = new Map<number, GrantUtilityDecisionValue | null>();
+    for (const r of rows) decisions.set(r.utilizer_grant_id_fk, r.decision);
+    const open = pendingEvents(events.map(toEventLike));
+    const pending_type = (open[0]?.type as CostInput['pending_type']) ?? null;
+    return { decisions, pending_type };
   }
 
   // Stima annua inserita a mano: MANUAL con data (valida 12 mesi, poi la

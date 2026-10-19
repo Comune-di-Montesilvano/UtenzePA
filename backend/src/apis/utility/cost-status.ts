@@ -3,15 +3,16 @@ import {
   ContractStatus,
 } from '@apis/utilizer-grant/enum/real-estate-contract.enum';
 import { PartyFields, partyName } from '@apis/third-parties/third-party.name';
+import { grantLabel } from '@apis/utility-supply/grant-label';
+import {
+  GrantUtilityDecisionValue,
+  SupplyEventType,
+} from '@apis/utility-supply/enum/supply-event-type.enum';
 
-// "A carico di" calcolato (roadmap voce 12). Contratto attivo = contratto
-// immobiliare in corso concesso dal Comune su un immobile dell'utenza; con
-// voltura = attivo con "Utenze da volturare". Stato:
-// - non volturata, nessun contratto con voltura → COMUNE
-// - non volturata, contratto con voltura → TO_TRANSFER (paga il Comune finché il terzo non volta)
-// - volturata a una parte di un contratto attivo → TRANSFERRED
-// - volturata a chi non ha più un contratto attivo → TO_RECOVER
-// costStatusSql è la stessa regola in SQL: tenerle allineate.
+// "A carico di": lo stato è salvato in utilities.cost_status e scritto solo
+// da SupplyReconcileService (apis/utility-supply) a partire dallo storico
+// dell'utenza e dalle decisioni sui contratti. Qui solo lettura:
+// costStatusSql filtra sulla colonna, costInfo prepara la vista per la scheda.
 export enum CostStatus {
   COMUNE = 'COMUNE',
   TO_TRANSFER = 'TO_TRANSFER',
@@ -20,121 +21,87 @@ export enum CostStatus {
   TO_DECIDE = 'TO_DECIDE',
 }
 
-export interface CostParty {
-  grant_id: number;
-  third_party_id: number;
-  name: string;
-}
-
 export interface CostInfo {
   status: CostStatus;
-  // Parti dei contratti con voltura (chi deve volturare).
-  parties: CostParty[];
-  // Parti di tutti i contratti attivi: a chi si può volturare.
-  active_parties: CostParty[];
-  transferred_to: { id: number; name: string } | null;
-  transferred_on: string | Date | null;
-  // Cosa prevede il contratto (voltura nel contratto con almeno una parte),
-  // a prescindere dalla scelta sull'utenza.
-  contract_requires: boolean;
+  // Intestatario attuale (voltura in corso di validità).
+  holder: { id: number; name: string } | null;
+  holder_since: string | null;
+  // Cosa è in sospeso e da quanti giorni (giorno di Roma).
+  pending: { type: SupplyEventType | 'DECISION'; since: string; days: number } | null;
+  // Contratti attivi sull'immobile con la decisione per questa utenza.
+  grants: { grant_id: number; name: string; decision: GrantUtilityDecisionValue | null }[];
 }
 
-interface PartyLike extends PartyFields {
-  id: number;
-  deleted?: boolean | number | null;
-}
-
-// MySQL tinyint: flag e deleted possono arrivare come 1/0.
 interface GrantLike {
   id: number;
   deleted?: boolean | number | null;
   status?: ContractStatus | null;
   direction?: ContractDirection | null;
-  utilities_to_be_taken_over?: boolean | number | null;
-  parties?: PartyLike[] | null;
+  subject?: string | null;
+  concession_act?: string | null;
+  decision?: GrantUtilityDecisionValue | null;
 }
 
 export interface CostInput {
-  assets?: { utilizerGrants?: GrantLike[] | null }[] | null;
+  cost_status?: CostStatus | null;
+  pending_since?: string | Date | null;
   transferred_to_third_party_id?: number | null;
-  transferredTo?: PartyLike | null;
+  transferredTo?: PartyFields | null;
   transferred_on?: string | Date | null;
+  // Tipo dell'evento in sospeso, se noto (altrimenti si ricava dallo stato).
+  pending_type?: SupplyEventType | null;
+  // Opzionale: findAll non li carica (evita N+1).
+  assets?: { utilizerGrants?: GrantLike[] | null }[] | null;
 }
 
 const isActive = (g: GrantLike) =>
   !g.deleted && g.status === ContractStatus.ACTIVE && g.direction === ContractDirection.ACTIVE;
 
-export function costInfo(utility: CostInput): CostInfo {
-  const grants = (utility.assets ?? []).flatMap((a) => a?.utilizerGrants ?? []).filter(isActive);
-  const partiesOf = (list: GrantLike[]): CostParty[] => {
-    const result: CostParty[] = [];
-    const seen = new Set<string>();
-    for (const grant of list) {
-      for (const p of grant.parties ?? []) {
-        const key = `${grant.id}:${p.id}`;
-        if (p.deleted || seen.has(key)) continue;
-        seen.add(key);
-        result.push({ grant_id: grant.id, third_party_id: p.id, name: partyName(p) });
-      }
-    }
-    return result;
-  };
-  const contractParties = partiesOf(grants.filter((g) => !!g.utilities_to_be_taken_over));
-  const activeParties = partiesOf(grants);
-  const parties = contractParties;
-  const required = contractParties.length > 0;
+const day10 = (value: string | Date | null | undefined): string | null => {
+  if (!value) return null;
+  return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+};
 
+const daysBetween = (from: string, to: string): number =>
+  Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+
+const PENDING_TYPE_BY_STATUS: Partial<Record<CostStatus, SupplyEventType | 'DECISION'>> = {
+  [CostStatus.TO_DECIDE]: 'DECISION',
+  [CostStatus.TO_TRANSFER]: SupplyEventType.TRANSFER,
+  [CostStatus.TO_RECOVER]: SupplyEventType.RETURN,
+};
+
+export function costInfo(utility: CostInput, today: string): CostInfo {
+  const status = utility.cost_status ?? CostStatus.COMUNE;
   const toId = utility.transferred_to_third_party_id ?? null;
-  const transferredOn = utility.transferred_on ?? null;
-  if (toId === null) {
-    return {
-      status: required ? CostStatus.TO_TRANSFER : CostStatus.COMUNE,
-      parties,
-      active_parties: activeParties,
-      transferred_to: null,
-      transferred_on: transferredOn,
-      contract_requires: contractParties.length > 0,
-    };
+
+  const grants: CostInfo['grants'] = [];
+  const seen = new Set<number>();
+  for (const asset of utility.assets ?? []) {
+    for (const g of asset?.utilizerGrants ?? []) {
+      if (!isActive(g) || seen.has(g.id)) continue;
+      seen.add(g.id);
+      grants.push({ grant_id: g.id, name: grantLabel(g), decision: g.decision ?? null });
+    }
   }
-  const hasTitle = activeParties.some((p) => p.third_party_id === toId);
+
+  const since = day10(utility.pending_since);
+  const type = utility.pending_type ?? PENDING_TYPE_BY_STATUS[status] ?? null;
+  const pending =
+    since && type ? { type, since, days: Math.max(0, daysBetween(since, today)) } : null;
+
   return {
-    status: hasTitle ? CostStatus.TRANSFERRED : CostStatus.TO_RECOVER,
-    parties,
-    active_parties: activeParties,
-    transferred_to: {
-      id: toId,
-      name: utility.transferredTo ? partyName(utility.transferredTo) : '',
-    },
-    transferred_on: transferredOn,
-    contract_requires: contractParties.length > 0,
+    status,
+    holder:
+      toId === null
+        ? null
+        : { id: toId, name: utility.transferredTo ? partyName(utility.transferredTo) : '' },
+    holder_since: toId === null ? null : day10(utility.transferred_on),
+    pending,
+    grants,
   };
 }
 
-// Contratti attivi su immobili (non cancellati) dell'utenza, con parti non cancellate.
-const activeGrantParties = (alias: string, extra: string) =>
-  `SELECT 1 FROM utility_assets ua
-     JOIN assets sa ON sa.id = ua.asset_id AND sa.deleted = 0
-     JOIN utilizer_grant_assets uga ON uga.asset_id = ua.asset_id
-     JOIN utilizer_grant g ON g.id = uga.utilizer_grant_id
-       AND g.deleted = 0 AND g.status = 'ACTIVE' AND g.direction = 'ACTIVE'
-     JOIN utilizer_grant_parties gp ON gp.utilizer_grant_id = g.id
-     JOIN third_parties tp ON tp.id = gp.third_party_id AND tp.deleted = 0
-   WHERE ua.utility_id = ${alias}.id AND ${extra}`;
-
 export function costStatusSql(status: CostStatus, alias = 'Utility'): string {
-  const transferredTo = `${alias}.transferred_to_third_party_id`;
-  const withTransfer = activeGrantParties(alias, 'g.utilities_to_be_taken_over = 1');
-  const withTitle = activeGrantParties(alias, `tp.id = ${transferredTo}`);
-  switch (status) {
-    case CostStatus.COMUNE:
-      return `(${transferredTo} IS NULL AND NOT EXISTS (${withTransfer}))`;
-    case CostStatus.TO_TRANSFER:
-      return `(${transferredTo} IS NULL AND EXISTS (${withTransfer}))`;
-    case CostStatus.TRANSFERRED:
-      return `(${transferredTo} IS NOT NULL AND EXISTS (${withTitle}))`;
-    case CostStatus.TO_RECOVER:
-      return `(${transferredTo} IS NOT NULL AND NOT EXISTS (${withTitle}))`;
-    case CostStatus.TO_DECIDE:
-      return '(1 = 0)'; // provvisorio: il Task 6 riscrive costStatusSql sullo storico
-  }
+  return `${alias}.cost_status = '${status}'`;
 }

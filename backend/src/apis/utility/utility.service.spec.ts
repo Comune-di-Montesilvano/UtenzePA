@@ -358,32 +358,38 @@ describe('UtilitiesService', () => {
       );
     });
 
-    it('aggiunge cost_info e carica il soggetto della voltura', async () => {
+    it('aggiunge cost_info dalla colonna salvata, senza contratti, e carica il soggetto della voltura', async () => {
       qb.getMany.mockResolvedValue([
         {
           id: 1,
-          assets: [
-            {
-              utilizerGrants: [
-                {
-                  id: 7,
-                  deleted: false,
-                  status: 'ACTIVE',
-                  direction: 'ACTIVE',
-                  utilities_to_be_taken_over: true,
-                  parties: [{ id: 3, type: 'LEGAL', company_name: 'Alfa Srl', deleted: false }],
-                },
-              ],
-            },
-          ],
+          cost_status: 'TO_TRANSFER',
+          pending_since: '2020-01-01',
+          assets: [{ utilizerGrants: [{ id: 7, deleted: false, status: 'ACTIVE', direction: 'ACTIVE' }] }],
         },
-        { id: 2, assets: [] },
+        {
+          id: 2,
+          cost_status: 'TRANSFERRED',
+          transferred_to_third_party_id: 3,
+          transferredTo: { id: 3, type: 'LEGAL', company_name: 'Alfa Srl' },
+          transferred_on: '2026-05-01',
+          assets: [],
+        },
       ]);
 
-      const result = (await service.findAll({} as never)) as unknown as { cost_info: { status: string } }[];
+      const result = (await service.findAll({} as never)) as unknown as {
+        cost_info: {
+          status: string;
+          grants: unknown[];
+          pending: { type: string } | null;
+          holder: { name: string } | null;
+        };
+      }[];
 
       expect(result[0].cost_info.status).toBe('TO_TRANSFER');
-      expect(result[1].cost_info.status).toBe('COMUNE');
+      expect(result[0].cost_info.grants).toEqual([]);
+      expect(result[0].cost_info.pending?.type).toBe('TRANSFER');
+      expect(result[1].cost_info.status).toBe('TRANSFERRED');
+      expect(result[1].cost_info.holder?.name).toBe('Alfa Srl');
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('Utility.transferredTo', 'transferredTo');
     });
 
@@ -555,6 +561,56 @@ describe('UtilitiesService', () => {
       expect((result as unknown as { expiryStatus: ExpiryStatus }).expiryStatus).toBe(
         ExpiryStatus.EXPIRING30,
       );
+    });
+
+    it('cost_info con contratti e decisioni e tipo dell evento in sospeso', async () => {
+      qb.getOne.mockResolvedValue({
+        id: 1,
+        cost_status: 'TO_TRANSFER',
+        pending_since: '2020-01-01',
+        assets: [
+          {
+            utilizerGrants: [
+              { id: 7, deleted: false, status: 'ACTIVE', direction: 'ACTIVE', subject: 'Locazione' },
+            ],
+          },
+        ],
+      });
+      const decisionRepo = {
+        find: jest.fn().mockResolvedValue([{ utilizer_grant_id_fk: 7, decision: 'FOLLOWS' }]),
+      };
+      const eventRepo = {
+        find: jest.fn().mockResolvedValue([
+          {
+            id: 1,
+            type: 'TRANSFER',
+            third_party_id_fk: 3,
+            requested_on: '2020-01-01',
+            effective_on: null,
+            date_unknown: false,
+            cancelled_on: null,
+            deleted: false,
+            utilizer_grant_id_fk: 7,
+            create_date: new Date('2020-01-01T00:00:00Z'),
+          },
+        ]),
+      };
+      repo.manager.getRepository.mockImplementation((entity: { name: string }) =>
+        entity.name === 'GrantUtilityDecision'
+          ? decisionRepo
+          : entity.name === 'UtilitySupplyEvent'
+            ? eventRepo
+            : contractRepo,
+      );
+
+      const result = (await service.findOne(1)) as unknown as {
+        cost_info: { grants: unknown[]; pending: { type: string } };
+      };
+
+      expect(result.cost_info.grants).toEqual([
+        { grant_id: 7, name: 'Locazione', decision: 'FOLLOWS' },
+      ]);
+      expect(result.cost_info.pending.type).toBe('TRANSFER');
     });
 
     it('restituisce null se non trovata (e non interroga il contratto corrente)', async () => {

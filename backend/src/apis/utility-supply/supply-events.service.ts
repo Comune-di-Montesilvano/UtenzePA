@@ -7,6 +7,7 @@ import { partyName } from '@apis/third-parties/third-party.name';
 import { UtilitySupplyEvent } from './entity/utility-supply-event.entity';
 import { SupplyEventType } from './enum/supply-event-type.enum';
 import { sequenceWarnings, validateEvent } from './supply-state';
+import { grantLabel } from './grant-label';
 import { SupplyReconcileService, dbDay, romeDay, toEventLike } from './supply-reconcile.service';
 import { CreateSupplyEventDto } from './dto/create-supply-event.dto';
 import { UpdateSupplyEventDto } from './dto/update-supply-event.dto';
@@ -89,7 +90,7 @@ export class SupplyEventsService extends BaseService<
         ...rest,
         // Solo il nome: niente codice fiscale a chi legge.
         third_party_name: thirdParty ? partyName(thirdParty) || null : null,
-        grant_label: grant ? (grant.subject ?? grant.concession_act ?? `#${grant.id}`) : null,
+        grant_label: grant ? grantLabel(grant) : null,
       } as SupplyEventView;
     });
     return { events, warnings: sequenceWarnings(rows.map(toEventLike)) };
