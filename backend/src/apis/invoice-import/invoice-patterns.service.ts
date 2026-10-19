@@ -51,6 +51,7 @@ export interface PatternEditor {
   message: {
     id: number;
     supplier_id: number;
+    supplier: string;
     supplier_vat: string | null;
     file_name: string;
     document_number: string | null;
@@ -88,6 +89,8 @@ const LIST_SQL =
   "AND m.structure_key = p.structure_key AND m.kind = 'INVOICE') AS sample_message_id " +
   'FROM invoice_patterns p JOIN third_parties tp ON tp.id = p.supplier_id_fk ' +
   'WHERE p.deleted = 0 ORDER BY p.ignored, supplier, p.name';
+
+const SUPPLIER_SQL = `SELECT ${SUPPLIER_NAME} AS supplier FROM third_parties tp WHERE tp.id = ?`;
 
 const SIMILAR_SQL =
   "SELECT id FROM sdi_messages WHERE kind = 'INVOICE' AND supplier_id_fk = ? AND structure_key = ? " +
@@ -212,6 +215,7 @@ export class InvoicePatternsService {
     const ranked = Object.fromEntries(
       [...HEADER_TARGETS, ...LINE_TARGETS].map((t) => [t, rankFor(t, catalog).map((f) => f.key)]),
     ) as Record<TargetField, string[]>;
+    const [supplier] = await this.dataSource.query(SUPPLIER_SQL, [row.supplier_id_fk]);
     const similar: { id: number }[] = row.structure_key
       ? await this.dataSource.query(SIMILAR_SQL, [row.supplier_id_fk, row.structure_key])
       : [];
@@ -219,6 +223,7 @@ export class InvoicePatternsService {
       message: {
         id: row.id,
         supplier_id: row.supplier_id_fk!,
+        supplier: supplier?.supplier ?? '',
         supplier_vat: row.supplier_vat,
         file_name: row.file_name,
         document_number: row.document_number,

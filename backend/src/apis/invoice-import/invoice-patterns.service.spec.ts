@@ -195,6 +195,17 @@ describe('InvoicePatternsService', () => {
     expect(importer.reprocess).toHaveBeenCalledWith([9, 20]);
   });
 
+  it('editor: XML, catalogo ordinato, simili e nome del fornitore', async () => {
+    query.mockImplementation(async (sql: string) =>
+      sql.includes('FROM third_parties') ? [{ supplier: 'Energia Prova S.p.A.' }] : [{ id: 12 }, { id: 9 }],
+    );
+    const editor = await service.editor(9);
+    expect(editor.message).toEqual(expect.objectContaining({ id: 9, supplier_id: 46, supplier: 'Energia Prova S.p.A.' }));
+    expect(editor.similar).toEqual([12, 9]);
+    expect(editor.ranked.utility[0]).toContain('AltriDatiGestionali/TipoDato=POD');
+    expect(editor.xml).toContain('<Numero>EP 7/26</Numero>');
+  });
+
   it('regole non valide: 400', async () => {
     await expect(
       service.create(
