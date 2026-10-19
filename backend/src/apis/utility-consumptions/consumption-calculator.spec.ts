@@ -164,6 +164,33 @@ describe('consumption-calculator', () => {
       ]);
     });
 
+    it('giorni fuori dai periodi attivi: non sono buchi', () => {
+      const daily = buildDailyConsumption([
+        period(1, '2025-07-01', '2025-12-31', 184),
+        period(2, '2026-03-01', '2026-08-31', 184),
+      ]);
+      // Cessata il 2026-01-15, riattivata il 2026-02-10: restano i buchi
+      // 2026-01-01..2026-01-15 e 2026-02-10..2026-02-28.
+      expect(
+        dataGaps(daily, TODAY, [
+          { start: null, end: '2026-01-15' },
+          { start: '2026-02-10', end: null },
+        ]),
+      ).toEqual([
+        { start: '2026-01-01', end: '2026-01-15' },
+        { start: '2026-02-10', end: '2026-02-28' },
+      ]);
+      // Cessazione tra i due periodi attivi: nessun buco.
+      expect(
+        dataGaps(daily, TODAY, [
+          { start: null, end: '2025-12-31' },
+          { start: '2026-03-01', end: null },
+        ]),
+      ).toEqual([]);
+      // Senza periodi: comportamento invariato.
+      expect(dataGaps(daily, TODAY)).toEqual([{ start: '2026-01-01', end: '2026-02-28' }]);
+    });
+
     it('nessun dato o dati continui: nessun buco', () => {
       expect(dataGaps(buildDailyConsumption([]), TODAY)).toEqual([]);
       expect(dataGaps(buildDailyConsumption([period(1, '2026-01-01', '2026-08-31', 10)]), TODAY)).toEqual([]);

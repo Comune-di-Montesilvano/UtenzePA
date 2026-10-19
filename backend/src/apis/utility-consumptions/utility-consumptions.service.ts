@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { UtilitySupplyEvent } from '@apis/utility-supply/entity/utility-supply-event.entity';
+import { toEventLike } from '@apis/utility-supply/supply-reconcile.service';
+import { activeIntervals } from '@apis/utility-supply/supply-state';
 import { BaseService } from '@apis/shared/base.service';
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
@@ -75,6 +78,8 @@ export class UtilityConsumptionsService extends BaseService<
     @InjectRepository(Utility)
     private readonly utilityRepo: Repository<Utility>,
     private readonly recalc: ConsumptionRecalcService,
+    @InjectRepository(UtilitySupplyEvent)
+    private readonly eventRepo: Repository<UtilitySupplyEvent>,
   ) {
     super();
   }
@@ -106,6 +111,11 @@ export class UtilityConsumptionsService extends BaseService<
       : null;
     const daily = buildDailyConsumption(records);
     const today = todayDay();
+    // Periodi di attività dallo storico: i giorni da cessata non sono buchi.
+    const events = await this.eventRepo.find({
+      where: { utility_id_fk: utilityId, deleted: false },
+    });
+    const intervals = activeIntervals(events.map(toEventLike));
     // Effettivo dallo storico, non dal valore persistito: stesso calcolo del
     // ricalcolo, coerente con finestra e buchi anche prima del ricalcolo notturno.
     const actual = computeActual(daily, today);
@@ -116,7 +126,7 @@ export class UtilityConsumptionsService extends BaseService<
       coverage_days: actual.coverageDays,
       window_start: actual.windowStart,
       window_end: actual.windowEnd,
-      gaps: dataGaps(daily, today),
+      gaps: dataGaps(daily, today, intervals),
       estimated_annual_consumption: Number(utility.estimated_annual_consumption ?? 0),
       estimated_source: utility.estimated_consumption_source,
       estimated_set_at: setAt ? setAt.toISOString() : null,

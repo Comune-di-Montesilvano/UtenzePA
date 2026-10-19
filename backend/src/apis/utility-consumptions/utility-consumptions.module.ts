@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CronJob } from 'cron';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { Utility } from '@apis/utility/entity/utility.entity';
+import { UtilitySupplyEvent } from '@apis/utility-supply/entity/utility-supply-event.entity';
 import { UtilityConsumption } from './entity/utility-consumption.entity';
 import { UtilityConsumptionsService } from './utility-consumptions.service';
 import { UtilityConsumptionsController } from './utility-consumptions.controller';
@@ -13,7 +14,7 @@ import { ConsumptionRecalcService } from './consumption-recalc.service';
 // backup.module.ts. Ricalcolo notturno: la finestra 12 mesi scorre e le
 // stime manuali scadono anche senza nuove rilevazioni.
 @Module({
-  imports: [TypeOrmModule.forFeature([UtilityConsumption, Utility])],
+  imports: [TypeOrmModule.forFeature([UtilityConsumption, Utility, UtilitySupplyEvent])],
   providers: [UtilityConsumptionsService, ConsumptionRecalcService],
   controllers: [UtilityConsumptionsController],
   exports: [ConsumptionRecalcService],
