@@ -38,10 +38,16 @@ export class InvoiceImportIssue {
   create_date: Date;
 
   @ManyToOne(() => SdiMessage, { onDelete: 'CASCADE', nullable: false })
-  @JoinColumn({ name: 'sdi_message_id_fk', foreignKeyConstraintName: 'FK_invoice_import_issues_message' })
+  @JoinColumn({
+    name: 'sdi_message_id_fk',
+    foreignKeyConstraintName: 'FK_invoice_import_issues_message',
+  })
   message: SdiMessage;
 
   @ManyToOne(() => Invoice, { onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'invoice_id_fk', foreignKeyConstraintName: 'FK_invoice_import_issues_invoice' })
+  @JoinColumn({
+    name: 'invoice_id_fk',
+    foreignKeyConstraintName: 'FK_invoice_import_issues_invoice',
+  })
   invoice: Invoice | null;
 }

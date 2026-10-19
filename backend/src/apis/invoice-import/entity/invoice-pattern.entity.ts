@@ -59,10 +59,16 @@ export class InvoicePattern {
   supplier: ThirdParty;
 
   @ManyToOne(() => SystemUser)
-  @JoinColumn({ name: 'created_by_user_id', foreignKeyConstraintName: 'FK_invoice_patterns_created_by' })
+  @JoinColumn({
+    name: 'created_by_user_id',
+    foreignKeyConstraintName: 'FK_invoice_patterns_created_by',
+  })
   created_by: SystemUser;
 
   @ManyToOne(() => SystemUser)
-  @JoinColumn({ name: 'updated_by_user_id', foreignKeyConstraintName: 'FK_invoice_patterns_updated_by' })
+  @JoinColumn({
+    name: 'updated_by_user_id',
+    foreignKeyConstraintName: 'FK_invoice_patterns_updated_by',
+  })
   updated_by: SystemUser;
 }
