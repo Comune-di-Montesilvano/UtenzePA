@@ -24,6 +24,7 @@ interface EventRow {
   utility: number;
   type: 'ACTIVATION' | 'CESSATION' | 'TRANSFER';
   thirdParty: number | null;
+  requestedOn: string | null;
   effectiveOn: string | null;
   dateUnknown: boolean;
   notes: string | null;
@@ -47,7 +48,11 @@ const fmt = (iso: string) => iso.split('-').reverse().join('/');
 
 // supply_active e' la verita': lo stato derivato dagli eventi deve coincidere.
 // Le date incoerenti non bloccano la migration, finiscono nelle note.
-function convert(u: UtilityRow): EventRow[] {
+// Le righe «data non nota» valgono prima di ogni data: un'utenza cessata
+// senza una data di cessazione usabile ha anche l'attivazione a data non nota
+// (la data originale va nella nota), altrimenti risulterebbe attiva.
+// Date future (non ancora avvenute): riga in sospeso con la data come richiesta.
+function convert(u: UtilityRow, today: string): EventRow[] {
   const author = u.created_by_user_id;
   const ev = (
     type: EventRow['type'],
@@ -58,14 +63,27 @@ function convert(u: UtilityRow): EventRow[] {
     utility: u.id,
     type,
     thirdParty,
+    requestedOn: null,
     effectiveOn,
     dateUnknown: !effectiveOn,
     notes,
     author,
   });
+  const future = (type: EventRow['type'], day: string): EventRow => ({
+    utility: u.id,
+    type,
+    thirdParty: null,
+    requestedOn: day,
+    effectiveOn: null,
+    dateUnknown: false,
+    notes: `Data futura da verificare: ${fmt(day)}`,
+    author,
+  });
   const active = !!Number(u.supply_active ?? 0);
-  const a = u.activated_on;
-  const c = u.ceased_on;
+  const futureA = u.activated_on && u.activated_on > today ? u.activated_on : null;
+  const futureC = u.ceased_on && u.ceased_on > today ? u.ceased_on : null;
+  const a = futureA ? null : u.activated_on;
+  const c = futureC ? null : u.ceased_on;
   const events: EventRow[] = [];
   if (a && c && c < a) {
     if (active) {
@@ -73,7 +91,7 @@ function convert(u: UtilityRow): EventRow[] {
       events.push(ev('ACTIVATION', null), ev('CESSATION', c), ev('ACTIVATION', a));
     } else {
       events.push(
-        ev('ACTIVATION', a),
+        ev('ACTIVATION', null, `Attivazione indicata il ${fmt(a)}: da verificare`),
         ev(
           'CESSATION',
           null,
@@ -89,9 +107,21 @@ function convert(u: UtilityRow): EventRow[] {
         c ? `Cessazione indicata il ${fmt(c)} ma fornitura attiva: da verificare` : null,
       ),
     );
-  } else {
+  } else if (c) {
     events.push(ev('ACTIVATION', a), ev('CESSATION', c));
+  } else {
+    // Cessata senza data di cessazione: attivazione e cessazione a data non nota.
+    events.push(
+      ev(
+        'ACTIVATION',
+        null,
+        a ? `Attivazione indicata il ${fmt(a)}, cessazione senza data: da verificare` : null,
+      ),
+      ev('CESSATION', null),
+    );
   }
+  if (futureA) events.push(future('ACTIVATION', futureA));
+  if (futureC) events.push(future('CESSATION', futureC));
   if (u.transferred_to_third_party_id !== null && u.transferred_to_third_party_id !== undefined) {
     events.push(ev('TRANSFER', u.transferred_on, null, u.transferred_to_third_party_id));
   }
@@ -120,6 +150,7 @@ export class UtilitySupplyHistory1794700000000 implements MigrationInterface {
       );
     }
 
+    const today = todayIso();
     const grantRows: GrantRow[] = await q.query(
       "-- contratti attivi\nSELECT g.id AS grant_id, ua.utility_id AS utility_id, g.utilities_to_be_taken_over, " +
         "DATE_FORMAT(g.end_date, '%Y-%m-%d') AS end_date, g.tacit_renewal, g.renewal_months, g.notice_months, g.status " +
@@ -131,7 +162,6 @@ export class UtilitySupplyHistory1794700000000 implements MigrationInterface {
         "WHERE g.deleted = 0 AND g.direction = 'ACTIVE' AND g.status = 'ACTIVE' " +
         'ORDER BY g.id, ua.utility_id',
     );
-    const today = todayIso();
     const decisions = new Map<string, [number, number, string | null]>();
     for (const r of grantRows) {
       const end = effectiveEndDate(
@@ -203,17 +233,18 @@ export class UtilitySupplyHistory1794700000000 implements MigrationInterface {
       "ALTER TABLE `utilities` ADD `cost_status` varchar(20) NOT NULL DEFAULT 'COMUNE', ADD `pending_since` date NULL",
     );
 
-    const events = utilities.flatMap(convert);
+    const events = utilities.flatMap((u) => convert(u, today));
     for (let i = 0; i < events.length; i += CHUNK) {
       const chunk = events.slice(i, i + CHUNK);
       await q.query(
         'INSERT INTO `utility_supply_events` ' +
-          '(`utility_id_fk`, `type`, `third_party_id_fk`, `effective_on`, `date_unknown`, `notes`, `created_by_user_id`, `updated_by_user_id`) VALUES ' +
-          chunk.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(', '),
+          '(`utility_id_fk`, `type`, `third_party_id_fk`, `requested_on`, `effective_on`, `date_unknown`, `notes`, `created_by_user_id`, `updated_by_user_id`) VALUES ' +
+          chunk.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', '),
         chunk.flatMap((e) => [
           e.utility,
           e.type,
           e.thirdParty,
+          e.requestedOn,
           e.effectiveOn,
           e.dateUnknown ? 1 : 0,
           e.notes,
@@ -244,6 +275,27 @@ export class UtilitySupplyHistory1794700000000 implements MigrationInterface {
       "UPDATE `utilities` SET `cost_status` = 'TO_DECIDE' WHERE `id` IN " +
         '(SELECT `utility_id_fk` FROM `utilizer_grant_utility_decisions` WHERE `decision` IS NULL)',
     );
+
+    // Controllo finale, mai bloccante (le DDL sono già confermate): lo stato
+    // ricavato dalle righe inserite (ultima attivazione/cessazione effettiva,
+    // «data non nota» prima di ogni data, a parità id) deve coincidere con
+    // supply_active. Le differenze si registrano con gli id, da verificare a mano.
+    const mismatched: { id: number }[] = await q.query(
+      '-- controllo stato\nSELECT u.id FROM `utilities` u LEFT JOIN (' +
+        'SELECT e.utility_id_fk, e.type, ROW_NUMBER() OVER (PARTITION BY e.utility_id_fk ' +
+        'ORDER BY e.date_unknown ASC, e.effective_on DESC, e.id DESC) AS rn ' +
+        'FROM `utility_supply_events` e WHERE e.deleted = 0 AND e.cancelled_on IS NULL ' +
+        "AND e.type IN ('ACTIVATION', 'CESSATION') AND (e.date_unknown = 1 OR e.effective_on <= ?)" +
+        ') last_event ON last_event.utility_id_fk = u.id AND last_event.rn = 1 ' +
+        "WHERE (IFNULL(u.supply_active, 0) = 1) <> (IFNULL(last_event.type, '') = 'ACTIVATION') " +
+        'ORDER BY u.id',
+      [today],
+    );
+    if (mismatched.length) {
+      console.warn(
+        `[UtilitySupplyHistory] Stato di fornitura ricavato dallo storico diverso da supply_active per le utenze (id): ${mismatched.map((r) => r.id).join(', ')}. Da verificare nel tab Storico.`,
+      );
+    }
   }
 
   // transfer_required non si tocca qui: i dati originali (supply_active,
