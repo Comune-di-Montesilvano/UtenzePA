@@ -53,7 +53,32 @@ export function unclassifiedStatus(natureId: number | null | undefined, function
   };
 }
 
-export function utilityStatus(active: boolean | null | undefined): StatusInfo {
+// Utenza volturata a un terzo (decisione utente 2026-10-19): né attiva né
+// cessata per il Comune, stato fisico non noto. Gemelli di isTransferred /
+// isInCharge del backend (cost-status.ts): intestatario di oggi dallo storico.
+export interface UtilitySupplyLike {
+  supply_active?: boolean | null;
+  transferred_to_third_party_id?: number | null;
+}
+
+export function isTransferredUtility(u: UtilitySupplyLike | null | undefined): boolean {
+  return u?.transferred_to_third_party_id !== null && u?.transferred_to_third_party_id !== undefined;
+}
+
+// In carico al Comune: attiva e intestata al Comune.
+export function isInChargeUtility(u: UtilitySupplyLike | null | undefined): boolean {
+  return u?.supply_active === true && !isTransferredUtility(u);
+}
+
+export const TRANSFERRED_UTILITY_STATUS: StatusInfo = {
+  tone: 'info', label: 'Volturata', icon: 'swap_horiz',
+  tooltip: 'Intestata a un terzo: né attiva né cessata per il Comune',
+};
+
+// Stato dall'utenza (volturata prima di tutto) o dal solo dato di fornitura.
+export function utilityStatus(u: UtilitySupplyLike | boolean | null | undefined): StatusInfo {
+  if (u !== null && typeof u === 'object' && isTransferredUtility(u)) return TRANSFERRED_UTILITY_STATUS;
+  const active = u !== null && typeof u === 'object' ? u.supply_active : u;
   if (active === true) return {tone: 'ok', label: 'Attiva', icon: 'power'};
   if (active === false) return {tone: 'off', label: 'Non attiva', icon: 'power_off'};
   return {tone: 'warn', label: 'Fornitura non indicata', icon: 'help_outline'};

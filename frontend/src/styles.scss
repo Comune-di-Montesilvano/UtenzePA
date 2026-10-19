@@ -367,6 +367,8 @@ html.theme-dark .only-dark { display: revert !important; }
 // decide color-scheme su <html> (material-theme.scss). Nei componenti solo
 // questi token, mai esadecimali (salvo colori "dato": tipo utenza, pin, serie).
 :root {
+  // Pin mappa di un'utenza volturata a un terzo (né attiva né cessata per il Comune).
+  --map-pin-transferred: light-dark(#9ca3af, #71717a);
   --app-bg: light-dark(#ffffff, #121212);
   --app-surface: light-dark(#ffffff, #1c1c1e);
   --app-surface-2: light-dark(#f3f4f6, #26262a);
@@ -517,6 +519,11 @@ html.theme-dark .only-dark { display: revert !important; }
 .map-pin--inactive {
   opacity: 0.45;
   filter: grayscale(1);
+}
+
+// Marker mappa di un'utenza volturata: grigio (colore da --map-pin-transferred).
+.map-pin--transferred {
+  opacity: 0.8;
 }
 
 // Mappa: marker collegati a quello sotto il mouse (ingranditi insieme a lui).

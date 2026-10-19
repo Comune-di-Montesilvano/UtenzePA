@@ -41,7 +41,7 @@ import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-ba
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
 import {PreviewCardComponent, PreviewItem} from '../../core/components/entity-sheet/preview-card.component';
 import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components/entity-sheet/linked-table.component';
-import {assetStatus, costStatus, maintenanceStatus, plantStatus, sortSupplyContracts, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
+import {assetStatus, costStatus, isInChargeUtility, isTransferredUtility, maintenanceStatus, plantStatus, sortSupplyContracts, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
 import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab, SHEET_REFRESH, SheetRefresh, sinceDays} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import {UtilityService} from './utility.service';
@@ -415,12 +415,13 @@ export class UtilityEditDialogComponent implements OnInit {
 
   statusInfo(): StatusInfo {
     // In creazione: dalla sezione «Fornitura» (Già attiva sì/no).
-    return utilityStatus(this.isNew ? this.supplyForm.controls.active.value : this.data.item.supply_active);
+    return utilityStatus(this.isNew ? this.supplyForm.controls.active.value : this.data.item);
   }
 
   flags(): StatusInfo[] {
     const meterRemoved = this.isMetered && this.form.controls.meter_removed.value;
-    const withoutPosition = this.data.item.supply_active === true && this.hasPosition() === false;
+    // Come l'anomalia: solo le utenze in carico al Comune (non le volturate).
+    const withoutPosition = isInChargeUtility(this.data.item) && this.hasPosition() === false;
     return utilityFlags(meterRemoved, withoutPosition);
   }
 
@@ -709,13 +710,21 @@ export class UtilityEditDialogComponent implements OnInit {
   maintenanceInfo = this.data.item.maintenance_info;
   maintenanceStatusInfo = maintenanceStatus(this.data.item.maintenance_info);
 
+  // Volturata: né attiva né cessata per il Comune (decisione utente 2026-10-19).
   private supplyTextOf(): string {
     const item = this.data.item;
+    if (isTransferredUtility(item)) {
+      const name = item.cost_info?.holder?.name;
+      const since = item.cost_info?.holder_since ?? item.transferred_on;
+      return `Volturata${name ? ` a ${name}` : ''}${since ? ` dal ${dateIt(since)}` : ''}`;
+    }
     if (item.supply_active) return 'Attiva';
     return item.ceased_on ? `Cessata il ${dateIt(item.ceased_on)}` : 'Non attiva';
   }
 
-  private holderTextOf(info: CostInfo | undefined): string {
+  // null se volturata: l'intestatario è già nel testo della fornitura.
+  private holderTextOf(info: CostInfo | undefined): string | null {
+    if (isTransferredUtility(this.data.item)) return null;
     if (!info?.holder) return 'Intestata al Comune';
     const since = info.holder_since ? ` dal ${dateIt(info.holder_since)}` : '';
     return `Intestata a ${info.holder.name}${since}`;

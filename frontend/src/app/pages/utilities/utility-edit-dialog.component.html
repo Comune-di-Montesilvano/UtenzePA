@@ -91,7 +91,9 @@
             <div class="span-all" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
               <app-status-badge [info]="costStatusInfo"></app-status-badge>
               <span>{{ supplyText }}</span>
-              <span>· {{ holderText }}</span>
+              @if (holderText) {
+                <span>· {{ holderText }}</span>
+              }
               @if (pendingText) {
                 <span class="sheet-alert tone-warn" style="margin: 0; padding: 2px 8px;">{{ pendingText }}</span>
               }

@@ -671,6 +671,11 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
         : [[26, 26], [13, 13]];
       const borderStyle = (principal ?? group[0]).source === 'gps' ? 'solid' : 'dashed';
       if ((principal ?? group[0]).inactive && (principal || group.every((g) => g.inactive))) pinClass += ' map-pin--inactive';
+      // Utenza volturata: colore proprio grigio (token), non quello del tipo.
+      if ((principal ?? group[0]).transferred && (principal || group.every((g) => g.transferred))) {
+        pinClass += ' map-pin--transferred';
+        color = 'var(--map-pin-transferred)';
+      }
       const icon = L.divIcon({
         className: '',
         html: `<span class="map-marker-wrap${wrapClass}"><span class="map-pin${pinClass}" style="background:${color};border-style:${borderStyle};--pin-color:${color}" title="${this.escapeAttr(pinTitle)}">${iconHtml}</span>${badgeHtml}</span>`,

@@ -403,7 +403,11 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
         this.utilityRows = rows;
         this.buildDecisionViews();
       },
-      error: err => console.error('Errore nel caricamento delle utenze del contratto:', err),
+      error: err => {
+        // Senza toast il tab mostrerebbe «Nessuna utenza…» come se non ce ne fossero.
+        console.error('Errore nel caricamento delle utenze del contratto:', err);
+        this.toast.add({severity: 'error', summary: 'Utenze del contratto non caricate', detail: errorText(err)});
+      },
     });
   }
 

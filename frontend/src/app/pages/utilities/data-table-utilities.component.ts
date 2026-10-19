@@ -23,7 +23,7 @@ import {ExportHelper} from '../../core/helpers/export.helper';
 import {TruncatePipe} from '../../core/pipes/truncate.pipe';
 import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
 import {partyName} from '../../core/helpers/party-name.helper';
-import {costStatus, maintenanceStatus} from '../../core/helpers/entity-status';
+import {costStatus, isTransferredUtility, maintenanceStatus} from '../../core/helpers/entity-status';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
 
 @Component({
@@ -42,6 +42,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
   @Output() changed = new EventEmitter<void>();
   readonly partyName = partyName;
   readonly costStatus = costStatus;
+  readonly isTransferred = isTransferredUtility;
   readonly maintenanceStatus = maintenanceStatus;
   private navigator = inject(EntityNavigatorService);
 
@@ -249,7 +250,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
       case 'supplier':
         return partyName(utility.supplier);
       case 'supply_active':
-        return ExportHelper.boolData(utility.supply_active);
+        return isTransferredUtility(utility) ? 'Volturata' : ExportHelper.boolData(utility.supply_active);
       case 'meter_removed':
         return ExportHelper.boolData(utility.meter_removed);
       case 'water_concession':

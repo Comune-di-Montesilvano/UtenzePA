@@ -101,7 +101,7 @@ export class ComplexEditDialogComponent implements OnInit {
     const t = u.utilityType?.hard_type;
     return t ? {icon: HardTypeMatIcon[t], color: HardTypeColor[t]} : null;
   };
-  readonly utilityStatusOf = (u: Utility): StatusInfo => utilityStatus(u.supply_active);
+  readonly utilityStatusOf = (u: Utility): StatusInfo => utilityStatus(u);
 
   readonly plantColumns: LinkedColumn<Plant>[] = [
     {label: 'Codice', value: p => p.code},
