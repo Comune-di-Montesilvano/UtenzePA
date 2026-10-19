@@ -56,6 +56,13 @@ Eliminare un elemento non lo cancella davvero: sparisce dagli elenchi ma resta r
 
 Se con la fattura il fatturato dell'anno supera l'assestato del capitolo, compare un avviso giallo (vedi «Il fatturato supera l'assestato del capitolo»). L'avviso non blocca il salvataggio.
 
+### Vedere stato SDI, XML e PDF di una fattura
+
+Le fatture elettroniche arrivano dallo SDI sulla casella PEC del Comune. UtenzePA legge la casella ogni 15 minuti e collega da sola ogni fattura già inserita con lo stesso fornitore, numero e data (vedi [Importare le fatture dalla PEC](#importare-le-fatture-dalla-pec-solo-amministratori)).
+
+- Nella scheda di una fattura collegata compare il badge dello stato SDI (vedi [Stati SDI delle fatture](#stati-sdi-delle-fatture)); nell'elenco c'è la colonna **Stato SDI** e il filtro omonimo, con la voce «Senza messaggio SDI» per le fatture non collegate.
+- **Vedi XML** e **Vedi PDF** mostrano a video la fattura elettronica e il PDF allegato dal fornitore. I file non sono salvati in UtenzePA: vengono riletti al momento dalla PEC.
+
 ### Controllare la spesa di un capitolo
 
 1. Apri **Capitoli di spesa** e scegli il capitolo.
@@ -231,6 +238,18 @@ Nel tab **Consumi** della stessa pagina, **Ricalcola consumi** aggiorna subito p
 - Il **ripristino** carica il file (una barra mostra l'avanzamento: non chiudere la pagina), poi sostituisce i dati. Nella conferma puoi scegliere di non toccare utenti e branding attuali. Gli allegati già presenti non vengono sovrascritti.
 - Durante il ripristino l'applicazione è bloccata per tutti: chi la usa vede la pagina «Ripristino dei dati in corso». Al termine bisogna accedere di nuovo; l'esito dell'ultimo ripristino resta scritto nella pagina Backup.
 
+### Importare le fatture dalla PEC (solo amministratori)
+
+In **Impostazioni → Backup e manutenzione**, tab **Import fatture**:
+
+- l'interruttore accende o spegne la lettura automatica della casella PEC (ogni 15 minuti, in sola lettura: nessun messaggio viene segnato, spostato o cancellato);
+- **Esegui ora** fa subito un giro, senza aspettare il prossimo quarto d'ora;
+- sotto trovi l'ultimo giro, l'ultimo giro riuscito, l'eventuale errore e quanti file sono stati letti per esito (collegate, in attesa, fuori perimetro, esiti e notifiche, errori).
+
+Sono considerate solo le fatture dei fornitori in anagrafica con partita IVA e almeno un contratto di fornitura; le altre restano «fuori perimetro». Una fattura di un fornitore in perimetro che non è ancora in UtenzePA resta «in attesa» e compare in dashboard. L'import non crea fatture e non modifica le anagrafiche.
+
+**Spegni il motore prima di esportare o importare il database** e riaccendilo dopo: l'interruttore è salvato nel database, quindi un database importato porta con sé il suo stato.
+
 ## Regole e riferimenti
 
 ### Ruoli
@@ -286,6 +305,17 @@ Nella scheda dell'utenza i contratti di fornitura compaiono con quelli **in cors
 
 **Rinnovo con le stesse utenze:** nella scheda di un contratto, **Nuovo contratto con queste utenze** apre un nuovo contratto con le stesse utenze collegate e con fornitore, tipologia, convenzione CONSIP e «Manutenzione inclusa» già compilati. CIG, ordine e date vanno inseriti. Con **Chiudi il contratto precedente** spuntata (scelta predefinita), il contratto precedente scade il giorno prima della decorrenza del nuovo (se la sua scadenza manca o non è anteriore), così non risultano contratti sovrapposti. Se la decorrenza del nuovo è già arrivata il precedente diventa subito chiuso; se è futura resta il contratto corrente fino ad allora. Prima di usare l'azione salva o annulla le modifiche alla scheda.
 
+### Stati SDI delle fatture
+
+| Stato | Significato | Spesa |
+| --- | --- | --- |
+| Ricevuta | La fattura è arrivata dallo SDI, nessun esito inviato | Conta |
+| Accettata | Il Comune ha inviato l'esito di accettazione | Conta |
+| Rifiutata | Il Comune ha inviato l'esito di rifiuto | **Non conta**: esclusa dalla spesa di utenze, immobili e capitoli |
+| Decorsi i termini | Nessun esito entro 15 giorni: la fattura si considera accettata | Conta |
+
+Se lo SDI scarta un esito inviato dal Comune, la fattura torna allo stato precedente e compare tra le segnalazioni «Esito scartato dallo SDI». Una fattura senza stato non è (ancora) collegata a un messaggio della PEC.
+
 ### Segnalazioni per elenco
 
 | Elenco | Segnalazioni |
@@ -293,13 +323,13 @@ Nella scheda dell'utenza i contratti di fornitura compaiono con quelli **in cors
 | Utenze | Attive senza contratto di fornitura valido · Attive coperte solo da contratti senza CIG · Con contratti di fornitura sovrapposti · Attive senza tipologia ARERA · Da volturare · Da reintestare · Da decidere · Attivazioni in sospeso · Cessazioni in sospeso · Capitolo non impegnato sul contratto di fornitura · Senza capitolo di spesa · Attive senza posizione · Penali per energia reattiva (penale in un periodo terminato negli ultimi 12 mesi) |
 | Immobili | Da classificare (tipologia o funzione mancanti) · Non di proprietà senza contratto passivo attivo · Di proprietà senza catasto · Fabbricati di proprietà senza Id MEF · Subalterno da assegnare (stessi via, civico, foglio e particella) |
 | Impianti | Senza posizione · Senza immobile · Presidi scaduti (almeno un estintore con una scadenza superata) · Verifiche obbligatorie mancanti (vedi [Verifiche obbligatorie per legge](#verifiche-obbligatorie-per-legge)) |
-| Fatture | Fuori dai periodi di attività · Con righe senza utenza |
+| Fatture | Fuori dai periodi di attività · Con righe senza utenza · Esito scartato dallo SDI |
 | Contratti di fornitura | Senza CIG (non esclusi) · CIG duplicati |
 | Contratti immobiliari | Senza immobile · Senza parti |
 | Capitoli di spesa | Oltre l'assestato dell'anno · Senza assestato dell'anno |
 | Soggetti terzi | Senza P.IVA o codice fiscale |
 
-In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni usate da immobili di proprietà a cui manca la tipologia del censimento MEF.
+In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni usate da immobili di proprietà a cui manca la tipologia del censimento MEF. Per l'import dalla PEC compaiono **Import fatture fermo** (nessun giro riuscito da più di 2 ore) e **Fatture PEC in attesa di import** (fatture di fornitori in perimetro non ancora inserite).
 
 ## Problemi frequenti
 
@@ -442,6 +472,30 @@ In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni u
 **Soluzione:** apri l'utenza, tab **Fornitura**, e controlla le date di attivazione, cessazione, voltura e reintestazione; inserisci lo storico mancante (anche con «Avvenuta, data non nota» se non conosci il giorno). Le segnalazioni si ricalcolano dopo il salvataggio.
 
 **Apri un ticket se:** le date dello storico sono giuste e la fattura è corretta ma resta segnalata.
+
+### Una fattura rifiutata non compare nella spesa
+
+**Causa:** il Comune ha inviato allo SDI l'esito di rifiuto: la fattura resta nell'elenco con lo stato «Rifiutata» ma non conta nella spesa di utenze, immobili e capitoli.
+
+**Soluzione:** nessuna, è il comportamento previsto. Se il fornitore emette una nuova fattura, registrala come nuova.
+
+**Apri un ticket se:** la fattura risulta rifiutata ma l'esito inviato era di accettazione.
+
+### «Non più disponibile sulla PEC: cercare la fattura nel protocollo.»
+
+**Causa:** il messaggio con la fattura non è più sulla casella PEC (il gestore cancella i messaggi più vecchi). UtenzePA non conserva copie di XML e PDF.
+
+**Soluzione:** cerca la fattura nel sistema di protocollo.
+
+**Apri un ticket se:** la fattura è recente (pochi mesi) e il messaggio dovrebbe essere ancora sulla PEC.
+
+### Import fatture fermo
+
+**Causa:** da più di 2 ore nessun giro di lettura della PEC è riuscito: casella non raggiungibile, password cambiata o problema di rete del server.
+
+**Soluzione:** un amministratore apre **Backup e manutenzione → Import fatture**, legge l'ultimo errore e prova **Esegui ora**.
+
+**Apri un ticket se:** l'errore resta dopo qualche tentativo o riguarda la connessione o le credenziali.
 
 ## Contatti
 
