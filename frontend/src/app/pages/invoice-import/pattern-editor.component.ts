@@ -43,8 +43,16 @@ interface FieldOption {
 const PREVIEW_DEBOUNCE_MS = 400;
 // La P.IVA identifica il fornitore: non si mappa.
 const EDITABLE_HEADER = HEADER_TARGETS.filter(t => t !== 'supplierVat');
-// Campi letti anche come «numero dopo la parola» (es. «POD IT001E…» in una descrizione).
-const AFTER_WORD_TARGETS: TargetField[] = ['contractRef', 'cig', 'utility', 'consumption', 'meter'];
+// «Numero dopo la parola» restituisce un numero: solo per il consumo (es. «kWh 542» nella descrizione).
+const AFTER_WORD_TARGETS: TargetField[] = ['consumption'];
+
+// Campo del catalogo ricostruito da una regola salvata (chiave = scope|path|condizione).
+function missingField(key: string, rule: Rule & {path: string}): CatalogField {
+  const [scope] = key.split('|') as [CatalogField['scope']];
+  const where = 'where' in rule ? rule.where : undefined;
+  const label = rule.path.split('/').join(' › ') + (where ? ` [${where.path.split('/').pop()}=${where.equals}]` : '');
+  return {key, scope, label, path: rule.path, ...(where ? {where} : {}), sample: null};
+}
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -238,6 +246,18 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
           committente: f.path.includes('CessionarioCommittente'),
           header: f.scope === 'header' && !isHeaderTarget(t),
         }));
+      // Regola su un campo che questa fattura non ha: resta selezionata, non si perde al salvataggio.
+      const chosen = this.choice[t] ?? '';
+      const missing = chosen.startsWith('f:') ? this.fields.get(chosen.slice(2)) : undefined;
+      if (missing && !this.options[t].some(o => o.value === chosen)) {
+        this.options[t].push({
+          value: chosen,
+          label: `${missing.label} (non presente in questa fattura)`,
+          sample: null,
+          committente: false,
+          header: missing.scope === 'header' && !isHeaderTarget(t),
+        });
+      }
     }
   }
 
@@ -251,7 +271,9 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
       if (rule.kind === 'none') this.choice[t] = 'none';
       else if (rule.kind === 'grossAmount') this.choice[t] = 'gross';
       else {
-        this.choice[t] = `f:${ruleFieldKey(t, rule)}`;
+        const key = ruleFieldKey(t, rule)!;
+        this.choice[t] = `f:${key}`;
+        if (!this.fields.has(key)) this.fields.set(key, missingField(key, rule));
         if (rule.kind === 'numberAfter') {
           this.afterWord[t] = true;
           this.words[t] = rule.word;
@@ -259,6 +281,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
       }
     }
     this.consumptionFilter = rules.consumptionLineFilter ?? '';
+    if (this.data) this.buildOptions(this.data);
   }
 
   rules(): PatternRules {

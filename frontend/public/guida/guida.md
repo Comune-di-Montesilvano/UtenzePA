@@ -259,7 +259,8 @@ Ogni fornitore manda le fatture con una sua struttura di XML: il pattern dice da
    - **Non presente**: il fornitore non manda il dato;
    - **Calcolato: imponibile × IVA**: solo per l'importo della riga, quando l'XML ha l'importo senza IVA;
    - campi segnati **(dalla testata)**: lo stesso valore della testata per tutte le righe;
-   - **Numero dopo la parola**: per utenza, consumo, CIG, contratto e matricola scritti dentro una descrizione (es. «POD IT001E…»);
+   - **Numero dopo la parola**: per il consumo scritto dentro una descrizione (es. «kWh 542»);
+   - un campo segnato **(non presente in questa fattura)** viene da un pattern salvato su un'altra fattura della stessa struttura: la regola resta;
    - **Consumo solo dalle righe che contengono**: quando il consumo va preso solo da alcune righe (es. «Energia»).
 3. A destra c'è l'XML della fattura, con il valore del campo su cui sei evidenziato; **Vedi PDF** apre il PDF allegato.
 4. Accanto a ogni campo i bollini dicono come va l'anteprima: verde = letto e riconosciuto (es. utenza trovata in anagrafica, somma delle righe uguale al totale), giallo = da controllare, grigio = non mappato. L'anteprima si aggiorna a ogni modifica e non salva nulla.
