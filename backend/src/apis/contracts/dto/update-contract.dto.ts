@@ -68,4 +68,8 @@ export class UpdateContractDto {
   @IsOptional()
   @IsInt()
   updated_by_user_id?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  deleted?: boolean;
 }

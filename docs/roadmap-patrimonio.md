@@ -1,6 +1,6 @@
 # Roadmap: estensione del perimetro di UtenzePA al patrimonio
 
-Aggiornata: 2026-10-11
+Aggiornata: 2026-10-19
 
 Obiettivo: portare UtenzePA da gestionale delle utenze a gestionale del **patrimonio** comunale (immobili, contratti, impianti, inventario), sfruttando i dati già presenti in `W:\PATRIMONIO`.
 
@@ -21,7 +21,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 1 | Contratti immobiliari (unificazione Concessioni) | fatto, v1.7.0 (dati: registro ripulito e import fonti sul DB locale; registri di `W:\CONTRATTI` importati il 2026-10-11, 339 contratti; tutto da portare in produzione) |
 | 2 | Inventario patrimoniale e catasto | da approfondire |
 | 3 | Impianto unificato | fatto, v1.7.0 (immobili convertiti in impianti e consistenze 2025 importate sul DB locale, da portare in produzione) |
-| 4 | Complessi | da approfondire |
+| 4 | Complessi | fatto, v1.18.0–v1.20.2 (fisici e amministrativi, tipi di compendio MEF, in mappa); condomini come tipo particolare di complesso da definire dall'analisi di `06_CONDOMINI` |
 | 5 | Aree verdi | da approfondire |
 | 6 | Fatture per utenza | fatto, v1.10.0 (fatture ACA 2025–2026 caricate sul DB locale; il 2026-10-16 importate dal registro della contabilità 4.676 fatture luce/gas 2025–2026; tutto da portare in produzione; import FatturaPA in un giro successivo) |
 | 7 | Contratti di servizio e manutenzione | da approfondire (ditte esterne sugli impianti; i gestori manutenzione sono stati sostituiti in v1.9.0) |
@@ -122,7 +122,7 @@ Da approfondire: livello di dettaglio (impianto intero vs componenti, es. singol
 Rifiniture aperte (dalla revisione finale del codice, 2026-10-02, rimandate):
 
 - ~~dialog impianto: cambiando tipo, i campi dei dati tecnici nascosti mantengono la validazione~~ (risolto in v1.7.1: il gruppo del tipo non corrente è disabilitato);
-- `GET /plants/:id` su impianto eliminato risponde `null` → il dialog aperto da `/plants?selectedId=<eliminato>` va in errore (serve 404 o controllo nel frontend);
+- ~~`GET /plants/:id` su impianto eliminato risponde `null` → il dialog aperto da `/plants?selectedId=<eliminato>` va in errore~~ (fatto 2026-10-19: 404, il dialog mostra «Impianto non trovato»);
 - presidi antincendio non rimossi se il tipo cambia via API diretta (la UI blocca il cambio);
 - impianti dismessi contati nel riepilogo verifiche e in "impianti senza posizione";
 - periodicità proposte nel tab Verifiche calcolate solo all'apertura del dialog (non seguono cambio tipo/potenza);
@@ -131,6 +131,8 @@ Rifiniture aperte (dalla revisione finale del codice, 2026-10-02, rimandate):
 - **presidi antincendio spuri dall'import**: in ogni impianto antincendio la nota "(collaudo ogni 6 anni…)" è stata importata come 2 "estintori", più la tabella riassuntiva superfici/piani dell'impianto 354. Criterio: `equipment_type='EXTINGUISHER' AND (agent IS NULL OR agent NOT IN ('polvere','co2')) AND capacity IS NULL` (88 righe). Soft-deleted sul DB locale (2026-10-02).
 
 ## 4. Complessi
+
+**Fatto in v1.18.0–v1.20.2** (2026-10-12): entità `complexes`, fisica (un pin in mappa) o amministrativa (es. istituto comprensivo con i suoi plessi, mai in mappa), tipo di compendio MEF, un immobile in al massimo un complesso (`assets.complex_id`). **Condomini** (decisione utente 2026-10-19): tipo particolare di complesso; quali dati in più servano (quote, spese, amministratore come soggetto terzo…) si decide dall'analisi dei file di `06_CONDOMINI` e dei 36 delle case comunali. Testo originale sotto.
 
 Entità che raggruppa immobili gestiti come un tutt'uno (plesso scolastico, cimitero, stadio, "Edificio con 6 alloggi contrada giardino"). Non è una tipologia (v1.3.0 ha 4 tipologie fisse, l'utente ha escluso "Struttura" e "Altro"). Semi: `assets.associated_building`; abbinamento istituto scolastico → plesso dal report di pulizia delle concessioni (voce 1); compendi MEF 2025 (`Compendi_…`: 5, cioè impianto sportivo di via Senna, alloggi Carabinieri via Agostinone, istituti comprensivi Silone, Rodari e Delfico, con il numero di immobili di ciascuno). Da fare prima di rimettere mano alla mappa (voce 16).
 
@@ -204,8 +206,8 @@ Rifiniture aperte (dalla revisione finale, rimandate):
 
 Gotcha emersi:
 
-- **Ripristino dalla UI non fa nulla in tutta l'app**: `AbstractComponent.onRestore` manda `deleted:false`, ma `AbstractEntity` lo esclude in serializzazione (`@Exclude({toPlainOnly})`) e il PATCH parte vuoto. Preesistente.
-- **`updated_by` esposto con `otp`/`otp_expiry`** di `SystemUser` (nessun `select:false`/`@Exclude`) in tutti gli endpoint che lo joinano: rischio sul reset password, da sistemare a parte. Preesistente.
+- ~~**Ripristino dalla UI non fa nulla in tutta l'app**~~ (fatto 2026-10-19: `AbstractService.restore` manda il body senza `instanceToPlain`; `deleted` ammesso anche nel PATCH dei contratti di fornitura, contratto immobiliare cancellato modificabile solo per ripristinarlo): `AbstractComponent.onRestore` manda `deleted:false`, ma `AbstractEntity` lo esclude in serializzazione (`@Exclude({toPlainOnly})`) e il PATCH parte vuoto. Preesistente.
+- ~~**`updated_by` esposto con `otp`/`otp_expiry`**~~ (già risolto: `select: false` su `otp`/`otp_expiry`) di `SystemUser` (nessun `select:false`/`@Exclude`) in tutti gli endpoint che lo joinano: rischio sul reset password, da sistemare a parte. Preesistente.
 - Un `down()` che altera dati (es. suffisso ` #id` per rendere unica la ragione sociale) viene ricopiato dal successivo `up()`: testare sempre il ciclo up → down → up confrontando i dati, non solo i conteggi.
 - Dopo la rimozione di `backend/tools` l'output di `tsc` in dev è passato da `dist/src/` a `dist/`: la build incrementale ha lasciato un `dist` misto e la migration nuova non partiva all'avvio. Rimedio: `rm -rf dist *.tsbuildinfo` + restart (procedura già in CLAUDE.md). La produzione non ne risente (l'immagine copia solo `src/`).
 
@@ -283,7 +285,7 @@ Dalla revisione finale di v1.11.1 (creazione al volo dalle schede), non bloccant
 - ~~`?selectedId` non apre la scheda su Soggetti terzi (E2E: aprire dalla riga)~~ (fatto in v1.11.2);
 Emerse in v1.12.0–v1.14.0 (2026-10-06), non bloccanti:
 
-- elenco Fatture: `?selectedId` non apre la scheda (`initFromRoute` senza callback di apertura); negli E2E aprire la fattura dalla scheda capitolo o dalla riga;
+- ~~elenco Fatture: `?selectedId` non apre la scheda (`initFromRoute` senza callback di apertura)~~ (fatto 2026-10-19);
 - elenco Capitoli: verificare se i filtri da query param (es. `?utility_type_id=36`) vengono applicati (in v1.12.0 no; dalla v1.14.0 l'elenco usa `initFromRoute`);
 - scheda capitolo aperta dal navigatore (`GET /budget-chapters/:id`): `findOne` non filtra i tipi utenza cancellati come fa `findAll`; un tipo eliminato resterebbe tra i selezionati;
 - collegamenti al capitolo dalle altre schede (campo capitolo dell'utenza, riga fattura, impegni del contratto): oggi la scheda capitolo si apre solo da elenco, Log modifiche e dashboard.
@@ -445,7 +447,7 @@ Archivio dell'ufficio patrimonio classificato il 2026-10-15 (12.191 file, script
 | 03_AREE… / 6_TRASPORTI | 396 | parziale: solo autostazione TUA (68) |
 | 03_AREE… / 8_FONTANE | 296 | parziale: rimodulazione giugno 2025 (fontane dismesse, utenze cessate) |
 | 04_SPORT, 06_SOCCORSO, 07_ATTIVITA SOCIALI, 08_FORZE DELL'ORDINE | 1.523 | parziale: documenti dei contratti immobiliari; il resto da vagliare |
-| **06_CONDOMINI** | 105 | **da fare**: nessun import (con i 36 delle case comunali, 102 file classificati «Condominio»). Prima va deciso cosa serve: quote e spese condominiali, amministratori come soggetti terzi, collegamento agli immobili (oggi «Condomini» è tra i fuori scope del 2026-10-01: da rivedere) |
+| **06_CONDOMINI** | 105 | **da fare**: nessun import (con i 36 delle case comunali, 102 file classificati «Condominio»). Il condominio è un tipo particolare di complesso (voce 4): dall'analisi dei file si decide quali dati servono (quote e spese condominiali, amministratori come soggetti terzi) |
 | ACQUISTI IMMOBILI | 104 | parziale: acquisto via Verrotti 60 (D.C. 29/2024) |
 | federalismo demaniale | 203 | fatto: atti di trasferimento e contratti PEB |
 | 05_CULTURA E MANIFESTAZIONI | 1.597 | da fare |
@@ -460,7 +462,6 @@ Contratti immobiliari: 339 attivi, 167 senza immobile (`contratti_abbina_report.
 
 ## Fuori scope (decisioni prese)
 
-- **Condomini**: non è ciò che serve (2026-10-01).
 - **Registro agibilità 1986–2023**: edilizia privata (SUE), non patrimonio comunale.
 - **Pratiche lavori** (CUP, gare, SAL, espropri): archivio progetti; al massimo in futuro un elenco "interventi per immobile".
 - **Assegnatari case comunali "canoni 2017"** (305 righe con nucleo familiare): non si importano, dati personali eccedenti; basta il report da 45 righe con oscuramento (voce 1).

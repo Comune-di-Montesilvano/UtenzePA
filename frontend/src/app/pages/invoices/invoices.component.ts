@@ -1,4 +1,4 @@
-import {Component, ChangeDetectionStrategy, inject} from '@angular/core';
+import {Component, ChangeDetectionStrategy, inject, ViewChild} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
 import type {FilterValues} from '../../core/components/list/filter-def';
 import {InvoicesService} from './invoices.service';
@@ -25,9 +25,10 @@ export class InvoicesComponent extends AbstractComponent<Invoice> {
   override filterDefs = invoiceFilters();
   readonly signals = INVOICE_SIGNALS;
   private route = inject(ActivatedRoute);
+  @ViewChild('dataTable') dataTable?: DataTableInvoicesComponent;
 
   override ngOnInit(): void {
-    this.initFromRoute(this.route);
+    this.initFromRoute(this.route, item => this.dataTable?.openEditDialog(item));
   }
 
   // Con le date impostate l'anno non vale più: si toglie anche il suo chip.

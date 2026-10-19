@@ -177,11 +177,23 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   }
 
   onRestore(entity: T) {
-    this.service.update(entity.id, {deleted: false, updated_by_user_id: this.userId} as any)
-        .subscribe(() => {
+    this.service.restore(entity.id).subscribe(
+      {
+        next: () => {
+          this.messageService.add(
+            {
+              severity: 'success',
+              summary: 'Elemento ripristinato',
+              detail: this.getEntityIdentifier(entity),
+              key: 'global'
+            });
           this.loadAll();
           this.signalsToken++;
-        });
+        },
+        error: (err: any) => {
+          this.handleError(err, 'Errore ripristino');
+        }
+      });
   }
 
   onCreate(entity: T) {

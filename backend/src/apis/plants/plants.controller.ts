@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   ParseIntPipe,
   Patch,
@@ -44,8 +45,10 @@ export class PlantsController {
   }
 
   @Get(':id')
-  get(@Param('id', ParseIntPipe) id: number): Promise<PlantRow | null> {
-    return this.service.findOne(id);
+  async get(@Param('id', ParseIntPipe) id: number): Promise<PlantRow> {
+    const plant = await this.service.findOne(id);
+    if (!plant) throw new NotFoundException('Impianto non trovato');
+    return plant;
   }
 
   @Roles('Admin', 'Operatore')
