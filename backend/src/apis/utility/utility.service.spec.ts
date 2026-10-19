@@ -633,6 +633,23 @@ describe('UtilitiesService', () => {
       expect(result).toBeDefined();
     });
 
+    it('restituisce l’utenza riletta dopo la riconciliazione della riga iniziale', async () => {
+      repo.save.mockImplementation(async (d: object) => ({ id: 81, ...d, supply_active: false }));
+      const reloaded = { id: 81, supply_active: true, cost_status: 'COMUNE', assets: [], plants: [] };
+      repo.findOne.mockResolvedValue(reloaded);
+
+      const result = await service.create({ asset_ids: [1], initial_supply: { active: true } } as never, 4);
+
+      expect(supplyEvents.createInitial.mock.invocationCallOrder[0]).toBeLessThan(
+        repo.findOne.mock.invocationCallOrder[repo.findOne.mock.invocationCallOrder.length - 1],
+      );
+      expect(repo.findOne).toHaveBeenLastCalledWith({
+        where: { id: 81 },
+        relations: { assets: true, plants: true },
+      });
+      expect(result).toBe(reloaded);
+    });
+
     it('rilancia un errore gestito se il salvataggio fallisce', async () => {
       repo.save.mockRejectedValue({ code: 'ALTRO' });
 

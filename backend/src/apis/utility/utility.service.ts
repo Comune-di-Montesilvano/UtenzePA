@@ -674,7 +674,13 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     }
     try {
       await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
-      return saved;
+      // Riletta dopo la riga iniziale: la riconciliazione aggiorna le colonne
+      // di stato (supply_active, cost_status, …) che `saved` ha ancora vecchie.
+      const reloaded = await this.repo.findOne({
+        where: { id: saved.id } as never,
+        relations: { assets: true, plants: true },
+      });
+      return reloaded ?? saved;
     } catch (error) {
       this.manageErrors(error, "Errore durante la creazione dell'Utenza");
     }
