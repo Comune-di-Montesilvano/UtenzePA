@@ -44,12 +44,10 @@ interface GrantLike {
 
 export interface CostInput {
   cost_status?: CostStatus | null;
-  pending_since?: string | Date | null;
+  pending_since?: string | null;
   transferred_to_third_party_id?: number | null;
   transferredTo?: PartyFields | null;
-  transferred_on?: string | Date | null;
-  // Tipo dell'evento in sospeso, se noto (altrimenti si ricava dallo stato).
-  pending_type?: SupplyEventType | null;
+  transferred_on?: string | null;
   // Opzionale: findAll non li carica (evita N+1).
   assets?: { utilizerGrants?: GrantLike[] | null }[] | null;
 }
@@ -57,10 +55,9 @@ export interface CostInput {
 const isActive = (g: GrantLike) =>
   !g.deleted && g.status === ContractStatus.ACTIVE && g.direction === ContractDirection.ACTIVE;
 
-const day10 = (value: string | Date | null | undefined): string | null => {
-  if (!value) return null;
-  return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
-};
+// Le date arrivano già come 'AAAA-MM-GG' (il servizio le normalizza con dbDay).
+const day10 = (value: string | null | undefined): string | null =>
+  value ? String(value).slice(0, 10) : null;
 
 const daysBetween = (from: string, to: string): number =>
   Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
@@ -86,7 +83,8 @@ export function costInfo(utility: CostInput, today: string): CostInfo {
   }
 
   const since = day10(utility.pending_since);
-  const type = utility.pending_type ?? PENDING_TYPE_BY_STATUS[status] ?? null;
+  // Il tipo dipende solo dallo stato: coerente con cost_status.
+  const type = PENDING_TYPE_BY_STATUS[status] ?? null;
   const pending =
     since && type ? { type, since, days: Math.max(0, daysBetween(since, today)) } : null;
 

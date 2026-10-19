@@ -563,10 +563,10 @@ describe('UtilitiesService', () => {
       );
     });
 
-    it('cost_info con contratti e decisioni e tipo dell evento in sospeso', async () => {
+    it('cost_info con contratti e decisioni; il tipo in sospeso segue lo stato, non gli eventi', async () => {
       qb.getOne.mockResolvedValue({
         id: 1,
-        cost_status: 'TO_TRANSFER',
+        cost_status: 'TO_DECIDE',
         pending_since: '2020-01-01',
         assets: [
           {
@@ -610,7 +610,7 @@ describe('UtilitiesService', () => {
       expect(result.cost_info.grants).toEqual([
         { grant_id: 7, name: 'Locazione', decision: 'FOLLOWS' },
       ]);
-      expect(result.cost_info.pending.type).toBe('TRANSFER');
+      expect(result.cost_info.pending.type).toBe('DECISION');
     });
 
     it('restituisce null se non trovata (e non interroga il contratto corrente)', async () => {

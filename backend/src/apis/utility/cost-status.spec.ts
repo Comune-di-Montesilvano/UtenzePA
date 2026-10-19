@@ -56,21 +56,18 @@ describe('costInfo', () => {
     expect(info.pending).toEqual({ type: 'DECISION', since: '2026-09-15', days: 34 });
   });
 
-  it('tipo dell evento in sospeso esplicito prevale; TO_TRANSFER e TO_RECOVER ricavati', () => {
+  it('tipo ricavato solo dallo stato: TO_TRANSFER, TO_RECOVER', () => {
     expect(
-      costInfo(
-        {
-          cost_status: CostStatus.TO_TRANSFER,
-          pending_since: '2026-10-19',
-          pending_type: SupplyEventType.TRANSFER,
-        },
-        TODAY,
-      ).pending,
+      costInfo({ cost_status: CostStatus.TO_TRANSFER, pending_since: '2026-10-19' }, TODAY).pending,
     ).toEqual({ type: SupplyEventType.TRANSFER, since: '2026-10-19', days: 0 });
     expect(
       costInfo({ cost_status: CostStatus.TO_RECOVER, pending_since: '2026-10-01' }, TODAY).pending
         ?.type,
     ).toBe(SupplyEventType.RETURN);
+  });
+
+  it('Comune senza pending_since: nessun in sospeso', () => {
+    expect(costInfo({ cost_status: CostStatus.COMUNE, pending_since: null }, TODAY).pending).toBeNull();
   });
 
   it('nessun pending_since: nessun in sospeso', () => {

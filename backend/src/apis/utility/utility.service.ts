@@ -17,13 +17,11 @@ import { EstimateSource } from '@apis/utility-consumptions/enum/estimate-source.
 import { findMeterConflict } from './meter-number.helper';
 import { AreraCategory, ARERA_NONE, GasUseCategory, isAreraCategoryAllowed } from './arera-category';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
-import { CostInput, costInfo, costStatusSql } from './cost-status';
+import { costInfo, costStatusSql } from './cost-status';
 import { GrantUtilityDecisionValue } from '@apis/utility-supply/enum/supply-event-type.enum';
 import { maintenanceInfo, maintenanceStatusSql } from './maintenance-status';
-import { SupplyReconcileService, romeDay, toEventLike } from '@apis/utility-supply/supply-reconcile.service';
+import { SupplyReconcileService, romeDay, dbDay } from '@apis/utility-supply/supply-reconcile.service';
 import { GrantUtilityDecision } from '@apis/utility-supply/entity/grant-utility-decision.entity';
-import { UtilitySupplyEvent } from '@apis/utility-supply/entity/utility-supply-event.entity';
-import { pending as pendingEvents } from '@apis/utility-supply/supply-state';
 import { SupplyEventsService } from '@apis/utility-supply/supply-events.service';
 
 // Colonne scritte solo dalla riconciliazione dello storico (apis/utility-supply):
@@ -216,9 +214,8 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
   private withCurrentContractFields(
     utility: Utility,
     current: Contract | undefined,
-    costExtras?: Pick<CostInput, 'pending_type'> & { decisions: Map<number, GrantUtilityDecisionValue | null> },
+    decisions?: Map<number, GrantUtilityDecisionValue | null>,
   ): Utility {
-    const decisions = costExtras?.decisions;
     return {
       ...utility,
       supplier: current?.supplier ?? null,
@@ -236,7 +233,8 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       cost_info: costInfo(
         {
           ...utility,
-          pending_type: costExtras?.pending_type ?? null,
+          pending_since: dbDay(utility.pending_since),
+          transferred_on: dbDay(utility.transferred_on),
           // findAll non carica le decisioni (N+1): grants vuoto.
           assets: decisions
             ? (utility.assets ?? []).map((a) => ({
@@ -577,25 +575,18 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     }
 
     const currentContracts = await this.loadCurrentContracts([utility.id]);
-    const costExtras = await this.loadCostExtras(utility.id);
-    return this.withCurrentContractFields(utility, currentContracts.get(utility.id), costExtras);
+    const decisions = await this.loadDecisions(utility.id);
+    return this.withCurrentContractFields(utility, currentContracts.get(utility.id), decisions);
   }
 
-  // Decisioni sui contratti e tipo dell'evento in sospeso: solo per la scheda.
-  private async loadCostExtras(utilityId: number) {
-    const [rows, events] = await Promise.all([
-      this.repo.manager
-        .getRepository(GrantUtilityDecision)
-        .find({ where: { utility_id_fk: utilityId } }),
-      this.repo.manager
-        .getRepository(UtilitySupplyEvent)
-        .find({ where: { utility_id_fk: utilityId, deleted: false } }),
-    ]);
+  // Decisioni sui contratti: solo per la scheda (findAll evita l'N+1).
+  private async loadDecisions(utilityId: number) {
+    const rows = await this.repo.manager
+      .getRepository(GrantUtilityDecision)
+      .find({ where: { utility_id_fk: utilityId } });
     const decisions = new Map<number, GrantUtilityDecisionValue | null>();
     for (const r of rows) decisions.set(r.utilizer_grant_id_fk, r.decision);
-    const open = pendingEvents(events.map(toEventLike));
-    const pending_type = (open[0]?.type as CostInput['pending_type']) ?? null;
-    return { decisions, pending_type };
+    return decisions;
   }
 
   // Stima annua inserita a mano: MANUAL con data (valida 12 mesi, poi la
