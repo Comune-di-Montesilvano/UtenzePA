@@ -4,12 +4,15 @@ import {DomSanitizer, SafeResourceUrl} from '@angular/platform-browser';
 import {MAT_DIALOG_DATA, MatDialogModule} from '@angular/material/dialog';
 import {MatButtonModule} from '@angular/material/button';
 import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
+import {Observable} from 'rxjs';
 import {InvoicesService} from './invoices.service';
 
 export interface SdiDocumentDialogData {
-  invoiceId: number;
+  invoiceId?: number;
   type: 'xml' | 'pdf';
   title: string;
+  // Documento da un'altra fonte (es. messaggio PEC nell'editor dei pattern) al posto della fattura.
+  source?: Observable<Blob>;
 }
 
 // XML o PDF della fattura riletti al momento dalla PEC dello SDI: niente file
@@ -56,7 +59,7 @@ export class SdiDocumentDialogComponent implements OnInit, OnDestroy {
   private objectUrl: string | null = null;
 
   ngOnInit(): void {
-    this.invoicesService.sdiDocument(this.data.invoiceId, this.data.type).subscribe({
+    (this.data.source ?? this.invoicesService.sdiDocument(this.data.invoiceId!, this.data.type)).subscribe({
       next: async (blob) => {
         if (this.data.type === 'xml') {
           this.xml = await blob.text();

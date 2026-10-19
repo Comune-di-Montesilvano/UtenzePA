@@ -11,8 +11,10 @@ import { InvoiceImportService, InvoiceImportStatus } from './invoice-import.serv
 const STATUS_POLL_MS = 3000;
 
 const MESSAGE_STATUS_LABELS: Record<string, string> = {
+  EXTRACTED: 'Importate con un pattern',
   LINKED: 'Collegate a una fattura',
   PENDING: 'In attesa di import',
+  IGNORED: 'Strutture ignorate',
   OUT_OF_SCOPE: 'Fuori perimetro',
   NOTIFICATION: 'Esiti e notifiche',
   ERROR: 'Errori',
@@ -88,6 +90,18 @@ const MESSAGE_STATUS_LABELS: Record<string, string> = {
             <p style="margin: 0; color: var(--app-muted);">Nessun file letto finora.</p>
           }
         </div>
+
+        @if (s.recentErrors.length) {
+          <div>
+            <h3 style="margin: 0 0 0.5rem;">Ultimi file in errore</h3>
+            @for (e of s.recentErrors; track $index) {
+              <p style="margin: 0.25rem 0;">
+                {{ e.create_date | date: 'dd/MM/yyyy HH:mm' }} · {{ e.file_name }}
+                <span style="color: var(--app-error);">· {{ e.error || 'errore sconosciuto' }}</span>
+              </p>
+            }
+          </div>
+        }
       } @else {
         <mat-spinner diameter="32"></mat-spinner>
       }

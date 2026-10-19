@@ -1,0 +1,144 @@
+@if (loadError) {
+  <p class="pe-error">{{ loadError }}</p>
+  <button mat-stroked-button (click)="back()">Torna all'elenco</button>
+} @else if (data) {
+  <div class="pe-bar">
+    <button mat-icon-button aria-label="Torna all'elenco" (click)="back()"><mat-icon>arrow_back</mat-icon></button>
+    <h2>{{ data.message.supplier }} · {{ data.message.document_number || data.message.file_name }}</h2>
+    <span class="spacer"></span>
+    <button mat-icon-button aria-label="Fattura precedente" [disabled]="index === 0 || loading" (click)="go(-1)">
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+    <span>Fattura {{ index + 1 }} di {{ similar.length }} simili</span>
+    <button mat-icon-button aria-label="Fattura successiva" [disabled]="index >= similar.length - 1 || loading" (click)="go(1)">
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+    @if (seen) {
+      <span class="pe-holds">la mappatura regge su {{ holds }} di {{ seen }} viste</span>
+    }
+    @if (previewing || loading) {
+      <mat-spinner diameter="18"></mat-spinner>
+    }
+  </div>
+
+  <div class="pe-grid">
+    <div class="pe-form">
+      <h3>Testata</h3>
+      <div class="pe-row">
+        <div>
+          <strong>{{ labels['supplierVat'] }}</strong>: {{ data.message.supplier_vat || '—' }}
+          <div class="pe-opt-sample">Identifica il fornitore: non si mappa.</div>
+        </div>
+        <div class="pe-checks">
+          @for (c of checks['supplierVat'] ?? []; track $index) {
+            <span [class]="'pe-badge tone-' + c.tone">{{ c.text }}</span>
+          }
+        </div>
+      </div>
+      @for (t of headerTargets; track t) {
+        <ng-container *ngTemplateOutlet="fieldRow; context: {t}"></ng-container>
+      }
+
+      <h3>Righe</h3>
+      @for (t of lineTargets; track t) {
+        <ng-container *ngTemplateOutlet="fieldRow; context: {t}"></ng-container>
+      }
+      <div class="pe-row">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Consumo solo dalle righe che contengono</mat-label>
+          <input matInput [(ngModel)]="consumptionFilter" [disabled]="!canEdit" maxlength="50"
+                 (ngModelChange)="requestPreview(true)" placeholder="es. Energia">
+          <mat-hint>Vuoto: consumo da tutte le righe con l'utenza.</mat-hint>
+        </mat-form-field>
+      </div>
+
+      @if (preview?.extracted; as ex) {
+        <h3>Anteprima ({{ ex.lines.length }} righe)</h3>
+        <table class="pe-lines">
+          <thead>
+            <tr><th>Utenza</th><th>Periodo</th><th>Importo</th><th>Consumo</th></tr>
+          </thead>
+          <tbody>
+            @for (l of ex.lines.slice(0, 30); track $index) {
+              <tr>
+                <td>{{ l.utility || '—' }}</td>
+                <td>{{ l.periodStart || '' }}{{ l.periodEnd ? ' – ' + l.periodEnd : '' }}</td>
+                <td class="num">{{ eur(l.amount) }}</td>
+                <td class="num">{{ l.consumption ?? '' }} {{ l.unit || '' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else if (preview && !preview.matches) {
+        <p class="pe-error">Le regole non leggono questa fattura.</p>
+      }
+
+      <div class="pe-actions">
+        @if (canEdit) {
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Nome del pattern</mat-label>
+            <input matInput [(ngModel)]="name" maxlength="100">
+          </mat-form-field>
+          <button mat-flat-button [disabled]="saving" (click)="save()">Salva pattern</button>
+          @if (!patternId) {
+            <button mat-stroked-button [disabled]="saving" (click)="ignore()">Ignora questa struttura</button>
+          }
+          <button mat-button (click)="back()">Annulla</button>
+        } @else {
+          <span class="pe-opt-sample">Sola consultazione.</span>
+        }
+      </div>
+    </div>
+
+    <div class="pe-xml">
+      <div class="pe-xml-head">
+        <strong>XML della fattura</strong>
+        <button mat-stroked-button (click)="openPdf()"><mat-icon>picture_as_pdf</mat-icon> Vedi PDF</button>
+      </div>
+      <pre [innerHTML]="xmlHtml"></pre>
+    </div>
+  </div>
+
+  <ng-template #fieldRow let-t="t">
+    <div class="pe-row" [class.focused]="focused === t" (focusin)="focus(t)">
+      <div>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>{{ labels[t] }}</mat-label>
+          <mat-select [(ngModel)]="choice[t]" [disabled]="!canEdit" (ngModelChange)="changed(t)" (openedChange)="focus(t)">
+            <mat-option value="">{{ defaultLabel(t) }}</mat-option>
+            @if (t === 'amount') {
+              <mat-option value="gross">Calcolato: imponibile × IVA</mat-option>
+            }
+            <mat-option value="none">Non presente</mat-option>
+            @for (o of options[t] ?? []; track o.value) {
+              <mat-option [value]="o.value">
+                {{ o.label }}{{ o.header ? ' (dalla testata)' : '' }}
+                <span class="pe-opt-sample">· {{ o.sample ?? '—' }}{{ o.committente ? ' · dati del Comune' : '' }}</span>
+              </mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        @if (canAfterWord(t)) {
+          <div class="pe-word">
+            <mat-checkbox [(ngModel)]="afterWord[t]" [disabled]="!canEdit" (ngModelChange)="changed(t)">
+              Numero dopo la parola
+            </mat-checkbox>
+            @if (afterWord[t]) {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Parola</mat-label>
+                <input matInput [(ngModel)]="words[t]" [disabled]="!canEdit" maxlength="50" (ngModelChange)="changed(t)">
+              </mat-form-field>
+            }
+          </div>
+        }
+      </div>
+      <div class="pe-checks">
+        @for (c of checks[t] ?? []; track $index) {
+          <span [class]="'pe-badge tone-' + c.tone">{{ c.text }}</span>
+        }
+      </div>
+    </div>
+  </ng-template>
+} @else {
+  <div class="center"><mat-spinner diameter="40"></mat-spinner></div>
+}

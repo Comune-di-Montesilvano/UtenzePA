@@ -28,6 +28,8 @@ import {BrandingSettingsComponent} from "./pages/branding-settings/branding-sett
 import {AuditLogPageComponent} from "./pages/audit-log/audit-log-page.component";
 import {GuidaComponent} from "./pages/guida/guida.component";
 import {ManutenzioneComponent} from "./pages/manutenzione/manutenzione.component";
+import {InvoiceImportPageComponent} from "./pages/invoice-import/invoice-import-page.component";
+import {PatternEditorComponent} from "./pages/invoice-import/pattern-editor.component";
 
 export const routes: Routes = [
   {
@@ -39,6 +41,8 @@ export const routes: Routes = [
       {path: '', redirectTo: 'dashboard', pathMatch: 'full'},
       {path: 'system-users', component: SystemUsersComponent},
       {path: 'backup-import', component: BackupImportComponent},
+      {path: 'invoice-import', component: InvoiceImportPageComponent},
+      {path: 'invoice-import/editor/:messageId', component: PatternEditorComponent},
       {path: 'branding', component: BrandingSettingsComponent},
       {path: 'utility-types', component: UtilityTypesComponent},
       {path: 'act-types', component: ActTypesComponent},

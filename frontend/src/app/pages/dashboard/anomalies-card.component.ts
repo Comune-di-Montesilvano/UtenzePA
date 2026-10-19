@@ -724,7 +724,7 @@ export class AnomaliesCardComponent implements OnInit {
   }
 
   openInvoiceImport(): void {
-    this.router.navigate(['/backup-import']);
+    this.router.navigate(['/invoice-import']);
   }
 
   openUtility(id: number): void {

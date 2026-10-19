@@ -14,6 +14,8 @@ export interface InvoiceImportStatus {
   lastSuccessAt: string | null;
   lastError: string | null;
   counts: Record<string, number>;
+  // Ultimi 10 file in errore, dal più recente.
+  recentErrors: {file_name: string; error: string | null; create_date: string}[];
 }
 
 @Injectable({ providedIn: 'root' })

@@ -84,6 +84,7 @@ export class SidebarComponent implements OnInit {
         {label: 'Utenti e ruoli', icon: 'group', route: '/system-users'},
         {label: 'Log attività', icon: 'history', route: '/audit-log'},
         {label: 'Backup e manutenzione', icon: 'storage', route: '/backup-import'},
+        {label: 'Import fatture', icon: 'mark_email_read', route: '/invoice-import'},
         {label: 'Branding', icon: 'palette', route: '/branding'},
       ]},
     {label: 'Guida', icon: 'help_outline', route: '/guida'},
