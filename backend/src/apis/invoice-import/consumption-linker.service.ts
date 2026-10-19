@@ -119,7 +119,10 @@ export class ConsumptionLinker {
         consumptionId = saved.id;
       } else {
         // Il flag stimata impostato dall'utente resta.
-        await manager.update(UtilityConsumption, consumptionId, { consumption: value, deleted: false });
+        await manager.update(UtilityConsumption, consumptionId, {
+          consumption: value,
+          deleted: false,
+        });
       }
       used.add(consumptionId);
       utilityIds.add(utilityId);
@@ -143,8 +146,13 @@ export class ConsumptionLinker {
 
   // Righe modificate a mano: la rilevazione segue la riga con stessa utenza e
   // periodo (consumo aggiornato), quelle senza più una riga si tolgono.
-  async follow(manager: EntityManager, invoiceId: number, previous: InvoiceLine[]): Promise<number[]> {
-    const key = (l: InvoiceLine) => `${l.utility_id_fk}|${day(l.period_start)}|${day(l.period_end)}`;
+  async follow(
+    manager: EntityManager,
+    invoiceId: number,
+    previous: InvoiceLine[],
+  ): Promise<number[]> {
+    const key = (l: InvoiceLine) =>
+      `${l.utility_id_fk}|${day(l.period_start)}|${day(l.period_end)}`;
     const linked = new Map<string, number>();
     const utilityIds = new Set<number>();
     for (const l of previous) {
@@ -162,8 +170,13 @@ export class ConsumptionLinker {
       if (id) groups.set(id, [...(groups.get(id) ?? []), l]);
     }
     for (const [id, group] of groups) {
-      await manager.update(InvoiceLine, { id: In(group.map((l) => l.id)) }, { consumption_id_fk: id });
-      const value = Math.round(group.reduce((sum, l) => sum + Number(l.consumption), 0) * 1000) / 1000;
+      await manager.update(
+        InvoiceLine,
+        { id: In(group.map((l) => l.id)) },
+        { consumption_id_fk: id },
+      );
+      const value =
+        Math.round(group.reduce((sum, l) => sum + Number(l.consumption), 0) * 1000) / 1000;
       await manager.update(UtilityConsumption, id, { consumption: value });
     }
     const leftovers = [...new Set(linked.values())].filter((id) => !groups.has(id));

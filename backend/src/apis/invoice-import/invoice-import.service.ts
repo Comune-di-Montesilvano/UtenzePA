@@ -277,42 +277,59 @@ export class InvoiceImportService {
   ): Promise<{ extracted: number; skipped: number }> {
     const result = { extracted: 0, skipped: 0 };
     for (const id of ids) {
-      const row = await this.messagesRepo.findOneBy({ id });
-      if (!row || row.kind !== 'INVOICE' || !row.supplier_id_fk) {
+      try {
+        if (await this.processOne(mailbox, id, ctx)) result.extracted++;
+        else result.skipped++;
+      } catch (error) {
+        // Un messaggio in errore non ferma gli altri né il recupero delle strutture.
         result.skipped++;
-        continue;
-      }
-      if (row.invoice_id_fk) {
-        const invoice = await this.invoicesRepo.findOneBy({ id: row.invoice_id_fk });
-        // Modificata a mano o eliminata: l'import non la tocca e non la ricrea.
-        if (invoice?.import_locked || invoice?.deleted) {
-          result.skipped++;
-          continue;
+        const detail = (error instanceof Error ? error.message : String(error)).slice(0, 500);
+        try {
+          const row = await this.messagesRepo.findOneBy({ id });
+          await this.messagesRepo.update(id, {
+            error: detail,
+            ...(row && row.structure_key == null ? { structure_key: GONE_STRUCTURE } : {}),
+          });
+        } catch {
+          // registro non aggiornabile: il messaggio si riprova al prossimo giro
         }
-      }
-      const raw = await mailbox.fetchRaw(Number(row.uid_validity), Number(row.uid), row.message_id);
-      const file = raw
-        ? (await parsePecMessage(raw)).files.find((f) => f.fileName === row.file_name)
-        : undefined;
-      if (!file) {
-        if (row.structure_key == null) {
-          await this.messagesRepo.update(row.id, { structure_key: GONE_STRUCTURE });
-        }
-        result.skipped++;
-        continue;
-      }
-      if (!row.structure_key) {
-        row.structure_key = this.structureOf(file.content);
-        await this.messagesRepo.update(row.id, { structure_key: row.structure_key });
-      }
-      const before = ctx.extracted;
-      await this.applyPattern(row, file.content, ctx);
-      if (ctx.extracted > before) {
-        result.extracted++;
-        if (row.sdi_identifier) await this.refreshInvoiceStatus(row.sdi_identifier);
       }
     }
     return result;
+  }
+
+  // true se la fattura è stata estratta col pattern.
+  private async processOne(mailbox: PecMailbox, id: number, ctx: RunContext): Promise<boolean> {
+    const row = await this.messagesRepo.findOneBy({ id });
+    if (!row || row.kind !== 'INVOICE' || !row.supplier_id_fk) {
+      return false;
+    }
+    if (row.invoice_id_fk) {
+      const invoice = await this.invoicesRepo.findOneBy({ id: row.invoice_id_fk });
+      // Modificata a mano o eliminata: l'import non la tocca e non la ricrea.
+      if (invoice?.import_locked || invoice?.deleted) {
+        return false;
+      }
+    }
+    const raw = await mailbox.fetchRaw(Number(row.uid_validity), Number(row.uid), row.message_id);
+    const file = raw
+      ? (await parsePecMessage(raw)).files.find((f) => f.fileName === row.file_name)
+      : undefined;
+    if (!file) {
+      if (row.structure_key == null) {
+        await this.messagesRepo.update(row.id, { structure_key: GONE_STRUCTURE });
+      }
+      return false;
+    }
+    if (!row.structure_key) {
+      row.structure_key = this.structureOf(file.content);
+      await this.messagesRepo.update(row.id, { structure_key: row.structure_key });
+    }
+    const before = ctx.extracted;
+    await this.applyPattern(row, file.content, ctx);
+    if (ctx.extracted === before) return false;
+    if (row.sdi_identifier) await this.refreshInvoiceStatus(row.sdi_identifier);
+    return true;
   }
 
   private structureOf(xml: Buffer): string | null {

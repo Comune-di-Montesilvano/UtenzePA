@@ -503,6 +503,18 @@ describe('InvoiceImportService con i pattern', () => {
       expect(mailbox.open).toHaveBeenCalledTimes(1);
     });
 
+    it('un messaggio che dà errore non ferma gli altri e non blocca il recupero delle strutture', async () => {
+      messages.rows.push(stored(5, '5'));
+      mailbox.fetchRaw.mockImplementation((async (_v: number, uid: number) => {
+        if (uid === 1) throw new Error('lettura interrotta');
+        return invoiceEml('<m@pec>');
+      }) as never);
+      expect(await service().reprocess([1, 5])).toEqual({ extracted: 1, skipped: 1, queued: 0 });
+      const failed = messages.rows.find((r) => r.id === 1)!;
+      expect(failed.error).toBe('lettura interrotta');
+      expect(failed.structure_key).toBe('');
+    });
+
     it('fattura importata poi eliminata: non si ricrea rielaborando', async () => {
       messages.rows.push(stored(4, '4', { status: SdiMessageStatus.EXTRACTED, invoice_id_fk: 61 }));
       invoices.rows.push({ id: 61, deleted: true, import_locked: false });
