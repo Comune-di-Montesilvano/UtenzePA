@@ -11,6 +11,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { CostStatus } from '@apis/utility/cost-status';
 
 import { Contract } from '@apis/contracts/entity/contract.entity';
 import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
@@ -139,6 +140,14 @@ export class Utility {
   // true = da volturare comunque, false = non da volturare (vedi cost-status.ts).
   @Column({ type: 'boolean', nullable: true })
   transfer_required: boolean | null;
+
+  // "A carico di" calcolato dallo storico (apis/utility-supply), salvato per
+  // filtrare in SQL. pending_since = da quando c'è qualcosa in sospeso.
+  @Column({ type: 'varchar', length: 20, default: 'COMUNE' })
+  cost_status: CostStatus;
+
+  @Column({ type: 'date', nullable: true })
+  pending_since: string | null;
 
   // Vita dell'utenza, distinta da quella del contratto di fornitura (es. più
   // linee dello stesso contratto attivate in date diverse).

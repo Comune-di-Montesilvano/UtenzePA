@@ -20,6 +20,7 @@ export enum CostStatus {
   TO_TRANSFER = 'TO_TRANSFER',
   TRANSFERRED = 'TRANSFERRED',
   TO_RECOVER = 'TO_RECOVER',
+  TO_DECIDE = 'TO_DECIDE',
 }
 
 export interface CostParty {
@@ -149,5 +150,7 @@ export function costStatusSql(status: CostStatus, alias = 'Utility'): string {
       return `(${transferredTo} IS NOT NULL AND (${required} = 1 OR (${required} IS NULL AND EXISTS (${withTitle}))))`;
     case CostStatus.TO_RECOVER:
       return `(${transferredTo} IS NOT NULL AND (${required} = 0 OR (${required} IS NULL AND NOT EXISTS (${withTitle}))))`;
+    case CostStatus.TO_DECIDE:
+      return '(1 = 0)'; // provvisorio: il Task 6 riscrive costStatusSql sullo storico
   }
 }
