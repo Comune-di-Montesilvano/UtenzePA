@@ -23,6 +23,7 @@ import { MapModule } from '@apis/map/map.module';
 import { UtilizerGrantModule } from '@apis/utilizer-grant/utilizer-grant.module';
 import { UtilitiesModule } from '@apis/utility/utility.module';
 import { UtilityConsumptionsModule } from '@apis/utility-consumptions/utility-consumptions.module';
+import { UtilitySupplyModule } from '@apis/utility-supply/utility-supply.module';
 import { BudgetChapterSpendingModule } from '@apis/budget-chapter-spending/budget-chapter-spending.module';
 import { BudgetCommitmentsModule } from '@apis/budget-commitments/budget-commitments.module';
 import { SpendingModule } from '@apis/spending/spending.module';
@@ -65,6 +66,7 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     UtilizerGrantModule,
     UtilitiesModule,
     UtilityConsumptionsModule,
+    UtilitySupplyModule,
     BudgetChapterSpendingModule,
     BudgetCommitmentsModule,
     SpendingModule,
