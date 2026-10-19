@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { Utility } from './entity/utility.entity';
 import { CreateUtilityDto } from './dto/create-utility.dto';
 import { UpdateUtilityDto } from './dto/update-utility.dto';
@@ -17,8 +17,9 @@ import { EstimateSource } from '@apis/utility-consumptions/enum/estimate-source.
 import { findMeterConflict } from './meter-number.helper';
 import { AreraCategory, ARERA_NONE, GasUseCategory, isAreraCategoryAllowed } from './arera-category';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
-import { costInfo, costStatusSql, inChargeSql } from './cost-status';
-import { GrantUtilityDecisionValue } from '@apis/utility-supply/enum/supply-event-type.enum';
+import { costInfo, costStatusSql, inChargeSql, SupplyPending, supplyPending, SupplyPendingType } from './cost-status';
+import { GrantUtilityDecisionValue, SupplyEventType } from '@apis/utility-supply/enum/supply-event-type.enum';
+import { UtilitySupplyEvent } from '@apis/utility-supply/entity/utility-supply-event.entity';
 import { maintenanceInfo, maintenanceStatusSql } from './maintenance-status';
 import { SupplyReconcileService, romeDay, dbDay } from '@apis/utility-supply/supply-reconcile.service';
 import { GrantUtilityDecision } from '@apis/utility-supply/entity/grant-utility-decision.entity';
@@ -224,6 +225,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     utility: Utility,
     current: Contract | undefined,
     decisions?: Map<number, GrantUtilityDecisionValue | null>,
+    pending?: SupplyPending | null,
   ): Utility {
     return {
       ...utility,
@@ -257,6 +259,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
         romeDay(new Date()),
       ),
       maintenance_info: maintenanceInfo(utility),
+      supply_pending: pending ?? null,
     } as Utility;
   }
 
@@ -491,9 +494,10 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
 
     const utilities = await qb.orderBy('Utility.id', 'ASC').getMany();
     const currentContracts = await this.loadCurrentContracts(utilities.map((u) => u.id));
+    const pending = await this.loadSupplyPending(utilities.map((u) => u.id));
 
     return utilities.map((utility) =>
-      this.withCurrentContractFields(utility, currentContracts.get(utility.id)),
+      this.withCurrentContractFields(utility, currentContracts.get(utility.id), undefined, pending.get(utility.id)),
     );
   }
 
@@ -560,9 +564,10 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
 
     const utilities = await qb.orderBy('Utility.id', 'ASC').getMany();
     const currentContracts = await this.loadCurrentContracts(utilities.map((u) => u.id));
+    const pending = await this.loadSupplyPending(utilities.map((u) => u.id));
 
     return utilities.map((utility) =>
-      this.withCurrentContractFields(utility, currentContracts.get(utility.id)),
+      this.withCurrentContractFields(utility, currentContracts.get(utility.id), undefined, pending.get(utility.id)),
     );
   }
 
@@ -594,7 +599,8 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
 
     const currentContracts = await this.loadCurrentContracts([utility.id]);
     const decisions = await this.loadDecisions(utility.id);
-    return this.withCurrentContractFields(utility, currentContracts.get(utility.id), decisions);
+    const pending = await this.loadSupplyPending([utility.id]);
+    return this.withCurrentContractFields(utility, currentContracts.get(utility.id), decisions, pending.get(utility.id));
   }
 
   // Decisioni sui contratti: solo per la scheda (findAll evita l'N+1).
@@ -605,6 +611,31 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     const decisions = new Map<number, GrantUtilityDecisionValue | null>();
     for (const r of rows) decisions.set(r.utilizer_grant_id_fk, r.decision);
     return decisions;
+  }
+
+  // Attivazioni e cessazioni richieste e non ancora avvenute, per utenza
+  // (badge del tab «Fornitura»). Data = richiesta, altrimenti inserimento.
+  private async loadSupplyPending(utilityIds: number[]): Promise<Map<number, SupplyPending | null>> {
+    const result = new Map<number, SupplyPending | null>();
+    if (!utilityIds.length) return result;
+    const rows = await this.repo.manager.getRepository(UtilitySupplyEvent).find({
+      where: {
+        utility_id_fk: In(utilityIds),
+        type: In([SupplyEventType.ACTIVATION, SupplyEventType.CESSATION]),
+        effective_on: IsNull(),
+        cancelled_on: IsNull(),
+        date_unknown: false,
+        deleted: false,
+      },
+    });
+    const byUtility = new Map<number, { type: SupplyPendingType; since: string }[]>();
+    for (const r of rows ?? []) {
+      const since = dbDay(r.requested_on) ?? romeDay(r.create_date);
+      byUtility.set(r.utility_id_fk, [...(byUtility.get(r.utility_id_fk) ?? []), { type: r.type as SupplyPendingType, since }]);
+    }
+    const today = romeDay(new Date());
+    for (const [id, requests] of byUtility) result.set(id, supplyPending(requests, today));
+    return result;
   }
 
   // Stima annua inserita a mano: MANUAL con data (valida 12 mesi, poi la

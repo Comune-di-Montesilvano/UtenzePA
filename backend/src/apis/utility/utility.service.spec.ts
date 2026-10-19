@@ -624,6 +624,22 @@ describe('UtilitiesService', () => {
       expect(result.cost_info.pending.type).toBe('DECISION');
     });
 
+    it('supply_pending: attivazione richiesta e non avvenuta', async () => {
+      qb.getOne.mockResolvedValue({ id: 1, cost_status: 'COMUNE', assets: [] });
+      const eventRepo = {
+        find: jest.fn().mockResolvedValue([
+          { utility_id_fk: 1, type: 'ACTIVATION', requested_on: '2026-10-07', create_date: new Date('2026-10-08T08:00:00Z') },
+        ]),
+      };
+      repo.manager.getRepository.mockImplementation((entity: { name: string }) =>
+        entity.name === 'UtilitySupplyEvent' ? eventRepo : contractRepo,
+      );
+
+      const result = (await service.findOne(1)) as unknown as { supply_pending: { type: string; since: string } };
+
+      expect(result.supply_pending).toMatchObject({ type: 'ACTIVATION', since: '2026-10-07' });
+    });
+
     it('restituisce null se non trovata (e non interroga il contratto corrente)', async () => {
       qb.getOne.mockResolvedValue(null);
 
