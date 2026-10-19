@@ -47,6 +47,13 @@ describe('parseInvoiceHeader', () => {
     });
   });
 
+  it('ignora foglio di stile e BOM in testa al file', () => {
+    const xml = fixture('fattura.xml')
+      .toString('utf8')
+      .replace('?>', '?>\n<?xml-stylesheet type="text/xsl" href="fatturapa.xsl"?>');
+    expect(parseInvoiceHeader(Buffer.from('﻿' + xml)).supplierVat).toBe('01234567897');
+  });
+
   it('un documento per ogni FatturaElettronicaBody', () => {
     const xml = fixture('fattura.xml').toString('utf8');
     const body = xml.slice(
