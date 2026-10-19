@@ -14,6 +14,7 @@ import { SystemUser } from '../../system-users/entity/system-user.entity';
 import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
 import { InvoiceLine } from './invoice-line.entity';
 import { Contract } from '@apis/contracts/entity/contract.entity';
+import { SdiStatus } from '../enum/sdi-status.enum';
 
 @Entity('invoices')
 export class Invoice {
@@ -62,6 +63,20 @@ export class Invoice {
 
   @Column({ type: 'boolean', default: false })
   deleted: boolean;
+
+  // Identificativo SDI del file da cui viene la fattura (un file può
+  // contenerne più d'una): collega fattura e notifiche del registro PEC.
+  @Index('IDX_invoices_sdi_identifier')
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  sdi_identifier: string | null;
+
+  // Stato dalle notifiche SDI, calcolato dall'import (null = senza messaggio SDI).
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  sdi_status: SdiStatus | null;
+
+  // Esito committente scartato dallo SDI: da segnalare finché non ne arriva un altro.
+  @Column({ type: 'boolean', default: false })
+  sdi_outcome_discarded: boolean;
 
   @Column({ type: 'int', nullable: true })
   contratto_id_fk: number;
