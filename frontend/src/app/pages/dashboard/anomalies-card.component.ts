@@ -5,6 +5,7 @@ import {MatExpansionModule} from '@angular/material/expansion';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
+import {sinceDays} from '../../core/components/entity-sheet/sheet-utils';
 import {Anomalies, AnomaliesService} from '../../core/services/anomalies.service';
 
 const formatDate = (iso: string | null): string => {
@@ -146,7 +147,7 @@ const formatDate = (iso: string | null): string => {
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
                 @for (u of data.utilities_to_transfer.items; track u.id) {
-                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · da {{ u.pending_days }} giorni</li>
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · {{ sinceDays(u.pending_days) }}</li>
                 }
               </ul>
             </mat-expansion-panel>
@@ -162,7 +163,7 @@ const formatDate = (iso: string | null): string => {
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
                 @for (u of data.utilities_to_recover.items; track u.id) {
-                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · da {{ u.pending_days }} giorni</li>
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · {{ sinceDays(u.pending_days) }}</li>
                 }
               </ul>
             </mat-expansion-panel>
@@ -178,7 +179,7 @@ const formatDate = (iso: string | null): string => {
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
                 @for (u of data.utilities_to_decide.items; track u.id) {
-                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · da {{ u.pending_days }} giorni</li>
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · {{ sinceDays(u.pending_days) }}</li>
                 }
               </ul>
             </mat-expansion-panel>
@@ -194,7 +195,7 @@ const formatDate = (iso: string | null): string => {
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
                 @for (u of data.pending_activations.items; track u.id) {
-                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · da {{ u.pending_days }} giorni</li>
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · {{ sinceDays(u.pending_days) }}</li>
                 }
               </ul>
             </mat-expansion-panel>
@@ -210,7 +211,7 @@ const formatDate = (iso: string | null): string => {
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
                 @for (u of data.pending_cessations.items; track u.id) {
-                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · da {{ u.pending_days }} giorni</li>
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · {{ sinceDays(u.pending_days) }}</li>
                 }
               </ul>
             </mat-expansion-panel>
@@ -553,6 +554,7 @@ export class AnomaliesCardComponent implements OnInit {
     return !!this.data && Object.values(this.data).some(a => a.count > 0);
   }
   readonly fmt = formatDate;
+  readonly sinceDays = sinceDays;
 
   // Tutte le anomalie: la somma a mano dimenticava quelle aggiunte via via.
   get total(): number {

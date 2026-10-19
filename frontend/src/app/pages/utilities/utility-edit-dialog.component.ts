@@ -10,6 +10,7 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatDatepickerModule} from '@angular/material/datepicker';
 import {MatTab, MatTabGroup, MatTabsModule} from '@angular/material/tabs';
+import {MatRadioModule} from '@angular/material/radio';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
@@ -41,12 +42,15 @@ import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.co
 import {PreviewCardComponent, PreviewItem} from '../../core/components/entity-sheet/preview-card.component';
 import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components/entity-sheet/linked-table.component';
 import {assetStatus, costStatus, maintenanceStatus, plantStatus, sortSupplyContracts, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
-import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
+import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab, sinceDays} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import {UtilityService} from './utility.service';
 import {partyName} from '../../core/helpers/party-name.helper';
-import {ThirdPartiesService} from '../third-parties/third-parties.service';
 import {UtilityInvoicesTabComponent} from './utility-invoices-tab.component';
+import {UtilitySupplyTabComponent} from './supply/utility-supply-tab.component';
+import {SUPPLY_EVENT_LABEL} from './supply/supply.model';
+import {toIsoDate} from '../../core/helpers/date.helper';
+import type {CostInfo} from './entity/utility.interface';
 import {CommitmentService} from '../contracts/commitments/commitment.service';
 import {forkJoin} from 'rxjs';
 
@@ -74,10 +78,10 @@ interface PlantRow {
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatTabsModule,
+    MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatTabsModule, MatRadioModule,
     FilterableSelectComponent, LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
     UtilityConsumptionsTabComponent, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent,
-    PreviewCardComponent, LinkedTableComponent, UtilityInvoicesTabComponent,
+    PreviewCardComponent, LinkedTableComponent, UtilityInvoicesTabComponent, UtilitySupplyTabComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-edit-dialog.component.html'
@@ -94,7 +98,6 @@ export class UtilityEditDialogComponent implements OnInit {
   private contractsService = inject(ContractsService);
   private navigator = inject(EntityNavigatorService);
   private utilityService = inject(UtilityService);
-  private thirdPartiesService = inject(ThirdPartiesService);
   protected data = inject<EditDialogData<Utility>>(MAT_DIALOG_DATA);
 
   @ViewChild(MatTabGroup) tabGroup?: MatTabGroup;
@@ -102,7 +105,7 @@ export class UtilityEditDialogComponent implements OnInit {
 
   isNew = this.data.mode === 'create';
   readonly canEdit = isEditorRole(this.authService.getCurrentUser()?.role);
-  readonly lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
+  lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
   readonly formatQty = formatQty;
   readonly HardType = HardType;
 
@@ -199,6 +202,16 @@ export class UtilityEditDialogComponent implements OnInit {
     water_concession: [this.toDate(this.data.item.water_concession)],
     wbs_gas_element: [this.data.item.wbs_gas_element ?? ''],
   }, {validators: [atLeastOneLink]});
+
+  // Solo in creazione: riga di partenza dello storico (inviata come initial_supply).
+  supplyForm = this.fb.group({
+    active: [true],
+    effective_on: [null as Date | null],
+    requested_on: [null as Date | null],
+  });
+  readonly today = new Date();
+  // Cambiamenti in sospeso, dal tab «Attivazioni e volture».
+  supplyPendingCount: number | null = null;
 
   // Collegamenti: campi cache aggiornati da refreshLinks().
   contracts: Contract[] = sortSupplyContracts(this.data.item.contratti ?? []);
@@ -672,12 +685,87 @@ export class UtilityEditDialogComponent implements OnInit {
     return this.assetRows.find(a => (a.latitude ?? a.geocoded_latitude) && (a.longitude ?? a.geocoded_longitude)) ?? this.assetRows[0];
   }
 
-  // A carico di: stato calcolato dal backend sullo storico (si aggiorna dopo Salva).
-  readonly costInfo = this.data.item.cost_info;
-  readonly costStatusInfo = costStatus(this.data.item.cost_info);
+  // A carico di: stato calcolato dal backend sullo storico (si aggiorna dopo
+  // Salva o dopo una modifica dal tab «Attivazioni e volture»).
+  costInfo = this.data.item.cost_info;
+  costStatusInfo = costStatus(this.data.item.cost_info);
+  supplyText = this.supplyTextOf();
+  holderText = this.holderTextOf(this.costInfo);
+  pendingText = this.pendingTextOf(this.costInfo);
   // Manutenzione: calcolata dal backend sui contratti salvati (si aggiorna dopo il Salva).
-  readonly maintenanceInfo = this.data.item.maintenance_info;
-  readonly maintenanceStatusInfo = maintenanceStatus(this.data.item.maintenance_info);
+  maintenanceInfo = this.data.item.maintenance_info;
+  maintenanceStatusInfo = maintenanceStatus(this.data.item.maintenance_info);
+
+  private supplyTextOf(): string {
+    const item = this.data.item;
+    if (item.supply_active) return 'Attiva';
+    return item.ceased_on ? `Cessata il ${dateIt(item.ceased_on)}` : 'Non attiva';
+  }
+
+  private holderTextOf(info: CostInfo | undefined): string {
+    if (!info?.holder) return 'Intestata al Comune';
+    const since = info.holder_since ? ` dal ${dateIt(info.holder_since)}` : '';
+    return `Intestata a ${info.holder.name}${since}`;
+  }
+
+  private pendingTextOf(info: CostInfo | undefined): string | null {
+    const p = info?.pending;
+    if (!p) return null;
+    const label = p.type === 'DECISION' ? 'Decisione sul contratto immobiliare' : SUPPLY_EVENT_LABEL[p.type];
+    return `${label} in sospeso ${sinceDays(p.days)}`;
+  }
+
+  // Dopo una modifica dal tab «Attivazioni e volture»: il backend ha
+  // riconciliato l'utenza. Si rilegge e si riallineano stato, Riepilogo e i
+  // controlli non toccati (altrimenti Salva rimanderebbe i valori vecchi).
+  onSupplyChanged(): void {
+    this.utilityService.getById(this.data.item.id).subscribe({
+      next: raw => {
+        const u = plainToInstance(Utility, raw);
+        const item = this.data.item;
+        item.supply_active = u.supply_active;
+        item.activated_on = u.activated_on;
+        item.ceased_on = u.ceased_on;
+        item.transferred_to_third_party_id = u.transferred_to_third_party_id;
+        item.transferred_on = u.transferred_on;
+        item.cost_status = u.cost_status;
+        item.pending_since = u.pending_since;
+        item.cost_info = u.cost_info;
+        item.maintenance_info = u.maintenance_info;
+        item.update_date = u.update_date;
+        item.updated_by = u.updated_by;
+        this.costInfo = u.cost_info;
+        this.costStatusInfo = costStatus(u.cost_info);
+        this.supplyText = this.supplyTextOf();
+        this.holderText = this.holderTextOf(u.cost_info);
+        this.pendingText = this.pendingTextOf(u.cost_info);
+        this.maintenanceInfo = u.maintenance_info;
+        this.maintenanceStatusInfo = maintenanceStatus(u.maintenance_info);
+        this.lastModified = lastModifiedLabel(u.update_date, u.updated_by);
+        this.realignPristine(u);
+      },
+      error: err => console.error("Errore nel riallineamento dell'utenza:", err),
+    });
+  }
+
+  // Controlli non modificati qui: presi dal server. I collegamenti (immobili,
+  // impianti) hanno il loro riallineamento.
+  private realignPristine(u: Utility): void {
+    const skip = new Set(['asset_ids', 'plant_ids', 'utility_id']);
+    const iso = (v: unknown) => (v instanceof Date ? toIsoDate(v) : v);
+    for (const [name, control] of Object.entries(this.form.controls)) {
+      if (skip.has(name) || !control.pristine) continue;
+      const server = (u as unknown as Record<string, unknown>)[name];
+      const next = name === 'water_concession'
+        ? this.toDate(server)
+        : name === 'budget_chapter_code_fk'
+          ? this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', u)
+          : server ?? (typeof control.value === 'string' ? '' : null);
+      if (iso(next) === iso(control.value)) continue;
+      control.setValue(next as never, {emitEvent: false});
+      control.markAsPristine();
+    }
+  }
 
   openGrant(id: number): void {
     this.navigator.openGrant(id).subscribe();
@@ -723,9 +811,18 @@ export class UtilityEditDialogComponent implements OnInit {
     }
     const result = plainToInstance(Utility, {
       id: this.data.item.id,
-      ...this.form.getRawValue()
+      ...this.form.getRawValue(),
+      ...(this.isNew ? {initial_supply: this.initialSupply()} : {}),
     });
     this.dialogRef.close(result);
+  }
+
+  private initialSupply(): NonNullable<Utility['initial_supply']> {
+    const v = this.supplyForm.getRawValue();
+    const iso = (d: Date | null) => (d ? toIsoDate(d) : null);
+    return v.active
+      ? {active: true, effective_on: iso(v.effective_on)}
+      : {active: false, requested_on: iso(v.requested_on)};
   }
 
   cancel(): void {

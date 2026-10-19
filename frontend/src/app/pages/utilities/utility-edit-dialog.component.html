@@ -90,8 +90,10 @@
           <div class="sheet-grid">
             <div class="span-all" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
               <app-status-badge [info]="costStatusInfo"></app-status-badge>
-              @if (costInfo?.holder; as holder) {
-                <span>{{ holder.name }}</span>
+              <span>{{ supplyText }}</span>
+              <span>· {{ holderText }}</span>
+              @if (pendingText) {
+                <span class="sheet-alert tone-warn" style="margin: 0; padding: 2px 8px;">{{ pendingText }}</span>
               }
               @for (g of costInfo?.grants ?? []; track g.grant_id) {
                 <a href="javascript:void(0)" (click)="openGrant(g.grant_id)" matTooltip="Apri il contratto immobiliare">{{ g.name }}</a>
@@ -110,6 +112,36 @@
                 <a href="javascript:void(0)" (click)="openGrant(p.grant_id)" matTooltip="Apri il contratto immobiliare">{{ p.name }}</a>
               }
             </div>
+          </div>
+        }
+
+        @if (isNew) {
+          <div class="sheet-section-title"><mat-icon>power</mat-icon>Fornitura</div>
+          <div class="sheet-grid" [formGroup]="supplyForm">
+            <div class="span-all">
+              <mat-radio-group formControlName="active" aria-label="Già attiva">
+                <span class="sheet-hint" style="margin-right: 1rem;">Già attiva</span>
+                <mat-radio-button [value]="true">Sì</mat-radio-button>
+                <mat-radio-button [value]="false">No, da attivare</mat-radio-button>
+              </mat-radio-group>
+            </div>
+            @if (supplyForm.controls.active.value) {
+              <mat-form-field>
+                <mat-label>Attiva dal</mat-label>
+                <input matInput [matDatepicker]="activeFromPicker" formControlName="effective_on" [max]="today">
+                <mat-datepicker-toggle matSuffix [for]="activeFromPicker"></mat-datepicker-toggle>
+                <mat-datepicker #activeFromPicker></mat-datepicker>
+                <mat-hint>Facoltativa: vuota = data non nota</mat-hint>
+              </mat-form-field>
+            } @else {
+              <mat-form-field>
+                <mat-label>Richiesta il</mat-label>
+                <input matInput [matDatepicker]="requestedOnPicker" formControlName="requested_on">
+                <mat-datepicker-toggle matSuffix [for]="requestedOnPicker"></mat-datepicker-toggle>
+                <mat-datepicker #requestedOnPicker></mat-datepicker>
+                <mat-hint>Attivazione in sospeso</mat-hint>
+              </mat-form-field>
+            }
           </div>
         }
 
@@ -420,6 +452,17 @@
           <app-photo-gallery [entityType]="'utility'" [entityId]="data.item.id"></app-photo-gallery>
         </ng-template>
       </mat-tab>
+
+      @if (!isNew) {
+        <mat-tab aria-label="Attivazioni e volture">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="swap_horiz" label="Attivazioni e volture" [count]="supplyPendingCount || null" tone="warn"></app-tab-label>
+          </ng-template>
+          <app-utility-supply-tab [utilityId]="data.item.id" [canEdit]="canEdit"
+                                  (pendingCount)="supplyPendingCount = $event"
+                                  (changed)="onSupplyChanged()"></app-utility-supply-tab>
+        </mat-tab>
+      }
 
       <mat-tab aria-label="Storico" [disabled]="isNew">
         <ng-template mat-tab-label>

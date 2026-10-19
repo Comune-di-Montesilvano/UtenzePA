@@ -69,6 +69,8 @@ export class Utility extends AbstractEntity {
   cost_status?: CostStatus;
   @Exclude({toPlainOnly: true})
   pending_since?: string | null;
+  // Solo in creazione: riga di partenza dello storico (assente = attiva, data non nota).
+  initial_supply?: {active: boolean; effective_on?: string | null; requested_on?: string | null};
   // Connettività.
   internet_technology?: InternetTechnology | null;
   download_mbps?: number | null;
