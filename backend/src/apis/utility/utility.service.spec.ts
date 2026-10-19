@@ -24,6 +24,7 @@ describe('UtilitiesService', () => {
     create: jest.Mock;
     save: jest.Mock;
     update: jest.Mock;
+    delete: jest.Mock;
     manager: {
       query: jest.Mock;
       getRepository: jest.Mock;
@@ -44,6 +45,8 @@ describe('UtilitiesService', () => {
   let assetRepo: { count: jest.Mock; find: jest.Mock };
   let plantRepo: { count: jest.Mock; find: jest.Mock };
   let recalc: { recalcUtility: jest.Mock };
+  let supplyReconcile: { reconcile: jest.Mock };
+  let supplyEvents: { createInitial: jest.Mock };
 
   beforeEach(() => {
     qb = {
@@ -66,6 +69,7 @@ describe('UtilitiesService', () => {
       create: jest.fn((data) => data),
       save: jest.fn(async (data) => data),
       update: jest.fn().mockResolvedValue(undefined),
+      delete: jest.fn().mockResolvedValue(undefined),
       manager: {
         // nessun contratto corrente per default: niente coppie utility/contratto
         query: jest.fn().mockResolvedValue([]),
@@ -75,11 +79,15 @@ describe('UtilitiesService', () => {
     assetRepo = { count: jest.fn().mockResolvedValue(1), find: jest.fn().mockResolvedValue([]) };
     recalc = { recalcUtility: jest.fn().mockResolvedValue(undefined) };
     plantRepo = { count: jest.fn().mockResolvedValue(1), find: jest.fn().mockResolvedValue([]) };
+    supplyReconcile = { reconcile: jest.fn().mockResolvedValue(undefined) };
+    supplyEvents = { createInitial: jest.fn().mockResolvedValue({ id: 1 }) };
     service = new UtilitiesService(
       repo as never,
       assetRepo as never,
       recalc as never,
       plantRepo as never,
+      supplyReconcile as never,
+      supplyEvents as never,
     );
   });
 
@@ -574,6 +582,31 @@ describe('UtilitiesService', () => {
       await expect(service.create({ asset_ids: [1] } as never)).rejects.toThrow(HttpException);
     });
 
+    it('senza initial_supply crea la riga iniziale «attiva, data non nota»', async () => {
+      repo.save.mockImplementation(async (d: object) => ({ id: 77, ...d }));
+      await service.create({ asset_ids: [1] } as never, 4);
+      expect(supplyEvents.createInitial).toHaveBeenCalledWith(77, { active: true }, 4);
+    });
+
+    it('con initial_supply passa il valore indicato', async () => {
+      repo.save.mockImplementation(async (d: object) => ({ id: 78, ...d }));
+      const initial = { active: false, requested_on: '2026-10-01' };
+      await service.create({ asset_ids: [1], initial_supply: initial } as never, 4);
+      expect(supplyEvents.createInitial).toHaveBeenCalledWith(78, initial, 4);
+    });
+
+    it('initial_supply e i campi dello storico non finiscono sull’entity', async () => {
+      await service.create({ asset_ids: [1], initial_supply: { active: true } } as never, 4);
+      expect(repo.create.mock.calls[0][0]).not.toHaveProperty('initial_supply');
+    });
+
+    it('se la riga iniziale fallisce toglie l’utenza appena creata e rilancia', async () => {
+      repo.save.mockImplementation(async (d: object) => ({ id: 79, ...d }));
+      supplyEvents.createInitial.mockRejectedValue(new Error('boom'));
+      await expect(service.create({ asset_ids: [1] } as never, 4)).rejects.toThrow();
+      expect(repo.delete).toHaveBeenCalledWith(79);
+    });
+
     it('registra un evento CREATE in audit log', async () => {
       const auditLogService = { record: jest.fn() };
       (service as any).auditLogService = auditLogService;
@@ -780,6 +813,32 @@ describe('UtilitiesService', () => {
       );
     });
 
+    it('update con immobili cambiati riconcilia l’utenza', async () => {
+      assetRepo.count.mockResolvedValue(1);
+      repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false, assets: [{ id: 3 }] });
+      await service.update(10, { asset_ids: [5] } as never, 1);
+      expect(supplyReconcile.reconcile).toHaveBeenCalledWith(10, 1);
+    });
+
+    it('update con gli stessi immobili (ordine diverso) o senza asset_ids non riconcilia', async () => {
+      assetRepo.count.mockResolvedValue(2);
+      repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false, assets: [{ id: 3 }, { id: 4 }] });
+      await service.update(10, { asset_ids: [4, 3] } as never, 1);
+      repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false });
+      await service.update(10, { notes: 'x' } as never, 1);
+      expect(supplyReconcile.reconcile).not.toHaveBeenCalled();
+    });
+
+    it('i campi dello storico nel payload non vengono scritti', async () => {
+      repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false });
+      await service.update(10, { notes: 'x', supply_active: false, ceased_on: '2026-01-01', transferred_on: '2026-01-01' } as never, 1);
+      for (const call of repo.save.mock.calls) {
+        expect(call[0]).not.toHaveProperty('supply_active', false);
+      }
+      const payloads = [...repo.update.mock.calls, ...repo.save.mock.calls].map((c) => JSON.stringify(c[1] ?? c[0]));
+      expect(payloads.join('')).not.toContain('2026-01-01');
+    });
+
     it('update senza asset_ids non tocca gli immobili collegati', async () => {
       repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false });
 
@@ -910,43 +969,6 @@ describe('UtilitiesService', () => {
       ).resolves.not.toThrow();
     });
 
-    it('create con cessazione prima dell’attivazione viene rifiutato', async () => {
-      await expect(
-        service.create(
-          { utility_id: 'U1', activated_on: '2024-05-10', ceased_on: '2024-05-09', asset_ids: [1] } as never,
-          1,
-        ),
-      ).rejects.toThrow('La data di cessazione non può precedere quella di attivazione.');
-      expect(repo.save).not.toHaveBeenCalled();
-    });
-
-    it('create con cessazione lo stesso giorno dell’attivazione passa', async () => {
-      await expect(
-        service.create(
-          { utility_id: 'U1', activated_on: '2024-05-10', ceased_on: '2024-05-10', asset_ids: [1] } as never,
-          1,
-        ),
-      ).resolves.toBeDefined();
-    });
-
-    it('update che mette solo la cessazione prima dell’attivazione salvata viene rifiutato', async () => {
-      repo.findOne.mockResolvedValue({ id: 5, utility_type_id_fk: 33, activated_on: '2024-05-10', deleted: false });
-      await expect(service.update(5, { ceased_on: '2023-01-01' } as never, 1)).rejects.toThrow(
-        'La data di cessazione non può precedere quella di attivazione.',
-      );
-    });
-
-    it('update che svuota l’attivazione e lascia la cessazione passa', async () => {
-      repo.findOne.mockResolvedValue({
-        id: 5,
-        utility_type_id_fk: 33,
-        activated_on: '2024-05-10',
-        ceased_on: '2023-01-01',
-        deleted: false,
-      });
-      await expect(service.update(5, { activated_on: null } as never, 1)).resolves.not.toThrow();
-    });
-
     it('update senza tipo né tipologia non valida nulla', async () => {
       repo.findOne.mockResolvedValue({ id: 5, utility_type_id_fk: 33, arera_category: null, deleted: false });
       await service.update(5, { notes: 'x' } as never, 1);
@@ -1022,62 +1044,6 @@ describe('UtilitiesService', () => {
       await service.findAll({ gas_use_category: 'NONE' } as never);
       expect(qb.andWhere).toHaveBeenCalledWith('Utility.gas_use_category IS NULL');
       expect(qb.andWhere.mock.calls.some((c) => /gas_use_category LIKE/.test(String(c[0])))).toBe(false);
-    });
-  });
-
-  describe('voltura', () => {
-    it('voltura a un soggetto inesistente o cancellato: 400', async () => {
-      repo.findOne.mockResolvedValue({ id: 5, transferred_to_third_party_id: null, deleted: false });
-      repo.manager.query.mockResolvedValue([]);
-      await expect(service.update(5, { transferred_to_third_party_id: 99 } as never, 1)).rejects.toThrow(
-        'Soggetto della voltura non trovato.',
-      );
-    });
-
-    it('data di voltura senza soggetto: 400', async () => {
-      repo.findOne.mockResolvedValue({ id: 5, transferred_to_third_party_id: null, deleted: false });
-      await expect(service.update(5, { transferred_on: '2026-05-01' } as never, 1)).rejects.toThrow(
-        "Indicare a chi è stata volturata l'utenza.",
-      );
-    });
-
-    it('voltura a un soggetto esistente: salvata', async () => {
-      repo.findOne.mockResolvedValue({ id: 5, transferred_to_third_party_id: null, deleted: false });
-      repo.manager.query.mockResolvedValue([{ id: 3 }]);
-      await expect(
-        service.update(5, { transferred_to_third_party_id: 3, transferred_on: '2026-05-01' } as never, 1),
-      ).resolves.not.toThrow();
-      expect(repo.manager.query).toHaveBeenCalledWith(
-        'SELECT id FROM third_parties WHERE id = ? AND deleted = 0',
-        [3],
-      );
-    });
-
-    it('ripresa dal Comune: soggetto null svuota anche la data, senza query', async () => {
-      repo.findOne.mockResolvedValue({ id: 5, transferred_to_third_party_id: 3, transferred_on: '2026-05-01', deleted: false });
-      await service.update(5, { transferred_to_third_party_id: null } as never, 1);
-      expect(repo.manager.query).not.toHaveBeenCalledWith(
-        expect.stringContaining('FROM third_parties'),
-        expect.anything(),
-      );
-      expect(repo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ transferred_to_third_party_id: null, transferred_on: null }),
-      );
-    });
-
-    it('salvataggio con la stessa voltura a un soggetto poi cancellato: nessun 400', async () => {
-      repo.findOne.mockResolvedValue({ id: 5, transferred_to_third_party_id: 3, transferred_on: '2026-05-01', deleted: false });
-      repo.manager.query.mockResolvedValue([]);
-      await expect(
-        service.update(5, { transferred_to_third_party_id: 3, transferred_on: '2026-05-01', notes: 'x' } as never, 1),
-      ).resolves.not.toThrow();
-    });
-
-    it('create con voltura a soggetto inesistente: 400', async () => {
-      repo.manager.query.mockResolvedValue([]);
-      await expect(
-        service.create({ utility_id: 'U1', asset_ids: [1], transferred_to_third_party_id: 99 } as never, 1),
-      ).rejects.toThrow('Soggetto della voltura non trovato.');
     });
   });
 });

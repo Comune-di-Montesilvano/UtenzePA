@@ -19,6 +19,7 @@ import {
   noticeDeadline,
   todayIso,
 } from './real-estate-contract.calc';
+import { SupplyReconcileService } from '@apis/utility-supply/supply-reconcile.service';
 import { validateContract } from './real-estate-contract.validation';
 
 export type ContractRow = UtilizerGrant & {
@@ -73,6 +74,7 @@ export class UtilizerGrantService extends BaseService<
     private readonly assetRepo: Repository<Asset>,
     @InjectRepository(ThirdParty)
     private readonly partyRepo: Repository<ThirdParty>,
+    private readonly supply: SupplyReconcileService,
   ) {
     super();
   }
@@ -197,6 +199,8 @@ export class UtilizerGrantService extends BaseService<
       this.manageErrors(error, 'Errore durante la creazione del contratto');
     }
     await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
+    // Storico utenze: il contratto nuovo cambia «A carico di» sulle utenze dei suoi immobili.
+    await this.supply.reconcileMany(await this.supply.utilityIdsOfGrant(saved.id), userId);
     return this.findOne(saved.id);
   }
 
@@ -208,6 +212,8 @@ export class UtilizerGrantService extends BaseService<
     });
     if (!current) throw new BadRequestException('Contratto non trovato');
     await this.assertValid({ ...current, ...rest }, id);
+    // Utenze toccate = quelle di prima e di dopo (immobili tolti inclusi).
+    const before = await this.supply.utilityIdsOfGrant(id);
     await super.update(id, rest as UpdateUtilizerGrantDto, userId);
     if (asset_ids !== undefined) {
       const entity = await this.repo.findOne({ where: { id }, relations: { assets: true } });
@@ -220,6 +226,8 @@ export class UtilizerGrantService extends BaseService<
       entity.parties = await this.resolveParties(party_ids);
       await this.repo.save(entity);
     }
+    const after = await this.supply.utilityIdsOfGrant(id);
+    await this.supply.reconcileMany([...new Set([...before, ...after])], userId);
     return this.findOne(id);
   }
 
@@ -228,10 +236,13 @@ export class UtilizerGrantService extends BaseService<
   async remove(id: number, updatedByUserId: number): Promise<void> {
     const entity = await this.repo.findOne({ where: { id } });
     if (!entity) throw new BadRequestException('Contratto non trovato');
+    const before = await this.supply.utilityIdsOfGrant(id);
     entity.deleted = true;
     entity.updated_by_user_id = updatedByUserId;
     await this.repo.save(entity);
     await this.recordAudit(AuditAction.DELETE, id, updatedByUserId, []);
+    const after = await this.supply.utilityIdsOfGrant(id);
+    await this.supply.reconcileMany([...new Set([...before, ...after])], updatedByUserId);
   }
 
   private async assertValid(c: Record<string, unknown>, id: number | null): Promise<void> {

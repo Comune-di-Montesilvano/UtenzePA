@@ -136,11 +136,6 @@ export class Utility {
   @Column({ type: 'date', nullable: true })
   transferred_on: string | null;
 
-  // Da volturare deciso sull'utenza: null = come da contratto immobiliare,
-  // true = da volturare comunque, false = non da volturare (vedi cost-status.ts).
-  @Column({ type: 'boolean', nullable: true })
-  transfer_required: boolean | null;
-
   // "A carico di" calcolato dallo storico (apis/utility-supply), salvato per
   // filtrare in SQL. pending_since = da quando c'è qualcosa in sospeso.
   @Column({ type: 'varchar', length: 20, default: 'COMUNE' })

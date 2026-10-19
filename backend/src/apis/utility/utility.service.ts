@@ -19,6 +19,24 @@ import { AreraCategory, ARERA_NONE, GasUseCategory, isAreraCategoryAllowed } fro
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { costInfo, costStatusSql } from './cost-status';
 import { maintenanceInfo, maintenanceStatusSql } from './maintenance-status';
+import { SupplyReconcileService } from '@apis/utility-supply/supply-reconcile.service';
+import { SupplyEventsService } from '@apis/utility-supply/supply-events.service';
+
+// Colonne scritte solo dalla riconciliazione dello storico (apis/utility-supply):
+// mai dal payload di create/update, anche se un chiamante interno le passasse.
+const SUPPLY_OWNED_FIELDS = [
+  'supply_active',
+  'activated_on',
+  'ceased_on',
+  'transferred_to_third_party_id',
+  'transferred_on',
+] as const;
+
+function withoutSupplyFields<T extends object>(dto: T): T {
+  const copy = { ...dto } as Record<string, unknown>;
+  for (const key of SUPPLY_OWNED_FIELDS) delete copy[key];
+  return copy as T;
+}
 
 @Injectable()
 export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, UpdateUtilityDto> {
@@ -33,6 +51,8 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     private readonly recalc: ConsumptionRecalcService,
     @InjectRepository(Plant)
     private readonly plantRepo: Repository<Plant>,
+    private readonly supplyReconcile: SupplyReconcileService,
+    private readonly supplyEvents: SupplyEventsService,
   ) {
     super();
   }
@@ -573,37 +593,12 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     }
   }
 
-  // Voltura: soggetto esistente; la data senza soggetto non ha senso.
-  // Date 'AAAA-MM-GG': il confronto tra stringhe segue l'ordine delle date.
-  private assertLifeDates(activatedOn?: string | null, ceasedOn?: string | null): void {
-    if (activatedOn && ceasedOn && ceasedOn < activatedOn) {
-      throw new BadRequestException('La data di cessazione non può precedere quella di attivazione.');
-    }
-  }
-
-  private async assertTransfer(
-    thirdPartyId: number | null | undefined,
-    transferredOn: string | null | undefined,
-    checkExists = true,
-  ): Promise<void> {
-    if (transferredOn && !thirdPartyId) {
-      throw new BadRequestException("Indicare a chi è stata volturata l'utenza.");
-    }
-    if (!thirdPartyId || !checkExists) return;
-    const rows = await this.repo.manager.query('SELECT id FROM third_parties WHERE id = ? AND deleted = 0', [
-      thirdPartyId,
-    ]);
-    if (!rows.length) throw new BadRequestException('Soggetto della voltura non trovato.');
-  }
-
   async create(dto: CreateUtilityDto, userId?: number): Promise<Utility> {
-    const { asset_ids, plant_ids, ...rest } = dto;
+    const { asset_ids, plant_ids, initial_supply, ...rest } = withoutSupplyFields(dto);
     // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
     if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
     await this.assertMeterAvailable(rest.meter_number, null);
     await this.assertAreraCategory(rest.utility_type_id_fk, rest.arera_category, rest.gas_use_category);
-    await this.assertTransfer(rest.transferred_to_third_party_id, rest.transferred_on);
-    this.assertLifeDates(rest.activated_on, rest.ceased_on);
     const estimate = Number(rest.estimated_annual_consumption ?? 0);
     const assets = await this.resolveAssets(asset_ids ?? []);
     const plants = await this.resolvePlants(plant_ids ?? []);
@@ -616,8 +611,26 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       ...(userId !== undefined && { created_by_user_id: userId, updated_by_user_id: userId }),
     });
 
+    let saved: Utility;
     try {
-      const saved = await this.repo.save(newUtility);
+      saved = await this.repo.save(newUtility);
+    } catch (error) {
+      this.manageErrors(error, "Errore durante la creazione dell'Utenza");
+    }
+    // Riga iniziale dello storico (la crea e riconcilia in una transazione
+    // propria, non componibile con questa): se fallisce l'utenza appena
+    // creata si toglie, mai un'utenza senza storico.
+    try {
+      await this.supplyEvents.createInitial(
+        saved.id,
+        initial_supply ?? { active: true },
+        userId ?? saved.updated_by_user_id,
+      );
+    } catch (error) {
+      await this.repo.delete(saved.id).catch(() => undefined);
+      throw error;
+    }
+    try {
       await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
       return saved;
     } catch (error) {
@@ -626,7 +639,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
   }
 
   async update(id: number, dto: UpdateUtilityDto, userId?: number): Promise<Utility> {
-    const { asset_ids, plant_ids, ...rest } = dto;
+    const { asset_ids, plant_ids, ...rest } = withoutSupplyFields(dto);
     // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
     if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
     const assets = asset_ids !== undefined ? await this.resolveAssets(asset_ids) : undefined;
@@ -651,12 +664,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
         rest.gas_use_category !== undefined ? rest.gas_use_category : current.gas_use_category,
       );
     }
-    if (rest.activated_on !== undefined || rest.ceased_on !== undefined) {
-      this.assertLifeDates(
-        rest.activated_on !== undefined ? rest.activated_on : current.activated_on,
-        rest.ceased_on !== undefined ? rest.ceased_on : current.ceased_on,
-      );
-    }
     if (linksChanged) {
       // Il collegamento finale = quello inviato, altrimenti l'attuale.
       this.assertLinked(assets ?? current.assets ?? [], plants ?? current.plants ?? []);
@@ -672,22 +679,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     // del dialog marcherebbe la stima come manuale.
     let estimateReset = false;
     const payload: Record<string, unknown> = { ...rest };
-    if (rest.transferred_to_third_party_id !== undefined || rest.transferred_on !== undefined) {
-      const toId =
-        rest.transferred_to_third_party_id !== undefined
-          ? rest.transferred_to_third_party_id
-          : current.transferred_to_third_party_id;
-      // Ripresa dal Comune (soggetto tolto): si svuota anche la data.
-      const recovered = rest.transferred_to_third_party_id === null;
-      if (recovered) payload.transferred_on = null;
-      // Soggetto invariato: non si ricontrolla (se nel frattempo è stato
-      // cancellato l'utenza è "da riprendere", ma resta salvabile).
-      await this.assertTransfer(
-        toId,
-        recovered ? null : (rest.transferred_on ?? current.transferred_on),
-        toId !== current.transferred_to_third_party_id,
-      );
-    }
     if (
       rest.estimated_annual_consumption !== undefined &&
       rest.estimated_annual_consumption !== null &&
@@ -721,6 +712,15 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       const auditUser = userId ?? entity.updated_by_user_id;
       if (assets !== undefined) await this.recordAssetsChange(id, beforeAssets, assets, auditUser);
       if (plants !== undefined) await this.recordPlantsChange(id, beforePlants, plants, auditUser);
+      // Cambiano gli immobili (insiemi, non ordine): cambia la copertura dei contratti.
+      if (assets !== undefined) {
+        const key = (list: Asset[]) =>
+          list
+            .map((a) => a.id)
+            .sort((x, y) => x - y)
+            .join(',');
+        if (key(beforeAssets) !== key(assets)) await this.supplyReconcile.reconcile(id, userId);
+      }
     }
 
     return this.findOne(id);

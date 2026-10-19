@@ -1,4 +1,4 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsNotEmpty,
@@ -10,11 +10,27 @@ import {
   IsNumber,
   IsEnum,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import { Phase } from '../../shared/enum/user.enums';
 import { AreraCategory, GasUseCategory } from '../arera-category';
 import { InternetTechnology } from '../internet-technology';
 import { DateOnly } from '@/common/decorators/date-only.decorator';
+
+// Riga di partenza dello storico: attiva (data indicata o non nota) oppure
+// attivazione in sospeso (richiesta il …).
+export class InitialSupplyDto {
+  @IsBoolean()
+  active: boolean;
+
+  @IsOptional()
+  @DateOnly()
+  effective_on?: string | null;
+
+  @IsOptional()
+  @DateOnly()
+  requested_on?: string | null;
+}
 
 export class CreateUtilityDto {
   @IsNotEmpty({ message: 'Il tipo di utenza è obbligatorio.' })
@@ -58,9 +74,11 @@ export class CreateUtilityDto {
   @MaxLength(255)
   supplier_address?: string;
 
+  // Assente = attiva, data non nota.
   @IsOptional()
-  @IsBoolean()
-  supply_active?: boolean;
+  @ValidateNested()
+  @Type(() => InitialSupplyDto)
+  initial_supply?: InitialSupplyDto;
 
   @IsOptional()
   @IsBoolean()
@@ -133,31 +151,9 @@ export class CreateUtilityDto {
   @IsEnum(GasUseCategory, { message: "Categoria d'uso gas non valida." })
   gas_use_category?: GasUseCategory | null;
 
-  // Voltura (null = ripresa dal Comune).
-  @IsOptional()
-  @IsInt()
-  transferred_to_third_party_id?: number | null;
-
-  @IsOptional()
-  @DateOnly()
-  transferred_on?: string | null;
-
-  // null = come da contratto immobiliare.
-  @IsOptional()
-  @IsBoolean()
-  transfer_required?: boolean | null;
-
   @IsOptional()
   @IsBoolean()
   disconnectable?: boolean | null;
-
-  @IsOptional()
-  @DateOnly()
-  activated_on?: string | null;
-
-  @IsOptional()
-  @DateOnly()
-  ceased_on?: string | null;
 
   @IsOptional()
   @IsEnum(InternetTechnology, { message: 'Tecnologia della linea non valida.' })
