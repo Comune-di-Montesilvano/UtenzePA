@@ -63,6 +63,10 @@ export class UtilityConsumption {
   @Column({ type: 'boolean', nullable: true })
   reactive_penalty: boolean | null;
 
+  // Valore stimato dal fornitore: conta finché non arriva il dato reale.
+  @Column({ type: 'boolean', default: false })
+  is_estimated: boolean;
+
   @Column({ type: 'enum', enum: ConsumptionSource, default: ConsumptionSource.MANUAL })
   source: ConsumptionSource;
 

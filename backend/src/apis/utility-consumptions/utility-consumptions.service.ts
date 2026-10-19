@@ -29,12 +29,14 @@ import {
   normalizeByKind,
   normalizeMeter,
   readingDeltas,
+  supersededIds,
   todayDay,
   validateBands,
   validateConsumption,
 } from './consumption-calculator';
 
-export type UtilityConsumptionRow = UtilityConsumption & { computed_consumption: number | null };
+// superseded = stima che non conta più: è arrivato il dato reale.
+export type UtilityConsumptionRow = UtilityConsumption & { computed_consumption: number | null; superseded: boolean };
 
 export interface UtilityConsumptionSummary {
   unit: string | null;
@@ -89,6 +91,7 @@ export class UtilityConsumptionsService extends BaseService<
   async findByUtility(utilityId: number): Promise<UtilityConsumptionRow[]> {
     const rows = await this.repo.find({ where: { utility_id_fk: utilityId, deleted: false } });
     const deltas = readingDeltas(rows);
+    const superseded = supersededIds(rows);
     const sortKey = (r: UtilityConsumption) => r.reading_date ?? r.period_end ?? '';
     return rows
       .map((r) => ({
@@ -99,8 +102,13 @@ export class UtilityConsumptionsService extends BaseService<
         consumption_f1: toNumber(r.consumption_f1),
         consumption_f2: toNumber(r.consumption_f2),
         consumption_f3: toNumber(r.consumption_f3),
-        computed_consumption:
-          r.kind === ConsumptionKind.PERIOD ? toNumber(r.consumption) : (deltas.get(r.id) ?? null),
+        is_estimated: !!r.is_estimated,
+        superseded: superseded.has(r.id),
+        computed_consumption: superseded.has(r.id)
+          ? null
+          : r.kind === ConsumptionKind.PERIOD
+            ? toNumber(r.consumption)
+            : (deltas.get(r.id) ?? null),
       }))
       .sort((a, b) => sortKey(b).localeCompare(sortKey(a)) || b.id - a.id);
   }
