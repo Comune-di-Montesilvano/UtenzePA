@@ -95,7 +95,8 @@ const REPROCESS_SQL =
   "AND ((status IN ('PENDING', 'LINKED') AND pattern_id_fk IS NULL) OR (status = 'EXTRACTED' AND pattern_id_fk = ?)) " +
   'ORDER BY id';
 
-const RULE_KINDS = ['field', 'numberAfter', 'grossAmount', 'fromHeader', 'none'];
+const RULE_KINDS = ['field', 'numberAfter', 'textAfter', 'grossAmount', 'fromHeader', 'none'];
+const WORD_KINDS = ['numberAfter', 'textAfter'];
 
 const text = (value: unknown, max: number) =>
   value === undefined || (typeof value === 'string' && value.length > 0 && value.length <= max);
@@ -104,10 +105,11 @@ function validRule(rule: unknown): boolean {
   if (!rule || typeof rule !== 'object') return false;
   const r = rule as Record<string, unknown>;
   if (!RULE_KINDS.includes(r.kind as string)) return false;
-  if (r.kind === 'field' || r.kind === 'fromHeader' || r.kind === 'numberAfter') {
+  if (r.kind === 'field' || r.kind === 'fromHeader' || WORD_KINDS.includes(r.kind as string)) {
     if (!text(r.path, 255) || r.path === undefined) return false;
   }
-  if (r.kind === 'numberAfter' && (!text(r.word, 50) || r.word === undefined)) return false;
+  if (WORD_KINDS.includes(r.kind as string) && (!text(r.word, 50) || r.word === undefined))
+    return false;
   if (r.where !== undefined) {
     const w = r.where as Record<string, unknown> | null;
     if (!w || !text(w.path, 255) || !text(w.equals, 100) || !w.path || !w.equals) return false;

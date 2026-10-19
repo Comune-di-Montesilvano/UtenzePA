@@ -150,6 +150,84 @@ describe('extract', () => {
   });
 });
 
+describe('extract: dati nella Causale (A2A)', () => {
+  const A2A_RULES: PatternRules = {
+    header: {},
+    line: {
+      ...POD_RULES.line,
+      consumption: {
+        kind: 'numberAfter',
+        path: 'DatiGenerali/DatiGeneraliDocumento/Causale',
+        word: 'kWh',
+        fromHeader: true,
+      },
+      meter: {
+        kind: 'textAfter',
+        path: 'DatiGenerali/DatiGeneraliDocumento/Causale',
+        word: 'Contatore',
+        fromHeader: true,
+      },
+    },
+  };
+  const withCausale = (causali: string[], xml = pod) =>
+    Buffer.from(
+      xml
+        .toString('utf8')
+        .replace(
+          '<Causale>Consumo fatturato kWh 542 periodo giugno</Causale>',
+          causali.map((c) => `<Causale>${c}</Causale>`).join(''),
+        ),
+    );
+  const A2A_CAUSALE =
+    'FORNITURA ENERGIA ELETTRICA periodo: 01.06.2026-30.06.2026  POD IT001E00000001 Contatore 000000000000283767 kWh 542';
+
+  it('consumo, unità e matricola dalla Causale: zeri iniziali conservati', () => {
+    const result = extract(withCausale([A2A_CAUSALE]), A2A_RULES);
+    expect(result.lines[0]).toEqual(
+      expect.objectContaining({ consumption: 542, unit: 'kWh', meter: '000000000000283767' }),
+    );
+    // Consumo una volta sola per utenza, matricola su tutte le sue righe.
+    expect(result.lines[1].consumption).toBeNull();
+    expect(result.lines[1].meter).toBe('000000000000283767');
+  });
+
+  it('matricola alfanumerica', () => {
+    const xml = withCausale([A2A_CAUSALE.replace('000000000000283767', '0000E12345678')]);
+    expect(extract(xml, A2A_RULES).lines[0].meter).toBe('0000E12345678');
+  });
+
+  it('Causale spezzata in più elementi (200 caratteri l’uno), anche a metà parola', () => {
+    const at = A2A_CAUSALE.indexOf('283767');
+    const xml = withCausale([A2A_CAUSALE.slice(0, at), A2A_CAUSALE.slice(at)]);
+    expect(extract(xml, A2A_RULES).lines[0]).toEqual(
+      expect.objectContaining({ consumption: 542, meter: '000000000000283767' }),
+    );
+  });
+
+  it('più POD nella Causale: ogni riga legge il tratto della sua utenza', () => {
+    const two = Buffer.from(
+      withCausale([
+        'POD IT001E00000001 Contatore 111 kWh 10 POD IT001E00000002 Contatore 222 kWh 20',
+      ])
+        .toString('utf8')
+        .replace(/(<NumeroLinea>2<\/NumeroLinea>[\s\S]*?)IT001E00000001/, '$1IT001E00000002'),
+    );
+    const lines = extract(two, A2A_RULES).lines;
+    expect(lines.slice(0, 2).map((l) => [l.utility, l.consumption, l.meter])).toEqual([
+      ['IT001E00000001', 10, '111'],
+      ['IT001E00000002', 20, '222'],
+    ]);
+  });
+
+  it('unità mappata: vale quella, non la parola', () => {
+    const rules: PatternRules = {
+      ...A2A_RULES,
+      line: { ...A2A_RULES.line, unit: { kind: 'none' } },
+    };
+    expect(extract(withCausale([A2A_CAUSALE]), rules).lines[0].unit).toBeNull();
+  });
+});
+
 describe('patternMatches e pickPattern', () => {
   it('falso se manca un percorso usato dalle regole', () => {
     expect(patternMatches(pod, POD_RULES)).toBe(true);
