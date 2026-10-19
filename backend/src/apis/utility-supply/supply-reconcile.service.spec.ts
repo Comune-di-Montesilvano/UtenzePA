@@ -285,6 +285,66 @@ describe('SupplyReconcileService.reconcile', () => {
     });
   });
 
+  it.each([
+    ['eliminato', { deleted: 1, update_date: new Date('2026-09-30T10:00:00Z') }],
+    ['passato a passivo', { direction: 'PASSIVE', update_date: new Date('2026-09-30T10:00:00Z') }],
+  ])('contratto %s dopo la voltura: vale come finito, reintestazione in sospeso', async (_n, g) => {
+    const db = fakeDb({
+      utilities: [utility({ transferred_to_third_party_id: 5, cost_status: 'TRANSFERRED' })],
+      events: [
+        activation,
+        event({
+          id: 2,
+          type: SupplyEventType.TRANSFER,
+          third_party_id_fk: 5,
+          effective_on: '2026-02-01',
+          utilizer_grant_id_fk: 10,
+        }),
+      ],
+      grants: [{ id: 10, ...g }],
+      parties: [{ utilizer_grant_id: 10, third_party_id: 5 }],
+      covered: [{ grant_id: 10, utility_id: 7 }],
+      decisions: [
+        { id: 50, utilizer_grant_id_fk: 10, utility_id_fk: 7, decision: 'FOLLOWS', third_party_id_fk: 5, create_date: NOW },
+      ],
+    });
+    await build(db).reconcile(7);
+    const ret = db.events.find((e) => e.type === SupplyEventType.RETURN);
+    expect(ret).toMatchObject({ utilizer_grant_id_fk: 10, effective_on: null, cancelled_on: null });
+    expect(db.repo(Utility).update.mock.calls[0][1]).toMatchObject({
+      cost_status: 'TO_RECOVER',
+      pending_since: TODAY,
+    });
+  });
+
+  it('contratto eliminato con TRANSFER in sospeso: annullato come contratto finito', async () => {
+    const db = fakeDb({
+      utilities: [utility({ cost_status: 'TO_TRANSFER' })],
+      events: [
+        activation,
+        event({ id: 2, type: SupplyEventType.TRANSFER, third_party_id_fk: 5, utilizer_grant_id_fk: 10 }),
+      ],
+      grants: [{ id: 10, deleted: 1 }],
+      parties: [{ utilizer_grant_id: 10, third_party_id: 5 }],
+      covered: [{ grant_id: 10, utility_id: 7 }],
+      decisions: [
+        { id: 50, utilizer_grant_id_fk: 10, utility_id_fk: 7, decision: 'FOLLOWS', third_party_id_fk: 5, create_date: NOW },
+      ],
+    });
+    await build(db).reconcile(7);
+    expect(db.events.find((e) => e.id === 2)?.notes).toBe(`Annullato in automatico: ${CANCEL_GRANT_ENDED}`);
+    expect(db.repo(Utility).update.mock.calls[0][1]).toMatchObject({ cost_status: 'COMUNE' });
+  });
+
+  it('carica anche i contratti eliminati o passivi legati da decisione o riga automatica', async () => {
+    const db = fakeDb({ utilities: [utility()], events: [activation] });
+    await build(db).reconcile(7);
+    const sql = db.query.mock.calls.map((c) => c[0] as string).find((s) => s.includes('AS covers_utility') && !s.includes('g.id = ?'));
+    expect(sql).toMatch(/WHERE \(g\.deleted = 0 AND g\.direction = 'ACTIVE' AND EXISTS/);
+    expect(sql).toMatch(/\) OR EXISTS \(SELECT 1 FROM utilizer_grant_utility_decisions d/);
+    expect(sql).toMatch(/g\.deleted/);
+  });
+
   it('scrive le colonne di stato dallo storico', async () => {
     const db = fakeDb({
       utilities: [utility({ supply_active: false })],
@@ -443,6 +503,43 @@ describe('SupplyReconcileService decisioni', () => {
     await build(db).applyProposal(10, 42);
     expect(db.decisions[0]).toMatchObject({ decision: 'FOLLOWS', third_party_id_fk: 5 });
     expect(db.events.some((e) => e.type === SupplyEventType.TRANSFER)).toBe(true);
+  });
+
+  const ceased = [
+    activation,
+    event({ id: 2, type: SupplyEventType.CESSATION, effective_on: '2026-03-01' }),
+  ];
+
+  it('elenco decisioni: utenze cessate escluse (nulla da decidere)', async () => {
+    const db = fakeDb({
+      utilities: [utility(), utility({ id: 8, supply_active: false })],
+      events: [
+        activation,
+        event({ id: 2, utility_id_fk: 8, type: SupplyEventType.ACTIVATION, date_unknown: true }),
+        event({ id: 3, utility_id_fk: 8, type: SupplyEventType.CESSATION, effective_on: '2026-03-01' }),
+      ],
+      grants: [{ id: 10 }],
+      parties: [{ utilizer_grant_id: 10, third_party_id: 5 }],
+      covered: [
+        { grant_id: 10, utility_id: 7 },
+        { grant_id: 10, utility_id: 8 },
+      ],
+      decisions: [
+        { id: 50, utilizer_grant_id_fk: 10, utility_id_fk: 8, decision: null, third_party_id_fk: null, create_date: NOW },
+      ],
+    });
+    expect((await build(db).listDecisions(10)).map((r) => r.utility_id)).toEqual([7]);
+  });
+
+  it('apply-proposal: utenza cessata non toccata', async () => {
+    const db = base({
+      grant: { utilities_to_be_taken_over: 1 },
+      decisions: [{ id: 50, utilizer_grant_id_fk: 10, utility_id_fk: 7, decision: null, third_party_id_fk: null, create_date: NOW }],
+    });
+    db.events.splice(0, db.events.length, ...ceased);
+    await build(db).applyProposal(10, 42);
+    expect(db.decisions[0].decision).toBeNull();
+    expect(db.events.some((e) => e.type === SupplyEventType.TRANSFER)).toBe(false);
   });
 
   it('apply-proposal con più parti: righe saltate', async () => {

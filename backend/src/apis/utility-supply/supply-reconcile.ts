@@ -25,6 +25,8 @@ export interface GrantLike extends CalcInput {
   // false = contratto legato all'utenza solo da una riga decisione (immobile tolto
   // dal contratto o utenza scollegata dall'immobile): vale come finito per l'utenza.
   covers_utility: boolean;
+  // Contratto eliminato: vale come finito per l'utenza (come uno passivo).
+  deleted?: boolean;
 }
 
 export interface DecisionLike {
@@ -62,6 +64,7 @@ const STAYS = GrantUtilityDecisionValue.STAYS;
 
 export function isGrantActive(g: GrantLike, today: string): boolean {
   return (
+    !g.deleted &&
     g.direction === ContractDirection.ACTIVE &&
     g.status === ContractStatus.ACTIVE &&
     (effectiveEndDate(g, today) ?? '9999') >= today
@@ -103,7 +106,9 @@ export function planReconcile(input: {
   events: SupplyEventLike[];
 }): ReconcilePlan {
   const today = day10(input.today);
-  const grants = input.grants.filter((g) => g.direction === ContractDirection.ACTIVE);
+  // Anche i contratti eliminati o passati a passivi legati all'utenza (da una
+  // decisione o da una riga automatica): non sono in corso, valgono come finiti.
+  const grants = input.grants;
   const grantById = new Map(grants.map((g) => [g.id, g]));
   const holder = stateAt(input.events, today).holderId;
   const live = pending(input.events);

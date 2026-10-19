@@ -144,6 +144,7 @@ describe('supply-reconcile', () => {
         false,
       );
       expect(isGrantActive(grant({ id: 1, end_date: TODAY }), TODAY)).toBe(true);
+      expect(isGrantActive(grant({ id: 1, deleted: true }), TODAY)).toBe(false);
     });
   });
 
@@ -345,6 +346,42 @@ describe('supply-reconcile', () => {
     expect(r.costStatus).toBe(CostStatus.COMUNE);
     // attivazioni/cessazioni in sospeso hanno segnalazioni proprie
     expect(r.pendingSince).toBeNull();
+  });
+
+  it('utenza cessata con decisione vuota: non è da decidere', () => {
+    const r = stable({
+      utilityActive: false,
+      grants: [grant({ id: 1 })],
+      decisions: [dec({ grant_id: 1, decision: null })],
+      events: [active, ev({ type: T.CESSATION, effective_on: '2026-03-01' })],
+    });
+    expectNoActions(r);
+    expect(r.costStatus).toBe(CostStatus.COMUNE);
+    expect(r.pendingSince).toBeNull();
+  });
+
+  it.each([
+    ['eliminato', { deleted: true }],
+    ['passato a passivo', { direction: ContractDirection.PASSIVE }],
+  ])('contratto %s legato da decisione: vale come finito', (_n, o) => {
+    const ended = grant({ id: 1, covers_utility: false, ...o });
+    const transfer = ev({
+      type: T.TRANSFER,
+      third_party_id_fk: 10,
+      effective_on: '2025-02-01',
+      utilizer_grant_id_fk: 1,
+    });
+    const r = stable({ grants: [ended], decisions: [dec({ grant_id: 1 })], events: [active, transfer] });
+    expect(r.createDecisions).toEqual([]);
+    expect(r.createEvents).toEqual([{ type: 'RETURN', third_party_id: null, grant_id: 1 }]);
+    expect(r.costStatus).toBe(CostStatus.TO_RECOVER);
+
+    const pendingTransfer = ev({ type: T.TRANSFER, third_party_id_fk: 10, utilizer_grant_id_fk: 1 });
+    const p = stable({ grants: [ended], decisions: [dec({ grant_id: 1 })], events: [active, pendingTransfer] });
+    expect(p.cancelEvents).toEqual([
+      { id: pendingTransfer.id, reason: 'Contratto immobiliare non più attivo' },
+    ]);
+    expect(p.costStatus).toBe(CostStatus.COMUNE);
   });
 
   it('cambiamenti in sospeso manuali mai toccati', () => {

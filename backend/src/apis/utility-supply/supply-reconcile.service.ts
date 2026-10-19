@@ -78,7 +78,7 @@ interface Loaded {
 
 const GRANT_FIELDS =
   'g.id, g.start_date, g.end_date, g.direction, g.status, g.tacit_renewal, g.renewal_months, ' +
-  'g.notice_months, g.utilities_to_be_taken_over, g.update_date';
+  'g.notice_months, g.utilities_to_be_taken_over, g.update_date, g.deleted';
 
 // Contratto che copre l'utenza da un immobile non cancellato.
 const COVERS_SQL =
@@ -236,6 +236,9 @@ export class SupplyReconcileService {
       const decisionRepo = m.getRepository(GrantUtilityDecision);
       // Solo le utenze bloccate: una collegata nel frattempo resta da decidere.
       for (const utilityId of utilityIds.filter((id) => covered.has(id))) {
+        // Utenza cessata: non è da decidere, la proposta non la tocca.
+        const loaded = await this.load(m, utilityId);
+        if (!loaded || !loaded.snapshot.supply_active) continue;
         const row = await decisionRepo.findOne({
           where: { utilizer_grant_id_fk: grantId, utility_id_fk: utilityId },
         });
@@ -278,7 +281,8 @@ export class SupplyReconcileService {
     const out: GrantDecisionRow[] = [];
     for (const utilityId of await this.coveredUtilityIds(m, grantId)) {
       const loaded = await this.load(m, utilityId);
-      if (!loaded) continue;
+      // Utenza cessata: non c'è nulla da decidere.
+      if (!loaded || !loaded.snapshot.supply_active) continue;
       const row = loaded.decisions.find((d) => d.utilizer_grant_id_fk === grantId);
       // Senza riga: la decisione che la riconciliazione creerebbe (rinnovo).
       const planned = loaded.plan.createDecisions.find((d) => d.grant_id === grantId);
@@ -356,14 +360,16 @@ export class SupplyReconcileService {
 
   // Contratti concessi dal Comune che riguardano l'utenza: coperti da un suo
   // immobile, oppure legati solo da una decisione o da righe di storico
-  // (immobile tolto, utenza scollegata) → covers_utility = false.
+  // (immobile tolto, utenza scollegata) → covers_utility = false. Questi
+  // ultimi anche se eliminati o passati a passivi: valgono come finiti, così
+  // l'utenza volturata con quel contratto torna al Comune.
   private async loadGrants(m: EntityManager, utilityId: number): Promise<GrantLike[]> {
+    const covers = `(g.deleted = 0 AND g.direction = 'ACTIVE' AND ${COVERS_SQL})`;
     const rows: Record<string, unknown>[] = await m.query(
-      `SELECT ${GRANT_FIELDS}, ${COVERS_SQL} AS covers_utility FROM utilizer_grant g ` +
-        "WHERE g.deleted = 0 AND g.direction = 'ACTIVE' AND (" +
-        `${COVERS_SQL} ` +
+      `SELECT ${GRANT_FIELDS}, ${covers} AS covers_utility FROM utilizer_grant g ` +
+        `WHERE ${covers} ` +
         'OR EXISTS (SELECT 1 FROM utilizer_grant_utility_decisions d WHERE d.utilizer_grant_id_fk = g.id AND d.utility_id_fk = ?) ' +
-        'OR EXISTS (SELECT 1 FROM utility_supply_events e WHERE e.utilizer_grant_id_fk = g.id AND e.utility_id_fk = ? AND e.deleted = 0))',
+        'OR EXISTS (SELECT 1 FROM utility_supply_events e WHERE e.utilizer_grant_id_fk = g.id AND e.utility_id_fk = ? AND e.deleted = 0)',
       [utilityId, utilityId, utilityId, utilityId],
     );
     return this.toGrants(m, rows);
@@ -381,11 +387,13 @@ export class SupplyReconcileService {
     const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
     return rows.map((r) => {
       const status = r.status as ContractStatus;
+      const direction = r.direction as ContractDirection;
+      const deleted = !!Number(r.deleted ?? 0);
       return {
         id: Number(r.id),
         start_date: dbDay(r.start_date),
         end_date: dbDay(r.end_date),
-        direction: r.direction as ContractDirection,
+        direction,
         status,
         tacit_renewal: !!Number(r.tacit_renewal),
         renewal_months: num(r.renewal_months),
@@ -394,11 +402,14 @@ export class SupplyReconcileService {
         party_ids: parties
           .filter((p) => Number(p.utilizer_grant_id) === Number(r.id))
           .map((p) => Number(p.third_party_id)),
+        // Eliminazione o passaggio a passivo: fine dal giorno della modifica.
         status_changed_on:
-          status !== ContractStatus.ACTIVE && r.update_date
+          (status !== ContractStatus.ACTIVE || deleted || direction !== ContractDirection.ACTIVE) &&
+          r.update_date
             ? romeDay(r.update_date as Date | string)
             : null,
         covers_utility: !!Number(r.covers_utility),
+        deleted,
       };
     });
   }

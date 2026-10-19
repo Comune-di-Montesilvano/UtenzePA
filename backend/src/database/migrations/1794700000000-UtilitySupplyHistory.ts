@@ -158,7 +158,8 @@ export class UtilitySupplyHistory1794700000000 implements MigrationInterface {
         'JOIN `utilizer_grant_assets` uga ON uga.utilizer_grant_id = g.id ' +
         'JOIN `assets` a ON a.id = uga.asset_id AND a.deleted = 0 ' +
         'JOIN `utility_assets` ua ON ua.asset_id = a.id ' +
-        'JOIN `utilities` u ON u.id = ua.utility_id AND u.deleted = 0 ' +
+        // Le utenze cessate non sono da decidere.
+        'JOIN `utilities` u ON u.id = ua.utility_id AND u.deleted = 0 AND u.supply_active = 1 ' +
         "WHERE g.deleted = 0 AND g.direction = 'ACTIVE' AND g.status = 'ACTIVE' " +
         'ORDER BY g.id, ua.utility_id',
     );
