@@ -650,6 +650,19 @@ describe('UtilitiesService', () => {
       expect(result).toBe(reloaded);
     });
 
+    it('se la rilettura fallisce restituisce comunque l’utenza salvata e logga l’id', async () => {
+      const logged = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      repo.save.mockImplementation(async (d: object) => ({ id: 82, ...d }));
+      repo.findOne.mockRejectedValue(new Error('findOne ko'));
+
+      const result = await service.create({ asset_ids: [1] } as never, 4);
+
+      expect((result as unknown as { id: number }).id).toBe(82);
+      expect(logged).toHaveBeenCalledTimes(1);
+      expect(String(logged.mock.calls[0][0])).toContain('82');
+      logged.mockRestore();
+    });
+
     it('rilancia un errore gestito se il salvataggio fallisce', async () => {
       repo.save.mockRejectedValue({ code: 'ALTRO' });
 

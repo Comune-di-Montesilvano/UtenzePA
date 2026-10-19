@@ -674,15 +674,22 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     }
     try {
       await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
-      // Riletta dopo la riga iniziale: la riconciliazione aggiorna le colonne
-      // di stato (supply_active, cost_status, …) che `saved` ha ancora vecchie.
+    } catch (error) {
+      this.manageErrors(error, "Errore durante la creazione dell'Utenza");
+    }
+    // Riletta dopo la riga iniziale: la riconciliazione aggiorna le colonne
+    // di stato (supply_active, cost_status, …) che `saved` ha ancora vecchie.
+    // L'utenza è già salvata: se la rilettura fallisce si restituisce `saved`
+    // (un errore qui porterebbe l'utente a ricrearla, duplicata).
+    try {
       const reloaded = await this.repo.findOne({
         where: { id: saved.id } as never,
         relations: { assets: true, plants: true },
       });
       return reloaded ?? saved;
     } catch (error) {
-      this.manageErrors(error, "Errore durante la creazione dell'Utenza");
+      this.logger.error(`Utenza ${saved.id} creata ma non riletta dopo la riconciliazione`, error as Error);
+      return saved;
     }
   }
 

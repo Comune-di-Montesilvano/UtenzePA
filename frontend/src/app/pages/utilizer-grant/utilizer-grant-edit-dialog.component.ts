@@ -155,6 +155,10 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   // decisione di voltura su questo contratto.
   utilityRows: Utility[] = [];
   private decisionRows: GrantDecisionRow[] = [];
+  // Finché le decisioni non arrivano (o se il caricamento fallisce) la
+  // colonna mostra «—»: un'utenza assente dalle decisioni non va scambiata
+  // per una da salvare.
+  private decisionsLoaded = false;
   decisionViews: Record<number, DecisionView> = {};
   decisionOptions: {value: string; label: string}[] = [];
   canApplyProposal = false;
@@ -407,12 +411,18 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
     if (this.isNew || !this.decidesTransfer) return;
     this.supplyService.decisions(this.item.id).subscribe({
       next: rows => this.setDecisions(rows),
-      error: err => console.error('Errore nel caricamento delle decisioni di voltura:', err),
+      error: err => {
+        console.error('Errore nel caricamento delle decisioni di voltura:', err);
+        this.toast.add({severity: 'error', summary: 'Decisioni di voltura non caricate', detail: errorText(err)});
+        // Una ricarica fallita lascia le righe già mostrate.
+        if (!this.decisionsLoaded) this.buildDecisionViews();
+      },
     });
   }
 
   private setDecisions(rows: GrantDecisionRow[]): void {
     this.decisionRows = rows;
+    this.decisionsLoaded = true;
     this.buildDecisionViews();
   }
 
@@ -435,21 +445,26 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
     ];
     const byUtility = new Map(this.decisionRows.map(r => [r.utility_id, r]));
     const views: Record<number, DecisionView> = {};
+    const none: DecisionView = {text: '—', badge: null, overridden: false, decidable: false, value: null};
     for (const u of this.utilityRows) {
       const r = byUtility.get(u.id);
-      if (!this.decidesTransfer) {
-        views[u.id] = {text: '—', badge: null, overridden: false, decidable: false, value: null};
+      // FOLLOWS senza parte su un contratto con più parti resta da decidere
+      // (la riconciliazione non apre la voltura): si sceglie la parte.
+      const party = r?.decision === 'FOLLOWS'
+        ? r.third_party_id ?? (parties.length === 1 ? parties[0].id : null)
+        : null;
+      if (!this.decidesTransfer || !this.decisionsLoaded) {
+        views[u.id] = none;
       } else if (!r) {
         // Utenza non ancora coperta dal contratto salvato (immobile appena collegato).
         views[u.id] = {text: 'Salva il contratto per decidere', badge: null, overridden: false, decidable: false, value: null};
-      } else if (r.decision === 'FOLLOWS') {
-        const party = r.third_party_id ?? (parties.length === 1 ? parties[0].id : null);
+      } else if (r.decision === 'FOLLOWS' && party !== null) {
         views[u.id] = {
           text: `Segue il contratto → ${nameOf(party)}`,
           badge: null,
           overridden: r.overridden,
           decidable: true,
-          value: party !== null ? `FOLLOWS:${party}` : null,
+          value: `FOLLOWS:${party}`,
         };
       } else if (r.decision === 'STAYS') {
         views[u.id] = {text: 'Resta al Comune', badge: null, overridden: r.overridden, decidable: true, value: 'STAYS'};
@@ -457,14 +472,14 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
         views[u.id] = {text: 'Da decidere', badge: TO_DECIDE_BADGE, overridden: r.overridden, decidable: true, value: null};
       } else {
         // Contratto finito senza decisione: non c'è più nulla da decidere.
-        views[u.id] = {text: '—', badge: null, overridden: false, decidable: false, value: null};
+        views[u.id] = none;
       }
     }
     this.decisionViews = views;
     // Il backend applica la proposta solo con una parte: con più parti si
     // sceglie riga per riga.
     this.canApplyProposal = this.decisionsEditable && parties.length === 1
-      && this.decisionRows.some(r => r.decision === null && r.proposal !== null);
+      && this.decisionsLoaded && this.decisionRows.some(r => r.decision === null && r.proposal !== null);
   }
 
   decide(utilityId: number, change: MatSelectChange): void {

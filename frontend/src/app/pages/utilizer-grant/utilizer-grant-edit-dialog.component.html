@@ -218,7 +218,7 @@
           <app-linked-table
             [columns]="utilityColumns"
             [rows]="utilityRows"
-            [extraCell]="volturaCell"
+            [extraCell]="decidesTransfer ? volturaCell : null"
             extraLabel="Voltura"
             [rowStatus]="utilityStatusOf"
             [createLabel]="canEdit && savedAssetIds.length ? 'Nuova utenza' : null"
