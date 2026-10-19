@@ -123,6 +123,61 @@ export function activeIntervals(
   return out;
 }
 
+export interface DayInterval {
+  start: string | null;
+  end: string | null;
+}
+
+// Periodi in cui l'utenza è intestata a un terzo (da una voltura effettiva
+// alla reintestazione effettiva; start null = da prima, end null = in corso).
+export function holderIntervals(events: SupplyEventLike[]): DayInterval[] {
+  const out: DayInterval[] = [];
+  let holder: number | null = null;
+  let start: string | null = null;
+  for (const e of effectiveSorted(events)) {
+    if (e.type === SupplyEventType.TRANSFER) {
+      if (holder === null) start = dateOf(e);
+      holder = e.third_party_id_fk;
+    } else if (e.type === SupplyEventType.RETURN && holder !== null) {
+      out.push({ start, end: dateOf(e) });
+      holder = null;
+      start = null;
+    }
+  }
+  if (holder !== null) out.push({ start, end: null });
+  return out;
+}
+
+// base meno cut (null = senza limite). Il giorno di confine resta in base.
+export function subtractIntervals(base: DayInterval[], cut: DayInterval[]): DayInterval[] {
+  let pieces = base.map((b) => ({ ...b }));
+  for (const c of cut) {
+    const next: DayInterval[] = [];
+    for (const p of pieces) {
+      const before = c.end !== null && p.start !== null && c.end <= p.start;
+      const after = c.start !== null && p.end !== null && c.start >= p.end;
+      if (before || after) {
+        next.push(p);
+        continue;
+      }
+      if (c.start !== null && (p.start === null || p.start < c.start)) {
+        next.push({ start: p.start, end: c.start });
+      }
+      if (c.end !== null && (p.end === null || c.end < p.end)) {
+        next.push({ start: c.end, end: p.end });
+      }
+    }
+    pieces = next;
+  }
+  return pieces;
+}
+
+// «In carico al Comune» (decisione utente 2026-10-19): attiva e intestata al
+// Comune. Durante una voltura effettiva l'utenza non è del Comune.
+export function inChargeIntervals(events: SupplyEventLike[]): DayInterval[] {
+  return subtractIntervals(activeIntervals(events), holderIntervals(events));
+}
+
 export function pending(events: SupplyEventLike[]): SupplyEventLike[] {
   return events.filter((e) => isLive(e) && !e.date_unknown && !e.effective_on);
 }

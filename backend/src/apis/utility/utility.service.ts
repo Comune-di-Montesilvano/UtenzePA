@@ -17,7 +17,7 @@ import { EstimateSource } from '@apis/utility-consumptions/enum/estimate-source.
 import { findMeterConflict } from './meter-number.helper';
 import { AreraCategory, ARERA_NONE, GasUseCategory, isAreraCategoryAllowed } from './arera-category';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
-import { costInfo, costStatusSql } from './cost-status';
+import { costInfo, costStatusSql, inChargeSql } from './cost-status';
 import { GrantUtilityDecisionValue } from '@apis/utility-supply/enum/supply-event-type.enum';
 import { maintenanceInfo, maintenanceStatusSql } from './maintenance-status';
 import { SupplyReconcileService, romeDay, dbDay } from '@apis/utility-supply/supply-reconcile.service';
@@ -430,6 +430,14 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     if (filters?.cost_status) {
       qb.andWhere(costStatusSql(filters.cost_status));
     }
+    // «Fornitura attiva» come lo stato mostrato (decisione utente 2026-10-19):
+    // sì = in carico al Comune, no = cessata; le volturate non sono né l'una
+    // né l'altra (si trovano con «A carico di» Volturata/Da reintestare).
+    if (filters?.supply_active === true) {
+      qb.andWhere(inChargeSql('Utility'));
+    } else if (filters?.supply_active === false) {
+      qb.andWhere('(Utility.supply_active = 0 AND Utility.transferred_to_third_party_id IS NULL)');
+    }
     if (filters?.maintenance_status) {
       qb.andWhere(maintenanceStatusSql(filters.maintenance_status));
     }
@@ -471,6 +479,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       'grant_id',
       'cost_status',
       'maintenance_status',
+      'supply_active',
       'safeguard',
       'party_id',
       'id',

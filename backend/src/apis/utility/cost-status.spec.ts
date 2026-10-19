@@ -1,4 +1,11 @@
-import { CostStatus, costInfo, costStatusSql } from './cost-status';
+import {
+  CostStatus,
+  costInfo,
+  costStatusSql,
+  inChargeSql,
+  isInCharge,
+  isTransferred,
+} from './cost-status';
 import {
   ContractDirection,
   ContractStatus,
@@ -106,6 +113,23 @@ describe('costInfo', () => {
       { grant_id: 7, name: 'Locazione sede', decision: GrantUtilityDecisionValue.FOLLOWS },
       { grant_id: 8, name: 'Atto 12', decision: null },
     ]);
+  });
+
+  describe('in carico al Comune', () => {
+    it('attiva e intestata al Comune: sì; volturata o cessata: no', () => {
+      expect(isInCharge({ supply_active: true, transferred_to_third_party_id: null })).toBe(true);
+      expect(isInCharge({ supply_active: 1 })).toBe(true);
+      expect(isInCharge({ supply_active: true, transferred_to_third_party_id: 3 })).toBe(false);
+      expect(isInCharge({ supply_active: false })).toBe(false);
+      expect(isInCharge({})).toBe(false);
+      expect(isTransferred({ transferred_to_third_party_id: 3 })).toBe(true);
+      expect(isTransferred({ transferred_to_third_party_id: null })).toBe(false);
+    });
+
+    it('gemella SQL', () => {
+      expect(inChargeSql('u')).toBe('(u.supply_active = 1 AND u.transferred_to_third_party_id IS NULL)');
+      expect(inChargeSql()).toContain('Utility.supply_active = 1');
+    });
   });
 
   it('input minimi: Comune', () => {

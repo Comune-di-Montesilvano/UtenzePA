@@ -111,4 +111,37 @@ describe('outOfPeriod', () => {
     ];
     expect(outOfPeriod(line('2025-07-20', '2025-08-05'), events, 0)).toBe(true);
   });
+
+  describe('voltura effettiva il 2025-03-01, ripresa il 2025-09-01 (decisione utente 2026-10-19)', () => {
+    const events = [
+      ev({ type: T.ACTIVATION, date_unknown: true }),
+      ev({ type: T.TRANSFER, third_party_id_fk: 5, effective_on: '2025-03-01' }),
+      ev({ type: T.RETURN, effective_on: '2025-09-01' }),
+    ];
+
+    it('fattura durante la voltura: anomala', () => {
+      expect(outOfPeriod(line('2025-05-01', '2025-06-30'), events)).toBe(true);
+    });
+
+    it('entro 30 giorni dopo la voltura o prima della ripresa: non anomala', () => {
+      expect(outOfPeriod(line('2025-03-01', '2025-03-25'), events)).toBe(false);
+      expect(outOfPeriod(line('2025-08-10', '2025-08-31'), events)).toBe(false);
+    });
+
+    it('prima della voltura e dopo la ripresa: non anomala', () => {
+      expect(outOfPeriod(line('2025-01-01', '2025-02-28'), events)).toBe(false);
+      expect(outOfPeriod(line('2025-09-01', '2025-10-31'), events)).toBe(false);
+    });
+
+    it('voltura senza ripresa su utenza attiva da prima: anomala dopo la tolleranza', () => {
+      const open = events.slice(0, 2);
+      expect(outOfPeriod(line('2025-03-15', '2025-03-30'), open)).toBe(false);
+      expect(outOfPeriod(line('2026-01-01', '2026-01-31'), open)).toBe(true);
+    });
+
+    it('voltura in sospeso: non conta', () => {
+      const pendingTransfer = [events[0], ev({ type: T.TRANSFER, third_party_id_fk: 5 })];
+      expect(outOfPeriod(line('2026-01-01', '2026-01-31'), pendingTransfer)).toBe(false);
+    });
+  });
 });

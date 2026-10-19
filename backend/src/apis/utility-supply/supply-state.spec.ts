@@ -3,6 +3,9 @@ import {
   SupplyEventLike,
   activeIntervals,
   currentSnapshot,
+  holderIntervals,
+  inChargeIntervals,
+  subtractIntervals,
   pending,
   sequenceWarnings,
   stateAt,
@@ -196,6 +199,55 @@ describe('supply-state', () => {
       const c = ev({ id: 0, type: T.ACTIVATION, effective_on: '2026-01-01' });
       expect(validateEvent(c, others, today)).toBeNull();
       expect(sequenceWarnings([...others, c])).toContain('Due attivazioni di fila: manca una cessazione?');
+    });
+  });
+
+  describe('periodi in carico al Comune', () => {
+    const history = () => [
+      ev({ type: T.ACTIVATION, effective_on: '2020-01-01' }),
+      ev({ type: T.TRANSFER, third_party_id_fk: 5, effective_on: '2023-03-01' }),
+      ev({ type: T.TRANSFER, third_party_id_fk: 6, effective_on: '2023-09-01' }),
+      ev({ type: T.RETURN, effective_on: '2024-02-01' }),
+      ev({ type: T.TRANSFER, third_party_id_fk: 7, effective_on: '2025-05-01' }),
+    ];
+
+    it('holderIntervals: dalla voltura alla reintestazione, voltura diretta senza interruzioni', () => {
+      expect(holderIntervals(history())).toEqual([
+        { start: '2023-03-01', end: '2024-02-01' },
+        { start: '2025-05-01', end: null },
+      ]);
+    });
+
+    it('holderIntervals: voltura «data non nota» = da prima; righe in sospeso ignorate', () => {
+      const e = [
+        ev({ type: T.TRANSFER, third_party_id_fk: 5, date_unknown: true }),
+        ev({ type: T.RETURN, effective_on: '2024-02-01' }),
+        ev({ type: T.TRANSFER, third_party_id_fk: 5 }),
+      ];
+      expect(holderIntervals(e)).toEqual([{ start: null, end: '2024-02-01' }]);
+    });
+
+    it('subtractIntervals: spezza, taglia e rispetta i limiti aperti', () => {
+      expect(
+        subtractIntervals([{ start: null, end: null }], [{ start: '2023-01-01', end: '2023-06-01' }]),
+      ).toEqual([
+        { start: null, end: '2023-01-01' },
+        { start: '2023-06-01', end: null },
+      ]);
+      expect(
+        subtractIntervals([{ start: '2023-02-01', end: '2023-03-01' }], [{ start: '2023-01-01', end: null }]),
+      ).toEqual([]);
+      expect(
+        subtractIntervals([{ start: '2023-02-01', end: '2023-03-01' }], [{ start: '2023-03-01', end: null }]),
+      ).toEqual([{ start: '2023-02-01', end: '2023-03-01' }]);
+    });
+
+    it('inChargeIntervals: attiva meno i periodi di voltura', () => {
+      expect(inChargeIntervals(history())).toEqual([
+        { start: '2020-01-01', end: '2023-03-01' },
+        { start: '2024-02-01', end: '2025-05-01' },
+      ]);
+      expect(activeIntervals(history())).toEqual([{ start: '2020-01-01', end: null }]);
     });
   });
 

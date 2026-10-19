@@ -1,4 +1,4 @@
-import { CostStatus, costStatusSql } from '@apis/utility/cost-status';
+import { CostStatus, costStatusSql, inChargeSql } from '@apis/utility/cost-status';
 import { AnomaliesService } from './anomalies.service';
 
 describe('AnomaliesService', () => {
@@ -244,6 +244,21 @@ describe('AnomaliesService', () => {
       expect(sql).not.toContain('utilities_to_be_taken_over');
     }
     expect(toTransfer).toContain('LEFT JOIN');
+  });
+
+  it('segnalazioni sulle utenze attive, capitoli non impegnati e senza assestato: solo in carico al Comune', async () => {
+    service.now = () => new Date('2026-10-19T10:00:00Z');
+    await service.getAnomalies();
+    const sqls = query.mock.calls.map(([s]) => String(s));
+    const inCharge = inChargeSql('u');
+    // attive senza contratto, senza CIG, sovrapposti, ARERA, gas, senza capitolo, senza posizione
+    expect(sqls.filter((s) => s.includes(`WHERE u.deleted = 0 AND ${inCharge}`)).length).toBeGreaterThanOrEqual(7);
+    expect(sqls.find((s) => s.includes('budget_commitments any_c'))).toContain(inCharge);
+    expect(sqls.find((s) => s.includes('s.adjusted_budget IS NOT NULL'))).toContain(inCharge);
+    // Le pratiche di voltura restano sul dato fisico (le volturate sono proprio quelle).
+    const toRecover = sqls.find((s) => s.includes(costStatusSql(CostStatus.TO_RECOVER, 'u')));
+    expect(toRecover).toContain('u.supply_active = 1');
+    expect(toRecover).not.toContain(inCharge);
   });
 
   it('parti dei contratti in corso: stato ACTIVE e fine effettiva non passata (oggi da Node)', async () => {

@@ -1,8 +1,14 @@
 import { SupplyEventType } from './enum/supply-event-type.enum';
-import { SupplyEventLike, activeIntervals } from './supply-state';
+import {
+  DayInterval,
+  SupplyEventLike,
+  activeIntervals,
+  holderIntervals,
+  subtractIntervals,
+} from './supply-state';
 
-// Riga fattura fuori dai periodi in cui l'utenza era attiva (anomalia
-// «Fatture fuori dai periodi di attività»). Date 'AAAA-MM-GG'.
+// Riga fattura fuori dai periodi in cui l'utenza era attiva e intestata al
+// Comune (anomalia «Fatture fuori dai periodi di attività»). Date 'AAAA-MM-GG'.
 export interface InvoiceLinePeriod {
   period_start: string | null;
   period_end: string | null;
@@ -30,6 +36,10 @@ const isActivityChange = (e: SupplyEventLike) =>
 // Le righe «data non nota» vengono prima di tutte le datate: se l'ultima è
 // una cessazione, prima della prima data lo stato non è determinabile e non
 // si segnala nulla; se è un'attivazione, l'utenza è attiva da prima.
+// Senza attivazioni/cessazioni datate è tutto coperto. Dai periodi coperti si
+// tolgono quelli di voltura effettiva (decisione utente 2026-10-19): il
+// periodo del Comune finisce alla voltura (+ tolleranza) e riparte dalla
+// reintestazione (- tolleranza), come per cessazione e attivazione.
 export function outOfPeriod(
   line: InvoiceLinePeriod,
   events: SupplyEventLike[],
@@ -37,14 +47,17 @@ export function outOfPeriod(
 ): boolean {
   const changes = events.filter(isActivityChange);
   const dated = changes.filter((e) => !e.date_unknown && !!e.effective_on);
-  if (!dated.length) return false;
 
-  const intervals = activeIntervals(dated);
-  if (changes.some((e) => e.date_unknown)) {
-    // Attiva da prima o non determinabile: coperto fino alla prima data.
-    const first = dated.map((e) => day10(e.effective_on as string)).sort()[0];
-    intervals.unshift({ start: null, end: first });
+  let active: DayInterval[] = [{ start: null, end: null }];
+  if (dated.length) {
+    active = activeIntervals(dated);
+    if (changes.some((e) => e.date_unknown)) {
+      // Attiva da prima o non determinabile: coperto fino alla prima data.
+      const first = dated.map((e) => day10(e.effective_on as string)).sort()[0];
+      active.unshift({ start: null, end: first });
+    }
   }
+  const intervals = subtractIntervals(active, holderIntervals(events));
 
   const covered = intervals
     .map((i) => ({

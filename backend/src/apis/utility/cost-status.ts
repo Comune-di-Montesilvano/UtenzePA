@@ -103,3 +103,26 @@ export function costInfo(utility: CostInput, today: string): CostInfo {
 export function costStatusSql(status: CostStatus, alias = 'Utility'): string {
   return `${alias}.cost_status = '${status}'`;
 }
+
+// «In carico al Comune» (decisione utente 2026-10-19): fornitura attiva e
+// intestata al Comune, cioè nessuna voltura effettiva in corso
+// (transferred_to_third_party_id = intestatario di oggi ricavato dallo storico;
+// valorizzato con Volturata e Da reintestare). Un'utenza volturata non è né
+// attiva né cessata per il Comune: supply_active resta il dato fisico.
+// Gemella SQL: inChargeSql. Da volturare resta del Comune.
+export interface InChargeInput {
+  supply_active?: boolean | number | null;
+  transferred_to_third_party_id?: number | null;
+}
+
+export function isTransferred(u: InChargeInput): boolean {
+  return u.transferred_to_third_party_id !== null && u.transferred_to_third_party_id !== undefined;
+}
+
+export function isInCharge(u: InChargeInput): boolean {
+  return !!Number(u.supply_active ?? 0) && !isTransferred(u);
+}
+
+export function inChargeSql(alias = 'Utility'): string {
+  return `(${alias}.supply_active = 1 AND ${alias}.transferred_to_third_party_id IS NULL)`;
+}

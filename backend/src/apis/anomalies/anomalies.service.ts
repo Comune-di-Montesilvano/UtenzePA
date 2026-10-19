@@ -4,7 +4,7 @@ import { GroundingClass, PlantStatus, PlantType } from '@apis/plants/enum/plant.
 import { todayIso } from '@apis/utilizer-grant/real-estate-contract.calc';
 import { DataSource } from 'typeorm';
 import { partyNameSql } from '@apis/third-parties/third-party.name';
-import { CostStatus, costStatusSql } from '@apis/utility/cost-status';
+import { CostStatus, costStatusSql, inChargeSql } from '@apis/utility/cost-status';
 import { chaptersYearSummary, currentYear } from '@apis/spending/chapter-year';
 import { dbDay, romeDay } from '@apis/utility-supply/supply-reconcile.service';
 import { SupplyEventLike } from '@apis/utility-supply/supply-state';
@@ -154,8 +154,10 @@ export class AnomaliesService {
         FROM contract_utilities cu JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
         LEFT JOIN third_parties s ON s.id = c.supplier_id_fk
         WHERE cu.utility_id = u.id AND ${CURRENT}) AS contracts`;
+    // Utenze in carico al Comune: attive e non volturate (decisione utente
+    // 2026-10-19). Non vale per byCostStatus, che elenca proprio le volture.
     const activeUtilities = `FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
-       WHERE u.deleted = 0 AND u.supply_active = 1`;
+       WHERE u.deleted = 0 AND ${inChargeSql('u')}`;
     const currentContractOf = (extra = '') =>
       `SELECT 1 FROM contract_utilities cu JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
        WHERE cu.utility_id = u.id AND ${CURRENT} ${extra}`;
@@ -350,7 +352,7 @@ export class AnomaliesService {
               CONCAT(b.chapter_code, '/', b.article) AS chapter
        FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
        JOIN budget_chapters b ON b.id = u.budget_chapter_code_fk
-       WHERE u.deleted = 0 AND u.supply_active = 1
+       WHERE u.deleted = 0 AND ${inChargeSql('u')}
        AND EXISTS (
          SELECT 1 FROM contract_utilities cu JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
          WHERE cu.utility_id = u.id AND c.closed = 0
@@ -394,7 +396,7 @@ export class AnomaliesService {
     const withoutBudget: Record<string, unknown>[] = await this.dataSource.query(
       `SELECT b.id, b.chapter_code, b.article, b.description FROM budget_chapters b
        WHERE b.deleted = 0
-         AND (EXISTS (SELECT 1 FROM utilities u WHERE u.budget_chapter_code_fk = b.id AND u.deleted = 0 AND u.supply_active = 1)
+         AND (EXISTS (SELECT 1 FROM utilities u WHERE u.budget_chapter_code_fk = b.id AND u.deleted = 0 AND ${inChargeSql('u')})
               OR EXISTS (SELECT 1 FROM budget_commitments c WHERE c.budget_chapter_id_fk = b.id AND c.deleted = 0 AND c.fiscal_year = ?))
          AND NOT EXISTS (SELECT 1 FROM budget_chapter_spending s
                          WHERE s.budget_chapter_id_fk = b.id AND s.deleted = 0 AND s.year = ? AND s.adjusted_budget IS NOT NULL)

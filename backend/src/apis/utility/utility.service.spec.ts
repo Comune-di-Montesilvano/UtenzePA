@@ -3,7 +3,7 @@ import { BaseService } from '@apis/shared/base.service';
 import { UtilitiesService } from './utility.service';
 import { Utility } from './entity/utility.entity';
 import { ExpiryStatus } from './enum/ExpiryStatus.enum';
-import { CostStatus, costStatusSql } from './cost-status';
+import { CostStatus, costStatusSql, inChargeSql } from './cost-status';
 import { MaintenanceStatus, maintenanceStatusSql } from './maintenance-status';
 
 function daysFromToday(days: number): Date {
@@ -226,6 +226,17 @@ describe('UtilitiesService', () => {
       const call = qb.andWhere.mock.calls.find((c) => String(c[0]).includes('p.type IN (:...plant_types)'));
       expect(call?.[1]).toEqual({ plant_types: ['FOUNTAIN'] });
       expect(String(call?.[0])).toContain('p.deleted = 0');
+    });
+
+    it('filtro fornitura attiva: sì = in carico al Comune, no = cessata non volturata', async () => {
+      await service.findAll({ supply_active: true } as never);
+      expect(qb.andWhere).toHaveBeenCalledWith(inChargeSql('Utility'));
+      qb.andWhere.mockClear();
+      await service.findAll({ supply_active: false } as never);
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        '(Utility.supply_active = 0 AND Utility.transferred_to_third_party_id IS NULL)',
+      );
+      expect(qb.andWhere.mock.calls.some((c) => /supply_active = :supply_active/.test(String(c[0])))).toBe(false);
     });
 
     it('filtro a carico di usa costStatusSql', async () => {
