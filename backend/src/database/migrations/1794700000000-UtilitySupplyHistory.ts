@@ -69,10 +69,14 @@ function convert(u: UtilityRow, today: string): EventRow[] {
     notes,
     author,
   });
-  const future = (type: EventRow['type'], day: string): EventRow => ({
+  const future = (
+    type: EventRow['type'],
+    day: string,
+    thirdParty: number | null = null,
+  ): EventRow => ({
     utility: u.id,
     type,
-    thirdParty: null,
+    thirdParty,
     requestedOn: day,
     effectiveOn: null,
     dateUnknown: false,
@@ -123,7 +127,12 @@ function convert(u: UtilityRow, today: string): EventRow[] {
   if (futureA) events.push(future('ACTIVATION', futureA));
   if (futureC) events.push(future('CESSATION', futureC));
   if (u.transferred_to_third_party_id !== null && u.transferred_to_third_party_id !== undefined) {
-    events.push(ev('TRANSFER', u.transferred_on, null, u.transferred_to_third_party_id));
+    const holder = u.transferred_to_third_party_id;
+    events.push(
+      u.transferred_on && u.transferred_on > today
+        ? future('TRANSFER', u.transferred_on, holder)
+        : ev('TRANSFER', u.transferred_on, null, holder),
+    );
   }
   return events;
 }

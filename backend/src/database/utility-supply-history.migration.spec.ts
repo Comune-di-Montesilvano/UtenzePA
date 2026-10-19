@@ -197,6 +197,23 @@ describe('Migration UtilitySupplyHistory1794700000000', () => {
         [17, 'CESSATION', null, '2999-06-30', null, 0, 'Data futura da verificare: 30/06/2999'],
       ]);
     });
+
+    it('voltura futura: voltura in sospeso verso il terzo, utenza ancora del Comune', async () => {
+      const u = utility({
+        id: 18,
+        activated_on: '2024-01-01',
+        transferred_to_third_party_id: 5,
+        transferred_on: '2999-02-01',
+      });
+      const rows = await insertedRows([u]);
+      expect(rows.map((r) => r.slice(0, 7))).toEqual([
+        [18, 'ACTIVATION', null, null, '2024-01-01', 0, null],
+        [18, 'TRANSFER', 5, '2999-02-01', null, 0, 'Data futura da verificare: 01/02/2999'],
+      ]);
+      const snap = currentSnapshot(await insertedLikes([u]), todayIso());
+      expect(snap.supply_active).toBe(true);
+      expect(snap.transferred_to_third_party_id).toBeNull();
+    });
   });
 
   // Ogni ramo di convert: lo stato ricavato dalle righe = supply_active di partenza.
