@@ -1,6 +1,6 @@
 # UtenzePA – Guida per gli operatori
 
-_Ultimo aggiornamento: 2026-10-16_
+_Ultimo aggiornamento: 2026-10-19_
 
 ## Cos'è e chi lo usa
 
@@ -14,7 +14,7 @@ Ogni elemento ha una scheda con i suoi collegamenti: da un immobile si arriva al
 - **Credenziali**: con l'account di dominio inserisci il nome utente del PC (es. `nome.cognome`) e la sua password. Gli account locali entrano con l'email.
 - **Primo accesso con l'account di dominio**: l'utente viene creato in automatico in sola consultazione (ruolo Lettore). Per modificare i dati chiedi a un amministratore di cambiarti il ruolo.
 - **Password dimenticata?**: vale solo per gli account locali. Ricevi un codice OTP via email e scegli una nuova password. Per l'account di dominio la password è quella del PC.
-- **Inattività**: dopo 30 minuti senza attività l'applicazione esce da sola e torna al login.
+- **Inattività**: dopo 30 minuti senza attività l'applicazione esce da sola, chiude le schede aperte e torna al login.
 
 ## Operazioni frequenti
 

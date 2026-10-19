@@ -1,5 +1,7 @@
 import { Component, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
+import { filter } from 'rxjs';
 import { AuthService } from './services/auth.service';
 import { Idle, DEFAULT_INTERRUPTSOURCES } from '@ng-idle/core';
 import { Keepalive } from '@ng-idle/keepalive';
@@ -19,12 +21,17 @@ export class App implements OnInit {
     private keepalive: Keepalive,
     private authService: AuthService,
     private router: Router,
+    private dialog: MatDialog,
   ) {}
 
   ngOnInit() {
     this.idle.setIdle(1800);
     this.idle.setTimeout(60);
     this.idle.setInterrupts(DEFAULT_INTERRUPTSOURCES);
+
+    // Qualsiasi uscita (inattività, refresh rifiutato, 401, Esci) chiude le
+    // schede aperte: MatDialog non segue il routing e resterebbero sopra il login.
+    this.authService.currentUser$.pipe(filter(user => !user)).subscribe(() => this.dialog.closeAll());
 
     this.idle.onIdleStart.subscribe(() => console.log('Utente inattivo...'));
     this.idle.onTimeout.subscribe(() => {
