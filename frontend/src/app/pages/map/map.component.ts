@@ -38,6 +38,7 @@ import { ICON_FALLBACK } from '../../core/helpers/material-icons';
 import { CoordinateHelper } from '../../core/helpers/coordinate.helper';
 import { StreetViewHelper } from '../../core/helpers/street-view.helper';
 import { ToastService } from '../../core/services/toast.service';
+import { loadChunk } from '../../core/helpers/chunk-reload.helper';
 import { PLANT_STATUS_LABEL, PLANT_TYPE_ICON, PLANT_TYPE_LABEL, PLANT_TYPES, PlantStatus } from '../plants/plant.model';
 
 // Marker immobile: icona Material Icons della funzione dell'immobile,
@@ -431,7 +432,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     // dinamico qui sotto è una chiamata a runtime, non hoistata: l'ordine è
     // garantito.
     (window as unknown as { L: typeof L }).L = L;
-    await import('leaflet.markercluster');
+    await loadChunk(() => import('leaflet.markercluster'));
 
     const branding = this.brandingService.current();
     const brandingLat = CoordinateHelper.parseCoordinate(branding.default_latitude);

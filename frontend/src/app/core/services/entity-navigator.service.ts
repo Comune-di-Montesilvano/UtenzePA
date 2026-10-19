@@ -34,6 +34,7 @@ import type {Plant} from '../../pages/plants/plant.model';
 import type {Complex, ComplexPayload} from '../../pages/complexes/complex.model';
 import type {Act, ActPayload} from '../../pages/acts/act.model';
 import {ToastService} from './toast.service';
+import {loadChunk} from '../helpers/chunk-reload.helper';
 
 // Import dinamici: i dialog iniettano questo servizio, un import statico dei
 // dialog qui creerebbe un ciclo di moduli.
@@ -304,14 +305,14 @@ export class EntityNavigatorService {
   }
 
   private sheet<D, R>(load: () => Promise<ComponentType<unknown>>, data: D): Observable<R | undefined> {
-    return from(load()).pipe(
+    return from(loadChunk(load)).pipe(
       switchMap(component => openSheet<unknown, D, R>(this.dialog, component, data).afterClosed()),
     );
   }
 
   // Anagrafiche semplici: dialog classico, come dall'elenco.
   private simple<D, R>(load: () => Promise<ComponentType<unknown>>, data: D, width = '1150px'): Observable<R | undefined> {
-    return from(load()).pipe(
+    return from(loadChunk(load)).pipe(
       switchMap(component => this.dialog.open<unknown, D, R>(component, {width, maxWidth: width, position: EDIT_DIALOG_POSITION, data}).afterClosed()),
     );
   }
