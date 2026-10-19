@@ -947,6 +947,51 @@ describe('UtilitiesService', () => {
       spy.mockRestore();
     });
 
+    describe('colonne di stato mai riscritte dal save (lost update)', () => {
+      const STATE = [
+        'supply_active',
+        'activated_on',
+        'ceased_on',
+        'transferred_to_third_party_id',
+        'transferred_on',
+        'cost_status',
+        'pending_since',
+      ];
+      // Entity come letta dal DB, nuova a ogni findOne.
+      const stored = () => ({
+        id: 10,
+        utility_id: 'U1',
+        deleted: false,
+        supply_active: true,
+        activated_on: '2020-01-01',
+        ceased_on: null,
+        transferred_to_third_party_id: 5,
+        transferred_on: '2024-01-01',
+        cost_status: 'TO_RECOVER',
+        pending_since: '2026-01-01',
+        assets: [{ id: 3 }],
+        plants: [],
+      });
+
+      it('update con immobili cambiati: né il salvataggio del form né quello dei collegamenti le contengono', async () => {
+        repo.findOne.mockImplementation(async () => stored());
+        await service.update(10, { notes: 'x', asset_ids: [4], cost_status: 'COMUNE', pending_since: null } as never, 1);
+        expect(repo.save).toHaveBeenCalledTimes(2);
+        for (const [saved] of repo.save.mock.calls) {
+          for (const k of STATE) expect(saved).not.toHaveProperty(k);
+        }
+        expect(repo.save.mock.calls[0][0]).toMatchObject({ notes: 'x' });
+      });
+
+      it('remove: il salvataggio della cancellazione non le contiene', async () => {
+        repo.findOne.mockImplementation(async () => stored());
+        await service.remove(10, 1);
+        const [saved] = repo.save.mock.calls[0];
+        expect(saved).toMatchObject({ deleted: true, updated_by_user_id: 1 });
+        for (const k of STATE) expect(saved).not.toHaveProperty(k);
+      });
+    });
+
     it('create: i campi dello storico non arrivano all’entity', async () => {
       await service.create({ asset_ids: [1], supply_active: false, ceased_on: '2026-01-02', transferred_on: '2026-01-03' } as never, 4);
       const keys = Object.keys(repo.create.mock.calls[0][0]);

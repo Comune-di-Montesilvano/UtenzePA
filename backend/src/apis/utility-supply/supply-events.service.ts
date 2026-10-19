@@ -26,6 +26,8 @@ export type SupplyEventView = Omit<
 export interface SupplyEventsList {
   events: SupplyEventView[];
   warnings: string[];
+  // Solo la riga salvata: lo storico non è stato riletto, la UI lo ricarica.
+  stale?: boolean;
 }
 
 // Campi modificabili di una riga.

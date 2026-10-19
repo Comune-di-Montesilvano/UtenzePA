@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Logger,
   Param,
   ParseIntPipe,
   Patch,
@@ -14,7 +15,8 @@ import { JwtAuthGuard } from '@/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/core/auth/guards/roles.guard';
 import { Roles } from '@/core/auth/decorators/roles.decorator';
 import { CurrentUser, ICurrentUser } from '@/core/auth/decorators/current-user.decorator';
-import { SupplyEventsList, SupplyEventsService } from './supply-events.service';
+import { SupplyEventView, SupplyEventsList, SupplyEventsService } from './supply-events.service';
+import { UtilitySupplyEvent } from './entity/utility-supply-event.entity';
 import { GrantDecisionRow, SupplyReconcileService } from './supply-reconcile.service';
 import { CreateSupplyEventDto } from './dto/create-supply-event.dto';
 import { UpdateSupplyEventDto } from './dto/update-supply-event.dto';
@@ -26,6 +28,8 @@ import { SetDecisionDto } from './dto/set-decision.dto';
 @Controller('utility-supply')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UtilitySupplyController {
+  private readonly logger = new Logger(UtilitySupplyController.name);
+
   constructor(
     private readonly events: SupplyEventsService,
     private readonly reconcile: SupplyReconcileService,
@@ -43,7 +47,7 @@ export class UtilitySupplyController {
     @CurrentUser() user: ICurrentUser,
   ): Promise<SupplyEventsList> {
     const saved = await this.events.create(dto, user.id);
-    return this.events.listByUtility(saved.utility_id_fk);
+    return this.listAfterWrite(saved);
   }
 
   @Roles('Admin', 'Operatore')
@@ -54,7 +58,7 @@ export class UtilitySupplyController {
     @CurrentUser() user: ICurrentUser,
   ): Promise<SupplyEventsList> {
     const saved = await this.events.update(id, dto, user.id);
-    return this.events.listByUtility(saved.utility_id_fk);
+    return this.listAfterWrite(saved);
   }
 
   @Roles('Admin', 'Operatore')
@@ -64,7 +68,29 @@ export class UtilitySupplyController {
     @CurrentUser() user: ICurrentUser,
   ): Promise<SupplyEventsList> {
     const saved = await this.events.cancel(id, user.id);
-    return this.events.listByUtility(saved.utility_id_fk);
+    return this.listAfterWrite(saved);
+  }
+
+  // Rilettura dopo il commit: se fallisce si risponde comunque 2xx con la
+  // riga salvata (stale: la UI ricarica lo storico), altrimenti l'utente
+  // ripeterebbe un salvataggio già fatto.
+  private async listAfterWrite(saved: UtilitySupplyEvent): Promise<SupplyEventsList> {
+    try {
+      return await this.events.listByUtility(saved.utility_id_fk);
+    } catch (error) {
+      this.logger.error(
+        `Storico dell'utenza ${saved.utility_id_fk} non riletto dopo il salvataggio della riga ${saved.id}`,
+        error as Error,
+      );
+      // Come listByUtility: niente relazioni nella risposta.
+      const row = { ...saved } as Record<string, unknown>;
+      for (const key of ['thirdParty', 'grant', 'utility', 'created_by', 'updated_by']) delete row[key];
+      return {
+        events: [{ ...row, third_party_name: null, grant_label: null } as SupplyEventView],
+        warnings: [],
+        stale: true,
+      };
+    }
   }
 
   @Roles('Admin', 'Operatore')

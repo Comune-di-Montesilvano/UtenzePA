@@ -25,19 +25,27 @@ import { GrantUtilityDecision } from '@apis/utility-supply/entity/grant-utility-
 import { SupplyEventsService } from '@apis/utility-supply/supply-events.service';
 
 // Colonne scritte solo dalla riconciliazione dello storico (apis/utility-supply):
-// mai dal payload di create/update, anche se un chiamante interno le passasse.
+// mai dal payload di create/update, anche se un chiamante interno le passasse,
+// e mai dall'entity caricata prima del save (riscriverebbe valori vecchi se
+// una riconciliazione è passata nel frattempo).
 const SUPPLY_OWNED_FIELDS = [
   'supply_active',
   'activated_on',
   'ceased_on',
   'transferred_to_third_party_id',
   'transferred_on',
+  'cost_status',
+  'pending_since',
 ] as const;
 
 function withoutSupplyFields<T extends object>(dto: T): T {
-  const copy = { ...dto } as Record<string, unknown>;
-  for (const key of SUPPLY_OWNED_FIELDS) delete copy[key];
-  return copy as T;
+  return stripSupplyFields({ ...dto });
+}
+
+// Sul posto: per l'entity caricata da salvare.
+function stripSupplyFields<T extends object>(entity: T): T {
+  for (const key of SUPPLY_OWNED_FIELDS) delete (entity as Record<string, unknown>)[key];
+  return entity;
 }
 
 @Injectable()
@@ -45,6 +53,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
   private readonly logger = new Logger(UtilitiesService.name);
   protected readonly entityName = 'utilities';
   protected readonly relations = ['created_by', 'updated_by'];
+  protected readonly systemOwnedColumns = SUPPLY_OWNED_FIELDS;
 
   constructor(
     @InjectRepository(Utility)
@@ -761,7 +770,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       const beforePlants = [...(entity.plants ?? [])];
       if (assets !== undefined) entity.assets = assets;
       if (plants !== undefined) entity.plants = plants;
-      await this.repo.save(entity);
+      await this.repo.save(stripSupplyFields(entity));
       // asset_ids/plant_ids escono dal DTO prima di super.update, quindi
       // BaseService non li vede nel diff: audit esplicito dei collegamenti.
       const auditUser = userId ?? entity.updated_by_user_id;
@@ -874,7 +883,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
 
     entity.deleted = true;
     entity.updated_by_user_id = updatedByUserId;
-    await this.repo.save(entity);
+    await this.repo.save(stripSupplyFields(entity));
     await this.recordAudit(AuditAction.DELETE, id, updatedByUserId, []);
   }
 }

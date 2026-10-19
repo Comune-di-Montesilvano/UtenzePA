@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import { BaseService } from '@apis/shared/base.service';
 import { UtilizerGrantService } from './utilizer-grant.service';
 import { ContractStatus, DisplayStatus, RentPeriod } from './enum/real-estate-contract.enum';
@@ -237,6 +237,26 @@ describe('UtilizerGrantService', () => {
       supply.utilityIdsOfGrant.mockResolvedValue([1, 2]);
       supply.reconcileManySafe.mockResolvedValue(undefined);
       await expect(service.update(1, { subject: 'x' } as never, 3)).resolves.toBeDefined();
+    });
+
+    it('utenze non lette dopo il salvataggio: niente 500, errore registrato, riconciliate quelle di prima', async () => {
+      const error = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      repo.findOne.mockResolvedValue({ id: 1, deleted: false });
+      jest.spyOn(BaseService.prototype, 'update').mockResolvedValue({ id: 1 } as never);
+      supply.utilityIdsOfGrant.mockResolvedValueOnce([1, 2]).mockRejectedValueOnce(new Error('db giù'));
+      await expect(service.update(1, { subject: 'x' } as never, 3)).resolves.toBeDefined();
+      expect(supply.reconcileManySafe).toHaveBeenCalledWith([1, 2], 3);
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('contratto 1'), expect.any(Error));
+
+      supply.utilityIdsOfGrant.mockReset().mockResolvedValueOnce([8]).mockRejectedValueOnce(new Error('db giù'));
+      repo.findOne.mockResolvedValue({ id: 5, deleted: false, updated_by_user_id: 1 });
+      await expect(service.remove(5, 3)).resolves.toBeUndefined();
+      expect(supply.reconcileManySafe).toHaveBeenLastCalledWith([8], 3);
+
+      supply.utilityIdsOfGrant.mockReset().mockRejectedValue(new Error('db giù'));
+      repo.findOne.mockResolvedValue({ id: 99, assets: [] });
+      await expect(service.create({ party_ids: [1], asset_ids: [7] } as never, 3)).resolves.toBeDefined();
+      expect(supply.reconcileManySafe).toHaveBeenLastCalledWith([], 3);
     });
 
     it('remove: riconcilia le utenze coperte dal contratto', async () => {

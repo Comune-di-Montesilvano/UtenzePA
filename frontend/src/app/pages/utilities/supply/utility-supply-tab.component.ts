@@ -152,7 +152,7 @@ export class UtilitySupplyTabComponent implements OnInit {
   }
 
   private afterChange(list: SupplyEventsList | null): void {
-    if (list) this.apply(list);
+    if (list && !list.stale) this.apply(list);
     else this.load();
     this.changed.emit();
   }

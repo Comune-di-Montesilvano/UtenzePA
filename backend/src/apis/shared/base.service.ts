@@ -55,6 +55,12 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
   @Optional()
   protected auditLogService?: AuditLogService;
 
+  // Colonne scritte solo da un ricalcolo di sistema (es. stato dello storico
+  // utenze): tolte dall'entity caricata prima del save di update. TypeORM non
+  // confronta le proprietà assenti, quindi non riscrive un valore letto prima
+  // di un ricalcolo concorrente.
+  protected readonly systemOwnedColumns: readonly string[] = [];
+
   // Campi extra da escludere dal diff, oltre a quelli sempre esclusi
   // (GLOBAL_AUDIT_BLOCKLIST sotto). Es. system-users: password_hash/otp.
   protected auditBlocklist: string[] = [];
@@ -117,6 +123,7 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
     }
     const before: Record<string, unknown> = { ...(entity as unknown as Record<string, unknown>) };
     Object.assign(entity, updateDto);
+    for (const key of this.systemOwnedColumns) delete (entity as Record<string, unknown>)[key];
     if (userId !== undefined) {
       entity.updated_by_user_id = userId;
     }

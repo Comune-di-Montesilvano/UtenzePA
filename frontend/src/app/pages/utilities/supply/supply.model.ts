@@ -40,6 +40,8 @@ export interface SupplyEvent extends UtilitySupplyEvent {
 export interface SupplyEventsList {
   events: SupplyEvent[];
   warnings: string[];
+  // Solo la riga salvata (rilettura fallita lato server): ricaricare lo storico.
+  stale?: boolean;
 }
 
 export interface SupplyEventPayload {
