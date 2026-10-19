@@ -5,6 +5,7 @@ import {DELETED_FILTER, FilterDef} from '../../core/components/list/filter-def';
 import {ContractsService} from '../contracts/contract.service';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
 import {UtilityService} from '../utilities/utility.service';
+import {SDI_STATUS_LABELS, SDI_STATUS_NONE, SdiStatus} from './sdi-status';
 
 const byLabel = (a: {label: string}, b: {label: string}) => (a.label ?? '').localeCompare(b.label ?? '');
 
@@ -22,6 +23,11 @@ export function invoiceFilters(): FilterDef[] {
         .sort(byLabel)))},
     {key: 'year', label: 'Anno', type: 'select', inline: true,
       options: Array.from({length: year - 2018}, (_, i) => year - i).map(y => ({label: String(y), value: y}))},
+    {key: 'sdi_status', label: 'Stato SDI', type: 'select', inline: true,
+      options: [
+        ...Object.values(SdiStatus).map(s => ({label: SDI_STATUS_LABELS[s], value: s})),
+        {label: 'Senza messaggio SDI', value: SDI_STATUS_NONE},
+      ]},
     {key: 'invoice_id', label: 'Numero fattura', type: 'text', group: 'Documento'},
     {key: 'protocol_number', label: 'Numero protocollo', type: 'text', group: 'Documento'},
     {key: 'notes_on_invoices', label: 'Note', type: 'text', group: 'Documento'},
@@ -44,4 +50,5 @@ export function invoiceFilters(): FilterDef[] {
 export const INVOICE_SIGNALS: SignalDef[] = [
   {key: 'invoices_outside_supply_periods', label: 'Fuori dai periodi di attività', ids: items => items.map(i => i.invoice_id)},
   {key: 'invoice_lines_without_utility', label: 'Con righe senza utenza', ids: items => items.map(i => i.invoice_id)},
+  {key: 'invoice_sdi_outcome_discarded', label: 'Esito scartato dallo SDI', ids: items => items.map(i => i.invoice_id)},
 ];

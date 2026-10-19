@@ -23,6 +23,7 @@ import {ExportHelper} from '../../core/helpers/export.helper';
 import {partyName} from '../../core/helpers/party-name.helper';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
 import {CREDIT_NOTE_BADGE, isCreditNote} from '../../core/helpers/entity-status';
+import {SDI_STATUS_LABELS, sdiStatusBadge} from './sdi-status';
 
 @Component({
   selector: 'app-data-table-invoices',
@@ -39,6 +40,7 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
   readonly partyName = partyName;
   readonly creditNoteBadge = CREDIT_NOTE_BADGE;
   readonly isCreditNote = isCreditNote;
+  readonly sdiStatusBadge = sdiStatusBadge;
 
   readonly allColumns: IColumnDef[] = [
     {field: 'invoice_id', header: 'ID Fattura', minWidth: '120px'},
@@ -52,13 +54,14 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
     {field: 'chapters', header: 'Capitoli (da impegni)', minWidth: '180px'},
     {field: 'utilities_count', header: 'Utenze', minWidth: '80px'},
     {field: 'is_paid', header: 'Stato Pagamento', minWidth: '120px'},
+    {field: 'sdi_status', header: 'Stato SDI', minWidth: '130px'},
     {field: 'notes_on_invoices', header: 'Note', minWidth: '200px'},
   ];
 
   private readonly defaultVisibleFields = new Set([
     'invoice_id', 'protocol_number', 'invoice_date', 'total_amount', 'net_amount_excl_vat',
     'last_invoice_arrears', 'contratto.cig_contract', 'contratto.supplier',
-    'chapters', 'utilities_count', 'is_paid',
+    'chapters', 'utilities_count', 'is_paid', 'sdi_status',
   ]);
 
   private static readonly STORAGE_KEY = 'columns:invoices';
@@ -136,6 +139,8 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
         return this.supplierOf(item);
       case 'chapters':
         return this.chaptersOf(item);
+      case 'sdi_status':
+        return item.sdi_status ? SDI_STATUS_LABELS[item.sdi_status] : '';
       case 'utilities_count':
         return String(this.utilitiesCountOf(item));
       case 'is_paid':

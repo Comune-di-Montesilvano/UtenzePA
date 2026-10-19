@@ -16,4 +16,13 @@ export class InvoicesService extends AbstractService<Invoice> {
       headers: this.getAuthHeaders(),
     });
   }
+
+  // XML o PDF riletti dalla PEC dello SDI (import fatture).
+  sdiDocument(id: number, type: 'xml' | 'pdf'): Observable<Blob> {
+    return this.http.get(`${this.BASE_URL}/${id}/sdi-document`, {
+      headers: this.getAuthHeaders(),
+      params: {type},
+      responseType: 'blob',
+    });
+  }
 }

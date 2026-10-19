@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { Invoice } from './entity/invoice.entity';
-import { NOT_REJECTED_SQL } from './sdi-status';
+import { NOT_REJECTED_SQL, SDI_STATUS_NONE } from './sdi-status';
 import { InvoiceLine } from './entity/invoice-line.entity';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
@@ -113,8 +113,14 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
           invoice_date_to: filters.invoice_date_to,
         });
       }
+      if (filters.sdi_status === SDI_STATUS_NONE) {
+        qb.andWhere('Invoice.sdi_status IS NULL');
+      } else if (filters.sdi_status) {
+        qb.andWhere('Invoice.sdi_status = :sdiStatus', { sdiStatus: filters.sdi_status });
+      }
       this.applyFilters(qb, filters, 'Invoice', [
         'deleted',
+        'sdi_status',
         'utility_id',
         'supplier_id_fk',
         'budget_chapter_ids',

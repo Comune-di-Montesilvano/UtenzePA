@@ -42,6 +42,9 @@ export function deriveSdiStatus(events: SdiEvent[]): {
   return { status, outcomeDiscarded };
 }
 
+// Valore del filtro elenco per le fatture senza messaggio SDI.
+export const SDI_STATUS_NONE = 'NONE';
+
 // Le fatture rifiutate non hanno effetti: fuori da ogni somma di spesa.
 export const NOT_REJECTED_SQL = (alias: string): string =>
   `(${alias}.sdi_status IS NULL OR ${alias}.sdi_status <> '${SdiStatus.REJECTED}')`;
