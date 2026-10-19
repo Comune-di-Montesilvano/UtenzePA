@@ -580,7 +580,7 @@ const formatDate = (iso: string | null): string => {
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
                 @for (d of data.invoice_import_issues.items; track $index) {
-                  <li (click)="d.invoice_id ? openInvoice(d.invoice_id) : openInvoiceImport()">
+                  <li (click)="d.utility_id ? openUtility(d.utility_id) : d.invoice_id ? openInvoice(d.invoice_id) : openInvoiceImport()">
                     {{ issueLabel(d.type) }} · {{ d.number || 'senza fattura' }} · {{ d.detail }}
                   </li>
                 }

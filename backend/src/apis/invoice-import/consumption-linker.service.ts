@@ -51,6 +51,7 @@ export class ConsumptionLinker {
     invoiceId: number,
     userId: number,
     previousIds: number[],
+    meters: Map<number, string> = new Map(),
   ): Promise<{ issues: MatchIssue[]; utilityIds: number[] }> {
     const lines = await manager.find(InvoiceLine, {
       where: { invoice_id_fk: invoiceId },
@@ -113,6 +114,7 @@ export class ConsumptionLinker {
           period_end: end,
           consumption: value,
           is_estimated: false,
+          meter_number: meters.get(utilityId) ?? null,
           created_by_user_id: userId,
           updated_by_user_id: userId,
         });
@@ -122,6 +124,7 @@ export class ConsumptionLinker {
         await manager.update(UtilityConsumption, consumptionId, {
           consumption: value,
           deleted: false,
+          ...(meters.has(utilityId) ? { meter_number: meters.get(utilityId) } : {}),
         });
       }
       used.add(consumptionId);

@@ -109,4 +109,5 @@ export const UTILITY_SIGNALS: SignalDef[] = [
   {key: 'active_utilities_without_chapter', label: 'Senza capitolo di spesa'},
   {key: 'active_utilities_without_position', label: 'Attive senza posizione'},
   {key: 'utilities_with_reactive_penalty', label: 'Penali per energia reattiva'},
+  {key: 'utilities_with_meter_mismatch', label: 'Matricola diversa dalla fattura (import fermo)'},
 ];

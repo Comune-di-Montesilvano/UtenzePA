@@ -110,7 +110,10 @@ export interface Anomalies {
     number: string | null;
     type: string;
     detail: string;
+    utility_id: number | null;
   }>;
+  // Utenze con fatture ferme perché la matricola in fattura è diversa.
+  utilities_with_meter_mismatch: AnomalyList<{ id: number; utility_id: string; detail: string }>;
 }
 
 // Import fatture fermo: nessun giro riuscito da più di 2 ore (giro ogni 15 minuti).
@@ -695,8 +698,10 @@ export class AnomaliesService {
     );
     const importIssues: Record<string, unknown>[] = await this.dataSource.query(
       `/* invoice_import_issues */
-       SELECT ii.invoice_id_fk AS invoice_id, i.invoice_id AS number, ii.type, ii.detail
+       SELECT ii.invoice_id_fk AS invoice_id, i.invoice_id AS number, ii.type, ii.detail,
+              ii.utility_id_fk AS utility_id, uu.utility_id AS utility_code
          FROM invoice_import_issues ii
+         LEFT JOIN utilities uu ON uu.id = ii.utility_id_fk
          JOIN sdi_messages m ON m.id = ii.sdi_message_id_fk
          LEFT JOIN invoices i ON i.id = ii.invoice_id_fk
          LEFT JOIN third_parties tp ON tp.id = m.supplier_id_fk
@@ -710,6 +715,10 @@ export class AnomaliesService {
                  WHERE l.invoice_id_fk = ii.invoice_id_fk AND l.utility_id_fk IS NOT NULL AND l.commitment_id_fk IS NULL))
           AND (ii.type <> 'SUPPLIER_NAME_MISMATCH' OR tp.update_date <= ii.create_date)
           AND (ii.type <> 'BATCH_NOT_SUPPORTED' OR m.status = 'PENDING')
+          AND (ii.type <> 'METER_MISMATCH' OR (m.status IN ('PENDING', 'LINKED') AND EXISTS (
+                 SELECT 1 FROM utilities u WHERE u.id = ii.utility_id_fk AND COALESCE(u.meter_number, '') <> ''
+                    AND UPPER(TRIM(LEADING '0' FROM REPLACE(u.meter_number, ' ', ''))) <>
+                        UPPER(TRIM(LEADING '0' FROM REPLACE(ii.value, ' ', ''))))))
         ORDER BY ii.type, ii.id DESC`,
     );
     const lastSuccess = importState?.last_success_at
@@ -758,8 +767,19 @@ export class AnomaliesService {
           number: (r.number as string) ?? null,
           type: String(r.type),
           detail: String(r.detail),
+          utility_id: r.utility_id == null ? null : Number(r.utility_id),
         })),
       ),
+      utilities_with_meter_mismatch: list([
+        ...new Map(
+          importIssues
+            .filter((r) => r.type === 'METER_MISMATCH' && r.utility_id != null)
+            .map((r) => [
+              Number(r.utility_id),
+              { id: Number(r.utility_id), utility_id: String(r.utility_code), detail: String(r.detail) },
+            ]),
+        ).values(),
+      ]),
       assets_without_cadastre: assetItems(withoutCadastre),
       assets_without_mef_id: assetItems(withoutMefId),
       units_without_subordinate: assetItems(withoutSubordinate),

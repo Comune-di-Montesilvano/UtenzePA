@@ -20,6 +20,13 @@ export interface MatchIssue {
   type: ImportIssueType;
   lineIndex: number | null;
   detail: string;
+  utilityId?: number;
+  value?: string;
+}
+
+export interface MeterFound {
+  utilityId: number;
+  meter: string;
 }
 
 export interface MatchResult {
@@ -28,22 +35,33 @@ export interface MatchResult {
   contratto_id_fk: number | null;
   lines: MatchedLine[];
   issues: MatchIssue[];
+  // Differenze che fermano l'import della fattura finché non si risolvono.
+  blocking: MatchIssue[];
+  // Matricola letta in fattura per utenza; da completare dove l'utenza non l'ha.
+  meters: MeterFound[];
+  meterFills: MeterFound[];
 }
 
 interface UtilityRow {
   id: number;
   budget_chapter_code_fk: number | null;
+  meter_number?: string | null;
+}
+
+// Matricole confrontabili: senza spazi, maiuscole e zeri iniziali.
+export function comparableMeter(meter: string | null | undefined): string {
+  return (meter ?? '').replace(/\s/g, '').toUpperCase().replace(/^0+/, '');
 }
 
 // Il marcatore /* m_… */ identifica la query (anche nei test).
 // Il codice cliente è del fornitore: vale solo sulle utenze con un suo contratto.
 const UTILITY_SQL =
-  '/* m_utility */ SELECT u.id, u.budget_chapter_code_fk FROM utilities u WHERE u.deleted = 0 ' +
+  '/* m_utility */ SELECT u.id, u.budget_chapter_code_fk, u.meter_number FROM utilities u WHERE u.deleted = 0 ' +
   'AND (u.utility_id = ? OR (u.utility_code = ? AND EXISTS (SELECT 1 FROM contract_utilities cu ' +
   'JOIN contracts c ON c.id = cu.contract_id WHERE cu.utility_id = u.id AND c.supplier_id_fk = ? AND c.deleted = 0))) ' +
   'ORDER BY u.utility_id = ? DESC, u.id LIMIT 1';
 const CONTRACT_REF_SQL =
-  '/* m_contract_ref */ SELECT DISTINCT u.id, u.budget_chapter_code_fk FROM contracts c ' +
+  '/* m_contract_ref */ SELECT DISTINCT u.id, u.budget_chapter_code_fk, u.meter_number FROM contracts c ' +
   'JOIN contract_utilities cu ON cu.contract_id = c.id ' +
   'JOIN utilities u ON u.id = cu.utility_id AND u.deleted = 0 ' +
   'WHERE c.deleted = 0 AND c.supplier_id_fk = ? AND (c.consip_order = ? OR c.cig_contract = ?) LIMIT 2';
@@ -134,6 +152,28 @@ export class InvoiceMatcher {
       extracted.lines.forEach((line, i) => {
         if (!line.utility && !lineUtilities[i]) lineUtilities[i] = distinct[0];
       });
+    }
+
+    // Matricola: la prima letta per utenza; vuota in anagrafica = da completare, diversa = blocca.
+    const meters: MeterFound[] = [];
+    const meterFills: MeterFound[] = [];
+    const blocking: MatchIssue[] = [];
+    for (const [index, line] of extracted.lines.entries()) {
+      const utility = lineUtilities[index];
+      const meter = line.meter?.trim();
+      if (!utility || !meter || meters.some((m) => m.utilityId === utility.id)) continue;
+      meters.push({ utilityId: utility.id, meter });
+      if (!comparableMeter(utility.meter_number)) {
+        meterFills.push({ utilityId: utility.id, meter });
+      } else if (comparableMeter(utility.meter_number) !== comparableMeter(meter)) {
+        blocking.push({
+          type: ImportIssueType.METER_MISMATCH,
+          lineIndex: index,
+          utilityId: utility.id,
+          value: meter,
+          detail: `${line.utility ?? `Utenza ${utility.id}`}: matricola in fattura ${meter}, in anagrafica ${utility.meter_number}`,
+        });
+      }
     }
 
     const contracts = new Map<string, { id: number; cig_contract: string | null } | null>();
@@ -238,6 +278,9 @@ export class InvoiceMatcher {
       contratto_id_fk: headerContracts.length === 1 ? headerContracts[0] : null,
       lines,
       issues,
+      blocking,
+      meters,
+      meterFills,
     };
   }
 }

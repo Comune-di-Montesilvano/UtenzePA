@@ -121,7 +121,7 @@
         @if (canAfterWord(t)) {
           <div class="pe-word">
             <mat-checkbox [(ngModel)]="afterWord[t]" [disabled]="!canEdit" (ngModelChange)="changed(t)">
-              Numero dopo la parola
+              {{ afterWordLabel(t) }}
             </mat-checkbox>
             @if (afterWord[t]) {
               <mat-form-field appearance="outline" subscriptSizing="dynamic">

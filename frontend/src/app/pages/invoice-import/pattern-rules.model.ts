@@ -40,6 +40,7 @@ export type TargetField = HeaderTarget | LineTarget;
 export type Rule =
   | {kind: 'field'; path: string; where?: FieldCondition}
   | {kind: 'numberAfter'; path: string; word: string; fromHeader?: boolean}
+  | {kind: 'textAfter'; path: string; word: string; fromHeader?: boolean}
   | {kind: 'grossAmount'}
   | {kind: 'fromHeader'; path: string; where?: FieldCondition}
   | {kind: 'none'};
@@ -76,7 +77,7 @@ export interface ExtractedInvoice {
 
 export interface PatternCheck {
   field: TargetField;
-  tone: 'ok' | 'warn' | 'off';
+  tone: 'ok' | 'warn' | 'danger' | 'off';
   text: string;
 }
 
@@ -144,7 +145,7 @@ export function fieldKey(scope: FieldScope, path: string, where?: FieldCondition
 export function ruleFieldKey(target: TargetField, rule: Rule): string | null {
   if (rule.kind === 'field') return fieldKey(isHeaderTarget(target) ? 'header' : 'line', rule.path, rule.where);
   if (rule.kind === 'fromHeader') return fieldKey('header', rule.path, rule.where);
-  if (rule.kind === 'numberAfter') {
+  if (rule.kind === 'numberAfter' || rule.kind === 'textAfter') {
     return fieldKey(isHeaderTarget(target) || rule.fromHeader ? 'header' : 'line', rule.path);
   }
   return null;

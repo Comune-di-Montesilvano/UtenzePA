@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
+import { Utility } from '@apis/utility/entity/utility.entity';
 import { ImportIssueType } from '../enum/import-issue-type.enum';
 import { SdiMessage } from './sdi-message.entity';
 
@@ -34,6 +35,13 @@ export class InvoiceImportIssue {
   @Column({ type: 'varchar', length: 500 })
   detail: string;
 
+  // Utenza e valore trovato in fattura: servono a ricontrollare la differenza al momento.
+  @Column({ type: 'int', nullable: true })
+  utility_id_fk: number | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  value: string | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   create_date: Date;
 
@@ -50,4 +58,11 @@ export class InvoiceImportIssue {
     foreignKeyConstraintName: 'FK_invoice_import_issues_invoice',
   })
   invoice: Invoice | null;
+
+  @ManyToOne(() => Utility, { onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'utility_id_fk',
+    foreignKeyConstraintName: 'FK_invoice_import_issues_utility',
+  })
+  utility: Utility | null;
 }

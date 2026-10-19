@@ -35,7 +35,7 @@ export type UnknownStructure = UnknownStructureRow;
 
 export interface PatternCheck {
   field: TargetField;
-  tone: 'ok' | 'warn' | 'off';
+  tone: 'ok' | 'warn' | 'danger' | 'off';
   text: string;
 }
 
@@ -89,10 +89,11 @@ const SIMILAR_SQL =
   "AND status IN ('PENDING', 'LINKED') AND pattern_id_fk IS NULL " +
   'ORDER BY (structure_key = ?) DESC, id DESC LIMIT 200';
 
-// Da rielaborare: fatture del fornitore senza pattern e, in modifica, quelle estratte col pattern.
+// Da rielaborare: fatture del fornitore non estratte (senza pattern o ferme per
+// una differenza bloccante) e, in modifica, quelle estratte col pattern.
 const REPROCESS_SQL =
   "SELECT id FROM sdi_messages WHERE kind = 'INVOICE' AND supplier_id_fk = ? " +
-  "AND ((status IN ('PENDING', 'LINKED') AND pattern_id_fk IS NULL) OR (status = 'EXTRACTED' AND pattern_id_fk = ?)) " +
+  "AND (status IN ('PENDING', 'LINKED') OR (status = 'EXTRACTED' AND pattern_id_fk = ?)) " +
   'ORDER BY id';
 
 const RULE_KINDS = ['field', 'numberAfter', 'textAfter', 'grossAmount', 'fromHeader', 'none'];
@@ -145,6 +146,7 @@ const ISSUE_FIELD: Record<ImportIssueType, TargetField> = {
   [ImportIssueType.PERIOD_COVERED]: 'consumption',
   [ImportIssueType.MIXED_CONTRACTS]: 'utility',
   [ImportIssueType.BATCH_NOT_SUPPORTED]: 'number',
+  [ImportIssueType.METER_MISMATCH]: 'meter',
 };
 
 const euro = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 });
@@ -414,6 +416,11 @@ export class InvoicePatternsService {
 
     if (rules.header.cig && extracted.cig) add('cig', 'ok', `CIG ${extracted.cig}`);
     for (const issue of match.issues) add(ISSUE_FIELD[issue.type], 'warn', issue.detail);
+    // Bloccanti: la fattura non si importa finché non si sistema l'anagrafica.
+    for (const issue of match.blocking)
+      add(ISSUE_FIELD[issue.type], 'danger', `${issue.detail}: import fermo`);
+    for (const fill of match.meterFills)
+      add('meter', 'ok', `Matricola ${fill.meter} da completare sull'utenza ${fill.utilityId}`);
     return checks;
   }
 }

@@ -44,7 +44,8 @@ const PREVIEW_DEBOUNCE_MS = 400;
 // La P.IVA identifica il fornitore: non si mappa.
 const EDITABLE_HEADER = HEADER_TARGETS.filter(t => t !== 'supplierVat');
 // «Numero dopo la parola» restituisce un numero: solo per il consumo (es. «kWh 542» nella descrizione).
-const AFTER_WORD_TARGETS: TargetField[] = ['consumption'];
+// Consumo: numero dopo la parola (kWh 542); matricola: parola dopo (Contatore 000283767).
+const AFTER_WORD_TARGETS: TargetField[] = ['consumption', 'meter'];
 
 // Campo del catalogo ricostruito da una regola salvata (chiave = scope|path|condizione).
 function missingField(key: string, rule: Rule & {path: string}): CatalogField {
@@ -94,6 +95,7 @@ const escapeHtml = (s: string) =>
     .pe-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; line-height: 1.4; }
     .tone-ok { background: var(--tone-ok-bg); color: var(--tone-ok-fg); }
     .tone-warn { background: var(--tone-warn-bg); color: var(--tone-warn-fg); }
+    .tone-danger { background: var(--tone-danger-bg); color: var(--tone-danger-fg); }
     .tone-off { background: var(--tone-off-bg); color: var(--tone-off-fg); }
     .pe-opt-sample { color: var(--app-muted); font-size: 0.8rem; }
     .pe-xml { position: sticky; top: 0.5rem; }
@@ -274,7 +276,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
         const key = ruleFieldKey(t, rule)!;
         this.choice[t] = `f:${key}`;
         if (!this.fields.has(key)) this.fields.set(key, missingField(key, rule));
-        if (rule.kind === 'numberAfter') {
+        if (rule.kind === 'numberAfter' || rule.kind === 'textAfter') {
           this.afterWord[t] = true;
           this.words[t] = rule.word;
         }
@@ -305,14 +307,20 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
     if (!field) return null;
     const fromHeader = !isHeaderTarget(t) && field.scope === 'header';
     if (this.afterWord[t] && this.words[t]?.trim()) {
-      return {kind: 'numberAfter', path: field.path, word: this.words[t].trim(), ...(fromHeader ? {fromHeader: true} : {})};
+      const kind = t === 'meter' ? 'textAfter' : 'numberAfter';
+      return {kind, path: field.path, word: this.words[t].trim(), ...(fromHeader ? {fromHeader: true} : {})};
     }
     const where = field.where ? {where: field.where} : {};
     return fromHeader ? {kind: 'fromHeader', path: field.path, ...where} : {kind: 'field', path: field.path, ...where};
   }
 
   defaultLabel(t: TargetField): string {
+    if (t === 'amount') return 'Predefinito: imponibile × IVA';
     return HEADER_DEFAULTS.includes(t) ? 'Tracciato standard' : 'Non mappato';
+  }
+
+  afterWordLabel(t: TargetField): string {
+    return t === 'meter' ? 'Testo dopo la parola' : 'Numero dopo la parola';
   }
 
   canAfterWord(t: TargetField): boolean {
