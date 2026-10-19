@@ -136,12 +136,17 @@ export class UtilitySupplyTabComponent implements OnInit {
 
   private apply(list: SupplyEventsList): void {
     this.warnings = list.warnings ?? [];
+    // Più righe con data non nota: contano nell'ordine di inserimento (quello
+    // della lista), da mostrare perché decide lo stato.
+    const unknownCount = list.events.filter(e => e.date_unknown).length;
+    let unknownIndex = 0;
+    const unknownLabel = (): string => (unknownCount > 1 ? `non nota (${++unknownIndex}ª)` : 'data non nota');
     this.rows = list.events.map(e => ({
       event: e,
       type: SUPPLY_EVENT_LABEL[e.type] ?? e.type,
       holder: e.type === 'TRANSFER' ? (e.third_party_name ?? '') : e.type === 'RETURN' ? 'Comune' : '',
       requested: dateIt(e.requested_on),
-      effective: e.date_unknown ? 'data non nota' : dateIt(e.effective_on),
+      effective: e.date_unknown ? unknownLabel() : dateIt(e.effective_on),
       cancelled: dateIt(e.cancelled_on),
       pending: isPending(e),
       automatic: e.utilizer_grant_id_fk != null,
