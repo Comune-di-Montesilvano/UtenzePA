@@ -57,6 +57,15 @@ export abstract class AbstractService<T extends AbstractEntity> {
     );
   }
 
+  // Ripristino di un elemento cancellato. Il body non passa da parseUpdate:
+  // AbstractEntity esclude `deleted` in serializzazione e il PATCH partirebbe vuoto.
+  restore(id: number): Observable<T> {
+    const body = {deleted: false, updated_by_user_id: this.auth.getCurrentUser()?.id};
+    return this.http.patch<any>(`${this.BASE_URL}/${id}`, body, {headers: this.getAuthHeaders()}).pipe(
+      map(data => plainToInstance(this.entityClass as any, data) as unknown as T)
+    );
+  }
+
   count(filters?: Partial<T>): Observable<number> {
     let params = new HttpParams();
     if (filters) {

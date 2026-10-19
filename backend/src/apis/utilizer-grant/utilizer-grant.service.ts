@@ -202,7 +202,10 @@ export class UtilizerGrantService extends BaseService<
 
   async update(id: number, dto: UpdateUtilizerGrantDto, userId?: number): Promise<ContractRow> {
     const { asset_ids, party_ids, ...rest } = dto;
-    const current = await this.repo.findOne({ where: { id, deleted: false } });
+    // Un contratto cancellato si modifica solo per ripristinarlo.
+    const current = await this.repo.findOne({
+      where: rest.deleted === false ? { id } : { id, deleted: false },
+    });
     if (!current) throw new BadRequestException('Contratto non trovato');
     await this.assertValid({ ...current, ...rest }, id);
     await super.update(id, rest as UpdateUtilizerGrantDto, userId);

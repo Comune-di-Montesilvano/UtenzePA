@@ -10,6 +10,7 @@
 
   <div style="margin-top: 1rem;">
     <app-data-table-invoices
+      #dataTable
       [data]="list"
       [loading]="loading"
       (onSave)="onSave($event)"

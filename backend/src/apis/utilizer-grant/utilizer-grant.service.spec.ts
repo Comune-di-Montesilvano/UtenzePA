@@ -142,6 +142,18 @@ describe('UtilizerGrantService', () => {
     expect(repo.save).not.toHaveBeenCalled();
   });
 
+  it('update di un contratto cancellato: solo per ripristinarlo', async () => {
+    jest.spyOn(BaseService.prototype, 'update').mockResolvedValue({ id: 1 } as never);
+    repo.findOne.mockResolvedValue(null);
+    await expect(service.update(1, { subject: 'x' } as never, 3)).rejects.toThrow('Contratto non trovato');
+    expect(repo.findOne).toHaveBeenCalledWith({ where: { id: 1, deleted: false } });
+
+    repo.findOne.mockResolvedValue({ id: 1, deleted: true });
+    await service.update(1, { deleted: false } as never, 3);
+    expect(repo.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
+    expect(BaseService.prototype.update).toHaveBeenCalledWith(1, { deleted: false }, 3);
+  });
+
   it('update con party_ids sostituisce le parti', async () => {
     repo.findOne.mockResolvedValue({ id: 1, deleted: false, parties: [{ id: 5 }] });
     partyRepo.count.mockResolvedValue(2);
