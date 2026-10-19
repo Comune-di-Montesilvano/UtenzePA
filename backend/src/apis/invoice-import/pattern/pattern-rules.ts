@@ -62,7 +62,7 @@ const DEFAULTS: Partial<Record<HeaderTarget, string>> = {
   documentType: 'DatiGenerali/DatiGeneraliDocumento/TipoDocumento',
 };
 
-// Note di credito (ordinaria e semplificata): importi col segno invertito.
+// Note di credito (ordinaria e semplificata): in UtenzePA importi negativi.
 const CREDIT_NOTES = ['TD04', 'TD08'];
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -114,6 +114,17 @@ function toNumber(value: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// Somma dei valori del campo in testata (imponibile con più DatiRiepilogo).
+function headerSum(tree: InvoiceTree, rule: Rule | undefined): number | null {
+  if (!rule || (rule.kind !== 'field' && rule.kind !== 'fromHeader') || rule.where)
+    return toNumber(headerRule(tree, rule));
+  const scope = headerScope(tree, rule.path);
+  const values = leafValues(scope.nodes, scope.path)
+    .map(toNumber)
+    .filter((n): n is number => n !== null);
+  return values.length ? round2(values.reduce((sum, n) => sum + n, 0)) : null;
+}
+
 function headerRule(tree: InvoiceTree, rule: Rule | undefined, fallback?: string): string | null {
   if (!rule) return fallback ? headerValue(tree, fallback) : null;
   switch (rule.kind) {
@@ -159,7 +170,6 @@ export function extract(xml: Buffer, rules: PatternRules): ExtractedInvoice {
   const h = rules.header;
   const documentType = headerRule(tree, h.documentType, DEFAULTS.documentType) ?? '';
   const creditNote = CREDIT_NOTES.includes(documentType);
-  const sign = (n: number | null) => (n === null ? null : creditNote && n !== 0 ? -n : n);
 
   const filter = rules.consumptionLineFilter?.trim().toLowerCase();
   // Consumo letto dalla testata: una volta sola, sulla prima riga ammessa.
@@ -181,7 +191,7 @@ export function extract(xml: Buffer, rules: PatternRules): ExtractedInvoice {
       utility: lineRule(tree, line, rules.line.utility),
       periodStart: lineRule(tree, line, rules.line.periodStart),
       periodEnd: lineRule(tree, line, rules.line.periodEnd),
-      amount: sign(toNumber(lineRule(tree, line, amountRule)) ?? 0) ?? 0,
+      amount: toNumber(lineRule(tree, line, amountRule)) ?? 0,
       description,
       consumption,
       unit: lineRule(tree, line, rules.line.unit),
@@ -189,14 +199,23 @@ export function extract(xml: Buffer, rules: PatternRules): ExtractedInvoice {
     };
   });
 
+  // Nota di credito: c'è chi scrive gli importi positivi e chi già negativi.
+  // Il segno si decide sul documento (totale, altrimenti somma delle righe) e
+  // vale per tutti gli importi: i segni tra le righe restano quelli dell'XML.
+  const total = toNumber(headerRule(tree, h.total));
+  const documentSign = total ?? lines.reduce((sum, l) => sum + l.amount, 0);
+  const factor = creditNote && documentSign > 0 ? -1 : 1;
+  const signed = (n: number | null) => (n === null || n === 0 ? n : n * factor);
+  for (const l of lines) l.amount = signed(l.amount) ?? 0;
+
   return {
     supplierVat: headerValue(tree, DEFAULTS.supplierVat) ?? '',
     supplierName: headerRule(tree, h.supplierName, DEFAULTS.supplierName),
     number: headerRule(tree, h.number, DEFAULTS.number) ?? '',
     date: headerRule(tree, h.date, DEFAULTS.date) ?? '',
     documentType,
-    total: sign(toNumber(headerRule(tree, h.total))),
-    netAmount: sign(toNumber(headerRule(tree, h.netAmount))),
+    total: signed(total),
+    netAmount: signed(headerSum(tree, h.netAmount)),
     cig: headerRule(tree, h.cig),
     contractRef: headerRule(tree, h.contractRef),
     lines,

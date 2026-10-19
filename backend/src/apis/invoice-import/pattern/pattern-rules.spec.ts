@@ -101,6 +101,44 @@ describe('extract', () => {
     expect(result.lines.every((l) => l.consumption === null)).toBe(true);
   });
 
+  it('nota di credito TD04 con importi già negativi nell’XML: segni lasciati come sono', () => {
+    const negative = Buffer.from(
+      asCreditNote(pod)
+        .toString('utf8')
+        .replace('<ImportoTotaleDocumento>183.00<', '<ImportoTotaleDocumento>-183.00<')
+        .replace('<PrezzoTotale>100.00<', '<PrezzoTotale>-100.00<')
+        .replace('<PrezzoTotale>50.00<', '<PrezzoTotale>-50.00<')
+        .replace('<PrezzoTotale>-0.01<', '<PrezzoTotale>0.01<')
+        .replace('<ImponibileImporto>150.00<', '<ImponibileImporto>-150.00<'),
+    );
+    const result = extract(negative, {
+      ...POD_RULES,
+      header: {
+        total: { kind: 'field', path: 'DatiGenerali/DatiGeneraliDocumento/ImportoTotaleDocumento' },
+        netAmount: { kind: 'field', path: 'DatiBeniServizi/DatiRiepilogo/ImponibileImporto' },
+      },
+    });
+    expect(result.total).toBe(-183);
+    expect(result.netAmount).toBe(-150);
+    expect(result.lines.map((l) => l.amount)).toEqual([-122, -61, 0.01]);
+  });
+
+  it('imponibile con più aliquote: somma dei DatiRiepilogo', () => {
+    const twoRates = Buffer.from(
+      pod
+        .toString('utf8')
+        .replace(
+          '</DatiBeniServizi>',
+          '<DatiRiepilogo><AliquotaIVA>0.00</AliquotaIVA><Natura>N1</Natura><ImponibileImporto>-0.01</ImponibileImporto><Imposta>0.00</Imposta></DatiRiepilogo></DatiBeniServizi>',
+        ),
+    );
+    const result = extract(twoRates, {
+      ...POD_RULES,
+      header: { netAmount: { kind: 'field', path: 'DatiBeniServizi/DatiRiepilogo/ImponibileImporto' } },
+    });
+    expect(result.netAmount).toBe(149.99);
+  });
+
   it('nota di credito semplificata TD08: importi negativi come la TD04', () => {
     const td08 = Buffer.from(pod.toString('utf8').replace('<TipoDocumento>TD01<', '<TipoDocumento>TD08<'));
     expect(extract(td08, POD_RULES).lines[0].amount).toBe(-122);
