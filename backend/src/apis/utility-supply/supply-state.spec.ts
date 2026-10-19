@@ -185,12 +185,41 @@ describe('supply-state', () => {
         ).toBe(msg);
       });
 
-      it('voltura e reintestazione a data non nota: la regola non si applica', () => {
+      it('voltura a data non nota senza volture datate: ammessa anche con attivazioni datate', () => {
         expect(
           validateEvent(ev({ id: 0, type: T.TRANSFER, third_party_id_fk: 5, date_unknown: true }), dated, today),
         ).toBeNull();
-        const transferred = [...dated, ev({ type: T.TRANSFER, third_party_id_fk: 5, effective_on: '2025-02-01' })];
-        expect(validateEvent(ev({ id: 0, type: T.RETURN, date_unknown: true }), transferred, today)).toBeNull();
+      });
+
+      describe('volture già datate', () => {
+        const vmsg =
+          "L'utenza ha già volture con date note: indica una data effettiva, anche stimata, e scrivilo nelle note.";
+        const transfer = ev({ type: T.TRANSFER, third_party_id_fk: 5, effective_on: '2025-02-01' });
+
+        it('voltura datata poi reintestazione a data non nota: 400', () => {
+          expect(validateEvent(ev({ id: 0, type: T.RETURN, date_unknown: true }), [...dated, transfer], today)).toBe(vmsg);
+        });
+
+        it('voltura e reintestazione datate poi voltura a data non nota: 400', () => {
+          const others = [...dated, transfer, ev({ type: T.RETURN, effective_on: '2025-06-01' })];
+          expect(
+            validateEvent(ev({ id: 0, type: T.TRANSFER, third_party_id_fk: 6, date_unknown: true }), others, today),
+          ).toBe(vmsg);
+        });
+
+        it('volture in sospeso o annullate non contano; riga già a data non nota resta modificabile', () => {
+          const others = [
+            ...dated,
+            ev({ type: T.TRANSFER, third_party_id_fk: 5, requested_on: '2025-02-01' }),
+            ev({ type: T.TRANSFER, third_party_id_fk: 6, effective_on: '2025-02-01', cancelled_on: '2025-03-01' }),
+          ];
+          expect(
+            validateEvent(ev({ id: 0, type: T.TRANSFER, third_party_id_fk: 7, date_unknown: true }), others, today),
+          ).toBeNull();
+          const before = ev({ id: 0, type: T.TRANSFER, third_party_id_fk: 5, date_unknown: true });
+          const rest = [...dated, ev({ type: T.RETURN, effective_on: '2025-06-01' })];
+          expect(validateEvent({ ...before, notes: 'x' } as SupplyEventLike, rest, today, before)).toBeNull();
+        });
       });
     });
 

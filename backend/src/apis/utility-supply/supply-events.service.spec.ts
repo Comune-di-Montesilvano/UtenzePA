@@ -1,9 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
 import { SupplyEventsService } from './supply-events.service';
 import { SupplyEventType } from './enum/supply-event-type.enum';
+import { stateAt } from './supply-state';
+import { toEventLike } from './supply-reconcile.service';
 
 const NOW = new Date('2026-10-19T10:00:00Z');
 const AUTO_MESSAGE = 'Riga gestita dal contratto immobiliare: cambia la decisione sul contratto.';
+const TRANSFER_MSG =
+  "L'utenza ha già volture con date note: indica una data effettiva, anche stimata, e scrivilo nelle note.";
 
 type Row = Record<string, any>;
 
@@ -122,10 +126,36 @@ describe('SupplyEventsService', () => {
       effective_on: null,
       third_party_id_fk: 5,
     });
-    const transferred = event({ id: 2, type: SupplyEventType.TRANSFER, third_party_id_fk: 5, effective_on: '2025-01-01' });
-    const b = build([activation, transferred]);
+    // Stato risultante: intestata al terzo da prima di ogni data.
+    expect(stateAt(rows.map((r) => toEventLike(r as never)), '2026-10-19').holderId).toBe(5);
+    // Reintestazione «data non nota» dopo una voltura data non nota: torna al Comune.
+    const unknownTransfer = event({ id: 2, type: SupplyEventType.TRANSFER, third_party_id_fk: 5, date_unknown: true });
+    const b = build([activation, unknownTransfer]);
     await b.service.create({ utility_id_fk: 7, type: SupplyEventType.RETURN, date_unknown: true }, 42);
-    expect(b.rows.find((r) => r.type === SupplyEventType.RETURN)).toMatchObject({ date_unknown: true });
+    expect(stateAt(b.rows.map((r) => toEventLike(r as never)), '2026-10-19').holderId).toBeNull();
+  });
+
+  it('create: voltura datata poi reintestazione a data non nota → 400 (non cambierebbe l’intestatario)', async () => {
+    const transferred = event({ id: 2, type: SupplyEventType.TRANSFER, third_party_id_fk: 5, effective_on: '2025-01-01' });
+    const { service, reconcile } = build([activation, transferred]);
+    await expect(
+      service.create({ utility_id_fk: 7, type: SupplyEventType.RETURN, date_unknown: true }, 42),
+    ).rejects.toThrow(new BadRequestException(TRANSFER_MSG));
+    expect(reconcile.reconcileWith).not.toHaveBeenCalled();
+  });
+
+  it('create: voltura e reintestazione datate poi voltura a data non nota → 400', async () => {
+    const { service } = build([
+      activation,
+      event({ id: 2, type: SupplyEventType.TRANSFER, third_party_id_fk: 5, effective_on: '2025-01-01' }),
+      event({ id: 3, type: SupplyEventType.RETURN, effective_on: '2025-06-01' }),
+    ]);
+    await expect(
+      service.create(
+        { utility_id_fk: 7, type: SupplyEventType.TRANSFER, third_party_id_fk: 6, date_unknown: true },
+        42,
+      ),
+    ).rejects.toThrow(new BadRequestException(TRANSFER_MSG));
   });
 
   it('create: cessazione a data non nota con righe già datate → 400', async () => {

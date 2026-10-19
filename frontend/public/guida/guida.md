@@ -71,10 +71,10 @@ Ogni utenza ha uno **storico dei cambiamenti**: attivazioni, cessazioni, volture
 1. Apri la scheda dell'utenza e il tab **Attivazioni e volture**. Ogni riga ha Tipo (Attivazione, Cessazione, Voltura, Reintestazione al Comune), Intestatario, data **Richiesta** e data **Effettiva**. Se il cambiamento è avvenuto ma non si conosce il giorno, la data effettiva mostra «data non nota».
 2. Quando chiedi un cambiamento (al fornitore o alla controparte) premi **Nuovo cambiamento**, scegli il tipo, la **Data richiesta** e, per la voltura, l'**Intestatario** tra i soggetti terzi. Lascia vuota la **Data effettiva**: la riga resta **in sospeso** e compare evidenziata.
 3. Quando il cambiamento avviene davvero (lo verifichi sulla bolletta) apri la riga con la matita, inserisci la **Data effettiva** e salva.
-4. Per registrare un cambiamento già avvenuto compila subito la data effettiva. Se è avvenuto ma non conosci il giorno, spunta **Avvenuta, data non nota** (vale per tutti i tipi, anche voltura e reintestazione).
-5. Lo storico si può inserire a mano anche per volture avvenute e mai registrate, anche in passato: l'utenza risulta così intestata al terzo dalla data giusta, oppure da prima di tutte le altre date se usi «data non nota».
+4. Per registrare un cambiamento già avvenuto compila subito la data effettiva. Se è avvenuto ma non conosci il giorno, spunta **Avvenuta, data non nota** (vale per tutti i tipi, anche voltura e reintestazione, con i limiti spiegati sotto).
+5. Lo storico si può inserire a mano anche per volture avvenute e mai registrate, anche in passato: l'utenza risulta così intestata al terzo dalla data giusta, oppure da prima di tutte le altre date se usi «data non nota» (solo se non ci sono già volture o reintestazioni con data effettiva).
 
-Una riga con «data non nota» vale come avvenuta **prima di tutte le altre**. Per questo un'attivazione o una cessazione con «data non nota» si può registrare solo se l'utenza non ha ancora nessuna data effettiva nello storico: altrimenti cambierebbe lo stato di periodi già noti. In quel caso indica una data effettiva, anche stimata (per esempio la fine dell'ultimo periodo fatturato), e scrivi nelle note che è stimata.
+Una riga con «data non nota» vale come avvenuta **prima di tutte le altre**. Per questo un'attivazione o una cessazione con «data non nota» si può registrare solo se l'utenza non ha ancora nessuna data effettiva nello storico, e una voltura o una reintestazione con «data non nota» solo se non ci sono già volture o reintestazioni con data effettiva: altrimenti cambierebbe lo stato di periodi già noti (per esempio una reintestazione senza data dopo una voltura datata non riporterebbe l'utenza al Comune). In quel caso indica una data effettiva, anche stimata (per esempio la fine dell'ultimo periodo fatturato), e scrivi nelle note che è stimata.
 
 Altre azioni sulle righe:
 
@@ -368,6 +368,14 @@ In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni u
 **Soluzione:** togli la spunta e indica una data effettiva, anche stimata (per esempio la fine dell'ultimo periodo fatturato); scrivi nelle note che la data è stimata.
 
 **Apri un ticket se:** l'utenza non ha cambiamenti con data effettiva ma il messaggio resta.
+
+### «L'utenza ha già volture con date note: indica una data effettiva, anche stimata, e scrivilo nelle note.»
+
+**Causa:** stai registrando una voltura o una reintestazione con «Avvenuta, data non nota» su un'utenza che ha già volture o reintestazioni con una data effettiva. Una riga senza data vale come avvenuta prima di tutte le altre: per esempio una reintestazione senza data dopo una voltura datata non riporterebbe l'utenza al Comune.
+
+**Soluzione:** togli la spunta e indica una data effettiva, anche stimata; scrivi nelle note che la data è stimata.
+
+**Apri un ticket se:** l'utenza non ha volture o reintestazioni con data effettiva ma il messaggio resta.
 
 ### «La somma delle fasce … non coincide con il consumo del periodo …»
 

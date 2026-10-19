@@ -184,6 +184,8 @@ export function pending(events: SupplyEventLike[]): SupplyEventLike[] {
 
 export const DATE_UNKNOWN_WITH_DATES_MESSAGE =
   "L'utenza ha già date note: indica una data effettiva, anche stimata, e scrivilo nelle note.";
+export const DATE_UNKNOWN_WITH_TRANSFER_DATES_MESSAGE =
+  "L'utenza ha già volture con date note: indica una data effettiva, anche stimata, e scrivilo nelle note.";
 
 // Messaggio d'errore (da restituire come 400) o null se la riga è accettabile.
 // `others` = le altre righe dell'utenza (senza la riga stessa se in modifica);
@@ -224,6 +226,21 @@ export function validateEvent(
     others.some((o) => isLive(o) && !o.date_unknown && !!o.effective_on)
   ) {
     return DATE_UNKNOWN_WITH_DATES_MESSAGE;
+  }
+  // Stessa regola per l'intestatario: una voltura/reintestazione «data non
+  // nota» con volture già datate finirebbe prima di quelle e non cambierebbe
+  // l'intestatario di oggi (es. reintestazione dopo una voltura datata).
+  const holderType =
+    candidate.type === SupplyEventType.TRANSFER || candidate.type === SupplyEventType.RETURN;
+  const isHolderChange = (o: SupplyEventLike) =>
+    o.type === SupplyEventType.TRANSFER || o.type === SupplyEventType.RETURN;
+  if (
+    holderType &&
+    candidate.date_unknown &&
+    !(previous && previous.date_unknown && isHolderChange(previous) && previous.type === candidate.type) &&
+    others.some((o) => isLive(o) && isHolderChange(o) && !o.date_unknown && !!o.effective_on)
+  ) {
+    return DATE_UNKNOWN_WITH_TRANSFER_DATES_MESSAGE;
   }
   if (isPending && pending(others).some((o) => o.type === candidate.type)) {
     return "C'è già una richiesta in sospeso di questo tipo.";
