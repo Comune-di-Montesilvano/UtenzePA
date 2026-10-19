@@ -91,15 +91,26 @@ const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
             </thead>
             <tbody>
               @for (row of rows; track row.id) {
-                <tr style="border-bottom: 1px solid var(--app-surface-2);">
+                <tr style="border-bottom: 1px solid var(--app-surface-2);" [style.color]="row.superseded ? 'var(--app-muted)' : null">
                   <td style="padding: 6px;">
                     {{ row.kind === 'READING' ? formatDateIt(row.reading_date) : formatDateIt(row.period_start) + ' – ' + formatDateIt(row.period_end) }}
                   </td>
-                  <td style="padding: 6px;">{{ row.kind === 'READING' ? 'Lettura' : 'Periodo' }}</td>
+                  <td style="padding: 6px;">
+                    {{ row.kind === 'READING' ? 'Lettura' : 'Periodo' }}
+                    @if (row.is_estimated) {
+                      <span style="display: inline-block; border-radius: 10px; padding: 1px 8px; font-size: 0.75rem; margin-left: 4px; background: var(--tone-warn-bg); color: var(--tone-warn-fg);"
+                            [matTooltip]="row.superseded ? 'Superata dal dato reale: non conta nei consumi' : 'Valore stimato dal fornitore: conta finché non arriva il dato reale'">Stimata</span>
+                    }
+                    @if (row.superseded) {
+                      <div style="font-size: 0.75rem;">Superata dal dato reale</div>
+                    }
+                  </td>
                   <td style="padding: 6px;">{{ row.meter_number ?? '' }}</td>
                   <td style="padding: 6px; text-align: right;">{{ row.kind === 'READING' ? formatQty(row.reading_value) : '' }}</td>
                   <td style="padding: 6px; text-align: right;">
-                    @if (row.computed_consumption === null) {
+                    @if (row.superseded) {
+                      <span matTooltip="Superata dal dato reale: non conta nei consumi">—</span>
+                    } @else if (row.computed_consumption === null) {
                       <span style="color: var(--app-muted);" matTooltip="Nessun consumo calcolabile: prima lettura del contatore o lettura precedente di un contatore diverso">—</span>
                     } @else {
                       {{ formatQty(row.computed_consumption, summary?.unit) }}

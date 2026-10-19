@@ -40,7 +40,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 20 | Assestato dei capitoli e disponibilità | fatto in v1.14.0 (mandati non ancora) |
 | 21 | Scadenzario degli obblighi dell'immobile | da approfondire |
 | 22 | Storico di attivazione delle utenze | fatto, v1.33.0 (storico di attivazioni, cessazioni, volture e reintestazioni; decisioni per utenza sul contratto immobiliare; dati da portare in produzione con la migration) |
-| 23 | Letture stimate | da approfondire |
+| 23 | Letture stimate | fatto (v1.34.0) |
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
 
@@ -438,7 +438,7 @@ Da fare dopo il deploy: controllare i log di `reconcileAll` e la distribuzione d
 
 ## 23. Letture stimate
 
-Emerso dall'analisi delle fatture ACA (2026-10-19): le fatture riportano letture con tipo «Stimata» o reale. Da fare: flag «Stimata» su rilevazioni e periodi di consumo. Un valore stimato conta finché non arriva una lettura reale successiva; da quel momento i dati stimati intermedi si ignorano (il conguaglio riporta tutto al valore reale). Nel tab Consumi le stime si mostrano come stimate. Richiede il parser del PDF allegato alla fattura (voce 6).
+Emerso dall'analisi delle fatture ACA (2026-10-19): le fatture riportano letture con tipo «Stimata» o reale. Fatto in v1.34.0: flag «Stimata» (`utility_consumptions.is_estimated`) su letture e periodi; nel calcolo ogni giorno prende il dato da periodi reali, poi letture reali, poi periodi stimati, poi letture stimate; le stime coperte dal reale sono «superate» (in grigio nel tab Consumi). Spec `docs/superpowers/specs/2026-10-19-letture-stimate-design.md`. Resta nella voce 6 il parser del PDF/XML della fattura che valorizza il flag; i conguagli scritti come consumi negativi non sono gestiti (da valutare quando l'import ne trova uno).
 
 ## Archivio 4_IMMOBILIARE: stato degli import
 

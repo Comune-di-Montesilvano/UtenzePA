@@ -20,6 +20,10 @@ export interface UtilityConsumption {
   reactive_penalty: boolean | null;
   source: 'MANUAL' | 'INVOICE' | 'IMPORT' | 'API';
   notes: string | null;
+  // Valore stimato dal fornitore; superseded = stima che non conta più
+  // (è arrivato il dato reale).
+  is_estimated: boolean;
+  superseded: boolean;
   computed_consumption: number | null;
 }
 
@@ -37,6 +41,7 @@ export interface ConsumptionPayload {
   consumption_f2?: number | null;
   consumption_f3?: number | null;
   reactive_penalty?: boolean | null;
+  is_estimated: boolean;
   notes: string | null;
 }
 

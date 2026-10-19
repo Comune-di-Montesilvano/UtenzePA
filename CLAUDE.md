@@ -168,5 +168,5 @@ Nessun ESLint, nessun browser nel container (Karma non eseguibile). Verifica = `
 - Capitoli rinumerati negli anni: abbinare per descrizione e confermare con la ragioneria.
 - POD esterni a 15 caratteri: normalizzare a 14.
 - Export della contabilità (Tinn, `.audit-w/Flussi`) e import fatture 2026-10-16: vedi `docs/claude/data.md`.
-- Insert/update SQL diretti su `utility_consumptions`: i valori salvati sull'utenza (effettivo, copertura, stima) si aggiornano solo col ricalcolo (notturno o Backup e manutenzione → Consumi, `POST /utility-consumptions/recalc`).
+- Insert/update SQL diretti su `utility_consumptions`: i valori salvati sull'utenza (effettivo, copertura, stima) si aggiornano solo col ricalcolo (notturno o Backup e manutenzione → Consumi, `POST /utility-consumptions/recalc`). Letture/consumi stimati dal fornitore: `is_estimated = 1` (v1.34.0); il dato reale prevale e le stime coperte risultano «superate» (`consumption-calculator.ts`).
 - DELETE/INSERT massivi sul DB locale possono essere bloccati dal classificatore: dare all'utente la riga `! docker exec utenzepa-mysql-1 sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" mydatabase -e "…"'`.
