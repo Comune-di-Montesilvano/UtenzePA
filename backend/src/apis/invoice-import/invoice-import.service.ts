@@ -569,7 +569,8 @@ export class InvoiceImportService {
       return this.fail(row, `XML illeggibile: ${error instanceof Error ? error.message : error}`);
     }
     const first = header.documents[0];
-    row.supplier_vat = header.supplierVat || null;
+    // IdCodice estero fino a 28 caratteri: fuori perimetro, basta per riconoscerlo.
+    row.supplier_vat = header.supplierVat ? header.supplierVat.slice(0, 16) : null;
     row.document_number = first?.number || null;
     row.document_date = first?.date || null;
 
