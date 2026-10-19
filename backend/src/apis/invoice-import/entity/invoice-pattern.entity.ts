@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
 import { SystemUser } from '@apis/system-users/entity/system-user.entity';
+import type { PatternRules } from '../pattern/pattern-rules';
 
 // Come leggere le fatture di un fornitore con una certa struttura XML.
 // Ignorato = struttura da non importare (rules null, structure_key esclusa).
@@ -29,7 +30,7 @@ export class InvoicePattern {
   ignored: boolean;
 
   @Column({ type: 'json', nullable: true })
-  rules: Record<string, unknown> | null;
+  rules: PatternRules | null;
 
   // Struttura della fattura da cui è nato il pattern (sha1 dei percorsi).
   @Column({ type: 'varchar', length: 40 })
