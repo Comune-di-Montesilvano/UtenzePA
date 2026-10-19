@@ -62,7 +62,8 @@ const DEFAULTS: Partial<Record<HeaderTarget, string>> = {
   documentType: 'DatiGenerali/DatiGeneraliDocumento/TipoDocumento',
 };
 
-const CREDIT_NOTE = 'TD04';
+// Note di credito (ordinaria e semplificata): importi col segno invertito.
+const CREDIT_NOTES = ['TD04', 'TD08'];
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -157,8 +158,8 @@ export function extract(xml: Buffer, rules: PatternRules): ExtractedInvoice {
   const tree = parseInvoiceTree(xml);
   const h = rules.header;
   const documentType = headerRule(tree, h.documentType, DEFAULTS.documentType) ?? '';
-  const sign = (n: number | null) =>
-    n === null ? null : documentType === CREDIT_NOTE ? -Math.abs(n) : n;
+  const creditNote = CREDIT_NOTES.includes(documentType);
+  const sign = (n: number | null) => (n === null ? null : creditNote && n !== 0 ? -n : n);
 
   const filter = rules.consumptionLineFilter?.trim().toLowerCase();
   // Consumo letto dalla testata: una volta sola, sulla prima riga ammessa.
@@ -168,7 +169,8 @@ export function extract(xml: Buffer, rules: PatternRules): ExtractedInvoice {
     const amountRule = rules.line.amount ?? { kind: 'grossAmount' };
     let consumption: number | null = null;
     const descriptionText = description ?? firstValue([line], 'Descrizione') ?? '';
-    if (!filter || descriptionText.toLowerCase().includes(filter)) {
+    // Una nota di credito non registra consumi (i conguagli sono un caso a parte).
+    if (!creditNote && (!filter || descriptionText.toLowerCase().includes(filter))) {
       if (!readsHeader(rules.line.consumption) || !headerConsumptionUsed) {
         consumption = toNumber(lineRule(tree, line, rules.line.consumption));
         if (consumption !== null && readsHeader(rules.line.consumption))

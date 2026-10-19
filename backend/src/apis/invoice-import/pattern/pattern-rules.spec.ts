@@ -95,7 +95,15 @@ describe('extract', () => {
     });
     expect(result.documentType).toBe('TD04');
     expect(result.total).toBe(-183);
-    expect(result.lines.map((l) => l.amount)).toEqual([-122, -61, -0.01]);
+    // La riga negativa nell'XML (storno dentro la nota) torna positiva: la somma resta il totale.
+    expect(result.lines.map((l) => l.amount)).toEqual([-122, -61, 0.01]);
+    // Una nota di credito non registra consumi (i conguagli sono un caso a parte).
+    expect(result.lines.every((l) => l.consumption === null)).toBe(true);
+  });
+
+  it('nota di credito semplificata TD08: importi negativi come la TD04', () => {
+    const td08 = Buffer.from(pod.toString('utf8').replace('<TipoDocumento>TD01<', '<TipoDocumento>TD08<'));
+    expect(extract(td08, POD_RULES).lines[0].amount).toBe(-122);
   });
 
   it('numero dopo la parola con virgola decimale e migliaia all’italiana', () => {
