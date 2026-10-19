@@ -5,6 +5,7 @@ import { GrantUtilityDecision } from './entity/grant-utility-decision.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
 import { GrantUtilityDecisionValue, SupplyEventType } from './enum/supply-event-type.enum';
 import { CANCEL_GRANT_ENDED } from './supply-reconcile';
+import { dbDay } from './supply-reconcile.service';
 
 const NOW = new Date('2026-10-19T10:00:00Z');
 const TODAY = '2026-10-19';
@@ -28,12 +29,18 @@ function fakeDb(init: {
   const parties = init.parties ?? [];
   const covered = init.covered ?? [];
   let nextId = 1000;
+  // Ordine delle chiamate: verifica che il blocco venga prima delle letture.
+  const calls: string[] = [];
 
-  const repoOf = (rows: Row[]) => ({
-    find: jest.fn(async ({ where }: { where: Row }) =>
-      rows.filter((r) => Object.entries(where).every(([k, v]) => r[k] === v)).map((r) => ({ ...r })),
-    ),
+  const repoOf = (name: string, rows: Row[]) => ({
+    find: jest.fn(async ({ where }: { where: Row }) => {
+      calls.push(`find:${name}`);
+      return rows
+        .filter((r) => Object.entries(where).every(([k, v]) => r[k] === v))
+        .map((r) => ({ ...r }));
+    }),
     findOne: jest.fn(async ({ where }: { where: Row }) => {
+      calls.push(`findOne:${name}`);
       const r = rows.find((x) => Object.entries(where).every(([k, v]) => x[k] === v));
       return r ? { ...r } : null;
     }),
@@ -54,9 +61,9 @@ function fakeDb(init: {
   });
 
   const repos = new Map<unknown, ReturnType<typeof repoOf>>([
-    [Utility, repoOf(utilities)],
-    [UtilitySupplyEvent, repoOf(events)],
-    [GrantUtilityDecision, repoOf(decisions)],
+    [Utility, repoOf('utility', utilities)],
+    [UtilitySupplyEvent, repoOf('event', events)],
+    [GrantUtilityDecision, repoOf('decision', decisions)],
   ]);
 
   const grantRow = (g: Row, utilityId?: number) => ({
@@ -79,7 +86,15 @@ function fakeDb(init: {
   });
 
   const query = jest.fn(async (sql: string, params: unknown[] = []) => {
-    if (sql.includes('system_users')) return [{ id: 1 }];
+    if (sql.includes('FOR UPDATE')) {
+      calls.push(`lock:${params[0]}`);
+      const u = utilities.find((x) => x.id === params[0]);
+      return u ? [{ id: u.id, deleted: u.deleted ? 1 : 0 }] : [];
+    }
+    if (sql.includes('system_users')) {
+      calls.push('system_user');
+      return [{ id: 1 }];
+    }
     if (sql.includes('utilizer_grant_parties')) {
       const ids = (params[0] as number[]) ?? [];
       return parties.filter((p) => ids.includes(p.utilizer_grant_id));
@@ -120,6 +135,7 @@ function fakeDb(init: {
   };
   return {
     dataSource,
+    calls,
     query,
     utilities,
     events,
@@ -444,5 +460,86 @@ describe('SupplyReconcileService decisioni', () => {
       decisions: [{ id: 50, utilizer_grant_id_fk: 10, utility_id_fk: 8, decision: null }],
     });
     expect((await build(db).utilityIdsOfGrant(10)).sort()).toEqual([7, 8]);
+  });
+});
+
+describe('SupplyReconcileService concorrenza e dati grezzi', () => {
+  const followsDb = () =>
+    fakeDb({
+      utilities: [utility()],
+      events: [activation],
+      grants: [{ id: 10 }],
+      parties: [{ utilizer_grant_id: 10, third_party_id: 5 }],
+      covered: [{ grant_id: 10, utility_id: 7 }],
+      decisions: [
+        { id: 50, utilizer_grant_id_fk: 10, utility_id_fk: 7, decision: 'FOLLOWS', third_party_id_fk: 5, create_date: NOW },
+      ],
+    });
+
+  it("reconcile blocca la riga dell'utenza prima di ogni lettura", async () => {
+    const db = followsDb();
+    await build(db).reconcile(7);
+    expect(db.calls[0]).toBe('lock:7');
+    expect(db.calls.filter((c) => c.startsWith('lock')).length).toBeGreaterThan(0);
+  });
+
+  it('setDecision blocca la riga prima di cercare la decisione', async () => {
+    const db = fakeDb({
+      utilities: [utility()],
+      events: [activation],
+      grants: [{ id: 10 }],
+      parties: [{ utilizer_grant_id: 10, third_party_id: 5 }],
+      covered: [{ grant_id: 10, utility_id: 7 }],
+    });
+    await build(db).setDecision(10, 7, { decision: GrantUtilityDecisionValue.STAYS }, 42);
+    expect(db.dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(db.calls[0]).toBe('lock:7');
+    expect(db.calls.indexOf('lock:7')).toBeLessThan(db.calls.indexOf('findOne:decision'));
+  });
+
+  it("utente di sistema riletto a ogni giro (nessuna cache)", async () => {
+    const a = followsDb();
+    const service = build(a);
+    await service.reconcile(7);
+    const b = followsDb();
+    (service as unknown as { dataSource: unknown }).dataSource = b.dataSource;
+    await service.reconcile(7);
+    expect(a.calls.filter((c) => c === 'system_user')).toHaveLength(1);
+    expect(b.calls.filter((c) => c === 'system_user')).toHaveLength(1);
+  });
+
+  it('dbDay: Date di mysql2 (mezzanotte locale) e stringhe', () => {
+    expect(dbDay(new Date(2026, 0, 1))).toBe('2026-01-01');
+    expect(dbDay(new Date(2026, 11, 31))).toBe('2026-12-31');
+    expect(dbDay('2026-03-05')).toBe('2026-03-05');
+    expect(dbDay(null)).toBeNull();
+  });
+
+  const grantDates = (o: Row) =>
+    fakeDb({
+      utilities: [utility()],
+      events: [
+        activation,
+        event({ id: 2, type: SupplyEventType.TRANSFER, third_party_id_fk: 5, utilizer_grant_id_fk: 10 }),
+      ],
+      grants: [{ id: 10, start_date: new Date(2025, 0, 1), ...o }],
+      parties: [{ utilizer_grant_id: 10, third_party_id: 5 }],
+      covered: [{ grant_id: 10, utility_id: 7 }],
+      decisions: [
+        { id: 50, utilizer_grant_id_fk: 10, utility_id_fk: 7, decision: 'FOLLOWS', third_party_id_fk: 5, create_date: NOW },
+      ],
+    });
+
+  it('contratto con fine (Date grezza) passata: TRANSFER annullato', async () => {
+    const db = grantDates({ end_date: new Date(2026, 0, 31), tacit_renewal: 0 });
+    await build(db).reconcile(7);
+    expect(db.events.find((e) => e.id === 2)?.cancelled_on).toBe(TODAY);
+  });
+
+  it('rinnovo tacito (tinyint 1) e fine (Date grezza) passata: contratto in corso, TRANSFER resta', async () => {
+    const db = grantDates({ end_date: new Date(2026, 0, 31), tacit_renewal: 1, renewal_months: 12 });
+    await build(db).reconcile(7);
+    expect(db.events.find((e) => e.id === 2)?.cancelled_on).toBeNull();
+    expect(db.repo(Utility).update.mock.calls[0][1]).toMatchObject({ cost_status: 'TO_TRANSFER' });
   });
 });

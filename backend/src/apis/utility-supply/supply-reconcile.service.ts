@@ -94,7 +94,6 @@ const COVERS_SQL =
 export class SupplyReconcileService {
   private readonly logger = new Logger(SupplyReconcileService.name);
   private running = false;
-  private systemUserId: number | null = null;
   now: () => Date = () => new Date();
 
   constructor(private readonly dataSource: DataSource) {}
@@ -179,6 +178,7 @@ export class SupplyReconcileService {
     userId: number,
   ): Promise<GrantDecisionRow[]> {
     await this.dataSource.transaction(async (m) => {
+      await this.lockUtility(m, utilityId);
       const grant = await this.activeGrant(m, grantId);
       const covered = await this.coveredUtilityIds(m, grantId);
       if (!covered.includes(utilityId)) {
@@ -213,6 +213,7 @@ export class SupplyReconcileService {
       if (!grant.utilities_to_be_taken_over || grant.party_ids.length !== 1) return;
       const decisionRepo = m.getRepository(GrantUtilityDecision);
       for (const utilityId of await this.coveredUtilityIds(m, grantId)) {
+        await this.lockUtility(m, utilityId);
         const row = await decisionRepo.findOne({
           where: { utilizer_grant_id_fk: grantId, utility_id_fk: utilityId },
         });
@@ -229,6 +230,21 @@ export class SupplyReconcileService {
       }
     });
     return this.listDecisions(grantId);
+  }
+
+  // Blocca la riga dell'utenza fino alla fine della transazione: tutte le
+  // scritture sullo storico e sulle decisioni di un'utenza (riconciliazione,
+  // job, salvataggi concorrenti) si mettono in coda, e le letture che seguono
+  // vedono le righe scritte da chi è passato prima. null = utenza inesistente.
+  async lockUtility(
+    m: EntityManager,
+    utilityId: number,
+  ): Promise<{ id: number; deleted: boolean } | null> {
+    const rows: { id: number; deleted: number | boolean }[] = await m.query(
+      'SELECT id, deleted FROM utilities WHERE id = ? FOR UPDATE',
+      [utilityId],
+    );
+    return rows.length ? { id: Number(rows[0].id), deleted: !!Number(rows[0].deleted) } : null;
   }
 
   // ---- Interni -----------------------------------------------------------
@@ -403,16 +419,19 @@ export class SupplyReconcileService {
     };
   }
 
-  // true se una colonna di stato dell'utenza è cambiata.
-  private async reconcileWith(
-    m: EntityManager,
-    utilityId: number,
-    userId?: number,
-  ): Promise<boolean> {
+  // Riconciliazione dentro una transazione già aperta (anche da
+  // SupplyEventsService). true se una colonna di stato dell'utenza è cambiata.
+  async reconcileWith(m: EntityManager, utilityId: number, userId?: number): Promise<boolean> {
+    // Il blocco viene prima di ogni lettura (rientrante nella stessa transazione).
+    await this.lockUtility(m, utilityId);
     const loaded = await this.load(m, utilityId);
+    if (!loaded) return false;
     // Utenza senza storico: nessun dato da cui ricalcolare (lo stato
     // resterebbe «non attiva»), si lascia com'è.
-    if (!loaded || loaded.noHistory) return false;
+    if (loaded.noHistory) {
+      this.logger.warn(`Utenza ${utilityId} senza storico: riconciliazione saltata`);
+      return false;
+    }
     const { plan, utility, snapshot, events } = loaded;
     const today = this.today();
     const writes =
@@ -484,9 +503,9 @@ export class SupplyReconcileService {
   }
 
   // Autore delle righe automatiche dei giri di sistema (job, avvio): il
-  // primo utente, come la migration dello storico.
+  // primo utente, come la migration dello storico. Non in cache: l'utente
+  // può essere eliminato tra un giro e l'altro.
   private async fallbackUserId(m: EntityManager): Promise<number> {
-    if (this.systemUserId !== null) return this.systemUserId;
     const rows: { id: number | null }[] = await m.query(
       'SELECT MIN(id) AS id FROM system_users',
     );
@@ -494,7 +513,6 @@ export class SupplyReconcileService {
     if (id === null || id === undefined) {
       throw new Error('Nessun utente in system_users: impossibile registrare le righe automatiche');
     }
-    this.systemUserId = Number(id);
-    return this.systemUserId;
+    return Number(id);
   }
 }

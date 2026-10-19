@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { BaseService } from '@apis/shared/base.service';
-import { Utility } from '@apis/utility/entity/utility.entity';
+import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { partyName } from '@apis/third-parties/third-party.name';
 import { UtilitySupplyEvent } from './entity/utility-supply-event.entity';
 import { SupplyEventType } from './enum/supply-event-type.enum';
@@ -57,10 +57,9 @@ export class SupplyEventsService extends BaseService<
   now: () => Date = () => new Date();
 
   constructor(
+    private readonly dataSource: DataSource,
     @InjectRepository(UtilitySupplyEvent)
     protected readonly repo: Repository<UtilitySupplyEvent>,
-    @InjectRepository(Utility)
-    private readonly utilityRepo: Repository<Utility>,
     private readonly reconcileService: SupplyReconcileService,
   ) {
     super();
@@ -98,8 +97,6 @@ export class SupplyEventsService extends BaseService<
 
   async create(dto: CreateSupplyEventDto, userId?: number): Promise<UtilitySupplyEvent> {
     const utilityId = dto.utility_id_fk;
-    const utility = await this.utilityRepo.findOne({ where: { id: utilityId } });
-    if (!utility || utility.deleted) throw new BadRequestException('Utenza non trovata.');
     const fields = this.normalize({
       type: dto.type,
       third_party_id_fk: dto.third_party_id_fk ?? null,
@@ -108,12 +105,27 @@ export class SupplyEventsService extends BaseService<
       date_unknown: !!dto.date_unknown,
       notes: dto.notes ?? null,
     });
-    await this.validate(utilityId, fields, null);
-    const saved = await super.create(
-      { ...fields, utility_id_fk: utilityId, utilizer_grant_id_fk: null } as never,
-      userId,
-    );
-    await this.reconcileService.reconcile(utilityId, userId);
+    const saved = await this.dataSource.transaction(async (m) => {
+      const utility = await this.reconcileService.lockUtility(m, utilityId);
+      if (!utility || utility.deleted) throw new BadRequestException('Utenza non trovata.');
+      await this.validate(m, utilityId, fields, null);
+      const repo = m.getRepository(UtilitySupplyEvent);
+      const row = await this.persist(() =>
+        repo.save(
+          repo.create({
+            ...fields,
+            utility_id_fk: utilityId,
+            utilizer_grant_id_fk: null,
+            ...(userId !== undefined
+              ? { created_by_user_id: userId, updated_by_user_id: userId }
+              : {}),
+          }),
+        ),
+      );
+      await this.reconcileService.reconcileWith(m, utilityId, userId);
+      return row;
+    });
+    await this.recordAudit(AuditAction.CREATE, saved.id, userId, []);
     return saved;
   }
 
@@ -138,51 +150,113 @@ export class SupplyEventsService extends BaseService<
   }
 
   async update(id: number, dto: UpdateSupplyEventDto, userId?: number): Promise<UtilitySupplyEvent> {
-    const current = await this.current(id);
-    if (current.cancelled_on) {
-      throw new BadRequestException('Cambiamento annullato: non si può modificare.');
-    }
     const patch = Object.fromEntries(
-      Object.entries(dto).filter(([k, v]) => v !== undefined && (EDITABLE as readonly string[]).includes(k)),
+      Object.entries(dto).filter(
+        ([k, v]) => v !== undefined && (EDITABLE as readonly string[]).includes(k),
+      ),
     ) as Partial<EventFields>;
-    if (current.utilizer_grant_id_fk != null) {
-      for (const [k, v] of Object.entries(patch)) {
-        if (!AUTOMATIC_EDITABLE.has(k) && !sameValue(k, current[k as keyof EventFields], v)) {
-          throw new BadRequestException(AUTOMATIC_ROW_MESSAGE);
+    const { saved, before, after } = await this.locked(id, async (m, current) => {
+      if (current.cancelled_on) {
+        throw new BadRequestException('Cambiamento annullato: non si può modificare.');
+      }
+      if (current.utilizer_grant_id_fk != null) {
+        for (const [k, v] of Object.entries(patch)) {
+          if (!AUTOMATIC_EDITABLE.has(k) && !sameValue(k, current[k as keyof EventFields], v)) {
+            throw new BadRequestException(AUTOMATIC_ROW_MESSAGE);
+          }
         }
       }
-    }
-    const merged = this.normalize({ ...pickFields(current), ...patch });
-    await this.validate(current.utility_id_fk, merged, current);
-    const saved = await super.update(id, merged as never, userId);
-    await this.reconcileService.reconcile(current.utility_id_fk, userId);
+      const previous = pickFields(current);
+      const merged = this.normalize({ ...previous, ...patch });
+      await this.validate(m, current.utility_id_fk, merged, current);
+      const row = await this.persist(() =>
+        m.getRepository(UtilitySupplyEvent).save({
+          ...current,
+          ...merged,
+          ...(userId !== undefined ? { updated_by_user_id: userId } : {}),
+        }),
+      );
+      await this.reconcileService.reconcileWith(m, current.utility_id_fk, userId);
+      return { saved: row, before: previous, after: merged };
+    });
+    await this.auditUpdate(id, userId, before, after);
     return saved;
   }
 
   // Annulla un cambiamento in sospeso inserito a mano: resta nello storico.
   async cancel(id: number, userId: number): Promise<UtilitySupplyEvent> {
-    const current = await this.current(id);
-    if (current.utilizer_grant_id_fk != null) throw new BadRequestException(AUTOMATIC_ROW_MESSAGE);
-    if (current.cancelled_on) throw new BadRequestException('Cambiamento già annullato.');
-    if (current.date_unknown || current.effective_on) {
-      throw new BadRequestException('Solo un cambiamento in sospeso si può annullare.');
-    }
-    const saved = await super.update(id, { cancelled_on: romeDay(this.now()) } as never, userId);
-    await this.reconcileService.reconcile(current.utility_id_fk, userId);
+    const today = romeDay(this.now());
+    const saved = await this.locked(id, async (m, current) => {
+      if (current.utilizer_grant_id_fk != null) {
+        throw new BadRequestException(AUTOMATIC_ROW_MESSAGE);
+      }
+      if (current.cancelled_on) throw new BadRequestException('Cambiamento già annullato.');
+      if (current.date_unknown || current.effective_on) {
+        throw new BadRequestException('Solo un cambiamento in sospeso si può annullare.');
+      }
+      const row = await m
+        .getRepository(UtilitySupplyEvent)
+        .save({ ...current, cancelled_on: today, updated_by_user_id: userId });
+      await this.reconcileService.reconcileWith(m, current.utility_id_fk, userId);
+      return row;
+    });
+    await this.auditUpdate(id, userId, { cancelled_on: null }, { cancelled_on: today });
     return saved;
   }
 
   async remove(id: number, userId: number): Promise<void> {
-    const current = await this.current(id);
-    if (current.utilizer_grant_id_fk != null) throw new BadRequestException(AUTOMATIC_ROW_MESSAGE);
-    await super.remove(id, userId);
-    await this.reconcileService.reconcile(current.utility_id_fk, userId);
+    await this.locked(id, async (m, current) => {
+      if (current.utilizer_grant_id_fk != null) {
+        throw new BadRequestException(AUTOMATIC_ROW_MESSAGE);
+      }
+      await m
+        .getRepository(UtilitySupplyEvent)
+        .save({ ...current, deleted: true, updated_by_user_id: userId });
+      await this.reconcileService.reconcileWith(m, current.utility_id_fk, userId);
+    });
+    await this.recordAudit(AuditAction.DELETE, id, userId, []);
   }
 
-  private async current(id: number): Promise<UtilitySupplyEvent> {
-    const row = await this.repo.findOne({ where: { id, deleted: false } });
-    if (!row) throw new BadRequestException('Cambiamento non trovato.');
-    return row;
+  // Una transazione per scrittura: blocco dell'utenza, rilettura della riga,
+  // validazione, salvataggio e riconciliazione. Se la riconciliazione fallisce
+  // la riga non resta salvata; due salvataggi in parallelo si mettono in coda.
+  private locked<T>(
+    id: number,
+    fn: (m: EntityManager, current: UtilitySupplyEvent) => Promise<T>,
+  ): Promise<T> {
+    return this.dataSource.transaction(async (m) => {
+      const repo = m.getRepository(UtilitySupplyEvent);
+      const first = await repo.findOne({ where: { id, deleted: false } });
+      if (!first) throw new BadRequestException('Cambiamento non trovato.');
+      await this.reconcileService.lockUtility(m, first.utility_id_fk);
+      // Riletta dopo il blocco: può essere cambiata nel frattempo.
+      const current = await repo.findOne({ where: { id, deleted: false } });
+      if (!current) throw new BadRequestException('Cambiamento non trovato.');
+      return fn(m, current);
+    });
+  }
+
+  private async persist<T>(save: () => Promise<T>): Promise<T> {
+    try {
+      return await save();
+    } catch (error) {
+      this.manageErrors(error, `Errore durante il salvataggio di ${this.entityName}`);
+    }
+  }
+
+  // Audit dopo il commit, best-effort come in BaseService.
+  private async auditUpdate(
+    id: number,
+    userId: number | undefined,
+    before: Record<string, unknown>,
+    after: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      const changes = await this.diffFields(before, after, after);
+      await this.recordAudit(AuditAction.UPDATE, id, userId, changes);
+    } catch (error) {
+      console.error(`[SupplyEventsService] Errore audit per ${this.entityName}`, error);
+    }
   }
 
   // Data non nota solo per attivazioni/cessazioni (e senza data effettiva);
@@ -201,12 +275,15 @@ export class SupplyEventsService extends BaseService<
   }
 
   private async validate(
+    m: EntityManager,
     utilityId: number,
     fields: EventFields,
     current: UtilitySupplyEvent | null,
   ): Promise<void> {
     const others = (
-      await this.repo.find({ where: { utility_id_fk: utilityId, deleted: false } })
+      await m
+        .getRepository(UtilitySupplyEvent)
+        .find({ where: { utility_id_fk: utilityId, deleted: false } })
     ).filter((e) => e.id !== current?.id);
     const candidate = toEventLike({
       ...(current ?? {

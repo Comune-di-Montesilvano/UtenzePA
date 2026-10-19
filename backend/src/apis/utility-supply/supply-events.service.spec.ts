@@ -24,18 +24,25 @@ const event = (o: Row) => ({
 
 function build(rows: Row[]) {
   let nextId = 100;
+  // Ordine delle chiamate, con il segno «tx» se dentro una transazione.
+  const calls: string[] = [];
+  let inTx = false;
+  const log = (c: string) => calls.push(inTx ? c : `${c}(fuori)`);
   const repo = {
-    find: jest.fn(async ({ where }: { where: Row }) =>
-      rows
+    find: jest.fn(async ({ where }: { where: Row }) => {
+      log('find');
+      return rows
         .filter((r) => Object.entries(where).every(([k, v]) => r[k] === v))
-        .map((r) => ({ ...r })),
-    ),
+        .map((r) => ({ ...r }));
+    }),
     findOne: jest.fn(async ({ where }: { where: Row }) => {
+      log('findOne');
       const r = rows.find((x) => Object.entries(where).every(([k, v]) => x[k] === v));
       return r ? { ...r } : null;
     }),
     create: jest.fn((r: Row) => ({ ...r })),
     save: jest.fn(async (r: Row) => {
+      log('save');
       const saved = { create_date: NOW, ...r, id: r.id ?? nextId++ };
       const i = rows.findIndex((x) => x.id === saved.id);
       if (i >= 0) rows[i] = saved;
@@ -43,15 +50,30 @@ function build(rows: Row[]) {
       return { ...saved };
     }),
   };
-  const utilityRepo = {
-    findOne: jest.fn(async ({ where }: { where: Row }) =>
-      where.id === 7 ? { id: 7, deleted: false } : null,
-    ),
+  const manager = { getRepository: () => repo };
+  const dataSource = {
+    transaction: jest.fn(async (fn: (m: typeof manager) => Promise<unknown>) => {
+      inTx = true;
+      try {
+        return await fn(manager);
+      } finally {
+        inTx = false;
+      }
+    }),
   };
-  const reconcile = { reconcile: jest.fn().mockResolvedValue(undefined) };
-  const service = new SupplyEventsService(repo as never, utilityRepo as never, reconcile as never);
+  const reconcile = {
+    lockUtility: jest.fn(async (_m: unknown, id: number) => {
+      log(`lock:${id}`);
+      return id === 7 ? { id: 7, deleted: false } : null;
+    }),
+    reconcileWith: jest.fn(async () => {
+      log('reconcile');
+      return false;
+    }),
+  };
+  const service = new SupplyEventsService(dataSource as never, repo as never, reconcile as never);
   service.now = () => NOW;
-  return { service, repo, reconcile, rows };
+  return { service, repo, reconcile, rows, calls, dataSource, manager };
 }
 
 const activation = event({ id: 1, type: SupplyEventType.ACTIVATION, date_unknown: true });
@@ -69,7 +91,7 @@ describe('SupplyEventsService', () => {
       effective_on: null,
       created_by_user_id: 42,
     });
-    expect(reconcile.reconcile).toHaveBeenCalledWith(7, 42);
+    expect(reconcile.reconcileWith).toHaveBeenCalledWith(expect.anything(), 7, 42);
   });
 
   it('create: 400 con il messaggio di validateEvent', async () => {
@@ -80,7 +102,7 @@ describe('SupplyEventsService', () => {
     await expect(service.create({ utility_id_fk: 7, type: SupplyEventType.RETURN }, 42)).rejects.toThrow(
       new BadRequestException("L'utenza è già intestata al Comune."),
     );
-    expect(reconcile.reconcile).not.toHaveBeenCalled();
+    expect(reconcile.reconcileWith).not.toHaveBeenCalled();
   });
 
   it('create: 400 su utenza inesistente', async () => {
@@ -109,7 +131,7 @@ describe('SupplyEventsService', () => {
     const { service, rows, reconcile } = build([activation, auto]);
     await service.update(2, { effective_on: '2026-10-10', third_party_id_fk: 5 }, 42);
     expect(rows.find((r) => r.id === 2)?.effective_on).toBe('2026-10-10');
-    expect(reconcile.reconcile).toHaveBeenCalledWith(7, 42);
+    expect(reconcile.reconcileWith).toHaveBeenCalledWith(expect.anything(), 7, 42);
   });
 
   it('update: altri campi di una riga automatica → 400', async () => {
@@ -132,7 +154,7 @@ describe('SupplyEventsService', () => {
     const { service, rows, reconcile } = build([activation, manual]);
     await service.cancel(2, 42);
     expect(rows.find((r) => r.id === 2)?.cancelled_on).toBe('2026-10-19');
-    expect(reconcile.reconcile).toHaveBeenCalledWith(7, 42);
+    expect(reconcile.reconcileWith).toHaveBeenCalledWith(expect.anything(), 7, 42);
   });
 
   it('listByUtility: righe ordinate, nomi risolti e avvisi di sequenza', async () => {
@@ -154,5 +176,34 @@ describe('SupplyEventsService', () => {
     expect(result.events[2]).toMatchObject({ third_party_name: 'Alfa srl', grant_label: 'Atto 1' });
     expect(result.events[2]).not.toHaveProperty('thirdParty');
     expect(result.warnings).toEqual(['Due attivazioni di fila: manca una cessazione?']);
+  });
+
+  it('create: blocco, validazione, salvataggio e riconciliazione in una sola transazione', async () => {
+    const { service, calls, dataSource } = build([activation]);
+    await service.create({ utility_id_fk: 7, type: SupplyEventType.CESSATION }, 42);
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual(['lock:7', 'find', 'save', 'reconcile']);
+  });
+
+  it('update/cancel/remove: una transazione, blocco prima della rilettura, riconciliazione dentro', async () => {
+    for (const op of ['update', 'cancel', 'remove'] as const) {
+      const manual = event({ id: 2, type: SupplyEventType.CESSATION });
+      const { service, calls, dataSource } = build([activation, manual]);
+      if (op === 'update') await service.update(2, { notes: 'x' }, 42);
+      else if (op === 'cancel') await service.cancel(2, 42);
+      else await service.remove(2, 42);
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+      expect(calls.every((c) => !c.endsWith('(fuori)'))).toBe(true);
+      expect(calls.slice(0, 3)).toEqual(['findOne', 'lock:7', 'findOne']);
+      expect(calls[calls.length - 1]).toBe('reconcile');
+    }
+  });
+
+  it('riconciliazione fallita: errore propagato dalla transazione (la riga non resta)', async () => {
+    const { service, reconcile } = build([activation]);
+    reconcile.reconcileWith.mockRejectedValueOnce(new Error('boom'));
+    await expect(
+      service.create({ utility_id_fk: 7, type: SupplyEventType.CESSATION }, 42),
+    ).rejects.toThrow('boom');
   });
 });
