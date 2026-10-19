@@ -26,7 +26,7 @@ export interface InvoiceTree {
 
 export function parseInvoiceTree(xml: Buffer): InvoiceTree {
   // Alcuni fornitori mettono BOM e <?xml-stylesheet?> prima dell'elemento radice.
-  const parsed = parser.parse(xml.toString('utf8').replace(/^﻿/, '')) as XmlNode;
+  const parsed = parser.parse(xml.toString('utf8').replace(/^\uFEFF/, '')) as XmlNode;
   const key = Object.keys(parsed).find((k) => !k.startsWith('?'));
   const root = (key ? parsed[key][0] : {}) as XmlNode;
   const bodies = (root.FatturaElettronicaBody ?? []).filter(isNode);
