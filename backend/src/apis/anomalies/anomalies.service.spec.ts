@@ -111,7 +111,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(34);
+    expect(query).toHaveBeenCalledTimes(37);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -636,6 +636,97 @@ describe('AnomaliesService', () => {
       expect(sql).not.toContain('CURDATE()');
       const call = query.mock.calls.find(([s]) => String(s).includes('/* utilities_with_reactive_penalty */'));
       expect(call?.[1]).toEqual([expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)]);
+    });
+  });
+
+  describe('import fatture dalla PEC (query in fondo)', () => {
+    const savedEnv = { ...process.env };
+    const only = (marker: string, rows: unknown[]) =>
+      query.mockImplementation(async (sql: string) => (sql.includes(marker) ? rows : []));
+    const now = new Date('2026-10-19T12:00:00Z');
+
+    beforeEach(() => {
+      Object.assign(process.env, {
+        PEC_IMAP_HOST: 'imap.prova.it',
+        PEC_IMAP_USER: 'sdi@prova.it',
+        PEC_IMAP_PASSWORD: 'x',
+      });
+      delete process.env.INVOICE_IMPORT_DISABLED;
+      service.now = () => now;
+    });
+
+    afterEach(() => {
+      process.env = { ...savedEnv };
+    });
+
+    const state = (lastSuccess: string | null, enabled = 1) => ({
+      enabled,
+      last_run_at: new Date('2026-10-19T11:45:00Z'),
+      last_success_at: lastSuccess ? new Date(lastSuccess) : null,
+      last_error: 'connessione persa',
+    });
+
+    it('fermo da più di 2 ore: segnalato', async () => {
+      only('/* invoice_import_stalled */', [state('2026-10-19T09:00:00Z')]);
+      const r = await service.getAnomalies();
+      expect(r.invoice_import_stalled).toEqual({
+        count: 1,
+        items: [{ last_success_at: '2026-10-19T09:00:00.000Z', last_error: 'connessione persa' }],
+      });
+    });
+
+    it('mai riuscito dopo un tentativo: segnalato', async () => {
+      only('/* invoice_import_stalled */', [state(null)]);
+      expect((await service.getAnomalies()).invoice_import_stalled.count).toBe(1);
+    });
+
+    it.each([
+      ['ultimo giro riuscito di recente', () => state('2026-10-19T11:45:00Z')],
+      ['spento dal pannello', () => state('2026-10-18T09:00:00Z', 0)],
+      [
+        'forzato spento',
+        () => {
+          process.env.INVOICE_IMPORT_DISABLED = 'true';
+          return state('2026-10-18T09:00:00Z');
+        },
+      ],
+      [
+        'non configurato',
+        () => {
+          delete process.env.PEC_IMAP_HOST;
+          return state('2026-10-18T09:00:00Z');
+        },
+      ],
+    ])('%s: nessuna segnalazione', async (_label, row) => {
+      only('/* invoice_import_stalled */', [row()]);
+      expect((await service.getAnomalies()).invoice_import_stalled.count).toBe(0);
+    });
+
+    it('fatture PEC in attesa di import', async () => {
+      only('/* invoice_import_pending */', [
+        { id: '4', supplier: 'Fornitore Prova S.p.A.', document_number: 'FPR 1/26', document_date: '2026-07-10' },
+      ]);
+      const r = await service.getAnomalies();
+      expect(r.invoice_import_pending).toEqual({
+        count: 1,
+        items: [{ id: 4, supplier: 'Fornitore Prova S.p.A.', number: 'FPR 1/26', date: '2026-07-10' }],
+      });
+      const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('/* invoice_import_pending */'));
+      expect(sql).toContain("m.status = 'PENDING'");
+    });
+
+    it('fatture con esito scartato dallo SDI', async () => {
+      only('/* invoice_sdi_outcome_discarded */', [{ invoice_id: '50', number: 'FPR 1/26' }]);
+      const r = await service.getAnomalies();
+      expect(r.invoice_sdi_outcome_discarded).toEqual({
+        count: 1,
+        items: [{ invoice_id: 50, number: 'FPR 1/26' }],
+      });
+      const sql = query.mock.calls
+        .map(([s]) => String(s))
+        .find((s) => s.includes('/* invoice_sdi_outcome_discarded */'));
+      expect(sql).toContain('i.deleted = 0');
+      expect(sql).toContain('i.sdi_outcome_discarded = 1');
     });
   });
 });

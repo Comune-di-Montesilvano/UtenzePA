@@ -1,0 +1,53 @@
+import { Module, OnModuleInit } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { CronJob } from 'cron';
+import { SchedulerRegistry } from '@nestjs/schedule';
+import { Invoice } from '@apis/invoices/entity/invoice.entity';
+import { InvoiceImportState } from './entity/invoice-import-state.entity';
+import { SdiMessage } from './entity/sdi-message.entity';
+import { InvoiceImportController } from './invoice-import.controller';
+import { InvoiceImportService } from './invoice-import.service';
+import {
+  ImapPecMailbox,
+  imapConfigFromEnv,
+  PEC_MAILBOX_FACTORY,
+  type PecMailboxFactory,
+} from './pec-imap.client';
+
+// Cron registrato qui come in utility-consumptions.module.ts (@nestjs/schedule
+// è ESM-only per jest). Il service esce subito se non configurato o spento.
+@Module({
+  imports: [TypeOrmModule.forFeature([SdiMessage, InvoiceImportState, Invoice])],
+  providers: [
+    InvoiceImportService,
+    {
+      provide: PEC_MAILBOX_FACTORY,
+      useValue: (() => {
+        const config = imapConfigFromEnv(process.env);
+        if (!config) throw new Error('Import non configurato.');
+        return new ImapPecMailbox(config);
+      }) satisfies PecMailboxFactory,
+    },
+  ],
+  controllers: [InvoiceImportController],
+  exports: [InvoiceImportService],
+})
+export class InvoiceImportModule implements OnModuleInit {
+  constructor(
+    private readonly schedulerRegistry: SchedulerRegistry,
+    private readonly service: InvoiceImportService,
+  ) {}
+
+  onModuleInit() {
+    const cronTime = process.env.INVOICE_IMPORT_CRON ?? '*/15 * * * *';
+    const job = new CronJob(
+      cronTime,
+      () => void this.service.runOnce(),
+      null,
+      false,
+      'Europe/Rome',
+    );
+    this.schedulerRegistry.addCronJob('invoice-import', job);
+    job.start();
+  }
+}

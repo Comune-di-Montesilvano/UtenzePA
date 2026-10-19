@@ -36,7 +36,7 @@ function text(node: unknown, path: string): string {
 
 function root(xml: Buffer): XmlNode {
   // Alcuni fornitori mettono BOM e <?xml-stylesheet?> prima dell'elemento radice.
-  const parsed = parser.parse(xml.toString('utf8').replace(/^﻿/, '')) as XmlNode;
+  const parsed = parser.parse(xml.toString('utf8').replace(/^\uFEFF/, '')) as XmlNode;
   const key = Object.keys(parsed).find((k) => !k.startsWith('?'));
   return (key ? parsed[key] : {}) as XmlNode;
 }
