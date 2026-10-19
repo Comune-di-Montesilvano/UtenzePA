@@ -54,6 +54,7 @@ export interface InvoiceImportStatus {
   lastSuccessAt: Date | null;
   lastError: string | null;
   counts: Record<string, number>;
+  recentErrors: { file_name: string; error: string | null; create_date: Date }[];
 }
 
 const STATE_ID = 1;
@@ -125,6 +126,9 @@ export class InvoiceImportService {
     const rows: { status: string; total: string | number }[] = await this.dataSource.query(
       'SELECT status, COUNT(*) AS total FROM sdi_messages GROUP BY status',
     );
+    const recentErrors = await this.dataSource.query(
+      "SELECT file_name, error, create_date FROM sdi_messages WHERE status = 'ERROR' ORDER BY id DESC LIMIT 10",
+    );
     return {
       configured: this.configured,
       forcedOff: this.forcedOff,
@@ -134,6 +138,7 @@ export class InvoiceImportService {
       lastSuccessAt: state?.last_success_at ?? null,
       lastError: state?.last_error ?? null,
       counts: Object.fromEntries(rows.map((r) => [r.status, Number(r.total)])),
+      recentErrors,
     };
   }
 

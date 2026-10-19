@@ -531,6 +531,36 @@ describe('InvoiceImportService con i pattern', () => {
   });
 });
 
+describe('InvoiceImportService.getStatus', () => {
+  it('conteggi per esito e ultimi messaggi in errore', async () => {
+    const created = new Date('2026-10-19T10:00:00Z');
+    const query = jest.fn(async (sql: string) =>
+      sql.includes('GROUP BY status')
+        ? [{ status: 'LINKED', total: '3' }]
+        : sql.includes("status = 'ERROR'")
+          ? [{ file_name: 'IT01234567897_x.xml', error: 'XML illeggibile', create_date: created }]
+          : [],
+    );
+    const service = new InvoiceImportService(
+      fakeRepo([{ id: 1, enabled: true }]) as never,
+      fakeRepo() as never,
+      fakeRepo() as never,
+      { query } as never,
+      () => ({}) as PecMailbox,
+      fakeRepo() as never,
+      {} as never,
+      {} as never,
+      noLinker as never,
+      noRecalc as never,
+    );
+    const status = await service.getStatus();
+    expect(status.counts).toEqual({ LINKED: 3 });
+    expect(status.recentErrors).toEqual([
+      { file_name: 'IT01234567897_x.xml', error: 'XML illeggibile', create_date: created },
+    ]);
+  });
+});
+
 describe('InvoiceImportService.getDocument', () => {
   const savedEnv = { ...process.env };
   let messages: ReturnType<typeof fakeRepo>;
