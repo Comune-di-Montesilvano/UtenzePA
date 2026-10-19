@@ -763,7 +763,10 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   // Controlli non modificati qui: presi dal server. I collegamenti (immobili,
-  // impianti) hanno il loro riallineamento.
+  // impianti) hanno il loro riallineamento. Lo snapshot si prende nel
+  // costruttore, prima di ngOnInit e dei caricamenti: così ogni modifica fatta
+  // dal codice dopo l'apertura (mappa, reset al cambio tipo) risulta diversa
+  // dallo snapshot e non viene sovrascritta.
   private realignPristine(u: Utility): void {
     const skip = new Set(['asset_ids', 'plant_ids', 'utility_id']);
     // Stessi default dell'inizializzazione del form.
@@ -787,7 +790,10 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   openGrant(id: number): void {
-    this.navigator.openGrant(id).subscribe();
+    // Una decisione di voltura sul contratto riconcilia questa utenza.
+    this.navigator.openGrant(id).subscribe(saved => {
+      if (saved) this.onSupplyChanged();
+    });
   }
 
   onPositionSelected(coords: { lat: string; lng: string }): void {

@@ -183,8 +183,9 @@ export class EntityNavigatorService {
 
   openGrant(id: number): Observable<UtilizerGrant | null> {
     return this.grants.getById(id).pipe(
-      switchMap(item => this.sheet<EditDialogData<UtilizerGrant>, UtilizerGrant>(GRANT_DIALOG, {mode: 'edit', item})),
-      switchMap(r => (r ? this.grants.update(r.id, r) : of(null))),
+      switchMap(item => this.sheet<EditDialogData<UtilizerGrant>, UtilizerGrant | SheetRefresh>(GRANT_DIALOG, {mode: 'edit', item})),
+      // Chiusa senza salvare ma con decisioni di voltura cambiate: conta come salvata.
+      switchMap(r => (isSheetRefresh(r) ? this.grants.getById(id) : r ? this.grants.update(r.id, r) : of(null))),
       catchError(err => this.fail('Errore apertura/salvataggio del contratto immobiliare', err)),
     );
   }

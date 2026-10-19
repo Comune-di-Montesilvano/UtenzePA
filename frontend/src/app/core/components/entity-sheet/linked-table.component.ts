@@ -1,4 +1,5 @@
-import {ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, Output} from '@angular/core';
+import {ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, Output, TemplateRef} from '@angular/core';
+import {NgTemplateOutlet} from '@angular/common';
 import {FormsModule} from '@angular/forms';
 import {MatDialog} from '@angular/material/dialog';
 import {MatButtonModule} from '@angular/material/button';
@@ -31,7 +32,7 @@ export interface RowIcon {
 @Component({
   selector: 'app-linked-table',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, FilterableSelectComponent, StatusBadgeComponent],
+  imports: [FormsModule, NgTemplateOutlet, MatButtonModule, MatIconModule, MatTooltipModule, FilterableSelectComponent, StatusBadgeComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (addOptions || createLabel) {
@@ -64,6 +65,9 @@ export interface RowIcon {
               @for (c of columns; track c.label) {
                 <th>{{ c.label }}</th>
               }
+              @if (extraCell) {
+                <th>{{ extraLabel }}</th>
+              }
               @if (rowStatus) {
                 <th>Stato</th>
               }
@@ -83,6 +87,11 @@ export interface RowIcon {
                 }
                 @for (c of columns; track c.label) {
                   <td>{{ c.value(row) }}</td>
+                }
+                @if (extraCell) {
+                  <td>
+                    <ng-container *ngTemplateOutlet="extraCell; context: {$implicit: row}"></ng-container>
+                  </td>
                 }
                 @if (rowStatus) {
                   @let st = rowStatus(row);
@@ -139,6 +148,10 @@ export class LinkedTableComponent<R extends LinkedRow> implements OnChanges {
   @Input() itemLabel = "l'elemento";
   @Input() rowIcon: ((row: R) => RowIcon | null) | null = null;
   @Input() rowStatus: ((row: R) => StatusInfo | null) | null = null;
+  // Colonna con contenuto libero (es. controlli per riga), dopo le colonne di
+  // testo. I controlli interattivi devono fermare il click, che apre la riga.
+  @Input() extraCell: TemplateRef<{$implicit: R}> | null = null;
+  @Input() extraLabel = '';
 
   @Output() open = new EventEmitter<R>();
   @Output() add = new EventEmitter<number>();

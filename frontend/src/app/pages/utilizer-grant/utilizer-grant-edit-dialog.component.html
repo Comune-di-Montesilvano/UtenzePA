@@ -172,11 +172,54 @@
           <ng-template mat-tab-label>
             <app-tab-label icon="bolt" label="Utenze" [count]="utilityRows.length"></app-tab-label>
           </ng-template>
-          <p class="sheet-hint">Utenze degli immobili del contratto. Le volture si segnano dalla scheda dell'utenza.
+          <p class="sheet-hint">Utenze degli immobili del contratto.
+            @if (decisionsEditable) {
+              Per ogni utenza scegli se segue il contratto (voltura alla controparte) o resta al Comune.
+            }
             Una nuova utenza nasce su tutti gli immobili salvati del contratto.</p>
+          @if (canApplyProposal) {
+            <div class="voltura-proposal">
+              <button mat-stroked-button type="button" [disabled]="savingDecision" (click)="applyProposal()">
+                <mat-icon>done_all</mat-icon> Conferma la proposta per tutte
+              </button>
+              <span class="sheet-hint">Contratto con «Proponi la voltura delle utenze»: le utenze da decidere seguono il contratto.</span>
+            </div>
+          }
+          <ng-template #volturaCell let-u>
+            @let v = decisionViews[u.id];
+            @if (v) {
+              <div class="voltura-cell">
+                @if (decisionsEditable && v.decidable) {
+                  @if (v.badge) {
+                    <app-status-badge [info]="v.badge" size="sm"></app-status-badge>
+                  }
+                  <span (click)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">
+                    <mat-form-field class="voltura-field" subscriptSizing="dynamic">
+                      <mat-select aria-label="Voltura" placeholder="Scegli..." [ngModel]="v.value"
+                                  [ngModelOptions]="{standalone: true}" [disabled]="savingDecision"
+                                  (selectionChange)="decide(u.id, $event)">
+                        @for (o of decisionOptions; track o.value) {
+                          <mat-option [value]="o.value">{{ o.label }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                  </span>
+                } @else if (v.badge) {
+                  <app-status-badge [info]="v.badge" size="sm"></app-status-badge>
+                } @else {
+                  <span>{{ v.text }}</span>
+                }
+                @if (v.overridden) {
+                  <mat-icon class="voltura-warn" [matTooltip]="overriddenText" [attr.aria-label]="overriddenText">warning</mat-icon>
+                }
+              </div>
+            }
+          </ng-template>
           <app-linked-table
             [columns]="utilityColumns"
             [rows]="utilityRows"
+            [extraCell]="volturaCell"
+            extraLabel="Voltura"
             [rowStatus]="utilityStatusOf"
             [createLabel]="canEdit && savedAssetIds.length ? 'Nuova utenza' : null"
             (create)="newUtility()"
@@ -238,7 +281,7 @@
             <mat-label>Superficie (mq)</mat-label>
             <input matInput type="number" min="0" step="0.01" formControlName="area_sqm">
           </mat-form-field>
-          <mat-checkbox formControlName="utilities_to_be_taken_over" style="align-self: center;">Utenze da volturare</mat-checkbox>
+          <mat-checkbox formControlName="utilities_to_be_taken_over" style="align-self: center;">Proponi la voltura delle utenze</mat-checkbox>
           <mat-checkbox formControlName="maintenance_by_counterparty" style="align-self: center;">Manutenzione a carico della controparte</mat-checkbox>
           <mat-form-field class="span-all">
             <mat-label>Note</mat-label>

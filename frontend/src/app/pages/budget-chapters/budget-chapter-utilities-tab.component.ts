@@ -36,7 +36,8 @@ import {ToastService} from '../../core/services/toast.service';
         (onSave)="save($event)"
         (onCreate)="create($event)"
         (onDelete)="remove($event)"
-        (onRestore)="reload()">
+        (onRestore)="reload()"
+        (onRefresh)="reload()">
       </app-data-table-utilities>
     </div>
   `,

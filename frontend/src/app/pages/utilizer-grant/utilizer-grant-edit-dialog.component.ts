@@ -1,6 +1,7 @@
 import {Component, inject, OnInit, ChangeDetectionStrategy} from '@angular/core';
-import {AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators} from '@angular/forms';
-import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
+import {AbstractControl, FormBuilder, FormsModule, ReactiveFormsModule, ValidationErrors, Validators} from '@angular/forms';
+import {MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
+import {MatSelectChange} from '@angular/material/select';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatSelectModule} from '@angular/material/select';
@@ -24,7 +25,13 @@ import {ValidityBarComponent} from '../../core/components/entity-sheet/validity-
 import {assetStatus, costStatus, grantFlags, grantStatus, StatusInfo, utilityStatus} from '../../core/helpers/entity-status';
 import {UtilityService} from '../utilities/utility.service';
 import {Utility} from '../utilities/entity/utility.entity';
-import {hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel} from '../../core/components/entity-sheet/sheet-utils';
+import {hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, SHEET_REFRESH, SheetRefresh} from '../../core/components/entity-sheet/sheet-utils';
+import {SupplyService} from '../utilities/supply/supply.service';
+import {GrantDecisionRow, SetDecisionBody} from '../utilities/supply/supply.model';
+import {errorText} from '../utilities/supply/supply-event-dialog.component';
+import {ToastService} from '../../core/services/toast.service';
+import {ConfirmDialogComponent, ConfirmDialogData} from '../../core/components/confirm-dialog.component';
+import {todayIso} from '../../core/helpers/date.helper';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {EntityHistoryComponent} from '../../core/components/entity-history.component';
 import {AssetService} from '../assets/asset.service';
@@ -53,6 +60,20 @@ import {
 } from './real-estate-contract.model';
 import {EntityDocumentsComponent} from '../acts/entity-documents.component';
 
+// Decisione di voltura di un'utenza su questo contratto, già pronta per il
+// template (campo cache, non getter).
+interface DecisionView {
+  text: string;
+  badge: StatusInfo | null;
+  overridden: boolean;
+  // Riga presente tra le decisioni del contratto salvato.
+  decidable: boolean;
+  // Valore della select: 'FOLLOWS:<id parte>' | 'STAYS' | null (da decidere).
+  value: string | null;
+}
+
+const TO_DECIDE_BADGE: StatusInfo = {tone: 'warn', label: 'Da decidere', icon: 'help'};
+
 const options = <K extends string>(labels: Record<K, string>) =>
   (Object.keys(labels) as K[]).map(value => ({value, label: labels[value]}));
 
@@ -70,6 +91,7 @@ const atLeastOne = (c: AbstractControl): ValidationErrors | null =>
   standalone: true,
   imports: [EntityDocumentsComponent,
     ReactiveFormsModule,
+    FormsModule,
     MultiSelectComponent,
     MatDialogModule,
     MatFormFieldModule,
@@ -90,11 +112,20 @@ const atLeastOne = (c: AbstractControl): ValidationErrors | null =>
     EntityHistoryComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
-  templateUrl: './utilizer-grant-edit-dialog.component.html'
+  templateUrl: './utilizer-grant-edit-dialog.component.html',
+  styles: [`
+    .voltura-proposal { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 8px 0; }
+    .voltura-cell { display: flex; align-items: center; gap: 8px; min-width: 220px; }
+    .voltura-field { width: 260px; font-size: 0.85rem; }
+    .voltura-warn { color: var(--tone-warn-fg); font-size: 20px; width: 20px; height: 20px; }
+  `],
 })
 export class UtilizerGrantEditDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private dialogRef = inject(MatDialogRef<UtilizerGrantEditDialogComponent, UtilizerGrant | undefined>);
+  private dialogRef = inject(MatDialogRef<UtilizerGrantEditDialogComponent, UtilizerGrant | SheetRefresh | undefined>);
+  private supplyService = inject(SupplyService);
+  private toast = inject(ToastService);
+  private dialog = inject(MatDialog);
   private authService = inject(AuthService);
   private assetService = inject(AssetService);
   private thirdPartiesService = inject(ThirdPartiesService);
@@ -120,9 +151,24 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   ];
   readonly assetStatusOf = (a: Asset): StatusInfo => assetStatus(a.status);
 
-  // Utenze degli immobili del contratto con lo stato "a carico di": la
-  // voltura si segna dalla scheda dell'utenza.
+  // Utenze degli immobili del contratto con lo stato "a carico di" e la
+  // decisione di voltura su questo contratto.
   utilityRows: Utility[] = [];
+  private decisionRows: GrantDecisionRow[] = [];
+  decisionViews: Record<number, DecisionView> = {};
+  decisionOptions: {value: string; label: string}[] = [];
+  canApplyProposal = false;
+  savingDecision = false;
+  // Decisioni salvate: anche chiudendo senza salvare l'elenco si ricarica.
+  private decisionsChanged = false;
+  readonly overriddenText = "Scavalcata da un contratto più recente con un'altra controparte";
+  // Solo i contratti attivi (Entrata) decidono la voltura; si decide solo se
+  // in corso: stato dichiarato attivo e scadenza effettiva non passata
+  // (stessa regola del backend, che altrimenti risponde 400).
+  readonly decidesTransfer = this.data.mode !== 'create' && this.item.direction === 'ACTIVE';
+  readonly grantRunning = this.decidesTransfer
+    && this.item.status === 'ACTIVE' && (this.item.effective_end_date ?? '9999-12-31') >= todayIso();
+  readonly decisionsEditable = this.canEdit && this.grantRunning;
   readonly utilityColumns: LinkedColumn<Utility>[] = [
     {label: 'POD/PDR', value: u => u.utility_id ?? ''},
     {label: 'Tipo', value: u => u.utilityType?.name ?? ''},
@@ -215,6 +261,7 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   ngOnInit(): void {
     this.refreshAssets();
     this.loadUtilities();
+    this.loadDecisions();
     this.loadAssets();
     this.loadParties();
 
@@ -348,14 +395,136 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   private loadUtilities(): void {
     if (this.isNew) return;
     this.utilityService.search({grant_id: this.item.id, deleted: false} as never).subscribe({
-      next: rows => this.utilityRows = rows,
+      next: rows => {
+        this.utilityRows = rows;
+        this.buildDecisionViews();
+      },
       error: err => console.error('Errore nel caricamento delle utenze del contratto:', err),
     });
   }
 
+  private loadDecisions(): void {
+    if (this.isNew || !this.decidesTransfer) return;
+    this.supplyService.decisions(this.item.id).subscribe({
+      next: rows => this.setDecisions(rows),
+      error: err => console.error('Errore nel caricamento delle decisioni di voltura:', err),
+    });
+  }
+
+  private setDecisions(rows: GrantDecisionRow[]): void {
+    this.decisionRows = rows;
+    this.buildDecisionViews();
+  }
+
+  // Parti salvate del contratto: il backend valida la parte su quelle.
+  private savedParties(): {id: number; name: string}[] {
+    const parties = (this.item.parties ?? []).filter(p => !p.deleted);
+    if (parties.length) return parties.map(p => ({id: p.id, name: partyName(p)}));
+    return (this.item.party_ids ?? []).map(id => ({id, name: this.partyLabel(id)}));
+  }
+
+  private buildDecisionViews(): void {
+    const parties = this.savedParties();
+    const nameOf = (id: number | null) =>
+      (id !== null ? parties.find(p => p.id === id)?.name ?? this.partyLabel(id) : '') || '—';
+    // FOLLOWS si salva sempre con la parte: con una sola parte è quella, con
+    // più parti la parte si sceglie nell'opzione stessa.
+    this.decisionOptions = [
+      ...parties.map(p => ({value: `FOLLOWS:${p.id}`, label: `Segue il contratto → ${p.name}`})),
+      {value: 'STAYS', label: 'Resta al Comune'},
+    ];
+    const byUtility = new Map(this.decisionRows.map(r => [r.utility_id, r]));
+    const views: Record<number, DecisionView> = {};
+    for (const u of this.utilityRows) {
+      const r = byUtility.get(u.id);
+      if (!this.decidesTransfer) {
+        views[u.id] = {text: '—', badge: null, overridden: false, decidable: false, value: null};
+      } else if (!r) {
+        // Utenza non ancora coperta dal contratto salvato (immobile appena collegato).
+        views[u.id] = {text: 'Salva il contratto per decidere', badge: null, overridden: false, decidable: false, value: null};
+      } else if (r.decision === 'FOLLOWS') {
+        const party = r.third_party_id ?? (parties.length === 1 ? parties[0].id : null);
+        views[u.id] = {
+          text: `Segue il contratto → ${nameOf(party)}`,
+          badge: null,
+          overridden: r.overridden,
+          decidable: true,
+          value: party !== null ? `FOLLOWS:${party}` : null,
+        };
+      } else if (r.decision === 'STAYS') {
+        views[u.id] = {text: 'Resta al Comune', badge: null, overridden: r.overridden, decidable: true, value: 'STAYS'};
+      } else if (this.grantRunning) {
+        views[u.id] = {text: 'Da decidere', badge: TO_DECIDE_BADGE, overridden: r.overridden, decidable: true, value: null};
+      } else {
+        // Contratto finito senza decisione: non c'è più nulla da decidere.
+        views[u.id] = {text: '—', badge: null, overridden: false, decidable: false, value: null};
+      }
+    }
+    this.decisionViews = views;
+    // Il backend applica la proposta solo con una parte: con più parti si
+    // sceglie riga per riga.
+    this.canApplyProposal = this.decisionsEditable && parties.length === 1
+      && this.decisionRows.some(r => r.decision === null && r.proposal !== null);
+  }
+
+  decide(utilityId: number, change: MatSelectChange): void {
+    const value = String(change.value ?? '');
+    if (!value) return;
+    const previous = this.decisionViews[utilityId]?.value ?? null;
+    const [decision, party] = value.split(':');
+    const body: SetDecisionBody = decision === 'FOLLOWS'
+      ? {decision: 'FOLLOWS', third_party_id: Number(party)}
+      : {decision: 'STAYS'};
+    this.savingDecision = true;
+    this.supplyService.setDecision(this.item.id, utilityId, body).subscribe({
+      next: rows => this.afterDecision(rows),
+      error: err => {
+        this.savingDecision = false;
+        // La select torna al valore salvato.
+        change.source.writeValue(previous);
+        this.toast.add({severity: 'error', summary: 'Decisione non salvata', detail: errorText(err)});
+      },
+    });
+  }
+
+  applyProposal(): void {
+    const count = this.decisionRows.filter(r => r.decision === null).length;
+    this.dialog.open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
+      width: '460px',
+      data: {
+        title: 'Conferma la proposta',
+        message: `Le utenze da decidere (${count}) seguono il contratto: per ognuna si apre la voltura alla controparte, in sospeso.`,
+        confirmLabel: 'Conferma',
+      },
+    }).afterClosed().subscribe(ok => {
+      if (!ok) return;
+      this.savingDecision = true;
+      this.supplyService.applyProposal(this.item.id).subscribe({
+        next: rows => this.afterDecision(rows),
+        error: err => {
+          this.savingDecision = false;
+          this.toast.add({severity: 'error', summary: 'Proposta non confermata', detail: errorText(err)});
+        },
+      });
+    });
+  }
+
+  // Le decisioni non toccano i campi del contratto (niente riallineamento
+  // del form): cambiano lo stato «A carico di» delle utenze, che si rileggono.
+  private afterDecision(rows: GrantDecisionRow[]): void {
+    this.savingDecision = false;
+    this.decisionsChanged = true;
+    this.setDecisions(rows);
+    this.loadUtilities();
+  }
+
   openUtility(id: number): void {
     this.navigator.openUtility(id).subscribe(saved => {
-      if (saved) this.loadUtilities();
+      if (!saved) return;
+      this.loadUtilities();
+      // Dalla scheda utenza cambiano le volture, non le decisioni: si
+      // rileggono comunque (scavalcata, contratti rinnovati).
+      this.loadDecisions();
     });
   }
 
@@ -441,6 +610,6 @@ export class UtilizerGrantEditDialogComponent implements OnInit {
   }
 
   cancel(): void {
-    this.dialogRef.close(undefined);
+    this.dialogRef.close(this.decisionsChanged ? SHEET_REFRESH : undefined);
   }
 }
