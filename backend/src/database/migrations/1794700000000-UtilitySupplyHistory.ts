@@ -17,8 +17,7 @@ interface UtilityRow {
   ceased_on: string | null;
   transferred_to_third_party_id: number | null;
   transferred_on: string | null;
-  created_by_user_id: number;
-  updated_by_user_id: number;
+  created_by_user_id: number | null;
 }
 
 interface EventRow {
@@ -27,8 +26,8 @@ interface EventRow {
   thirdParty: number | null;
   effectiveOn: string | null;
   dateUnknown: boolean;
-  createdBy: number;
-  updatedBy: number;
+  notes: string | null;
+  author: number;
 }
 
 interface GrantRow {
@@ -44,36 +43,57 @@ interface GrantRow {
 
 const CHUNK = 200;
 
+const fmt = (iso: string) => iso.split('-').reverse().join('/');
+
+// supply_active e' la verita': lo stato derivato dagli eventi deve coincidere.
+// Le date incoerenti non bloccano la migration, finiscono nelle note.
 function convert(u: UtilityRow): EventRow[] {
-  const base = { utility: u.id, createdBy: u.created_by_user_id, updatedBy: u.created_by_user_id };
-  const events: EventRow[] = [];
-  const active = !!Number(u.supply_active ?? 0);
-  // Una cessazione presuppone un'attivazione (eventualmente a data non nota).
-  const hasCessation = !active || !!u.ceased_on;
-  events.push({
-    ...base,
-    type: 'ACTIVATION',
-    thirdParty: null,
-    effectiveOn: u.activated_on,
-    dateUnknown: !u.activated_on,
+  const author = u.created_by_user_id;
+  const ev = (
+    type: EventRow['type'],
+    effectiveOn: string | null,
+    notes: string | null = null,
+    thirdParty: number | null = null,
+  ): EventRow => ({
+    utility: u.id,
+    type,
+    thirdParty,
+    effectiveOn,
+    dateUnknown: !effectiveOn,
+    notes,
+    author,
   });
-  if (hasCessation) {
-    events.push({
-      ...base,
-      type: 'CESSATION',
-      thirdParty: null,
-      effectiveOn: u.ceased_on,
-      dateUnknown: !u.ceased_on,
-    });
+  const active = !!Number(u.supply_active ?? 0);
+  const a = u.activated_on;
+  const c = u.ceased_on;
+  const events: EventRow[] = [];
+  if (a && c && c < a) {
+    if (active) {
+      // Riattivata: attiva da prima, cessata, poi riattivata.
+      events.push(ev('ACTIVATION', null), ev('CESSATION', c), ev('ACTIVATION', a));
+    } else {
+      events.push(
+        ev('ACTIVATION', a),
+        ev(
+          'CESSATION',
+          null,
+          `Date incoerenti nei dati di partenza (attivazione ${fmt(a)}, cessazione ${fmt(c)}): da verificare`,
+        ),
+      );
+    }
+  } else if (active) {
+    events.push(
+      ev(
+        'ACTIVATION',
+        a,
+        c ? `Cessazione indicata il ${fmt(c)} ma fornitura attiva: da verificare` : null,
+      ),
+    );
+  } else {
+    events.push(ev('ACTIVATION', a), ev('CESSATION', c));
   }
   if (u.transferred_to_third_party_id !== null && u.transferred_to_third_party_id !== undefined) {
-    events.push({
-      ...base,
-      type: 'TRANSFER',
-      thirdParty: u.transferred_to_third_party_id,
-      effectiveOn: u.transferred_on,
-      dateUnknown: !u.transferred_on,
-    });
+    events.push(ev('TRANSFER', u.transferred_on, null, u.transferred_to_third_party_id));
   }
   return events;
 }
@@ -87,24 +107,16 @@ export class UtilitySupplyHistory1794700000000 implements MigrationInterface {
         "DATE_FORMAT(ceased_on, '%Y-%m-%d') AS ceased_on, transferred_to_third_party_id, " +
         "DATE_FORMAT(transferred_on, '%Y-%m-%d') AS transferred_on, " +
         // L'autore deve esistere (FK di utility_supply_events): se manca, il primo utente.
-        'COALESCE((SELECT s.id FROM `system_users` s WHERE s.id = utilities.created_by_user_id), (SELECT MIN(id) FROM `system_users`)) AS created_by_user_id, ' +
-        'COALESCE((SELECT s.id FROM `system_users` s WHERE s.id = utilities.created_by_user_id), (SELECT MIN(id) FROM `system_users`)) AS updated_by_user_id ' +
+        'COALESCE((SELECT s.id FROM `system_users` s WHERE s.id = utilities.created_by_user_id), (SELECT MIN(id) FROM `system_users`)) AS created_by_user_id ' +
         'FROM `utilities` ORDER BY id',
     );
 
-    // Controlli prima di qualunque DDL.
-    const inverted = utilities.filter(
-      (u) => u.activated_on && u.ceased_on && u.ceased_on < u.activated_on,
-    );
-    if (inverted.length) {
+    // Unico controllo bloccante, prima di qualunque DDL (commit implicito):
+    // senza autore l'INSERT degli eventi fallirebbe a schema gia' modificato.
+    const noAuthor = utilities.filter((u) => u.created_by_user_id === null || u.created_by_user_id === undefined);
+    if (noAuthor.length) {
       throw new Error(
-        `Utenze con data di cessazione precedente all'attivazione (id: ${inverted.map((u) => u.id).join(', ')}). Correggere le date prima di rilanciare la migration.`,
-      );
-    }
-    const changed = utilities.filter((u) => !!Number(u.supply_active ?? 0) !== !convert(u).some((e) => e.type === 'CESSATION'));
-    if (changed.length) {
-      throw new Error(
-        `Utenze attive con data di cessazione, la conversione ne cambierebbe lo stato (id: ${changed.map((u) => u.id).join(', ')}). Sistemare supply_active o ceased_on prima di rilanciare la migration.`,
+        `Utenze senza un autore valido e nessun utente in system_users (id: ${noAuthor.map((u) => u.id).join(', ')}). Creare almeno un utente prima di rilanciare la migration.`,
       );
     }
 
@@ -196,16 +208,17 @@ export class UtilitySupplyHistory1794700000000 implements MigrationInterface {
       const chunk = events.slice(i, i + CHUNK);
       await q.query(
         'INSERT INTO `utility_supply_events` ' +
-          '(`utility_id_fk`, `type`, `third_party_id_fk`, `effective_on`, `date_unknown`, `created_by_user_id`, `updated_by_user_id`) VALUES ' +
-          chunk.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', '),
+          '(`utility_id_fk`, `type`, `third_party_id_fk`, `effective_on`, `date_unknown`, `notes`, `created_by_user_id`, `updated_by_user_id`) VALUES ' +
+          chunk.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(', '),
         chunk.flatMap((e) => [
           e.utility,
           e.type,
           e.thirdParty,
           e.effectiveOn,
           e.dateUnknown ? 1 : 0,
-          e.createdBy,
-          e.updatedBy,
+          e.notes,
+          e.author,
+          e.author,
         ]),
       );
     }
@@ -221,6 +234,7 @@ export class UtilitySupplyHistory1794700000000 implements MigrationInterface {
       );
     }
 
+    // Solo TRANSFERRED/TO_DECIDE: il servizio di riconciliazione (Task 4) ricalcola tutto.
     // Stato iniziale di "A carico di" (il servizio dello storico lo ricalcola
     // sempre): intestate a un terzo = TRANSFERRED, decisione vuota = TO_DECIDE.
     await q.query(

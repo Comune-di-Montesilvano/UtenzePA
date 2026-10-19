@@ -29,7 +29,7 @@ const utility = (o: Record<string, unknown>) => ({
   ...o,
 });
 
-// Eventi inseriti dalla migration: [utility, type, third_party, effective_on, date_unknown].
+// Eventi inseriti dalla migration: [utility, type, third_party, effective_on, date_unknown, notes].
 async function events(rows: unknown[]) {
   const { q, calls } = runner([{ match: /-- utenze da convertire/, rows }]);
   await new UtilitySupplyHistory1794700000000().up(q);
@@ -37,8 +37,8 @@ async function events(rows: unknown[]) {
   return insert.flatMap((c) => {
     const p = c.params as unknown[];
     const out: unknown[][] = [];
-    for (let i = 0; i < p.length; i += 7) {
-      out.push([p[i], p[i + 1], p[i + 2], p[i + 3], p[i + 4]]);
+    for (let i = 0; i < p.length; i += 8) {
+      out.push([p[i], p[i + 1], p[i + 2], p[i + 3], p[i + 4], p[i + 5]]);
     }
     return out;
   });
@@ -47,25 +47,25 @@ async function events(rows: unknown[]) {
 describe('Migration UtilitySupplyHistory1794700000000', () => {
   it('utenza attiva con data di attivazione: ACTIVATION effettiva', async () => {
     expect(await events([utility({ activated_on: '2025-03-01' })])).toEqual([
-      [1, 'ACTIVATION', null, '2025-03-01', 0],
+      [1, 'ACTIVATION', null, '2025-03-01', 0, null],
     ]);
   });
 
   it('utenza attiva senza data: ACTIVATION a data non nota', async () => {
-    expect(await events([utility({})])).toEqual([[1, 'ACTIVATION', null, null, 1]]);
+    expect(await events([utility({})])).toEqual([[1, 'ACTIVATION', null, null, 1, null]]);
   });
 
   it('utenza cessata senza date: ACTIVATION e CESSATION a data non nota', async () => {
     expect(await events([utility({ supply_active: 0 })])).toEqual([
-      [1, 'ACTIVATION', null, null, 1],
-      [1, 'CESSATION', null, null, 1],
+      [1, 'ACTIVATION', null, null, 1, null],
+      [1, 'CESSATION', null, null, 1, null],
     ]);
   });
 
   it('utenza cessata con data di cessazione e senza attivazione', async () => {
     expect(await events([utility({ supply_active: 0, ceased_on: '2025-07-07' })])).toEqual([
-      [1, 'ACTIVATION', null, null, 1],
-      [1, 'CESSATION', null, '2025-07-07', 0],
+      [1, 'ACTIVATION', null, null, 1, null],
+      [1, 'CESSATION', null, '2025-07-07', 0, null],
     ]);
   });
 
@@ -81,34 +81,80 @@ describe('Migration UtilitySupplyHistory1794700000000', () => {
         utility({ id: 4, activated_on: '2020-01-01', transferred_to_third_party_id: 5 }),
       ]),
     ).toEqual([
-      [3, 'ACTIVATION', null, '2020-01-01', 0],
-      [3, 'TRANSFER', 5, '2024-01-10', 0],
-      [4, 'ACTIVATION', null, '2020-01-01', 0],
-      [4, 'TRANSFER', 5, null, 1],
+      [3, 'ACTIVATION', null, '2020-01-01', 0, null],
+      [3, 'TRANSFER', 5, '2024-01-10', 0, null],
+      [4, 'ACTIVATION', null, '2020-01-01', 0, null],
+      [4, 'TRANSFER', 5, null, 1, null],
     ]);
   });
 
-  it('si ferma prima di qualunque DDL con ceased_on < activated_on, elencando gli id', async () => {
-    const { q, calls } = runner([
-      {
-        match: /-- utenze da convertire/,
-        rows: [
-          utility({ id: 11, supply_active: 0, activated_on: '2025-05-01', ceased_on: '2025-01-01' }),
-        ],
-      },
+  it('ceased_on < activated_on con utenza attiva: riattivazione, stato invariato', async () => {
+    expect(
+      await events([utility({ id: 11, activated_on: '2025-05-01', ceased_on: '2025-01-01' })]),
+    ).toEqual([
+      [11, 'ACTIVATION', null, null, 1, null],
+      [11, 'CESSATION', null, '2025-01-01', 0, null],
+      [11, 'ACTIVATION', null, '2025-05-01', 0, null],
     ]);
-    await expect(new UtilitySupplyHistory1794700000000().up(q)).rejects.toThrow(/11/);
-    expect(calls.some((c) => /CREATE TABLE|ALTER TABLE|DROP|INSERT/.test(c.sql))).toBe(false);
   });
 
-  it('si ferma se la conversione cambierebbe supply_active (attiva con ceased_on)', async () => {
+  it('ceased_on < activated_on con utenza cessata: cessazione a data non nota con nota', async () => {
+    expect(
+      await events([
+        utility({ id: 11, supply_active: 0, activated_on: '2025-05-01', ceased_on: '2025-01-01' }),
+      ]),
+    ).toEqual([
+      [11, 'ACTIVATION', null, '2025-05-01', 0, null],
+      [
+        11,
+        'CESSATION',
+        null,
+        null,
+        1,
+        'Date incoerenti nei dati di partenza (attivazione 01/05/2025, cessazione 01/01/2025): da verificare',
+      ],
+    ]);
+  });
+
+  it('utenza attiva con cessazione indicata: solo ACTIVATION, con nota', async () => {
+    const note = 'Cessazione indicata il 01/06/2025 ma fornitura attiva: da verificare';
+    expect(
+      await events([
+        utility({ id: 12, activated_on: '2025-01-01', ceased_on: '2025-06-01' }),
+        utility({ id: 13, ceased_on: '2025-06-01' }),
+      ]),
+    ).toEqual([
+      [12, 'ACTIVATION', null, '2025-01-01', 0, note],
+      [13, 'ACTIVATION', null, null, 1, note],
+    ]);
+  });
+
+  it('non blocca mai per date incoerenti: esegue le DDL', async () => {
     const { q, calls } = runner([
       {
         match: /-- utenze da convertire/,
-        rows: [utility({ id: 12, activated_on: '2025-01-01', ceased_on: '2025-06-01' })],
+        rows: [utility({ id: 12, activated_on: '2025-06-01', ceased_on: '2025-01-01' })],
       },
     ]);
-    await expect(new UtilitySupplyHistory1794700000000().up(q)).rejects.toThrow(/12/);
+    await new UtilitySupplyHistory1794700000000().up(q);
+    expect(calls.some((c) => /CREATE TABLE/.test(c.sql))).toBe(true);
+  });
+
+  it("l'autore è risolto in SQL: creatore mancante = primo utente", async () => {
+    const { q, calls } = runner();
+    await new UtilitySupplyHistory1794700000000().up(q);
+    const select = calls.find((c) => /-- utenze da convertire/.test(c.sql))!.sql;
+    expect(select).toMatch(/COALESCE\(\(SELECT s\.id FROM `system_users` s WHERE s\.id = utilities\.created_by_user_id\), \(SELECT MIN\(id\) FROM `system_users`\)\) AS created_by_user_id/);
+  });
+
+  it('si ferma prima di qualunque DDL se un autore non è risolvibile, elencando gli id', async () => {
+    const { q, calls } = runner([
+      {
+        match: /-- utenze da convertire/,
+        rows: [utility({ id: 21, created_by_user_id: null }), utility({ id: 22 })],
+      },
+    ]);
+    await expect(new UtilitySupplyHistory1794700000000().up(q)).rejects.toThrow(/21/);
     expect(calls.some((c) => /CREATE TABLE|ALTER TABLE|DROP|INSERT/.test(c.sql))).toBe(false);
   });
 
