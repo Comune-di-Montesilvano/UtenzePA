@@ -11,6 +11,7 @@ import {
   fromDay,
   normalizeByKind,
   readingDeltas,
+  supersededIds,
   toDay,
   todayDay,
   validateBands,
@@ -409,6 +410,7 @@ describe('consumption-calculator', () => {
         consumption_f2: null,
         consumption_f3: null,
         reactive_penalty: null,
+        is_estimated: false,
         notes: null,
       });
     });
@@ -507,5 +509,185 @@ describe('consumption-calculator', () => {
     it('periodo adiacente ammesso', () => {
       expect(validateConsumption(period(9, '2026-06-01', '2026-06-30', 10), others, TODAY)).toBeNull();
     });
+  });
+});
+
+// Rilevazioni stimate: il dato reale prevale, la stima conta finché non arriva.
+describe('letture stimate', () => {
+  const est = (r: ConsumptionRecord): ConsumptionRecord => ({ ...r, is_estimated: true });
+  const at = (daily: Map<number, number>, iso: string): number => daily.get(toDay(iso)) ?? 0;
+
+  it('stimata tra due reali: ignorata', () => {
+    const records = [reading(1, '2026-01-01', 100), est(reading(2, '2026-02-01', 300)), reading(3, '2026-03-01', 200)];
+    const deltas = readingDeltas(records);
+    expect(deltas.get(2)).toBeNull();
+    expect(deltas.get(3)).toBe(100);
+    const daily = buildDailyConsumption(records);
+    expect(at(daily, '2026-01-15')).toBeCloseTo(100 / 59, 6);
+    expect(at(daily, '2026-02-15')).toBeCloseTo(100 / 59, 6);
+    expect([...supersededIds(records)]).toEqual([2]);
+  });
+
+  it("stime dopo l'ultima reale contano a catena", () => {
+    const records = [reading(1, '2026-01-01', 100), est(reading(2, '2026-02-01', 130)), est(reading(3, '2026-03-01', 160))];
+    const deltas = readingDeltas(records);
+    expect(deltas.get(2)).toBe(30);
+    expect(deltas.get(3)).toBe(30);
+    expect(supersededIds(records).size).toBe(0);
+  });
+
+  it('reale e stimata stessa data: conta la reale', () => {
+    const records = [reading(1, '2026-01-01', 100), est(reading(2, '2026-02-01', 150)), reading(3, '2026-02-01', 140)];
+    expect(readingDeltas(records).get(3)).toBe(40);
+    expect([...supersededIds(records)]).toEqual([2]);
+  });
+
+  it('cambio contatore con stime sul vecchio', () => {
+    const records = [
+      reading(1, '2026-01-01', 10, 'A'),
+      est(reading(2, '2026-02-01', 50, 'A')),
+      reading(3, '2026-02-15', 0, 'B'),
+      reading(4, '2026-03-15', 30, 'B'),
+    ];
+    const deltas = readingDeltas(records);
+    expect(deltas.get(2)).toBe(40);
+    expect(deltas.get(4)).toBe(30);
+    expect(supersededIds(records).size).toBe(0);
+    expect(currentMeterReading(records)?.id).toBe(4);
+  });
+
+  it('stima del vecchio contatore non spezza le coppie reali del nuovo', () => {
+    const records = [
+      reading(1, '2026-01-01', 10, 'A'),
+      reading(3, '2026-02-15', 0, 'B'),
+      est(reading(2, '2026-03-01', 60, 'A')),
+      reading(4, '2026-03-15', 30, 'B'),
+    ];
+    expect(readingDeltas(records).get(4)).toBe(30);
+  });
+
+  it('priorità: coppia reale prima del periodo stimato', () => {
+    const records = [est(period(1, '2026-01-01', '2026-01-31', 310)), reading(2, '2026-01-11', 0), reading(3, '2026-01-21', 200)];
+    const daily = buildDailyConsumption(records);
+    expect(at(daily, '2026-01-05')).toBeCloseTo(10, 6);
+    expect(at(daily, '2026-01-11')).toBeCloseTo(10, 6);
+    expect(at(daily, '2026-01-15')).toBeCloseTo(20, 6);
+    expect(at(daily, '2026-01-21')).toBeCloseTo(20, 6);
+    expect(at(daily, '2026-01-25')).toBeCloseTo(10, 6);
+  });
+
+  it('priorità: periodo stimato prima della coppia stimata', () => {
+    const records = [est(period(1, '2026-01-01', '2026-01-31', 310)), reading(2, '2026-01-11', 0), est(reading(3, '2026-01-21', 200))];
+    expect(at(buildDailyConsumption(records), '2026-01-15')).toBeCloseTo(10, 6);
+  });
+
+  it('priorità: periodo reale prima del periodo stimato sovrapposto', () => {
+    const records = [period(1, '2026-01-01', '2026-01-31', 31), est(period(2, '2026-01-20', '2026-02-09', 210))];
+    const daily = buildDailyConsumption(records);
+    expect(at(daily, '2026-01-25')).toBeCloseTo(1, 6);
+    expect(at(daily, '2026-02-05')).toBeCloseTo(10, 6);
+    expect(supersededIds(records).size).toBe(0);
+  });
+
+  it('periodo stimato superato del tutto', () => {
+    const records = [est(period(1, '2026-01-12', '2026-01-21', 999)), reading(2, '2026-01-11', 0), reading(3, '2026-01-21', 100)];
+    expect([...supersededIds(records)]).toEqual([1]);
+    expect(at(buildDailyConsumption(records), '2026-01-15')).toBeCloseTo(10, 6);
+  });
+
+  it('periodo stimato superato solo in parte: conta e non è superato', () => {
+    const records = [est(period(1, '2026-01-01', '2026-01-31', 310)), reading(2, '2026-01-11', 0), reading(3, '2026-01-21', 100)];
+    expect(supersededIds(records).size).toBe(0);
+  });
+
+  it('fasce: stessa priorità', () => {
+    const r = (id: number, date: string, value: number, f1: number): ConsumptionRecord => ({
+      ...reading(id, date, value),
+      consumption_f1: f1,
+    });
+    const records = [r(1, '2026-01-01', 100, 50), est(r(2, '2026-02-01', 300, 250)), r(3, '2026-03-01', 200, 100)];
+    expect(buildDailyBands(records).F1?.get(toDay('2026-02-15'))).toBeCloseTo(50 / 59, 6);
+  });
+
+  describe('validazione', () => {
+    it('reale più bassa della stima precedente accettata', () => {
+      const others = [reading(1, '2026-01-01', 100), est(reading(2, '2026-02-01', 300))];
+      expect(validateConsumption(reading(undefined, '2026-03-01', 200), others, TODAY)).toBeNull();
+    });
+
+    it('reale confrontata solo con le reali successive', () => {
+      const others = [reading(1, '2026-01-01', 100), est(reading(2, '2026-03-01', 120))];
+      expect(validateConsumption(reading(undefined, '2026-02-01', 200), others, TODAY)).toBeNull();
+    });
+
+    it('stimata più bassa della valida precedente rifiutata', () => {
+      expect(validateConsumption(est(reading(undefined, '2026-02-01', 80)), [reading(1, '2026-01-01', 100)], TODAY)).toContain(
+        'Lettura inferiore alla precedente',
+      );
+      const others = [reading(1, '2026-01-01', 100), est(reading(2, '2026-02-01', 150))];
+      expect(validateConsumption(est(reading(undefined, '2026-03-01', 120)), others, TODAY)).toContain(
+        'Lettura inferiore alla precedente (150',
+      );
+    });
+
+    it('stessa data: reale+stimata ammessa, doppioni rifiutati', () => {
+      const dup = 'Lettura già presente per questa matricola in questa data.';
+      expect(validateConsumption(est(reading(undefined, '2026-02-01', 120)), [reading(1, '2026-02-01', 100)], TODAY)).toBeNull();
+      expect(validateConsumption(reading(undefined, '2026-02-01', 100), [reading(1, '2026-02-01', 100)], TODAY)).toBe(dup);
+      expect(
+        validateConsumption(est(reading(undefined, '2026-02-01', 100)), [est(reading(1, '2026-02-01', 100))], TODAY),
+      ).toBe(dup);
+    });
+
+    it('periodi: reale+stimato sovrapposti ammessi, stimato+stimato rifiutati', () => {
+      expect(
+        validateConsumption(est(period(undefined, '2026-01-10', '2026-02-10', 5)), [period(1, '2026-01-01', '2026-01-31', 5)], TODAY),
+      ).toBeNull();
+      expect(
+        validateConsumption(
+          est(period(undefined, '2026-01-10', '2026-02-10', 5)),
+          [est(period(1, '2026-01-01', '2026-01-31', 5))],
+          TODAY,
+        ),
+      ).toContain('Il periodo si sovrappone a un periodo già inserito');
+    });
+
+    it('modifica da stimata a reale rivalidata', () => {
+      const others = [reading(1, '2026-01-01', 100), est(reading(2, '2026-02-01', 50))];
+      expect(validateConsumption(reading(2, '2026-02-01', 50), others, TODAY)).toContain('Lettura inferiore alla precedente');
+    });
+  });
+
+  it('normalizeByKind conserva il flag', () => {
+    expect(normalizeByKind(est(reading(1, '2026-01-01', 1))).is_estimated).toBe(true);
+    expect(normalizeByKind(period(1, '2026-01-01', '2026-01-31', 1)).is_estimated).toBe(false);
+  });
+});
+
+// Revisione finale: stime contraddette dal dato reale e stime del contatore sostituito.
+describe('letture stimate: casi della revisione', () => {
+  const est = (r: ConsumptionRecord): ConsumptionRecord => ({ ...r, is_estimated: true });
+
+  it('stima più bassa di una reale precedente inserita dopo: superata, nessun consumo negativo', () => {
+    const records = [reading(1, '2026-01-01', 100), est(reading(2, '2026-03-01', 120)), reading(3, '2026-02-01', 200)];
+    expect([...supersededIds(records)]).toEqual([2]);
+    expect(readingDeltas(records).get(2)).toBeNull();
+  });
+
+  it('stima più bassa della stima precedente: consumo non calcolabile, mai negativo', () => {
+    const records = [reading(1, '2026-01-01', 100), est(reading(2, '2026-02-01', 150)), est(reading(3, '2026-03-01', 130))];
+    expect(readingDeltas(records).get(3)).toBeNull();
+  });
+
+  it('stima del vecchio contatore dopo l’apertura del nuovo: superata, matricola attuale invariata', () => {
+    const records = [
+      reading(1, '2026-01-01', 10, 'A'),
+      reading(2, '2026-02-15', 40, 'A'),
+      reading(3, '2026-02-15', 0, 'B'),
+      est(reading(4, '2026-03-31', 60, 'A')),
+    ];
+    expect([...supersededIds(records)]).toEqual([4]);
+    expect(currentMeterReading(records)?.id).toBe(3);
+    expect(buildDailyConsumption(records).get(toDay('2026-03-01')) ?? 0).toBe(0);
   });
 });

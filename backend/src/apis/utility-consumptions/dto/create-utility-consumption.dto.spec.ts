@@ -16,4 +16,9 @@ describe('CreateUtilityConsumptionDto', () => {
     const errors = await errorsFor({ kind: 'PERIOD', period_start: '2026-02-01', period_end: '2026-02-28', consumption: 5 });
     expect(errors).toEqual([]);
   });
+  it('is_estimated: booleano accettato, altro rifiutato', async () => {
+    const base = { kind: 'PERIOD', period_start: '2026-02-01', period_end: '2026-02-28', consumption: 5 };
+    expect(await errorsFor({ ...base, is_estimated: true })).toEqual([]);
+    expect(await errorsFor({ ...base, is_estimated: 'x' })).toContain('is_estimated');
+  });
 });

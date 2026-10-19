@@ -21,6 +21,8 @@ export interface ConsumptionRecord {
   consumption_f2?: number | string | null;
   consumption_f3?: number | string | null;
   reactive_penalty?: boolean | null;
+  // Valore stimato dal fornitore: conta finché non arriva il dato reale.
+  is_estimated?: boolean | null;
 }
 
 export type BandKey = 'F0' | 'F1' | 'F2' | 'F3';
@@ -99,13 +101,36 @@ export function sortedReadings(records: ConsumptionRecord[]): ConsumptionRecord[
     .sort((a, b) => toDay(a.reading_date) - toDay(b.reading_date) || (a.id ?? 0) - (b.id ?? 0));
 }
 
-// Coppie di letture consecutive della stessa matricola che delimitano un
-// intervallo di consumo valido: scartata se in mezzo (strettamente, date
-// escluse) c'è una lettura di un'altra matricola — contatore sostituito e
-// poi ripreso. Letture di chiusura e apertura nella stessa data, inserite in
-// qualsiasi ordine, non spezzano la coppia.
-function readingPairs(records: ConsumptionRecord[]): [ConsumptionRecord, ConsumptionRecord][] {
+const isEst = (r: ConsumptionRecord): boolean => !!r.is_estimated;
+
+// Letture che contano: le reali e le stimate non smentite dal dato reale.
+// Una stima è superata se della stessa matricola c'è una lettura reale alla
+// stessa data o dopo (conguaglio) o una reale precedente più alta, oppure se a
+// quella data il contatore attuale (dalle reali) è un altro: stima del
+// fornitore sul contatore già sostituito.
+function validReadings(records: ConsumptionRecord[]): ConsumptionRecord[] {
   const readings = sortedReadings(records);
+  const reals = readings.filter((r) => !isEst(r));
+  return readings.filter((r) => {
+    if (!isEst(r)) return true;
+    const meter = normalizeMeter(r.meter_number);
+    const day = toDay(r.reading_date);
+    const sameMeter = reals.filter((x) => normalizeMeter(x.meter_number) === meter);
+    if (sameMeter.some((x) => toDay(x.reading_date) >= day)) return false;
+    if (sameMeter.some((x) => Number(x.reading_value) > Number(r.reading_value))) return false;
+    const current = latestMeterReading(reals.filter((x) => toDay(x.reading_date) <= day));
+    return !current || normalizeMeter(current.meter_number) === meter;
+  });
+}
+
+// Coppie di letture valide consecutive della stessa matricola che delimitano
+// un intervallo di consumo: scartata se in mezzo (strettamente, date escluse)
+// c'è una lettura reale di un'altra matricola — contatore sostituito e poi
+// ripreso (una stima del vecchio contatore non spezza le coppie del nuovo).
+// Letture di chiusura e apertura nella stessa data, inserite in qualsiasi
+// ordine, non spezzano la coppia.
+function readingPairs(records: ConsumptionRecord[]): [ConsumptionRecord, ConsumptionRecord][] {
+  const readings = validReadings(records);
   const pairs: [ConsumptionRecord, ConsumptionRecord][] = [];
   const byMeter = new Map<string, ConsumptionRecord[]>();
   for (const r of readings) {
@@ -118,7 +143,7 @@ function readingPairs(records: ConsumptionRecord[]): [ConsumptionRecord, Consump
       const to = toDay(list[i].reading_date);
       const interrupted = readings.some((r) => {
         const d = toDay(r.reading_date);
-        return normalizeMeter(r.meter_number) !== meter && d > from && d < to;
+        return !isEst(r) && normalizeMeter(r.meter_number) !== meter && d > from && d < to;
       });
       if (!interrupted) pairs.push([list[i - 1], list[i]]);
     }
@@ -134,17 +159,25 @@ export function readingDeltas(records: ConsumptionRecord[]): Map<number, number 
     if (r.id !== undefined) result.set(r.id, null);
   }
   for (const [a, b] of readingPairs(records)) {
-    if (b.id !== undefined)
-      result.set(b.id, round2(Number(b.reading_value) - Number(a.reading_value)));
+    // Delta negativo (stima più bassa della lettura precedente): non calcolabile.
+    const delta = round2(Number(b.reading_value) - Number(a.reading_value));
+    if (b.id !== undefined) result.set(b.id, delta < 0 ? null : delta);
   }
   return result;
 }
 
-// Lettura che determina la matricola attuale dell'utenza: la più recente;
-// a parità di data preferisce la matricola che non compare prima (apertura
-// del contatore nuovo) rispetto alla chiusura del vecchio.
+// Lettura che determina la matricola attuale dell'utenza: la reale più
+// recente (le stime solo se non ci sono reali).
 export function currentMeterReading(records: ConsumptionRecord[]): ConsumptionRecord | undefined {
-  const readings = sortedReadings(records);
+  const valid = validReadings(records);
+  const reals = valid.filter((r) => !isEst(r));
+  return latestMeterReading(reals.length ? reals : valid);
+}
+
+// La più recente di letture ordinate; a parità di data preferisce la
+// matricola che non compare prima (apertura del contatore nuovo) rispetto
+// alla chiusura del vecchio.
+function latestMeterReading(readings: ConsumptionRecord[]): ConsumptionRecord | undefined {
   if (!readings.length) return undefined;
   const lastDay = toDay(readings[readings.length - 1].reading_date);
   const sameDay = readings.filter((r) => toDay(r.reading_date) === lastDay);
@@ -159,76 +192,108 @@ export function currentMeterReading(records: ConsumptionRecord[]): ConsumptionRe
   );
 }
 
-// Mappa sparsa giorno -> consumo. I periodi hanno precedenza: un giorno
-// coperto da un periodo ignora la quota da letture (non redistribuita).
-export function buildDailyConsumption(records: ConsumptionRecord[]): Map<number, number> {
+// Mappa giorno -> consumo (totale, o una fascia con `field`) a livelli: ogni
+// giorno prende il dato dal primo livello che lo copre, nell'ordine periodi
+// reali, coppie di letture reali, periodi stimati, coppie con una lettura
+// stimata. Dentro lo stesso livello i dati si sommano. La copertura segue il
+// totale (periodo con consumo, coppia con delta >= 0): un giorno coperto da un
+// periodo senza la fascia non la prende dalle letture.
+function layeredDaily(records: ConsumptionRecord[], field?: BandField): Map<number, number> {
   const daily = new Map<number, number>();
+  const covered = new Set<number>();
+  const pairs = readingPairs(records);
+  const add = (d: number, rate: number) => daily.set(d, (daily.get(d) ?? 0) + rate);
 
-  for (const r of records) {
-    if (
-      r.kind !== ConsumptionKind.PERIOD ||
-      !r.period_start ||
-      !r.period_end ||
-      r.consumption == null
-    )
-      continue;
-    const start = toDay(r.period_start);
-    const end = toDay(r.period_end);
-    const days = end - start + 1;
-    if (days <= 0) continue;
-    const rate = Number(r.consumption) / days;
-    for (let d = start; d <= end; d++) daily.set(d, (daily.get(d) ?? 0) + rate);
-  }
-
-  const periodDays = new Set(daily.keys());
-  for (const [a, b] of readingPairs(records)) {
-    const from = toDay(a.reading_date);
-    const to = toDay(b.reading_date);
-    if (to <= from) continue;
-    const rate = (Number(b.reading_value) - Number(a.reading_value)) / (to - from);
-    if (rate < 0) continue;
-    for (let d = from + 1; d <= to; d++) {
-      if (!periodDays.has(d)) daily.set(d, (daily.get(d) ?? 0) + rate);
+  for (const estimated of [false, true]) {
+    const periodDays = new Set<number>();
+    for (const r of records) {
+      if (
+        r.kind !== ConsumptionKind.PERIOD ||
+        !r.period_start ||
+        !r.period_end ||
+        r.consumption == null ||
+        isEst(r) !== estimated
+      )
+        continue;
+      const start = toDay(r.period_start);
+      const end = toDay(r.period_end);
+      const days = end - start + 1;
+      if (days <= 0) continue;
+      const value = field ? r[field] : r.consumption;
+      const rate = hasValue(value) ? Number(value) / days : null;
+      for (let d = start; d <= end; d++) {
+        if (covered.has(d)) continue;
+        periodDays.add(d);
+        if (rate !== null) add(d, rate);
+      }
     }
+    periodDays.forEach((d) => covered.add(d));
+
+    const pairDays = new Set<number>();
+    for (const [a, b] of pairs) {
+      if ((isEst(a) || isEst(b)) !== estimated) continue;
+      const from = toDay(a.reading_date);
+      const to = toDay(b.reading_date);
+      if (to <= from) continue;
+      if (Number(b.reading_value) - Number(a.reading_value) < 0) continue;
+      let rate: number | null = (Number(b.reading_value) - Number(a.reading_value)) / (to - from);
+      if (field) {
+        rate = hasValue(a[field]) && hasValue(b[field]) ? (Number(b[field]) - Number(a[field])) / (to - from) : null;
+        if (rate !== null && rate < 0) rate = null;
+      }
+      for (let d = from + 1; d <= to; d++) {
+        if (covered.has(d)) continue;
+        pairDays.add(d);
+        if (rate !== null) add(d, rate);
+      }
+    }
+    pairDays.forEach((d) => covered.add(d));
   }
 
   return daily;
 }
 
+export function buildDailyConsumption(records: ConsumptionRecord[]): Map<number, number> {
+  return layeredDaily(records);
+}
+
 // Mappe giorno -> consumo per fascia (solo fasce con almeno un dato): dai
 // periodi con la fascia valorizzata e dalle coppie di letture con entrambi i
-// totalizzatori. Come per il totale, i giorni coperti da un periodo ignorano
-// le letture.
+// totalizzatori, con la stessa priorità del totale.
 export function buildDailyBands(records: ConsumptionRecord[]): Partial<Record<BandKey, Map<number, number>>> {
-  const periodDays = new Set<number>();
-  for (const r of records) {
-    if (r.kind !== ConsumptionKind.PERIOD || !r.period_start || !r.period_end || r.consumption == null) continue;
-    for (let d = toDay(r.period_start); d <= toDay(r.period_end); d++) periodDays.add(d);
-  }
-  const pairs = readingPairs(records);
   const out: Partial<Record<BandKey, Map<number, number>>> = {};
   for (const f of BAND_FIELDS) {
-    const daily = new Map<number, number>();
-    for (const r of records) {
-      if (r.kind !== ConsumptionKind.PERIOD || !r.period_start || !r.period_end || !hasValue(r[f])) continue;
-      const start = toDay(r.period_start);
-      const end = toDay(r.period_end);
-      if (end < start) continue;
-      const rate = Number(r[f]) / (end - start + 1);
-      for (let d = start; d <= end; d++) daily.set(d, (daily.get(d) ?? 0) + rate);
-    }
-    for (const [a, b] of pairs) {
-      if (!hasValue(a[f]) || !hasValue(b[f])) continue;
-      const from = toDay(a.reading_date);
-      const to = toDay(b.reading_date);
-      if (to <= from) continue;
-      const rate = (Number(b[f]) - Number(a[f])) / (to - from);
-      if (rate < 0) continue;
-      for (let d = from + 1; d <= to; d++) {
-        if (!periodDays.has(d)) daily.set(d, (daily.get(d) ?? 0) + rate);
-      }
-    }
+    const daily = layeredDaily(records, f);
     if (daily.size) out[BAND_KEY[f]] = daily;
+  }
+  return out;
+}
+
+// Stime che non contano più: letture stimate con una lettura reale della
+// stessa matricola alla stessa data o dopo, periodi stimati con tutti i giorni
+// coperti da dati reali (periodi o coppie di letture reali).
+export function supersededIds(records: ConsumptionRecord[]): Set<number> {
+  const out = new Set<number>();
+  const valid = new Set(validReadings(records));
+  for (const r of sortedReadings(records)) {
+    if (isEst(r) && !valid.has(r) && r.id !== undefined) out.add(r.id);
+  }
+  const realDays = new Set<number>();
+  for (const r of records) {
+    if (r.kind !== ConsumptionKind.PERIOD || !r.period_start || !r.period_end || r.consumption == null || isEst(r))
+      continue;
+    for (let d = toDay(r.period_start); d <= toDay(r.period_end); d++) realDays.add(d);
+  }
+  for (const [a, b] of readingPairs(records)) {
+    if (isEst(a) || isEst(b) || Number(b.reading_value) - Number(a.reading_value) < 0) continue;
+    for (let d = toDay(a.reading_date) + 1; d <= toDay(b.reading_date); d++) realDays.add(d);
+  }
+  for (const r of records) {
+    if (r.kind !== ConsumptionKind.PERIOD || !isEst(r) || !r.period_start || !r.period_end || r.id === undefined)
+      continue;
+    let all = true;
+    for (let d = toDay(r.period_start); d <= toDay(r.period_end) && all; d++) all = realDays.has(d);
+    if (all) out.add(r.id);
   }
   return out;
 }
@@ -468,6 +533,7 @@ export function normalizeByKind(
     consumption_f2: band(record.consumption_f2),
     consumption_f3: band(record.consumption_f3),
     reactive_penalty: keepBands ? (record.reactive_penalty ?? null) : null,
+    is_estimated: !!record.is_estimated,
     notes: record.notes ?? null,
   };
 }
@@ -515,15 +581,22 @@ export function validateConsumption(
       return `La data della lettura non può essere anteriore al ${formatIt(MIN_CONSUMPTION_DATE)}.`;
     const meter = normalizeMeter(candidate.meter_number);
     const value = Number(candidate.reading_value);
+    const estimated = isEst(candidate);
     const sameMeter = sortedReadings(rest).filter((r) => normalizeMeter(r.meter_number) === meter);
-    if (sameMeter.some((r) => toDay(r.reading_date) === day)) {
+    // Reale e stimata nella stessa data convivono (conta la reale).
+    if (sameMeter.some((r) => toDay(r.reading_date) === day && isEst(r) === estimated)) {
       return 'Lettura già presente per questa matricola in questa data.';
     }
-    const prev = sameMeter.filter((r) => toDay(r.reading_date) < day).slice(-1)[0];
+    // Reale: confronto solo con le reali (una stima troppo alta non blocca il
+    // conguaglio). Stimata: solo con l'ultima lettura valida precedente.
+    const comparable = estimated
+      ? validReadings(rest).filter((r) => normalizeMeter(r.meter_number) === meter)
+      : sameMeter.filter((r) => !isEst(r));
+    const prev = comparable.filter((r) => toDay(r.reading_date) < day).slice(-1)[0];
     if (prev && value < Number(prev.reading_value)) {
       return `Lettura inferiore alla precedente (${Number(prev.reading_value)} del ${formatIt(prev.reading_date)}) per la stessa matricola.`;
     }
-    const next = sameMeter.find((r) => toDay(r.reading_date) > day);
+    const next = estimated ? undefined : comparable.find((r) => toDay(r.reading_date) > day);
     if (next && value > Number(next.reading_value)) {
       return `Lettura superiore alla successiva (${Number(next.reading_value)} del ${formatIt(next.reading_date)}) per la stessa matricola.`;
     }
@@ -553,6 +626,7 @@ export function validateConsumption(
   const overlap = rest.find(
     (o) =>
       o.kind === ConsumptionKind.PERIOD &&
+      isEst(o) === isEst(candidate) &&
       o.period_start &&
       o.period_end &&
       !(end < toDay(o.period_start) || start > toDay(o.period_end)),

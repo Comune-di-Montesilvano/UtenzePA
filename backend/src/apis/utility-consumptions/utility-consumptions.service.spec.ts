@@ -245,6 +245,26 @@ describe('UtilityConsumptionsService', () => {
     expect(rows.find((r) => r.id === 1).computed_consumption).toBeNull();
   });
 
+  it('findByUtility: stima superata tra due reali marcata, senza consumo calcolato', async () => {
+    repo.find.mockResolvedValue([
+      ...existing,
+      { id: 3, utility_id_fk: 7, kind: ConsumptionKind.READING, reading_date: '2026-02-01', reading_value: '2000.000', meter_number: 'M1', is_estimated: true, deleted: false },
+    ]);
+    const rows = await service.findByUtility(7);
+    const est = rows.find((r) => r.id === 3);
+    expect(est.superseded).toBe(true);
+    expect(est.is_estimated).toBe(true);
+    expect(est.computed_consumption).toBeNull();
+    expect(rows.find((r) => r.id === 2)).toMatchObject({ superseded: false, computed_consumption: 300 });
+  });
+
+  it('PATCH delle sole note su una stimata: validata come stimata', async () => {
+    const current = { id: 3, utility_id_fk: 7, ...readingDto('2026-02-01', 2000), is_estimated: true, deleted: false };
+    repo.findOne.mockResolvedValue(current);
+    repo.find.mockResolvedValue([...existing, current]);
+    await expect(service.update(3, { notes: 'x' }, 3)).resolves.toBeDefined();
+  });
+
   it('getSummary: unità, stato stima e serie mensile', async () => {
     utilityRepo.findOne.mockResolvedValue({
       ...lightUtility,

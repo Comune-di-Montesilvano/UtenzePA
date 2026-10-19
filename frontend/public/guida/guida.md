@@ -118,6 +118,8 @@ Per le utenze elettriche il consumo di periodo può avere anche:
 - sulla **lettura contatore**, i **totalizzatori** F1, F2, F3 letti sul contatore: facoltativi; la loro somma deve coincidere col valore letto e ognuno non può scendere rispetto alla lettura precedente dello stesso contatore. Il consumo di ogni fascia è la differenza tra due letture;
 - la casella **Penale per energia reattiva**, se la bolletta addebita una penale per basso fattore di potenza. Le utenze con una penale negli ultimi 12 mesi compaiono nella segnalazione «Penali per energia reattiva»: l'impianto va rifasato.
 
+**Letture e consumi stimati.** Se la bolletta riporta una lettura o un consumo «stimato» dal fornitore (non letto sul contatore), spunta **Stimata**: nella tabella compare il badge **Stimata**. Una stima conta nei consumi finché non arriva il dato reale; da quel momento le stime dei giorni coperti dal dato reale non contano più (il conguaglio riporta tutto al valore reale) e la riga resta in grigio con «Superata dal dato reale». Una lettura stimata risulta superata anche se è più bassa di una lettura reale precedente dello stesso contatore, o se è su un contatore già sostituito. Una lettura reale può essere più bassa di una stima precedente: è il caso tipico del conguaglio, e si salva. Un consumo di periodo stimato può sovrapporsi a uno reale (conta il reale), non a un altro stimato.
+
 Nella scheda delle utenze elettriche, tab **Tecnici e stato**, c'è anche il **Codice impianto fornitore**: il codice con cui il fornitore di energia identifica la fornitura, stabile tra i rinnovi del contratto.
 
 ### Consultare la mappa
@@ -384,6 +386,14 @@ In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni u
 **Soluzione:** ricopia le fasce dalla bolletta o correggi il consumo; se non conosci le fasce, lasciale tutte vuote.
 
 **Apri un ticket se:** la somma torna ma il messaggio resta.
+
+### Ho inserito la lettura reale e il consumo stimato non conta più
+
+**Causa:** è il conguaglio: un dato reale prende il posto delle stime dei giorni che copre. Le rilevazioni stimate restano in elenco, in grigio con «Superata dal dato reale», ma non contano nei consumi.
+
+**Soluzione:** nessuna, il consumo è ora quello reale. Se la rilevazione era in realtà reale, aprila e togli la spunta **Stimata**.
+
+**Apri un ticket se:** una stima risulta superata ma non c'è nessun dato reale successivo per quel contatore o quel periodo.
 
 ### Il fatturato supera l'assestato del capitolo
 

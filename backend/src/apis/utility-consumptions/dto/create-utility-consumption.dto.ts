@@ -81,6 +81,11 @@ export class CreateUtilityConsumptionDto {
   @IsBoolean()
   reactive_penalty?: boolean | null;
 
+  // Valore stimato dal fornitore (fattura): assente = reale / invariato.
+  @IsOptional()
+  @IsBoolean()
+  is_estimated?: boolean;
+
   @IsOptional()
   @IsString()
   notes?: string | null;

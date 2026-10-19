@@ -102,6 +102,8 @@ export interface ConsumptionEditDialogData {
           }
         }
 
+        <mat-checkbox formControlName="is_estimated">Stimata (valore stimato dal fornitore, non letto)</mat-checkbox>
+
         <mat-form-field>
           <mat-label>Note</mat-label>
           <textarea matInput rows="2" formControlName="notes"></textarea>
@@ -158,6 +160,7 @@ export class ConsumptionEditDialogComponent {
     consumption_f2: [this.data.item?.consumption_f2 ?? null as number | null],
     consumption_f3: [this.data.item?.consumption_f3 ?? null as number | null],
     reactive_penalty: [this.data.item?.reactive_penalty ?? false],
+    is_estimated: [this.data.item?.is_estimated ?? false],
     notes: [this.data.item?.notes ?? ''],
   });
 
@@ -199,6 +202,7 @@ export class ConsumptionEditDialogComponent {
         consumption_f2: num(v.consumption_f2),
         consumption_f3: num(v.consumption_f3),
       } : {}),
+      is_estimated: !!v.is_estimated,
       notes: v.notes?.trim() ? v.notes.trim() : null,
     };
     this.saving = true;
