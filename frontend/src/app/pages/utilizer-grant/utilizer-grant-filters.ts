@@ -39,7 +39,7 @@ export function grantFilters(): FilterDef[] {
 
     {key: 'department', label: 'Settore', type: 'text', group: 'Dati contratto'},
     {key: 'concession_act', label: 'Atto', type: 'text', group: 'Dati contratto'},
-    {key: 'utilities_to_be_taken_over', label: 'Utenze da volturare', type: 'bool', group: 'Dati contratto'},
+    {key: 'utilities_to_be_taken_over', label: 'Voltura proposta', type: 'bool', group: 'Dati contratto'},
     DELETED_FILTER,
   ];
 }

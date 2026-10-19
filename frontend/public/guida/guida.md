@@ -30,11 +30,11 @@ Il filtro **Mostra** permette di vedere gli elementi **Attivi** oppure quelli **
 
 ### Usare le segnalazioni
 
-Sopra gli elenchi compaiono le **segnalazioni**: dati incompleti o incoerenti da sistemare (es. «Attive senza posizione», «Da volturare»). Un clic su una segnalazione filtra l'elenco sugli elementi interessati. Le segnalazioni si ricalcolano dopo ogni salvataggio. L'elenco completo è in «Segnalazioni per elenco».
+Sopra gli elenchi compaiono le **segnalazioni**: dati incompleti o incoerenti da sistemare (es. «Attive senza posizione», «Da decidere»). Un clic su una segnalazione filtra l'elenco sugli elementi interessati. Le segnalazioni si ricalcolano dopo ogni salvataggio. L'elenco completo è in «Segnalazioni per elenco».
 
 ### Aprire e modificare una scheda
 
-1. Clicca una riga dell'elenco: si apre la scheda dell'elemento, divisa in schede (tab) elencate nella colonna a sinistra; quella aperta è evidenziata con il colore dell'elemento. Ad esempio un'utenza ha Riepilogo, Tecnici e stato, Immobili, Impianti, Contratti di fornitura, Consumi, Fatture, Note, Foto, Storico. Sul telefono i tab stanno in alto, su più righe. Il numero accanto a un tab conta gli elementi collegati; un pallino segnala che il tab ha dati (es. note compilate).
+1. Clicca una riga dell'elenco: si apre la scheda dell'elemento, divisa in schede (tab) elencate nella colonna a sinistra; quella aperta è evidenziata con il colore dell'elemento. Ad esempio un'utenza ha Riepilogo, Tecnici e stato, Immobili, Impianti, Contratti di fornitura, Consumi, Fatture, Note, Foto, Attivazioni e volture, Storico. Sul telefono i tab stanno in alto, su più righe. Il numero accanto a un tab conta gli elementi collegati; un pallino segnala che il tab ha dati (es. note compilate).
 2. Modifica i campi e premi **Salva**. Se un campo non è valido, il tab che lo contiene è segnato con un pallino rosso.
 3. Dai tab dei collegamenti (es. Immobili, Utenze) puoi collegare un elemento esistente o crearne uno nuovo al volo. **Scollega** chiede sempre conferma e il collegamento viene rimosso al salvataggio della scheda.
 4. Il tab **Storico** mostra chi ha modificato cosa e quando.
@@ -64,15 +64,39 @@ Se con la fattura il fatturato dell'anno supera l'assestato del capitolo, compar
 
 Le segnalazioni «Oltre l'assestato dell'anno» e «Senza assestato dell'anno» riguardano l'esercizio in corso.
 
-### Gestire la voltura di un'utenza
+### Attivazioni, cessazioni e volture di un'utenza
 
-Il campo **A carico di** dell'utenza indica chi paga: il Comune oppure il terzo a cui l'utenza è stata volturata.
+Ogni utenza ha uno **storico dei cambiamenti**: attivazioni, cessazioni, volture a un terzo e reintestazioni al Comune. Da questo storico l'applicazione ricava se l'utenza è attiva e **a carico di** chi (il Comune o il terzo a cui è stata volturata). Non si modificano più a mano lo stato di attività o la voltura: si registra il cambiamento.
 
-1. Apri la scheda dell'utenza.
-2. Se l'utenza risulta **Da volturare**, quando il terzo ha fatto la voltura premi **Segna volturata oggi**, oppure scegli il soggetto in **Volturata a** e la data.
-3. Quando il Comune riprende l'utenza (es. contratto immobiliare finito), usa **Ripresa dal Comune**.
+1. Apri la scheda dell'utenza e il tab **Attivazioni e volture**. Ogni riga ha Tipo (Attivazione, Cessazione, Voltura, Reintestazione al Comune), Intestatario, data **Richiesta** e data **Effettiva**. Se il cambiamento è avvenuto ma non si conosce il giorno, la data effettiva mostra «data non nota».
+2. Quando chiedi un cambiamento (al fornitore o alla controparte) premi **Nuovo cambiamento**, scegli il tipo, la **Data richiesta** e, per la voltura, l'**Intestatario** tra i soggetti terzi. Lascia vuota la **Data effettiva**: la riga resta **in sospeso** e compare evidenziata.
+3. Quando il cambiamento avviene davvero (lo verifichi sulla bolletta) apri la riga con la matita, inserisci la **Data effettiva** e salva.
+4. Per registrare un cambiamento già avvenuto compila subito la data effettiva. Se è avvenuto ma non conosci il giorno, spunta **Avvenuta, data non nota**.
+5. Lo storico si può inserire a mano anche per volture avvenute e mai registrate, anche in passato: l'utenza risulta così intestata al terzo dalla data giusta.
 
-Di norma un'utenza è da volturare se lo prevede il contratto immobiliare dell'immobile («Utenze da volturare»). Per decidere sulla singola utenza usa il campo **Voltura**: **Da volturare** (anche se il contratto non lo prevede, o non c'è un contratto) oppure **Non da volturare** (anche se il contratto lo prevede). **Come da contratto** torna alla regola del contratto. In **Volturata a** puoi cercare qualsiasi soggetto terzo; in cima ci sono le parti dei contratti in corso.
+Altre azioni sulle righe:
+
+- **Annulla** (solo sulle righe in sospeso inserite a mano): la riga resta nello storico come annullata.
+- **Elimina**: la riga sparisce dallo storico (usalo per correggere un inserimento sbagliato).
+- Le righe create dai contratti immobiliari riportano il contratto e la scritta **Gestita dal contratto**: non si annullano né si eliminano dal tab, si cambiano dalla decisione sul contratto (vedi sotto). Puoi invece correggerne la data effettiva.
+
+Sopra la tabella possono comparire **avvisi** (per esempio due cessazioni di fila: probabilmente manca un'attivazione). Il numero accanto al nome del tab indica i cambiamenti in sospeso.
+
+Nel **Riepilogo** dell'utenza, la sezione **A carico di** mostra lo stato (vedi «A carico di: gli stati»), se l'utenza è attiva o cessata, l'intestatario («Intestata al Comune» oppure «Intestata a … dal …») e, se c'è una pratica aperta, un avviso come «Voltura in sospeso da 12 giorni».
+
+Quando crei una nuova utenza, nella sezione **Fornitura** scegli **Già attiva**: con **Sì** indica da quando è attiva (**Attiva dal**, facoltativa: vuota significa data non nota); con **No, da attivare** indica quando l'hai richiesta (**Richiesta il**) e l'attivazione resta in sospeso fino alla data effettiva.
+
+#### Volture decise dal contratto immobiliare
+
+Per gli immobili concessi a terzi, la voltura delle utenze si decide nel contratto immobiliare, tab **Utenze**, colonna **Voltura**. La scelta è separata per ogni utenza (è frequente volturare la luce e non l'acqua) e si fa solo su un contratto **in corso**:
+
+- **Da decidere**: nessuna scelta ancora; l'utenza compare nella segnalazione «Da decidere».
+- **Segue il contratto → parte**: l'utenza va volturata alla controparte (se il contratto ha più parti scegli quale). Si apre una voltura in sospeso nello storico dell'utenza.
+- **Resta al Comune**: l'utenza resta intestata al Comune.
+
+Se il contratto ha la spunta **Proponi la voltura delle utenze**, compare il pulsante **Conferma la proposta per tutte** (solo per contratti con una sola parte), che fa seguire il contratto a tutte le utenze ancora da decidere. Un'icona di avviso segnala una decisione **scavalcata** da un contratto più recente con un'altra controparte.
+
+Se il contratto finisce e l'utenza è volturata alla sua controparte, l'utenza diventa **Da reintestare** (si apre una reintestazione al Comune in sospeso), salvo che parta un nuovo contratto con la stessa controparte: in quel caso la decisione e l'intestazione restano. Le utenze di un contratto che parte senza decisione risultano **Da decidere**.
 
 Il significato degli stati è in «A carico di: gli stati».
 
@@ -219,10 +243,11 @@ I ruoli si assegnano da **Impostazioni → Utenti e ruoli**, pagina riservata ag
 
 | Stato | Significato |
 | --- | --- |
-| Comune | L'utenza non è volturata e non è da volturare: nessun contratto immobiliare in corso ne prevede la voltura, oppure in **Voltura** è scelto «Non da volturare». |
-| Da volturare | Un contratto immobiliare in corso prevede «Utenze da volturare», oppure in **Voltura** è scelto «Da volturare», ma il terzo non ha ancora volturato: intanto paga il Comune. |
-| Volturata | L'utenza è volturata a una parte di un contratto immobiliare in corso, oppure è volturata e in **Voltura** è scelto «Da volturare». |
-| Da riprendere | L'utenza è volturata a qualcuno che non ha più un contratto in corso, oppure in **Voltura** è scelto «Non da volturare»: il Comune deve riprenderla. |
+| Comune | L'utenza è intestata al Comune e non c'è nessuna voltura da fare. |
+| Da decidere | Un contratto immobiliare in corso non ha ancora una decisione per questa utenza: va scelto se segue il contratto o resta al Comune. |
+| Da volturare | Il contratto prevede la voltura, ma il terzo non l'ha ancora fatta (voltura in sospeso): intanto paga il Comune. |
+| Volturata | L'utenza è intestata a un terzo, parte di un contratto immobiliare in corso. |
+| Da reintestare | L'utenza è intestata a un terzo che non ha più un contratto in corso: il Comune deve riprenderla (reintestazione in sospeso). |
 
 **Manutenzione a carico di** è calcolata allo stesso modo: Fornitore se il contratto di fornitura include la manutenzione, Controparte se lo prevede il contratto immobiliare, altrimenti Comune.
 
@@ -261,10 +286,10 @@ Nella scheda dell'utenza i contratti di fornitura compaiono con quelli **in cors
 
 | Elenco | Segnalazioni |
 | --- | --- |
-| Utenze | Attive senza contratto di fornitura valido · Attive coperte solo da contratti senza CIG · Con contratti di fornitura sovrapposti · Attive senza tipologia ARERA · Da volturare · Volturate da riprendere · Capitolo non impegnato sul contratto di fornitura · Senza capitolo di spesa · Attive senza posizione · Penali per energia reattiva (penale in un periodo terminato negli ultimi 12 mesi) |
+| Utenze | Attive senza contratto di fornitura valido · Attive coperte solo da contratti senza CIG · Con contratti di fornitura sovrapposti · Attive senza tipologia ARERA · Da volturare · Da reintestare · Da decidere · Attivazioni in sospeso · Cessazioni in sospeso · Capitolo non impegnato sul contratto di fornitura · Senza capitolo di spesa · Attive senza posizione · Penali per energia reattiva (penale in un periodo terminato negli ultimi 12 mesi) |
 | Immobili | Da classificare (tipologia o funzione mancanti) · Non di proprietà senza contratto passivo attivo · Di proprietà senza catasto · Fabbricati di proprietà senza Id MEF · Subalterno da assegnare (stessi via, civico, foglio e particella) |
 | Impianti | Senza posizione · Senza immobile · Presidi scaduti (almeno un estintore con una scadenza superata) · Verifiche obbligatorie mancanti (vedi [Verifiche obbligatorie per legge](#verifiche-obbligatorie-per-legge)) |
-| Fatture | Su utenze cessate · Con righe senza utenza |
+| Fatture | Su utenze cessate · Fuori dai periodi di attività · Con righe senza utenza |
 | Contratti di fornitura | Senza CIG (non esclusi) · CIG duplicati |
 | Contratti immobiliari | Senza immobile · Senza parti |
 | Capitoli di spesa | Oltre l'assestato dell'anno · Senza assestato dell'anno |
@@ -338,7 +363,7 @@ In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni u
 
 **Causa:** le date dell'utenza sono invertite.
 
-**Soluzione:** correggi la data di attivazione o di cessazione nel tab **Tecnici e stato**.
+**Soluzione:** correggi le date nel tab **Attivazioni e volture** (modifica la riga dell'attivazione o della cessazione).
 
 **Apri un ticket se:** le date sono corrette ma il messaggio resta.
 
@@ -389,6 +414,14 @@ In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni u
 **Soluzione:** elimina dal tab **Foto** (in immobili e impianti: **Documenti e foto**) quelle non più utili, poi carica le nuove.
 
 **Apri un ticket se:** ti servono stabilmente più di 10 foto per un elemento.
+
+### Una fattura risulta fuori dai periodi di attività
+
+**Causa:** il periodo della fattura cade oltre 30 giorni fuori dagli intervalli in cui l'utenza era attiva secondo lo storico (le spese di chiusura entro 30 giorni dalla cessazione, o poco prima dell'attivazione, non contano). Di solito manca una attivazione o una cessazione, oppure una data è sbagliata.
+
+**Soluzione:** apri l'utenza, tab **Attivazioni e volture**, e controlla le date di attivazione e cessazione; inserisci lo storico mancante (anche con «Avvenuta, data non nota» se non conosci il giorno). Le segnalazioni si ricalcolano dopo il salvataggio.
+
+**Apri un ticket se:** le date dello storico sono giuste e la fattura è corretta ma resta segnalata.
 
 ## Contatti
 
