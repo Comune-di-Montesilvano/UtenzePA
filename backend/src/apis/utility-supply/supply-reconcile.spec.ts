@@ -46,6 +46,7 @@ function grant(p: Partial<GrantLike> & { id: number }): GrantLike {
     utilities_to_be_taken_over: true,
     party_ids: [10],
     status_changed_on: null,
+    covers_utility: true,
     ...p,
   };
 }
@@ -82,6 +83,49 @@ function expectNoActions(r: ReconcilePlan): void {
   expect(r.cancelEvents).toEqual([]);
 }
 
+// Applica il piano come farebbe il servizio (task 4).
+function apply(
+  p: { grants: GrantLike[]; decisions: DecisionLike[]; events: SupplyEventLike[] },
+  r: ReconcilePlan,
+): { decisions: DecisionLike[]; events: SupplyEventLike[] } {
+  const cancelled = new Set(r.cancelEvents.map((c) => c.id));
+  return {
+    decisions: [...p.decisions, ...r.createDecisions.map((d) => ({ ...d, create_date: TODAY }))],
+    events: [
+      ...p.events.map((e) => (cancelled.has(e.id) ? { ...e, cancelled_on: TODAY } : e)),
+      ...r.createEvents.map((c) =>
+        ev({
+          type: c.type === 'TRANSFER' ? T.TRANSFER : T.RETURN,
+          third_party_id_fk: c.third_party_id,
+          utilizer_grant_id_fk: c.grant_id,
+          create_date: TODAY,
+        }),
+      ),
+    ],
+  };
+}
+
+// Piano + verifica che ripianificare dopo averlo applicato non faccia nulla.
+function stable(p: {
+  grants?: GrantLike[];
+  decisions?: DecisionLike[];
+  events?: SupplyEventLike[];
+  utilityActive?: boolean;
+}): ReconcilePlan {
+  const r = plan(p);
+  const input = {
+    grants: p.grants ?? [],
+    decisions: p.decisions ?? [],
+    events: p.events ?? [active],
+  };
+  const next = apply(input, r);
+  const again = plan({ ...p, ...next });
+  expectNoActions(again);
+  expect(again.costStatus).toBe(r.costStatus);
+  expect(again.pendingSince).toBe(r.pendingSince);
+  return r;
+}
+
 describe('supply-reconcile', () => {
   describe('isGrantActive', () => {
     it('end_date passata ma rinnovo tacito di 12 mesi: attivo', () => {
@@ -104,7 +148,7 @@ describe('supply-reconcile', () => {
   });
 
   it('contratto nuovo: decisione vuota e da decidere', () => {
-    const r = plan({ grants: [grant({ id: 1, start_date: '2026-10-01' })] });
+    const r = stable({ grants: [grant({ id: 1, start_date: '2026-10-01' })] });
     expect(r.createDecisions).toEqual([{ grant_id: 1, decision: null, third_party_id: null }]);
     expect(r.createEvents).toEqual([]);
     expect(r.cancelEvents).toEqual([]);
@@ -112,7 +156,7 @@ describe('supply-reconcile', () => {
   });
 
   it('FOLLOWS con una parte: voltura in sospeso verso la parte', () => {
-    const r = plan({ grants: [grant({ id: 1 })], decisions: [dec({ grant_id: 1 })] });
+    const r = stable({ grants: [grant({ id: 1 })], decisions: [dec({ grant_id: 1 })] });
     expect(r.createDecisions).toEqual([]);
     expect(r.createEvents).toEqual([{ type: 'TRANSFER', third_party_id: 10, grant_id: 1 }]);
     expect(r.cancelEvents).toEqual([]);
@@ -121,7 +165,7 @@ describe('supply-reconcile', () => {
   });
 
   it('rinnovo con la stessa parte: copia FOLLOWS, nessun evento', () => {
-    const r = plan({
+    const r = stable({
       grants: [
         grant({ id: 1, start_date: '2020-01-01', status: ContractStatus.RETURNED }),
         grant({ id: 2, start_date: '2026-09-01' }),
@@ -158,7 +202,7 @@ describe('supply-reconcile', () => {
       grant({ id: 1, start_date: '2020-01-01', status: ContractStatus.RETURNED }),
       grant({ id: 2, start_date: '2026-09-01', party_ids: [20] }),
     ];
-    const undecided = plan({ grants, decisions: [dec({ grant_id: 1 })], events });
+    const undecided = stable({ grants, decisions: [dec({ grant_id: 1 })], events });
     expect(undecided.createDecisions).toEqual([
       { grant_id: 2, decision: null, third_party_id: null },
     ]);
@@ -166,7 +210,7 @@ describe('supply-reconcile', () => {
     expect(undecided.createEvents).toEqual([]);
     expect(undecided.costStatus).toBe(CostStatus.TO_DECIDE);
 
-    const r = plan({ grants, decisions: [dec({ grant_id: 1 }), dec({ grant_id: 2 })], events });
+    const r = stable({ grants, decisions: [dec({ grant_id: 1 }), dec({ grant_id: 2 })], events });
     expect(r.createEvents).toEqual([{ type: 'TRANSFER', third_party_id: 20, grant_id: 2 }]);
     expect(r.costStatus).toBe(CostStatus.TO_TRANSFER);
     // fino alla data effettiva resta intestata alla vecchia parte
@@ -181,7 +225,7 @@ describe('supply-reconcile', () => {
       effective_on: '2025-02-01',
       utilizer_grant_id_fk: 1,
     });
-    const r = plan({ grants, decisions: [dec({ grant_id: 1 })], events: [active, transfer] });
+    const r = stable({ grants, decisions: [dec({ grant_id: 1 })], events: [active, transfer] });
     expect(r.createEvents).toEqual([{ type: 'RETURN', third_party_id: null, grant_id: 1 }]);
     expect(r.cancelEvents).toEqual([]);
     expect(r.costStatus).toBe(CostStatus.TO_RECOVER);
@@ -189,7 +233,7 @@ describe('supply-reconcile', () => {
 
     // RETURN già creato: nessuna azione, data evento = fine contratto (non prima della riga)
     const ret = ev({ type: T.RETURN, utilizer_grant_id_fk: 1, create_date: '2026-06-15' });
-    const again = plan({
+    const again = stable({
       grants,
       decisions: [dec({ grant_id: 1 })],
       events: [active, transfer, ret],
@@ -205,7 +249,7 @@ describe('supply-reconcile', () => {
       third_party_id_fk: 10,
       utilizer_grant_id_fk: 1,
     });
-    const r = plan({
+    const r = stable({
       grants: [
         grant({ id: 1, status: ContractStatus.TERMINATED, status_changed_on: '2026-10-10' }),
       ],
@@ -226,7 +270,7 @@ describe('supply-reconcile', () => {
       third_party_id_fk: 10,
       utilizer_grant_id_fk: 1,
     });
-    const r = plan({
+    const r = stable({
       grants: [grant({ id: 1 })],
       decisions: [dec({ grant_id: 1, decision: D.STAYS })],
       events: [active, pendingTransfer],
@@ -238,7 +282,7 @@ describe('supply-reconcile', () => {
   });
 
   it('da FOLLOWS a STAYS su utenza già volturata: reintestazione in sospeso', () => {
-    const r = plan({
+    const r = stable({
       grants: [grant({ id: 1 })],
       decisions: [dec({ grant_id: 1, decision: D.STAYS })],
       events: [
@@ -257,7 +301,7 @@ describe('supply-reconcile', () => {
 
   it('due contratti FOLLOWS: vince la data di inizio più recente', () => {
     const oldTransfer = ev({ type: T.TRANSFER, third_party_id_fk: 10, utilizer_grant_id_fk: 1 });
-    const r = plan({
+    const r = stable({
       grants: [
         grant({ id: 1, start_date: '2024-01-01', party_ids: [10] }),
         grant({ id: 2, start_date: '2026-03-01', party_ids: [20] }),
@@ -272,14 +316,14 @@ describe('supply-reconcile', () => {
   });
 
   it('FOLLOWS con più parti senza scelta: nessuna voltura, resta da decidere', () => {
-    const r = plan({
+    const r = stable({
       grants: [grant({ id: 1, party_ids: [10, 20] })],
       decisions: [dec({ grant_id: 1 })],
     });
     expect(r.createEvents).toEqual([]);
     expect(r.costStatus).toBe(CostStatus.TO_DECIDE);
 
-    const chosen = plan({
+    const chosen = stable({
       grants: [grant({ id: 1, party_ids: [10, 20] })],
       decisions: [dec({ grant_id: 1, third_party_id: 20 })],
     });
@@ -289,7 +333,7 @@ describe('supply-reconcile', () => {
   it('utenza cessata: nessuna decisione né evento, annullati gli automatici', () => {
     const autoTransfer = ev({ type: T.TRANSFER, third_party_id_fk: 10, utilizer_grant_id_fk: 1 });
     const manualActivation = ev({ type: T.ACTIVATION, requested_on: '2026-09-01' });
-    const r = plan({
+    const r = stable({
       utilityActive: false,
       grants: [grant({ id: 1 }), grant({ id: 2, party_ids: [30] })],
       decisions: [dec({ grant_id: 1 })],
@@ -299,6 +343,8 @@ describe('supply-reconcile', () => {
     expect(r.createEvents).toEqual([]);
     expect(r.cancelEvents.map((c) => c.id)).toEqual([autoTransfer.id]);
     expect(r.costStatus).toBe(CostStatus.COMUNE);
+    // attivazioni/cessazioni in sospeso hanno segnalazioni proprie
+    expect(r.pendingSince).toBeNull();
   });
 
   it('cambiamenti in sospeso manuali mai toccati', () => {
@@ -308,7 +354,7 @@ describe('supply-reconcile', () => {
       requested_on: '2026-03-01',
       create_date: '2026-02-01',
     });
-    const r = plan({
+    const r = stable({
       grants: [grant({ id: 1, status: ContractStatus.TERMINATED })],
       decisions: [dec({ grant_id: 1 })],
       events: [active, manual],
@@ -326,11 +372,11 @@ describe('supply-reconcile', () => {
       third_party_id_fk: 10,
       utilizer_grant_id_fk: 1,
     });
-    const first = plan({ grants, decisions, events: [active, pendingTransfer] });
+    const first = stable({ grants, decisions, events: [active, pendingTransfer] });
     expectNoActions(first);
     expect(first.costStatus).toBe(CostStatus.TO_TRANSFER);
 
-    const done = plan({
+    const done = stable({
       grants,
       decisions,
       events: [
@@ -346,11 +392,11 @@ describe('supply-reconcile', () => {
     expectNoActions(done);
     expect(done.costStatus).toBe(CostStatus.TRANSFERRED);
 
-    const undecided = plan({ grants, decisions: [dec({ grant_id: 1, decision: null })] });
+    const undecided = stable({ grants, decisions: [dec({ grant_id: 1, decision: null })] });
     expectNoActions(undecided);
     expect(undecided.costStatus).toBe(CostStatus.TO_DECIDE);
 
-    const none = plan({});
+    const none = stable({});
     expectNoActions(none);
     expect(none.costStatus).toBe(CostStatus.COMUNE);
     expect(none.overriddenGrantIds).toEqual([]);
@@ -358,11 +404,141 @@ describe('supply-reconcile', () => {
 
   it('pendingSince di una decisione creata oggi su contratto del 2019 = oggi', () => {
     const grants = [grant({ id: 1, start_date: '2019-05-01' })];
-    expect(plan({ grants }).pendingSince).toBe(TODAY);
-    const existing = plan({
+    expect(stable({ grants }).pendingSince).toBe(TODAY);
+    const existing = stable({
       grants,
       decisions: [dec({ grant_id: 1, decision: null, create_date: '2026-01-10 08:00:00' })],
     });
     expect(existing.pendingSince).toBe('2026-01-10');
+  });
+
+  it('rinnovo di un FOLLOWS con voltura in sospeso: decisione copiata, voltura tenuta', () => {
+    const pendingTransfer = ev({
+      type: T.TRANSFER,
+      third_party_id_fk: 10,
+      utilizer_grant_id_fk: 1,
+      create_date: '2026-02-01',
+    });
+    const r = stable({
+      grants: [
+        grant({ id: 1, start_date: '2025-01-01', status: ContractStatus.RETURNED }),
+        grant({ id: 2, start_date: '2026-09-01', party_ids: [10, 20] }),
+      ],
+      decisions: [dec({ grant_id: 1 })],
+      events: [active, pendingTransfer],
+    });
+    expect(r.createDecisions).toEqual([{ grant_id: 2, decision: D.FOLLOWS, third_party_id: 10 }]);
+    expect(r.createEvents).toEqual([]);
+    expect(r.cancelEvents).toEqual([]);
+    expect(r.costStatus).toBe(CostStatus.TO_TRANSFER);
+    expect(r.pendingSince).toBe('2026-02-01');
+  });
+
+  it('rinnovo di un STAYS: decisione STAYS copiata, a carico del Comune', () => {
+    const r = stable({
+      grants: [
+        grant({ id: 1, start_date: '2025-01-01', status: ContractStatus.RETURNED }),
+        grant({ id: 2, start_date: '2026-09-01' }),
+      ],
+      decisions: [dec({ grant_id: 1, decision: D.STAYS })],
+    });
+    expect(r.createDecisions).toEqual([{ grant_id: 2, decision: D.STAYS, third_party_id: null }]);
+    expect(r.createEvents).toEqual([]);
+    expect(r.costStatus).toBe(CostStatus.COMUNE);
+    expect(r.pendingSince).toBeNull();
+  });
+
+  it('parte scelta tolta dal contratto FOLLOWS in corso: nessuna azione', () => {
+    const grants = [grant({ id: 1, party_ids: [20] })];
+    const decisions = [dec({ grant_id: 1, third_party_id: 10 })];
+    const r = stable({
+      grants,
+      decisions,
+      events: [
+        active,
+        ev({
+          type: T.TRANSFER,
+          third_party_id_fk: 10,
+          effective_on: '2025-02-01',
+          utilizer_grant_id_fk: 1,
+        }),
+      ],
+    });
+    expectNoActions(r);
+    expect(r.costStatus).toBe(CostStatus.TRANSFERRED);
+
+    // anche con un contratto finito della stessa parte: l'intestazione resta
+    const withOld = stable({
+      grants: [
+        ...grants,
+        grant({ id: 2, start_date: '2020-01-01', status: ContractStatus.RETURNED }),
+      ],
+      decisions,
+      events: [
+        active,
+        ev({
+          type: T.TRANSFER,
+          third_party_id_fk: 10,
+          effective_on: '2025-02-01',
+          utilizer_grant_id_fk: 1,
+        }),
+      ],
+    });
+    expectNoActions(withOld);
+
+    // voltura in sospeso verso la parte tolta: non annullata
+    const pendingTransfer = ev({
+      type: T.TRANSFER,
+      third_party_id_fk: 10,
+      utilizer_grant_id_fk: 1,
+    });
+    const p = stable({ grants, decisions, events: [active, pendingTransfer] });
+    expectNoActions(p);
+    expect(p.costStatus).toBe(CostStatus.TO_TRANSFER);
+  });
+
+  it('voltura manuale a un soggetto estraneo ai contratti: nessuna reintestazione', () => {
+    const r = stable({
+      grants: [grant({ id: 1, status: ContractStatus.TERMINATED })],
+      decisions: [dec({ grant_id: 1 })],
+      events: [active, ev({ type: T.TRANSFER, third_party_id_fk: 30, effective_on: '2025-02-01' })],
+    });
+    expectNoActions(r);
+    expect(r.costStatus).toBe(CostStatus.TRANSFERRED);
+  });
+
+  it("contratto che non riguarda più l'utenza: vale come finito", () => {
+    const uncovered = grant({ id: 1, covers_utility: false });
+    const r = stable({
+      grants: [uncovered, grant({ id: 2, covers_utility: false, party_ids: [30] })],
+      decisions: [dec({ grant_id: 1 })],
+      events: [
+        active,
+        ev({
+          type: T.TRANSFER,
+          third_party_id_fk: 10,
+          effective_on: '2025-02-01',
+          utilizer_grant_id_fk: 1,
+        }),
+      ],
+    });
+    expect(r.createDecisions).toEqual([]);
+    expect(r.createEvents).toEqual([{ type: 'RETURN', third_party_id: null, grant_id: 1 }]);
+    expect(r.costStatus).toBe(CostStatus.TO_RECOVER);
+
+    const pendingTransfer = ev({
+      type: T.TRANSFER,
+      third_party_id_fk: 10,
+      utilizer_grant_id_fk: 1,
+    });
+    const p = stable({
+      grants: [uncovered],
+      decisions: [dec({ grant_id: 1 })],
+      events: [active, pendingTransfer],
+    });
+    expect(p.cancelEvents).toEqual([
+      { id: pendingTransfer.id, reason: 'Utenza non più collegata al contratto immobiliare' },
+    ]);
+    expect(p.costStatus).toBe(CostStatus.COMUNE);
   });
 });
