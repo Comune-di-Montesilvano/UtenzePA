@@ -277,7 +277,15 @@ function renewedDecision(
   decisions: Map<number, DecisionLike>,
   holder: number | null,
 ): { decision: GrantUtilityDecisionValue | null; third_party_id: number | null } {
-  const sources = grants.filter((o) => o.id !== g.id && decisions.get(o.id)?.decision != null);
+  // Solo contratti attivi non cancellati: un contratto cancellato o passivo non
+  // riguarda chi detiene l'utenza.
+  const sources = grants.filter(
+    (o) =>
+      o.id !== g.id &&
+      o.direction === ContractDirection.ACTIVE &&
+      !o.deleted &&
+      decisions.get(o.id)?.decision != null,
+  );
   for (const o of sources.sort(byStartDesc)) {
     const d = decisions.get(o.id) as DecisionLike;
     if (d.decision === FOLLOWS) {

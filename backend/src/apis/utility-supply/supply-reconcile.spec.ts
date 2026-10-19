@@ -471,6 +471,19 @@ describe('supply-reconcile', () => {
     expect(r.pendingSince).toBe('2026-02-01');
   });
 
+  it('rinnovo: decisioni di contratti cancellati o passivi non copiate', () => {
+    const r = stable({
+      grants: [
+        grant({ id: 1, start_date: '2025-01-01', status: ContractStatus.RETURNED, deleted: true }),
+        grant({ id: 3, start_date: '2025-06-01', direction: ContractDirection.PASSIVE }),
+        grant({ id: 2, start_date: '2026-09-01' }),
+      ],
+      decisions: [dec({ grant_id: 1, decision: D.STAYS }), dec({ grant_id: 3, decision: D.STAYS })],
+    });
+    expect(r.createDecisions).toEqual([{ grant_id: 2, decision: null, third_party_id: null }]);
+    expect(r.costStatus).toBe(CostStatus.TO_DECIDE);
+  });
+
   it('rinnovo di un STAYS: decisione STAYS copiata, a carico del Comune', () => {
     const r = stable({
       grants: [
