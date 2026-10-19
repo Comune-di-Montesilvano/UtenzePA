@@ -3,6 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CronJob } from 'cron';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
+import { UtilityConsumptionsModule } from '@apis/utility-consumptions/utility-consumptions.module';
+import { ConsumptionLinker } from './consumption-linker.service';
 import { InvoiceImportState } from './entity/invoice-import-state.entity';
 import { InvoiceImportIssue } from './entity/invoice-import-issue.entity';
 import { InvoicePattern } from './entity/invoice-pattern.entity';
@@ -29,11 +31,13 @@ import {
       InvoicePattern,
       InvoiceImportIssue,
     ]),
+    UtilityConsumptionsModule,
   ],
   providers: [
     InvoiceImportService,
     InvoiceMatcher,
     InvoiceApplier,
+    ConsumptionLinker,
     {
       provide: PEC_MAILBOX_FACTORY,
       useValue: (() => {

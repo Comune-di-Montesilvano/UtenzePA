@@ -49,21 +49,27 @@ const message = () => Object.assign(new SdiMessage(), { id: 9, sdi_identifier: '
 describe('InvoiceApplier', () => {
   let manager: {
     findOne: jest.Mock;
+    find: jest.Mock;
     save: jest.Mock;
     update: jest.Mock;
     delete: jest.Mock;
   };
+  let linker: { link: jest.Mock };
+  let recalc: { recalcUtility: jest.Mock };
   let applier: InvoiceApplier;
 
   beforeEach(() => {
     manager = {
       findOne: jest.fn().mockResolvedValue(null),
+      find: jest.fn().mockResolvedValue([]),
       save: jest.fn(async (_e, data) => (Array.isArray(data) ? data : { id: 500, ...data })),
       update: jest.fn(),
       delete: jest.fn(),
     };
     const dataSource = { transaction: jest.fn((cb) => cb(manager)), query: jest.fn() };
-    applier = new InvoiceApplier(dataSource as never);
+    linker = { link: jest.fn(async () => ({ issues: [], utilityIds: [812] })) };
+    recalc = { recalcUtility: jest.fn() };
+    applier = new InvoiceApplier(dataSource as never, linker as never, recalc as never);
   });
 
   it('crea la fattura con le righe e l’autore indicato', async () => {
@@ -152,5 +158,32 @@ describe('InvoiceApplier', () => {
         type: ImportIssueType.CIG_MISMATCH,
       }),
     ]);
+  });
+
+  it('consumi: collega le righe passando le rilevazioni di prima, poi ricalcola le utenze', async () => {
+    manager.findOne.mockResolvedValue({ id: 321, contratto_id_fk: 5, import_locked: false });
+    manager.find.mockResolvedValue([{ consumption_id_fk: 60 }, { consumption_id_fk: null }]);
+    linker.link.mockResolvedValue({
+      issues: [{ type: ImportIssueType.PERIOD_COVERED, lineIndex: 0, detail: 'coperto' }],
+      utilityIds: [812],
+    });
+    await applier.apply(message(), extracted, match({ existingInvoiceId: 321, issues: [] }), 3, 7);
+    expect(linker.link).toHaveBeenCalledWith(manager, 321, 7, [60]);
+    expect(manager.save).toHaveBeenCalledWith(InvoiceImportIssue, [
+      expect.objectContaining({ type: ImportIssueType.PERIOD_COVERED }),
+    ]);
+    expect(recalc.recalcUtility).toHaveBeenCalledWith(812);
+  });
+
+  it('fattura rifiutata: righe scritte ma nessun consumo', async () => {
+    manager.findOne.mockResolvedValue({
+      id: 321,
+      contratto_id_fk: 5,
+      import_locked: false,
+      sdi_status: 'REJECTED',
+    });
+    await applier.apply(message(), extracted, match({ existingInvoiceId: 321 }), 3, 7);
+    expect(linker.link).not.toHaveBeenCalled();
+    expect(manager.save).toHaveBeenCalledWith(InvoiceLine, expect.anything());
   });
 });

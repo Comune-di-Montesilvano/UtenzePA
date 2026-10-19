@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
 import { InvoiceLine } from '@apis/invoices/entity/invoice-line.entity';
+import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
+import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
+import { ConsumptionLinker } from './consumption-linker.service';
 import { InvoiceImportIssue } from './entity/invoice-import-issue.entity';
 import { SdiMessage } from './entity/sdi-message.entity';
 import { SdiMessageStatus } from './enum/sdi-message-status.enum';
@@ -22,7 +25,11 @@ const IMPORT_USER_SQL =
  */
 @Injectable()
 export class InvoiceApplier {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly linker: ConsumptionLinker,
+    private readonly recalc: ConsumptionRecalcService,
+  ) {}
 
   async importUserId(): Promise<number | null> {
     const [row] = await this.dataSource.query(IMPORT_USER_SQL);
@@ -36,15 +43,22 @@ export class InvoiceApplier {
     patternId: number,
     authorId: number,
   ): Promise<number> {
-    return this.dataSource.transaction(async (manager) => {
+    const { invoiceId, utilityIds } = await this.dataSource.transaction(async (manager) => {
       const existing = match.existingInvoiceId
         ? await manager.findOne(Invoice, { where: { id: match.existingInvoiceId } })
         : null;
 
       let invoiceId: number;
+      const issues = [...match.issues];
+      let utilityIds: number[] = [];
       if (existing?.import_locked) {
         invoiceId = existing.id;
       } else {
+        const previous = existing
+          ? (await manager.find(InvoiceLine, { where: { invoice_id_fk: existing.id } }))
+              .map((l) => l.consumption_id_fk)
+              .filter((id): id is number => !!id)
+          : [];
         invoiceId = existing
           ? await this.enrich(manager, existing, message, extracted, match)
           : await this.create(manager, message, extracted, match, authorId);
@@ -65,13 +79,19 @@ export class InvoiceApplier {
             })),
           );
         }
+        // Fattura rifiutata: nessun effetto sui consumi.
+        if (existing?.sdi_status !== SdiStatus.REJECTED) {
+          const linked = await this.linker.link(manager, invoiceId, authorId, previous);
+          issues.push(...linked.issues);
+          utilityIds = linked.utilityIds;
+        }
       }
 
       await manager.delete(InvoiceImportIssue, { sdi_message_id_fk: message.id });
-      if (match.issues.length) {
+      if (issues.length) {
         await manager.save(
           InvoiceImportIssue,
-          match.issues.map((i) => ({
+          issues.map((i) => ({
             sdi_message_id_fk: message.id,
             invoice_id_fk: invoiceId,
             line_index: i.lineIndex,
@@ -86,8 +106,10 @@ export class InvoiceApplier {
         invoice_id_fk: invoiceId,
         error: null,
       });
-      return invoiceId;
+      return { invoiceId, utilityIds };
     });
+    for (const utilityId of utilityIds) await this.recalc.recalcUtility(utilityId);
+    return invoiceId;
   }
 
   private async create(

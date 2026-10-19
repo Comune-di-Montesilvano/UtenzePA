@@ -3,7 +3,10 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { maintenance } from '@common/maintenance/maintenance';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
+import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
 import { deriveSdiStatus, type SdiEvent } from '@apis/invoices/sdi-status';
+import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
+import { ConsumptionLinker } from './consumption-linker.service';
 import { InvoiceImportState } from './entity/invoice-import-state.entity';
 import { InvoicePattern } from './entity/invoice-pattern.entity';
 import { SdiMessage } from './entity/sdi-message.entity';
@@ -101,6 +104,8 @@ export class InvoiceImportService {
     private readonly patternsRepo: Repository<InvoicePattern>,
     private readonly matcher: InvoiceMatcher,
     private readonly applier: InvoiceApplier,
+    private readonly linker: ConsumptionLinker,
+    private readonly recalc: ConsumptionRecalcService,
   ) {}
 
   get configured(): boolean {
@@ -601,9 +606,36 @@ export class InvoiceImportService {
       }));
     const { status, outcomeDiscarded } = deriveSdiStatus(events);
     if (!status) return;
+    const invoices = await this.invoicesRepo.findBy({ sdi_identifier: identifier, deleted: false });
+    const previous = new Map(invoices.map((i) => [i.id, i.sdi_status]));
     await this.invoicesRepo.update(
       { sdi_identifier: identifier, deleted: false },
       { sdi_status: status, sdi_outcome_discarded: outcomeDiscarded, ...KEEP_UPDATE_DATE },
     );
+    const rejected = status === SdiStatus.REJECTED;
+    for (const invoice of invoices) {
+      if ((previous.get(invoice.id) === SdiStatus.REJECTED) !== rejected) {
+        await this.syncConsumptions(invoice, rejected);
+      }
+    }
+  }
+
+  // Fattura rifiutata = nessun effetto: consumi tolti; rifiuto superato = ricollegati
+  // (solo fatture scritte dall'import e non modificate a mano).
+  private async syncConsumptions(invoice: Invoice, rejected: boolean): Promise<void> {
+    let utilityIds: number[];
+    if (rejected) {
+      utilityIds = await this.dataSource.transaction((manager) =>
+        this.linker.unlink(manager, invoice.id),
+      );
+    } else {
+      const fromImport = await this.messagesRepo.findOneBy({ invoice_id_fk: invoice.id });
+      if (!fromImport || invoice.import_locked) return;
+      const linked = await this.dataSource.transaction((manager) =>
+        this.linker.link(manager, invoice.id, invoice.updated_by_user_id, []),
+      );
+      utilityIds = linked.utilityIds;
+    }
+    for (const utilityId of utilityIds) await this.recalc.recalcUtility(utilityId);
   }
 }

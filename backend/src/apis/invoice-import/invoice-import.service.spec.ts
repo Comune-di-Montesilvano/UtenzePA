@@ -65,6 +65,9 @@ function fakeMailbox(messages: { uid: number; raw: Buffer }[], uidValidity = 7, 
   return box;
 }
 
+const noLinker = { link: jest.fn(async () => ({ issues: [], utilityIds: [] })), unlink: jest.fn(async () => []) };
+const noRecalc = { recalcUtility: jest.fn() };
+
 const ENV = {
   PEC_IMAP_HOST: 'imap.prova.it',
   PEC_IMAP_USER: 'sdi@prova.it',
@@ -84,11 +87,13 @@ describe('InvoiceImportService.runOnce', () => {
       state as never,
       messages as never,
       invoices as never,
-      { query } as never,
+      { query, transaction: (cb: (m: unknown) => unknown) => cb({}) } as never,
       () => mailbox as unknown as PecMailbox,
       fakeRepo() as never,
       {} as never,
       {} as never,
+      noLinker as never,
+      noRecalc as never,
     );
 
   beforeEach(() => {
@@ -303,18 +308,23 @@ describe('InvoiceImportService con i pattern', () => {
   let mailbox: ReturnType<typeof fakeMailbox>;
   let matcher: { match: jest.Mock };
   let applier: { apply: jest.Mock; importUserId: jest.Mock };
+  let linker: { link: jest.Mock; unlink: jest.Mock };
+  let recalc: { recalcUtility: jest.Mock };
   const savedEnv = { ...process.env };
+  const manager = {};
 
   const service = () =>
     new InvoiceImportService(
       state as never,
       messages as never,
       invoices as never,
-      { query } as never,
+      { query, transaction: (cb: (m: unknown) => unknown) => cb(manager) } as never,
       () => mailbox as unknown as PecMailbox,
       patterns as never,
       matcher as never,
       applier as never,
+      linker as never,
+      recalc as never,
     );
 
   beforeEach(() => {
@@ -349,10 +359,39 @@ describe('InvoiceImportService con i pattern', () => {
       }),
       importUserId: jest.fn(async () => 1),
     };
+    linker = {
+      link: jest.fn(async () => ({ issues: [], utilityIds: [812] })),
+      unlink: jest.fn(async () => [812]),
+    };
+    recalc = { recalcUtility: jest.fn() };
   });
 
   afterEach(() => {
     process.env = { ...savedEnv };
+  });
+
+  it('fattura estratta poi rifiutata: consumi tolti e utenza ricalcolata', async () => {
+    patterns.rows.push(pricePattern());
+    mailbox = fakeMailbox([
+      { uid: 1, raw: invoiceEml('<m1@pec>') },
+      { uid: 2, raw: notificationEml('<n1@pec>', 'IT01234567897_a1B2c_EC_001.xml', 'ec02.xml') },
+    ]);
+    await service().runOnce();
+    expect(invoices.rows[0].sdi_status).toBe(SdiStatus.REJECTED);
+    expect(linker.unlink).toHaveBeenCalledWith(manager, 77);
+    expect(recalc.recalcUtility).toHaveBeenCalledWith(812);
+  });
+
+  it('rifiuto superato (scarto dell’esito): consumi ricollegati', async () => {
+    messages.rows.push({ id: 40, kind: 'INVOICE', status: SdiMessageStatus.EXTRACTED, invoice_id_fk: 77, sdi_identifier: '99000000001' });
+    invoices.rows.push({ id: 77, deleted: false, sdi_identifier: '99000000001', sdi_status: SdiStatus.REJECTED, import_locked: false, updated_by_user_id: 7 });
+    mailbox = fakeMailbox([
+      { uid: 2, raw: notificationEml('<n1@pec>', 'IT01234567897_a1B2c_EC_001.xml', 'ec02.xml', 'Fri, 10 Jul 2026 10:00:00 +0200') },
+      { uid: 3, raw: notificationEml('<n2@pec>', 'IT01234567897_a1B2c_SE_001.xml', 'se.xml', 'Fri, 10 Jul 2026 11:00:00 +0200') },
+    ]);
+    await service().runOnce();
+    expect(invoices.rows[0].sdi_status).not.toBe(SdiStatus.REJECTED);
+    expect(linker.link).toHaveBeenCalledWith(manager, 77, 7, []);
   });
 
   it('pattern che riconosce la fattura: estratta e scritta, struttura registrata', async () => {
@@ -508,6 +547,8 @@ describe('InvoiceImportService.getDocument', () => {
       fakeRepo() as never,
       {} as never,
       {} as never,
+      noLinker as never,
+      noRecalc as never,
     );
 
   beforeEach(() => {
