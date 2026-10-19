@@ -105,6 +105,49 @@ describe('SupplyEventsService', () => {
     expect(reconcile.reconcileWith).not.toHaveBeenCalled();
   });
 
+  it('create: data non nota ammessa anche per voltura e reintestazione', async () => {
+    const { service, rows } = build([activation]);
+    await service.create(
+      {
+        utility_id_fk: 7,
+        type: SupplyEventType.TRANSFER,
+        third_party_id_fk: 5,
+        date_unknown: true,
+        effective_on: '2026-01-01',
+      },
+      42,
+    );
+    expect(rows.find((r) => r.type === SupplyEventType.TRANSFER)).toMatchObject({
+      date_unknown: true,
+      effective_on: null,
+      third_party_id_fk: 5,
+    });
+    const transferred = event({ id: 2, type: SupplyEventType.TRANSFER, third_party_id_fk: 5, effective_on: '2025-01-01' });
+    const b = build([activation, transferred]);
+    await b.service.create({ utility_id_fk: 7, type: SupplyEventType.RETURN, date_unknown: true }, 42);
+    expect(b.rows.find((r) => r.type === SupplyEventType.RETURN)).toMatchObject({ date_unknown: true });
+  });
+
+  it('create: cessazione a data non nota con righe già datate → 400', async () => {
+    const dated = event({ id: 1, type: SupplyEventType.ACTIVATION, effective_on: '2025-03-01' });
+    const { service, reconcile } = build([dated]);
+    await expect(
+      service.create({ utility_id_fk: 7, type: SupplyEventType.CESSATION, date_unknown: true }, 42),
+    ).rejects.toThrow(
+      new BadRequestException(
+        "L'utenza ha già date note: indica una data effettiva, anche stimata, e scrivilo nelle note.",
+      ),
+    );
+    expect(reconcile.reconcileWith).not.toHaveBeenCalled();
+  });
+
+  it('update: le note di una riga già a data non nota restano modificabili', async () => {
+    const dated = event({ id: 2, type: SupplyEventType.CESSATION, effective_on: '2025-03-01' });
+    const { service, rows } = build([activation, dated]);
+    await service.update(1, { notes: 'attiva da prima' }, 42);
+    expect(rows.find((r) => r.id === 1)).toMatchObject({ notes: 'attiva da prima', date_unknown: true });
+  });
+
   it('create: 400 su utenza inesistente', async () => {
     const { service } = build([]);
     await expect(

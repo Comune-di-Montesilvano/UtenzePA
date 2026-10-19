@@ -76,9 +76,7 @@ const toDate = (v: string | null | undefined): Date | null => {
           <mat-datepicker #effectivePicker></mat-datepicker>
           <mat-hint>Vuota = in sospeso</mat-hint>
         </mat-form-field>
-        @if (datable) {
-          <mat-checkbox class="span-2" formControlName="date_unknown">Avvenuta, data non nota</mat-checkbox>
-        }
+        <mat-checkbox class="span-2" formControlName="date_unknown">Avvenuta, data non nota</mat-checkbox>
         <mat-form-field class="span-2">
           <mat-label>Note</mat-label>
           <textarea matInput rows="3" formControlName="notes"></textarea>
@@ -126,14 +124,6 @@ export class SupplyEventDialogComponent {
     }
     this.syncDateUnknown();
     this.form.controls.date_unknown.valueChanges.subscribe(() => this.syncDateUnknown());
-    this.form.controls.type.valueChanges.subscribe(() => {
-      if (!this.datable) this.form.controls.date_unknown.setValue(false);
-    });
-  }
-
-  get datable(): boolean {
-    const t = this.form.controls.type.value;
-    return t === 'ACTIVATION' || t === 'CESSATION';
   }
 
   // Con «data non nota» la data effettiva non si indica.
@@ -158,14 +148,15 @@ export class SupplyEventDialogComponent {
     const iso = (d: Date | null) => (d ? toIsoDate(d) : null);
     const notes = v.notes?.trim() || null;
     // Riga automatica: solo i campi modificabili (il backend rifiuta gli altri).
+    // «Data non nota» per tutti i tipi (anche volture e reintestazioni mai registrate).
     const payload: SupplyEventPayload = this.automatic
       ? {effective_on: iso(v.effective_on), notes}
       : {
         type: v.type as SupplyEventType,
         third_party_id_fk: v.type === 'TRANSFER' ? v.third_party_id_fk : null,
         requested_on: iso(v.requested_on),
-        effective_on: v.date_unknown && this.datable ? null : iso(v.effective_on),
-        date_unknown: this.datable && !!v.date_unknown,
+        effective_on: v.date_unknown ? null : iso(v.effective_on),
+        date_unknown: !!v.date_unknown,
         notes,
       };
     const req = this.data.event

@@ -267,14 +267,10 @@ export class SupplyEventsService extends BaseService<
     }
   }
 
-  // Data non nota solo per attivazioni/cessazioni (e senza data effettiva);
-  // intestatario solo per le volture.
+  // Data non nota per tutti i tipi (anche volture e reintestazioni avvenute e
+  // mai registrate), senza data effettiva; intestatario solo per le volture.
   private normalize(f: EventFields): EventFields {
     const out = { ...f };
-    const datable = out.type === SupplyEventType.ACTIVATION || out.type === SupplyEventType.CESSATION;
-    if (out.date_unknown && !datable) {
-      throw new BadRequestException('La data non nota vale solo per attivazioni e cessazioni.');
-    }
     if (out.date_unknown) out.effective_on = null;
     if (out.type !== SupplyEventType.TRANSFER) out.third_party_id_fk = null;
     out.requested_on = dbDay(out.requested_on);
@@ -303,7 +299,12 @@ export class SupplyEventsService extends BaseService<
       }),
       ...fields,
     } as UtilitySupplyEvent);
-    const message = validateEvent(candidate, others.map(toEventLike), romeDay(this.now()));
+    const message = validateEvent(
+      candidate,
+      others.map(toEventLike),
+      romeDay(this.now()),
+      current ? toEventLike(current) : null,
+    );
     if (message) throw new BadRequestException(message);
   }
 }

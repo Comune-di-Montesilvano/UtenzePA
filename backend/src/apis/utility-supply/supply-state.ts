@@ -127,12 +127,17 @@ export function pending(events: SupplyEventLike[]): SupplyEventLike[] {
   return events.filter((e) => isLive(e) && !e.date_unknown && !e.effective_on);
 }
 
+export const DATE_UNKNOWN_WITH_DATES_MESSAGE =
+  "L'utenza ha già date note: indica una data effettiva, anche stimata, e scrivilo nelle note.";
+
 // Messaggio d'errore (da restituire come 400) o null se la riga è accettabile.
-// `others` = le altre righe dell'utenza (senza la riga stessa se in modifica).
+// `others` = le altre righe dell'utenza (senza la riga stessa se in modifica);
+// `previous` = la riga com'era prima della modifica (null se nuova).
 export function validateEvent(
   candidate: SupplyEventLike,
   others: SupplyEventLike[],
   today: string,
+  previous: SupplyEventLike | null = null,
 ): string | null {
   if (!isLive(candidate)) return null;
   const isPending = !candidate.date_unknown && !candidate.effective_on;
@@ -149,6 +154,21 @@ export function validateEvent(
     day10(candidate.effective_on) < day10(candidate.requested_on)
   ) {
     return 'La data effettiva non può precedere la richiesta.';
+  }
+  // Attivazione/cessazione «data non nota» = prima di ogni data: con righe
+  // già datate cambierebbe lo stato di periodi già noti. Una riga che era già
+  // così (es. dalla migration) resta modificabile.
+  const supplyType =
+    candidate.type === SupplyEventType.ACTIVATION || candidate.type === SupplyEventType.CESSATION;
+  const alreadyUnknown =
+    !!previous && previous.date_unknown && previous.type === candidate.type;
+  if (
+    supplyType &&
+    candidate.date_unknown &&
+    !alreadyUnknown &&
+    others.some((o) => isLive(o) && !o.date_unknown && !!o.effective_on)
+  ) {
+    return DATE_UNKNOWN_WITH_DATES_MESSAGE;
   }
   if (isPending && pending(others).some((o) => o.type === candidate.type)) {
     return "C'è già una richiesta in sospeso di questo tipo.";

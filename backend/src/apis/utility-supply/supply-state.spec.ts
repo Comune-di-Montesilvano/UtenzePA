@@ -146,6 +146,51 @@ describe('supply-state', () => {
       const c = ev({ id: 0, type: T.TRANSFER, effective_on: '2026-02-01' });
       expect(validateEvent(c, [], today)).toBe("Indicare a chi va volturata l'utenza.");
     });
+    describe('data non nota con righe già datate', () => {
+      const msg =
+        "L'utenza ha già date note: indica una data effettiva, anche stimata, e scrivilo nelle note.";
+      const dated = [ev({ type: T.ACTIVATION, effective_on: '2025-01-01' })];
+
+      it('cessazione o attivazione a data non nota: 400', () => {
+        expect(validateEvent(ev({ id: 0, type: T.CESSATION, date_unknown: true }), dated, today)).toBe(msg);
+        expect(validateEvent(ev({ id: 0, type: T.ACTIVATION, date_unknown: true }), dated, today)).toBe(msg);
+      });
+
+      it('conta anche una voltura datata; non contano righe annullate, eliminate, in sospeso o a data non nota', () => {
+        const c = ev({ id: 0, type: T.CESSATION, date_unknown: true });
+        expect(
+          validateEvent(c, [ev({ type: T.TRANSFER, third_party_id_fk: 5, effective_on: '2025-01-01' })], today),
+        ).toBe(msg);
+        const ignored = [
+          ev({ type: T.ACTIVATION, date_unknown: true }),
+          ev({ type: T.CESSATION, effective_on: '2025-01-01', cancelled_on: '2025-02-01' }),
+          ev({ type: T.CESSATION, effective_on: '2025-01-01', deleted: true }),
+          ev({ type: T.TRANSFER, third_party_id_fk: 5, requested_on: '2025-01-01' }),
+        ];
+        expect(validateEvent(c, ignored, today)).toBeNull();
+      });
+
+      it('una riga già a data non nota dello stesso tipo resta modificabile', () => {
+        const before = ev({ id: 0, type: T.ACTIVATION, date_unknown: true });
+        const edited = { ...before, notes: 'x' } as SupplyEventLike;
+        expect(validateEvent(edited, dated, today, before)).toBeNull();
+        // Cambio di tipo o da datata a non nota: vale la regola.
+        expect(validateEvent({ ...before, type: T.CESSATION }, dated, today, before)).toBe(msg);
+        const wasDated = ev({ id: 0, type: T.ACTIVATION, effective_on: '2024-01-01' });
+        expect(
+          validateEvent({ ...wasDated, effective_on: null, date_unknown: true }, dated, today, wasDated),
+        ).toBe(msg);
+      });
+
+      it('voltura e reintestazione a data non nota: la regola non si applica', () => {
+        expect(
+          validateEvent(ev({ id: 0, type: T.TRANSFER, third_party_id_fk: 5, date_unknown: true }), dated, today),
+        ).toBeNull();
+        const transferred = [...dated, ev({ type: T.TRANSFER, third_party_id_fk: 5, effective_on: '2025-02-01' })];
+        expect(validateEvent(ev({ id: 0, type: T.RETURN, date_unknown: true }), transferred, today)).toBeNull();
+      });
+    });
+
     it('due attivazioni di fila: accettato con avviso', () => {
       const others = [ev({ type: T.ACTIVATION, effective_on: '2025-01-01' })];
       const c = ev({ id: 0, type: T.ACTIVATION, effective_on: '2026-01-01' });
