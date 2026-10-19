@@ -6,6 +6,7 @@ import {ContractsService} from '../contracts/contract.service';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
 import {UtilityService} from '../utilities/utility.service';
 import {SDI_STATUS_LABELS, SDI_STATUS_NONE, SdiStatus} from './sdi-status';
+import {IMPORT_ISSUE_LABELS, INVOICE_ISSUE_SIGNAL_TYPES} from '../invoice-import/import-issues';
 
 const byLabel = (a: {label: string}, b: {label: string}) => (a.label ?? '').localeCompare(b.label ?? '');
 
@@ -51,4 +52,11 @@ export const INVOICE_SIGNALS: SignalDef[] = [
   {key: 'invoices_outside_supply_periods', label: 'Fuori dai periodi di attività', ids: items => items.map(i => i.invoice_id)},
   {key: 'invoice_lines_without_utility', label: 'Con righe senza utenza', ids: items => items.map(i => i.invoice_id)},
   {key: 'invoice_sdi_outcome_discarded', label: 'Esito scartato dallo SDI', ids: items => items.map(i => i.invoice_id)},
+  // Differenze trovate dall'import fatture dalla PEC: una voce per tipo.
+  ...INVOICE_ISSUE_SIGNAL_TYPES.map((type): SignalDef => ({
+    key: 'invoice_import_issues',
+    id: `invoice_import_issues:${type}`,
+    label: IMPORT_ISSUE_LABELS[type],
+    ids: items => items.filter(i => i.type === type).map(i => i.invoice_id),
+  })),
 ];

@@ -9,7 +9,11 @@ export interface SignalDef {
   key: keyof Anomalies;
   label: string;
   ids?: (items: any[]) => number[];
+  // Identità della segnalazione quando più voci leggono la stessa anomalia (default: key).
+  id?: string;
 }
+
+const signalId = (def: SignalDef): string => def.id ?? def.key;
 
 export interface ActiveSignal {
   key: string;
@@ -18,6 +22,7 @@ export interface ActiveSignal {
 }
 
 interface Row {
+  id: string;
   def: SignalDef;
   count: number;
   ids: Set<number>;
@@ -40,9 +45,9 @@ interface Row {
           </mat-panel-title>
         </mat-expansion-panel-header>
         <ul class="ls-list">
-          @for (r of withRecords; track r.def.key) {
+          @for (r of withRecords; track r.id) {
             <li>
-              <button type="button" class="ls-row" [class.active]="r.def.key === activeKey" (click)="pick(r)">
+              <button type="button" class="ls-row" [class.active]="r.id === activeKey" (click)="pick(r)">
                 <span>{{ r.def.label }}</span>
                 <span class="ls-count">{{ r.count }}</span>
               </button>
@@ -80,7 +85,7 @@ export class ListSignalsComponent implements OnChanges {
   }
 
   pick(r: Row): void {
-    this.selected.emit({key: r.def.key, label: r.def.label, ids: r.ids});
+    this.selected.emit({key: r.id, label: r.def.label, ids: r.ids});
   }
 
   private load(): void {
@@ -90,16 +95,16 @@ export class ListSignalsComponent implements OnChanges {
           .map(def => {
             const items = (data[def.key]?.items ?? []) as any[];
             const ids = new Set<number>((def.ids ? def.ids(items) : items.map(i => i.id)).filter((id: unknown): id is number => id != null));
-            return {def, count: ids.size, ids};
+            return {id: signalId(def), def, count: ids.size, ids};
           })
           .filter(r => r.count > 0);
         // Segnalazione attiva: id aggiornati dopo un salvataggio.
         // Se non ha più record (tutti sistemati) l'elenco filtrato resta vuoto.
         if (this.activeKey) {
-          const active = this.withRecords.find(r => r.def.key === this.activeKey);
-          const def = this.signals.find(d => d.key === this.activeKey);
+          const active = this.withRecords.find(r => r.id === this.activeKey);
+          const def = this.signals.find(d => signalId(d) === this.activeKey);
           if (active) this.pick(active);
-          else if (def) this.selected.emit({key: def.key, label: def.label, ids: new Set()});
+          else if (def) this.selected.emit({key: signalId(def), label: def.label, ids: new Set()});
         }
       },
       error: err => console.error('Errore nel caricamento delle segnalazioni:', err),

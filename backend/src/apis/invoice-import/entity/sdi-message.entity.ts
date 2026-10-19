@@ -9,6 +9,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
+import { Invoice } from '@apis/invoices/entity/invoice.entity';
+import { InvoicePattern } from './invoice-pattern.entity';
 import { SdiMessageStatus, type SdiMessageKind } from '../enum/sdi-message-status.enum';
 
 // Registro dei file SDI letti dalla PEC: solo metadati, i file restano sulla
@@ -63,6 +65,17 @@ export class SdiMessage {
   @Column({ type: 'varchar', length: 500, nullable: true })
   error: string | null;
 
+  // Struttura XML della fattura (sha1 dei percorsi): raggruppa le simili.
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  structure_key: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  pattern_id_fk: number | null;
+
+  // Fattura creata o arricchita da questo messaggio con un pattern.
+  @Column({ type: 'int', nullable: true })
+  invoice_id_fk: number | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   create_date: Date;
 
@@ -72,4 +85,12 @@ export class SdiMessage {
   @ManyToOne(() => ThirdParty, { nullable: true })
   @JoinColumn({ name: 'supplier_id_fk', foreignKeyConstraintName: 'FK_sdi_messages_supplier' })
   supplier: ThirdParty | null;
+
+  @ManyToOne(() => InvoicePattern, { nullable: true })
+  @JoinColumn({ name: 'pattern_id_fk', foreignKeyConstraintName: 'FK_sdi_messages_pattern' })
+  pattern: InvoicePattern | null;
+
+  @ManyToOne(() => Invoice, { nullable: true })
+  @JoinColumn({ name: 'invoice_id_fk', foreignKeyConstraintName: 'FK_sdi_messages_invoice' })
+  invoice: Invoice | null;
 }

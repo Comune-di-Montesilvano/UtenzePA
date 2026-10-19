@@ -7,6 +7,7 @@ import {MatIconModule} from '@angular/material/icon';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {sinceDays} from '../../core/components/entity-sheet/sheet-utils';
 import {Anomalies, AnomaliesService} from '../../core/services/anomalies.service';
+import {importIssueLabel} from '../invoice-import/import-issues';
 
 const formatDate = (iso: string | null): string => {
   if (!iso) return 'senza scadenza';
@@ -554,6 +555,38 @@ const formatDate = (iso: string | null): string => {
               </ul>
             </mat-expansion-panel>
             }
+            @if (data.invoice_patterns_unknown.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.invoice_patterns_unknown.count }}</span>
+                  Strutture di fattura da mappare
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (u of data.invoice_patterns_unknown.items; track u.structure_key + u.supplier_id) {
+                  <li (click)="openPatternEditor(u.message_id)">{{ u.supplier }} · {{ u.count }} {{ u.count === 1 ? 'fattura' : 'fatture' }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
+            @if (data.invoice_import_issues.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.invoice_import_issues.count }}</span>
+                  Differenze trovate dall'import fatture
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (d of data.invoice_import_issues.items; track $index) {
+                  <li (click)="d.invoice_id ? openInvoice(d.invoice_id) : openInvoiceImport()">
+                    {{ issueLabel(d.type) }} · {{ d.number || 'senza fattura' }} · {{ d.detail }}
+                  </li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
             @if (data.plants_without_position.count > 0) {
             <mat-expansion-panel>
               <mat-expansion-panel-header>
@@ -684,8 +717,14 @@ export class AnomaliesCardComponent implements OnInit {
     this.navigator.openBudgetChapter(id).subscribe(() => this.load());
   }
 
+  issueLabel = importIssueLabel;
+
+  openPatternEditor(messageId: number): void {
+    this.router.navigate(['/invoice-import/editor', messageId]);
+  }
+
   openInvoiceImport(): void {
-    this.router.navigate(['/backup-import']);
+    this.router.navigate(['/invoice-import']);
   }
 
   openUtility(id: number): void {

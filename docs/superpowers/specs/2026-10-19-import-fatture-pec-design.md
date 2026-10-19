@@ -135,6 +135,13 @@ Si apre dalla segnalazione «pattern sconosciuti» (raggruppate per fornitore e 
 - Bozza di riferimento: `.superpowers/brainstorm/…/pattern-editor-v2.html` (non versionata; sostanza descritta qui).
 - Permessi: Admin e Operatore (come la modifica delle fatture); Lettore vede.
 
+### 3b. Pagina «Import fatture» (Impostazioni)
+
+Voce propria in Impostazioni (`/invoice-import`), non più tab di Backup e manutenzione:
+- **Motore**: stato (configurato, spento dal server, acceso/spento, in corso), interruttore ed «Esegui ora» (solo Admin), ultimo giro e ultimo giro riuscito, ultimo errore, conteggi dei file per esito, ultimi messaggi in errore.
+- **Pattern**: strutture da mappare (fornitore, n. fatture, «Mappa» → editor) e pattern esistenti (fornitore, nome, fatture estratte, modifica, elimina; ignorati a parte, ripristinabili).
+- Segnalazioni della dashboard (motore fermo, strutture da mappare) portano qui.
+
 ### 4. Applicazione alla fattura
 
 - **Abbinamento** a una fattura esistente: stesso fornitore + numero + data (non cancellata). Trovata → **arricchita, stesso id**: righe sostituite da quelle dell'XML, testata completata (totale, imponibile, contratto se vuoto), aggiunti `IdentificativoSdI` e riferimento al messaggio. Non trovata → creata.

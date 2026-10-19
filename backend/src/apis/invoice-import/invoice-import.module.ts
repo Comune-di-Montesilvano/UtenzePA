@@ -3,8 +3,16 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CronJob } from 'cron';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
+import { UtilityConsumptionsModule } from '@apis/utility-consumptions/utility-consumptions.module';
+import { ConsumptionLinker } from './consumption-linker.service';
 import { InvoiceImportState } from './entity/invoice-import-state.entity';
+import { InvoiceImportIssue } from './entity/invoice-import-issue.entity';
+import { InvoicePattern } from './entity/invoice-pattern.entity';
 import { SdiMessage } from './entity/sdi-message.entity';
+import { InvoiceApplier } from './invoice-applier.service';
+import { InvoiceMatcher } from './invoice-matcher.service';
+import { InvoicePatternsController } from './invoice-patterns.controller';
+import { InvoicePatternsService } from './invoice-patterns.service';
 import { InvoiceImportController } from './invoice-import.controller';
 import { InvoiceImportService } from './invoice-import.service';
 import {
@@ -17,9 +25,22 @@ import {
 // Cron registrato qui come in utility-consumptions.module.ts (@nestjs/schedule
 // è ESM-only per jest). Il service esce subito se non configurato o spento.
 @Module({
-  imports: [TypeOrmModule.forFeature([SdiMessage, InvoiceImportState, Invoice])],
+  imports: [
+    TypeOrmModule.forFeature([
+      SdiMessage,
+      InvoiceImportState,
+      Invoice,
+      InvoicePattern,
+      InvoiceImportIssue,
+    ]),
+    UtilityConsumptionsModule,
+  ],
   providers: [
     InvoiceImportService,
+    InvoiceMatcher,
+    InvoiceApplier,
+    ConsumptionLinker,
+    InvoicePatternsService,
     {
       provide: PEC_MAILBOX_FACTORY,
       useValue: (() => {
@@ -29,8 +50,8 @@ import {
       }) satisfies PecMailboxFactory,
     },
   ],
-  controllers: [InvoiceImportController],
-  exports: [InvoiceImportService],
+  controllers: [InvoiceImportController, InvoicePatternsController],
+  exports: [InvoiceImportService, ConsumptionLinker],
 })
 export class InvoiceImportModule implements OnModuleInit {
   constructor(

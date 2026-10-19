@@ -3,7 +3,16 @@ import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
 import { InvoiceImportService } from './invoice-import.service';
 import { SdiMessageStatus } from './enum/sdi-message-status.enum';
 import type { PecMailbox } from './pec-imap.client';
-import { fixture, invoiceEml, notificationEml } from './sdi/fixtures/eml';
+import {
+  attachment,
+  envelope,
+  fixture,
+  invoiceEml,
+  mail,
+  notificationEml,
+  text,
+} from './sdi/fixtures/eml';
+import { structureKey } from './pattern/pattern-rules';
 
 type Row = Record<string, unknown>;
 
@@ -17,6 +26,7 @@ function fakeRepo(rows: Row[] = []) {
     updates,
     findOneBy: jest.fn(async (where: Row) => rows.find((r) => matches(r, where)) ?? null),
     findBy: jest.fn(async (where: Row) => rows.filter((r) => matches(r, where))),
+    find: jest.fn(async ({ where }: { where: Row }) => rows.filter((r) => matches(r, where))),
     save: jest.fn(async (entity: Row) => {
       if (!entity.id) {
         entity.id = nextId++;
@@ -55,6 +65,9 @@ function fakeMailbox(messages: { uid: number; raw: Buffer }[], uidValidity = 7, 
   return box;
 }
 
+const noLinker = { link: jest.fn(async () => ({ issues: [], utilityIds: [] })), unlink: jest.fn(async () => []) };
+const noRecalc = { recalcUtility: jest.fn() };
+
 const ENV = {
   PEC_IMAP_HOST: 'imap.prova.it',
   PEC_IMAP_USER: 'sdi@prova.it',
@@ -74,8 +87,13 @@ describe('InvoiceImportService.runOnce', () => {
       state as never,
       messages as never,
       invoices as never,
-      { query } as never,
+      { query, transaction: (cb: (m: unknown) => unknown) => cb({}) } as never,
       () => mailbox as unknown as PecMailbox,
+      fakeRepo() as never,
+      {} as never,
+      {} as never,
+      noLinker as never,
+      noRecalc as never,
     );
 
   beforeEach(() => {
@@ -133,7 +151,7 @@ describe('InvoiceImportService.runOnce', () => {
   it('fattura presente: collegata, ricevuta, senza toccare l’ultima modifica', async () => {
     mailbox = fakeMailbox([{ uid: 1, raw: invoiceEml('<m1@pec>') }]);
     const result = await service().runOnce();
-    expect(result).toEqual({ processed: 1, linked: 1, pending: 0 });
+    expect(result).toEqual({ processed: 1, linked: 1, pending: 0, extracted: 0 });
     expect(messages.rows[0]).toMatchObject({
       status: SdiMessageStatus.LINKED,
       sdi_identifier: '99000000001',
@@ -152,7 +170,12 @@ describe('InvoiceImportService.runOnce', () => {
   it('fattura assente: in attesa', async () => {
     invoices.rows.length = 0;
     mailbox = fakeMailbox([{ uid: 1, raw: invoiceEml('<m1@pec>') }]);
-    expect(await service().runOnce()).toEqual({ processed: 1, linked: 0, pending: 1 });
+    expect(await service().runOnce()).toEqual({
+      processed: 1,
+      linked: 0,
+      pending: 1,
+      extracted: 0,
+    });
     expect(messages.rows[0].status).toBe(SdiMessageStatus.PENDING);
   });
 
@@ -238,7 +261,12 @@ describe('InvoiceImportService.runOnce', () => {
 
   it('errore prima della casella: registrato, nessuna eccezione', async () => {
     query.mockRejectedValue(new Error('db giù'));
-    await expect(service().runOnce()).resolves.toEqual({ processed: 0, linked: 0, pending: 0 });
+    await expect(service().runOnce()).resolves.toEqual({
+      processed: 0,
+      linked: 0,
+      pending: 0,
+      extracted: 0,
+    });
     expect(state.rows[0].last_error).toBe('db giù');
   });
 
@@ -259,6 +287,299 @@ describe('InvoiceImportService.runOnce', () => {
   });
 });
 
+const PRICE_RULES = { header: {}, line: { amount: { kind: 'field', path: 'PrezzoTotale' } } };
+const pricePattern = (over: Row = {}) => ({
+  id: 3,
+  supplier_id_fk: 9,
+  deleted: false,
+  ignored: false,
+  rules: PRICE_RULES,
+  paths_count: 1,
+  structure_key: 'x',
+  ...over,
+});
+
+describe('InvoiceImportService con i pattern', () => {
+  let state: ReturnType<typeof fakeRepo>;
+  let messages: ReturnType<typeof fakeRepo>;
+  let invoices: ReturnType<typeof fakeRepo>;
+  let patterns: ReturnType<typeof fakeRepo>;
+  let query: jest.Mock;
+  let mailbox: ReturnType<typeof fakeMailbox>;
+  let matcher: { match: jest.Mock };
+  let applier: { apply: jest.Mock; importUserId: jest.Mock };
+  let linker: { link: jest.Mock; unlink: jest.Mock };
+  let recalc: { recalcUtility: jest.Mock };
+  const savedEnv = { ...process.env };
+  const manager = {};
+
+  const service = () =>
+    new InvoiceImportService(
+      state as never,
+      messages as never,
+      invoices as never,
+      { query, transaction: (cb: (m: unknown) => unknown) => cb(manager) } as never,
+      () => mailbox as unknown as PecMailbox,
+      patterns as never,
+      matcher as never,
+      applier as never,
+      linker as never,
+      recalc as never,
+    );
+
+  beforeEach(() => {
+    Object.assign(process.env, ENV);
+    delete process.env.INVOICE_IMPORT_DISABLED;
+    state = fakeRepo([{ id: 1, enabled: true, uid_validity: null, last_uid: null }]);
+    messages = fakeRepo();
+    invoices = fakeRepo();
+    patterns = fakeRepo();
+    query = jest.fn(async (sql: string, params?: unknown[]) =>
+      sql.includes('FROM third_parties') && params?.[0] === '01234567897' ? [{ id: 9 }] : [],
+    );
+    mailbox = fakeMailbox([{ uid: 1, raw: invoiceEml('<m1@pec>') }]);
+    matcher = {
+      match: jest.fn(async () => ({
+        supplierId: 9,
+        existingInvoiceId: null,
+        contratto_id_fk: null,
+        lines: [],
+        issues: [],
+      })),
+    };
+    applier = {
+      apply: jest.fn(async () => {
+        invoices.rows.push({
+          id: 77,
+          deleted: false,
+          sdi_identifier: '99000000001',
+          import_locked: false,
+        });
+        return 77;
+      }),
+      importUserId: jest.fn(async () => 1),
+    };
+    linker = {
+      link: jest.fn(async () => ({ issues: [], utilityIds: [812] })),
+      unlink: jest.fn(async () => [812]),
+    };
+    recalc = { recalcUtility: jest.fn() };
+  });
+
+  afterEach(() => {
+    process.env = { ...savedEnv };
+  });
+
+  it('fattura estratta poi rifiutata: consumi tolti e utenza ricalcolata', async () => {
+    patterns.rows.push(pricePattern());
+    mailbox = fakeMailbox([
+      { uid: 1, raw: invoiceEml('<m1@pec>') },
+      { uid: 2, raw: notificationEml('<n1@pec>', 'IT01234567897_a1B2c_EC_001.xml', 'ec02.xml') },
+    ]);
+    await service().runOnce();
+    expect(invoices.rows[0].sdi_status).toBe(SdiStatus.REJECTED);
+    expect(linker.unlink).toHaveBeenCalledWith(manager, 77);
+    expect(recalc.recalcUtility).toHaveBeenCalledWith(812);
+  });
+
+  it('rifiuto superato (scarto dell’esito): consumi ricollegati', async () => {
+    messages.rows.push({ id: 40, kind: 'INVOICE', status: SdiMessageStatus.EXTRACTED, invoice_id_fk: 77, sdi_identifier: '99000000001' });
+    invoices.rows.push({ id: 77, deleted: false, sdi_identifier: '99000000001', sdi_status: SdiStatus.REJECTED, import_locked: false, updated_by_user_id: 7 });
+    mailbox = fakeMailbox([
+      { uid: 2, raw: notificationEml('<n1@pec>', 'IT01234567897_a1B2c_EC_001.xml', 'ec02.xml', 'Fri, 10 Jul 2026 10:00:00 +0200') },
+      { uid: 3, raw: notificationEml('<n2@pec>', 'IT01234567897_a1B2c_SE_001.xml', 'se.xml', 'Fri, 10 Jul 2026 11:00:00 +0200') },
+    ]);
+    await service().runOnce();
+    expect(invoices.rows[0].sdi_status).not.toBe(SdiStatus.REJECTED);
+    expect(linker.link).toHaveBeenCalledWith(manager, 77, 7, []);
+  });
+
+  it('pattern che riconosce la fattura: estratta e scritta, struttura registrata', async () => {
+    patterns.rows.push(pricePattern());
+    const result = await service().runOnce();
+    expect(result.extracted).toBe(1);
+    expect(applier.apply).toHaveBeenCalledWith(
+      expect.objectContaining({ file_name: 'IT01234567897_a1B2c.xml.p7m' }),
+      expect.objectContaining({ number: 'FPR 1/26' }),
+      expect.anything(),
+      3,
+      1,
+    );
+    expect(messages.rows[0]).toMatchObject({
+      status: SdiMessageStatus.EXTRACTED,
+      structure_key: structureKey(fixture('fattura.xml')),
+    });
+    expect(invoices.rows[0].sdi_status).toBe(SdiStatus.RECEIVED);
+  });
+
+  it('struttura ignorata dal fornitore: nessuna fattura scritta', async () => {
+    patterns.rows.push(
+      pricePattern({
+        id: 4,
+        ignored: true,
+        rules: null,
+        structure_key: structureKey(fixture('fattura.xml')),
+      }),
+    );
+    await service().runOnce();
+    expect(applier.apply).not.toHaveBeenCalled();
+    expect(messages.rows[0].status).toBe(SdiMessageStatus.IGNORED);
+  });
+
+  it('nessun pattern: comportamento della parte 1 (in attesa)', async () => {
+    await service().runOnce();
+    expect(applier.apply).not.toHaveBeenCalled();
+    expect(messages.rows[0].status).toBe(SdiMessageStatus.PENDING);
+  });
+
+  it('nessun amministratore attivo: errore sul messaggio, nessuna fattura', async () => {
+    patterns.rows.push(pricePattern());
+    applier.importUserId.mockResolvedValue(null);
+    await service().runOnce();
+    expect(applier.apply).not.toHaveBeenCalled();
+    expect(messages.rows[0]).toMatchObject({
+      status: SdiMessageStatus.ERROR,
+      error: 'Nessun amministratore per le fatture importate',
+    });
+  });
+
+  it('lotto con più fatture: non estratto, segnalato', async () => {
+    patterns.rows.push(pricePattern());
+    const xml = fixture('fattura.xml').toString('utf8');
+    const body = /<FatturaElettronicaBody>[\s\S]*<\/FatturaElettronicaBody>/.exec(xml)![0];
+    const lot = Buffer.from(xml.replace(body, body + body));
+    mailbox = fakeMailbox([
+      {
+        uid: 1,
+        raw: envelope(
+          mail('Subject: Invio File 99000000002\r\n', 'INTERNA', [
+            text('INTERNA', 'Invio file'),
+            attachment('INTERNA', 'IT01234567897_b1B2c.xml', lot),
+          ]),
+          'POSTA CERTIFICATA: Invio File 99000000002',
+          '<lotto@pec>',
+        ),
+      },
+    ]);
+    await service().runOnce();
+    expect(applier.apply).not.toHaveBeenCalled();
+    expect(messages.rows[0].status).toBe(SdiMessageStatus.PENDING);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO invoice_import_issues'),
+      [messages.rows[0].id, 'BATCH_NOT_SUPPORTED', expect.any(String)],
+    );
+  });
+
+  describe('reprocess', () => {
+    const stored = (id: number, uid: string, over: Row = {}) => ({
+      id,
+      kind: 'INVOICE',
+      status: SdiMessageStatus.PENDING,
+      supplier_id_fk: 9,
+      sdi_identifier: `9900000000${id}`,
+      uid_validity: '7',
+      uid,
+      message_id: `<m${id}@pec>`,
+      file_name: 'IT01234567897_a1B2c.xml.p7m',
+      invoice_id_fk: null,
+      ...over,
+    });
+
+    beforeEach(() => {
+      patterns.rows.push(pricePattern());
+      messages.rows.push(
+        stored(1, '1'),
+        stored(2, '2', { status: SdiMessageStatus.EXTRACTED, invoice_id_fk: 60 }),
+        stored(3, '3'),
+      );
+      invoices.rows.push({ id: 60, deleted: false, import_locked: true });
+      mailbox.fetchRaw.mockImplementation((async (_v: number, uid: number) =>
+        uid === 3 ? null : invoiceEml('<m@pec>')) as never);
+    });
+
+    it('estrae i messaggi ancora sulla PEC, salta spariti e fatture modificate a mano', async () => {
+      expect(await service().reprocess([1, 2, 3])).toEqual({ extracted: 1, skipped: 2, queued: 0 });
+      expect(applier.apply).toHaveBeenCalledTimes(1);
+      expect(mailbox.open).toHaveBeenCalledTimes(1);
+    });
+
+    it('un messaggio che dà errore non ferma gli altri e non blocca il recupero delle strutture', async () => {
+      messages.rows.push(stored(5, '5'));
+      mailbox.fetchRaw.mockImplementation((async (_v: number, uid: number) => {
+        if (uid === 1) throw new Error('lettura interrotta');
+        return invoiceEml('<m@pec>');
+      }) as never);
+      expect(await service().reprocess([1, 5])).toEqual({ extracted: 1, skipped: 1, queued: 0 });
+      const failed = messages.rows.find((r) => r.id === 1)!;
+      expect(failed.error).toBe('lettura interrotta');
+      expect(failed.structure_key).toBe('');
+    });
+
+    it('fattura importata poi eliminata: non si ricrea rielaborando', async () => {
+      messages.rows.push(stored(4, '4', { status: SdiMessageStatus.EXTRACTED, invoice_id_fk: 61 }));
+      invoices.rows.push({ id: 61, deleted: true, import_locked: false });
+      expect(await service().reprocess([4])).toEqual({ extracted: 0, skipped: 1, queued: 0 });
+      expect(applier.apply).not.toHaveBeenCalled();
+    });
+
+    it('con un giro in corso: in coda, elaborati alla fine del giro', async () => {
+      mailbox = fakeMailbox([]);
+      mailbox.fetchRaw.mockImplementation((async () => invoiceEml('<m@pec>')) as never);
+      const svc = service();
+      let queued: unknown;
+      mailbox.fetchSince.mockImplementation(async function* () {
+        queued = await svc.reprocess([1]);
+      } as never);
+      await svc.runOnce();
+      expect(queued).toEqual({ extracted: 0, skipped: 0, queued: 1 });
+      expect(applier.apply).toHaveBeenCalledTimes(1);
+    });
+
+    it('struttura mancante sui messaggi della parte 1: completata a ogni giro', async () => {
+      mailbox = fakeMailbox([]);
+      mailbox.fetchRaw.mockImplementation((async () => invoiceEml('<m@pec>')) as never);
+      patterns.rows.length = 0;
+      messages.rows.length = 0;
+      messages.rows.push(stored(1, '1', { structure_key: null }));
+      query.mockImplementation(async (sql: string) =>
+        sql.includes('structure_key IS NULL') ? [{ id: 1 }] : [],
+      );
+      await service().runOnce();
+      expect(messages.rows[0].structure_key).toBe(structureKey(fixture('fattura.xml')));
+    });
+  });
+});
+
+describe('InvoiceImportService.getStatus', () => {
+  it('conteggi per esito e ultimi messaggi in errore', async () => {
+    const created = new Date('2026-10-19T10:00:00Z');
+    const query = jest.fn(async (sql: string) =>
+      sql.includes('GROUP BY status')
+        ? [{ status: 'LINKED', total: '3' }]
+        : sql.includes("status = 'ERROR'")
+          ? [{ file_name: 'IT01234567897_x.xml', error: 'XML illeggibile', create_date: created }]
+          : [],
+    );
+    const service = new InvoiceImportService(
+      fakeRepo([{ id: 1, enabled: true }]) as never,
+      fakeRepo() as never,
+      fakeRepo() as never,
+      { query } as never,
+      () => ({}) as PecMailbox,
+      fakeRepo() as never,
+      {} as never,
+      {} as never,
+      noLinker as never,
+      noRecalc as never,
+    );
+    const status = await service.getStatus();
+    expect(status.counts).toEqual({ LINKED: 3 });
+    expect(status.recentErrors).toEqual([
+      { file_name: 'IT01234567897_x.xml', error: 'XML illeggibile', create_date: created },
+    ]);
+  });
+});
+
 describe('InvoiceImportService.getDocument', () => {
   const savedEnv = { ...process.env };
   let messages: ReturnType<typeof fakeRepo>;
@@ -272,6 +593,11 @@ describe('InvoiceImportService.getDocument', () => {
       invoices as never,
       { query: jest.fn() } as never,
       () => mailbox as unknown as PecMailbox,
+      fakeRepo() as never,
+      {} as never,
+      {} as never,
+      noLinker as never,
+      noRecalc as never,
     );
 
   beforeEach(() => {
@@ -316,6 +642,12 @@ describe('InvoiceImportService.getDocument', () => {
     await expect(service().getDocument(50, 'xml')).rejects.toThrow(
       'Non più disponibile sulla PEC: cercare la fattura nel protocollo.',
     );
+  });
+
+  it('struttura ignorata dopo il collegamento: XML e PDF restano visibili', async () => {
+    messages.rows[0].status = SdiMessageStatus.IGNORED;
+    const doc = await service().getDocument(50, 'xml');
+    expect(doc.contentType).toBe('application/xml');
   });
 
   it('fattura senza messaggio SDI', async () => {

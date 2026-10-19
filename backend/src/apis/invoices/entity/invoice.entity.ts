@@ -78,6 +78,10 @@ export class Invoice {
   @Column({ type: 'boolean', default: false })
   sdi_outcome_discarded: boolean;
 
+  // Fattura dell'import modificata a mano: l'import non la rielabora più.
+  @Column({ type: 'boolean', default: false })
+  import_locked: boolean;
+
   @Column({ type: 'int', nullable: true })
   contratto_id_fk: number;
 

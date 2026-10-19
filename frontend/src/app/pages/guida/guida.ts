@@ -29,4 +29,5 @@ export const GUIDA_PER_PAGINA: Record<string, string> = {
   'map': 'consultare-la-mappa',
   'system-users': 'ruoli',
   'backup-import': 'fare-un-backup-solo-amministratori',
+  'invoice-import': 'importare-le-fatture-dalla-pec-solo-amministratori',
 };

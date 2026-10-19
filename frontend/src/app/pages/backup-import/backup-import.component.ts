@@ -13,7 +13,6 @@ import { ToastService } from '../../core/services/toast.service';
 import { BackupService, BackupInfo, BackupJobStatus } from './backup.service';
 import { GeocodeService, RegeocodeAllStatus } from './geocode.service';
 import { UtilityConsumptionService } from '../utilities/consumptions/utility-consumption.service';
-import { InvoiceImportTabComponent } from './invoice-import-tab.component';
 import { RestoreConfirmDialogComponent, RestoreConfirmDialogData, RestoreConfirmDialogResult } from './restore-confirm-dialog.component';
 
 // Poll piu' rado di quanto Nominatim possa mai completare una singola
@@ -33,7 +32,6 @@ const STATUS_POLL_MS = 3000;
     MatProgressSpinnerModule,
     MatCheckboxModule,
     MatProgressBarModule,
-    InvoiceImportTabComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './backup-import.component.html',

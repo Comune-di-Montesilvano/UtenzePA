@@ -2,12 +2,15 @@ import { SdiStatus } from './enum/sdi-status.enum';
 import { InvoicesService } from './invoice.service';
 import { Invoice } from './entity/invoice.entity';
 import { InvoiceLine } from './entity/invoice-line.entity';
+import { SdiMessage } from '@apis/invoice-import/entity/sdi-message.entity';
 
 describe('InvoicesService', () => {
   let service: InvoicesService;
   let repo: { createQueryBuilder: jest.Mock; findOne: jest.Mock };
   let contractRepo: { findOne: jest.Mock };
   let dataSource: { transaction: jest.Mock };
+  let linker: { follow: jest.Mock; unlink: jest.Mock };
+  let recalc: { recalcUtility: jest.Mock };
   let manager: {
     create: jest.Mock;
     save: jest.Mock;
@@ -29,7 +32,15 @@ describe('InvoicesService', () => {
     repo = { createQueryBuilder: jest.fn(), findOne: jest.fn() };
     contractRepo = { findOne: jest.fn().mockResolvedValue({ id: 1, supplier_id_fk: 44 }) };
     dataSource = { transaction: jest.fn((cb) => cb(manager)) };
-    service = new InvoicesService(repo as never, contractRepo as never, dataSource as never);
+    linker = { follow: jest.fn().mockResolvedValue([]), unlink: jest.fn().mockResolvedValue([]) };
+    recalc = { recalcUtility: jest.fn() };
+    service = new InvoicesService(
+      repo as never,
+      contractRepo as never,
+      dataSource as never,
+      linker as never,
+      recalc as never,
+    );
   });
 
   describe('create', () => {
@@ -157,10 +168,37 @@ describe('InvoicesService', () => {
       ]);
     });
 
+    it('righe reinviate: le rilevazioni dei consumi seguono le righe, utenze ricalcolate', async () => {
+      const previous = [{ id: 1, invoice_id_fk: 20, consumption_id_fk: 70 }];
+      manager.find.mockResolvedValue(previous);
+      linker.follow.mockResolvedValue([812]);
+      await service.update(20, { lines: [{ amount: 5 }] } as never, 7);
+      expect(linker.follow).toHaveBeenCalledWith(manager, 20, previous);
+      expect(recalc.recalcUtility).toHaveBeenCalledWith(812);
+    });
+
+    it('senza lines le rilevazioni non si toccano', async () => {
+      await service.update(20, { notes_on_invoices: 'nota' } as never, 7);
+      expect(linker.follow).not.toHaveBeenCalled();
+    });
+
     it('lines vuoto cancella tutte le righe', async () => {
       await service.update(20, { lines: [] } as never, 7);
       expect(manager.delete).toHaveBeenCalledWith(InvoiceLine, { invoice_id_fk: 20 });
       expect(manager.save).not.toHaveBeenCalledWith(InvoiceLine, expect.anything());
+    });
+
+    it('fattura nata o arricchita dall’import: la modifica a mano la blocca', async () => {
+      manager.count.mockResolvedValue(1);
+      await service.update(20, { notes_on_invoices: 'nota' } as never, 7);
+      expect(manager.count).toHaveBeenCalledWith(SdiMessage, { where: { invoice_id_fk: 20 } });
+      expect(manager.save).toHaveBeenCalledWith(Invoice, expect.objectContaining({ import_locked: true }));
+    });
+
+    it('fattura non importata: import_locked non toccato', async () => {
+      await service.update(20, { notes_on_invoices: 'nota' } as never, 7);
+      const saved = manager.save.mock.calls.find(([e]) => e === Invoice)[1];
+      expect(saved).not.toHaveProperty('import_locked');
     });
 
     it('registra in audit il numero di righe prima/dopo', async () => {
@@ -175,6 +213,17 @@ describe('InvoicesService', () => {
           ]),
         }),
       );
+    });
+  });
+
+  describe('remove', () => {
+    it('eliminando la fattura si tolgono i suoi consumi e le utenze si ricalcolano', async () => {
+      repo.findOne.mockResolvedValue({ id: 20, deleted: false });
+      (repo as unknown as { save: jest.Mock }).save = jest.fn();
+      linker.unlink.mockResolvedValue([812]);
+      await service.remove(20, 7);
+      expect(linker.unlink).toHaveBeenCalledWith(manager, 20);
+      expect(recalc.recalcUtility).toHaveBeenCalledWith(812);
     });
   });
 
