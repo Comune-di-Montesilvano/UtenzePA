@@ -397,9 +397,10 @@ export class InvoiceImportService {
     if (!pattern) {
       // Era ferma con un pattern che non la riconosce più: torna tra le fatture senza pattern.
       if (row.pattern_id_fk && row.status !== SdiMessageStatus.EXTRACTED) {
-        await this.dataSource.query('DELETE FROM invoice_import_issues WHERE sdi_message_id_fk = ?', [
-          row.id,
-        ]);
+        await this.dataSource.query(
+          'DELETE FROM invoice_import_issues WHERE sdi_message_id_fk = ?',
+          [row.id],
+        );
         row.pattern_id_fk = null;
         await this.messagesRepo.update(row.id, { pattern_id_fk: null });
       }

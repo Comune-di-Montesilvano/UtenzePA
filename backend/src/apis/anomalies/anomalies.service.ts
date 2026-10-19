@@ -758,9 +758,7 @@ export class AnomaliesService {
       invoice_sdi_outcome_discarded: list(
         outcomeDiscarded.map((r) => ({ invoice_id: Number(r.invoice_id), number: String(r.number) })),
       ),
-      invoice_patterns_unknown: list(
-        patternsUnknown.map(toUnknownStructure),
-      ),
+      invoice_patterns_unknown: list(patternsUnknown.map(toUnknownStructure)),
       invoice_import_issues: list(
         importIssues.map((r) => ({
           invoice_id: r.invoice_id == null ? null : Number(r.invoice_id),
@@ -776,7 +774,11 @@ export class AnomaliesService {
             .filter((r) => r.type === 'METER_MISMATCH' && r.utility_id != null)
             .map((r) => [
               Number(r.utility_id),
-              { id: Number(r.utility_id), utility_id: String(r.utility_code), detail: String(r.detail) },
+              {
+                id: Number(r.utility_id),
+                utility_id: String(r.utility_code),
+                detail: String(r.detail),
+              },
             ]),
         ).values(),
       ]),

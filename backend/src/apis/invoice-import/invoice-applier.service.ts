@@ -144,7 +144,11 @@ export class InvoiceApplier {
     );
   }
 
-  private async fillMeters(manager: EntityManager, match: MatchResult, userId: number): Promise<void> {
+  private async fillMeters(
+    manager: EntityManager,
+    match: MatchResult,
+    userId: number,
+  ): Promise<void> {
     for (const { utilityId, meter } of match.meterFills) {
       const result: { affectedRows?: number } = await manager.query(FILL_METER_SQL, [
         meter.slice(0, 255),
