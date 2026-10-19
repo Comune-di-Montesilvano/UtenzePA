@@ -25,6 +25,9 @@ export interface UtilityAnomaly {
   contracts?: string | null;
 }
 
+// Pratica in sospeso: giorni dalla data dell'evento.
+export type PendingUtilityAnomaly = UtilityAnomaly & {pending_days: number};
+
 export interface ChapterAnomaly {
   id: number;
   chapter: string;
@@ -48,11 +51,15 @@ export interface Anomalies {
   third_parties_without_identifier: AnomalyList<{id: number; name: string; type: string}>;
   active_utilities_without_arera_category: AnomalyList<UtilityAnomaly>;
   active_gas_utilities_without_use_category: AnomalyList<UtilityAnomaly>;
-  utilities_to_transfer: AnomalyList<UtilityAnomaly>;
-  utilities_to_recover: AnomalyList<UtilityAnomaly>;
+  utilities_to_transfer: AnomalyList<PendingUtilityAnomaly>;
+  utilities_to_recover: AnomalyList<PendingUtilityAnomaly>;
+  utilities_to_decide: AnomalyList<PendingUtilityAnomaly>;
+  pending_activations: AnomalyList<PendingUtilityAnomaly>;
+  pending_cessations: AnomalyList<PendingUtilityAnomaly>;
   assets_without_classification: AnomalyList<{id: number; asset_name: string; missing: string}>;
   rented_assets_without_passive_contract: AnomalyList<{id: number; asset_name: string}>;
-  invoices_on_ceased_utilities: AnomalyList<{invoice_id: number; number: string; invoice_date: string; utility_id: number; utility_code: string}>;
+  // period 'gg/mm/aaaa-gg/mm/aaaa'; null = riga senza periodo (conta la data fattura).
+  invoices_outside_supply_periods: AnomalyList<{invoice_id: number; number: string; invoice_date: string; utility_id: number; utility_code: string; period: string | null}>;
   utilities_with_uncommitted_chapter: AnomalyList<UtilityAnomaly & {chapter: string}>;
   active_utilities_without_chapter: AnomalyList<UtilityAnomaly>;
   chapters_over_budget: AnomalyList<ChapterAnomaly & {adjusted_budget: number; committed: number; invoiced: number}>;

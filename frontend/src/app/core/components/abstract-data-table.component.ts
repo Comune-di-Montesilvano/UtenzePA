@@ -5,7 +5,7 @@ import {MatPaginator, PageEvent} from '@angular/material/paginator';
 import {MatDialog} from '@angular/material/dialog';
 import {ConfirmDialogComponent, ConfirmDialogData} from './confirm-dialog.component';
 import {ScreenSizeService} from '../../services/screen-size.service';
-import {sheetDialogConfig} from './entity-sheet/sheet-utils';
+import {isSheetRefresh, sheetDialogConfig} from './entity-sheet/sheet-utils';
 
 export interface EditDialogData<T> {
   mode: 'create' | 'edit';
@@ -32,6 +32,8 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
   @Output() onDelete = new EventEmitter<T>();
   @Output() onCreate = new EventEmitter<T>();
   @Output() onRestore = new EventEmitter<T>();
+  // Scheda chiusa senza salvare ma con modifiche già salvate da un suo tab.
+  @Output() onRefresh = new EventEmitter<void>();
 
   @ViewChild(MatSort) sort?: MatSort;
   @ViewChild(MatPaginator) paginator?: MatPaginator;
@@ -138,7 +140,8 @@ export abstract class AbstractDataTableComponent<T extends { id: any; name?: str
     const data: EditDialogData<T> = {mode: 'edit', item: {...item}};
     this.dialog.open<unknown, EditDialogData<T>, T | undefined>(this.editDialogComponent(), this.dialogConfig(data))
       .afterClosed().subscribe(result => {
-        if (result) this.onSave.emit(result);
+        if (isSheetRefresh(result)) this.onRefresh.emit();
+        else if (result) this.onSave.emit(result);
       });
   }
 

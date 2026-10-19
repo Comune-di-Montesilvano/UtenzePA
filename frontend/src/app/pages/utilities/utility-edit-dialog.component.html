@@ -90,34 +90,17 @@
           <div class="sheet-grid">
             <div class="span-all" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
               <app-status-badge [info]="costStatusInfo"></app-status-badge>
-              @for (p of costInfo?.parties ?? []; track p.grant_id + '-' + p.third_party_id) {
-                <a href="javascript:void(0)" (click)="openGrant(p.grant_id)" matTooltip="Apri il contratto immobiliare">{{ p.name }}</a>
+              <span>{{ supplyText }}</span>
+              @if (holderText) {
+                <span>· {{ holderText }}</span>
               }
-              @if (canEdit && costInfo?.status === 'TO_TRANSFER' && costInfo?.parties?.length === 1 && !form.controls.transferred_to_third_party_id.value) {
-                <button mat-stroked-button type="button" (click)="markTransferredToday()">Segna volturata oggi</button>
+              @if (pendingText) {
+                <span class="sheet-alert tone-warn" style="margin: 0; padding: 2px 8px;">{{ pendingText }}</span>
               }
-              @if (canEdit && form.controls.transferred_to_third_party_id.value) {
-                <button mat-button type="button" (click)="recoverToComune()">Ripresa dal Comune</button>
+              @for (g of costInfo?.grants ?? []; track g.grant_id) {
+                <a href="javascript:void(0)" (click)="openGrant(g.grant_id)" matTooltip="Apri il contratto immobiliare">{{ g.name }}</a>
               }
             </div>
-            <mat-form-field>
-              <mat-label>Voltura</mat-label>
-              <mat-select formControlName="transfer_required">
-                @for (opt of transferRequiredOptions; track opt.value) {
-                  <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                }
-              </mat-select>
-              <mat-hint>Prevale su quanto previsto dal contratto immobiliare</mat-hint>
-            </mat-form-field>
-            <app-filterable-select label="Volturata a" placeholder="Cerca soggetto... (vuoto = Comune)"
-              [options]="transferOptions" formControlName="transferred_to_third_party_id">
-            </app-filterable-select>
-            <mat-form-field>
-              <mat-label>Volturata il</mat-label>
-              <input matInput [matDatepicker]="transferredOnPicker" formControlName="transferred_on">
-              <mat-datepicker-toggle matSuffix [for]="transferredOnPicker"></mat-datepicker-toggle>
-              <mat-datepicker #transferredOnPicker></mat-datepicker>
-            </mat-form-field>
           </div>
 
           <div class="sheet-section-title"><mat-icon>build</mat-icon>Manutenzione</div>
@@ -131,6 +114,36 @@
                 <a href="javascript:void(0)" (click)="openGrant(p.grant_id)" matTooltip="Apri il contratto immobiliare">{{ p.name }}</a>
               }
             </div>
+          </div>
+        }
+
+        @if (isNew) {
+          <div class="sheet-section-title"><mat-icon>power</mat-icon>Fornitura</div>
+          <div class="sheet-grid" [formGroup]="supplyForm">
+            <div class="span-all">
+              <mat-radio-group formControlName="active" aria-label="Già attiva">
+                <span class="sheet-hint" style="margin-right: 1rem;">Già attiva</span>
+                <mat-radio-button [value]="true">Sì</mat-radio-button>
+                <mat-radio-button [value]="false">No, da attivare</mat-radio-button>
+              </mat-radio-group>
+            </div>
+            @if (supplyForm.controls.active.value) {
+              <mat-form-field>
+                <mat-label>Attiva dal</mat-label>
+                <input matInput [matDatepicker]="activeFromPicker" formControlName="effective_on" [max]="today">
+                <mat-datepicker-toggle matSuffix [for]="activeFromPicker"></mat-datepicker-toggle>
+                <mat-datepicker #activeFromPicker></mat-datepicker>
+                <mat-hint>Facoltativa: vuota = data non nota</mat-hint>
+              </mat-form-field>
+            } @else {
+              <mat-form-field>
+                <mat-label>Richiesta il</mat-label>
+                <input matInput [matDatepicker]="requestedOnPicker" formControlName="requested_on">
+                <mat-datepicker-toggle matSuffix [for]="requestedOnPicker"></mat-datepicker-toggle>
+                <mat-datepicker #requestedOnPicker></mat-datepicker>
+                <mat-hint>Attivazione in sospeso</mat-hint>
+              </mat-form-field>
+            }
           </div>
         }
 
@@ -193,29 +206,6 @@
         </ng-template>
         <div class="sheet-section-title">Stato utenza</div>
         <div class="sheet-grid">
-          <mat-form-field>
-            <mat-label>Fornitura Attiva</mat-label>
-            <mat-select formControlName="supply_active">
-              @for (opt of booleanOptions; track opt.value) {
-                <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Data attivazione</mat-label>
-            <input matInput [matDatepicker]="activatedPicker" formControlName="activated_on">
-            <mat-datepicker-toggle matSuffix [for]="activatedPicker"></mat-datepicker-toggle>
-            <mat-datepicker #activatedPicker></mat-datepicker>
-          </mat-form-field>
-          <mat-form-field>
-            <mat-label>Data cessazione</mat-label>
-            <input matInput [matDatepicker]="ceasedPicker" formControlName="ceased_on">
-            <mat-datepicker-toggle matSuffix [for]="ceasedPicker"></mat-datepicker-toggle>
-            <mat-datepicker #ceasedPicker></mat-datepicker>
-            @if (ceasedButActive) {
-              <mat-hint>Fornitura ancora segnata attiva</mat-hint>
-            }
-          </mat-form-field>
           @if (isMetered) {
           <mat-form-field>
             <mat-label>Contatore Rimosso</mat-label>
@@ -235,9 +225,6 @@
           </mat-form-field>
           }
         </div>
-        @if (form.hasError('ceasedBeforeActivated')) {
-          <div class="sheet-hint" style="color: var(--mat-sys-error, #b3261e);">La data di cessazione non può precedere quella di attivazione.</div>
-        }
 
         @if (showInternetFields) {
         <div class="sheet-section-title">Caratteristiche della linea</div>
@@ -467,6 +454,17 @@
           <app-photo-gallery [entityType]="'utility'" [entityId]="data.item.id"></app-photo-gallery>
         </ng-template>
       </mat-tab>
+
+      @if (!isNew) {
+        <mat-tab aria-label="Attivazioni e volture">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="swap_horiz" label="Attivazioni e volture" [count]="supplyPendingCount || null" tone="warn"></app-tab-label>
+          </ng-template>
+          <app-utility-supply-tab [utilityId]="data.item.id" [canEdit]="canEdit"
+                                  (pendingCount)="supplyPendingCount = $event"
+                                  (changed)="onSupplyChanged()"></app-utility-supply-tab>
+        </mat-tab>
+      }
 
       <mat-tab aria-label="Storico" [disabled]="isNew">
         <ng-template mat-tab-label>

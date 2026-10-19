@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import { BaseService } from '@apis/shared/base.service';
 import { UtilizerGrantService } from './utilizer-grant.service';
 import { ContractStatus, DisplayStatus, RentPeriod } from './enum/real-estate-contract.enum';
@@ -15,6 +15,7 @@ describe('UtilizerGrantService', () => {
   };
   let assetRepo: { count: jest.Mock };
   let partyRepo: { count: jest.Mock };
+  let supply: { utilityIdsOfGrant: jest.Mock; reconcileManySafe: jest.Mock };
 
   const row = (over: Record<string, unknown> = {}) => ({
     id: 1,
@@ -47,7 +48,11 @@ describe('UtilizerGrantService', () => {
     };
     assetRepo = { count: jest.fn().mockResolvedValue(1) };
     partyRepo = { count: jest.fn().mockResolvedValue(1) };
-    service = new UtilizerGrantService(repo as never, assetRepo as never, partyRepo as never);
+    supply = {
+      utilityIdsOfGrant: jest.fn().mockResolvedValue([]),
+      reconcileManySafe: jest.fn().mockResolvedValue(undefined),
+    };
+    service = new UtilizerGrantService(repo as never, assetRepo as never, partyRepo as never, supply as never);
     jest.spyOn(service as never, 'today' as never).mockReturnValue('2026-10-02' as never);
   });
 
@@ -189,5 +194,77 @@ describe('UtilizerGrantService', () => {
     repo.findOne.mockResolvedValue({ id: 5, deleted: false, updated_by_user_id: 1 });
     await service.remove(5, 3);
     expect(repo.save).toHaveBeenCalledWith({ id: 5, deleted: true, updated_by_user_id: 3 });
+  });
+
+  describe('riconciliazione dello storico utenze', () => {
+    it('create: riconcilia le utenze coperte dopo il salvataggio', async () => {
+      repo.findOne.mockResolvedValue({ id: 99, assets: [{ id: 7 }] });
+      supply.utilityIdsOfGrant.mockResolvedValue([11, 12]);
+      await service.create({ party_ids: [1], asset_ids: [7] } as never, 3);
+      expect(supply.utilityIdsOfGrant).toHaveBeenCalledWith(99);
+      expect(supply.reconcileManySafe).toHaveBeenCalledWith([11, 12], 3);
+    });
+
+    it('update: unione delle utenze prima e dopo (immobili tolti inclusi)', async () => {
+      repo.findOne.mockResolvedValue({ id: 1, deleted: false, assets: [{ id: 3 }] });
+      jest.spyOn(BaseService.prototype, 'update').mockResolvedValue({ id: 1 } as never);
+      supply.utilityIdsOfGrant.mockResolvedValueOnce([1, 2]).mockResolvedValueOnce([2, 3]);
+      await service.update(1, { asset_ids: [4] } as never, 3);
+      expect(supply.reconcileManySafe).toHaveBeenCalledTimes(1);
+      const [ids, user] = supply.reconcileManySafe.mock.calls[0];
+      expect([...ids].sort()).toEqual([1, 2, 3]);
+      expect(user).toBe(3);
+    });
+
+    it('update: «prima» letto prima del salvataggio, «dopo» dopo', async () => {
+      const order: string[] = [];
+      repo.findOne.mockResolvedValue({ id: 1, deleted: false });
+      jest.spyOn(BaseService.prototype, 'update').mockImplementation(async () => {
+        order.push('save');
+        return { id: 1 } as never;
+      });
+      supply.utilityIdsOfGrant.mockImplementation(async () => {
+        order.push('ids');
+        return [];
+      });
+      await service.update(1, { subject: 'x' } as never, 3);
+      expect(order).toEqual(['ids', 'save', 'ids']);
+    });
+
+    it('update: se la riconciliazione fallisce il contratto salvato risponde comunque', async () => {
+      repo.findOne.mockResolvedValue({ id: 1, deleted: false });
+      jest.spyOn(BaseService.prototype, 'update').mockResolvedValue({ id: 1 } as never);
+      supply.utilityIdsOfGrant.mockResolvedValue([1, 2]);
+      supply.reconcileManySafe.mockResolvedValue(undefined);
+      await expect(service.update(1, { subject: 'x' } as never, 3)).resolves.toBeDefined();
+    });
+
+    it('utenze non lette dopo il salvataggio: niente 500, errore registrato, riconciliate quelle di prima', async () => {
+      const error = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      repo.findOne.mockResolvedValue({ id: 1, deleted: false });
+      jest.spyOn(BaseService.prototype, 'update').mockResolvedValue({ id: 1 } as never);
+      supply.utilityIdsOfGrant.mockResolvedValueOnce([1, 2]).mockRejectedValueOnce(new Error('db giù'));
+      await expect(service.update(1, { subject: 'x' } as never, 3)).resolves.toBeDefined();
+      expect(supply.reconcileManySafe).toHaveBeenCalledWith([1, 2], 3);
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('contratto 1'), expect.any(Error));
+
+      supply.utilityIdsOfGrant.mockReset().mockResolvedValueOnce([8]).mockRejectedValueOnce(new Error('db giù'));
+      repo.findOne.mockResolvedValue({ id: 5, deleted: false, updated_by_user_id: 1 });
+      await expect(service.remove(5, 3)).resolves.toBeUndefined();
+      expect(supply.reconcileManySafe).toHaveBeenLastCalledWith([8], 3);
+
+      supply.utilityIdsOfGrant.mockReset().mockRejectedValue(new Error('db giù'));
+      repo.findOne.mockResolvedValue({ id: 99, assets: [] });
+      await expect(service.create({ party_ids: [1], asset_ids: [7] } as never, 3)).resolves.toBeDefined();
+      expect(supply.reconcileManySafe).toHaveBeenLastCalledWith([], 3);
+    });
+
+    it('remove: riconcilia le utenze coperte dal contratto', async () => {
+      repo.findOne.mockResolvedValue({ id: 5, deleted: false, updated_by_user_id: 1 });
+      supply.utilityIdsOfGrant.mockResolvedValue([8]);
+      await service.remove(5, 3);
+      expect(supply.reconcileManySafe).toHaveBeenCalledWith([8], 3);
+      expect(supply.utilityIdsOfGrant).toHaveBeenCalledTimes(2);
+    });
   });
 });

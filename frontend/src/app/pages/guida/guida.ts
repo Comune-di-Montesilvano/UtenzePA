@@ -16,7 +16,7 @@ export function guidaSlug(heading: string): string {
 // (primo segmento dell'URL). Le pagine senza voce aprono la guida dall'inizio.
 export const GUIDA_PER_PAGINA: Record<string, string> = {
   'building': 'trovare-un-elemento-negli-elenchi',
-  'utilities': 'gestire-la-voltura-di-unutenza',
+  'utilities': 'attivazioni-cessazioni-e-volture-di-unutenza',
   'plants': 'trovare-un-elemento-negli-elenchi',
   'complexes': 'gestire-i-complessi',
   'acts': 'registrare-un-atto',

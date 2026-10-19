@@ -35,6 +35,8 @@ export interface MapPoint {
   complexType?: ComplexType | null;
   // Immobile o impianto dismesso, utenza cessata: marker sbiadito.
   inactive?: boolean;
+  // Utenza volturata a un terzo (né attiva né cessata per il Comune): marker grigio.
+  transferred?: boolean;
 }
 
 export interface UngeolocatedItem {

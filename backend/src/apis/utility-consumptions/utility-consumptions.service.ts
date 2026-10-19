@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { UtilitySupplyEvent } from '@apis/utility-supply/entity/utility-supply-event.entity';
+import { toEventLike } from '@apis/utility-supply/supply-reconcile.service';
+import { activeIntervals, inChargeIntervals } from '@apis/utility-supply/supply-state';
 import { BaseService } from '@apis/shared/base.service';
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
@@ -53,6 +56,8 @@ export interface UtilityConsumptionSummary {
 }
 
 const toNumber = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
+// Intervallo che non contiene nessun giorno reale dei dati.
+const NEVER_DAY = '9999-12-31';
 
 // Fasce e penale reattiva esistono solo per le utenze elettriche.
 const isElectric = (u: Utility): boolean => u.utilityType?.hard_type === HardTypeEnum.LIGHT;
@@ -75,6 +80,8 @@ export class UtilityConsumptionsService extends BaseService<
     @InjectRepository(Utility)
     private readonly utilityRepo: Repository<Utility>,
     private readonly recalc: ConsumptionRecalcService,
+    @InjectRepository(UtilitySupplyEvent)
+    private readonly eventRepo: Repository<UtilitySupplyEvent>,
   ) {
     super();
   }
@@ -106,6 +113,18 @@ export class UtilityConsumptionsService extends BaseService<
       : null;
     const daily = buildDailyConsumption(records);
     const today = todayDay();
+    // Periodi in carico al Comune dallo storico: i giorni da cessata e quelli
+    // di voltura (le bollette vanno al terzo) non sono buchi.
+    const events = await this.eventRepo.find({
+      where: { utility_id_fk: utilityId, deleted: false },
+    });
+    const likes = events.map(toEventLike);
+    let intervals = inChargeIntervals(likes);
+    // Volturata per tutto il periodo attivo: nessun giorno è del Comune
+    // (un elenco vuoto per dataGaps vorrebbe dire «sempre attiva»).
+    if (!intervals.length && activeIntervals(likes).length) {
+      intervals = [{ start: NEVER_DAY, end: NEVER_DAY }];
+    }
     // Effettivo dallo storico, non dal valore persistito: stesso calcolo del
     // ricalcolo, coerente con finestra e buchi anche prima del ricalcolo notturno.
     const actual = computeActual(daily, today);
@@ -116,7 +135,7 @@ export class UtilityConsumptionsService extends BaseService<
       coverage_days: actual.coverageDays,
       window_start: actual.windowStart,
       window_end: actual.windowEnd,
-      gaps: dataGaps(daily, today),
+      gaps: dataGaps(daily, today, intervals),
       estimated_annual_consumption: Number(utility.estimated_annual_consumption ?? 0),
       estimated_source: utility.estimated_consumption_source,
       estimated_set_at: setAt ? setAt.toISOString() : null,

@@ -1,4 +1,4 @@
-import { In } from 'typeorm';
+import { In, IsNull } from 'typeorm';
 import { MapService } from './map.service';
 
 describe('MapService', () => {
@@ -723,7 +723,7 @@ describe('MapService', () => {
     });
 
     expect(utilityRepo.find.mock.calls[0][0].where).toEqual(
-      expect.objectContaining({ supply_active: true }),
+      expect.objectContaining({ supply_active: true, transferred_to_third_party_id: IsNull() }),
     );
     expect(plantRepo.find.mock.calls[0][0].where).toEqual(
       expect.objectContaining({ status: In(['ACTIVE']) }),
@@ -776,6 +776,23 @@ describe('MapService', () => {
 
     const flags = Object.fromEntries(points.map((p) => [`${p.type}${p.id}`, p.inactive ?? false]));
     expect(flags).toEqual({ asset1: true, asset2: false, plant3: true, utility4: true });
+  });
+
+  it('utenza volturata: flag transferred, non inactive (anche se il dato fisico è cessata)', async () => {
+    assetRepo.find.mockResolvedValue([]);
+    plantRepo.find.mockResolvedValue([]);
+    utilityRepo.find.mockResolvedValue([
+      { id: 5, utility_id: 'U5', latitude: '42.8', longitude: '14.4', supply_active: true, transferred_to_third_party_id: 3, assets: [], plants: [] },
+      { id: 6, utility_id: 'U6', latitude: '42.9', longitude: '14.5', supply_active: false, transferred_to_third_party_id: 3, assets: [], plants: [] },
+      { id: 7, utility_id: 'U7', latitude: '43.0', longitude: '14.6', supply_active: true, transferred_to_third_party_id: null, assets: [], plants: [] },
+    ]);
+    const { points } = await service.getPoints({});
+    const pick = (id: number) => points.find((p) => p.type === 'utility' && p.id === id);
+    expect(pick(5)).toMatchObject({ transferred: true });
+    expect(pick(5)?.inactive).toBeUndefined();
+    expect(pick(6)).toMatchObject({ transferred: true });
+    expect(pick(6)?.inactive).toBeUndefined();
+    expect(pick(7)?.transferred).toBeUndefined();
   });
 
   it('utenza senza gps collegata a due immobili produce un punto per ciascuno', async () => {

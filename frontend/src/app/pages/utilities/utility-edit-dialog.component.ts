@@ -10,6 +10,7 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatDatepickerModule} from '@angular/material/datepicker';
 import {MatTab, MatTabGroup, MatTabsModule} from '@angular/material/tabs';
+import {MatRadioModule} from '@angular/material/radio';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
@@ -40,13 +41,16 @@ import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-ba
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
 import {PreviewCardComponent, PreviewItem} from '../../core/components/entity-sheet/preview-card.component';
 import {LinkedColumn, LinkedTableComponent, RowIcon} from '../../core/components/entity-sheet/linked-table.component';
-import {assetStatus, costStatus, maintenanceStatus, plantStatus, sortSupplyContracts, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
-import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
+import {assetStatus, costStatus, isInChargeUtility, isTransferredUtility, maintenanceStatus, plantStatus, sortSupplyContracts, StatusInfo, supplyContractStatus, utilityFlags, utilityStatus} from '../../core/helpers/entity-status';
+import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab, SHEET_REFRESH, SheetRefresh, sinceDays} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import {UtilityService} from './utility.service';
 import {partyName} from '../../core/helpers/party-name.helper';
-import {ThirdPartiesService} from '../third-parties/third-parties.service';
 import {UtilityInvoicesTabComponent} from './utility-invoices-tab.component';
+import {UtilitySupplyTabComponent} from './supply/utility-supply-tab.component';
+import {SUPPLY_EVENT_LABEL} from './supply/supply.model';
+import {toIsoDate} from '../../core/helpers/date.helper';
+import type {CostInfo} from './entity/utility.interface';
 import {CommitmentService} from '../contracts/commitments/commitment.service';
 import {forkJoin} from 'rxjs';
 
@@ -56,13 +60,6 @@ function atLeastOneLink(group: AbstractControl): ValidationErrors | null {
   const assets = (group.get('asset_ids')?.value ?? []) as unknown[];
   const plants = (group.get('plant_ids')?.value ?? []) as unknown[];
   return assets.length + plants.length > 0 ? null : {noLink: true};
-}
-
-// Cessazione non prima dell'attivazione (stessa regola del backend).
-function lifeDatesInOrder(group: AbstractControl): ValidationErrors | null {
-  const from = group.get('activated_on')?.value as Date | null;
-  const to = group.get('ceased_on')?.value as Date | null;
-  return from && to && to.getTime() < from.getTime() ? {ceasedBeforeActivated: true} : null;
 }
 
 // Riga impianto: dall'elenco completo, o dai dati parziali dell'utenza
@@ -81,17 +78,17 @@ interface PlantRow {
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatTabsModule,
+    MatButtonModule, MatIconModule, MatTooltipModule, MatDatepickerModule, MatTabsModule, MatRadioModule,
     FilterableSelectComponent, LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
     UtilityConsumptionsTabComponent, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent,
-    PreviewCardComponent, LinkedTableComponent, UtilityInvoicesTabComponent,
+    PreviewCardComponent, LinkedTableComponent, UtilityInvoicesTabComponent, UtilitySupplyTabComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './utility-edit-dialog.component.html'
 })
 export class UtilityEditDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
-  private dialogRef = inject(MatDialogRef<UtilityEditDialogComponent, Utility | undefined>);
+  private dialogRef = inject(MatDialogRef<UtilityEditDialogComponent, Utility | SheetRefresh | undefined>);
   private authService = inject(AuthService);
   private assetsService = inject(AssetService);
   private plantService = inject(PlantService);
@@ -101,7 +98,6 @@ export class UtilityEditDialogComponent implements OnInit {
   private contractsService = inject(ContractsService);
   private navigator = inject(EntityNavigatorService);
   private utilityService = inject(UtilityService);
-  private thirdPartiesService = inject(ThirdPartiesService);
   protected data = inject<EditDialogData<Utility>>(MAT_DIALOG_DATA);
 
   @ViewChild(MatTabGroup) tabGroup?: MatTabGroup;
@@ -109,7 +105,7 @@ export class UtilityEditDialogComponent implements OnInit {
 
   isNew = this.data.mode === 'create';
   readonly canEdit = isEditorRole(this.authService.getCurrentUser()?.role);
-  readonly lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
+  lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
   readonly formatQty = formatQty;
   readonly HardType = HardType;
 
@@ -153,11 +149,6 @@ export class UtilityEditDialogComponent implements OnInit {
   get isMetered(): boolean { return this.selectedHardType !== HardType.INTERNET; }
   get showInternetFields(): boolean { return this.selectedHardType === HardType.INTERNET; }
 
-  // Cessazione già passata ma fornitura ancora segnata attiva.
-  get ceasedButActive(): boolean {
-    const ceased = this.form.controls.ceased_on.value as Date | null;
-    return !!ceased && ceased.getTime() <= new Date().setHours(0, 0, 0, 0) && this.form.controls.supply_active.value === true;
-  }
   get isWater(): boolean { return this.selectedHardType === HardType.WATER; }
 
   // Se la relazione non è popolata (FK orfana o non caricata), il campo FK
@@ -183,11 +174,6 @@ export class UtilityEditDialogComponent implements OnInit {
     plant_ids: [this.data.item.plant_ids ?? (this.data.item.plants ?? []).map(p => p.id)],
     // Facoltativo: senza capitolo l'utenza va tra le segnalazioni, salvo contratto a titolo gratuito.
     budget_chapter_code_fk: [this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', this.data.item) ?? null],
-    transferred_to_third_party_id: [this.data.item.transferred_to_third_party_id ?? null],
-    transferred_on: [this.toDate(this.data.item.transferred_on)],
-    transfer_required: [(this.data.item.transfer_required ?? null) as boolean | null],
-    activated_on: [this.toDate(this.data.item.activated_on)],
-    ceased_on: [this.toDate(this.data.item.ceased_on)],
     internet_technology: [this.data.item.internet_technology ?? null],
     download_mbps: [this.data.item.download_mbps ?? null as number | null],
     upload_mbps: [this.data.item.upload_mbps ?? null as number | null],
@@ -208,7 +194,6 @@ export class UtilityEditDialogComponent implements OnInit {
     security_deposit: [this.data.item.security_deposit ?? null as number | null],
     reported_consumption_year: [this.data.item.reported_consumption_year ?? 0, Validators.required],
     supplier_address: [this.data.item.supplier_address ?? ''],
-    supply_active: [this.data.item.supply_active ?? null],
     utility_code: [this.data.item.utility_code ?? ''],
     utility_id: [{value: this.data.item.utility_id ?? '', disabled: !this.isNew}, Validators.required],
     utility_type_id_fk: [this.data.item.utility_type_id_fk ?? null, Validators.required],
@@ -216,7 +201,17 @@ export class UtilityEditDialogComponent implements OnInit {
     supplier_plant_code: [this.data.item.supplier_plant_code ?? ''],
     water_concession: [this.toDate(this.data.item.water_concession)],
     wbs_gas_element: [this.data.item.wbs_gas_element ?? ''],
-  }, {validators: [atLeastOneLink, lifeDatesInOrder]});
+  }, {validators: [atLeastOneLink]});
+
+  // Solo in creazione: riga di partenza dello storico (inviata come initial_supply).
+  supplyForm = this.fb.group({
+    active: [true],
+    effective_on: [null as Date | null],
+    requested_on: [null as Date | null],
+  });
+  readonly today = new Date();
+  // Cambiamenti in sospeso, dal tab «Attivazioni e volture».
+  supplyPendingCount: number | null = null;
 
   // Collegamenti: campi cache aggiornati da refreshLinks().
   contracts: Contract[] = sortSupplyContracts(this.data.item.contratti ?? []);
@@ -250,14 +245,25 @@ export class UtilityEditDialogComponent implements OnInit {
   ];
   readonly contractStatusOf = (c: Contract): StatusInfo => supplyContractStatus(c);
 
+  // Valori dei controlli all'apertura (o dopo l'ultimo riallineamento): un
+  // controllo si riallinea al server solo se nessuno l'ha cambiato, né
+  // l'utente né il codice (posizione dalla mappa, reset al cambio tipo...).
+  private snapshot = new Map<string, unknown>();
+  // Storico cambiato dal tab: anche chiudendo senza salvare l'elenco si ricarica.
+  private supplyChanged = false;
+
   constructor() {
     if (!this.canEdit) {
       this.form.disable();
     }
+    this.takeSnapshot();
+  }
+
+  private takeSnapshot(): void {
+    for (const [name, control] of Object.entries(this.form.controls)) this.snapshot.set(name, control.value);
   }
 
   ngOnInit(): void {
-    if (!this.isNew) this.loadTransferOptions();
     this.refreshLinks();
     this.loadPlants();
     this.loadAssets();
@@ -408,12 +414,14 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   statusInfo(): StatusInfo {
-    return utilityStatus(this.form.controls.supply_active.value);
+    // In creazione: dalla sezione «Fornitura» (Già attiva sì/no).
+    return utilityStatus(this.isNew ? this.supplyForm.controls.active.value : this.data.item);
   }
 
   flags(): StatusInfo[] {
     const meterRemoved = this.isMetered && this.form.controls.meter_removed.value;
-    const withoutPosition = this.form.controls.supply_active.value === true && this.hasPosition() === false;
+    // Come l'anomalia: solo le utenze in carico al Comune (non le volturate).
+    const withoutPosition = isInChargeUtility(this.data.item) && this.hasPosition() === false;
     return utilityFlags(meterRemoved, withoutPosition);
   }
 
@@ -691,70 +699,110 @@ export class UtilityEditDialogComponent implements OnInit {
     return this.assetRows.find(a => (a.latitude ?? a.geocoded_latitude) && (a.longitude ?? a.geocoded_longitude)) ?? this.assetRows[0];
   }
 
-  // A carico di: stato calcolato dal backend sui dati salvati (si aggiorna
-  // dopo Salva); la voltura si segna nei due campi del form.
-  readonly costInfo = this.data.item.cost_info;
-  readonly costStatusInfo = costStatus(this.data.item.cost_info);
+  // A carico di: stato calcolato dal backend sullo storico (si aggiorna dopo
+  // Salva o dopo una modifica dal tab «Attivazioni e volture»).
+  costInfo = this.data.item.cost_info;
+  costStatusInfo = costStatus(this.data.item.cost_info);
+  supplyText = this.supplyTextOf();
+  holderText = this.holderTextOf(this.costInfo);
+  pendingText = this.pendingTextOf(this.costInfo);
   // Manutenzione: calcolata dal backend sui contratti salvati (si aggiorna dopo il Salva).
-  readonly maintenanceInfo = this.data.item.maintenance_info;
-  readonly maintenanceStatusInfo = maintenanceStatus(this.data.item.maintenance_info);
-  // Soggetti a cui volturare: prima le parti dei contratti attivi e
-  // l'intestatario attuale, poi tutti gli altri soggetti terzi (la voltura
-  // può essere decisa sull'utenza anche senza contratto).
-  transferOptions: TOption[] = this.contractTransferOptions();
+  maintenanceInfo = this.data.item.maintenance_info;
+  maintenanceStatusInfo = maintenanceStatus(this.data.item.maintenance_info);
 
-  private contractTransferOptions(): TOption[] {
-    const opts = new Map<number, TOption>();
-    for (const p of this.costInfo?.active_parties ?? []) {
-      opts.set(p.third_party_id, {value: p.third_party_id, label: p.name, sublabel: 'Parte di un contratto immobiliare attivo'});
+  // Volturata: né attiva né cessata per il Comune (decisione utente 2026-10-19).
+  private supplyTextOf(): string {
+    const item = this.data.item;
+    if (isTransferredUtility(item)) {
+      const name = item.cost_info?.holder?.name;
+      const since = item.cost_info?.holder_since ?? item.transferred_on;
+      return `Volturata${name ? ` a ${name}` : ''}${since ? ` dal ${dateIt(since)}` : ''}`;
     }
-    const t = this.costInfo?.transferred_to;
-    if (t && !opts.has(t.id)) opts.set(t.id, {value: t.id, label: t.name, sublabel: 'Intestatario attuale'});
-    return [...opts.values()];
+    if (item.supply_active) return 'Attiva';
+    return item.ceased_on ? `Cessata il ${dateIt(item.ceased_on)}` : 'Non attiva';
   }
 
-  private loadTransferOptions(): void {
-    this.thirdPartiesService.search({deleted: false}).subscribe({
-      next: list => {
-        const first = this.contractTransferOptions();
-        const seen = new Set(first.map(o => o.value));
-        const others = list
-          .filter(tp => !seen.has(tp.id))
-          .map(tp => ({value: tp.id, label: partyName(tp)}))
-          .sort((a, b) => a.label.localeCompare(b.label));
-        this.transferOptions = [...first, ...others];
+  // null se volturata: l'intestatario è già nel testo della fornitura.
+  private holderTextOf(info: CostInfo | undefined): string | null {
+    if (isTransferredUtility(this.data.item)) return null;
+    if (!info?.holder) return 'Intestata al Comune';
+    const since = info.holder_since ? ` dal ${dateIt(info.holder_since)}` : '';
+    return `Intestata a ${info.holder.name}${since}`;
+  }
+
+  private pendingTextOf(info: CostInfo | undefined): string | null {
+    const p = info?.pending;
+    if (!p) return null;
+    const label = p.type === 'DECISION' ? 'Decisione sul contratto immobiliare' : SUPPLY_EVENT_LABEL[p.type];
+    return `${label} in sospeso ${sinceDays(p.days)}`;
+  }
+
+  // Dopo una modifica dal tab «Attivazioni e volture»: il backend ha
+  // riconciliato l'utenza. Si rilegge e si riallineano stato, Riepilogo e i
+  // controlli non toccati (altrimenti Salva rimanderebbe i valori vecchi).
+  onSupplyChanged(): void {
+    this.supplyChanged = true;
+    this.utilityService.getById(this.data.item.id).subscribe({
+      next: raw => {
+        const u = plainToInstance(Utility, raw);
+        const item = this.data.item;
+        item.supply_active = u.supply_active;
+        item.activated_on = u.activated_on;
+        item.ceased_on = u.ceased_on;
+        item.transferred_to_third_party_id = u.transferred_to_third_party_id;
+        item.transferred_on = u.transferred_on;
+        item.cost_status = u.cost_status;
+        item.pending_since = u.pending_since;
+        item.cost_info = u.cost_info;
+        item.maintenance_info = u.maintenance_info;
+        item.update_date = u.update_date;
+        item.updated_by = u.updated_by;
+        this.costInfo = u.cost_info;
+        this.costStatusInfo = costStatus(u.cost_info);
+        this.supplyText = this.supplyTextOf();
+        this.holderText = this.holderTextOf(u.cost_info);
+        this.pendingText = this.pendingTextOf(u.cost_info);
+        this.maintenanceInfo = u.maintenance_info;
+        this.maintenanceStatusInfo = maintenanceStatus(u.maintenance_info);
+        this.lastModified = lastModifiedLabel(u.update_date, u.updated_by);
+        this.realignPristine(u);
       },
-      error: err => console.error('Errore caricamento soggetti terzi:', err),
+      error: err => console.error("Errore nel riallineamento dell'utenza:", err),
     });
   }
 
-  // Voltura decisa sull'utenza: "come da contratto" dice cosa prevede il contratto.
-  get transferRequiredOptions(): {value: boolean | null; label: string}[] {
-    const contract = this.costInfo?.contract_requires ? 'da volturare' : 'non da volturare';
-    return [
-      {value: null, label: `Come da contratto (${contract})`},
-      {value: true, label: 'Da volturare'},
-      {value: false, label: 'Non da volturare'},
-    ];
-  }
-
-  markTransferredToday(): void {
-    const parties = this.costInfo?.parties ?? [];
-    if (parties.length !== 1) return;
-    // Mezzanotte locale, come il datepicker: in invio vale il giorno locale (@DateOnly).
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    this.form.patchValue({transferred_to_third_party_id: parties[0].third_party_id, transferred_on: today});
-    this.form.markAsDirty();
-  }
-
-  recoverToComune(): void {
-    this.form.patchValue({transferred_to_third_party_id: null, transferred_on: null});
-    this.form.markAsDirty();
+  // Controlli non modificati qui: presi dal server. I collegamenti (immobili,
+  // impianti) hanno il loro riallineamento. Lo snapshot si prende nel
+  // costruttore, prima di ngOnInit e dei caricamenti: così ogni modifica fatta
+  // dal codice dopo l'apertura (mappa, reset al cambio tipo) risulta diversa
+  // dallo snapshot e non viene sovrascritta.
+  private realignPristine(u: Utility): void {
+    const skip = new Set(['asset_ids', 'plant_ids', 'utility_id']);
+    // Stessi default dell'inizializzazione del form.
+    const zeroDefault = new Set(['estimated_annual_consumption', 'reported_consumption_year']);
+    const iso = (v: unknown) => (v instanceof Date ? toIsoDate(v) : v);
+    for (const [name, control] of Object.entries(this.form.controls)) {
+      if (skip.has(name) || !control.pristine) continue;
+      // Cambiato dal codice (patchValue/setValue non lo rendono dirty).
+      if (iso(control.value) !== iso(this.snapshot.get(name))) continue;
+      const server = (u as unknown as Record<string, unknown>)[name];
+      const next = name === 'water_concession'
+        ? this.toDate(server)
+        : name === 'budget_chapter_code_fk'
+          ? this.resolveOnRelation('budgetChapter', 'budget_chapter_code_fk', u)
+          : server ?? (zeroDefault.has(name) ? 0 : typeof control.value === 'string' ? '' : null);
+      this.snapshot.set(name, next);
+      if (iso(next) === iso(control.value)) continue;
+      control.setValue(next as never, {emitEvent: false});
+      control.markAsPristine();
+    }
   }
 
   openGrant(id: number): void {
-    this.navigator.openGrant(id).subscribe();
+    // Una decisione di voltura sul contratto riconcilia questa utenza.
+    this.navigator.openGrant(id).subscribe(saved => {
+      if (saved) this.onSupplyChanged();
+    });
   }
 
   onPositionSelected(coords: { lat: string; lng: string }): void {
@@ -779,6 +827,8 @@ export class UtilityEditDialogComponent implements OnInit {
     if (control.pristine) {
       control.setValue(summary.estimated_annual_consumption);
       control.markAsPristine();
+      // Valore del server: resta riallineabile.
+      this.snapshot.set('estimated_annual_consumption', control.value);
     }
     // Una lettura con matricola nuova aggiorna la matricola dell'utenza:
     // senza riallineare il form, "Salva" la riporterebbe a quella vecchia.
@@ -787,6 +837,7 @@ export class UtilityEditDialogComponent implements OnInit {
     if (meter.pristine) {
       meter.setValue(summary.meter_number ?? '');
       meter.markAsPristine();
+      this.snapshot.set('meter_number', meter.value);
     }
   }
 
@@ -797,12 +848,21 @@ export class UtilityEditDialogComponent implements OnInit {
     }
     const result = plainToInstance(Utility, {
       id: this.data.item.id,
-      ...this.form.getRawValue()
+      ...this.form.getRawValue(),
+      ...(this.isNew ? {initial_supply: this.initialSupply()} : {}),
     });
     this.dialogRef.close(result);
   }
 
+  private initialSupply(): NonNullable<Utility['initial_supply']> {
+    const v = this.supplyForm.getRawValue();
+    const iso = (d: Date | null) => (d ? toIsoDate(d) : null);
+    return v.active
+      ? {active: true, effective_on: iso(v.effective_on)}
+      : {active: false, requested_on: iso(v.requested_on)};
+  }
+
   cancel(): void {
-    this.dialogRef.close(undefined);
+    this.dialogRef.close(this.supplyChanged ? SHEET_REFRESH : undefined);
   }
 }

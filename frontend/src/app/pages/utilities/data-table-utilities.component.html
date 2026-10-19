@@ -151,9 +151,14 @@
   <ng-container matColumnDef="supply_active">
     <th mat-header-cell *matHeaderCellDef mat-sort-header>Fornitura Attiva</th>
     <td mat-cell *matCellDef="let item">
-      <mat-icon [style.color]="item.supply_active ? '#22c55e' : '#ef4444'">
-        {{ item.supply_active ? 'check_circle' : 'cancel' }}
-      </mat-icon>
+      @if (isTransferred(item)) {
+        <!-- Volturata: né attiva né cessata per il Comune -->
+        <mat-icon style="color: var(--app-muted)" matTooltip="Volturata a un terzo: né attiva né cessata per il Comune">swap_horiz</mat-icon>
+      } @else {
+        <mat-icon [style.color]="item.supply_active ? '#22c55e' : '#ef4444'">
+          {{ item.supply_active ? 'check_circle' : 'cancel' }}
+        </mat-icon>
+      }
     </td>
   </ng-container>
 

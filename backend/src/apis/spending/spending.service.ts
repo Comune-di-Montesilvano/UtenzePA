@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { partyNameSql } from '@apis/third-parties/third-party.name';
+import { inChargeSql } from '@apis/utility/cost-status';
 import {
   CHAPTER_LINES,
   COMMITMENTS,
@@ -245,14 +246,15 @@ export class SpendingService {
     return { years, shared_utilities: Number(shared) };
   }
 
-  // Per capitolo: utenze attive del contratto, impegni per esercizio, speso
+  // Per capitolo: utenze in carico al Comune (attive e non volturate) del
+  // contratto, impegni per esercizio, speso
   // dalle fatture del contratto (capitolo dell'impegno, altrimenti
   // dell'utenza della riga).
   async chaptersSummary(contractId: number): Promise<ChapterSummary[]> {
     const byUtility: Record<string, unknown>[] = await this.dataSource.query(
       `SELECT b.id AS budget_chapter_id, b.chapter_code, b.article, b.description, COUNT(*) AS utilities
        FROM contract_utilities cu
-       JOIN utilities u ON u.id = cu.utility_id AND u.deleted = 0 AND u.supply_active = 1
+       JOIN utilities u ON u.id = cu.utility_id AND u.deleted = 0 AND ${inChargeSql('u')}
        LEFT JOIN budget_chapters b ON b.id = u.budget_chapter_code_fk
        WHERE cu.contract_id = ?
        GROUP BY b.id, b.chapter_code, b.article, b.description

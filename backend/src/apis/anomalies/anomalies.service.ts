@@ -4,8 +4,12 @@ import { GroundingClass, PlantStatus, PlantType } from '@apis/plants/enum/plant.
 import { todayIso } from '@apis/utilizer-grant/real-estate-contract.calc';
 import { DataSource } from 'typeorm';
 import { partyNameSql } from '@apis/third-parties/third-party.name';
-import { CostStatus, costStatusSql } from '@apis/utility/cost-status';
+import { CostStatus, costStatusSql, inChargeSql } from '@apis/utility/cost-status';
 import { chaptersYearSummary, currentYear } from '@apis/spending/chapter-year';
+import { dbDay, romeDay } from '@apis/utility-supply/supply-reconcile.service';
+import { SupplyEventLike } from '@apis/utility-supply/supply-state';
+import { outOfPeriod } from '@apis/utility-supply/out-of-period';
+import { SupplyEventType } from '@apis/utility-supply/enum/supply-event-type.enum';
 
 // Contratto valido oggi: stessa definizione di "contratto corrente" usata in
 // UtilitiesService (scadenza assente o non ancora passata).
@@ -52,16 +56,18 @@ export interface Anomalies {
   third_parties_without_identifier: AnomalyList<{ id: number; name: string; type: string }>;
   active_utilities_without_arera_category: AnomalyList<UtilityAnomaly>;
   active_gas_utilities_without_use_category: AnomalyList<UtilityAnomaly>;
-  utilities_to_transfer: AnomalyList<UtilityAnomaly>;
-  utilities_to_recover: AnomalyList<UtilityAnomaly>;
+  utilities_to_transfer: AnomalyList<PendingUtilityAnomaly>;
+  utilities_to_recover: AnomalyList<PendingUtilityAnomaly>;
   assets_without_classification: AnomalyList<{ id: number; asset_name: string; missing: string }>;
   rented_assets_without_passive_contract: AnomalyList<{ id: number; asset_name: string }>;
-  invoices_on_ceased_utilities: AnomalyList<{
+  invoices_outside_supply_periods: AnomalyList<{
     invoice_id: number;
     number: string;
     invoice_date: string;
     utility_id: number;
     utility_code: string;
+    // 'gg/mm/aaaa–gg/mm/aaaa'; null = riga senza periodo (conta la data fattura).
+    period: string | null;
   }>;
   utilities_with_uncommitted_chapter: AnomalyList<UtilityAnomaly & { chapter: string }>;
   active_utilities_without_chapter: AnomalyList<UtilityAnomaly>;
@@ -79,7 +85,13 @@ export interface Anomalies {
   assets_without_mef_id: AnomalyList<{ id: number; asset_name: string }>;
   units_without_subordinate: AnomalyList<{ id: number; asset_name: string }>;
   functions_without_mef_type: AnomalyList<{ id: number; name: string }>;
+  utilities_to_decide: AnomalyList<PendingUtilityAnomaly>;
+  pending_activations: AnomalyList<PendingUtilityAnomaly>;
+  pending_cessations: AnomalyList<PendingUtilityAnomaly>;
 }
+
+// Pratica in sospeso: giorni dalla data evento (giorno di Roma).
+export type PendingUtilityAnomaly = UtilityAnomaly & { pending_days: number };
 
 export interface ChapterAnomaly {
   id: number;
@@ -102,13 +114,30 @@ export interface RealEstateContractAnomaly {
 
 const list = <T>(items: T[]): AnomalyList<T> => ({ count: items.length, items });
 
+const daysSince = (since: string | null, today: string): number =>
+  since
+    ? Math.max(
+        0,
+        Math.round(
+          (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${since}T00:00:00Z`)) / 86_400_000,
+        ),
+      )
+    : 0;
+
+const itDate = (day: string): string =>
+  `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}`;
+
 // Anomalie dei dati contrattuali mostrate in dashboard. Regola di fondo: un
 // contratto senza CIG (e non esplicitamente escluso) è di fatto inesistente.
 @Injectable()
 export class AnomaliesService {
   constructor(private readonly dataSource: DataSource) {}
 
+  // Sostituibile nei test.
+  now: () => Date = () => new Date();
+
   async getAnomalies(): Promise<Anomalies> {
+    const today = romeDay(this.now());
     const contractsWithoutCig: Record<string, unknown>[] = await this.dataSource.query(
       `SELECT c.id, ${partyNameSql('s')} AS supplier, ca.name AS agreement,
               DATE_FORMAT(c.supply_expiry_date, '%Y-%m-%d') AS supply_expiry_date,
@@ -125,8 +154,10 @@ export class AnomaliesService {
         FROM contract_utilities cu JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
         LEFT JOIN third_parties s ON s.id = c.supplier_id_fk
         WHERE cu.utility_id = u.id AND ${CURRENT}) AS contracts`;
+    // Utenze in carico al Comune: attive e non volturate (decisione utente
+    // 2026-10-19). Non vale per byCostStatus, che elenca proprio le volture.
     const activeUtilities = `FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
-       WHERE u.deleted = 0 AND u.supply_active = 1`;
+       WHERE u.deleted = 0 AND ${inChargeSql('u')}`;
     const currentContractOf = (extra = '') =>
       `SELECT 1 FROM contract_utilities cu JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
        WHERE cu.utility_id = u.id AND ${CURRENT} ${extra}`;
@@ -247,36 +278,48 @@ export class AnomaliesService {
        ORDER BY u.utility_id`,
     );
 
-    // Contratto immobiliare con voltura attivo, utenza non ancora volturata:
-    // paga il Comune finché il terzo non volta. Le più vecchie prima.
-    const toTransfer: (UtilityAnomaly & { since?: string | null })[] = await this.dataSource.query(
-      `SELECT ${utilityColumns}, x.since,
-              CONCAT(x.parties, IFNULL(CONCAT(' · dal ', DATE_FORMAT(x.since, '%d/%m/%Y')), '')) AS contracts
-       FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
-       JOIN (SELECT ua.utility_id,
-                    GROUP_CONCAT(DISTINCT ${partyNameSql('tp')} ORDER BY tp.id SEPARATOR ', ') AS parties,
-                    MIN(g.start_date) AS since
+    // «A carico di» dalla colonna di stato (SupplyReconcileService), giorni
+    // di attesa da pending_since. Contratti = parti dei contratti immobiliari
+    // in corso sugli immobili dell'utenza (possono mancare). Le più vecchie prima.
+    // In corso come isGrantActive: stato ACTIVE e fine effettiva non passata
+    // (con il rinnovo tacito la fine effettiva non è mai passata).
+    const grantPartiesJoin = `LEFT JOIN (SELECT ua.utility_id,
+                    GROUP_CONCAT(DISTINCT ${partyNameSql('tp')} ORDER BY tp.id SEPARATOR ', ') AS parties
                FROM utility_assets ua
                JOIN assets sa ON sa.id = ua.asset_id AND sa.deleted = 0
                JOIN utilizer_grant_assets uga ON uga.asset_id = ua.asset_id
                JOIN utilizer_grant g ON g.id = uga.utilizer_grant_id AND g.deleted = 0
-                 AND g.status = 'ACTIVE' AND g.direction = 'ACTIVE' AND g.utilities_to_be_taken_over = 1
+                 AND g.status = 'ACTIVE' AND g.direction = 'ACTIVE'
+                 AND (g.end_date IS NULL OR g.end_date >= ?
+                   OR (g.tacit_renewal = 1 AND IFNULL(g.renewal_months, 0) > 0))
                JOIN utilizer_grant_parties gp ON gp.utilizer_grant_id = g.id
                JOIN third_parties tp ON tp.id = gp.third_party_id AND tp.deleted = 0
-              GROUP BY ua.utility_id) x ON x.utility_id = u.id
-       WHERE u.deleted = 0 AND u.supply_active = 1
-         AND ${costStatusSql(CostStatus.TO_TRANSFER, 'u')}
-       ORDER BY x.since IS NULL, x.since, u.utility_id`,
-    );
-
-    // Volturata a chi non ha più un contratto attivo sull'immobile.
-    const toRecover: UtilityAnomaly[] = await this.dataSource.query(
-      `SELECT ${utilityColumns}, ${partyNameSql('vt')} AS contracts
-       FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
-       LEFT JOIN third_parties vt ON vt.id = u.transferred_to_third_party_id
-       WHERE u.deleted = 0 AND u.supply_active = 1
-         AND ${costStatusSql(CostStatus.TO_RECOVER, 'u')}
-       ORDER BY u.utility_id`,
+              GROUP BY ua.utility_id) x ON x.utility_id = u.id`;
+    const pendingColumns = `${utilityColumns}, DATE_FORMAT(u.pending_since, '%Y-%m-%d') AS pending_since`;
+    const pendingOrder = 'ORDER BY u.pending_since IS NULL, u.pending_since, u.utility_id';
+    const byCostStatus = (
+      status: CostStatus,
+      contractsSql: string,
+      join: string,
+      params: unknown[] = [],
+    ) =>
+      this.dataSource.query(
+        `SELECT ${pendingColumns}, ${contractsSql} AS contracts
+         FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
+         ${join}
+         WHERE u.deleted = 0 AND u.supply_active = 1
+           AND ${costStatusSql(status, 'u')}
+         ${pendingOrder}`,
+        params,
+      ) as Promise<Record<string, unknown>[]>;
+    const toTransfer = await byCostStatus(CostStatus.TO_TRANSFER, 'x.parties', grantPartiesJoin, [
+      today,
+    ]);
+    // Da reintestare: conta a chi è volturata oggi.
+    const toRecover = await byCostStatus(
+      CostStatus.TO_RECOVER,
+      partyNameSql('vt'),
+      'LEFT JOIN third_parties vt ON vt.id = u.transferred_to_third_party_id',
     );
 
     // Natura e funzione sono l'unica classificazione dell'immobile.
@@ -302,17 +345,6 @@ export class AnomaliesService {
         ORDER BY a.asset_name`,
     );
 
-    const onCeased: Record<string, unknown>[] = await this.dataSource.query(
-      `SELECT DISTINCT i.id AS invoice_id, i.invoice_id AS number,
-              DATE_FORMAT(i.invoice_date, '%Y-%m-%d') AS invoice_date,
-              u.id AS utility_id, u.utility_id AS utility_code
-       FROM invoice_lines il
-       JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0
-       JOIN utilities u ON u.id = il.utility_id_fk AND u.deleted = 0
-       WHERE u.supply_active = 0 AND i.invoice_date >= CURDATE() - INTERVAL 12 MONTH
-       ORDER BY invoice_date DESC, invoice_id`,
-    );
-
     // Solo contratti che hanno almeno un impegno censito: finché gli impegni
     // sono vuoti segnalerebbe tutte le utenze.
     const uncommitted: Record<string, unknown>[] = await this.dataSource.query(
@@ -320,7 +352,7 @@ export class AnomaliesService {
               CONCAT(b.chapter_code, '/', b.article) AS chapter
        FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
        JOIN budget_chapters b ON b.id = u.budget_chapter_code_fk
-       WHERE u.deleted = 0 AND u.supply_active = 1
+       WHERE u.deleted = 0 AND ${inChargeSql('u')}
        AND EXISTS (
          SELECT 1 FROM contract_utilities cu JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
          WHERE cu.utility_id = u.id AND c.closed = 0
@@ -364,7 +396,7 @@ export class AnomaliesService {
     const withoutBudget: Record<string, unknown>[] = await this.dataSource.query(
       `SELECT b.id, b.chapter_code, b.article, b.description FROM budget_chapters b
        WHERE b.deleted = 0
-         AND (EXISTS (SELECT 1 FROM utilities u WHERE u.budget_chapter_code_fk = b.id AND u.deleted = 0 AND u.supply_active = 1)
+         AND (EXISTS (SELECT 1 FROM utilities u WHERE u.budget_chapter_code_fk = b.id AND u.deleted = 0 AND ${inChargeSql('u')})
               OR EXISTS (SELECT 1 FROM budget_commitments c WHERE c.budget_chapter_id_fk = b.id AND c.deleted = 0 AND c.fiscal_year = ?))
          AND NOT EXISTS (SELECT 1 FROM budget_chapter_spending s
                          WHERE s.budget_chapter_id_fk = b.id AND s.deleted = 0 AND s.year = ? AND s.adjusted_budget IS NOT NULL)
@@ -498,6 +530,120 @@ export class AnomaliesService {
         ),
       }))
       .filter((x) => x.missing.length > 0);
+    // Storico utenze (roadmap voce 22): query nuove in fondo (spec posizionale).
+    const toDecide = await byCostStatus(CostStatus.TO_DECIDE, 'x.parties', grantPartiesJoin, [
+      today,
+    ]);
+
+    // Attivazioni e cessazioni manuali in sospeso; data evento = richiesta,
+    // altrimenti giorno di inserimento (Roma). Una per utenza, la più vecchia.
+    const pendingSupply: Record<string, unknown>[] = await this.dataSource.query(
+      `SELECT u.id AS utility_pk, u.utility_id, t.name AS type, e.type AS event_type,
+              e.requested_on, e.create_date
+         FROM utility_supply_events e
+         JOIN utilities u ON u.id = e.utility_id_fk AND u.deleted = 0
+         JOIN utility_types t ON t.id = u.utility_type_id_fk
+        WHERE e.deleted = 0 AND e.cancelled_on IS NULL AND e.effective_on IS NULL
+          AND e.date_unknown = 0 AND e.utilizer_grant_id_fk IS NULL
+          AND e.type IN ('ACTIVATION', 'CESSATION')
+        ORDER BY t.name, u.utility_id`,
+    );
+    const pendingOf = (type: SupplyEventType): PendingUtilityAnomaly[] => {
+      const oldest = new Map<number, { item: UtilityAnomaly; since: string }>();
+      for (const r of pendingSupply) {
+        if (r.event_type !== type) continue;
+        const since =
+          dbDay(r.requested_on) ?? romeDay((r.create_date as Date | string) ?? this.now());
+        const id = Number(r.utility_pk);
+        const seen = oldest.get(id);
+        if (seen && seen.since <= since) continue;
+        oldest.set(id, {
+          item: { id, utility_id: String(r.utility_id), type: (r.type as string) ?? null },
+          since,
+        });
+      }
+      return [...oldest.values()]
+        .sort((p, q) => (p.since < q.since ? -1 : p.since > q.since ? 1 : 0))
+        .map(({ item, since }) => ({ ...item, pending_days: daysSince(since, today) }));
+    };
+
+    // Fatture fuori dai periodi di attività: righe degli ultimi 12 mesi con
+    // utenza, poi lo storico di quelle utenze; il confronto è in Node.
+    const invoiceLines: Record<string, unknown>[] = await this.dataSource.query(
+      `SELECT i.id AS invoice_id, i.invoice_id AS number, i.invoice_date,
+              u.id AS utility_id, u.utility_id AS utility_code, il.period_start, il.period_end
+         FROM invoice_lines il
+         JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0
+         JOIN utilities u ON u.id = il.utility_id_fk AND u.deleted = 0
+        WHERE COALESCE(il.period_end, i.invoice_date) >= CAST(? AS DATE) - INTERVAL 12 MONTH`,
+      [today],
+    );
+    const lineUtilityIds = [...new Set(invoiceLines.map((r) => Number(r.utility_id)))];
+    const eventRows: Record<string, unknown>[] = lineUtilityIds.length
+      ? await this.dataSource.query(
+          `SELECT id, utility_id_fk, type, third_party_id_fk, requested_on, effective_on, date_unknown,
+                  cancelled_on, deleted, utilizer_grant_id_fk, create_date
+             FROM utility_supply_events
+            WHERE deleted = 0 AND utility_id_fk IN (?)`,
+          [lineUtilityIds],
+        )
+      : [];
+    const eventsByUtility = new Map<number, SupplyEventLike[]>();
+    for (const r of eventRows) {
+      const id = Number(r.utility_id_fk);
+      const bucket = eventsByUtility.get(id) ?? [];
+      bucket.push({
+        id: Number(r.id),
+        type: r.type as SupplyEventType,
+        third_party_id_fk: r.third_party_id_fk == null ? null : Number(r.third_party_id_fk),
+        requested_on: dbDay(r.requested_on),
+        effective_on: dbDay(r.effective_on),
+        date_unknown: !!Number(r.date_unknown),
+        cancelled_on: dbDay(r.cancelled_on),
+        deleted: !!Number(r.deleted),
+        utilizer_grant_id_fk:
+          r.utilizer_grant_id_fk == null ? null : Number(r.utilizer_grant_id_fk),
+        create_date: romeDay((r.create_date as Date | string) ?? this.now()),
+      });
+      eventsByUtility.set(id, bucket);
+    }
+    const outside = new Map<
+      string,
+      Anomalies['invoices_outside_supply_periods']['items'][number]
+    >();
+    for (const r of invoiceLines) {
+      const invoiceDate = dbDay(r.invoice_date) as string;
+      const start = dbDay(r.period_start);
+      const end = dbDay(r.period_end);
+      const utilityId = Number(r.utility_id);
+      const line = { period_start: start, period_end: end, invoice_date: invoiceDate };
+      if (!outOfPeriod(line, eventsByUtility.get(utilityId) ?? [])) continue;
+      const from = start ?? end;
+      const period = from ? `${itDate(from)}–${itDate(end ?? from)}` : null;
+      const item = {
+        invoice_id: Number(r.invoice_id),
+        number: String(r.number),
+        invoice_date: invoiceDate,
+        utility_id: utilityId,
+        utility_code: String(r.utility_code),
+        period,
+      };
+      outside.set(`${item.invoice_id}|${utilityId}|${period}`, item);
+    }
+    const invoicesOutside = [...outside.values()].sort(
+      (p, q) =>
+        (p.invoice_date < q.invoice_date ? 1 : p.invoice_date > q.invoice_date ? -1 : 0) ||
+        p.invoice_id - q.invoice_id,
+    );
+    const pendingItems = (rows: Record<string, unknown>[]): PendingUtilityAnomaly[] =>
+      rows.map((r) => ({
+        id: Number(r.id),
+        utility_id: String(r.utility_id),
+        type: (r.type as string) ?? null,
+        contracts: (r.contracts as string) ?? null,
+        pending_days: daysSince(dbDay(r.pending_since), today),
+      }));
+
     const assetItems = (rows: { id: unknown; asset_name: string }[]) =>
       list(rows.map((a) => ({ id: Number(a.id), asset_name: a.asset_name })));
 
@@ -519,15 +665,7 @@ export class AnomaliesService {
           })),
       ),
       chapters_without_budget: list(withoutBudget.map(chapterLabel)),
-      invoices_on_ceased_utilities: list(
-        onCeased.map((r) => ({
-          invoice_id: Number(r.invoice_id),
-          number: String(r.number),
-          invoice_date: String(r.invoice_date),
-          utility_id: Number(r.utility_id),
-          utility_code: String(r.utility_code),
-        })),
-      ),
+      invoices_outside_supply_periods: list(invoicesOutside),
       utilities_with_uncommitted_chapter: list(
         uncommitted.map((r) => ({
           id: Number(r.id),
@@ -563,8 +701,11 @@ export class AnomaliesService {
       rented_assets_without_passive_contract: list(
         rentedWithoutPassive.map((a) => ({ id: Number(a.id), asset_name: a.asset_name })),
       ),
-      utilities_to_transfer: list(toTransfer.map(({ since: _since, ...u }) => u)),
-      utilities_to_recover: list(toRecover),
+      utilities_to_transfer: list(pendingItems(toTransfer)),
+      utilities_to_recover: list(pendingItems(toRecover)),
+      utilities_to_decide: list(pendingItems(toDecide)),
+      pending_activations: list(pendingOf(SupplyEventType.ACTIVATION)),
+      pending_cessations: list(pendingOf(SupplyEventType.CESSATION)),
       real_estate_contracts_without_parties: list(
         contractsWithoutParties.map((c) => ({ id: Number(c.id), subject: c.subject ?? null })),
       ),

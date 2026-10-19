@@ -2,7 +2,7 @@ import {inject, Injectable} from '@angular/core';
 import {ComponentType} from '@angular/cdk/portal';
 import {MatDialog} from '@angular/material/dialog';
 import {catchError, from, map, Observable, of, switchMap} from 'rxjs';
-import {openSheet} from '../components/entity-sheet/sheet-utils';
+import {isSheetRefresh, openSheet, SheetRefresh} from '../components/entity-sheet/sheet-utils';
 import {EDIT_DIALOG_POSITION, EditDialogData} from '../components/abstract-data-table.component';
 import {AuthService} from '../../services/auth.service';
 import {AssetService} from '../../pages/assets/asset.service';
@@ -90,8 +90,9 @@ export class EntityNavigatorService {
 
   openUtility(id: number): Observable<Utility | null> {
     return this.utilities.getById(id).pipe(
-      switchMap(item => this.sheet<EditDialogData<Utility>, Utility>(UTILITY_DIALOG, {mode: 'edit', item})),
-      switchMap(r => (r ? this.utilities.update(r.id, r) : of(null))),
+      switchMap(item => this.sheet<EditDialogData<Utility>, Utility | SheetRefresh>(UTILITY_DIALOG, {mode: 'edit', item})),
+      // Chiusa senza salvare ma con lo storico cambiato: conta come salvata.
+      switchMap(r => (isSheetRefresh(r) ? this.utilities.getById(id) : r ? this.utilities.update(r.id, r) : of(null))),
       catchError(err => this.fail("Errore apertura/salvataggio dell'utenza", err)),
     );
   }
@@ -183,8 +184,9 @@ export class EntityNavigatorService {
 
   openGrant(id: number): Observable<UtilizerGrant | null> {
     return this.grants.getById(id).pipe(
-      switchMap(item => this.sheet<EditDialogData<UtilizerGrant>, UtilizerGrant>(GRANT_DIALOG, {mode: 'edit', item})),
-      switchMap(r => (r ? this.grants.update(r.id, r) : of(null))),
+      switchMap(item => this.sheet<EditDialogData<UtilizerGrant>, UtilizerGrant | SheetRefresh>(GRANT_DIALOG, {mode: 'edit', item})),
+      // Chiusa senza salvare ma con decisioni di voltura cambiate: conta come salvata.
+      switchMap(r => (isSheetRefresh(r) ? this.grants.getById(id) : r ? this.grants.update(r.id, r) : of(null))),
       catchError(err => this.fail('Errore apertura/salvataggio del contratto immobiliare', err)),
     );
   }

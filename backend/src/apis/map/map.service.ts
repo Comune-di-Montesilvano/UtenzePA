@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { Asset } from '@apis/asset/entity/asset.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
+import { isTransferred } from '@apis/utility/cost-status';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { MapQueryDto } from './dto/map-query.dto';
 import { Plant } from '@apis/plants/entity/plant.entity';
@@ -23,6 +24,8 @@ export interface MapPoint {
   source: 'gps' | 'geocoded';
   // Immobile dismesso, utenza cessata, impianto dismesso: marker sbiadito.
   inactive?: boolean;
+  // Utenza volturata a un terzo (né attiva né cessata per il Comune): marker grigio.
+  transferred?: boolean;
   // Solo per type 'utility' — pilota l'icona per tipologia (acqua/luce/gas/
   // internet) nella mappa frontend, vedi HardTypeIcon/HardTypeColor.
   hardType?: HardTypeEnum;
@@ -177,7 +180,10 @@ export class MapService {
         ...(filters.utilityTypeIds?.length
           ? { utility_type_id_fk: In(filters.utilityTypeIds) }
           : {}),
-        ...(filters.includeInactiveUtilities === false ? { supply_active: true } : {}),
+        // Senza le cessate: anche senza le volturate (non in carico al Comune).
+        ...(filters.includeInactiveUtilities === false
+          ? { supply_active: true, transferred_to_third_party_id: IsNull() }
+          : {}),
       };
       // Nel perimetro: collegata a un immobile del perimetro o a un impianto di uno di questi.
       const utilities = await this.utilityRepo.find({
@@ -197,7 +203,11 @@ export class MapService {
           type: 'utility' as const,
           name: utility.utility_id,
           hardType: utility.utilityType?.hard_type,
-          ...(utility.supply_active === false ? { inactive: true } : {}),
+          ...(isTransferred(utility)
+            ? { transferred: true }
+            : utility.supply_active === false
+              ? { inactive: true }
+              : {}),
         };
 
         const firstPlant = (utility.plants ?? []).find((p) => !p.deleted);

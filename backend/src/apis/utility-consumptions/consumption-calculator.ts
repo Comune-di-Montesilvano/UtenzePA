@@ -271,11 +271,33 @@ export function computeActual(
 
 // Periodi senza dati tra il primo e l'ultimo dato (fino a oggi): bollette o
 // letture mancanti. Prima del primo dato e dopo l'ultimo non sono buchi.
-export function dataGaps(daily: Map<number, number>, today: number): { start: string; end: string }[] {
+// Con `intervals` (periodi attivi dello storico, estremi inclusi; null = da
+// prima / in corso) i giorni in cui l'utenza non era attiva non sono buchi.
+// Nessun periodo = storico non noto: tutti i giorni contano.
+export function dataGaps(
+  daily: Map<number, number>,
+  today: number,
+  intervals?: { start: string | null; end: string | null }[],
+): { start: string; end: string }[] {
   const days = [...daily.keys()].filter((d) => d <= today).sort((a, b) => a - b);
+  const active = intervals?.length
+    ? intervals.map((i) => ({
+        start: i.start ? toDay(i.start) : -Infinity,
+        end: i.end ? toDay(i.end) : Infinity,
+      }))
+    : null;
+  const isActive = (d: number) => !active || active.some((i) => i.start <= d && d <= i.end);
   const gaps: { start: string; end: string }[] = [];
   for (let i = 1; i < days.length; i++) {
-    if (days[i] - days[i - 1] > 1) gaps.push({ start: fromDay(days[i - 1] + 1), end: fromDay(days[i] - 1) });
+    let runStart: number | null = null;
+    for (let d = days[i - 1] + 1; d <= days[i]; d++) {
+      const inGap = d < days[i] && isActive(d);
+      if (inGap && runStart === null) runStart = d;
+      if (!inGap && runStart !== null) {
+        gaps.push({ start: fromDay(runStart), end: fromDay(d - 1) });
+        runStart = null;
+      }
+    }
   }
   return gaps;
 }

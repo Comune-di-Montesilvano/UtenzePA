@@ -5,6 +5,7 @@ import {MatExpansionModule} from '@angular/material/expansion';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
+import {sinceDays} from '../../core/components/entity-sheet/sheet-utils';
 import {Anomalies, AnomaliesService} from '../../core/services/anomalies.service';
 
 const formatDate = (iso: string | null): string => {
@@ -146,7 +147,7 @@ const formatDate = (iso: string | null): string => {
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
                 @for (u of data.utilities_to_transfer.items; track u.id) {
-                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · {{ u.contracts }}</li>
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · {{ sinceDays(u.pending_days) }}</li>
                 }
               </ul>
             </mat-expansion-panel>
@@ -157,12 +158,60 @@ const formatDate = (iso: string | null): string => {
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count" [class.zero]="data.utilities_to_recover.count === 0">{{ data.utilities_to_recover.count }}</span>
-                  Utenze volturate da riprendere
+                  Utenze da reintestare al Comune
                 </mat-panel-title>
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
                 @for (u of data.utilities_to_recover.items; track u.id) {
-                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · {{ u.contracts }}</li>
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · {{ sinceDays(u.pending_days) }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
+
+            @if (data.utilities_to_decide.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.utilities_to_decide.count }}</span>
+                  Utenze da decidere (contratti immobiliari)
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (u of data.utilities_to_decide.items; track u.id) {
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · {{ sinceDays(u.pending_days) }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
+
+            @if (data.pending_activations.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.pending_activations.count }}</span>
+                  Attivazioni in sospeso
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (u of data.pending_activations.items; track u.id) {
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · {{ sinceDays(u.pending_days) }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
+
+            @if (data.pending_cessations.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.pending_cessations.count }}</span>
+                  Cessazioni in sospeso
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (u of data.pending_cessations.items; track u.id) {
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ u.type }} · {{ sinceDays(u.pending_days) }}</li>
                 }
               </ul>
             </mat-expansion-panel>
@@ -368,17 +417,17 @@ const formatDate = (iso: string | null): string => {
               </ul>
             </mat-expansion-panel>
             }
-            @if (data.invoices_on_ceased_utilities.count > 0) {
+            @if (data.invoices_outside_supply_periods.count > 0) {
             <mat-expansion-panel>
               <mat-expansion-panel-header>
                 <mat-panel-title>
-                  <span class="anomaly-count" [class.zero]="data.invoices_on_ceased_utilities.count === 0">{{ data.invoices_on_ceased_utilities.count }}</span>
-                  Fatture su utenze cessate (ultimi 12 mesi)
+                  <span class="anomaly-count" [class.zero]="data.invoices_outside_supply_periods.count === 0">{{ data.invoices_outside_supply_periods.count }}</span>
+                  Fatture fuori dai periodi di attività (ultimi 12 mesi)
                 </mat-panel-title>
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
-                @for (a of data.invoices_on_ceased_utilities.items; track a.invoice_id + '-' + a.utility_id) {
-                  <li (click)="openInvoice(a.invoice_id)">{{ a.number }} del {{ dateIt(a.invoice_date) }} · {{ a.utility_code }}</li>
+                @for (a of data.invoices_outside_supply_periods.items; track a.invoice_id + '-' + a.utility_id) {
+                  <li (click)="openInvoice(a.invoice_id)">{{ a.number }} del {{ dateIt(a.invoice_date) }} · {{ a.utility_code }}{{ a.period ? ' · ' + a.period : '' }}</li>
                 }
               </ul>
             </mat-expansion-panel>
@@ -505,6 +554,7 @@ export class AnomaliesCardComponent implements OnInit {
     return !!this.data && Object.values(this.data).some(a => a.count > 0);
   }
   readonly fmt = formatDate;
+  readonly sinceDays = sinceDays;
 
   // Tutte le anomalie: la somma a mano dimenticava quelle aggiunte via via.
   get total(): number {

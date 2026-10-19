@@ -3,7 +3,7 @@ import { validate } from 'class-validator';
 import { CreateUtilityDto } from './create-utility.dto';
 import { UpdateUtilityDto } from './update-utility.dto';
 
-// Dati tecnici della connettività e date di attivazione/cessazione.
+// Dati tecnici della connettività e campi dello storico fornitura.
 describe('connettività e date', () => {
   const errorsOf = async (Dto: new () => object, plain: Record<string, unknown>, property: string) =>
     (await validate(plainToInstance(Dto as never, plain) as object)).filter((e) => e.property === property);
@@ -37,8 +37,23 @@ describe('connettività e date', () => {
     }
   });
 
-  it('date di attivazione e cessazione nel formato AAAA-MM-GG', async () => {
-    expect(await errorsOf(UpdateUtilityDto, { activated_on: '2024-03-01' }, 'activated_on')).toEqual([]);
-    expect(await errorsOf(UpdateUtilityDto, { ceased_on: null }, 'ceased_on')).toEqual([]);
+  it.each([
+    ['create', CreateUtilityDto],
+    ['update', UpdateUtilityDto],
+  ])('%s: i campi dello storico non sono più ammessi', async (_l, Dto) => {
+    for (const field of ['supply_active', 'activated_on', 'ceased_on', 'transferred_to_third_party_id', 'transferred_on', 'transfer_required']) {
+      const errors = await validate(plainToInstance(Dto as never, { [field]: null }) as object, {
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      });
+      expect(errors.map((e) => e.property)).toContain(field);
+    }
+  });
+
+  it('create: initial_supply con data nel formato AAAA-MM-GG', async () => {
+    const ok = { initial_supply: { active: false, requested_on: '2026-10-01' } };
+    expect((await validate(plainToInstance(CreateUtilityDto, ok))).filter((e) => e.property === 'initial_supply')).toEqual([]);
+    const bad = { initial_supply: { active: true, effective_on: 'ieri' } };
+    expect((await validate(plainToInstance(CreateUtilityDto, bad))).filter((e) => e.property === 'initial_supply')).not.toEqual([]);
   });
 });

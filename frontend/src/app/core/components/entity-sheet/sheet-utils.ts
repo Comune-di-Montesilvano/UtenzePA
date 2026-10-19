@@ -67,6 +67,19 @@ export function selectTab(group: MatTabGroup | undefined, tabs: QueryList<MatTab
   if (index >= 0) group.selectedIndex = index;
 }
 
+// Scheda chiusa senza salvare dopo modifiche già salvate da un tab (es.
+// «Attivazioni e volture»): il chiamante ricarica, senza inviare il form.
+export const SHEET_REFRESH = {refreshOnly: true} as const;
+export type SheetRefresh = typeof SHEET_REFRESH;
+export function isSheetRefresh(v: unknown): v is SheetRefresh {
+  return !!v && typeof v === 'object' && (v as {refreshOnly?: unknown}).refreshOnly === true;
+}
+
+// «da 1 giorno» / «da N giorni».
+export function sinceDays(days: number): string {
+  return days === 1 ? 'da 1 giorno' : `da ${days} giorni`;
+}
+
 export function dateIt(v: Date | string | null | undefined): string {
   if (!v) return '';
   const iso = typeof v === 'string' ? v.slice(0, 10) : toIsoDate(v);

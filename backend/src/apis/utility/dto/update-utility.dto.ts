@@ -45,10 +45,6 @@ export class UpdateUtilityDto {
 
   @IsOptional()
   @IsBoolean()
-  supply_active?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
   meter_removed?: boolean;
 
   @IsOptional()
@@ -120,31 +116,9 @@ export class UpdateUtilityDto {
   @IsEnum(GasUseCategory, { message: "Categoria d'uso gas non valida." })
   gas_use_category?: GasUseCategory | null;
 
-  // Voltura (null = ripresa dal Comune).
-  @IsOptional()
-  @IsInt()
-  transferred_to_third_party_id?: number | null;
-
-  @IsOptional()
-  @DateOnly()
-  transferred_on?: string | null;
-
-  // null = come da contratto immobiliare.
-  @IsOptional()
-  @IsBoolean()
-  transfer_required?: boolean | null;
-
   @IsOptional()
   @IsBoolean()
   disconnectable?: boolean | null;
-
-  @IsOptional()
-  @DateOnly()
-  activated_on?: string | null;
-
-  @IsOptional()
-  @DateOnly()
-  ceased_on?: string | null;
 
   @IsOptional()
   @IsEnum(InternetTechnology, { message: 'Tecnologia della linea non valida.' })

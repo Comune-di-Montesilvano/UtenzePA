@@ -11,6 +11,7 @@ describe('UtilityConsumptionsService', () => {
   let meterQb: { where: jest.Mock; andWhere: jest.Mock; getMany: jest.Mock };
   let audit: { record: jest.Mock };
   let recalc: { recalcUtility: jest.Mock };
+  let eventRepo: { find: jest.Mock };
 
   const lightUtility = { id: 7, utility_id: 'IT001', meter_number: 'M1', utilityType: { hard_type: HardTypeEnum.LIGHT } };
   const existing = [
@@ -32,7 +33,13 @@ describe('UtilityConsumptionsService', () => {
       createQueryBuilder: jest.fn().mockReturnValue(meterQb),
     };
     recalc = { recalcUtility: jest.fn().mockResolvedValue(undefined) };
-    service = new UtilityConsumptionsService(repo as never, utilityRepo as never, recalc as never);
+    eventRepo = { find: jest.fn().mockResolvedValue([]) };
+    service = new UtilityConsumptionsService(
+      repo as never,
+      utilityRepo as never,
+      recalc as never,
+      eventRepo as never,
+    );
     audit = { record: jest.fn().mockResolvedValue(undefined) };
     (service as unknown as { auditLogService: unknown }).auditLogService = audit;
   });
@@ -171,6 +178,58 @@ describe('UtilityConsumptionsService', () => {
     ]);
     const s = await service.getSummary(7);
     expect(s.monthly.find((p) => p.month === '2026-05')?.bands).toEqual({ F1: 70, F2: 30 });
+  });
+
+  it('getSummary: i giorni in cui l’utenza era cessata non sono buchi', async () => {
+    repo.find.mockResolvedValue([
+      { id: 1, kind: ConsumptionKind.PERIOD, period_start: '2026-01-01', period_end: '2026-01-31', consumption: '31.000', deleted: false },
+      { id: 2, kind: ConsumptionKind.PERIOD, period_start: '2026-04-01', period_end: '2026-04-30', consumption: '30.000', deleted: false },
+    ]);
+    const base = { third_party_id_fk: null, requested_on: null, date_unknown: false, cancelled_on: null, deleted: false, utilizer_grant_id_fk: null, create_date: new Date('2025-01-01T10:00:00Z') };
+    eventRepo.find.mockResolvedValue([
+      { ...base, id: 1, type: 'ACTIVATION', effective_on: null, date_unknown: true },
+      { ...base, id: 2, type: 'CESSATION', effective_on: '2026-01-31' },
+      { ...base, id: 3, type: 'ACTIVATION', effective_on: '2026-04-01' },
+    ]);
+    const s = await service.getSummary(7);
+    expect(s.gaps).toEqual([]);
+    expect(eventRepo.find).toHaveBeenCalledWith({ where: { utility_id_fk: 7, deleted: false } });
+  });
+
+  it('getSummary: i mesi di voltura a un terzo non sono buchi (bollette al terzo)', async () => {
+    repo.find.mockResolvedValue([
+      { id: 1, kind: ConsumptionKind.PERIOD, period_start: '2026-01-01', period_end: '2026-01-31', consumption: '31.000', deleted: false },
+      { id: 2, kind: ConsumptionKind.PERIOD, period_start: '2026-04-01', period_end: '2026-04-30', consumption: '30.000', deleted: false },
+    ]);
+    const base = { third_party_id_fk: null, requested_on: null, date_unknown: false, cancelled_on: null, deleted: false, utilizer_grant_id_fk: null, create_date: new Date('2025-01-01T10:00:00Z') };
+    eventRepo.find.mockResolvedValue([
+      { ...base, id: 1, type: 'ACTIVATION', effective_on: null, date_unknown: true },
+      { ...base, id: 2, type: 'TRANSFER', third_party_id_fk: 5, effective_on: '2026-01-31' },
+      { ...base, id: 3, type: 'RETURN', effective_on: '2026-04-01' },
+    ]);
+    expect((await service.getSummary(7)).gaps).toEqual([]);
+  });
+
+  it('getSummary: volturata per tutto il periodo: nessun buco', async () => {
+    repo.find.mockResolvedValue([
+      { id: 1, kind: ConsumptionKind.PERIOD, period_start: '2026-01-01', period_end: '2026-01-31', consumption: '31.000', deleted: false },
+      { id: 2, kind: ConsumptionKind.PERIOD, period_start: '2026-04-01', period_end: '2026-04-30', consumption: '30.000', deleted: false },
+    ]);
+    const base = { third_party_id_fk: null, requested_on: null, date_unknown: false, cancelled_on: null, deleted: false, utilizer_grant_id_fk: null, create_date: new Date('2025-01-01T10:00:00Z') };
+    eventRepo.find.mockResolvedValue([
+      { ...base, id: 1, type: 'ACTIVATION', effective_on: null, date_unknown: true },
+      { ...base, id: 2, type: 'TRANSFER', third_party_id_fk: 5, effective_on: null, date_unknown: true },
+    ]);
+    expect((await service.getSummary(7)).gaps).toEqual([]);
+  });
+
+  it('getSummary: senza storico i buchi restano', async () => {
+    repo.find.mockResolvedValue([
+      { id: 1, kind: ConsumptionKind.PERIOD, period_start: '2026-01-01', period_end: '2026-01-31', consumption: '31.000', deleted: false },
+      { id: 2, kind: ConsumptionKind.PERIOD, period_start: '2026-04-01', period_end: '2026-04-30', consumption: '30.000', deleted: false },
+    ]);
+    const s = await service.getSummary(7);
+    expect(s.gaps).toEqual([{ start: '2026-02-01', end: '2026-03-31' }]);
   });
 
   it('PATCH su rilevazione inesistente: 400', async () => {

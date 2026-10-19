@@ -65,7 +65,7 @@ export class DataTableUtilizerGrantComponent extends AbstractDataTableComponent<
     {field: 'concession_act', header: 'Atto', minWidth: '180px'},
     {field: 'registration_ref', header: 'Registrazione', minWidth: '140px'},
     {field: 'cadastral_ref', header: 'Catasto', minWidth: '140px'},
-    {field: 'utilities_to_be_taken_over', header: 'Utenze da volturare', minWidth: '110px'},
+    {field: 'utilities_to_be_taken_over', header: 'Voltura proposta', minWidth: '110px'},
   ];
 
   private readonly defaultVisibleFields = new Set([

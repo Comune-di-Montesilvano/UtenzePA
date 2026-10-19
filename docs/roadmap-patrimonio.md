@@ -29,7 +29,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 9 | Soggetti terzi (controparti + fornitori) | fatto, v1.8.0 (pulizia dati fatta sul DB locale; restano CF delle persone, P.IVA Open Fiber, 2 locatori SPRAR) |
 | 10 | Tipologie contrattuali ARERA (al posto delle finalità d'uso) | fatto, v1.8.0 (valorizzazione delle tipologie sul DB locale da fare) |
 | 11 | Aggregati utenze (da eliminare) | fatto, v1.8.1 (funzione assegnata a 118 immobili sul DB locale; 7 senza funzione, 10 utenze SPRAR senza capitolo SPRAR da girare alla ragioneria) |
-| 12 | Costi a carico calcolato | fatto, v1.8.1, con volture (26 utenze da volturare, 8 attive, da verificare dall'anomalia) |
+| 12 | Costi a carico calcolato | fatto, v1.8.1, con volture; dalla v1.33.0 lo stato «A carico di» deriva dallo storico dell'utenza (voce 22) |
 | 13 | Schede entità: rifiniture | fatto in v1.11.2 (restano 3 verifiche E2E) |
 | 14 | Schede di fornitori, capitoli, fatture | fatto in v1.14.0 (scheda capitolo; fornitori e fatture già fatti) |
 | 15 | UI e identità (elenchi, filtri, dark mode, sidebar, nome) | elenchi, filtri, segnalazioni e sidebar fatti in v1.11.0; creazione al volo dalle schede ("+" sulle select, "Nuovo …" sui collegamenti); dark mode in v1.17.0; nome da approfondire |
@@ -39,7 +39,8 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 19 | Allegati di contratti, immobili e impianti | fatto, v1.22.0 (allegati e atti; utenze e complessi, ricerca nei PDF e firma digitale rimandati) |
 | 20 | Assestato dei capitoli e disponibilità | fatto in v1.14.0 (mandati non ancora) |
 | 21 | Scadenzario degli obblighi dell'immobile | da approfondire |
-| 22 | Storico di attivazione delle utenze | da approfondire |
+| 22 | Storico di attivazione delle utenze | fatto, v1.33.0 (storico di attivazioni, cessazioni, volture e reintestazioni; decisioni per utenza sul contratto immobiliare; dati da portare in produzione con la migration) |
+| 23 | Letture stimate | da approfondire |
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
 
@@ -160,6 +161,12 @@ Gotcha per l'import FatturaPA (da una fattura elettronica A2A luce, 2026-10-05):
 - il PDF della fattura è allegato in base64 (quasi tutto il peso del file): da decidere se conservarlo collegato alla fattura.
 - **consumo della riga → storico consumi dell'utenza** (decisione 2026-10-16, da confermare con l'import definitivo): oggi `invoice_lines.consumption` è solo informativo, nessun calcolo lo legge. Orientamento: riga con utenza, periodo e consumo = rilevazione `INVOICE` nel tab Consumi collegata alla riga (migration del collegamento; segue modifica ed eliminazione della riga; se un periodo è già coperto da un'altra rilevazione non duplica e segnala).
 
+Gotcha per l'import FatturaPA di ACA (acqua, verificato su due XML il 2026-10-19):
+
+- `DatiGenerali/DatiContratto/IdDocumento` = Codice Servizio = codice utenza (`utility_id`, 6-9 cifre): abbinamento diretto, esatto, senza dati da inserire prima. `CodiceCommessaConvenzione` cambia per fattura e non identifica l'utenza; niente `AltriDatiGestionali`;
+- il consumo è strutturato nell'XML (`DettaglioLinee` in Mc con `DataInizioPeriodo`/`DataFinePeriodo`);
+- contatore (= `meter_number`, utile come controllo), Codice Anagrafico (= `utility_code`) e letture con data e tipo («Stimata» o reale) sono solo nel PDF allegato (`Allegati/Attachment`, base64): servirà un parser del testo del PDF (`pdftotext -layout`). Le letture stimate sono la voce 23.
+
 Import dal registro della contabilità (2026-10-16, script una tantum fuori dal repo, solo DB locale): «Esportazione» del gestionale contabile (registro fatture passive 2025–2026, con CIG, protocollo e nelle note A2A periodo/POD/kWh) abbinata per numero fattura ai «Flussi» (POD/PDR, capitolo). Importate 4.676 fatture (A2A, Dolomiti, HERA, AGSM, ACA mancanti), contratto dal CIG, 155 consumi `INVOICE` dove il periodo mancava, PDR portati a 14 cifre, totali e righe ACA allineati al registro. Senza utenza: AGSM (bollette massive senza PDR), ACA, HERA 2025 (servono gli XML; richiesta a Tinn di download massivo/web service). Incongruenze girate ai colleghi (capitoli, salvaguardia HERA senza contratto, 18 CIG senza contratto, utenze doppie).
 
 Rifiniture rimandate dalla revisione finale di v1.10.0, non bloccanti:
@@ -238,6 +245,9 @@ Fatto in v1.8.1: spec `docs/superpowers/specs/2026-10-03-eliminazione-aggregati-
 22 categorie libere ereditate da Access, assegnate a 632 utenze su ~664, che duplicano informazioni ora presenti altrove: cosa alimenta (scuole 106, fontane/casette 59, semafori 13, pompe 16, sport 29, colonnine 10 → classificazione immobile e tipi d'impianto), stato ("contatori non individuati / non attivi" 48 → fornitura attiva, contatore rimosso), finanziamento ("SPRAR" 38 → capitolo di spesa), residui generici ("punto presa diversi usi" 68, "appartamenti, garage…" 16). Usi nel codice: `aggregator_id_fk` (DTO utenza), filtro e colonna tabella utenze, select nella scheda utenza, pagina Aggregati, importatori. Passi: verificare che ogni informazione sia ricavabile altrove (es. utenze "fontane" collegate al loro impianto), trasferire ciò che manca, poi rimuovere tutto con una migration; decidere con cosa sostituire il filtro per categoria.
 
 ## 12. Costi a carico calcolato
+
+
+Aggiornamento v1.33.0 (voce 22): lo stato «A carico di» non si calcola più dai soli contratti e da una voltura sull'utenza, ma dallo storico dei cambiamenti dell'utenza (attivazioni, cessazioni, volture, reintestazioni) e dalle decisioni per utenza sul contratto immobiliare. Stati: Comune, Da decidere, Da volturare, Volturata, Da reintestare. Il campo «Voltura» (Come da contratto / Da volturare / Non da volturare) e «Volturata a/il» sono stati rimossi.
 
 Fatto in v1.8.1: spec `docs/superpowers/specs/2026-10-03-costi-a-carico-calcolato-design.md`. Al posto della lista libera: sull'utenza "Volturata a/il" (soggetto terzo, data facoltativa), e uno stato calcolato dai contratti immobiliari attivi concessi dal Comune: Comune, Da volturare (contratto con "Utenze da volturare" ma voltura non fatta: paga il Comune), Volturata, Da riprendere (volturata a chi non ha più un contratto attivo). Anomalie "Utenze da volturare" e "Utenze volturate da riprendere" (solo forniture attive); tab Utenze nella scheda del contratto immobiliare; tab Controparti della scheda utenza rimosso. Dati: nessuna voltura registrata sul pregresso (le utenze "concessionario" con contratto erano tutte cessate; le 25 "concessionario" attive sono linee Open Fiber, convenzione gratuita, restano Comune). Restano da verificare le 8 utenze attive "Da volturare" (Azienda Speciale, Polisportiva palaroma). Il testo sotto è il censimento di partenza.
 
@@ -422,15 +432,13 @@ Da approfondire: tabella dedicata per capitolo + esercizio o colonne su `budget_
 
 ## 22. Storico di attivazione delle utenze
 
-Richiesta utente (2026-10-16): un'utenza nella sua vita viene attivata, disattivata, riattivata; oggi c'è solo lo stato. Situazione attuale:
+Fatto in v1.33.0: spec `docs/superpowers/specs/2026-10-19-storico-utenze-design.md`. Per ogni utenza uno storico unico di attivazioni, cessazioni, volture e reintestazioni al Comune (`utility_supply_events`, ciascuno con data richiesta ed effettiva; in sospeso = senza effettiva), da cui si ricavano se era attiva e a carico di chi in un giorno qualunque. Il contratto immobiliare decide per ogni utenza se la voltura segue il contratto o resta al Comune (`utilizer_grant_utility_decisions`); inizio, fine e rinnovo del contratto aprono volture e reintestazioni in sospeso. Le colonne di stato dell'utenza (`supply_active`, `cost_status`, `pending_since`, voltura) sono ricalcolate dal servizio di riconciliazione dopo ogni salvataggio, ogni notte e all'avvio. Segnalazioni nuove: utenze da decidere, attivazioni e cessazioni in sospeso, fatture fuori dai periodi di attività (tolleranza 30 giorni).
 
-- `supply_active` = stato di adesso; `activated_on`/`ceased_on` = una sola data ciascuna (una riattivazione sovrascrive la precedente) e non cambiano `supply_active`, quindi possono essere incoerenti con lo stato;
-- il log attività registra i cambi, ma le righe con `field_name` si cancellano dopo 60 giorni: non è uno storico;
-- indizi indiretti: date dei contratti di fornitura collegati (chi forniva e quando), voltura (`transferred_on`).
+Da fare dopo il deploy: controllare i log di `reconcileAll` e la distribuzione di `cost_status`; sistemare a mano le note delle righe di storico create dalla migration con date incoerenti. Non fatto: calcolo di rimborsi tra Comune e controparte per i periodi di voltura in ritardo.
 
-Effetti: «era attiva nel 2025?» o «giorni di fornitura nell'anno» senza risposta affidabile; l'anomalia «Fatture su utenze cessate» non sa se la fattura cade in un periodo di attività precedente; i periodi di non attività compaiono come «Periodi senza dati» nei consumi.
+## 23. Letture stimate
 
-Direzione da valutare: tabella dei **periodi di attività** per utenza (inizio, fine vuota = in corso, motivo: attivazione, subentro, cessazione, sospensione…, eventuale riferimento ad atto o pratica); stato attuale e date calcolati dall'ultimo periodo (come «A carico di»), buchi di consumo esclusi fuori dai periodi, fatture confrontate col periodo giusto. Dati di partenza ricostruibili in parte da `activated_on`/`ceased_on` e dalle date dei contratti collegati.
+Emerso dall'analisi delle fatture ACA (2026-10-19): le fatture riportano letture con tipo «Stimata» o reale. Da fare: flag «Stimata» su rilevazioni e periodi di consumo. Un valore stimato conta finché non arriva una lettura reale successiva; da quel momento i dati stimati intermedi si ignorano (il conguaglio riporta tutto al valore reale). Nel tab Consumi le stime si mostrano come stimate. Richiede il parser del PDF allegato alla fattura (voce 6).
 
 ## Archivio 4_IMMOBILIARE: stato degli import
 

@@ -174,7 +174,7 @@ export class PlantEditDialogComponent implements OnInit {
     const t = u.utilityType?.hard_type;
     return t ? {icon: HardTypeMatIcon[t], color: HardTypeColor[t]} : null;
   };
-  readonly utilityStatusOf = (u: Utility): StatusInfo => utilityStatus(u.supply_active);
+  readonly utilityStatusOf = (u: Utility): StatusInfo => utilityStatus(u);
 
   form = this.fb.group({
     type: ['FOUNTAIN' as PlantType, Validators.required],
@@ -299,7 +299,7 @@ export class PlantEditDialogComponent implements OnInit {
       return {
         id: u.id, label: u.utility_id ?? `#${u.id}`, sublabel: u.utilityType?.name ?? undefined,
         icon: t ? HardTypeMatIcon[t] : 'electric_meter', color: t ? HardTypeColor[t] : 'var(--entity-utility)',
-        status: utilityStatus(u.supply_active),
+        status: utilityStatus(u),
       };
     });
     this.proposeGroundingClass();

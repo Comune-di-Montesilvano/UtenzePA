@@ -51,6 +51,7 @@ import {
   plantStatus,
   StatusInfo,
   utilityStatus,
+  isInChargeUtility,
 } from '../../core/helpers/entity-status';
 import {dateIt, hasAnyValue, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
@@ -257,7 +258,7 @@ export class AssetEditDialogComponent implements OnInit {
     {label: 'Contatore', value: u => u.meter_number ?? ''},
     {label: 'Inizio fornitura', value: u => dateIt(u.supply_start_date)},
   ];
-  readonly utilityStatusOf = (u: Utility): StatusInfo => utilityStatus(u.supply_active);
+  readonly utilityStatusOf = (u: Utility): StatusInfo => utilityStatus(u);
 
   readonly plantColumns: LinkedColumn<Plant>[] = [
     {label: 'Tipo', value: p => PLANT_TYPE_LABEL[p.type]},
@@ -508,7 +509,8 @@ export class AssetEditDialogComponent implements OnInit {
       .map(t => ({value: t.value, label: t.label, icon: HardTypeMatIcon[t.value], color: t.color}));
     // Riepilogo: una riga per tipo con il conteggio (l'elenco sta nel tab).
     this.utilityPreview = this.utilitySections.map((s, i) => {
-      const active = s.rows.filter(u => u.supply_active === true).length;
+      // Attive = in carico al Comune (le volturate non contano).
+      const active = s.rows.filter(u => isInChargeUtility(u)).length;
       return {
         id: -(i + 1), label: s.label, icon: s.icon, color: s.color,
         sublabel: `${s.rows.length} ${s.rows.length === 1 ? 'utenza' : 'utenze'}, ${active} ${active === 1 ? 'attiva' : 'attive'}`,

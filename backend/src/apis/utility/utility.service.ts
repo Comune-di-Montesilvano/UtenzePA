@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Utility } from './entity/utility.entity';
@@ -17,13 +17,43 @@ import { EstimateSource } from '@apis/utility-consumptions/enum/estimate-source.
 import { findMeterConflict } from './meter-number.helper';
 import { AreraCategory, ARERA_NONE, GasUseCategory, isAreraCategoryAllowed } from './arera-category';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
-import { costInfo, costStatusSql } from './cost-status';
+import { costInfo, costStatusSql, inChargeSql } from './cost-status';
+import { GrantUtilityDecisionValue } from '@apis/utility-supply/enum/supply-event-type.enum';
 import { maintenanceInfo, maintenanceStatusSql } from './maintenance-status';
+import { SupplyReconcileService, romeDay, dbDay } from '@apis/utility-supply/supply-reconcile.service';
+import { GrantUtilityDecision } from '@apis/utility-supply/entity/grant-utility-decision.entity';
+import { SupplyEventsService } from '@apis/utility-supply/supply-events.service';
+
+// Colonne scritte solo dalla riconciliazione dello storico (apis/utility-supply):
+// mai dal payload di create/update, anche se un chiamante interno le passasse,
+// e mai dall'entity caricata prima del save (riscriverebbe valori vecchi se
+// una riconciliazione è passata nel frattempo).
+const SUPPLY_OWNED_FIELDS = [
+  'supply_active',
+  'activated_on',
+  'ceased_on',
+  'transferred_to_third_party_id',
+  'transferred_on',
+  'cost_status',
+  'pending_since',
+] as const;
+
+function withoutSupplyFields<T extends object>(dto: T): T {
+  return stripSupplyFields({ ...dto });
+}
+
+// Sul posto: per l'entity caricata da salvare.
+function stripSupplyFields<T extends object>(entity: T): T {
+  for (const key of SUPPLY_OWNED_FIELDS) delete (entity as Record<string, unknown>)[key];
+  return entity;
+}
 
 @Injectable()
 export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, UpdateUtilityDto> {
+  private readonly logger = new Logger(UtilitiesService.name);
   protected readonly entityName = 'utilities';
   protected readonly relations = ['created_by', 'updated_by'];
+  protected readonly systemOwnedColumns = SUPPLY_OWNED_FIELDS;
 
   constructor(
     @InjectRepository(Utility)
@@ -33,6 +63,8 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     private readonly recalc: ConsumptionRecalcService,
     @InjectRepository(Plant)
     private readonly plantRepo: Repository<Plant>,
+    private readonly supplyReconcile: SupplyReconcileService,
+    private readonly supplyEvents: SupplyEventsService,
   ) {
     super();
   }
@@ -188,7 +220,11 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
    * ancora quei campi direttamente da Utility (rimossi dallo schema nel
    * task successivo).
    */
-  private withCurrentContractFields(utility: Utility, current: Contract | undefined): Utility {
+  private withCurrentContractFields(
+    utility: Utility,
+    current: Contract | undefined,
+    decisions?: Map<number, GrantUtilityDecisionValue | null>,
+  ): Utility {
     return {
       ...utility,
       supplier: current?.supplier ?? null,
@@ -203,7 +239,23 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       takeover_termination_date: current?.takeover_termination_date ?? null,
       expiryStatus: this.getExpiryStatus(this.toDate(current?.supply_expiry_date ?? null)),
       utilityType: utility.utilityType ?? null,
-      cost_info: costInfo(utility),
+      cost_info: costInfo(
+        {
+          ...utility,
+          pending_since: dbDay(utility.pending_since),
+          transferred_on: dbDay(utility.transferred_on),
+          // findAll non carica le decisioni (N+1): grants vuoto.
+          assets: decisions
+            ? (utility.assets ?? []).map((a) => ({
+                utilizerGrants: (a.utilizerGrants ?? []).map((g) => ({
+                  ...g,
+                  decision: decisions.get(g.id) ?? null,
+                })),
+              }))
+            : [],
+        },
+        romeDay(new Date()),
+      ),
       maintenance_info: maintenanceInfo(utility),
     } as Utility;
   }
@@ -378,6 +430,14 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     if (filters?.cost_status) {
       qb.andWhere(costStatusSql(filters.cost_status));
     }
+    // «Fornitura attiva» come lo stato mostrato (decisione utente 2026-10-19):
+    // sì = in carico al Comune, no = cessata; le volturate non sono né l'una
+    // né l'altra (si trovano con «A carico di» Volturata/Da reintestare).
+    if (filters?.supply_active === true) {
+      qb.andWhere(inChargeSql('Utility'));
+    } else if (filters?.supply_active === false) {
+      qb.andWhere('(Utility.supply_active = 0 AND Utility.transferred_to_third_party_id IS NULL)');
+    }
     if (filters?.maintenance_status) {
       qb.andWhere(maintenanceStatusSql(filters.maintenance_status));
     }
@@ -419,6 +479,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       'grant_id',
       'cost_status',
       'maintenance_status',
+      'supply_active',
       'safeguard',
       'party_id',
       'id',
@@ -532,7 +593,18 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     }
 
     const currentContracts = await this.loadCurrentContracts([utility.id]);
-    return this.withCurrentContractFields(utility, currentContracts.get(utility.id));
+    const decisions = await this.loadDecisions(utility.id);
+    return this.withCurrentContractFields(utility, currentContracts.get(utility.id), decisions);
+  }
+
+  // Decisioni sui contratti: solo per la scheda (findAll evita l'N+1).
+  private async loadDecisions(utilityId: number) {
+    const rows = await this.repo.manager
+      .getRepository(GrantUtilityDecision)
+      .find({ where: { utility_id_fk: utilityId } });
+    const decisions = new Map<number, GrantUtilityDecisionValue | null>();
+    for (const r of rows) decisions.set(r.utilizer_grant_id_fk, r.decision);
+    return decisions;
   }
 
   // Stima annua inserita a mano: MANUAL con data (valida 12 mesi, poi la
@@ -573,37 +645,12 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     }
   }
 
-  // Voltura: soggetto esistente; la data senza soggetto non ha senso.
-  // Date 'AAAA-MM-GG': il confronto tra stringhe segue l'ordine delle date.
-  private assertLifeDates(activatedOn?: string | null, ceasedOn?: string | null): void {
-    if (activatedOn && ceasedOn && ceasedOn < activatedOn) {
-      throw new BadRequestException('La data di cessazione non può precedere quella di attivazione.');
-    }
-  }
-
-  private async assertTransfer(
-    thirdPartyId: number | null | undefined,
-    transferredOn: string | null | undefined,
-    checkExists = true,
-  ): Promise<void> {
-    if (transferredOn && !thirdPartyId) {
-      throw new BadRequestException("Indicare a chi è stata volturata l'utenza.");
-    }
-    if (!thirdPartyId || !checkExists) return;
-    const rows = await this.repo.manager.query('SELECT id FROM third_parties WHERE id = ? AND deleted = 0', [
-      thirdPartyId,
-    ]);
-    if (!rows.length) throw new BadRequestException('Soggetto della voltura non trovato.');
-  }
-
   async create(dto: CreateUtilityDto, userId?: number): Promise<Utility> {
-    const { asset_ids, plant_ids, ...rest } = dto;
+    const { asset_ids, plant_ids, initial_supply, ...rest } = withoutSupplyFields(dto);
     // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
     if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
     await this.assertMeterAvailable(rest.meter_number, null);
     await this.assertAreraCategory(rest.utility_type_id_fk, rest.arera_category, rest.gas_use_category);
-    await this.assertTransfer(rest.transferred_to_third_party_id, rest.transferred_on);
-    this.assertLifeDates(rest.activated_on, rest.ceased_on);
     const estimate = Number(rest.estimated_annual_consumption ?? 0);
     const assets = await this.resolveAssets(asset_ids ?? []);
     const plants = await this.resolvePlants(plant_ids ?? []);
@@ -616,17 +663,56 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       ...(userId !== undefined && { created_by_user_id: userId, updated_by_user_id: userId }),
     });
 
+    let saved: Utility;
     try {
-      const saved = await this.repo.save(newUtility);
-      await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
-      return saved;
+      saved = await this.repo.save(newUtility);
     } catch (error) {
       this.manageErrors(error, "Errore durante la creazione dell'Utenza");
+    }
+    // Riga iniziale dello storico (la crea e riconcilia in una transazione
+    // propria, non componibile con questa): se fallisce l'utenza appena
+    // creata si toglie, mai un'utenza senza storico.
+    try {
+      await this.supplyEvents.createInitial(
+        saved.id,
+        initial_supply ?? { active: true },
+        userId ?? saved.updated_by_user_id,
+      );
+    } catch (error) {
+      try {
+        await this.repo.delete(saved.id);
+      } catch (deleteError) {
+        // Utenza rimasta senza storico: segnalarlo, ma rilanciare l'errore originale.
+        this.logger.error(
+          `Utenza ${saved.id} creata senza storico e non rimossa: creazione della riga iniziale e compensazione fallite`,
+          deleteError as Error,
+        );
+      }
+      throw error;
+    }
+    try {
+      await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
+    } catch (error) {
+      this.manageErrors(error, "Errore durante la creazione dell'Utenza");
+    }
+    // Riletta dopo la riga iniziale: la riconciliazione aggiorna le colonne
+    // di stato (supply_active, cost_status, …) che `saved` ha ancora vecchie.
+    // L'utenza è già salvata: se la rilettura fallisce si restituisce `saved`
+    // (un errore qui porterebbe l'utente a ricrearla, duplicata).
+    try {
+      const reloaded = await this.repo.findOne({
+        where: { id: saved.id } as never,
+        relations: { assets: true, plants: true },
+      });
+      return reloaded ?? saved;
+    } catch (error) {
+      this.logger.error(`Utenza ${saved.id} creata ma non riletta dopo la riconciliazione`, error as Error);
+      return saved;
     }
   }
 
   async update(id: number, dto: UpdateUtilityDto, userId?: number): Promise<Utility> {
-    const { asset_ids, plant_ids, ...rest } = dto;
+    const { asset_ids, plant_ids, ...rest } = withoutSupplyFields(dto);
     // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
     if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
     const assets = asset_ids !== undefined ? await this.resolveAssets(asset_ids) : undefined;
@@ -651,12 +737,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
         rest.gas_use_category !== undefined ? rest.gas_use_category : current.gas_use_category,
       );
     }
-    if (rest.activated_on !== undefined || rest.ceased_on !== undefined) {
-      this.assertLifeDates(
-        rest.activated_on !== undefined ? rest.activated_on : current.activated_on,
-        rest.ceased_on !== undefined ? rest.ceased_on : current.ceased_on,
-      );
-    }
     if (linksChanged) {
       // Il collegamento finale = quello inviato, altrimenti l'attuale.
       this.assertLinked(assets ?? current.assets ?? [], plants ?? current.plants ?? []);
@@ -672,22 +752,6 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     // del dialog marcherebbe la stima come manuale.
     let estimateReset = false;
     const payload: Record<string, unknown> = { ...rest };
-    if (rest.transferred_to_third_party_id !== undefined || rest.transferred_on !== undefined) {
-      const toId =
-        rest.transferred_to_third_party_id !== undefined
-          ? rest.transferred_to_third_party_id
-          : current.transferred_to_third_party_id;
-      // Ripresa dal Comune (soggetto tolto): si svuota anche la data.
-      const recovered = rest.transferred_to_third_party_id === null;
-      if (recovered) payload.transferred_on = null;
-      // Soggetto invariato: non si ricontrolla (se nel frattempo è stato
-      // cancellato l'utenza è "da riprendere", ma resta salvabile).
-      await this.assertTransfer(
-        toId,
-        recovered ? null : (rest.transferred_on ?? current.transferred_on),
-        toId !== current.transferred_to_third_party_id,
-      );
-    }
     if (
       rest.estimated_annual_consumption !== undefined &&
       rest.estimated_annual_consumption !== null &&
@@ -715,12 +779,21 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       const beforePlants = [...(entity.plants ?? [])];
       if (assets !== undefined) entity.assets = assets;
       if (plants !== undefined) entity.plants = plants;
-      await this.repo.save(entity);
+      await this.repo.save(stripSupplyFields(entity));
       // asset_ids/plant_ids escono dal DTO prima di super.update, quindi
       // BaseService non li vede nel diff: audit esplicito dei collegamenti.
       const auditUser = userId ?? entity.updated_by_user_id;
       if (assets !== undefined) await this.recordAssetsChange(id, beforeAssets, assets, auditUser);
       if (plants !== undefined) await this.recordPlantsChange(id, beforePlants, plants, auditUser);
+      // Cambiano gli immobili (insiemi, non ordine): cambia la copertura dei contratti.
+      if (assets !== undefined) {
+        const key = (list: Asset[]) =>
+          list
+            .map((a) => a.id)
+            .sort((x, y) => x - y)
+            .join(',');
+        if (key(beforeAssets) !== key(assets)) await this.supplyReconcile.reconcileManySafe([id], userId);
+      }
     }
 
     return this.findOne(id);
@@ -819,7 +892,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
 
     entity.deleted = true;
     entity.updated_by_user_id = updatedByUserId;
-    await this.repo.save(entity);
+    await this.repo.save(stripSupplyFields(entity));
     await this.recordAudit(AuditAction.DELETE, id, updatedByUserId, []);
   }
 }

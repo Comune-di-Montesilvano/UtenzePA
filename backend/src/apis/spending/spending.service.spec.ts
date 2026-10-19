@@ -44,6 +44,8 @@ describe('SpendingService', () => {
       .mockResolvedValueOnce([{ id: 4, budget_chapter_id: 7, fiscal_year: 2026, amount: null }])
       .mockResolvedValueOnce([{ budget_chapter_id: 7, year: 2026, total: '99.90' }]);
     const rows = await service.chaptersSummary(1);
+    // Solo utenze in carico al Comune (attive e non volturate).
+    expect(query.mock.calls[0][0]).toContain('u.supply_active = 1 AND u.transferred_to_third_party_id IS NULL');
     expect(rows[0]).toEqual({
       budget_chapter_id: 7,
       chapter_code: '11428',

@@ -117,7 +117,7 @@ export class ContractEditDialogComponent implements OnInit {
     const t = u.utilityType?.hard_type;
     return t ? {icon: HardTypeMatIcon[t], color: HardTypeColor[t]} : null;
   };
-  readonly utilityStatusOf = (u: Utility): StatusInfo => utilityStatus(u.supply_active);
+  readonly utilityStatusOf = (u: Utility): StatusInfo => utilityStatus(u);
 
   // 'AAAA-MM-GG' letta come giorno locale: con new Date(v) (mezzanotte UTC)
   // NormalizeDate del backend (+1 giorno) farebbe avanzare la data a ogni Salva.
@@ -262,7 +262,7 @@ export class ContractEditDialogComponent implements OnInit {
       return {
         id: u.id, label: u.utility_id, sublabel: [u.utilityType?.name, this.assetNames(u)].filter(Boolean).join(' · '),
         icon: t ? HardTypeMatIcon[t] : 'electric_meter', color: t ? HardTypeColor[t] : 'var(--entity-utility)',
-        status: utilityStatus(u.supply_active),
+        status: utilityStatus(u),
       };
     });
     this.applyFilter();
