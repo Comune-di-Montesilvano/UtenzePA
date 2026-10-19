@@ -29,7 +29,7 @@ interface Row {
 
 const isPending = (e: SupplyEvent): boolean => !e.cancelled_on && !e.effective_on && !e.date_unknown;
 
-// Tab «Attivazioni e volture» della scheda utenza: storico dei cambiamenti
+// Tab «Fornitura» della scheda utenza: storico dei cambiamenti
 // (attivazioni, cessazioni, volture, reintestazioni). Ogni modifica emette
 // `changed`: la scheda ricarica l'utenza per stato e Riepilogo.
 @Component({
@@ -112,8 +112,6 @@ export class UtilitySupplyTabComponent implements OnInit {
   @Input() canEdit = false;
   // Dopo ogni modifica: la scheda ricarica l'utenza.
   @Output() changed = new EventEmitter<void>();
-  // Cambiamenti in sospeso, per il badge sull'etichetta del tab.
-  @Output() pendingCount = new EventEmitter<number>();
 
   private supply = inject(SupplyService);
   private thirdParties = inject(ThirdPartiesService);
@@ -148,7 +146,6 @@ export class UtilitySupplyTabComponent implements OnInit {
       pending: isPending(e),
       automatic: e.utilizer_grant_id_fk != null,
     }));
-    this.pendingCount.emit(this.rows.filter(r => r.pending).length);
   }
 
   private afterChange(list: SupplyEventsList | null): void {

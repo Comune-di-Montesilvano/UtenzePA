@@ -34,7 +34,7 @@ Sopra gli elenchi compaiono le **segnalazioni**: dati incompleti o incoerenti da
 
 ### Aprire e modificare una scheda
 
-1. Clicca una riga dell'elenco: si apre la scheda dell'elemento, divisa in schede (tab) elencate nella colonna a sinistra; quella aperta è evidenziata con il colore dell'elemento. Ad esempio un'utenza ha Riepilogo, Tecnici e stato, Immobili, Impianti, Contratti di fornitura, Consumi, Fatture, Note, Foto, Attivazioni e volture, Storico. Sul telefono i tab stanno in alto, su più righe. Il numero accanto a un tab conta gli elementi collegati; un pallino segnala che il tab ha dati (es. note compilate).
+1. Clicca una riga dell'elenco: si apre la scheda dell'elemento, divisa in schede (tab) elencate nella colonna a sinistra; quella aperta è evidenziata con il colore dell'elemento. Ad esempio un'utenza ha Riepilogo, Fornitura, Dati tecnici, Immobili, Impianti, Contratti di fornitura, Consumi, Fatture, Note, Foto, Storico. Sul telefono i tab stanno in alto, su più righe. Il numero accanto a un tab conta gli elementi collegati; un pallino segnala che il tab ha dati (es. note compilate).
 2. Modifica i campi e premi **Salva**. Se un campo non è valido, il tab che lo contiene è segnato con un pallino rosso.
 3. Dai tab dei collegamenti (es. Immobili, Utenze) puoi collegare un elemento esistente o crearne uno nuovo al volo. **Scollega** chiede sempre conferma e il collegamento viene rimosso al salvataggio della scheda.
 4. Il tab **Storico** mostra chi ha modificato cosa e quando.
@@ -68,7 +68,7 @@ Le segnalazioni «Oltre l'assestato dell'anno» e «Senza assestato dell'anno» 
 
 Ogni utenza ha uno **storico dei cambiamenti**: attivazioni, cessazioni, volture a un terzo e reintestazioni al Comune. Da questo storico l'applicazione ricava se l'utenza è attiva e **a carico di** chi (il Comune o il terzo a cui è stata volturata). Non si modificano più a mano lo stato di attività o la voltura: si registra il cambiamento.
 
-1. Apri la scheda dell'utenza e il tab **Attivazioni e volture**. Ogni riga ha Tipo (Attivazione, Cessazione, Voltura, Reintestazione al Comune), Intestatario, data **Richiesta** e data **Effettiva**. Se il cambiamento è avvenuto ma non si conosce il giorno, la data effettiva mostra «data non nota».
+1. Apri la scheda dell'utenza e il tab **Fornitura** (il badge sull'etichetta mostra lo stato: Attiva, Cessata, Volturata, oppure in arancio Da decidere, Da volturare, Da reintestare, In sospeso). Ogni riga ha Tipo (Attivazione, Cessazione, Voltura, Reintestazione al Comune), Intestatario, data **Richiesta** e data **Effettiva**. Se il cambiamento è avvenuto ma non si conosce il giorno, la data effettiva mostra «data non nota».
 2. Quando chiedi un cambiamento (al fornitore o alla controparte) premi **Nuovo cambiamento**, scegli il tipo, la **Data richiesta** e, per la voltura, l'**Intestatario** tra i soggetti terzi. Lascia vuota la **Data effettiva**: la riga resta **in sospeso** e compare evidenziata.
 3. Quando il cambiamento avviene davvero (lo verifichi sulla bolletta) apri la riga con la matita, inserisci la **Data effettiva** e salva.
 4. Per registrare un cambiamento già avvenuto compila subito la data effettiva. Se è avvenuto ma non conosci il giorno, spunta **Avvenuta, data non nota** (vale per tutti i tipi, anche voltura e reintestazione, con i limiti spiegati sotto).
@@ -120,7 +120,7 @@ Per le utenze elettriche il consumo di periodo può avere anche:
 
 **Letture e consumi stimati.** Se la bolletta riporta una lettura o un consumo «stimato» dal fornitore (non letto sul contatore), spunta **Stimata**: nella tabella compare il badge **Stimata**. Una stima conta nei consumi finché non arriva il dato reale; da quel momento le stime dei giorni coperti dal dato reale non contano più (il conguaglio riporta tutto al valore reale) e la riga resta in grigio con «Superata dal dato reale». Una lettura stimata risulta superata anche se è più bassa di una lettura reale precedente dello stesso contatore, o se è su un contatore già sostituito. Una lettura reale può essere più bassa di una stima precedente: è il caso tipico del conguaglio, e si salva. Un consumo di periodo stimato può sovrapporsi a uno reale (conta il reale), non a un altro stimato.
 
-Nella scheda delle utenze elettriche, tab **Tecnici e stato**, c'è anche il **Codice impianto fornitore**: il codice con cui il fornitore di energia identifica la fornitura, stabile tra i rinnovi del contratto.
+Nella scheda delle utenze elettriche, tab **Dati tecnici**, c'è anche il **Codice impianto fornitore**: il codice con cui il fornitore di energia identifica la fornitura, stabile tra i rinnovi del contratto.
 
 ### Consultare la mappa
 
@@ -439,7 +439,7 @@ In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni u
 
 **Causa:** il periodo della fattura cade oltre 30 giorni fuori dagli intervalli in cui l'utenza era attiva e intestata al Comune secondo lo storico (le spese di chiusura entro 30 giorni dalla cessazione o dalla voltura, o poco prima dell'attivazione o della reintestazione, non contano). Durante una voltura le bollette vanno al terzo: una fattura al Comune in quel periodo è segnalata. Di solito manca una attivazione, una cessazione, una voltura o una reintestazione, oppure una data è sbagliata.
 
-**Soluzione:** apri l'utenza, tab **Attivazioni e volture**, e controlla le date di attivazione, cessazione, voltura e reintestazione; inserisci lo storico mancante (anche con «Avvenuta, data non nota» se non conosci il giorno). Le segnalazioni si ricalcolano dopo il salvataggio.
+**Soluzione:** apri l'utenza, tab **Fornitura**, e controlla le date di attivazione, cessazione, voltura e reintestazione; inserisci lo storico mancante (anche con «Avvenuta, data non nota» se non conosci il giorno). Le segnalazioni si ricalcolano dopo il salvataggio.
 
 **Apri un ticket se:** le date dello storico sono giuste e la fattura è corretta ma resta segnalata.
 
