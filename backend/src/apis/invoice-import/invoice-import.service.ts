@@ -208,7 +208,10 @@ export class InvoiceImportService {
         status,
       });
     const row = invoice?.sdi_identifier
-      ? ((await byStatus(SdiMessageStatus.EXTRACTED)) ?? (await byStatus(SdiMessageStatus.LINKED)))
+      ? ((await byStatus(SdiMessageStatus.EXTRACTED)) ??
+        (await byStatus(SdiMessageStatus.LINKED)) ??
+        // Collegata e poi struttura ignorata: il documento resta consultabile.
+        (await byStatus(SdiMessageStatus.IGNORED)))
       : null;
     if (!row) throw new BadRequestException('Fattura senza messaggio SDI.');
     const file = await this.readMessageFile(row);

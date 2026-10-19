@@ -176,3 +176,13 @@ describe('InvoiceMatcher', () => {
     expect(result.lines[0].utility_id_fk).toBe(812);
   });
 });
+
+describe('InvoiceMatcher: codice cliente del fornitore', () => {
+  it('il codice cliente vale solo per le utenze con un contratto dello stesso fornitore', async () => {
+    const query = jest.fn(async () => []);
+    await new InvoiceMatcher({ query } as never).match(invoice({ lines: [line({ utility: '1234567' })] }), 46);
+    const call = query.mock.calls.find((c: unknown[]) => String(c[0]).includes('m_utility')) as unknown[];
+    expect(String(call[0])).toMatch(/utility_code = \? AND EXISTS[\s\S]*c\.supplier_id_fk = \?/);
+    expect(call[1]).toEqual(['1234567', '1234567', 46, '1234567']);
+  });
+});

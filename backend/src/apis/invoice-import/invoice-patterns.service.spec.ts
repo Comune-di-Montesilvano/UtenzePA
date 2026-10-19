@@ -177,6 +177,12 @@ describe('InvoicePatternsService', () => {
     );
   });
 
+  it('struttura già ignorata: 400, nessun doppione', async () => {
+    patterns.findOneBy.mockResolvedValue({ id: 8, ignored: true, deleted: false });
+    await expect(service.ignore({ message_id: 9, name: 'Avvisi' }, 7)).rejects.toThrow('Struttura già ignorata.');
+    expect(patterns.save).not.toHaveBeenCalled();
+  });
+
   it('modifica: rielabora anche le fatture già estratte con quel pattern', async () => {
     patterns.findOneBy.mockResolvedValue({
       id: 3,

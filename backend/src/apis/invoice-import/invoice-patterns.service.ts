@@ -305,6 +305,13 @@ export class InvoicePatternsService {
     const row = await this.message(input.message_id);
     if (!row.structure_key)
       throw new BadRequestException('Struttura della fattura non ancora nota.');
+    const existing = await this.patternsRepo.findOneBy({
+      supplier_id_fk: row.supplier_id_fk!,
+      structure_key: row.structure_key,
+      ignored: true,
+      deleted: false,
+    });
+    if (existing) throw new BadRequestException('Struttura già ignorata.');
     const pattern = await this.patternsRepo.save({
       supplier_id_fk: row.supplier_id_fk!,
       name: input.name.trim(),

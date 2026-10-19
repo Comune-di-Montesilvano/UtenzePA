@@ -632,6 +632,12 @@ describe('InvoiceImportService.getDocument', () => {
     );
   });
 
+  it('struttura ignorata dopo il collegamento: XML e PDF restano visibili', async () => {
+    messages.rows[0].status = SdiMessageStatus.IGNORED;
+    const doc = await service().getDocument(50, 'xml');
+    expect(doc.contentType).toBe('application/xml');
+  });
+
   it('fattura senza messaggio SDI', async () => {
     invoices.rows[0].sdi_identifier = null;
     await expect(service().getDocument(50, 'xml')).rejects.toThrow('Fattura senza messaggio SDI.');

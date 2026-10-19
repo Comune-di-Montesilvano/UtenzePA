@@ -36,9 +36,12 @@ interface UtilityRow {
 }
 
 // Il marcatore /* m_… */ identifica la query (anche nei test).
+// Il codice cliente è del fornitore: vale solo sulle utenze con un suo contratto.
 const UTILITY_SQL =
-  '/* m_utility */ SELECT id, budget_chapter_code_fk FROM utilities WHERE deleted = 0 ' +
-  'AND (utility_id = ? OR utility_code = ?) ORDER BY utility_id = ? DESC, id LIMIT 1';
+  '/* m_utility */ SELECT u.id, u.budget_chapter_code_fk FROM utilities u WHERE u.deleted = 0 ' +
+  'AND (u.utility_id = ? OR (u.utility_code = ? AND EXISTS (SELECT 1 FROM contract_utilities cu ' +
+  'JOIN contracts c ON c.id = cu.contract_id WHERE cu.utility_id = u.id AND c.supplier_id_fk = ? AND c.deleted = 0))) ' +
+  'ORDER BY u.utility_id = ? DESC, u.id LIMIT 1';
 const CONTRACT_REF_SQL =
   '/* m_contract_ref */ SELECT DISTINCT u.id, u.budget_chapter_code_fk FROM contracts c ' +
   'JOIN contract_utilities cu ON cu.contract_id = c.id ' +
@@ -86,6 +89,7 @@ export class InvoiceMatcher {
         const rows: UtilityRow[] = await this.dataSource.query(UTILITY_SQL, [
           normalized,
           code.trim(),
+          supplierId,
           normalized,
         ]);
         utilities.set(normalized, rows[0] ?? null);
