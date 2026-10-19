@@ -28,17 +28,18 @@ import type {InvoicePatternRow, UnknownStructure} from './pattern-rules.model';
       @if (loading) {
         <mat-spinner diameter="32"></mat-spinner>
       } @else {
-        <h3>Strutture da mappare</h3>
+        <h3>Fatture senza pattern</h3>
         @if (unknown.length) {
           <table class="ip-table">
-            <thead><tr><th>Fornitore</th><th class="num">Fatture</th><th></th></tr></thead>
+            <thead><tr><th>Fornitore</th><th class="num">Fatture</th><th class="num">Varianti</th><th></th></tr></thead>
             <tbody>
-              @for (u of unknown; track u.supplier_id + u.structure_key) {
+              @for (u of unknown; track u.supplier_id) {
                 <tr>
                   <td>{{ u.supplier }}</td>
                   <td class="num">{{ u.count }}</td>
+                  <td class="num">{{ u.structures }}</td>
                   <td class="act">
-                    <button mat-stroked-button (click)="openEditor(u.message_ids[0])">
+                    <button mat-stroked-button (click)="openEditor(u.message_id)">
                       {{ canEdit ? 'Mappa' : 'Vedi' }}
                     </button>
                   </td>
@@ -47,7 +48,7 @@ import type {InvoicePatternRow, UnknownStructure} from './pattern-rules.model';
             </tbody>
           </table>
         } @else {
-          <p class="muted">Nessuna struttura da mappare.</p>
+          <p class="muted">Tutte le fatture dei fornitori in perimetro sono coperte da un pattern.</p>
         }
 
         <h3>Pattern</h3>

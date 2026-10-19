@@ -72,25 +72,24 @@ describe('InvoicePatternsService', () => {
     );
   });
 
-  it('strutture da mappare raggruppate per fornitore e struttura', async () => {
+  it('fatture senza pattern: una riga per fornitore, esempio dalla struttura più frequente', async () => {
     query.mockResolvedValue([
       {
         supplier_id: 46,
         supplier: 'Energia Prova',
         structure_key: 'abc',
-        count: '3',
-        ids: '12,11,9',
+        count: '88',
+        structures: '4',
+        message_id: '12',
       },
     ]);
     expect(await service.unknown()).toEqual([
-      {
-        supplier_id: 46,
-        supplier: 'Energia Prova',
-        structure_key: 'abc',
-        count: 3,
-        message_ids: [12, 11, 9],
-      },
+      { supplier_id: 46, supplier: 'Energia Prova', structure_key: 'abc', count: 88, structures: 4, message_id: 12 },
     ]);
+    const sql = String(query.mock.calls[0][0]);
+    // Tag facoltativi diversi non fanno righe separate: si raggruppa per fornitore.
+    expect(sql).toMatch(/PARTITION BY m\.supplier_id_fk/);
+    expect(sql).toContain('rn = 1');
   });
 
   it('anteprima: estrae e riscontra senza scrivere nulla', async () => {
@@ -208,6 +207,9 @@ describe('InvoicePatternsService', () => {
     const editor = await service.editor(9);
     expect(editor.message).toEqual(expect.objectContaining({ id: 9, supplier_id: 46, supplier: 'Energia Prova S.p.A.' }));
     expect(editor.similar).toEqual([12, 9]);
+    // Simili: fatture del fornitore senza pattern, prima quelle con la stessa struttura.
+    const similarSql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('ORDER BY (structure_key'));
+    expect(similarSql).toContain('pattern_id_fk IS NULL');
     expect(editor.ranked.utility[0]).toContain('AltriDatiGestionali/TipoDato=POD');
     expect(editor.xml).toContain('<Numero>EP 7/26</Numero>');
   });

@@ -5,6 +5,11 @@ import { GroundingClass, PlantStatus, PlantType } from '@apis/plants/enum/plant.
 import { todayIso } from '@apis/utilizer-grant/real-estate-contract.calc';
 import { DataSource } from 'typeorm';
 import { partyNameSql } from '@apis/third-parties/third-party.name';
+import {
+  toUnknownStructure,
+  UNKNOWN_STRUCTURES_SQL,
+  type UnknownStructureRow,
+} from '@apis/invoice-import/pattern/unknown-structures';
 import { CostStatus, costStatusSql, inChargeSql } from '@apis/utility/cost-status';
 import { chaptersYearSummary, currentYear } from '@apis/spending/chapter-year';
 import { dbDay, romeDay } from '@apis/utility-supply/supply-reconcile.service';
@@ -98,14 +103,8 @@ export interface Anomalies {
     date: string | null;
   }>;
   invoice_sdi_outcome_discarded: AnomalyList<{ invoice_id: number; number: string }>;
-  invoice_patterns_unknown: AnomalyList<{
-    supplier_id: number;
-    supplier: string;
-    structure_key: string;
-    count: number;
-    // Fattura più recente della struttura: apre l'editor.
-    message_id: number;
-  }>;
+  // Fatture senza pattern, per fornitore: l'esempio apre l'editor.
+  invoice_patterns_unknown: AnomalyList<UnknownStructureRow>;
   invoice_import_issues: AnomalyList<{
     invoice_id: number | null;
     number: string | null;
@@ -692,15 +691,7 @@ export class AnomaliesService {
         ORDER BY i.invoice_date DESC, i.id DESC`,
     );
     const patternsUnknown: Record<string, unknown>[] = await this.dataSource.query(
-      `/* invoice_patterns_unknown */
-       SELECT m.supplier_id_fk AS supplier_id, ${partyNameSql('tp')} AS supplier, m.structure_key,
-              COUNT(*) AS count, MAX(m.id) AS message_id
-         FROM sdi_messages m
-         JOIN third_parties tp ON tp.id = m.supplier_id_fk
-        WHERE m.kind = 'INVOICE' AND m.status IN ('PENDING', 'LINKED') AND m.pattern_id_fk IS NULL
-          AND m.structure_key IS NOT NULL AND m.structure_key <> ''
-        GROUP BY m.supplier_id_fk, supplier, m.structure_key
-        ORDER BY count DESC, supplier`,
+      `/* invoice_patterns_unknown */ ${UNKNOWN_STRUCTURES_SQL}`,
     );
     const importIssues: Record<string, unknown>[] = await this.dataSource.query(
       `/* invoice_import_issues */
@@ -759,13 +750,7 @@ export class AnomaliesService {
         outcomeDiscarded.map((r) => ({ invoice_id: Number(r.invoice_id), number: String(r.number) })),
       ),
       invoice_patterns_unknown: list(
-        patternsUnknown.map((r) => ({
-          supplier_id: Number(r.supplier_id),
-          supplier: String(r.supplier),
-          structure_key: String(r.structure_key),
-          count: Number(r.count),
-          message_id: Number(r.message_id),
-        })),
+        patternsUnknown.map(toUnknownStructure),
       ),
       invoice_import_issues: list(
         importIssues.map((r) => ({

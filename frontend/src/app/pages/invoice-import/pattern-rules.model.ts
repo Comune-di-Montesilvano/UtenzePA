@@ -105,12 +105,14 @@ export interface PatternEditorData {
   similar: number[];
 }
 
+// Fatture del fornitore senza pattern: l'esempio è della variante più frequente.
 export interface UnknownStructure {
   supplier_id: number;
   supplier: string;
   structure_key: string;
   count: number;
-  message_ids: number[];
+  structures: number;
+  message_id: number;
 }
 
 export interface InvoicePatternRow {

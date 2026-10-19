@@ -560,11 +560,11 @@ const formatDate = (iso: string | null): string => {
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count">{{ data.invoice_patterns_unknown.count }}</span>
-                  Strutture di fattura da mappare
+                  Fornitori con fatture senza pattern
                 </mat-panel-title>
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
-                @for (u of data.invoice_patterns_unknown.items; track u.structure_key + u.supplier_id) {
+                @for (u of data.invoice_patterns_unknown.items; track u.supplier_id) {
                   <li (click)="openPatternEditor(u.message_id)">{{ u.supplier }} · {{ u.count }} {{ u.count === 1 ? 'fattura' : 'fatture' }}</li>
                 }
               </ul>
