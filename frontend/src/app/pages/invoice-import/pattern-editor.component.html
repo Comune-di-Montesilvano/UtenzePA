@@ -92,10 +92,21 @@
 
     <div class="pe-xml">
       <div class="pe-xml-head">
-        <strong>XML della fattura</strong>
+        @if (data.pdf_text) {
+          <mat-button-toggle-group [value]="view" (change)="setView($event.value)" aria-label="Contenuto mostrato">
+            <mat-button-toggle value="xml">XML della fattura</mat-button-toggle>
+            <mat-button-toggle value="pdf">Testo del PDF</mat-button-toggle>
+          </mat-button-toggle-group>
+        } @else {
+          <strong>XML della fattura</strong>
+        }
         <button mat-stroked-button (click)="openPdf()"><mat-icon>picture_as_pdf</mat-icon> Vedi PDF</button>
       </div>
-      <pre [innerHTML]="xmlHtml"></pre>
+      @if (view === 'pdf' && data.pdf_text) {
+        <pre [innerHTML]="pdfHtml"></pre>
+      } @else {
+        <pre [innerHTML]="xmlHtml"></pre>
+      }
     </div>
   </div>
 
@@ -118,15 +129,28 @@
             }
           </mat-select>
         </mat-form-field>
-        @if (canAfterWord(t)) {
+        @if (canWord(t)) {
           <div class="pe-word">
-            <mat-checkbox [(ngModel)]="afterWord[t]" [disabled]="!canEdit" (ngModelChange)="changed(t)">
-              {{ afterWordLabel(t) }}
-            </mat-checkbox>
-            @if (afterWord[t]) {
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Lettura</mat-label>
+              <mat-select [(ngModel)]="wordMode[t]" [disabled]="!canEdit" (ngModelChange)="changed(t)">
+                @if (!fromPdf(t)) {
+                  <mat-option value="">Valore del campo</mat-option>
+                }
+                @for (m of wordModes(t); track m.kind) {
+                  <mat-option [value]="m.kind">{{ m.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            @if (wordMode[t]) {
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Parola</mat-label>
                 <input matInput [(ngModel)]="words[t]" [disabled]="!canEdit" maxlength="50" (ngModelChange)="changed(t)">
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>A partire da</mat-label>
+                <input matInput [(ngModel)]="anchors[t]" [disabled]="!canEdit" maxlength="100" (ngModelChange)="changed(t)"
+                       placeholder="facoltativo">
               </mat-form-field>
             }
           </div>
