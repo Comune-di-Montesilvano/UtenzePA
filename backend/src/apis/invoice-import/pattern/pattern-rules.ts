@@ -468,7 +468,8 @@ export function extract(
 ): ExtractedInvoice {
   const tree: InvoiceDoc = Object.assign(parseInvoiceTree(xml), { pdf, utilities: [] });
   const h = rules.header;
-  const documentType = headerRule(tree, h.documentType, DEFAULTS.documentType) ?? '';
+  // Tipo documento sempre dal tracciato: decide fattura o nota di credito, non si mappa.
+  const documentType = headerValue(tree, DEFAULTS.documentType) ?? '';
   const creditNote = CREDIT_NOTES.includes(documentType);
 
   const filter = rules.consumptionLineFilter?.trim().toLowerCase();
@@ -614,12 +615,27 @@ export function patternMatches(xml: Buffer, rules: PatternRules): boolean {
   );
 }
 
-export function pickPattern<T extends { id: number; rules: PatternRules; paths_count: number }>(
-  xml: Buffer,
-  patterns: T[],
-): T | null {
+// TipoDocumento del tracciato (TD01, TD04…).
+export function documentTypeOf(xml: Buffer): string | null {
+  return headerValue(parseInvoiceTree(xml), DEFAULTS.documentType);
+}
+
+// Nota di credito (TD04, TD08) dal TipoDocumento del tracciato.
+export function isCreditNote(xml: Buffer): boolean {
+  return CREDIT_NOTES.includes(documentTypeOf(xml) ?? '');
+}
+
+export function isCreditNoteType(type: string | null | undefined): boolean {
+  return CREDIT_NOTES.includes(type ?? '');
+}
+
+// Fatture e note di credito hanno pattern separati (credit_note del pattern).
+export function pickPattern<
+  T extends { id: number; rules: PatternRules; paths_count: number; credit_note?: boolean },
+>(xml: Buffer, patterns: T[]): T | null {
+  const creditNote = isCreditNote(xml);
   const matching = patterns
-    .filter((p) => patternMatches(xml, p.rules))
+    .filter((p) => !!p.credit_note === creditNote && patternMatches(xml, p.rules))
     .sort((a, b) => b.paths_count - a.paths_count);
   if (!matching.length) return null;
   if (matching.length > 1 && matching[1].paths_count === matching[0].paths_count) return null;

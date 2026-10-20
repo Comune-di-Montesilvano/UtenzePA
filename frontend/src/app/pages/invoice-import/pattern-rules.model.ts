@@ -141,6 +141,8 @@ export interface PatternEditorData {
     document_date: string | null;
     status: string;
     pattern_id: number | null;
+    document_type: string | null;
+    credit_note: boolean;
   };
   xml: string;
   pdf_text: string | null;
@@ -158,8 +160,13 @@ export interface PatternEditorData {
 export interface UnknownStructure {
   supplier_id: number;
   supplier: string;
+  // Note di credito (TD04, TD08): elenco e pattern a parte.
+  credit_note: boolean;
   structure_key: string;
   count: number;
+  // TipoDocumento presenti (es. «TD01, TD02») e fatture col tipo non ancora letto.
+  document_types: string;
+  untyped: number;
   structures: number;
   message_id: number;
 }
@@ -170,6 +177,7 @@ export interface InvoicePatternRow {
   supplier_id: number;
   supplier: string;
   ignored: boolean;
+  credit_note: boolean;
   structure_key: string;
   update_date: string;
   extracted: number;

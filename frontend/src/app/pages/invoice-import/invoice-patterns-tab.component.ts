@@ -1,5 +1,5 @@
 import {ChangeDetectionStrategy, Component, inject, OnInit} from '@angular/core';
-import {DatePipe} from '@angular/common';
+import {DatePipe, NgTemplateOutlet} from '@angular/common';
 import {Router} from '@angular/router';
 import {MatButtonModule} from '@angular/material/button';
 import {MatDialog} from '@angular/material/dialog';
@@ -17,7 +17,7 @@ import type {InvoicePatternRow, UnknownStructure} from './pattern-rules.model';
 @Component({
   selector: 'app-invoice-patterns-tab',
   standalone: true,
-  imports: [DatePipe, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [DatePipe, NgTemplateOutlet, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="ip">
@@ -29,13 +29,27 @@ import type {InvoicePatternRow, UnknownStructure} from './pattern-rules.model';
         <mat-spinner diameter="32"></mat-spinner>
       } @else {
         <h3>Fatture senza pattern</h3>
-        @if (unknown.length) {
+        @if (unknownInvoices.length) {
+          <ng-container *ngTemplateOutlet="unknownTable; context: {rows: unknownInvoices, noun: 'Fatture'}"></ng-container>
+        } @else {
+          <p class="muted">Tutte le fatture dei fornitori in perimetro sono coperte da un pattern.</p>
+        }
+        @if (unknownCreditNotes.length) {
+          <h3>Note di credito senza pattern</h3>
+          <p class="muted">Hanno pattern a parte, senza consumi.</p>
+          <ng-container *ngTemplateOutlet="unknownTable; context: {rows: unknownCreditNotes, noun: 'Note'}"></ng-container>
+        }
+        <ng-template #unknownTable let-rows="rows" let-noun="noun">
           <table class="ip-table">
-            <thead><tr><th>Fornitore</th><th class="num">Fatture</th><th class="num">Varianti</th><th></th></tr></thead>
+            <thead><tr><th>Fornitore</th><th>Tipo</th><th class="num">{{ noun }}</th><th class="num">Varianti</th><th></th></tr></thead>
             <tbody>
-              @for (u of unknown; track u.supplier_id) {
+              @for (u of rows; track u.supplier_id) {
                 <tr>
                   <td>{{ u.supplier }}</td>
+                  <td>
+                    {{ u.document_types || '—' }}
+                    @if (u.untyped) { <span class="muted" title="Tipo letto dalla PEC al prossimo giro di import">· {{ u.untyped }} da leggere</span> }
+                  </td>
                   <td class="num">{{ u.count }}</td>
                   <td class="num">{{ u.structures }}</td>
                   <td class="act">
@@ -47,9 +61,7 @@ import type {InvoicePatternRow, UnknownStructure} from './pattern-rules.model';
               }
             </tbody>
           </table>
-        } @else {
-          <p class="muted">Tutte le fatture dei fornitori in perimetro sono coperte da un pattern.</p>
-        }
+        </ng-template>
 
         <h3>Pattern</h3>
         @if (patterns.length) {
@@ -63,6 +75,7 @@ import type {InvoicePatternRow, UnknownStructure} from './pattern-rules.model';
                   <td>
                     {{ p.name }}
                     @if (p.ignored) { <span class="badge tone-off">Ignorata</span> }
+                    @if (p.credit_note) { <span class="badge tone-off">Note di credito</span> }
                   </td>
                   <td>{{ p.supplier }}</td>
                   <td class="num">{{ p.ignored ? '' : p.extracted }}</td>
@@ -108,7 +121,9 @@ export class InvoicePatternsTabComponent implements OnInit {
   readonly canEdit = isEditorRole(inject(AuthService).getCurrentUser()?.role);
 
   loading = true;
-  unknown: UnknownStructure[] = [];
+  // Fatture senza pattern divise per tipo: fatture e note di credito hanno pattern separati.
+  unknownInvoices: UnknownStructure[] = [];
+  unknownCreditNotes: UnknownStructure[] = [];
   patterns: InvoicePatternRow[] = [];
 
   ngOnInit(): void {
@@ -118,7 +133,8 @@ export class InvoicePatternsTabComponent implements OnInit {
   private load(): void {
     forkJoin({unknown: this.service.unknown(), patterns: this.service.list()}).subscribe({
       next: r => {
-        this.unknown = r.unknown;
+        this.unknownInvoices = r.unknown.filter(u => !u.credit_note);
+        this.unknownCreditNotes = r.unknown.filter(u => u.credit_note);
         this.patterns = r.patterns;
         this.loading = false;
       },

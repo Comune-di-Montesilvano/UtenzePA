@@ -52,14 +52,15 @@ interface FieldOption {
 }
 
 const PREVIEW_DEBOUNCE_MS = 400;
-// La P.IVA identifica il fornitore: non si mappa.
-const EDITABLE_HEADER = HEADER_TARGETS.filter(t => t !== 'supplierVat');
+// La P.IVA identifica il fornitore e il tipo documento sceglie fatture o note di
+// credito: si leggono sempre dal tracciato, non si mappano.
+const EDITABLE_HEADER = HEADER_TARGETS.filter(t => t !== 'supplierVat' && t !== 'documentType');
 // Regole «parola»: un dato dentro un testo (Causale, descrizione, PDF allegato), tra
 // «Dopo il testo» e «Prima del testo» (basta uno dei due). Numero o testo secondo il
 // campo; date gg/mm/aaaa convertite. Con tutti e due: il primo testo fa da ancora,
 // il valore è quello subito prima del secondo (es. dopo «CONSUMO», prima di «kWh»).
 const WORD_TARGETS: TargetField[] = [
-  'supplierName', 'documentType', 'total', 'amount', 'netAmount', 'consumption', ...BAND_TARGETS, 'number', 'date', 'cig', 'contractRef',
+  'supplierName', 'total', 'amount', 'netAmount', 'consumption', ...BAND_TARGETS, 'number', 'date', 'cig', 'contractRef',
   'utility', 'periodStart', 'periodEnd', 'unit', 'meter', 'estimated',
 ];
 const NUMBER_TARGETS: TargetField[] = ['total', 'netAmount', 'amount', 'consumption', ...BAND_TARGETS];
@@ -512,7 +513,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
       if (isHeaderTarget(t)) rules.header[t as keyof PatternRules['header']] = rule;
       else rules.line[t] = rule;
     }
-    if (this.consumptionFilter.trim()) rules.consumptionLineFilter = this.consumptionFilter.trim();
+    if (!this.data?.message.credit_note && this.consumptionFilter.trim()) rules.consumptionLineFilter = this.consumptionFilter.trim();
     return rules;
   }
 
@@ -544,6 +545,8 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
 
   // Righe delle fasce solo con «Per fasce».
   showTarget(t: TargetField): boolean {
+    // Note di credito senza consumi: le regole della sezione non si salvano.
+    if (this.data?.message.credit_note && this.consumptionTargets.includes(t)) return false;
     return this.consumptionMode === 'bands' || !(BAND_TARGETS as TargetField[]).includes(t);
   }
 

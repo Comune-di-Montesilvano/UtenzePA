@@ -4,7 +4,10 @@
 } @else if (data) {
   <div class="pe-bar">
     <button mat-icon-button aria-label="Torna all'elenco" (click)="back()"><mat-icon>arrow_back</mat-icon></button>
-    <h2>{{ data.message.supplier }} · {{ data.message.document_number || data.message.file_name }}</h2>
+    <h2>
+      {{ data.message.supplier }} · {{ data.message.document_number || data.message.file_name }}
+      @if (data.message.credit_note) { <span class="pe-badge tone-warn">Nota di credito</span> }
+    </h2>
     <span class="spacer"></span>
     @if (variants.length > 1) {
       <mat-form-field class="pe-variant" appearance="outline" subscriptSizing="dynamic">
@@ -73,6 +76,14 @@
           }
         </div>
       </div>
+      <div class="pe-row">
+        <div>
+          <strong>{{ labels['documentType'] }}</strong>: {{ data.message.document_type || '—' }}
+          <div class="pe-opt-sample">
+            Dal tracciato, non si mappa: {{ data.message.credit_note ? 'pattern per le note di credito (TD04, TD08)' : 'pattern per le fatture' }}.
+          </div>
+        </div>
+      </div>
       @for (t of headerTargets; track t) {
         <ng-container *ngTemplateOutlet="fieldRow; context: {t}"></ng-container>
       }
@@ -83,6 +94,9 @@
       }
 
       <h3>Consumi</h3>
+      @if (data.message.credit_note) {
+      <p class="pe-section-hint">Nota di credito: nessun consumo.</p>
+      } @else {
       <p class="pe-section-hint">Entrano nello storico consumi dell'utenza della riga, per il periodo della riga.</p>
       <div class="pe-row">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -109,6 +123,7 @@
           <mat-hint>Vuoto: consumo da tutte le righe con l'utenza.</mat-hint>
         </mat-form-field>
       </div>
+      }
 
       @if (preview?.extracted; as ex) {
         <h3>Anteprima ({{ ex.lines.length }} righe)</h3>

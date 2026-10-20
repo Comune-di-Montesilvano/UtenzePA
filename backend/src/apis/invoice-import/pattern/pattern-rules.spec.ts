@@ -7,6 +7,8 @@ import {
   patternMatches,
   PDF_PATH,
   pickPattern,
+  isCreditNote,
+  documentTypeOf,
   rulePaths,
   structureKey,
   usesPdf,
@@ -538,6 +540,22 @@ describe('patternMatches e pickPattern', () => {
     expect(pickPattern(pod, [a, b])?.id).toBe(2);
     expect(pickPattern(pod, [a, { ...a, id: 3 }])).toBeNull();
     expect(pickPattern(aca, [b])).toBeNull();
+  });
+
+  it('note di credito e fatture hanno pattern separati; tipo documento sempre dal tracciato', () => {
+    const invoice = { id: 1, rules: POD_RULES, paths_count: 1 };
+    const credit = { id: 2, rules: POD_RULES, paths_count: 1, credit_note: true };
+    expect(pickPattern(pod, [invoice, credit])?.id).toBe(1);
+    expect(pickPattern(asCreditNote(pod), [invoice, credit])?.id).toBe(2);
+    expect(pickPattern(asCreditNote(pod), [invoice])).toBeNull();
+    expect(isCreditNote(asCreditNote(pod))).toBe(true);
+    expect(documentTypeOf(pod)).toBe('TD01');
+    // Una regola sul tipo documento non conta: vale TipoDocumento.
+    const mapped: PatternRules = {
+      ...POD_RULES,
+      header: { documentType: { kind: 'none' } },
+    };
+    expect(extract(asCreditNote(pod), mapped).documentType).toBe('TD04');
   });
 });
 

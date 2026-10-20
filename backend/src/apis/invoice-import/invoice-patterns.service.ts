@@ -19,7 +19,10 @@ import {
 } from './pattern/field-catalog';
 import {
   BAND_TARGETS,
+  documentTypeOf,
   extract,
+  isCreditNote,
+  isCreditNoteType,
   patternMatches,
   PDF_PATH,
   rulePaths,
@@ -35,7 +38,9 @@ import {
 import { pdfText } from './sdi/pdf-text';
 import { extractPdf } from './sdi/sdi-files';
 import {
+  CREDIT_NOTE_SQL,
   toUnknownStructure,
+  UNTYPED_SQL,
   UNKNOWN_STRUCTURES_SQL,
   type UnknownStructureRow,
 } from './pattern/unknown-structures';
@@ -82,6 +87,9 @@ export interface PatternEditor {
     document_date: string | null;
     status: string;
     pattern_id: number | null;
+    // TipoDocumento del tracciato; nota di credito: pattern a parte, senza consumi.
+    document_type: string | null;
+    credit_note: boolean;
   };
   xml: string;
   // Testo del PDF allegato (null se manca): fonte delle regole «parola».
@@ -107,7 +115,7 @@ const SUPPLIER_NAME = "COALESCE(tp.company_name, CONCAT_WS(' ', tp.last_name, tp
 
 const LIST_SQL =
   `SELECT p.id, p.name, p.supplier_id_fk AS supplier_id, ${SUPPLIER_NAME} AS supplier, ` +
-  'p.ignored, p.structure_key, p.update_date, ' +
+  'p.ignored, p.credit_note, p.structure_key, p.update_date, ' +
   "(SELECT COUNT(*) FROM sdi_messages m WHERE m.pattern_id_fk = p.id AND m.status = 'EXTRACTED') AS extracted, " +
   '(SELECT MAX(m.id) FROM sdi_messages m WHERE m.supplier_id_fk = p.supplier_id_fk ' +
   "AND m.structure_key = p.structure_key AND m.kind = 'INVOICE') AS sample_message_id " +
@@ -118,10 +126,12 @@ const SUPPLIER_SQL = `SELECT ${SUPPLIER_NAME} AS supplier FROM third_parties tp 
 
 // Simili: fatture del fornitore senza pattern, prima quelle con la stessa struttura.
 const SIMILAR_SQL =
-  'SELECT id, structure_key, document_number FROM sdi_messages ' +
-  "WHERE kind = 'INVOICE' AND supplier_id_fk = ? " +
-  "AND status IN ('PENDING', 'LINKED') AND pattern_id_fk IS NULL " +
-  'ORDER BY id DESC LIMIT 1000';
+  'SELECT m.id, m.structure_key, m.document_number FROM sdi_messages m ' +
+  "WHERE m.kind = 'INVOICE' AND m.supplier_id_fk = ? AND " +
+  CREDIT_NOTE_SQL +
+  ' = ? ' +
+  "AND m.status IN ('PENDING', 'LINKED') AND m.pattern_id_fk IS NULL " +
+  'ORDER BY m.id DESC LIMIT 1000';
 
 // Simili per variante, dalla più numerosa (a parità la più recente): numerazione
 // stabile qualunque fattura sia aperta. Dentro la variante dalla più recente.
@@ -159,14 +169,14 @@ const REPROCESS_SQL =
 const RULE_KINDS = ['field', ...WORD_KINDS, 'grossAmount', 'fromHeader', 'none'];
 const isWordKind = (kind: unknown) => (WORD_KINDS as unknown[]).includes(kind);
 // Campi che si possono leggere dal testo del PDF: tutti tranne la P.IVA del
-// fornitore, che lo identifica (fornitori senza dati utili nell'XML, es. ACA).
+// fornitore, che lo identifica, e il tipo documento, sempre dal tracciato
+// (fornitori senza dati utili nell'XML, es. ACA).
 // L'importo di riga dal PDF vale per fatture di una riga o con più utenze (ogni
 // riga legge il tratto dopo il codice della sua utenza).
 const PDF_TARGETS: TargetField[] = [
   'supplierName',
   'number',
   'date',
-  'documentType',
   'total',
   'netAmount',
   'cig',
@@ -341,7 +351,34 @@ export class InvoicePatternsService {
 
   async unknown(): Promise<UnknownStructure[]> {
     const rows: Record<string, unknown>[] = await this.dataSource.query(UNKNOWN_STRUCTURES_SQL);
-    return rows.map(toUnknownStructure);
+    const result = rows.map(toUnknownStructure);
+    if (result.some((r) => r.untyped > 0)) this.fillDocumentTypes();
+    return result;
+  }
+
+  private typing = false;
+
+  // Completa in background il tipo delle fatture senza pattern registrate prima
+  // della v1.40.0, rileggendo la PEC (sola lettura) anche a import spento: l'elenco
+  // le divide fra fatture e note di credito man mano. File sparito = tipo vuoto.
+  private fillDocumentTypes(): void {
+    if (this.typing || !this.importer.configured) return;
+    this.typing = true;
+    void (async () => {
+      for (;;) {
+        const ids: { id: number }[] = await this.dataSource.query(UNTYPED_SQL);
+        if (!ids.length) break;
+        const rows = await this.messagesRepo.findBy({ id: In(ids.map((r) => Number(r.id))) });
+        const files = await this.importer.readMessageFiles(rows);
+        for (const row of rows) {
+          const content = files.get(row.id);
+          const type = content ? documentTypeOf(content) : null;
+          await this.messagesRepo.update(row.id, { document_type: type ?? '' });
+        }
+      }
+    })()
+      .catch(() => undefined)
+      .finally(() => (this.typing = false));
   }
 
   async list(): Promise<Record<string, unknown>[]> {
@@ -350,6 +387,7 @@ export class InvoicePatternsService {
       ...r,
       supplier_id: Number(r.supplier_id),
       ignored: !!Number(r.ignored),
+      credit_note: !!Number(r.credit_note),
       extracted: Number(r.extracted),
       sample_message_id: r.sample_message_id === null ? null : Number(r.sample_message_id),
     }));
@@ -379,8 +417,11 @@ export class InvoicePatternsService {
       }
     }
     const [supplier] = await this.dataSource.query(SUPPLIER_SQL, [row.supplier_id_fk]);
+    const creditNote = await this.creditNoteOf(row, xml);
     const { similar, variants, numbers } = groupVariants(
-      row.structure_key ? await this.dataSource.query(SIMILAR_SQL, [row.supplier_id_fk]) : [],
+      row.structure_key
+        ? await this.dataSource.query(SIMILAR_SQL, [row.supplier_id_fk, creditNote ? 1 : 0])
+        : [],
     );
     return {
       message: {
@@ -393,6 +434,8 @@ export class InvoicePatternsService {
         document_date: row.document_date,
         status: row.status,
         pattern_id: row.pattern_id_fk,
+        document_type: row.document_type || null,
+        credit_note: creditNote,
       },
       xml: xml.toString('utf8'),
       pdf_text: pdf,
@@ -402,6 +445,18 @@ export class InvoicePatternsService {
       variants: variants.length ? variants : [{ start: 0, count: 1 }],
       numbers: similar.length ? numbers : [row.document_number],
     };
+  }
+
+  // Tipo del documento dal tracciato; completa document_type sui messaggi registrati prima.
+  private async creditNoteOf(row: SdiMessage, xml: Buffer): Promise<boolean> {
+    if (row.document_type === null || row.document_type === undefined) {
+      const type = documentTypeOf(xml);
+      if (type) {
+        row.document_type = type;
+        await this.messagesRepo.update(row.id, { document_type: type });
+      }
+    }
+    return isCreditNoteType(row.document_type);
   }
 
   async pdf(messageId: number): Promise<{ fileName: string; data: Buffer }> {
@@ -508,6 +563,7 @@ export class InvoicePatternsService {
       rules: input.rules,
       structure_key: structureKey(xml),
       paths_count: rulePaths(input.rules).length,
+      credit_note: isCreditNote(xml),
       created_by_user_id: userId,
       updated_by_user_id: userId,
     });
@@ -517,9 +573,16 @@ export class InvoicePatternsService {
   async update(id: number, input: SavePatternInput, userId: number) {
     const existing = await this.findOne(id);
     if (existing.ignored) throw new BadRequestException('Un pattern ignorato non ha regole.');
-    const { row } = await this.validated(input);
+    const { row, xml } = await this.validated(input);
     if (row.supplier_id_fk !== existing.supplier_id_fk) {
       throw new BadRequestException('La fattura è di un altro fornitore.');
+    }
+    if (isCreditNote(xml) !== !!existing.credit_note) {
+      throw new BadRequestException(
+        existing.credit_note
+          ? 'Il pattern è per le note di credito: scegli una nota di credito.'
+          : 'Il pattern è per le fatture: per le note di credito salvane uno a parte.',
+      );
     }
     await this.patternsRepo.update(id, {
       name: input.name.trim(),
@@ -584,6 +647,8 @@ export class InvoicePatternsService {
   private async validated(input: SavePatternInput): Promise<{ row: SdiMessage; xml: Buffer }> {
     if (!input.name?.trim()) throw new BadRequestException('Indica il nome del pattern.');
     assertValidRules(input.rules);
+    // Il tipo documento si legge sempre dal tracciato: un'eventuale regola si scarta.
+    delete input.rules.header.documentType;
     const row = await this.message(input.message_id);
     const xml = (await this.file(row)).content;
     if (!patternMatches(xml, input.rules)) {

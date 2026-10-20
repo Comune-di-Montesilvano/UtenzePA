@@ -55,6 +55,10 @@ export class InvoicePattern {
   @Column({ type: 'boolean', default: false })
   deleted: boolean;
 
+  // Pattern delle note di credito (TD04, TD08) del fornitore: le fatture usano gli altri.
+  @Column({ type: 'boolean', default: false })
+  credit_note: boolean;
+
   @ManyToOne(() => ThirdParty, { nullable: false })
   @JoinColumn({ name: 'supplier_id_fk', foreignKeyConstraintName: 'FK_invoice_patterns_supplier' })
   supplier: ThirdParty;
