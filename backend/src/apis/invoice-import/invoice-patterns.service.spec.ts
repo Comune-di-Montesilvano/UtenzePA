@@ -243,7 +243,7 @@ describe('InvoicePatternsService', () => {
     expect(patterns.save).not.toHaveBeenCalled();
   });
 
-  it('salvataggio rifiutato senza utenza o importo di riga', async () => {
+  it('salvataggio rifiutato senza utenza o con importo di riga «Non presente»', async () => {
     await expect(
       service.create(
         {
@@ -254,6 +254,17 @@ describe('InvoicePatternsService', () => {
         7,
       ),
     ).rejects.toThrow('Indica almeno utenza e importo della riga.');
+    const noAmount = { ...RULES, line: { ...RULES.line, amount: { kind: 'none' as const } } };
+    await expect(service.create({ message_id: 9, name: 'Energia', rules: noAmount }, 7)).rejects.toThrow(
+      'Indica almeno utenza e importo della riga.',
+    );
+  });
+
+  it('salvataggio: importo di riga senza regola = predefinito, accettato', async () => {
+    query.mockResolvedValue([]);
+    const { amount: _amount, ...line } = RULES.line;
+    await service.create({ message_id: 9, name: 'Energia', rules: { ...RULES, line } }, 7);
+    expect(patterns.save).toHaveBeenCalled();
   });
 
   it('salvataggio: pattern del fornitore del messaggio e rielaborazione delle fatture in attesa', async () => {

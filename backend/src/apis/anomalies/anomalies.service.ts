@@ -106,6 +106,8 @@ export interface Anomalies {
   // Fatture senza pattern, per fornitore: l'esempio apre l'editor.
   invoice_patterns_unknown: AnomalyList<UnknownStructureRow>;
   invoice_import_issues: AnomalyList<{
+    id: number;
+    message_id: number;
     invoice_id: number | null;
     number: string | null;
     type: string;
@@ -698,7 +700,8 @@ export class AnomaliesService {
     );
     const importIssues: Record<string, unknown>[] = await this.dataSource.query(
       `/* invoice_import_issues */
-       SELECT ii.invoice_id_fk AS invoice_id, i.invoice_id AS number, ii.type, ii.detail,
+       SELECT ii.id, ii.sdi_message_id_fk AS message_id,
+              ii.invoice_id_fk AS invoice_id, i.invoice_id AS number, ii.type, ii.detail,
               ii.utility_id_fk AS utility_id, uu.utility_id AS utility_code
          FROM invoice_import_issues ii
          LEFT JOIN utilities uu ON uu.id = ii.utility_id_fk
@@ -706,6 +709,7 @@ export class AnomaliesService {
          LEFT JOIN invoices i ON i.id = ii.invoice_id_fk
          LEFT JOIN third_parties tp ON tp.id = m.supplier_id_fk
         WHERE m.status <> 'IGNORED'
+          AND ii.muted = 0
           AND (ii.invoice_id_fk IS NULL
                OR (i.deleted = 0 AND i.import_locked = 0 AND COALESCE(i.sdi_status, '') <> 'REJECTED'))
           -- Ricontrollate al momento: spariscono quando la causa è sistemata.
@@ -761,6 +765,8 @@ export class AnomaliesService {
       invoice_patterns_unknown: list(patternsUnknown.map(toUnknownStructure)),
       invoice_import_issues: list(
         importIssues.map((r) => ({
+          id: Number(r.id),
+          message_id: Number(r.message_id),
           invoice_id: r.invoice_id == null ? null : Number(r.invoice_id),
           number: (r.number as string) ?? null,
           type: String(r.type),

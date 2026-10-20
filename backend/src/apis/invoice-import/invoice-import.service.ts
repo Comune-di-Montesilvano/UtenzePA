@@ -18,6 +18,7 @@ import {
   pickPattern,
   documentTypeOf,
   structureKey,
+  missingPdfData,
   usesPdf,
   type PatternRules,
 } from './pattern/pattern-rules';
@@ -458,6 +459,14 @@ export class InvoiceImportService {
       const pdf = usesPdf(pattern.rules) ? await pdfText(xml) : null;
       const extracted = extract(xml, pattern.rules, pdf);
       const match = await this.matcher.match(extracted, row.supplier_id_fk!);
+      const pdfMissing = missingPdfData(pattern.rules, extracted, pdf);
+      if (pdfMissing) {
+        match.issues.push({
+          type: ImportIssueType.PDF_DATA_MISSING,
+          lineIndex: null,
+          detail: pdfMissing,
+        });
+      }
       if (match.blocking.length) {
         await this.applier.block(row, match, pattern.id);
         Object.assign(row, { pattern_id_fk: pattern.id, error: null });

@@ -730,20 +730,21 @@ describe('AnomaliesService', () => {
 
     it('differenze trovate dall’import, escluse fatture rifiutate e strutture ignorate', async () => {
       only('/* invoice_import_issues */', [
-        { invoice_id: '77', number: 'EP 7/26', type: 'CIG_MISMATCH', detail: 'CIG fattura A, contratto B', utility_id: null },
-        { invoice_id: null, number: null, type: 'BATCH_NOT_SUPPORTED', detail: 'Lotto', utility_id: null },
+        { id: '1', message_id: '10', invoice_id: '77', number: 'EP 7/26', type: 'CIG_MISMATCH', detail: 'CIG fattura A, contratto B', utility_id: null },
+        { id: '2', message_id: '11', invoice_id: null, number: null, type: 'BATCH_NOT_SUPPORTED', detail: 'Lotto', utility_id: null },
       ]);
       const r = await service.getAnomalies();
       expect(r.invoice_import_issues).toEqual({
         count: 2,
         items: [
-          { invoice_id: 77, number: 'EP 7/26', type: 'CIG_MISMATCH', detail: 'CIG fattura A, contratto B', utility_id: null },
-          { invoice_id: null, number: null, type: 'BATCH_NOT_SUPPORTED', detail: 'Lotto', utility_id: null },
+          { id: 1, message_id: 10, invoice_id: 77, number: 'EP 7/26', type: 'CIG_MISMATCH', detail: 'CIG fattura A, contratto B', utility_id: null },
+          { id: 2, message_id: 11, invoice_id: null, number: null, type: 'BATCH_NOT_SUPPORTED', detail: 'Lotto', utility_id: null },
         ],
       });
       const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('/* invoice_import_issues */'));
       expect(sql).toContain("<> 'REJECTED'");
       expect(sql).toContain("<> 'IGNORED'");
+      expect(sql).toContain('ii.muted = 0');
     });
 
     it('matricola diversa: utenze da sistemare, una volta sola anche con più fatture ferme', async () => {

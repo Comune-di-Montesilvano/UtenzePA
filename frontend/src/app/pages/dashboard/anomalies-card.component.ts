@@ -4,6 +4,13 @@ import {MatCardModule} from '@angular/material/card';
 import {MatExpansionModule} from '@angular/material/expansion';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
+import {MatDialog} from '@angular/material/dialog';
+import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
+import {ToastService} from '../../core/services/toast.service';
+import {AuthService} from '../../services/auth.service';
+import {isEditorRole} from '../../core/components/entity-sheet/sheet-utils';
+import {InvoicePatternsService} from '../invoice-import/invoice-patterns.service';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {sinceDays} from '../../core/components/entity-sheet/sheet-utils';
 import {Anomalies, AnomaliesService} from '../../core/services/anomalies.service';
@@ -20,7 +27,7 @@ const formatDate = (iso: string | null): string => {
 @Component({
   selector: 'app-anomalies-card',
   standalone: true,
-  imports: [MatCardModule, MatExpansionModule, MatButtonModule, MatIconModule],
+  imports: [MatCardModule, MatExpansionModule, MatButtonModule, MatIconModule, MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <mat-card>
@@ -580,9 +587,22 @@ const formatDate = (iso: string | null): string => {
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
                 @for (d of data.invoice_import_issues.items; track $index) {
-                  <li (click)="d.utility_id ? openUtility(d.utility_id) : d.invoice_id ? openInvoice(d.invoice_id) : openInvoiceImport()">
-                    {{ issueLabel(d.type) }} · {{ d.number || 'senza fattura' }} · {{ d.detail }}
-                  </li>
+                  @if (d.type === 'PDF_DATA_MISSING') {
+                    <!-- Il PDF va controllato nell'editor; caso isolato: si silenzia. -->
+                    <li (click)="openPatternEditor(d.message_id)">
+                      {{ issueLabel(d.type) }} · {{ d.number || 'senza fattura' }} · {{ d.detail }}
+                      @if (canEdit) {
+                        <button mat-icon-button class="mute-button" matTooltip="Silenzia: dati registrati a mano"
+                                aria-label="Silenzia la segnalazione" (click)="$event.stopPropagation(); muteIssue(d.id)">
+                          <mat-icon>notifications_off</mat-icon>
+                        </button>
+                      }
+                    </li>
+                  } @else {
+                    <li (click)="d.utility_id ? openUtility(d.utility_id) : d.invoice_id ? openInvoice(d.invoice_id) : openInvoiceImport()">
+                      {{ issueLabel(d.type) }} · {{ d.number || 'senza fattura' }} · {{ d.detail }}
+                    </li>
+                  }
                 }
               </ul>
             </mat-expansion-panel>
@@ -621,6 +641,8 @@ const formatDate = (iso: string | null): string => {
     .anomaly-list li { cursor: pointer; padding: 2px 0; }
     .anomaly-list li:hover { text-decoration: underline; }
     .anomaly-list.plain li { cursor: default; }
+    .mute-button { width: 28px; height: 28px; padding: 2px; vertical-align: middle; }
+    .mute-button mat-icon { font-size: 18px; width: 18px; height: 18px; }
     .anomaly-list.plain li:hover { text-decoration: none; }
   `],
 })
@@ -628,6 +650,10 @@ export class AnomaliesCardComponent implements OnInit {
   private service = inject(AnomaliesService);
   private router = inject(Router);
   private navigator = inject(EntityNavigatorService);
+  private dialog = inject(MatDialog);
+  private toast = inject(ToastService);
+  private patterns = inject(InvoicePatternsService);
+  readonly canEdit = isEditorRole(inject(AuthService).getCurrentUser()?.role);
 
   data: Anomalies | null = null;
 
@@ -718,6 +744,25 @@ export class AnomaliesCardComponent implements OnInit {
   }
 
   issueLabel = importIssueLabel;
+
+  muteIssue(id: number): void {
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          title: 'Silenziare la segnalazione?',
+          message: 'Non comparirà più per questa fattura, anche se viene rielaborata. Usala quando i dati sono stati registrati a mano.',
+          confirmLabel: 'Silenzia',
+        },
+      })
+      .afterClosed()
+      .subscribe(ok => {
+        if (!ok) return;
+        this.patterns.muteIssue(id).subscribe({
+          next: () => this.load(),
+          error: err => this.toast.add({severity: 'error', summary: 'Errore', detail: err?.error?.message ?? 'Segnalazione non silenziata.'}),
+        });
+      });
+  }
 
   openPatternEditor(messageId: number): void {
     this.router.navigate(['/invoice-import/editor', messageId]);

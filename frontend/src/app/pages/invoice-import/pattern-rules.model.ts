@@ -55,6 +55,16 @@ export interface ReadingCells {
   dates: string[];
   values: number[];
   types: string[];
+  // Totalizzatori di fascia per lettura (tabelle con F1/F2/F3): il valore è la somma.
+  bands?: (ReadingBands | null)[];
+  // Unità letta nella tabella (kWh, kvarh, Smc…).
+  unit?: string;
+}
+
+export interface ReadingBands {
+  f1?: number;
+  f2?: number;
+  f3?: number;
 }
 
 // Tabella riconosciuta nel PDF dal server, con le letture lette.
@@ -106,7 +116,7 @@ export interface ExtractedLine {
   unit: string | null;
   meter: string | null;
   estimated: boolean;
-  readings: {date: string; value: number; estimated: boolean}[];
+  readings: {date: string; value: number; estimated: boolean; bands?: ReadingBands}[];
   readingCells: ReadingCells | null;
 }
 

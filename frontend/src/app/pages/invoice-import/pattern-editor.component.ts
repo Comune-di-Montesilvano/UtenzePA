@@ -136,6 +136,7 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     .pe-reading-table th, .pe-reading-table td { padding: 0.2rem 0.75rem 0.2rem 0; text-align: left; white-space: nowrap; }
     .pe-reading-table th { color: var(--app-muted); font-weight: 500; }
     .pe-reading-table .incomplete { opacity: 0.5; }
+    .pe-reading-table .pe-band th, .pe-reading-table .pe-band td { font-size: 0.8rem; color: var(--app-muted); padding-left: 0.75rem; }
     .pe-dot { display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; margin-right: 0.3rem; background: var(--tone-ok-fg); }
     .pe-dot.estimated { background: var(--tone-warn-fg); }
     .pe-section-hint { margin: -0.5rem 0 0.75rem; font-size: 0.85em; color: var(--app-muted); }
@@ -625,9 +626,11 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
       const n = Math.min(t.cells.dates.length, t.cells.values.length);
       const where = t.layout === 'columns' ? `In colonna, riga «${t.label}»` : `In righe, sotto «${t.label}»`;
       const occurrence = t.occurrence > 1 ? ` (${t.occurrence}ª)` : '';
+      const unit = t.cells.unit ? ` in ${t.cells.unit}` : '';
+      const bands = t.cells.bands ? ' con le fasce' : '';
       const first = t.cells.dates[0] ? `, dal ${day(t.cells.dates[0])}` : '';
       const table: ReadingTable = {layout: t.layout, label: t.label, occurrence: t.occurrence};
-      return {key: tableKey(table), label: `${where}${occurrence}: ${n === 1 ? '1 lettura' : `${n} letture`}${first}`, table};
+      return {key: tableKey(table), label: `${where}${occurrence}: ${n === 1 ? '1 lettura' : `${n} letture`}${unit}${bands}${first}`, table};
     });
     if (this.readingTable && !options.some(o => o.key === tableKey(this.readingTable!))) {
       const t = this.readingTable;
@@ -641,7 +644,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   }
 
   // Colonne della tabella delle letture letta nell'anteprima (anche incomplete).
-  readingColumns(): {date: string; value: string; type: string; estimated: boolean; complete: boolean}[] {
+  readingColumns(): {date: string; value: string; type: string; estimated: boolean; complete: boolean; bands: string[]}[] {
     const cells = this.preview?.extracted?.lines.find(l => l.readingCells)?.readingCells;
     if (!cells) return [];
     const complete = Math.min(cells.dates.length, cells.values.length);
@@ -654,14 +657,28 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
         type: type || '—',
         estimated: /stim|presun/i.test(type),
         complete: i < complete,
+        bands: (['f1', 'f2', 'f3'] as const).map(b => {
+          const v = cells.bands?.[i]?.[b];
+          return v === undefined ? '—' : this.qty(v);
+        }),
       };
     });
+  }
+
+  // Tabella delle letture con le fasce (F1/F2/F3 nelle righe del PDF).
+  readingHasBands(): boolean {
+    return !!this.preview?.extracted?.lines.find(l => l.readingCells)?.readingCells?.bands;
   }
 
   // Letture lette nella riga dell'anteprima.
   readingsText(l: ExtractedLine): string {
     return (l.readings ?? [])
-      .map(r => `${r.date.split('-').reverse().join('/')} ${this.qty(r.value)} ${r.estimated ? 'stimata' : 'rilevata'}`)
+      .map(r => {
+        const bands = r.bands
+          ? ` (${(['f1', 'f2', 'f3'] as const).filter(b => r.bands![b] !== undefined).map(b => `${b.toUpperCase()} ${this.qty(r.bands![b]!)}`).join(', ')})`
+          : '';
+        return `${r.date.split('-').reverse().join('/')} ${this.qty(r.value)}${bands} ${r.estimated ? 'stimata' : 'rilevata'}`;
+      })
       .join(' · ');
   }
 
@@ -946,7 +963,10 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
 
   save(): void {
     if (!this.data) return;
-    const missing = (['utility', 'amount'] as TargetField[]).filter(t => !this.ruleFor(t) || this.choice[t] === 'none');
+    // Importo senza regola = predefinito (imponibile × IVA): basta che non sia «Non presente».
+    const missing = (['utility', 'amount'] as TargetField[]).filter(
+      t => this.choice[t] === 'none' || (t === 'utility' && !this.ruleFor(t)),
+    );
     if (missing.length) {
       this.toast.add({severity: 'warn', summary: 'Pattern incompleto', detail: 'Indica almeno utenza e importo della riga.'});
       return;

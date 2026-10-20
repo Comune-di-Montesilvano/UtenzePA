@@ -277,7 +277,8 @@ function assertValidRules(rules: PatternRules): void {
     validReadingTable(rules.readingTable);
   if (!valid) throw new BadRequestException('Regole del pattern non valide.');
   const mapped = (r: Rule | undefined) => !!r && r.kind !== 'none';
-  if (!mapped(rules.line.utility) || !mapped(rules.line.amount)) {
+  // Importo senza regola = imponibile × IVA (come in extract), purché non sia «Non presente».
+  if (!mapped(rules.line.utility) || rules.line.amount?.kind === 'none') {
     throw new BadRequestException('Indica almeno utenza e importo della riga.');
   }
 }
@@ -292,6 +293,7 @@ const ISSUE_FIELD: Record<ImportIssueType, TargetField> = {
   [ImportIssueType.MIXED_CONTRACTS]: 'utility',
   [ImportIssueType.BATCH_NOT_SUPPORTED]: 'number',
   [ImportIssueType.METER_MISMATCH]: 'meter',
+  [ImportIssueType.PDF_DATA_MISSING]: 'readings',
 };
 
 // Fonte «Testo del PDF allegato» nelle select di consumo e matricola.
@@ -581,6 +583,19 @@ export class InvoicePatternsService {
       }
     }
     return result;
+  }
+
+  // Segnalazione «dati dal PDF non trovati» silenziata: non compare più tra le anomalie.
+  async muteIssue(id: number): Promise<void> {
+    const [issue] = await this.dataSource.query(
+      'SELECT id, type FROM invoice_import_issues WHERE id = ?',
+      [id],
+    );
+    if (!issue) throw new BadRequestException('Segnalazione non trovata.');
+    if (issue.type !== ImportIssueType.PDF_DATA_MISSING) {
+      throw new BadRequestException('Si possono silenziare solo i dati dal PDF non trovati.');
+    }
+    await this.dataSource.query('UPDATE invoice_import_issues SET muted = 1 WHERE id = ?', [id]);
   }
 
   async create(input: SavePatternInput, userId: number) {

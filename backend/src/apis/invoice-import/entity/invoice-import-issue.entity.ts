@@ -42,6 +42,11 @@ export class InvoiceImportIssue {
   @Column({ type: 'varchar', length: 100, nullable: true })
   value: string | null;
 
+  // Silenziata a mano (es. dati dal PDF registrati a mano): resta tale anche quando
+  // la fattura si rielabora e le segnalazioni si rigenerano.
+  @Column({ type: 'boolean', default: false })
+  muted: boolean;
+
   @CreateDateColumn({ type: 'timestamp' })
   create_date: Date;
 

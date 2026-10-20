@@ -3,6 +3,7 @@ import { join } from 'path';
 import {
   detectReadingTables,
   extract,
+  missingPdfData,
   fromAnchor,
   numberBefore,
   patternMatches,
@@ -585,6 +586,55 @@ describe('extract: dati nel PDF allegato', () => {
     ]);
     // Altra fattura senza quella tabella: nessuna lettura.
     expect(extract(aca, r, 'Consumo 594 mc').lines[0].readings).toEqual([]);
+  });
+
+  it('tabella a righe con fasce: lettura iniziale e finale per data, totalizzatori F1–F3', () => {
+    const text = [
+      'Tipo di',
+      'Consumo',
+      '31.08.2026 30.09.2026   Fascia oraria F1   4.007   Rilevata   4.067   Rilevata   60 kWh   Effettivo',
+      '31.08.2026 30.09.2026   Fascia oraria F2   1.066   Rilevata   1.091   Stimata   25 kWh   Effettivo',
+      '31.08.2026 30.09.2026   Fascia oraria F3   1.629   Rilevata   1.667   Rilevata   38 kWh   Effettivo',
+      'Periodo',
+      'Tipo di',
+      'Consumo',
+      '31.08.2026 30.09.2026   Fascia oraria F1   10   Rilevata   12   Rilevata   2 kvarh   Effettivo',
+    ].join('\n');
+    const tables = detectReadingTables(text);
+    expect(tables.map((t) => [t.layout, t.label, t.occurrence])).toEqual([
+      ['rows', 'Consumo', 1],
+      ['rows', 'Consumo', 2],
+    ]);
+    const r: PatternRules = { ...rules({}), readingTable: { layout: 'rows', label: 'Consumo' } };
+    expect(extract(aca, r, text).lines[0].readings).toEqual([
+      {
+        date: '2026-08-31',
+        value: 6702,
+        estimated: false,
+        bands: { f1: 4007, f2: 1066, f3: 1629 },
+      },
+      { date: '2026-09-30', value: 6825, estimated: true, bands: { f1: 4067, f2: 1091, f3: 1667 } },
+    ]);
+  });
+
+  it('dati dal PDF non trovati: segnalati, tranne quelli che mancano per regola', () => {
+    const table: PatternRules = {
+      ...rules({ meter: fromPdf({ kind: 'textAfter', word: 'Contatore n.' }) }),
+      readingTable: { layout: 'rows', label: 'Data Lettura Tipo lettura' },
+    };
+    const ok = 'Contatore n. 55268\nData   Lettura   Tipo lettura\n29/06/2026   99369 mc   Stimata';
+    expect(missingPdfData(table, extract(aca, table, ok), ok)).toBeNull();
+    // Layout cambiato: niente matricola né tabella.
+    const changed = 'Misuratore 55268\nLetture: 29/06/2026 99369';
+    expect(missingPdfData(table, extract(aca, table, changed), changed)).toBe(
+      'Dati dal PDF non trovati: matricola, letture del contatore. Il layout del PDF potrebbe essere cambiato: controlla il pattern.',
+    );
+    // Senza PDF.
+    expect(missingPdfData(table, extract(aca, table, null), null)).toContain('non ha un PDF');
+    // Nota di credito: letture non attese, la matricola sì.
+    expect(missingPdfData(table, extract(asCreditNote(aca), table, ok), ok)).toBeNull();
+    // Pattern senza dati dal PDF: nessun controllo.
+    expect(missingPdfData(rules({}), extract(aca, rules({}), null), null)).toBeNull();
   });
 
   it('carattere jolly: «*» vale qualsiasi carattere dentro la parola, anche nessuno', () => {

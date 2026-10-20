@@ -301,6 +301,33 @@ describe('ConsumptionLinker: letture del contatore', () => {
     expect(result.utilityIds).toEqual([812]);
   });
 
+  it('letture a fasce: totalizzatori F1–F3 nella rilevazione, il valore è la somma', async () => {
+    const manager = fakeManager([]);
+    const banded = new Map([
+      [
+        812,
+        [
+          {
+            date: '2026-09-30',
+            value: 6825,
+            estimated: false,
+            bands: { f1: 4067, f2: 1091, f3: 1667 },
+          },
+        ],
+      ],
+    ]);
+    await linker.link(manager as never, 500, 7, [], new Map(), new Set(), new Map(), banded);
+    expect(manager.save).toHaveBeenCalledWith(
+      UtilityConsumption,
+      expect.objectContaining({
+        reading_value: 6825,
+        consumption_f1: 4067,
+        consumption_f2: 1091,
+        consumption_f3: 1667,
+      }),
+    );
+  });
+
   it('lettura già presente alla stessa data: niente doppione, una stima diventa reale', async () => {
     const manager = fakeManager([], {
       c_reading: (params) =>

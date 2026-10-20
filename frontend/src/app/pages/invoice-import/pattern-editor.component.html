@@ -137,6 +137,11 @@
                   <tbody>
                     <tr><th>Data</th>@for (c of cols; track $index) {<td [class.incomplete]="!c.complete">{{ c.date }}</td>}</tr>
                     <tr><th>Valore</th>@for (c of cols; track $index) {<td [class.incomplete]="!c.complete">{{ c.value }}</td>}</tr>
+                    @if (readingHasBands()) {
+                      @for (b of ['F1', 'F2', 'F3']; track b; let k = $index) {
+                        <tr class="pe-band"><th>{{ b }}</th>@for (c of cols; track $index) {<td [class.incomplete]="!c.complete">{{ c.bands[k] }}</td>}</tr>
+                      }
+                    }
                     <tr><th>Tipo</th>@for (c of cols; track $index) {
                       <td [class.incomplete]="!c.complete">
                         @if (c.complete) {<span class="pe-dot" [class.estimated]="c.estimated"></span>}{{ c.complete ? c.type : 'non importata' }}
