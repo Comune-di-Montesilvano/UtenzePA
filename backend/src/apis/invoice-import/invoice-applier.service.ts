@@ -142,11 +142,20 @@ export class InvoiceApplier {
     invoiceId: number | null,
     issues: MatchIssue[],
   ): Promise<void> {
+    const muted = new Set(
+      (
+        await manager.find(InvoiceImportIssue, {
+          where: { sdi_message_id_fk: messageId, muted: true },
+          select: { type: true },
+        })
+      ).map((i) => i.type),
+    );
     await manager.delete(InvoiceImportIssue, { sdi_message_id_fk: messageId });
     if (!issues.length) return;
     await manager.save(
       InvoiceImportIssue,
       issues.map((i) => ({
+        muted: muted.has(i.type),
         sdi_message_id_fk: messageId,
         invoice_id_fk: invoiceId,
         line_index: i.lineIndex,

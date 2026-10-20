@@ -84,6 +84,13 @@ export class InvoicePatternsController {
   }
 
   @Roles('Admin', 'Operatore')
+  @Post('issues/:id/mute')
+  async muteIssue(@Param('id', ParseIntPipe) id: number) {
+    await this.service.muteIssue(id);
+    return { ok: true };
+  }
+
+  @Roles('Admin', 'Operatore')
   @Post('ignore')
   ignore(@Body() dto: IgnoreInvoiceStructureDto, @CurrentUser() user: ICurrentUser) {
     return this.service.ignore(dto, user.id);

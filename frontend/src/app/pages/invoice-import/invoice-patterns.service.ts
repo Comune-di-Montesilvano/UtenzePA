@@ -70,6 +70,11 @@ export class InvoicePatternsService {
     return this.http.post<SavedPattern>(`${this.BASE_URL}/ignore`, {message_id: messageId, name}, {headers: this.headers});
   }
 
+  // Segnalazione «dati dal PDF non trovati» silenziata (es. dati registrati a mano).
+  muteIssue(id: number): Observable<unknown> {
+    return this.http.post(`${this.BASE_URL}/issues/${id}/mute`, {}, {headers: this.headers});
+  }
+
   remove(id: number): Observable<unknown> {
     return this.http.delete(`${this.BASE_URL}/${id}`, {headers: this.headers});
   }

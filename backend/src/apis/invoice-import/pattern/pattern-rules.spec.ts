@@ -3,6 +3,7 @@ import { join } from 'path';
 import {
   detectReadingTables,
   extract,
+  missingPdfData,
   fromAnchor,
   numberBefore,
   patternMatches,
@@ -585,6 +586,26 @@ describe('extract: dati nel PDF allegato', () => {
     ]);
     // Altra fattura senza quella tabella: nessuna lettura.
     expect(extract(aca, r, 'Consumo 594 mc').lines[0].readings).toEqual([]);
+  });
+
+  it('dati dal PDF non trovati: segnalati, tranne quelli che mancano per regola', () => {
+    const table: PatternRules = {
+      ...rules({ meter: fromPdf({ kind: 'textAfter', word: 'Contatore n.' }) }),
+      readingTable: { layout: 'rows', label: 'Data Lettura Tipo lettura' },
+    };
+    const ok = 'Contatore n. 55268\nData   Lettura   Tipo lettura\n29/06/2026   99369 mc   Stimata';
+    expect(missingPdfData(table, extract(aca, table, ok), ok)).toBeNull();
+    // Layout cambiato: niente matricola né tabella.
+    const changed = 'Misuratore 55268\nLetture: 29/06/2026 99369';
+    expect(missingPdfData(table, extract(aca, table, changed), changed)).toBe(
+      'Dati dal PDF non trovati: matricola, letture del contatore. Il layout del PDF potrebbe essere cambiato: controlla il pattern.',
+    );
+    // Senza PDF.
+    expect(missingPdfData(table, extract(aca, table, null), null)).toContain('non ha un PDF');
+    // Nota di credito: letture non attese, la matricola sì.
+    expect(missingPdfData(table, extract(asCreditNote(aca), table, ok), ok)).toBeNull();
+    // Pattern senza dati dal PDF: nessun controllo.
+    expect(missingPdfData(rules({}), extract(aca, rules({}), null), null)).toBeNull();
   });
 
   it('carattere jolly: «*» vale qualsiasi carattere dentro la parola, anche nessuno', () => {

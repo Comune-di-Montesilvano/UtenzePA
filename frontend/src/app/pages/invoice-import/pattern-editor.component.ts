@@ -946,7 +946,10 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
 
   save(): void {
     if (!this.data) return;
-    const missing = (['utility', 'amount'] as TargetField[]).filter(t => !this.ruleFor(t) || this.choice[t] === 'none');
+    // Importo senza regola = predefinito (imponibile × IVA): basta che non sia «Non presente».
+    const missing = (['utility', 'amount'] as TargetField[]).filter(
+      t => this.choice[t] === 'none' || (t === 'utility' && !this.ruleFor(t)),
+    );
     if (missing.length) {
       this.toast.add({severity: 'warn', summary: 'Pattern incompleto', detail: 'Indica almeno utenza e importo della riga.'});
       return;

@@ -10,4 +10,7 @@ export enum ImportIssueType {
   BATCH_NOT_SUPPORTED = 'BATCH_NOT_SUPPORTED',
   // Bloccante: POD trovato ma matricola diversa da quella in anagrafica.
   METER_MISMATCH = 'METER_MISMATCH',
+  // Il pattern legge dati dal PDF ma in questa fattura non li trova (PDF assente o
+  // layout cambiato): la fattura si importa, il pattern va controllato.
+  PDF_DATA_MISSING = 'PDF_DATA_MISSING',
 }

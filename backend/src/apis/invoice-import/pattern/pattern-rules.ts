@@ -128,6 +128,8 @@ export interface ExtractedInvoice {
   cig: string | null;
   contractRef: string | null;
   lines: ExtractedLine[];
+  // Nota di credito o totale negativo: consumi e letture non si leggono.
+  noConsumption?: boolean;
 }
 
 // Campi obbligatori del tracciato: valgono anche senza regola.
@@ -796,7 +798,75 @@ export function extract(
     cig: headerRule(tree, h.cig),
     contractRef: headerRule(tree, h.contractRef),
     lines,
+    noConsumption,
   };
+}
+
+// Nomi dei campi nella segnalazione dei dati dal PDF non trovati.
+const PDF_FIELD_NAMES: Partial<Record<TargetField, string>> = {
+  supplierName: 'ragione sociale',
+  number: 'numero',
+  date: 'data',
+  total: 'totale',
+  netAmount: 'imponibile',
+  cig: 'CIG',
+  contractRef: 'riferimento contratto',
+  utility: 'utenza',
+  periodStart: 'inizio periodo',
+  periodEnd: 'fine periodo',
+  amount: 'importo della riga',
+  description: 'descrizione',
+  consumption: 'consumo',
+  consumptionF1: 'consumo F1',
+  consumptionF2: 'consumo F2',
+  consumptionF3: 'consumo F3',
+  unit: 'unità di misura',
+  meter: 'matricola',
+  readings: 'letture del contatore',
+};
+const CONSUMPTION_FIELDS: TargetField[] = ['consumption', ...BAND_TARGETS, 'unit', 'readings'];
+
+/**
+ * Dati che il pattern legge dal PDF e che in questa fattura mancano (PDF assente o
+ * con un layout diverso): testo della segnalazione, null se non manca nulla. Non
+ * contano i dati che mancano per regola: consumi delle note di credito, fasce di
+ * una monoraria (c'è il totale), unità senza consumo, stima (la parola può mancare).
+ */
+export function missingPdfData(
+  rules: PatternRules,
+  extracted: ExtractedInvoice,
+  pdf: string | null,
+): string | null {
+  if (!usesPdf(rules)) return null;
+  if (!pdf?.trim())
+    return 'La fattura non ha un PDF leggibile: i dati dal PDF non sono stati letti.';
+  const fromPdf = (rule: Rule | undefined) => isWordRule(rule) && rule.path === PDF_PATH;
+  // Righe intestate a un'utenza (le altre, come il bollo, non hanno consumi).
+  const withUtility = extracted.lines.filter((l) => l.utility !== null);
+  const lines = withUtility.length ? withUtility : extracted.lines;
+  const consumptionRead = lines.some((l) => l.consumption !== null);
+  const missing: TargetField[] = [];
+  for (const [t, rule] of Object.entries(rules.header) as [HeaderTarget, Rule][]) {
+    const value = extracted[t as keyof ExtractedInvoice];
+    if (fromPdf(rule) && (value === null || value === '')) missing.push(t);
+  }
+  for (const [t, rule] of Object.entries(rules.line) as [Exclude<LineTarget, 'readings'>, Rule][]) {
+    if (!fromPdf(rule) || t === 'estimated') continue;
+    if (CONSUMPTION_FIELDS.includes(t) && extracted.noConsumption) continue;
+    if ((BAND_TARGETS as TargetField[]).includes(t) && consumptionRead) continue;
+    if (t === 'unit' && !consumptionRead) continue;
+    const scope = t === 'utility' ? extracted.lines : lines;
+    if (scope.every((l) => l[t] === null || l[t] === '')) missing.push(t);
+  }
+  if (rules.readingTable && !extracted.noConsumption && !lines.some((l) => l.readings.length)) {
+    missing.push('readings');
+  }
+  if (!missing.length) return null;
+  const names = missing.map((t) => PDF_FIELD_NAMES[t] ?? t).join(', ');
+  return `Dati dal PDF non trovati: ${names}. Il layout del PDF potrebbe essere cambiato: controlla il pattern.`.slice(
+    0,
+    500,
+  );
 }
 
 interface Requirement {
