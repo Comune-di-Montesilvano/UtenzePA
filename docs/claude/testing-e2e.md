@@ -28,6 +28,13 @@ Nessuna credenziale dev/seed documentata. Per un test one-off creare un utente v
 - `?selectedId=<id>` apre il dialog su `/utilities`, `/building` (immobili, non `/assets`), `/contracts`; `/budget-chapter` (singolare) non lo supporta, aprire dalla riga.
 - Datepicker Material: digitare `gg/mm/aaaa` (ISO → campo invalido, Salva disabilitato).
 - Screenshot: solo dentro il repo (`.playwright-mcp/…`), lo scratchpad è fuori dalle root consentite.
+- Viewport di default troppo stretto: form compresso, input larghi 0 e `fill` che fallisce con «element is not visible». Prima di provare pagine larghe (editor pattern): `browser_resize` 1500×950.
+- `mat-select` in un `mat-form-field` outline: il click sul trigger viene intercettato dal `mat-label`. Cliccare `mat-label:text-is("<etichetta>")`, poi `role=option[name=/…/]`.
+
+## Prove reali senza UI
+
+- Script `.ts` in `backend/.cache/` (git-ignorata: può contenere POD e matricole): `docker exec utenzepa-api-1 sh -c 'cd /usr/src/app && pnpm exec ts-node -T -r tsconfig-paths/register .cache/<script>.ts'`.
+- Connessione MySQL dal container: variabili `MYSQL_HOST`/`MYSQL_PORT`/`MYSQL_USER`/`MYSQL_PASSWORD`/`MYSQL_DB` (non `DB_*`). Per provare un ripristino usare un DB temporaneo (`CREATE DATABASE tmp_…`) ed eliminarlo subito.
 
 ## Render di un SVG senza browser MCP
 
