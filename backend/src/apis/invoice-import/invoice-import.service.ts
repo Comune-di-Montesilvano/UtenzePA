@@ -13,7 +13,13 @@ import { SdiMessage } from './entity/sdi-message.entity';
 import { ImportIssueType } from './enum/import-issue-type.enum';
 import { InvoiceApplier } from './invoice-applier.service';
 import { InvoiceMatcher } from './invoice-matcher.service';
-import { extract, pickPattern, structureKey, type PatternRules } from './pattern/pattern-rules';
+import {
+  extract,
+  pickPattern,
+  structureKey,
+  usesPdf,
+  type PatternRules,
+} from './pattern/pattern-rules';
 import { SdiMessageStatus, type SdiMessageKind } from './enum/sdi-message-status.enum';
 import {
   imapConfigFromEnv,
@@ -23,6 +29,7 @@ import {
   type PecMailboxFactory,
 } from './pec-imap.client';
 import { parsePecMessage, type PecMessage, type SdiFile } from './sdi/pec-message';
+import { pdfText } from './sdi/pdf-text';
 import { extractPdf, parseInvoiceHeader, parseNotification } from './sdi/sdi-files';
 
 export interface ImportRunResult {
@@ -413,7 +420,8 @@ export class InvoiceImportService {
       return;
     }
     try {
-      const extracted = extract(xml, pattern.rules);
+      const pdf = usesPdf(pattern.rules) ? await pdfText(xml) : null;
+      const extracted = extract(xml, pattern.rules, pdf);
       const match = await this.matcher.match(extracted, row.supplier_id_fk!);
       if (match.blocking.length) {
         await this.applier.block(row, match, pattern.id);
