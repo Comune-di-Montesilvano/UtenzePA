@@ -16,6 +16,7 @@ import {
   type PatternRules,
   type WordRule,
   numberAfter,
+  textBefore,
 } from './pattern-rules';
 
 const fixture = (name: string) => readFileSync(join(__dirname, '../sdi/fixtures', name));
@@ -572,6 +573,15 @@ describe('extract: dati nel PDF allegato', () => {
     expect(numberAfter('rilevata rilevata\nSmc 89.323', 'rilevata *mc')).toBe(89323);
     expect(numberAfter('rilevata rilevata\nmc 4.815', 'rilevata *mc')).toBe(4815);
     expect(numberAfter('kWh 12', '*')).toBe(12);
+  });
+
+  it('parole alternative: «|» trova l’una o l’altra (lettura rilevata o stimata)', () => {
+    const stimata = 'UM 30/06/2026 31/07/2026\nstimata stimata\nmc 14.399 14.434';
+    const rilevata = 'UM 31/07/2026 31/08/2026\nrilevata rilevata\nSmc 89.323 89.323';
+    expect(numberAfter(stimata, 'rilevata|stimata *mc')).toBe(14399);
+    expect(numberAfter(rilevata, 'rilevata|stimata *mc')).toBe(89323);
+    expect(textBefore(stimata, 'rilevata|stimata *mc')).toBe('stimata');
+    expect(textBefore(rilevata, '*mc')).toBe('rilevata');
   });
 
   it('parola di più termini: gli spazi valgono anche l’a capo', () => {

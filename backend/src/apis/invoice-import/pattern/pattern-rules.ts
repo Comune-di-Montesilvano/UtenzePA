@@ -195,16 +195,27 @@ interface Found {
 // Posizioni della parola nel testo, senza distinguere maiuscole; gli spazi della
 // parola valgono qualsiasi spazio o a capo («kWh Puoi pagare» trova «kWh\nPuoi pagare»);
 // «*» vale qualsiasi carattere dentro la parola, anche nessuno («rilevata *mc» trova
-// «rilevata mc» e «rilevata Smc»).
+// «rilevata mc» e «rilevata Smc»); «|» separa parole alternative («rilevata|stimata»).
+export function wordPattern(word: string): string {
+  return word
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => {
+      const alts = w
+        .split('|')
+        .filter(Boolean)
+        .map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '\\S*'));
+      return alts.length > 1 ? `(?:${alts.join('|')})` : (alts[0] ?? '');
+    })
+    .filter(Boolean)
+    .join('\\s+');
+}
+
 function positions(text: string, word: string): Found[] {
-  const words = word.trim().split(/\s+/).filter(Boolean);
-  if (!words.length) return [];
-  const re = new RegExp(
-    words
-      .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '\\S*'))
-      .join('\\s+'),
-    'gi',
-  );
+  const pattern = wordPattern(word);
+  if (!pattern) return [];
+  const re = new RegExp(pattern, 'gi');
   const out: Found[] = [];
   for (let m = re.exec(text); m; m = re.exec(text)) {
     if (!m[0]) {
