@@ -280,8 +280,13 @@ function assertValidRules(rules: PatternRules): void {
   if (!valid) throw new BadRequestException('Regole del pattern non valide.');
   const mapped = (r: Rule | undefined) => !!r && r.kind !== 'none';
   // Importo senza regola = imponibile × IVA (come in extract), purché non sia «Non presente».
-  if (!mapped(rules.line.utility) || rules.line.amount?.kind === 'none') {
-    throw new BadRequestException('Indica almeno utenza e importo della riga.');
+  // Senza utenza di riga la fattura va al contratto indicato da CIG o riferimento contratto.
+  const linked =
+    mapped(rules.line.utility) || mapped(rules.header.cig) || mapped(rules.header.contractRef);
+  if (!linked || rules.line.amount?.kind === 'none') {
+    throw new BadRequestException(
+      "Indica l'utenza della riga, oppure CIG o riferimento contratto della fattura, e l'importo della riga.",
+    );
   }
 }
 

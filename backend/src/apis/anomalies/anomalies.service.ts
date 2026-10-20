@@ -403,10 +403,12 @@ export class AnomaliesService {
        ORDER BY t.name, u.utility_id`,
     );
 
+    // Righe senza utenza né contratto in testata: quelle di una fattura con contratto
+    // (canoni, servizi del contratto) sono del contratto e non sono un'anomalia.
     const withoutUtility: Record<string, unknown>[] = await this.dataSource.query(
       `SELECT i.id AS invoice_id, i.invoice_id AS number, il.supply_code, il.amount
        FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
-       WHERE il.utility_id_fk IS NULL
+       WHERE il.utility_id_fk IS NULL AND i.contratto_id_fk IS NULL
        ORDER BY i.invoice_date DESC, i.id`,
     );
 
@@ -716,7 +718,8 @@ export class AnomaliesService {
           AND (ii.type <> 'UNKNOWN_UTILITY' OR EXISTS (SELECT 1 FROM invoice_lines l
                  WHERE l.invoice_id_fk = ii.invoice_id_fk AND l.utility_id_fk IS NULL))
           AND (ii.type <> 'MISSING_COMMITMENT' OR EXISTS (SELECT 1 FROM invoice_lines l
-                 WHERE l.invoice_id_fk = ii.invoice_id_fk AND l.utility_id_fk IS NOT NULL AND l.commitment_id_fk IS NULL))
+                 WHERE l.invoice_id_fk = ii.invoice_id_fk AND l.commitment_id_fk IS NULL
+                   AND (l.utility_id_fk IS NOT NULL OR i.contratto_id_fk IS NOT NULL)))
           AND (ii.type <> 'SUPPLIER_NAME_MISMATCH' OR tp.update_date <= ii.create_date)
           AND (ii.type <> 'BATCH_NOT_SUPPORTED' OR m.status = 'PENDING')
           AND (ii.type <> 'METER_MISMATCH' OR (m.status IN ('PENDING', 'LINKED') AND EXISTS (

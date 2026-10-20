@@ -964,11 +964,11 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   save(): void {
     if (!this.data) return;
     // Importo senza regola = predefinito (imponibile × IVA): basta che non sia «Non presente».
-    const missing = (['utility', 'amount'] as TargetField[]).filter(
-      t => this.choice[t] === 'none' || (t === 'utility' && !this.ruleFor(t)),
-    );
-    if (missing.length) {
-      this.toast.add({severity: 'warn', summary: 'Pattern incompleto', detail: 'Indica almeno utenza e importo della riga.'});
+    // Senza utenza di riga la fattura va al contratto indicato da CIG o riferimento contratto.
+    const mapped = (t: TargetField) => this.choice[t] !== 'none' && !!this.ruleFor(t);
+    const linked = (['utility', 'cig', 'contractRef'] as TargetField[]).some(mapped);
+    if (!linked || this.choice['amount'] === 'none') {
+      this.toast.add({severity: 'warn', summary: 'Pattern incompleto', detail: "Indica l'utenza della riga, oppure CIG o riferimento contratto della fattura, e l'importo della riga."});
       return;
     }
     if (!this.name.trim()) {

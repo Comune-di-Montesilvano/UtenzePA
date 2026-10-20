@@ -8,6 +8,7 @@ import {SpendingService} from '../spending/spending.service';
 import type {YearSpending} from '../spending/spending.model';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {DateHelper} from '../../core/helpers/date.helper';
+import {InvoicesTabComponent} from '../invoices/invoices-tab.component';
 
 interface Row {
   invoiceId: number;
@@ -29,10 +30,11 @@ const isoOf = (v: Date | string | null | undefined): string =>
 
 // Tab "Fatture" della scheda utenza: una riga per fattura, periodo e impegno (le righe
 // della stessa bolletta, es. energia, trasporto, oneri e imposte, sommate) e totale per anno.
+// Nessuna riga sull'utenza: le fatture dei suoi contratti (es. canoni di contratto).
 @Component({
   selector: 'app-utility-invoices-tab',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule],
+  imports: [MatButtonModule, MatIconModule, InvoicesTabComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (canEdit) {
@@ -40,7 +42,7 @@ const isoOf = (v: Date | string | null | undefined): string =>
         <button mat-stroked-button type="button" (click)="newInvoice()"><mat-icon>add</mat-icon> Nuova fattura</button>
       </div>
     }
-    @if (years.length) {
+    @if (years.length && rows.length) {
       <p class="spending-years">
         @for (y of years; track y.year) {
           <span><strong>{{ y.year }}</strong>: {{ eur(y.total) }} ({{ y.invoices }} {{ y.invoices === 1 ? 'fattura' : 'fatture' }})</span>
@@ -48,7 +50,14 @@ const isoOf = (v: Date | string | null | undefined): string =>
       </p>
     }
     @if (!rows.length) {
-      <p class="sheet-empty">Nessuna fattura su questa utenza.</p>
+      @if (loaded && contractIds.length) {
+        <app-invoices-tab [contractIds]="contractIds" [showContract]="contractIds.length > 1"
+                          intro="Nessuna fattura intestata a questa utenza: ecco le fatture del contratto."
+                          emptyText="Nessuna fattura su questa utenza né sul suo contratto."
+                          (countChange)="countChange.emit($event)"></app-invoices-tab>
+      } @else if (loaded) {
+        <p class="sheet-empty">Nessuna fattura su questa utenza.</p>
+      }
     } @else {
       <table class="sheet-table">
         <thead><tr><th>Data</th><th>Numero</th><th>Periodo</th><th>Consumo</th><th>Importo</th><th>Impegno</th></tr></thead>
@@ -77,6 +86,8 @@ export class UtilityInvoicesTabComponent implements OnInit {
   @Input() canEdit = false;
   // Contratto aperto dell'utenza (se uno solo): precompila la nuova fattura.
   @Input() contractId: number | null = null;
+  // Tutti i contratti dell'utenza: le loro fatture se l'utenza non ne ha di proprie.
+  @Input() contractIds: number[] = [];
   // Numero di fatture dell'utenza, per il conteggio sull'etichetta del tab.
   @Output() countChange = new EventEmitter<number>();
 
@@ -85,6 +96,7 @@ export class UtilityInvoicesTabComponent implements OnInit {
   private navigator = inject(EntityNavigatorService);
 
   rows: Row[] = [];
+  loaded = false;
   years: YearSpending[] = [];
   readonly eur = eur;
   readonly dateIt = dateIt;
@@ -123,7 +135,11 @@ export class UtilityInvoicesTabComponent implements OnInit {
           if (r.consumption !== null) same.consumption = (same.consumption ?? 0) + r.consumption;
         }
         this.rows = [...grouped.values()].sort((a, b) => b.iso.localeCompare(a.iso));
-        this.countChange.emit(new Set(this.rows.map(r => r.invoiceId)).size);
+        this.loaded = true;
+        // Senza righe proprie il conteggio arriva dal tab delle fatture del contratto.
+        if (this.rows.length || !this.contractIds.length) {
+          this.countChange.emit(new Set(this.rows.map(r => r.invoiceId)).size);
+        }
       });
   }
 

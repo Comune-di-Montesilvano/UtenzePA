@@ -114,6 +114,16 @@
                             emptyText="Nessuna convenzione CONSIP."></app-linked-table>
         </mat-tab>
 
+        <mat-tab aria-label="Fatture">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="receipt_long" label="Fatture" [count]="invoiceCount"></app-tab-label>
+          </ng-template>
+          <app-invoices-tab [supplierId]="data.item.id" [canEdit]="canEdit" [showContract]="true"
+                            [newInvoice]="{supplier_id_fk: data.item.id}"
+                            emptyText="Nessuna fattura di questo fornitore."
+                            (countChange)="invoiceCount = $event"></app-invoices-tab>
+        </mat-tab>
+
         <mat-tab aria-label="Storico">
           <ng-template mat-tab-label>
             <app-tab-label icon="history" label="Storico"></app-tab-label>

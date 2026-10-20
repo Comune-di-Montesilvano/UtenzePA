@@ -243,7 +243,17 @@ describe('InvoicePatternsService', () => {
     expect(patterns.save).not.toHaveBeenCalled();
   });
 
-  it('salvataggio rifiutato senza utenza o con importo di riga «Non presente»', async () => {
+  it('senza utenza di riga basta il CIG della fattura (canoni di contratto)', async () => {
+    importer.readMessageFile.mockResolvedValue({ content: acaXml });
+    const rules = {
+      header: { cig: { kind: 'field' as const, path: 'DatiGenerali/DatiContratto/CodiceCIG' } },
+      line: { amount: { kind: 'grossAmount' as const } },
+    };
+    const err = await service.create({ message_id: 9, name: 'Canone', rules }, 7).catch((e) => e);
+    expect(err?.message).not.toBe("Indica l'utenza della riga, oppure CIG o riferimento contratto della fattura, e l'importo della riga.");
+  });
+
+  it('salvataggio rifiutato senza utenza né CIG o con importo di riga «Non presente»', async () => {
     await expect(
       service.create(
         {
@@ -253,10 +263,10 @@ describe('InvoicePatternsService', () => {
         },
         7,
       ),
-    ).rejects.toThrow('Indica almeno utenza e importo della riga.');
+    ).rejects.toThrow("Indica l'utenza della riga, oppure CIG o riferimento contratto della fattura, e l'importo della riga.");
     const noAmount = { ...RULES, line: { ...RULES.line, amount: { kind: 'none' as const } } };
     await expect(service.create({ message_id: 9, name: 'Energia', rules: noAmount }, 7)).rejects.toThrow(
-      'Indica almeno utenza e importo della riga.',
+      "Indica l'utenza della riga, oppure CIG o riferimento contratto della fattura, e l'importo della riga.",
     );
   });
 

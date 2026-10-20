@@ -214,6 +214,8 @@ export class UtilityEditDialogComponent implements OnInit {
 
   // Collegamenti: campi cache aggiornati da refreshLinks().
   contracts: Contract[] = sortSupplyContracts(this.data.item.contratti ?? []);
+  // Per le fatture del contratto nel tab Fatture (campo, non getter: input del tab).
+  contractIds: number[] = this.contracts.map(c => c.id);
   assetRows: Asset[] = [];
   // Dal tab Fatture appena caricato (il tab parte già all'apertura della scheda).
   invoiceCount: number | null = null;
@@ -554,6 +556,7 @@ export class UtilityEditDialogComponent implements OnInit {
   private reloadContracts(): void {
     this.contractsService.search({utility_id: this.data.item.id} as never).subscribe(contracts => {
       this.contracts = sortSupplyContracts(contracts);
+      this.contractIds = this.contracts.map(c => c.id);
       this.data.item.contratti = contracts;
       this.refreshLinks();
       this.loadCommittedChapters();

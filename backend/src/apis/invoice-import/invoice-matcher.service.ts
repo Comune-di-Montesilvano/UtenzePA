@@ -80,6 +80,15 @@ const CONTRACT_SQL =
   'AND (c.supply_start_date IS NULL OR c.supply_start_date <= ?) ' +
   'AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= ?) ' +
   'ORDER BY c.supply_start_date DESC, c.id DESC LIMIT 1';
+// Contratto della fattura dal CIG o dal riferimento ordine, per le righe senza utenza
+// (canoni di contratto, sedi senza codice): vale solo se ne indica uno.
+const HEADER_CONTRACT_SQL =
+  '/* m_header_contract */ SELECT id, cig_contract FROM contracts WHERE deleted = 0 AND supplier_id_fk = ? ' +
+  'AND (TRIM(cig_contract) IN (?, ?) OR TRIM(consip_order) = ?) LIMIT 2';
+// Impegno di una riga senza utenza (nessun capitolo da cui partire): l'unico del contratto nell'esercizio.
+const CONTRACT_COMMITMENT_SQL =
+  '/* m_contract_commitment */ SELECT id FROM budget_commitments WHERE deleted = 0 ' +
+  'AND contract_id_fk = ? AND fiscal_year = ? LIMIT 2';
 const COMMITMENT_SQL =
   '/* m_commitment */ SELECT id FROM budget_commitments WHERE deleted = 0 ' +
   'AND contract_id_fk = ? AND budget_chapter_id_fk = ? AND fiscal_year = ? LIMIT 1';
@@ -89,11 +98,12 @@ const INVOICE_SQL =
   '/* m_invoice */ SELECT id FROM invoices WHERE deleted = 0 AND supplier_id_fk = ? ' +
   'AND invoice_id = ? AND invoice_date = ? ORDER BY id LIMIT 1';
 
-// Ragione sociale confrontabile: senza maiuscole, punteggiatura e forma societaria finale.
+// Ragione sociale confrontabile: senza maiuscole, punteggiatura, «con socio unico» e forma societaria finale.
 export function comparableName(name: string): string {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '')
+    .replace(/(con|a)sociounico$/, '')
     .replace(/(spa|srl|srls|sapa|scarl|scpa|snc|sas|societacooperativa|soccoop)$/, '');
 }
 
@@ -180,10 +190,22 @@ export class InvoiceMatcher {
     const commitments = new Map<string, number | null>();
     const cigChecked = new Set<number>();
     const lines: MatchedLine[] = [];
+    let headerContract: { id: number; cig_contract: string | null } | null | undefined;
+    const contractOfInvoice = async () => {
+      if (headerContract !== undefined) return headerContract;
+      const cig = extracted.cig?.trim() || null;
+      const ref = extracted.contractRef?.trim() || null;
+      headerContract = null;
+      if (cig || ref) {
+        const rows = await this.dataSource.query(HEADER_CONTRACT_SQL, [supplierId, cig, ref, ref]);
+        if (rows.length === 1) headerContract = rows[0];
+      }
+      return headerContract;
+    };
     for (const [index, line] of extracted.lines.entries()) {
       const utility = lineUtilities[index];
       const day = line.periodEnd ?? extracted.date;
-      let contract: { id: number; cig_contract: string | null } | null = null;
+      let contract: { id: number; cig_contract: string | null } | null;
       let commitmentId: number | null = null;
       if (utility) {
         const contractKey = `${utility.id}|${day}`;
@@ -197,6 +219,8 @@ export class InvoiceMatcher {
           contracts.set(contractKey, rows[0] ?? null);
         }
         contract = contracts.get(contractKey) ?? null;
+      } else {
+        contract = await contractOfInvoice();
       }
       if (contract && extracted.cig && !cigChecked.has(contract.id)) {
         cigChecked.add(contract.id);
@@ -223,6 +247,23 @@ export class InvoiceMatcher {
               type: ImportIssueType.MISSING_COMMITMENT,
               lineIndex: index,
               detail: `Nessun impegno per il contratto ${contract.id}, capitolo ${utility.budget_chapter_code_fk}, esercizio ${year}`,
+            });
+          }
+        }
+        commitmentId = commitments.get(key) ?? null;
+      } else if (contract && !utility) {
+        const year = Number(day.slice(0, 4));
+        const key = `${contract.id}|*|${year}`;
+        if (!commitments.has(key)) {
+          const rows = await this.dataSource.query(CONTRACT_COMMITMENT_SQL, [contract.id, year]);
+          commitments.set(key, rows.length === 1 ? rows[0].id : null);
+          if (rows.length !== 1) {
+            issues.push({
+              type: ImportIssueType.MISSING_COMMITMENT,
+              lineIndex: index,
+              detail: rows.length
+                ? `Più impegni per il contratto ${contract.id}, esercizio ${year}: scegliere quello della riga`
+                : `Nessun impegno per il contratto ${contract.id}, esercizio ${year}`,
             });
           }
         }

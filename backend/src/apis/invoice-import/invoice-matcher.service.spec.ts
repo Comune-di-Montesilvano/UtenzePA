@@ -159,6 +159,11 @@ describe('InvoiceMatcher', () => {
       46,
     );
     expect(same.issues).toEqual([]);
+    const sole = await matcher(baseHandlers()).match(
+      invoice({ supplierName: 'ENERGIA PROVA S.P.A. con socio unico' }),
+      46,
+    );
+    expect(sole.issues).toEqual([]);
     const other = await matcher(baseHandlers()).match(
       invoice({ supplierName: 'Altra Energia Srl' }),
       46,
@@ -180,6 +185,64 @@ describe('InvoiceMatcher', () => {
       m_contract_ref: () => [UTILITIES.IT001E00000001],
     }).match(invoice({ contractRef: 'ORD-1', lines: [line({ utility: null })] }), 46);
     expect(result.lines[0].utility_id_fk).toBe(812);
+  });
+});
+
+describe('InvoiceMatcher: righe senza utenza', () => {
+  const canone = (over: Partial<ExtractedInvoice> = {}) =>
+    invoice({
+      cig: ' 7334657E6B',
+      lines: [line({ utility: null, amount: 100 }), line({ utility: null, amount: 5 })],
+      ...over,
+    });
+
+  it("contratto dal CIG della fattura, in testata e sulle righe, con l'unico impegno dell'esercizio", async () => {
+    const db = fakeDb({
+      ...baseHandlers(),
+      m_header_contract: () => [{ id: 10, cig_contract: '7334657E6B' }],
+      m_contract_commitment: () => [{ id: 71 }],
+    });
+    const result = await new InvoiceMatcher(db as never).match(canone(), 46);
+    expect(result.contratto_id_fk).toBe(10);
+    expect(result.lines.map((l) => [l.utility_id_fk, l.contract_id, l.commitment_id_fk])).toEqual([
+      [null, 10, 71],
+      [null, 10, 71],
+    ]);
+    expect(result.issues).toEqual([]);
+    const headerCalls = db.query.mock.calls.filter(([sql]) => sql.includes('m_header_contract'));
+    expect(headerCalls).toHaveLength(1);
+    expect(headerCalls[0][1]).toEqual([46, '7334657E6B', null, null]);
+  });
+
+  it('nessun impegno o più impegni del contratto: segnalazione, riga senza impegno', async () => {
+    for (const rows of [[], [{ id: 71 }, { id: 72 }]]) {
+      const result = await matcher({
+        ...baseHandlers(),
+        m_header_contract: () => [{ id: 10, cig_contract: '7334657E6B' }],
+        m_contract_commitment: () => rows,
+      }).match(canone(), 46);
+      expect(result.lines[0].commitment_id_fk).toBeNull();
+      expect(result.issues).toEqual([
+        expect.objectContaining({ type: ImportIssueType.MISSING_COMMITMENT }),
+      ]);
+    }
+  });
+
+  it('CIG di più contratti o di nessuno: fattura senza contratto', async () => {
+    for (const rows of [[], [{ id: 10 }, { id: 11 }]]) {
+      const result = await matcher({ ...baseHandlers(), m_header_contract: () => rows }).match(
+        canone(),
+        46,
+      );
+      expect(result.contratto_id_fk).toBeNull();
+      expect(result.lines[0].contract_id).toBeNull();
+    }
+  });
+
+  it('senza CIG né riferimento ordine: nessuna ricerca del contratto', async () => {
+    const db = fakeDb(baseHandlers());
+    await new InvoiceMatcher(db as never).match(canone({ cig: null }), 46);
+    expect(db.query.mock.calls.some(([sql]) => sql.includes('m_header_contract'))).toBe(false);
   });
 });
 
