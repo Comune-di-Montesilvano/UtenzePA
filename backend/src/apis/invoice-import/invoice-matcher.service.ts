@@ -12,6 +12,8 @@ export interface MatchedLine {
   period_end: string | null;
   amount: number;
   consumption: number | null;
+  // Consumo per fascia letto in fattura (null = non letto).
+  bands: [number | null, number | null, number | null];
   estimated: boolean;
   description: string | null;
   supply_code: string | null;
@@ -28,6 +30,8 @@ export interface MatchIssue {
 export interface MeterFound {
   utilityId: number;
   meter: string;
+  // Matricola in anagrafica prima dell'aggiornamento (null = vuota).
+  previous?: string | null;
 }
 
 export interface MatchResult {
@@ -38,7 +42,8 @@ export interface MatchResult {
   issues: MatchIssue[];
   // Differenze che fermano l'import della fattura finché non si risolvono.
   blocking: MatchIssue[];
-  // Matricola letta in fattura per utenza; da completare dove l'utenza non l'ha.
+  // Matricola letta in fattura per utenza; da scrivere dove l'utenza non l'ha o
+  // ne ha una diversa (vale quella della fattura).
   meters: MeterFound[];
   meterFills: MeterFound[];
 }
@@ -155,7 +160,7 @@ export class InvoiceMatcher {
       });
     }
 
-    // Matricola: la prima letta per utenza; vuota in anagrafica = da completare, diversa = blocca.
+    // Matricola: la prima letta per utenza; vuota o diversa in anagrafica = si scrive quella della fattura.
     const meters: MeterFound[] = [];
     const meterFills: MeterFound[] = [];
     const blocking: MatchIssue[] = [];
@@ -163,17 +168,9 @@ export class InvoiceMatcher {
       const utility = lineUtilities[index];
       const meter = line.meter?.trim();
       if (!utility || !meter || meters.some((m) => m.utilityId === utility.id)) continue;
-      meters.push({ utilityId: utility.id, meter });
-      if (!comparableMeter(utility.meter_number)) {
-        meterFills.push({ utilityId: utility.id, meter });
-      } else if (comparableMeter(utility.meter_number) !== comparableMeter(meter)) {
-        blocking.push({
-          type: ImportIssueType.METER_MISMATCH,
-          lineIndex: index,
-          utilityId: utility.id,
-          value: meter,
-          detail: `${line.utility ?? `Utenza ${utility.id}`}: matricola in fattura ${meter}, in anagrafica ${utility.meter_number}`,
-        });
+      meters.push({ utilityId: utility.id, meter, previous: utility.meter_number || null });
+      if (comparableMeter(utility.meter_number) !== comparableMeter(meter)) {
+        meterFills.push({ utilityId: utility.id, meter, previous: utility.meter_number || null });
       }
     }
 
@@ -237,6 +234,7 @@ export class InvoiceMatcher {
         period_end: line.periodEnd,
         amount: line.amount,
         consumption: line.consumption,
+        bands: [line.consumptionF1, line.consumptionF2, line.consumptionF3],
         estimated: line.estimated,
         description: line.description ? line.description.slice(0, 255) : null,
         supply_code: line.utility ? line.utility.slice(0, 50) : null,

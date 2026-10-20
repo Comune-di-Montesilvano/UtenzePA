@@ -10,6 +10,7 @@ import {
   rulePaths,
   structureKey,
   usesPdf,
+  wordOccurrences,
   type PatternRules,
   type WordRule,
 } from './pattern-rules';
@@ -249,6 +250,23 @@ describe('extract: dati nella Causale (A2A)', () => {
     };
     expect(extract(withCausale([A2A_CAUSALE]), rules).lines[0].unit).toBeNull();
   });
+
+  it('data da un campo di testo intero: la data che contiene, o nessuna', () => {
+    const causale = 'DatiGenerali/DatiGeneraliDocumento/Causale';
+    const r: PatternRules = {
+      header: {},
+      line: {
+        ...A2A_RULES.line,
+        periodStart: { kind: 'fromHeader', path: causale },
+        periodEnd: { kind: 'fromHeader', path: causale },
+      },
+    };
+    const line = extract(withCausale(['FORNITURA periodo: 01.09.2026-30.09.2026 POD X']), r)
+      .lines[0];
+    expect([line.periodStart, line.periodEnd]).toEqual(['2026-09-01', '2026-09-30']);
+    const none = extract(withCausale(['FORNITURA ENERGIA ELETTRICA']), r).lines[0];
+    expect([none.periodStart, none.periodEnd]).toEqual([null, null]);
+  });
 });
 
 describe('extract: dati nel PDF allegato', () => {
@@ -343,6 +361,111 @@ describe('extract: dati nel PDF allegato', () => {
     });
     expect(extract(aca, share, `${PDF}\ndi cui stimati: 13 Smc`).lines[0].estimated).toBe(true);
     expect(extract(aca, share, `${PDF}\ndi cui stimati: 0 Smc`).lines[0].estimated).toBe(false);
+  });
+
+  it('parola ripetuta: occorrenza scelta, e l’elenco delle occorrenze col valore di ciascuna', () => {
+    const text = 'Consumo annuo 1.200 kWh\nConsumo del periodo 98 kWh\nConsumo medio 3 kWh';
+    const r = rules({
+      consumption: fromPdf({ kind: 'numberAfter', word: 'Consumo', occurrence: 2 }),
+    });
+    expect(extract(aca, r, text).lines[0]).toEqual(
+      expect.objectContaining({ consumption: 98, unit: 'kWh' }),
+    );
+    expect(wordOccurrences(aca, r, 'consumption', text).map((o) => [o.n, o.value])).toEqual([
+      [1, '1200'],
+      [2, '98'],
+      [3, '3'],
+    ]);
+    expect(wordOccurrences(aca, r, 'consumption', text)[1].context).toContain(
+      'Consumo del periodo 98',
+    );
+    const before = rules({
+      consumption: fromPdf({ kind: 'numberBefore', word: 'kWh', occurrence: 3 }),
+    });
+    expect(extract(aca, before, text).lines[0].consumption).toBe(3);
+    const beyond = rules({
+      consumption: fromPdf({ kind: 'numberAfter', word: 'Consumo', occurrence: 4 }),
+    });
+    expect(extract(aca, beyond, text).lines[0].consumption).toBeNull();
+  });
+
+  it('dal PDF anche testata, date (due in un testo) e testo prima della parola', () => {
+    const text = 'Bolletta n. 77 del 16/10/2026\nperiodo: 01.09.2026-30.09.2026\n283767 Matricola';
+    const r: PatternRules = {
+      header: {
+        number: { kind: 'textAfter', path: PDF_PATH, word: 'Bolletta n.' },
+        date: { kind: 'textAfter', path: PDF_PATH, word: 'del' },
+      },
+      line: {
+        ...rules({}).line,
+        periodStart: fromPdf({ kind: 'textAfter', word: 'periodo:' }),
+        periodEnd: fromPdf({ kind: 'textAfter', word: 'periodo:' }),
+        meter: fromPdf({ kind: 'textBefore', word: 'Matricola' }),
+      },
+    };
+    const extracted = extract(aca, r, text);
+    expect(extracted).toEqual(expect.objectContaining({ number: '77', date: '2026-10-16' }));
+    expect(extracted.lines[0]).toEqual(
+      expect.objectContaining({
+        periodStart: '2026-09-01',
+        periodEnd: '2026-09-30',
+        meter: '283767',
+      }),
+    );
+    expect(wordOccurrences(aca, r, 'date', text)).toEqual([
+      {
+        n: 1,
+        context: 'Bolletta n. 77 del 16/10/2026 periodo: 01.09.2026-30.09.2026 283767',
+        value: '16/10/2026',
+      },
+    ]);
+  });
+
+  it('descrizione senza regola: quella della riga; «non presente»: nessuna', () => {
+    const base = rules({ description: undefined });
+    expect(extract(aca, base).lines[0].description).toBeTruthy();
+    expect(extract(aca, rules({ description: { kind: 'none' } })).lines[0].description).toBeNull();
+  });
+
+  it('consumo per fasce dal PDF: ogni fascia col suo testo, totale = somma', () => {
+    const text = [
+      'Tipo di Consumo',
+      '31.08.2026 30.09.2026 Fascia oraria F1 4.007 Rilevata 4.067 Rilevata 60 kWh Effettivo',
+      '31.08.2026 30.09.2026 Fascia oraria F2 1.066 Rilevata 1.091 Rilevata 25 kWh Effettivo',
+      '31.08.2026 30.09.2026 Fascia oraria F3 1.629 Rilevata 1.667 Rilevata 38 kWh Effettivo',
+    ].join('\n');
+    const band = (n: number) =>
+      fromPdf({ kind: 'numberBefore', word: 'kWh', anchor: `Fascia oraria F${n}` });
+    const r = rules({ consumptionF1: band(1), consumptionF2: band(2), consumptionF3: band(3) });
+    expect(extract(aca, r, text).lines[0]).toEqual(
+      expect.objectContaining({
+        consumption: 123,
+        consumptionF1: 60,
+        consumptionF2: 25,
+        consumptionF3: 38,
+        unit: 'kWh',
+      }),
+    );
+    // Col totale letto restano tutti e due: il totale non è ricalcolato.
+    const withTotal = rules({
+      consumption: fromPdf({ kind: 'numberAfter', word: 'Consumo' }),
+      consumptionF1: band(1),
+    });
+    expect(extract(aca, withTotal, 'Consumo 130 kWh\n' + text).lines[0]).toEqual(
+      expect.objectContaining({ consumption: 130, consumptionF1: 60, consumptionF2: null }),
+    );
+  });
+
+  it('parola di più termini: gli spazi valgono anche l’a capo', () => {
+    const text = "CONSUMO\n1.417   kWh\nPuoi pagare con l'avviso\nTotale 20 kWh";
+    const r = rules({ consumption: fromPdf({ kind: 'numberBefore', word: 'kWh  Puoi pagare' }) });
+    expect(extract(aca, r, text).lines[0]).toEqual(
+      expect.objectContaining({ consumption: 1417, unit: 'kWh' }),
+    );
+    const anchored = rules({
+      consumption: fromPdf({ kind: 'numberAfter', word: 'Totale', anchor: 'pagare con' }),
+    });
+    expect(extract(aca, anchored, text).lines[0].consumption).toBe(20);
   });
 
   it('il PDF non conta nel riconoscimento della struttura', () => {

@@ -94,9 +94,13 @@ describe('ConsumptionLinker.link', () => {
       line(2, { period_start: '2026-02-01', period_end: '2026-02-28', consumption: 5 }),
     ];
     const manager = fakeManager(lines, {
-      c_owned: () => [{ id: 70, utility_id_fk: 812, period_start: '2026-01-01', period_end: '2026-03-31' }],
+      c_owned: () => [
+        { id: 70, utility_id_fk: 812, period_start: '2026-01-01', period_end: '2026-03-31' },
+      ],
       c_overlap: (params) =>
-        (params[3] as number[]).includes(70) ? [] : [{ id: 70, period_start: '2026-01-01', period_end: '2026-03-31' }],
+        (params[3] as number[]).includes(70)
+          ? []
+          : [{ id: 70, period_start: '2026-01-01', period_end: '2026-03-31' }],
     });
     const result = await linker.link(manager as never, 500, 7, [70]);
     expect(manager.save).not.toHaveBeenCalled();
@@ -120,17 +124,39 @@ describe('ConsumptionLinker.link', () => {
     expect(update?.[2]).toEqual(expect.objectContaining({ is_estimated: true }));
   });
 
+  it('consumo per fasce: la rilevazione nuova o adottata prende le fasce della fattura', async () => {
+    const bands = new Map([[812, { consumption_f1: 60, consumption_f2: 25, consumption_f3: 38 }]]);
+    const created = fakeManager([line(1)]);
+    await linker.link(created as never, 500, 7, [], new Map(), new Set(), bands);
+    expect(created.save).toHaveBeenCalledWith(
+      UtilityConsumption,
+      expect.objectContaining({ consumption_f1: 60, consumption_f2: 25, consumption_f3: 38 }),
+    );
+    const adopted = fakeManager([line(1)], { c_adopt: () => [{ id: 55 }] });
+    await linker.link(adopted as never, 500, 7, [], new Map(), new Set(), bands);
+    const update = adopted.update.mock.calls.find(
+      (c: unknown[]) => c[0] === UtilityConsumption && c[1] === 55,
+    );
+    expect(update?.[2]).toEqual(
+      expect.objectContaining({ consumption_f1: 60, consumption_f3: 38 }),
+    );
+  });
+
   it('rilevazione adottata o riusata: il flag stimata resta quello impostato', async () => {
     const manager = fakeManager([line(1)], { c_adopt: () => [{ id: 55 }] });
     await linker.link(manager as never, 500, 7, []);
-    const update = manager.update.mock.calls.find((c: unknown[]) => c[0] === UtilityConsumption && c[1] === 55);
+    const update = manager.update.mock.calls.find(
+      (c: unknown[]) => c[0] === UtilityConsumption && c[1] === 55,
+    );
     expect(update?.[2]).not.toHaveProperty('is_estimated');
   });
 
   it('solo le rilevazioni reali coprono il periodo: una stima non blocca il consumo della fattura', async () => {
     const manager = fakeManager([line(1)]);
     await linker.link(manager as never, 500, 7, []);
-    const sql = manager.query.mock.calls.map((c: unknown[]) => String(c[0])).find((q: string) => q.includes('c_overlap'));
+    const sql = manager.query.mock.calls
+      .map((c: unknown[]) => String(c[0]))
+      .find((q: string) => q.includes('c_overlap'));
     expect(sql).toContain('c.is_estimated = 0');
   });
 
@@ -196,15 +222,25 @@ describe('ConsumptionLinker.follow', () => {
     const previous = [line(1, { consumption_id_fk: 70 })];
     const manager = fakeManager([line(5, { consumption: 120 }), line(6, { consumption: null })]);
     const utilities = await linker.follow(manager as never, 500, previous);
-    expect(manager.update).toHaveBeenCalledWith(InvoiceLine, { id: expect.anything() }, { consumption_id_fk: 70 });
+    expect(manager.update).toHaveBeenCalledWith(
+      InvoiceLine,
+      { id: expect.anything() },
+      { consumption_id_fk: 70 },
+    );
     expect(manager.update).toHaveBeenCalledWith(UtilityConsumption, 70, { consumption: 120 });
-    expect(manager.update).not.toHaveBeenCalledWith(UtilityConsumption, expect.objectContaining({ id: expect.anything() }), { deleted: true });
+    expect(manager.update).not.toHaveBeenCalledWith(
+      UtilityConsumption,
+      expect.objectContaining({ id: expect.anything() }),
+      { deleted: true },
+    );
     expect(utilities).toEqual([812]);
   });
 
   it('riga tolta o cambiata di periodo: la sua rilevazione da fattura si toglie', async () => {
     const previous = [line(1, { consumption_id_fk: 70 })];
-    const manager = fakeManager([line(5, { period_start: '2026-07-01', period_end: '2026-07-31' })]);
+    const manager = fakeManager([
+      line(5, { period_start: '2026-07-01', period_end: '2026-07-31' }),
+    ]);
     const utilities = await linker.follow(manager as never, 500, previous);
     expect(manager.update).toHaveBeenCalledWith(
       UtilityConsumption,

@@ -1,4 +1,4 @@
-import { IsInt, IsNotEmpty, IsObject, IsString, MaxLength } from 'class-validator';
+import { IsArray, IsInt, IsNotEmpty, IsObject, IsString, MaxLength } from 'class-validator';
 import type { PatternRules } from '../pattern/pattern-rules';
 
 // Le regole si validano nel service (tipi di regola e campi ammessi).
@@ -8,6 +8,12 @@ export class PreviewInvoicePatternDto {
 
   @IsObject({ message: 'Regole del pattern non valide' })
   rules: PatternRules;
+}
+
+export class AnalyzeInvoicePatternDto extends PreviewInvoicePatternDto {
+  @IsArray({ message: 'Fatture da analizzare non valide' })
+  @IsInt({ each: true, message: 'Fatture da analizzare non valide' })
+  message_ids: number[];
 }
 
 export class SaveInvoicePatternDto extends PreviewInvoicePatternDto {

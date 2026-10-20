@@ -10,22 +10,28 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
 import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
 import {MatSelectModule} from '@angular/material/select';
-import {Subject, Subscription, debounceTime, switchMap, of, catchError} from 'rxjs';
+import {Subject, Subscription, debounceTime, switchMap, of, catchError, from, concatMap, finalize} from 'rxjs';
 import {AuthService} from '../../services/auth.service';
 import {ToastService} from '../../core/services/toast.service';
 import {isEditorRole} from '../../core/components/entity-sheet/sheet-utils';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 import {SdiDocumentDialogComponent} from '../invoices/sdi-document-dialog.component';
+import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
+import {TOption} from '../../core/types/option.interface';
 import {InvoicePatternsService} from './invoice-patterns.service';
 import {HEADER_DEFAULTS, TARGET_LABELS} from './target-fields';
 import {
+  BAND_TARGETS,
   CatalogField,
+  ExtractedLine,
   HEADER_TARGETS,
   isHeaderTarget,
   LINE_TARGETS,
   PatternCheck,
   PatternEditorData,
+  PatternAnalysis,
   PatternPreview,
+  WordOccurrence,
   PatternRules,
   PDF_LABEL,
   PDF_PATH,
@@ -47,23 +53,27 @@ interface FieldOption {
 const PREVIEW_DEBOUNCE_MS = 400;
 // La P.IVA identifica il fornitore: non si mappa.
 const EDITABLE_HEADER = HEADER_TARGETS.filter(t => t !== 'supplierVat');
-// Regole «parola» (consumo e matricola dentro un testo: Causale, descrizione, PDF allegato).
-// Consumo: numero dopo la parola (kWh 542) o prima (594 mc); matricola: parola dopo (Contatore 000283767);
-// consumo stimato: «di cui stimati» maggiore di zero o la parola presente («Stimata»).
-const WORD_MODES: Partial<Record<TargetField, {kind: WordKind; label: string}[]>> = {
-  consumption: [
-    {kind: 'numberAfter', label: 'Numero dopo la parola'},
-    {kind: 'numberBefore', label: 'Numero prima della parola'},
-  ],
-  meter: [{kind: 'textAfter', label: 'Testo dopo la parola'}],
-  estimated: [
-    {kind: 'contains', label: 'Presente la parola'},
-    {kind: 'numberAfter', label: 'Numero dopo la parola maggiore di zero'},
-  ],
-};
+// Regole «parola»: un dato dentro un testo (Causale, descrizione, PDF allegato), tra
+// «Dopo il testo» e «Prima del testo» (basta uno dei due). Numero o testo secondo il
+// campo; date gg/mm/aaaa convertite. Con tutti e due: il primo testo fa da ancora,
+// il valore è quello subito prima del secondo (es. dopo «CONSUMO», prima di «kWh»).
+const WORD_TARGETS: TargetField[] = [
+  'total', 'netAmount', 'consumption', ...BAND_TARGETS, 'number', 'date', 'cig', 'contractRef',
+  'utility', 'periodStart', 'periodEnd', 'unit', 'meter', 'estimated',
+];
+const NUMBER_TARGETS: TargetField[] = ['total', 'netAmount', 'consumption', ...BAND_TARGETS];
+// Consumo stimato: «di cui stimati» maggiore di zero o la parola presente («Stimata»).
+const ESTIMATED_MODES: {kind: WordKind; label: string}[] = [
+  {kind: 'contains', label: 'Presente la parola'},
+  {kind: 'numberAfter', label: 'Numero dopo la parola maggiore di zero'},
+];
 // Campi che si leggono solo cercando una parola.
 const WORD_ONLY: TargetField[] = ['estimated'];
 const PDF_KEY = `header|${PDF_PATH}|`;
+// Etichette delle fasce nei PDF, dalla più precisa: la prima presente fa da «Dopo il testo».
+const BAND_LABELS = ['Fascia oraria F', 'Fascia F'];
+// Fatture per chiamata di analisi (limite del backend).
+const ANALYZE_CHUNK = 25;
 
 // Campo del catalogo ricostruito da una regola salvata (chiave = scope|path|condizione).
 function missingField(key: string, rule: Rule & {path: string}): CatalogField {
@@ -88,6 +98,7 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   imports: [
     NgTemplateOutlet,
     FormsModule,
+    FilterableSelectComponent,
     MatButtonModule,
     MatButtonToggleModule,
     MatFormFieldModule,
@@ -100,7 +111,10 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   templateUrl: './pattern-editor.component.html',
   styles: [`
     :host { display: block; padding: 1rem; }
-    .pe-bar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .pe-bar { display: flex; align-items: center; gap: 0.5rem; margin: -1rem -1rem 1rem; padding: 0.5rem 1rem; height: 3.5rem;
+      box-sizing: border-box; position: sticky; top: 0; z-index: 5; background: var(--app-bg); border-bottom: 1px solid var(--app-border); }
+    .pe-bar h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pe-bar > span, .pe-bar button { flex: 0 0 auto; white-space: nowrap; }
     .pe-bar h2 { margin: 0; font-size: 1.15rem; }
     .pe-bar .spacer { flex: 1; }
     .pe-holds { color: var(--app-muted); }
@@ -111,8 +125,19 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       padding: 0.25rem 0.5rem; border-radius: 6px; }
     .pe-row.focused { background: var(--tone-info-bg); }
     .pe-row mat-form-field { width: 100%; }
-    .pe-word { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: -0.75rem; margin-bottom: 0.5rem; }
-    .pe-word mat-form-field { width: 10rem; }
+    .pe-word { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
+    .pe-word mat-form-field { flex: 1 1 10rem; min-width: 0; }
+    .pe-word-hint { flex-basis: 100%; font-size: 0.75rem; color: var(--app-muted); }
+    .pe-occ { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.5rem; font-size: 0.8rem; max-height: 12rem;
+      overflow: auto; }
+    .pe-occ-title { color: var(--app-muted); }
+    .pe-occ button { flex: 0 0 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; border: 1px solid var(--app-border); border-radius: 6px; padding: 0.25rem 0.5rem;
+      background: transparent; color: inherit; cursor: pointer; font: inherit; }
+    .pe-occ button.pe-occ-on { border-color: var(--tone-info-fg); background: var(--tone-info-bg); }
+    .pe-occ button:disabled { cursor: default; }
+    .pe-occ-value { font-weight: 600; white-space: nowrap; }
+    .pe-occ-summary { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; margin-bottom: 0.5rem; min-width: 0; }
+    .pe-occ-summary span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
     .pe-checks { display: flex; flex-direction: column; gap: 4px; padding-top: 0.75rem; }
     .pe-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; line-height: 1.4; }
     .tone-ok { background: var(--tone-ok-bg); color: var(--tone-ok-fg); }
@@ -120,16 +145,20 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     .tone-danger { background: var(--tone-danger-bg); color: var(--tone-danger-fg); }
     .tone-off { background: var(--tone-off-bg); color: var(--tone-off-fg); }
     .pe-opt-sample { color: var(--app-muted); font-size: 0.8rem; }
-    .pe-xml { position: sticky; top: 0.5rem; }
-    .pe-xml pre { max-height: 75vh; overflow: auto; white-space: pre-wrap; word-break: break-all; font-size: 0.75rem;
+    .pe-xml { position: sticky; top: 4rem; }
+    .pe-xml pre { position: relative; max-height: 75vh; overflow: auto; white-space: pre-wrap; word-break: break-all; font-size: 0.75rem;
       margin: 0; padding: 0.75rem; border: 1px solid var(--app-border); border-radius: 6px; background: var(--app-surface); }
     .pe-xml-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;
       margin-bottom: 0.5rem; }
     /* Contenuto in innerHTML: fuori dall'incapsulamento degli stili. */
+    .pe-xml pre ::ng-deep mark.pe-chosen { outline: 2px solid var(--tone-info-fg); }
     .pe-xml pre ::ng-deep mark.pe-anchor { background: var(--tone-info-bg); color: inherit; }
     .pe-lines { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 0.5rem; }
     .pe-lines th, .pe-lines td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--app-border); }
-    .pe-lines td.num { text-align: right; }
+    .pe-lines .num { text-align: right; white-space: nowrap; }
+    .pe-lines .nowrap { white-space: nowrap; }
+    .pe-lines .pe-desc { overflow-wrap: anywhere; }
+    .pe-bands { font-size: 0.8em; color: var(--app-muted); white-space: nowrap; }
     .pe-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 1rem; }
     .pe-actions mat-form-field { width: 22rem; max-width: 100%; }
     .center { display: flex; justify-content: center; padding: 2rem; }
@@ -146,6 +175,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   readonly canEdit = isEditorRole(inject(AuthService).getCurrentUser()?.role);
   readonly headerTargets = EDITABLE_HEADER;
   readonly lineTargets = LINE_TARGETS;
+  readonly bandTargets: TargetField[] = BAND_TARGETS;
   readonly labels: Record<string, string> = TARGET_LABELS;
 
   data: PatternEditorData | null = null;
@@ -158,16 +188,29 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   // parola cercata, ancora da cui parte la ricerca).
   choice: Record<string, string> = {};
   wordMode: Record<string, WordKind | ''> = {};
+  // Testo prima e dopo il valore cercato (regole «parola», tranne la stima).
+  after: Record<string, string> = {};
+  before: Record<string, string> = {};
+  // Ancora di una regola «dopo la parola» salvata prima dei due campi: si conserva.
+  private legacyAnchor: Record<string, string> = {};
   words: Record<string, string> = {};
   anchors: Record<string, string> = {};
+  // Quale volta della parola usare quando compare più volte (null = la prima utile).
+  occurrences: Record<string, number | null> = {};
+  // Occorrenza scelta dall'elenco (anche «la prima utile»): l'elenco si chiude.
+  occPicked: Record<string, boolean> = {};
   // Pannello di destra: XML o testo del PDF allegato.
   view: 'xml' | 'pdf' = 'xml';
   pdfHtml = '';
   consumptionFilter = '';
+  // Consumo letto come totale o per fasce orarie (F1, F2, F3).
+  consumptionMode: 'total' | 'bands' = 'total';
   name = '';
   patternId: number | null = null;
 
   options: Record<string, FieldOption[]> = {};
+  // Voci della select con ricerca (campo cache: predefinito, «non presente» e campi del catalogo).
+  selectOptions: Record<string, TOption[]> = {};
   checks: Record<string, PatternCheck[]> = {};
   preview: PatternPreview | null = null;
   previewing = false;
@@ -177,6 +220,11 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   index = 0;
   holds = 0;
   seen = 0;
+  // Analisi sulle fatture simili: parte col pulsante, poi si ripete a ogni cambio di regola.
+  analysis: (PatternAnalysis & {total: number}) | null = null;
+  analyzing = false;
+  private analysisWanted = false;
+  private analysisRuns = new Subject<void>();
 
   // Campi dei messaggi visti: le regole restano valide passando da una fattura all'altra.
   private fields = new Map<string, CatalogField>();
@@ -208,7 +256,55 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
           this.updateHolds();
         }),
     );
+    this.subs.add(
+      this.analysisRuns
+        .pipe(
+          debounceTime(PREVIEW_DEBOUNCE_MS),
+          switchMap(() => {
+            if (!this.data) return of(null);
+            const id = this.data.message.id;
+            const rules = this.rules();
+            const chunks: number[][] = [];
+            for (let i = 0; i < this.similar.length; i += ANALYZE_CHUNK) chunks.push(this.similar.slice(i, i + ANALYZE_CHUNK));
+            this.analyzing = true;
+            this.analysis = {analyzed: 0, unavailable: 0, matches: 0, found: {}, total: this.similar.length};
+            return from(chunks).pipe(
+              concatMap(chunk => this.service.analyze(id, chunk, rules).pipe(
+                catchError(() => of({analyzed: chunk.length, unavailable: chunk.length, matches: 0, found: {}} as PatternAnalysis)),
+              )),
+              finalize(() => this.analyzing = false),
+            );
+          }),
+        )
+        .subscribe(part => {
+          if (!part || !this.analysis) return;
+          const a = this.analysis;
+          a.analyzed += part.analyzed;
+          a.unavailable += part.unavailable;
+          a.matches += part.matches;
+          for (const [t, n] of Object.entries(part.found)) a.found[t] = (a.found[t] ?? 0) + (n ?? 0);
+        }),
+    );
     this.subs.add(this.route.paramMap.subscribe(params => this.load(Number(params.get('messageId')))));
+  }
+
+  analyze(): void {
+    this.analysisWanted = true;
+    this.analysisRuns.next();
+  }
+
+  // Badge «trovato su X di N»: solo per i campi mappati, a analisi avviata.
+  analysisBadge(t: TargetField): {tone: string; text: string} | null {
+    const a = this.analysis;
+    if (!a || !a.analyzed) return null;
+    const rule = this.ruleFor(t);
+    if (!rule || rule.kind === 'none') return null;
+    const readable = a.analyzed - a.unavailable;
+    const found = a.found[t] ?? 0;
+    return {
+      tone: found === readable ? 'ok' : found === 0 ? 'danger' : 'warn',
+      text: `Trovato su ${found} di ${readable} simili${a.analyzed < a.total ? '…' : ''}`,
+    };
   }
 
   ngOnDestroy(): void {
@@ -291,6 +387,28 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
         });
       }
     }
+    this.buildSelectOptions();
+  }
+
+  private buildSelectOptions(): void {
+    for (const t of [...EDITABLE_HEADER, ...LINE_TARGETS]) {
+      const fixed: TOption[] = [
+        {label: this.defaultLabel(t), value: ''},
+        ...(t === 'amount' ? [{label: 'Calcolato: imponibile × IVA', value: 'gross'}] : []),
+        {label: 'Non presente', value: 'none'},
+      ];
+      const fields = (this.options[t] ?? []).map(o => {
+        const label = `${o.label}${o.header ? ' (dalla testata)' : ''}`;
+        const sample = o.sample ?? '—';
+        return {
+          label,
+          value: o.value,
+          sublabel: `${sample}${o.committente ? ' · dati del Comune' : ''}`,
+          searchText: `${label} ${sample}`,
+        };
+      });
+      this.selectOptions[t] = [...fixed, ...fields];
+    }
   }
 
   private loadRules(rules: PatternRules): void {
@@ -307,19 +425,31 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
         this.choice[t] = `f:${key}`;
         if (!this.fields.has(key)) this.fields.set(key, missingField(key, rule));
         if (isWordRule(rule)) {
-          this.wordMode[t] = rule.kind;
-          this.words[t] = rule.word;
-          this.anchors[t] = rule.anchor ?? '';
+          this.occurrences[t] = rule.occurrence ?? null;
+          this.occPicked[t] = !!rule.occurrence;
+          if (t === 'estimated') {
+            this.wordMode[t] = rule.kind;
+            this.words[t] = rule.word;
+            this.anchors[t] = rule.anchor ?? '';
+          } else if (rule.kind === 'numberBefore' || rule.kind === 'textBefore') {
+            this.before[t] = rule.word;
+            this.after[t] = rule.anchor ?? '';
+          } else {
+            this.after[t] = rule.word;
+            this.legacyAnchor[t] = rule.anchor ?? '';
+          }
         }
       }
     }
     this.consumptionFilter = rules.consumptionLineFilter ?? '';
+    this.consumptionMode = BAND_TARGETS.some(t => rules.line[t]) ? 'bands' : 'total';
     if (this.data) this.buildOptions(this.data);
   }
 
   rules(): PatternRules {
     const rules: PatternRules = {header: {}, line: {}};
     for (const t of [...EDITABLE_HEADER, ...LINE_TARGETS]) {
+      if (!this.showTarget(t)) continue;
       const rule = this.ruleFor(t);
       if (!rule) continue;
       if (isHeaderTarget(t)) rules.header[t as keyof PatternRules['header']] = rule;
@@ -337,34 +467,110 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
     const field = this.fields.get(c.slice(2));
     if (!field) return null;
     const fromHeader = !isHeaderTarget(t) && field.scope === 'header';
-    const kind = this.wordMode[t];
-    if (kind && this.words[t]?.trim()) {
-      const anchor = this.anchors[t]?.trim();
+    const word = this.wordParts(t);
+    if (word) {
+      const occurrence = word.kind === 'contains' ? null : this.occurrences[t];
       return {
-        kind,
+        kind: word.kind,
         path: field.path,
-        word: this.words[t].trim(),
+        word: word.word,
         ...(fromHeader ? {fromHeader: true} : {}),
-        ...(anchor ? {anchor} : {}),
+        ...(word.anchor ? {anchor: word.anchor} : {}),
+        ...(occurrence ? {occurrence} : {}),
       };
     }
-    // Dal PDF (e la stima) solo con la parola: senza, il campo resta non mappato.
+    // Dal PDF (e la stima) solo cercando un testo: senza, il campo resta non mappato.
     if (field.path === PDF_PATH || WORD_ONLY.includes(t)) return null;
     const where = field.where ? {where: field.where} : {};
     return fromHeader ? {kind: 'fromHeader', path: field.path, ...where} : {kind: 'field', path: field.path, ...where};
   }
 
+  // Righe delle fasce solo con «Per fasce».
+  showTarget(t: TargetField): boolean {
+    return this.consumptionMode === 'bands' || !(BAND_TARGETS as TargetField[]).includes(t);
+  }
+
+  // Per fasce: ogni fascia parte dal campo del consumo, dopo la sua etichetta
+  // («Fascia oraria F1» se il PDF la scrive, altrimenti «F1») e prima dell'unità del
+  // consumo (o «kWh»). Tornando al totale le fasce si svuotano.
+  consumptionModeChanged(mode: 'total' | 'bands'): void {
+    this.consumptionMode = mode;
+    const pdf = (this.data?.pdf_text ?? '').replace(/\s+/g, ' ').toLowerCase();
+    for (const [i, t] of BAND_TARGETS.entries()) {
+      const label = BAND_LABELS.map(l => `${l}${i + 1}`).find(l => pdf.includes(l.toLowerCase())) ?? `F${i + 1}`;
+      this.choice[t] = mode === 'bands' ? (this.choice['consumption'] ?? '') : '';
+      this.after[t] = mode === 'bands' ? label : '';
+      this.before[t] = mode === 'bands' ? (this.before['consumption']?.trim() || 'kWh') : '';
+      this.legacyAnchor[t] = '';
+      this.occurrences[t] = null;
+      this.occPicked[t] = false;
+    }
+    this.requestPreview(true);
+  }
+
   defaultLabel(t: TargetField): string {
     if (t === 'amount') return 'Predefinito: imponibile × IVA';
+    if (t === 'description') return 'Predefinito: Descrizione della riga';
     return HEADER_DEFAULTS.includes(t) ? 'Tracciato standard' : 'Non mappato';
   }
 
-  wordModes(t: TargetField): {kind: WordKind; label: string}[] {
-    return WORD_MODES[t] ?? [];
+  estimatedModes = ESTIMATED_MODES;
+
+  // Regola «parola» dai campi dell'editor (null = valore intero del campo).
+  private wordParts(t: TargetField): {kind: WordKind; word: string; anchor?: string} | null {
+    if (!this.canWord(t)) return null;
+    if (t === 'estimated') {
+      const kind = this.wordMode[t];
+      const word = this.words[t]?.trim();
+      return kind && word ? {kind, word, anchor: this.anchors[t]?.trim() || undefined} : null;
+    }
+    const after = this.after[t]?.trim();
+    const before = this.before[t]?.trim();
+    const number = NUMBER_TARGETS.includes(t);
+    if (before) return {kind: number ? 'numberBefore' : 'textBefore', word: before, anchor: after || undefined};
+    if (after) return {kind: number ? 'numberAfter' : 'textAfter', word: after, anchor: this.legacyAnchor[t] || undefined};
+    return null;
   }
 
+  // Testo cercato dalla regola (quello di cui si contano le occorrenze).
+  searchedWord(t: TargetField): string {
+    const word = this.wordParts(t);
+    return word && word.kind !== 'contains' ? word.word : '';
+  }
+
+  // Ricerca dentro il testo solo dove ha senso: PDF, campi con frasi (Causale,
+  // Descrizione) o regola «parola» già impostata; non su valori secchi (date, importi).
   canWord(t: TargetField): boolean {
-    return !!WORD_MODES[t] && (this.choice[t] ?? '').startsWith('f:');
+    const c = this.choice[t] ?? '';
+    if (!WORD_TARGETS.includes(t) || !c.startsWith('f:')) return false;
+    if (t === 'estimated' || this.fromPdf(t) || this.after[t]?.trim() || this.before[t]?.trim()) return true;
+    const sample = this.fields.get(c.slice(2))?.sample ?? '';
+    return /\s/.test(sample.trim()) && sample.length > 15;
+  }
+
+  // Elenco delle occorrenze aperto: finché non se ne sceglie una, o con «Cambia».
+  occOpen(t: TargetField): boolean {
+    return !this.occPicked[t];
+  }
+
+  // Cambia il campo: i testi cercati erano per quello precedente.
+  choiceChanged(t: TargetField): void {
+    this.after[t] = '';
+    this.before[t] = '';
+    this.legacyAnchor[t] = '';
+    this.textChanged(t);
+  }
+
+  // Cambia il testo cercato: l'occorrenza scelta non vale più.
+  textChanged(t: TargetField): void {
+    this.occurrences[t] = null;
+    this.occPicked[t] = false;
+    this.changed(t);
+  }
+
+  chosenOccurrence(t: TargetField): WordOccurrence | null {
+    const n = this.occurrences[t];
+    return n ? (this.wordOccurrences(t).find(o => o.n === n) ?? null) : null;
   }
 
   fromPdf(t: TargetField): boolean {
@@ -383,8 +589,13 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   }
 
   changed(t: TargetField): void {
-    if (!this.canWord(t)) this.wordMode[t] = '';
-    else if (this.wordOnly(t) && !this.wordMode[t]) this.wordMode[t] = this.wordModes(t)[0].kind;
+    if (!this.canWord(t)) {
+      this.wordMode[t] = '';
+      this.after[t] = '';
+      this.before[t] = '';
+    } else if (t === 'estimated' && !this.wordMode[t]) {
+      this.wordMode[t] = ESTIMATED_MODES[0].kind;
+    }
     this.focus(t);
     this.requestPreview(true);
   }
@@ -394,6 +605,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
     if (rulesChanged) {
       this.previews.clear();
       this.updateHolds();
+      if (this.analysisWanted) this.analysisRuns.next();
     }
     const cached = this.data ? this.previews.get(this.data.message.id) : undefined;
     if (cached) {
@@ -401,6 +613,18 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
       return;
     }
     this.previewRequests.next();
+  }
+
+  // Occorrenze della parola nella fattura in anteprima: utili solo se più di una.
+  wordOccurrences(t: TargetField): WordOccurrence[] {
+    const list = this.preview?.occurrences?.[t] ?? [];
+    return list.length > 1 ? list : [];
+  }
+
+  setOccurrence(t: TargetField, n: number | null): void {
+    this.occurrences[t] = n;
+    this.occPicked[t] = true;
+    this.changed(t);
   }
 
   private applyPreview(p: PatternPreview): void {
@@ -426,7 +650,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
     if (sample) {
       const text = `&gt;${escapeHtml(sample)}&lt;`;
       html = html.split(text).join(`&gt;<mark>${escapeHtml(sample)}</mark>&lt;`);
-      setTimeout(() => document.querySelector('.pe-xml pre mark')?.scrollIntoView({block: 'center', behavior: 'smooth'}));
+      if (this.view === 'xml') this.scrollToMark();
     }
     this.xmlHtml = html;
   }
@@ -439,19 +663,36 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
       return;
     }
     const t = this.focused;
+    const word = t && this.fromPdf(t) ? this.wordParts(t) : null;
     const marks = [
-      {word: t && this.fromPdf(t) ? this.anchors[t]?.trim() : '', cls: 'pe-anchor'},
-      {word: t && this.fromPdf(t) ? this.words[t]?.trim() : '', cls: ''},
+      {word: word?.anchor ?? '', cls: 'pe-anchor'},
+      {word: word?.word ?? '', cls: ''},
     ].filter(m => m.word);
     let html = escapeHtml(text);
     for (const m of marks) {
-      const re = new RegExp(escapeRegExp(escapeHtml(m.word)), 'gi');
+      // Gli spazi della parola valgono anche l'a capo, come nella lettura lato server.
+      const pattern = m.word.split(/\s+/).map(w => escapeRegExp(escapeHtml(w))).join('\\s+');
+      const re = new RegExp(pattern, 'gi');
       html = html.replace(re, s => `<mark${m.cls ? ` class="${m.cls}"` : ''}>${s}</mark>`);
     }
     this.pdfHtml = html;
-    if (marks.length && this.view === 'pdf') {
-      setTimeout(() => document.querySelector('.pe-xml pre mark')?.scrollIntoView({block: 'center', behavior: 'smooth'}));
-    }
+    if (marks.length && this.view === 'pdf') this.scrollToMark(t ? this.occurrences[t] : null);
+  }
+
+  // Porta in vista il segno (l'occorrenza scelta, se c'è) scorrendo solo il riquadro
+  // di destra: scrollIntoView muoverebbe anche la pagina.
+  private scrollToMark(occurrence?: number | null): void {
+    setTimeout(() => {
+      const pre = document.querySelector<HTMLElement>('.pe-xml pre');
+      if (!pre) return;
+      const marks = [...pre.querySelectorAll<HTMLElement>('mark')];
+      const anchor = marks.findIndex(m => m.classList.contains('pe-anchor'));
+      const words = marks.slice(anchor + 1).filter(m => !m.classList.contains('pe-anchor'));
+      const target = (occurrence ? words[occurrence - 1] : words[0]) ?? marks[0];
+      if (!target) return;
+      if (occurrence) target.classList.add('pe-chosen');
+      pre.scrollTo({top: Math.max(0, target.offsetTop - pre.clientHeight / 2), behavior: 'smooth'});
+    });
   }
 
   setView(view: 'xml' | 'pdf'): void {
@@ -536,5 +777,19 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
 
   eur(n: number | null): string {
     return n === null ? '—' : n.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+
+  qty(n: number): string {
+    return n.toLocaleString('it-IT', {maximumFractionDigits: 6});
+  }
+
+  // Fasce lette sulla riga, per l'anteprima («F1 60 · F2 25 · F3 38»).
+  bands(l: ExtractedLine): string {
+    return BAND_TARGETS.map((t, i) => {
+      const value = l[t];
+      return value === null || value === undefined ? '' : `F${i + 1} ${this.qty(value)}`;
+    })
+      .filter(Boolean)
+      .join(' · ');
   }
 }
