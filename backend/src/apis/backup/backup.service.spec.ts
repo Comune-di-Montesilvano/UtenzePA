@@ -53,6 +53,24 @@ describe('BackupService', () => {
     expect(mockConn.end).toHaveBeenCalled();
   });
 
+  it('createBackup scrive le colonne JSON come testo JSON, non come [object Object]', async () => {
+    mockConn.query
+      .mockResolvedValueOnce([[{ Tables_in_mydatabase: 'invoice_patterns' }], []])
+      .mockResolvedValueOnce([
+        [{ Table: 'invoice_patterns', 'Create Table': 'CREATE TABLE `invoice_patterns` (`id` INT, `rules` JSON)' }],
+        [],
+      ])
+      .mockResolvedValueOnce([[{ id: 1, rules: { line: { meter: { kind: 'textAfter', word: "l'ultima" } } } }], []]);
+
+    const result = await service.createBackup();
+
+    const sql = fs.readFileSync(path.join(backupDir, result.filename), 'utf8');
+    expect(sql).toContain(
+      `INSERT INTO \`invoice_patterns\` (\`id\`, \`rules\`) VALUES (1, '{"line":{"meter":{"kind":"textAfter","word":"l\\'ultima"}}}');`,
+    );
+    expect(sql).not.toContain('[object Object]');
+  });
+
   it('createBackup include APP_VERSION nel nome file quando presente', async () => {
     process.env.APP_VERSION = 'v1.2.3';
     mockConn.query

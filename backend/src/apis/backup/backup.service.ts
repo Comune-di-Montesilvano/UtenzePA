@@ -28,7 +28,9 @@ function escapeValue(v: unknown): string {
       .replace(/\.\d{3}Z$/, '')}'`;
   }
   if (Buffer.isBuffer(v)) return `0x${v.toString('hex')}`;
-  return `'${String(v)
+  // Colonne JSON (es. invoice_patterns.rules): mysql2 le restituisce già come oggetto.
+  const text = typeof v === 'object' ? JSON.stringify(v) : String(v);
+  return `'${text
     .replace(/\\/g, '\\\\')
     .replace(/'/g, "\\'")
     .replace(/\n/g, '\\n')
