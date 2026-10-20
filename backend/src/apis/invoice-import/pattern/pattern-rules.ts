@@ -511,6 +511,13 @@ export function extract(
       if (!header || (!headerConsumptionUsed.has(used) && (utility !== null || !anyUtility))) {
         consumption = toNumber(lineRule(tree, line, consumptionRule, segment));
         bands = bandRules.map((r) => toNumber(lineRule(tree, line, r, segment)));
+        // Fattura monoraria: F2 e F3 mappate ma non trovate, il valore letto per F1 è
+        // il consumo complessivo (F0), non una fascia.
+        const monorary = !!(bandRules[1] || bandRules[2]) && bands[1] === null && bands[2] === null;
+        if (monorary && bands[0] !== null) {
+          consumption ??= bands[0];
+          bands = [null, null, null];
+        }
         // Senza totale letto il consumo è la somma delle fasce.
         if (consumption === null && bands.some((b) => b !== null)) {
           consumption =
