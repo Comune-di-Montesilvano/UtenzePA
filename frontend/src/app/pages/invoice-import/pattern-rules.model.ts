@@ -38,8 +38,19 @@ export type LineTarget =
   | 'consumptionF3'
   | 'unit'
   | 'meter'
-  | 'estimated';
+  | 'estimated'
+  | ReadingTarget;
 export type TargetField = HeaderTarget | LineTarget;
+
+// Letture del contatore (in alternativa al consumo del periodo): fino a 6, ciascuna
+// con data, valore e tipo (rilevata / stimata). Gemelle del backend (field-catalog.ts).
+export const READING_SLOTS = 6;
+export type ReadingPart = 'Date' | 'Value' | 'Type';
+export type ReadingTarget = `reading${1 | 2 | 3 | 4 | 5 | 6}${ReadingPart}`;
+export const readingTarget = (slot: number, part: ReadingPart) => `reading${slot}${part}` as ReadingTarget;
+export const READING_TARGETS: ReadingTarget[] = Array.from({length: READING_SLOTS}, (_, i) =>
+  (['Date', 'Value', 'Type'] as ReadingPart[]).map(p => readingTarget(i + 1, p)),
+).flat();
 
 export type WordKind = 'numberAfter' | 'numberBefore' | 'textAfter' | 'textBefore' | 'contains';
 export interface WordRule {
@@ -83,6 +94,7 @@ export interface ExtractedLine {
   unit: string | null;
   meter: string | null;
   estimated: boolean;
+  readings: {date: string; value: number; estimated: boolean}[];
 }
 
 export interface ExtractedInvoice {
@@ -228,6 +240,7 @@ export const LINE_TARGETS: LineTarget[] = [
   'unit',
   'meter',
   'estimated',
+  ...READING_TARGETS,
 ];
 
 // Consumo per fascia oraria: righe visibili solo con «Consumo: Per fasce».

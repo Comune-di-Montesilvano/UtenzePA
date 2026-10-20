@@ -36,6 +36,7 @@ const match = (over: Partial<MatchResult> = {}): MatchResult => ({
       amount: 122,
       consumption: 542,
       bands: [null, null, null],
+      readings: [],
       estimated: false,
       description: 'Materia',
       supply_code: 'IT001E00000001',
@@ -182,6 +183,7 @@ describe('InvoiceApplier', () => {
       new Map(),
       new Set(),
       new Map(),
+      new Map(),
     );
     expect(manager.save).toHaveBeenCalledWith(InvoiceImportIssue, [
       expect.objectContaining({ type: ImportIssueType.PERIOD_COVERED }),
@@ -267,6 +269,7 @@ describe('InvoiceApplier: matricola', () => {
       new Map([[812, '000000000000283767']]),
       new Set(),
       new Map(),
+      new Map(),
     );
   });
 
@@ -309,6 +312,7 @@ describe('InvoiceApplier: matricola', () => {
       new Map(),
       new Set([812]),
       new Map(),
+      new Map(),
     );
   });
 
@@ -329,6 +333,7 @@ describe('InvoiceApplier: matricola', () => {
       new Map(),
       new Set(),
       new Map([[812, { consumption_f1: 60, consumption_f2: 25, consumption_f3: 38 }]]),
+      new Map(),
     );
   });
 

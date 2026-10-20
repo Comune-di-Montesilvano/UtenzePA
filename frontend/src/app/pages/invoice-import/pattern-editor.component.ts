@@ -3,6 +3,7 @@ import {NgTemplateOutlet} from '@angular/common';
 import {ActivatedRoute, Router} from '@angular/router';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
+import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatButtonToggleModule} from '@angular/material/button-toggle';
 import {MatDialog} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -42,6 +43,9 @@ import {
   WordKind,
   isWordRule,
   documentTypeLabel,
+  READING_SLOTS,
+  READING_TARGETS,
+  readingTarget,
 } from './pattern-rules.model';
 
 interface FieldOption {
@@ -62,9 +66,12 @@ const EDITABLE_HEADER = HEADER_TARGETS.filter(t => t !== 'supplierVat' && t !== 
 // il valore è quello subito prima del secondo (es. dopo «CONSUMO», prima di «kWh»).
 const WORD_TARGETS: TargetField[] = [
   'supplierName', 'total', 'amount', 'netAmount', 'consumption', ...BAND_TARGETS, 'number', 'date', 'cig', 'contractRef',
-  'utility', 'periodStart', 'periodEnd', 'unit', 'meter', 'estimated',
+  'utility', 'periodStart', 'periodEnd', 'unit', 'meter', 'estimated', ...READING_TARGETS,
 ];
-const NUMBER_TARGETS: TargetField[] = ['total', 'netAmount', 'amount', 'consumption', ...BAND_TARGETS];
+const NUMBER_TARGETS: TargetField[] = [
+  'total', 'netAmount', 'amount', 'consumption', ...BAND_TARGETS,
+  ...READING_TARGETS.filter(t => t.endsWith('Value')),
+];
 // Consumo stimato: «di cui stimati» maggiore di zero o la parola presente («Stimata»).
 const ESTIMATED_MODES: {kind: WordKind; label: string}[] = [
   {kind: 'contains', label: 'Presente la parola'},
@@ -105,6 +112,7 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     FormsModule,
     FilterableSelectComponent,
     MatButtonModule,
+    MatTooltipModule,
     MatButtonToggleModule,
     MatFormFieldModule,
     MatIconModule,
@@ -127,6 +135,8 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       --mat-form-field-container-vertical-padding: 6px; }
     .pe-bar h2 { flex: 1 1 auto; min-width: 8rem; }
     .pe-missing { font-size: 0.8em; min-height: 0; line-height: 1.6; padding: 0 8px; }
+    .pe-reading { margin: 0.75rem 0 0.25rem; font-weight: 500; }
+    .pe-reading-actions { display: flex; gap: 0.5rem; margin: 0.25rem 0 0.75rem; }
     .pe-section-hint { margin: -0.5rem 0 0.75rem; font-size: 0.85em; color: var(--app-muted); }
     .pe-bar .pe-variant { flex: 0 0 11rem; --mat-form-field-container-height: 36px;
       --mat-form-field-container-vertical-padding: 6px; }
@@ -140,6 +150,10 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     .pe-row mat-form-field { width: 100%; }
     .pe-word { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
     .pe-word mat-form-field { flex: 1 1 10rem; min-width: 0; }
+    .pe-select { display: flex; align-items: center; gap: 0.25rem; }
+    .pe-select app-filterable-select { flex: 1 1 auto; min-width: 0; }
+    /* Spazio della forbice su ogni riga: i campi restano tutti della stessa larghezza. */
+    .pe-word-open { flex: none; width: 40px; height: 40px; padding: 8px; color: var(--app-muted); }
     .pe-word-hint { flex-basis: 100%; font-size: 0.75rem; color: var(--app-muted); }
     .pe-occ { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.5rem; font-size: 0.8rem; max-height: 12rem;
       overflow: auto; }
@@ -191,7 +205,12 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   readonly lineTargets = LINE_TARGETS;
   // Sezione Consumi dell'editor: consumo, fasce, unità, matricola e stima; il resto in Righe.
   readonly consumptionTargets: TargetField[] = ['consumption', ...BAND_TARGETS, 'unit', 'meter', 'estimated'];
-  readonly rowTargets: TargetField[] = LINE_TARGETS.filter(t => !this.consumptionTargets.includes(t));
+  readonly rowTargets: TargetField[] = LINE_TARGETS.filter(
+    t => !this.consumptionTargets.includes(t) && !(READING_TARGETS as TargetField[]).includes(t),
+  );
+  readonly readingParts = (slot: number): TargetField[] =>
+    (['Date', 'Value', 'Type'] as const).map(p => readingTarget(slot, p));
+  readonly maxReadings = READING_SLOTS;
   readonly bandTargets: TargetField[] = BAND_TARGETS;
   readonly labels: Record<string, string> = TARGET_LABELS;
 
@@ -220,8 +239,10 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   view: 'xml' | 'pdf' = 'xml';
   pdfHtml = '';
   consumptionFilter = '';
-  // Consumo letto come totale o per fasce orarie (F1, F2, F3).
-  consumptionMode: 'total' | 'bands' = 'total';
+  // Nello storico: consumo del periodo (totale o per fasce F1, F2, F3) oppure letture a data.
+  consumptionMode: 'total' | 'bands' | 'readings' = 'total';
+  // Letture mostrate nel modo «Letture del contatore».
+  readingCount = 2;
   name = '';
   patternId: number | null = null;
 
@@ -502,7 +523,10 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
       }
     }
     this.consumptionFilter = rules.consumptionLineFilter ?? '';
-    this.consumptionMode = BAND_TARGETS.some(t => rules.line[t]) ? 'bands' : 'total';
+    const slots = Array.from({length: READING_SLOTS}, (_, i) => i + 1)
+      .filter(slot => this.readingParts(slot).some(t => rules.line[t as keyof PatternRules['line']]));
+    this.readingCount = slots.length ? Math.max(...slots) : 2;
+    this.consumptionMode = slots.length ? 'readings' : BAND_TARGETS.some(t => rules.line[t]) ? 'bands' : 'total';
     if (this.data) this.buildOptions(this.data);
   }
 
@@ -515,7 +539,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
       if (isHeaderTarget(t)) rules.header[t as keyof PatternRules['header']] = rule;
       else rules.line[t] = rule;
     }
-    if (!this.data?.message.credit_note && this.consumptionFilter.trim()) rules.consumptionLineFilter = this.consumptionFilter.trim();
+    if (!this.data?.message.credit_note && this.consumptionMode !== 'readings' && this.consumptionFilter.trim()) rules.consumptionLineFilter = this.consumptionFilter.trim();
     return rules;
   }
 
@@ -548,15 +572,23 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   // Righe delle fasce solo con «Per fasce».
   showTarget(t: TargetField): boolean {
     // Note di credito senza consumi: le regole della sezione non si salvano.
-    if (this.data?.message.credit_note && this.consumptionTargets.includes(t)) return false;
+    const reading = /^reading(\d)/.exec(t);
+    if (this.data?.message.credit_note && (this.consumptionTargets.includes(t) || reading)) return false;
+    // Letture del contatore al posto del consumo del periodo (e della sua stima).
+    if (reading) return this.consumptionMode === 'readings' && Number(reading[1]) <= this.readingCount;
+    if (this.consumptionMode === 'readings' && ['consumption', 'estimated', ...BAND_TARGETS].includes(t)) return false;
     return this.consumptionMode === 'bands' || !(BAND_TARGETS as TargetField[]).includes(t);
   }
 
   // Per fasce: ogni fascia parte dal campo del consumo, dopo la sua etichetta
   // («Fascia oraria F1» se il PDF la scrive, altrimenti «F1») e prima dell'unità del
   // consumo (o «kWh»). Tornando al totale le fasce si svuotano.
-  consumptionModeChanged(mode: 'total' | 'bands'): void {
+  consumptionModeChanged(mode: 'total' | 'bands' | 'readings'): void {
     this.consumptionMode = mode;
+    if (mode === 'readings') {
+      this.requestPreview(true);
+      return;
+    }
     const pdf = (this.data?.pdf_text ?? '').replace(/\s+/g, ' ').toLowerCase();
     for (const [i, t] of BAND_TARGETS.entries()) {
       const label = BAND_LABELS.map(l => `${l}${i + 1}`).find(l => pdf.includes(l.toLowerCase())) ?? `F${i + 1}`;
@@ -568,6 +600,32 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
       this.occPicked[t] = false;
     }
     this.requestPreview(true);
+  }
+
+  // Letture: una in più (fino a 6) o via l'ultima, coi suoi campi svuotati.
+  addReading(): void {
+    if (this.readingCount < READING_SLOTS) this.readingCount++;
+  }
+
+  removeReading(): void {
+    if (this.readingCount <= 1) return;
+    for (const t of this.readingParts(this.readingCount)) {
+      this.choice[t] = '';
+      this.after[t] = '';
+      this.before[t] = '';
+      this.legacyAnchor[t] = '';
+      this.occurrences[t] = null;
+      this.occPicked[t] = false;
+    }
+    this.readingCount--;
+    this.requestPreview(true);
+  }
+
+  // Letture lette nella riga dell'anteprima.
+  readingsText(l: ExtractedLine): string {
+    return (l.readings ?? [])
+      .map(r => `${r.date.split('-').reverse().join('/')} ${this.qty(r.value)}${r.estimated ? ' (stimata)' : ''}`)
+      .join(' · ');
   }
 
   defaultLabel(t: TargetField): string {
@@ -602,6 +660,14 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
 
   // Ricerca dentro il testo solo dove ha senso: PDF, campi con frasi (Causale,
   // Descrizione) o regola «parola» già impostata; non su valori secchi (date, importi).
+  // Campo XML di testo lungo: «Dopo/Prima del testo» nascosti finché non servono.
+  wordOpen: Record<string, boolean> = {};
+
+  wordFolded(t: TargetField): boolean {
+    return t !== 'estimated' && !this.fromPdf(t) && !this.wordOpen[t]
+      && !this.after[t]?.trim() && !this.before[t]?.trim();
+  }
+
   canWord(t: TargetField): boolean {
     const c = this.choice[t] ?? '';
     if (!WORD_TARGETS.includes(t) || !c.startsWith('f:')) return false;
@@ -732,8 +798,9 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
     ].filter(m => m.word);
     let html = escapeHtml(text);
     for (const m of marks) {
-      // Gli spazi della parola valgono anche l'a capo, come nella lettura lato server.
-      const pattern = m.word.split(/\s+/).map(w => escapeRegExp(escapeHtml(w))).join('\\s+');
+      // Gli spazi della parola valgono anche l'a capo e «*» qualsiasi carattere, come lato server.
+      const pattern = m.word.trim().split(/\s+/)
+        .map(w => escapeRegExp(escapeHtml(w)).replace(/\\\*/g, '[^\\s<]*')).join('\\s+');
       const re = new RegExp(pattern, 'gi');
       html = html.replace(re, s => `<mark${m.cls ? ` class="${m.cls}"` : ''}>${s}</mark>`);
     }

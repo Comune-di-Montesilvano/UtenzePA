@@ -15,6 +15,7 @@ import {
   wordOccurrences,
   type PatternRules,
   type WordRule,
+  numberAfter,
 } from './pattern-rules';
 
 const fixture = (name: string) => readFileSync(join(__dirname, '../sdi/fixtures', name));
@@ -539,6 +540,38 @@ describe('extract: dati nel PDF allegato', () => {
         consumptionF3: null,
       }),
     );
+  });
+
+  it('letture del contatore dal PDF: data, valore e tipo di ciascuna', () => {
+    const text = [
+      'LETTURE E CONSUMI',
+      'Lettura contatore: 73559 elettronico -',
+      'UM 31/07/2026 31/08/2026',
+      'rilevata stimata',
+      'Smc 5.782 5.790',
+    ].join('\n');
+    const r = rules({
+      reading1Date: fromPdf({ kind: 'textAfter', word: 'UM' }),
+      reading1Value: fromPdf({ kind: 'numberAfter', word: 'Smc' }),
+      reading1Type: fromPdf({ kind: 'textBefore', word: 'stimata' }),
+      reading2Date: fromPdf({ kind: 'textBefore', word: 'rilevata' }),
+      reading2Value: fromPdf({ kind: 'numberAfter', word: '5.782' }),
+      reading2Type: fromPdf({ kind: 'textAfter', word: 'rilevata' }),
+    });
+    const line = extract(aca, r, text).lines[0];
+    expect(line.readings).toEqual([
+      { date: '2026-07-31', value: 5782, estimated: false },
+      { date: '2026-08-31', value: 5790, estimated: true },
+    ]);
+    expect(line.reading2Type).toBe('stimata');
+    // Nota di credito: nessuna lettura.
+    expect(extract(asCreditNote(aca), r, text).lines[0].readings).toEqual([]);
+  });
+
+  it('carattere jolly: «*» vale qualsiasi carattere dentro la parola, anche nessuno', () => {
+    expect(numberAfter('rilevata rilevata\nSmc 89.323', 'rilevata *mc')).toBe(89323);
+    expect(numberAfter('rilevata rilevata\nmc 4.815', 'rilevata *mc')).toBe(4815);
+    expect(numberAfter('kWh 12', '*')).toBe(12);
   });
 
   it('parola di più termini: gli spazi valgono anche l’a capo', () => {

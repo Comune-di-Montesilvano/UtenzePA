@@ -5,7 +5,10 @@ import {
   type FieldScope,
   type HeaderTarget,
   type LineTarget,
+  type ReadingTarget,
   type TargetField,
+  READING_SLOTS,
+  readingTarget,
 } from './field-catalog';
 import {
   headerScope,
@@ -55,7 +58,21 @@ export interface PatternRules {
 // Consumo per fascia oraria (energia elettrica), nello storico consumption_f1..f3.
 export const BAND_TARGETS: LineTarget[] = ['consumptionF1', 'consumptionF2', 'consumptionF3'];
 
-export interface ExtractedLine {
+// Lettura del contatore letta in fattura: diventa una rilevazione a data.
+export interface ExtractedReading {
+  date: string;
+  value: number;
+  estimated: boolean;
+}
+
+// Tipo di lettura stimato («Stimata», «presunta»); il resto (rilevata, effettiva) è reale.
+export const isEstimatedReading = (type: string | null | undefined): boolean =>
+  !!type && /stim|presun/i.test(type);
+
+export type ExtractedLine = ExtractedLineBase &
+  Partial<Record<ReadingTarget, string | number | null>>;
+
+interface ExtractedLineBase {
   utility: string | null;
   periodStart: string | null;
   periodEnd: string | null;
@@ -69,6 +86,8 @@ export interface ExtractedLine {
   meter: string | null;
   // Consumo stimato dal fornitore (lettura stimata, «di cui stimati» > 0).
   estimated: boolean;
+  // Letture complete (data e valore), nell'ordine delle regole.
+  readings: ExtractedReading[];
 }
 
 export interface ExtractedInvoice {
@@ -116,7 +135,12 @@ export const usesPdf = (rules: PatternRules): boolean =>
   );
 
 type HeaderRuleTarget = keyof PatternRules['header'];
-const DATE_TARGETS: TargetField[] = ['date', 'periodStart', 'periodEnd'];
+const DATE_TARGETS: TargetField[] = [
+  'date',
+  'periodStart',
+  'periodEnd',
+  ...Array.from({ length: READING_SLOTS }, (_, i) => readingTarget(i + 1, 'Date')),
+];
 const isHeaderField = (target: TargetField) => (HEADER_TARGETS as string[]).includes(target);
 
 // utilities: codici delle utenze della fattura, per il tratto di testo di ciascuna.
@@ -169,16 +193,26 @@ interface Found {
 }
 
 // Posizioni della parola nel testo, senza distinguere maiuscole; gli spazi della
-// parola valgono qualsiasi spazio o a capo («kWh Puoi pagare» trova «kWh\nPuoi pagare»).
+// parola valgono qualsiasi spazio o a capo («kWh Puoi pagare» trova «kWh\nPuoi pagare»);
+// «*» vale qualsiasi carattere dentro la parola, anche nessuno («rilevata *mc» trova
+// «rilevata mc» e «rilevata Smc»).
 function positions(text: string, word: string): Found[] {
   const words = word.trim().split(/\s+/).filter(Boolean);
   if (!words.length) return [];
   const re = new RegExp(
-    words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+'),
+    words
+      .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '\\S*'))
+      .join('\\s+'),
     'gi',
   );
   const out: Found[] = [];
-  for (let m = re.exec(text); m; m = re.exec(text)) out.push({ at: m.index, end: re.lastIndex });
+  for (let m = re.exec(text); m; m = re.exec(text)) {
+    if (!m[0]) {
+      re.lastIndex++;
+      continue;
+    }
+    out.push({ at: m.index, end: re.lastIndex });
+  }
   return out;
 }
 
@@ -543,6 +577,25 @@ export function extract(
         : consumption === null
           ? null
           : wordUnit(unitRule, wordText(tree, line, unitRule, segment));
+    // Letture del contatore: come il consumo, niente da note di credito e righe senza utenza.
+    const readingFields: Partial<Record<ReadingTarget, string | number | null>> = {};
+    const readings: ExtractedReading[] = [];
+    if (!noConsumption && (utility !== null || !anyUtility)) {
+      for (let slot = 1; slot <= READING_SLOTS; slot++) {
+        const [dateT, valueT, typeT] = (['Date', 'Value', 'Type'] as const).map((p) =>
+          readingTarget(slot, p),
+        );
+        if (!rules.line[dateT] && !rules.line[valueT]) continue;
+        const date = isoDate(lineRule(tree, line, rules.line[dateT], segment, true));
+        const value = toNumber(lineRule(tree, line, rules.line[valueT], segment));
+        const type = lineRule(tree, line, rules.line[typeT], segment);
+        readingFields[dateT] = date;
+        readingFields[valueT] = value;
+        readingFields[typeT] = type;
+        if (date && value !== null)
+          readings.push({ date, value, estimated: isEstimatedReading(type) });
+      }
+    }
     return {
       utility,
       periodStart: isoDate(lineRule(tree, line, rules.line.periodStart, segment, true)),
@@ -556,6 +609,8 @@ export function extract(
       unit,
       meter: lineRule(tree, line, rules.line.meter, segment),
       estimated,
+      readings,
+      ...readingFields,
     };
   });
 

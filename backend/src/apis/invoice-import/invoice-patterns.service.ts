@@ -13,6 +13,9 @@ import {
   HEADER_TARGETS,
   LINE_TARGETS,
   rankFor,
+  READING_SLOTS,
+  READING_TARGETS,
+  readingTarget,
   type CatalogField,
   type LineTarget,
   type TargetField,
@@ -22,6 +25,7 @@ import {
   documentTypeOf,
   extract,
   isCreditNoteType,
+  isEstimatedReading,
   patternMatches,
   PDF_PATH,
   rulePaths,
@@ -186,6 +190,7 @@ const PDF_TARGETS: TargetField[] = [
   'unit',
   'meter',
   'estimated',
+  ...READING_TARGETS,
 ];
 // Nel PDF il dato di solito c'è solo per questi (il riferimento contratto non è
 // mai nell'XML): il campo PDF va in cima, per gli altri in fondo.
@@ -195,6 +200,7 @@ const PDF_FIRST: TargetField[] = [
   ...BAND_TARGETS,
   'meter',
   'estimated',
+  ...READING_TARGETS,
 ];
 // Fatture per chiamata di analisi: il frontend le manda a gruppi.
 const ANALYZE_MAX = 25;
@@ -781,6 +787,46 @@ export class InvoicePatternsService {
         'consumption',
         'warn',
         `${rows(unusable)} senza utenza riconosciuta o senza periodo: il consumo non entra nello storico`,
+      );
+    }
+
+    // Letture del contatore: data, valore e tipo di ciascuna, dalla prima riga che le ha.
+    const day = (iso: unknown) => String(iso).split('-').reverse().join('/');
+    for (let slot = 1; slot <= READING_SLOTS; slot++) {
+      const [dateT, valueT, typeT] = (['Date', 'Value', 'Type'] as const).map((p) =>
+        readingTarget(slot, p),
+      );
+      if (!rules.line[dateT] && !rules.line[valueT]) continue;
+      const read = extracted.lines.find(
+        (l) => (l[dateT] ?? null) !== null || (l[valueT] ?? null) !== null,
+      );
+      const date = read?.[dateT] ?? null;
+      const value = read?.[valueT] ?? null;
+      const type = read?.[typeT] ?? null;
+      add(dateT, date ? 'ok' : 'warn', date ? `Data letta: ${day(date)}` : 'Nessuna data letta');
+      add(
+        valueT,
+        value !== null ? 'ok' : 'warn',
+        value !== null ? `Lettura letta: ${number(value as number)}` : 'Nessuna lettura letta',
+      );
+      if (rules.line[typeT] && rules.line[typeT]!.kind !== 'none') {
+        add(
+          typeT,
+          type ? 'ok' : 'warn',
+          type
+            ? `«${String(type)}»: lettura ${isEstimatedReading(String(type)) ? 'stimata' : 'rilevata'}`
+            : 'Nessun tipo letto: la lettura vale come rilevata',
+        );
+      }
+    }
+    const readingsWithoutUtility = extracted.lines.filter(
+      (l, i) => l.readings.length && !match.lines[i]?.utility_id_fk,
+    ).length;
+    if (readingsWithoutUtility) {
+      add(
+        readingTarget(1, 'Value'),
+        'warn',
+        `${rows(readingsWithoutUtility)} senza utenza riconosciuta: le letture non entrano nello storico`,
       );
     }
 

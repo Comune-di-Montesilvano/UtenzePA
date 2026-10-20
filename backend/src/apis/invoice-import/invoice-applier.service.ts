@@ -10,7 +10,7 @@ import { InvoiceImportIssue } from './entity/invoice-import-issue.entity';
 import { SdiMessage } from './entity/sdi-message.entity';
 import { SdiMessageStatus } from './enum/sdi-message-status.enum';
 import type { MatchIssue, MatchResult } from './invoice-matcher.service';
-import type { ExtractedInvoice } from './pattern/pattern-rules';
+import type { ExtractedInvoice, ExtractedReading } from './pattern/pattern-rules';
 
 // Scrittura di sistema: non tocca "Ultima modifica" della fattura.
 const KEEP_UPDATE_DATE = { update_date: () => '`update_date`' };
@@ -101,6 +101,7 @@ export class InvoiceApplier {
             meters,
             estimated,
             bandsByUtility(match),
+            readingsByUtility(match),
           );
           issues.push(...linked.issues);
           utilityIds = linked.utilityIds;
@@ -223,6 +224,21 @@ export class InvoiceApplier {
     });
     return existing.id;
   }
+}
+
+// Letture per utenza, una per data: con due letture alla stessa data vale quella reale.
+function readingsByUtility(match: MatchResult): Map<number, ExtractedReading[]> {
+  const out = new Map<number, Map<string, ExtractedReading>>();
+  for (const line of match.lines) {
+    if (!line.utility_id_fk || !line.readings?.length) continue;
+    const byDate = out.get(line.utility_id_fk) ?? new Map<string, ExtractedReading>();
+    for (const r of line.readings) {
+      const current = byDate.get(r.date);
+      if (!current || (current.estimated && !r.estimated)) byDate.set(r.date, r);
+    }
+    out.set(line.utility_id_fk, byDate);
+  }
+  return new Map([...out].map(([id, byDate]) => [id, [...byDate.values()]]));
 }
 
 // Fasce lette per utenza (somma delle righe dell'utenza); solo le utenze con almeno una fascia.

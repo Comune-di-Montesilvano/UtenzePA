@@ -256,3 +256,84 @@ describe('ConsumptionLinker.follow', () => {
     expect(manager.update).not.toHaveBeenCalled();
   });
 });
+
+describe('ConsumptionLinker: letture del contatore', () => {
+  const linker = new ConsumptionLinker();
+  const readings = new Map([
+    [
+      812,
+      [
+        { date: '2026-07-31', value: 5782, estimated: false },
+        { date: '2026-08-31', value: 5790, estimated: true },
+      ],
+    ],
+  ]);
+
+  it('crea le letture come rilevazioni a data collegate alla fattura', async () => {
+    const manager = fakeManager([]);
+    const result = await linker.link(
+      manager as never,
+      500,
+      7,
+      [],
+      new Map([[812, 'M1']]),
+      new Set(),
+      new Map(),
+      readings,
+    );
+    expect(manager.save).toHaveBeenCalledWith(
+      UtilityConsumption,
+      expect.objectContaining({
+        utility_id_fk: 812,
+        kind: ConsumptionKind.READING,
+        source: ConsumptionSource.INVOICE,
+        reading_date: '2026-07-31',
+        reading_value: 5782,
+        is_estimated: false,
+        meter_number: 'M1',
+        invoice_id_fk: 500,
+      }),
+    );
+    expect(manager.save).toHaveBeenCalledWith(
+      UtilityConsumption,
+      expect.objectContaining({ reading_date: '2026-08-31', is_estimated: true }),
+    );
+    expect(result.utilityIds).toEqual([812]);
+  });
+
+  it('lettura già presente alla stessa data: niente doppione, una stima diventa reale', async () => {
+    const manager = fakeManager([], {
+      c_reading: (params) =>
+        params[1] === '2026-07-31' ? [{ id: 70, invoice_id_fk: 400, is_estimated: 1 }] : [],
+    });
+    await linker.link(manager as never, 500, 7, [], new Map(), new Set(), new Map(), readings);
+    expect(manager.update).toHaveBeenCalledWith(
+      UtilityConsumption,
+      70,
+      expect.objectContaining({ reading_value: 5782, is_estimated: false }),
+    );
+    expect(manager.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('lettura reale già presente: resta com’è', async () => {
+    const manager = fakeManager([], {
+      c_reading: () => [{ id: 70, invoice_id_fk: null, is_estimated: 0 }],
+    });
+    await linker.link(manager as never, 500, 7, [], new Map(), new Set(), new Map(), readings);
+    expect(manager.save).not.toHaveBeenCalled();
+    expect(manager.update).not.toHaveBeenCalledWith(UtilityConsumption, 70, expect.anything());
+  });
+
+  it('proprie letture non più in fattura: tolte; fattura eliminata: tolte tutte', async () => {
+    const manager = fakeManager([], {
+      c_own_readings: () => [{ id: 80, utility_id_fk: 812 }],
+    });
+    await linker.link(manager as never, 500, 7, []);
+    expect(manager.update).toHaveBeenCalledWith(
+      UtilityConsumption,
+      { id: expect.anything() },
+      { deleted: true },
+    );
+    expect(await linker.unlink(manager as never, 500)).toEqual([812]);
+  });
+});
