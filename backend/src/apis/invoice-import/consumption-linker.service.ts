@@ -33,6 +33,13 @@ const OVERLAP_SQL =
 const READING_SQL =
   "/* c_reading */ SELECT id, invoice_id_fk, is_estimated FROM utility_consumptions WHERE utility_id_fk = ? AND kind = 'READING' " +
   'AND deleted = 0 AND reading_date = ? ORDER BY id LIMIT 1';
+// Totalizzatori di fascia della lettura (null = monoraria: azzera quelli di una lettura precedente).
+const readingBands = (r: ExtractedReading) => ({
+  consumption_f1: r.bands?.f1 ?? null,
+  consumption_f2: r.bands?.f2 ?? null,
+  consumption_f3: r.bands?.f3 ?? null,
+});
+
 const OWN_READINGS_SQL =
   "/* c_own_readings */ SELECT id, utility_id_fk FROM utility_consumptions WHERE invoice_id_fk = ? AND kind = 'READING' AND deleted = 0";
 const LINKED_SQL =
@@ -199,6 +206,7 @@ export class ConsumptionLinker {
             await manager.update(UtilityConsumption, existing.id, {
               reading_value: r.value,
               is_estimated: r.estimated,
+              ...readingBands(r),
               ...(meters.has(utilityId) ? { meter_number: meters.get(utilityId) } : {}),
             });
             utilityIds.add(utilityId);
@@ -213,6 +221,7 @@ export class ConsumptionLinker {
           reading_date: r.date,
           reading_value: r.value,
           is_estimated: r.estimated,
+          ...readingBands(r),
           meter_number: meters.get(utilityId) ?? null,
           invoice_id_fk: invoiceId,
           created_by_user_id: userId,

@@ -588,6 +588,35 @@ describe('extract: dati nel PDF allegato', () => {
     expect(extract(aca, r, 'Consumo 594 mc').lines[0].readings).toEqual([]);
   });
 
+  it('tabella a righe con fasce: lettura iniziale e finale per data, totalizzatori F1–F3', () => {
+    const text = [
+      'Tipo di',
+      'Consumo',
+      '31.08.2026 30.09.2026   Fascia oraria F1   4.007   Rilevata   4.067   Rilevata   60 kWh   Effettivo',
+      '31.08.2026 30.09.2026   Fascia oraria F2   1.066   Rilevata   1.091   Stimata   25 kWh   Effettivo',
+      '31.08.2026 30.09.2026   Fascia oraria F3   1.629   Rilevata   1.667   Rilevata   38 kWh   Effettivo',
+      'Periodo',
+      'Tipo di',
+      'Consumo',
+      '31.08.2026 30.09.2026   Fascia oraria F1   10   Rilevata   12   Rilevata   2 kvarh   Effettivo',
+    ].join('\n');
+    const tables = detectReadingTables(text);
+    expect(tables.map((t) => [t.layout, t.label, t.occurrence])).toEqual([
+      ['rows', 'Consumo', 1],
+      ['rows', 'Consumo', 2],
+    ]);
+    const r: PatternRules = { ...rules({}), readingTable: { layout: 'rows', label: 'Consumo' } };
+    expect(extract(aca, r, text).lines[0].readings).toEqual([
+      {
+        date: '2026-08-31',
+        value: 6702,
+        estimated: false,
+        bands: { f1: 4007, f2: 1066, f3: 1629 },
+      },
+      { date: '2026-09-30', value: 6825, estimated: true, bands: { f1: 4067, f2: 1091, f3: 1667 } },
+    ]);
+  });
+
   it('dati dal PDF non trovati: segnalati, tranne quelli che mancano per regola', () => {
     const table: PatternRules = {
       ...rules({ meter: fromPdf({ kind: 'textAfter', word: 'Contatore n.' }) }),

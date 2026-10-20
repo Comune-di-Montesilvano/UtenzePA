@@ -81,6 +81,16 @@ export interface ReadingCells {
   dates: string[];
   values: number[];
   types: string[];
+  // Totalizzatori di fascia per lettura (tabelle con F1/F2/F3 nelle righe): il valore è la somma.
+  bands?: (ReadingBands | null)[];
+  // Unità letta nella tabella (kWh, kvarh, Smc…): distingue tabelle con la stessa intestazione.
+  unit?: string;
+}
+
+export interface ReadingBands {
+  f1?: number;
+  f2?: number;
+  f3?: number;
 }
 
 // Consumo per fascia oraria (energia elettrica), nello storico consumption_f1..f3.
@@ -91,6 +101,7 @@ export interface ExtractedReading {
   date: string;
   value: number;
   estimated: boolean;
+  bands?: ReadingBands;
 }
 
 // Tipo di lettura stimato («Stimata», «presunta»); il resto (rilevata, effettiva) è reale.
@@ -349,14 +360,68 @@ const TYPE_WORD =
   /^(?:rilevat\w*|stimat\w*|effettiv\w*|real[ei]|presunt\w*|misurat\w*|autolettur\w*)$/i;
 const DATE_AT_START = /^\s*(?:\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-](?:\d{4}|\d{2}))(?!\d)/;
 const FIRST_DATE = /\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-](?:\d{4}|\d{2})(?!\d)/;
+// Fascia oraria nella riga («Fascia oraria F1»): F0 = totale del monorario.
+const BAND_WORD = /\bF\s?([0-3])\b/i;
+const UNIT_WORD = /(?:^|\s)(k?wh|kvarh|kw|s?mc|m3|mwh)(?=\s|$)/i;
+
+/**
+ * Letture di una riga della tabella: ogni data prende il numero e il tipo nello
+ * stesso ordine («31.08.2026 30.09.2026 F1 120 Rilevata 180 Rilevata 60 kWh» =
+ * iniziale 120 al 31/08, finale 180 al 30/09); la fascia non conta come numero.
+ */
+function rowReadings(
+  line: string,
+): { date: string; value: number; type: string; band: number | null }[] {
+  const dates = line.match(new RegExp(FIRST_DATE.source, 'g')) ?? [];
+  let rest = line.replace(new RegExp(FIRST_DATE.source, 'g'), ' ');
+  const band = BAND_WORD.exec(rest);
+  if (band) rest = rest.replace(BAND_WORD, ' ');
+  const values = numbersOf(rest);
+  const types = squash(rest)
+    .split(' ')
+    .filter((w) => TYPE_WORD.test(w));
+  const count = Math.min(dates.length, values.length);
+  return Array.from({ length: count }, (_, k) => ({
+    date: isoDates(dates[k])[0],
+    value: values[k],
+    type: types[k] ?? types[0] ?? '',
+    band: band ? Number(band[1]) : null,
+  }));
+}
+
+// Letture delle righe, in ordine di data: con le fasce una lettura per data con i
+// totalizzatori (valore = somma; stimata se lo è una fascia).
+function rowsCells(rows: string[]): ReadingCells {
+  const all = rows.flatMap(rowReadings).filter((r) => r.date);
+  const cells: ReadingCells = { dates: [], values: [], types: [] };
+  if (!all.some((r) => r.band !== null && r.band > 0)) {
+    for (const r of all) {
+      cells.dates.push(r.date);
+      cells.values.push(r.value);
+      cells.types.push(r.type);
+    }
+  } else {
+    cells.bands = [];
+    for (const date of [...new Set(all.map((r) => r.date))].sort()) {
+      const same = all.filter((r) => r.date === date && r.band !== null && r.band > 0);
+      const bands: ReadingBands = {};
+      for (const r of same) bands[`f${r.band}` as keyof ReadingBands] = r.value;
+      const sum = Object.values(bands).reduce<number>((s, v) => s + (v ?? 0), 0);
+      cells.dates.push(date);
+      cells.values.push(Math.round(sum * 1000) / 1000);
+      cells.types.push(same.find((r) => isEstimatedReading(r.type))?.type ?? same[0]?.type ?? '');
+      cells.bands.push(bands);
+    }
+  }
+  if (cells.types.every((t) => !t)) cells.types = [];
+  const unit = rows.map((r) => UNIT_WORD.exec(r)?.[1]).find(Boolean);
+  if (unit) cells.unit = unit;
+  return cells;
+}
 
 const squash = (s: string) => s.replace(/\s+/g, ' ').trim();
 const numbersOf = (s: string) =>
   (s.match(/-?\d+(?:[.,]\d+)*/g) ?? []).map(italianNumber).filter((n): n is number => n !== null);
-const typeOf = (s: string) =>
-  squash(s)
-    .split(' ')
-    .find((w) => TYPE_WORD.test(w)) ?? '';
 // Riga di soli tipi di lettura («rilevata   stimata»).
 const isTypesLine = (s: string) => {
   const words = squash(s).split(' ').filter(Boolean);
@@ -422,6 +487,7 @@ export function detectReadingTables(text: string | null): DetectedReadingTable[]
               dates,
               values: numbersOf(valueLine),
               types: typeLine ? squash(typeLine).split(' ') : [],
+              ...(UNIT_WORD.test(valueLine) ? { unit: UNIT_WORD.exec(valueLine)![1] } : {}),
             },
           },
         });
@@ -438,16 +504,9 @@ export function detectReadingTables(text: string | null): DetectedReadingTable[]
       while (h >= 0 && !squash(lines[h])) h--;
       const header = h >= 0 ? squash(lines[h]) : '';
       if (!header || header.length > 80) continue;
-      const cells: ReadingCells = { dates: [], values: [], types: [] };
-      for (let j = i; j < lines.length && isRow(lines[j]); j++) {
-        const m = DATE_AT_START.exec(lines[j])!;
-        const rest = lines[j].slice(m[0].length);
-        cells.dates.push(isoDates(m[0])[0]);
-        cells.values.push(numbersOf(rest)[0]);
-        cells.types.push(typeOf(rest));
-      }
-      if (cells.types.every((t) => !t)) cells.types = [];
-      found.push({ at: i, table: { layout: 'rows', label: header, cells } });
+      const rows: string[] = [];
+      for (let j = i; j < lines.length && isRow(lines[j]); j++) rows.push(lines[j]);
+      found.push({ at: i, table: { layout: 'rows', label: header, cells: rowsCells(rows) } });
     }
   }
   const seen = new Map<string, number>();
@@ -754,10 +813,12 @@ export function extract(
       cells = readingCells(segmentFor(tree.pdf, segment, tree.utilities), rules.readingTable);
       const columns = cells ? Math.min(cells.dates.length, cells.values.length) : 0;
       for (let i = 0; i < columns; i++) {
+        const bands = cells!.bands?.[i];
         readings.push({
           date: cells!.dates[i],
           value: cells!.values[i],
           estimated: isEstimatedReading(cells!.types[i]),
+          ...(bands ? { bands } : {}),
         });
       }
     }
