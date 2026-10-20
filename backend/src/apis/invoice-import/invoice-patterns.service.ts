@@ -147,11 +147,13 @@ const REPROCESS_SQL =
 
 const RULE_KINDS = ['field', ...WORD_KINDS, 'grossAmount', 'fromHeader', 'none'];
 const isWordKind = (kind: unknown) => (WORD_KINDS as unknown[]).includes(kind);
-// Campi che si possono leggere dal testo del PDF (non fornitore, tipo documento
-// e importo di riga, che varrebbe uguale su tutte le righe).
+// Campi che si possono leggere dal testo del PDF: tutti tranne la P.IVA del
+// fornitore (lo identifica) e l'importo di riga (varrebbe uguale su tutte le righe).
 const PDF_TARGETS: TargetField[] = [
+  'supplierName',
   'number',
   'date',
+  'documentType',
   'total',
   'netAmount',
   'cig',
@@ -165,8 +167,15 @@ const PDF_TARGETS: TargetField[] = [
   'meter',
   'estimated',
 ];
-// Nel PDF il dato di solito c'è solo per questi: il campo PDF va in cima, per gli altri in fondo.
-const PDF_FIRST: TargetField[] = ['consumption', ...BAND_TARGETS, 'meter', 'estimated'];
+// Nel PDF il dato di solito c'è solo per questi (il riferimento contratto non è
+// mai nell'XML): il campo PDF va in cima, per gli altri in fondo.
+const PDF_FIRST: TargetField[] = [
+  'contractRef',
+  'consumption',
+  ...BAND_TARGETS,
+  'meter',
+  'estimated',
+];
 // Fatture per chiamata di analisi: il frontend le manda a gruppi.
 const ANALYZE_MAX = 25;
 // File riletti dalla PEC tenuti in memoria (l'editor torna sulle stesse fatture).

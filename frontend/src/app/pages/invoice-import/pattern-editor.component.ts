@@ -58,7 +58,7 @@ const EDITABLE_HEADER = HEADER_TARGETS.filter(t => t !== 'supplierVat');
 // campo; date gg/mm/aaaa convertite. Con tutti e due: il primo testo fa da ancora,
 // il valore è quello subito prima del secondo (es. dopo «CONSUMO», prima di «kWh»).
 const WORD_TARGETS: TargetField[] = [
-  'total', 'netAmount', 'consumption', ...BAND_TARGETS, 'number', 'date', 'cig', 'contractRef',
+  'supplierName', 'documentType', 'total', 'netAmount', 'consumption', ...BAND_TARGETS, 'number', 'date', 'cig', 'contractRef',
   'utility', 'periodStart', 'periodEnd', 'unit', 'meter', 'estimated',
 ];
 const NUMBER_TARGETS: TargetField[] = ['total', 'netAmount', 'consumption', ...BAND_TARGETS];

@@ -332,8 +332,12 @@ describe('InvoicePatternsService', () => {
     expect(editor.pdf_text).toBe('Contatore n. 98765');
     expect(editor.ranked.consumption[0]).toBe(`header|${PDF_PATH}|`);
     expect(editor.ranked.meter[0]).toBe(`header|${PDF_PATH}|`);
-    // Per gli altri campi il PDF c'è, ma in fondo; mai per l'importo di riga.
+    expect(editor.ranked.contractRef[0]).toBe(`header|${PDF_PATH}|`);
+    // Per gli altri campi il PDF c'è, ma in fondo (anche ragione sociale e tipo
+    // documento); mai per l'importo di riga.
     expect(editor.ranked.utility[editor.ranked.utility.length - 1]).toBe(`header|${PDF_PATH}|`);
+    expect(editor.ranked.supplierName).toContain(`header|${PDF_PATH}|`);
+    expect(editor.ranked.documentType).toContain(`header|${PDF_PATH}|`);
     expect(editor.ranked.amount).not.toContain(`header|${PDF_PATH}|`);
   });
 
