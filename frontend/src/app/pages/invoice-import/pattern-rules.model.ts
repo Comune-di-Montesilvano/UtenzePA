@@ -119,6 +119,9 @@ export interface PatternAnalysis {
   unavailable: number;
   matches: number;
   found: Partial<Record<string, number>>;
+  // Fatture dove il campo mappato non ha valore, e quelle con struttura non riconosciuta.
+  notFound: Partial<Record<string, number[]>>;
+  unmatched: number[];
 }
 
 export interface WordOccurrence {
@@ -138,6 +141,8 @@ export interface PatternEditorData {
     document_date: string | null;
     status: string;
     pattern_id: number | null;
+    document_type: string | null;
+    credit_note: boolean;
   };
   xml: string;
   pdf_text: string | null;
@@ -147,12 +152,16 @@ export interface PatternEditorData {
   similar: number[];
   // Varianti: posizione della prima fattura in similar e quante sono.
   variants: {start: number; count: number}[];
+  // Numero documento di ciascuna fattura di similar (stesso indice).
+  numbers: (string | null)[];
 }
 
 // Fatture del fornitore senza pattern: l'esempio è della variante più frequente.
 export interface UnknownStructure {
   supplier_id: number;
   supplier: string;
+  // TipoDocumento (TD01, TD02, TD04…): pattern separati per tipo; vuoto = non ancora letto.
+  document_type: string;
   structure_key: string;
   count: number;
   structures: number;
@@ -165,6 +174,7 @@ export interface InvoicePatternRow {
   supplier_id: number;
   supplier: string;
   ignored: boolean;
+  document_type: string;
   structure_key: string;
   update_date: string;
   extracted: number;
@@ -225,3 +235,35 @@ export type BandTarget = 'consumptionF1' | 'consumptionF2' | 'consumptionF3';
 export const BAND_TARGETS: BandTarget[] = ['consumptionF1', 'consumptionF2', 'consumptionF3'];
 
 export const isHeaderTarget = (t: TargetField): t is HeaderTarget => (HEADER_TARGETS as string[]).includes(t);
+
+// TipoDocumento della FatturaPA (specifiche SDI).
+const DOCUMENT_TYPES: Record<string, string> = {
+  TD01: 'Fattura',
+  TD02: 'Acconto/anticipo su fattura',
+  TD03: 'Acconto/anticipo su parcella',
+  TD04: 'Nota di credito',
+  TD05: 'Nota di debito',
+  TD06: 'Parcella',
+  TD07: 'Fattura semplificata',
+  TD08: 'Nota di credito semplificata',
+  TD09: 'Nota di debito semplificata',
+  TD16: 'Integrazione fattura reverse charge interno',
+  TD17: 'Integrazione/autofattura per acquisto servizi dall\'estero',
+  TD18: 'Integrazione per acquisto di beni intracomunitari',
+  TD19: 'Integrazione/autofattura per acquisto di beni ex art. 17 c. 2 DPR 633/72',
+  TD20: 'Autofattura per regolarizzazione e integrazione delle fatture',
+  TD21: 'Autofattura per splafonamento',
+  TD22: 'Estrazione beni da Deposito IVA',
+  TD23: 'Estrazione beni da Deposito IVA con versamento dell\'IVA',
+  TD24: 'Fattura differita (art. 21, c. 4, lett. a)',
+  TD25: 'Fattura differita (art. 21, c. 4, terzo periodo, lett. b)',
+  TD26: 'Cessione di beni ammortizzabili e passaggi interni',
+  TD27: 'Fattura per autoconsumo o cessioni gratuite senza rivalsa',
+  TD28: 'Acquisti da San Marino con IVA',
+};
+
+// «TD02 · Acconto/anticipo su fattura»; vuoto = tipo non ancora letto dalla PEC.
+export function documentTypeLabel(type: string | null | undefined): string {
+  if (!type) return 'Tipo da leggere';
+  return DOCUMENT_TYPES[type] ? `${type} · ${DOCUMENT_TYPES[type]}` : type;
+}

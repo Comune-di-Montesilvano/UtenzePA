@@ -299,6 +299,7 @@ const pricePattern = (over: Row = {}) => ({
   ignored: false,
   rules: PRICE_RULES,
   paths_count: 1,
+  document_type: 'TD01',
   structure_key: 'x',
   ...over,
 });

@@ -4,7 +4,10 @@
 } @else if (data) {
   <div class="pe-bar">
     <button mat-icon-button aria-label="Torna all'elenco" (click)="back()"><mat-icon>arrow_back</mat-icon></button>
-    <h2>{{ data.message.supplier }} · {{ data.message.document_number || data.message.file_name }}</h2>
+    <h2>
+      {{ data.message.supplier }} · {{ data.message.document_number || data.message.file_name }}
+      @if (data.message.credit_note) { <span class="pe-badge tone-warn">Nota di credito</span> }
+    </h2>
     <span class="spacer"></span>
     @if (variants.length > 1) {
       <mat-form-field class="pe-variant" appearance="outline" subscriptSizing="dynamic">
@@ -19,7 +22,11 @@
     <button mat-icon-button aria-label="Fattura precedente" [disabled]="variantPosition === 0 || loading" (click)="go(-1)">
       <mat-icon>chevron_left</mat-icon>
     </button>
-    <span>Fattura {{ variantPosition + 1 }} di {{ variantCount }}{{ variants.length > 1 ? '' : ' simili' }}</span>
+    <app-filterable-select class="pe-invoice" [options]="invoiceOptions" placeholder="Cerca il numero"
+                           title="Fattura aperta: scrivi un numero per aprirne un'altra"
+                           appearance="outline" subscriptSizing="dynamic" [ngModel]="data.message.id" [disabled]="loading"
+                           (ngModelChange)="openInvoice($event)"></app-filterable-select>
+    <span>{{ variantPosition + 1 }}/{{ variantCount }}</span>
     <button mat-icon-button aria-label="Fattura successiva" [disabled]="variantPosition >= variantCount - 1 || loading" (click)="go(1)">
       <mat-icon>chevron_right</mat-icon>
     </button>
@@ -29,6 +36,14 @@
     @if (analysis; as a) {
       <span class="pe-holds" [title]="'Struttura riconosciuta dalle regole su ' + a.matches + ' fatture'">
         @if (a.analyzed < a.total) { analisi {{ a.analyzed }}/{{ a.total }} } @else { struttura {{ a.matches }}/{{ a.analyzed - a.unavailable }} }
+        @if (a.unmatched.length) {
+          <button mat-button type="button" class="pe-missing" [matMenuTriggerFor]="unmatchedMenu">{{ a.unmatched.length }} non {{ a.unmatched.length === 1 ? 'riconosciuta' : 'riconosciute' }}</button>
+          <mat-menu #unmatchedMenu="matMenu">
+            @for (id of a.unmatched; track id) {
+              <button mat-menu-item type="button" (click)="openInvoice(id)">{{ invoiceLabel(id) }}</button>
+            }
+          </mat-menu>
+        }
         @if (variants.length > 1 && a.analyzed === a.total) { · varianti {{ variantsOk }}/{{ variants.length }} }
         @if (a.unavailable) { · {{ a.unavailable }} non leggibili }
       </span>
@@ -61,6 +76,14 @@
           }
         </div>
       </div>
+      <div class="pe-row">
+        <div>
+          <strong>{{ labels['documentType'] }}</strong>: {{ typeLabel(data.message.document_type) }}
+          <div class="pe-opt-sample">
+            Dal tracciato, non si mappa: il pattern vale solo per i documenti {{ data.message.document_type || 'dello stesso tipo' }}.
+          </div>
+        </div>
+      </div>
       @for (t of headerTargets; track t) {
         <ng-container *ngTemplateOutlet="fieldRow; context: {t}"></ng-container>
       }
@@ -71,6 +94,9 @@
       }
 
       <h3>Consumi</h3>
+      @if (data.message.credit_note) {
+      <p class="pe-section-hint">Nota di credito: nessun consumo.</p>
+      } @else {
       <p class="pe-section-hint">Entrano nello storico consumi dell'utenza della riga, per il periodo della riga.</p>
       <div class="pe-row">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -97,6 +123,7 @@
           <mat-hint>Vuoto: consumo da tutte le righe con l'utenza.</mat-hint>
         </mat-form-field>
       </div>
+      }
 
       @if (preview?.extracted; as ex) {
         <h3>Anteprima ({{ ex.lines.length }} righe)</h3>
@@ -246,6 +273,18 @@
         }
         @if (analysisBadge(t); as b) {
           <span [class]="'pe-badge tone-' + b.tone">{{ b.text }}</span>
+          @if (notFoundIds(t); as missing) {
+            @if (missing.length) {
+              <button mat-stroked-button type="button" class="pe-missing" [matMenuTriggerFor]="missingMenu">
+                Vedi {{ missing.length === 1 ? 'la non trovata' : 'le ' + missing.length + ' non trovate' }}
+              </button>
+              <mat-menu #missingMenu="matMenu">
+                @for (id of missing; track id) {
+                  <button mat-menu-item type="button" (click)="openInvoice(id)">{{ invoiceLabel(id) }}</button>
+                }
+              </mat-menu>
+            }
+          }
         }
       </div>
     </div>

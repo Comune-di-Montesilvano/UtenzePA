@@ -93,7 +93,17 @@ describe('InvoicePatternsService', () => {
       unavailable: 1,
       matches: 1,
       found: { utility: 1, amount: 1 },
+      notFound: {},
+      unmatched: [],
     });
+    // Campo senza valore: l'id della fattura, per aprirla dall'editor.
+    const withMeter: PatternRules = {
+      ...RULES,
+      line: { ...RULES.line, meter: { kind: 'field', path: 'Assente/Matricola' } },
+    };
+    expect(await service.analyze(9, [9], withMeter)).toEqual(
+      expect.objectContaining({ notFound: { meter: [9] }, unmatched: [9] }),
+    );
     expect(messages.findBy).toHaveBeenCalledWith(expect.objectContaining({ supplier_id_fk: 46 }));
     // La seconda volta la fattura 9 è già in memoria: si chiede alla PEC solo la 10.
     await service.analyze(9, [9, 10], rules);
@@ -109,6 +119,7 @@ describe('InvoicePatternsService', () => {
         supplier_id: 46,
         supplier: 'Energia Prova',
         structure_key: 'abc',
+        document_type: 'TD04',
         count: '88',
         structures: '4',
         message_id: '12',
@@ -118,6 +129,7 @@ describe('InvoicePatternsService', () => {
       {
         supplier_id: 46,
         supplier: 'Energia Prova',
+        document_type: 'TD04',
         structure_key: 'abc',
         count: 88,
         structures: 4,
@@ -125,9 +137,26 @@ describe('InvoicePatternsService', () => {
       },
     ]);
     const sql = String(query.mock.calls[0][0]);
-    // Tag facoltativi diversi non fanno righe separate: si raggruppa per fornitore.
-    expect(sql).toMatch(/PARTITION BY m\.supplier_id_fk/);
+    // Tag facoltativi diversi non fanno righe separate: si raggruppa per fornitore e tipo.
+    expect(sql).toMatch(/PARTITION BY m\.supplier_id_fk, IFNULL\(m\.document_type/);
     expect(sql).toContain('rn = 1');
+  });
+
+  it('fatture senza pattern col tipo da leggere: tipo completato in background dalla PEC', async () => {
+    (importer as unknown as { configured: boolean }).configured = true;
+    query
+      .mockResolvedValueOnce([{ supplier_id: 46, supplier: 'Energia Prova', document_type: '' }])
+      .mockResolvedValueOnce([{ id: 9 }, { id: 10 }])
+      .mockResolvedValueOnce([]);
+    messages.findBy.mockResolvedValue([message({ id: 9 }), message({ id: 10 })]);
+    importer.readMessageFiles.mockResolvedValue(new Map([[9, podXml]]));
+    await service.unknown();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(String(query.mock.calls[1][0])).toContain('document_type IS NULL');
+    expect(messages.update).toHaveBeenCalledWith(9, { document_type: 'TD01' });
+    // File sparito dalla PEC: tipo vuoto, per non ritentare.
+    expect(messages.update).toHaveBeenCalledWith(10, { document_type: '' });
+    expect(query).toHaveBeenCalledTimes(3);
   });
 
   it('anteprima: estrae e riscontra senza scrivere nulla', async () => {
@@ -264,12 +293,27 @@ describe('InvoicePatternsService', () => {
     expect(patterns.save).not.toHaveBeenCalled();
   });
 
+  it('modifica: documento di un altro tipo rifiutato (pattern separati per tipo)', async () => {
+    patterns.findOneBy.mockResolvedValue({
+      id: 3,
+      supplier_id_fk: 46,
+      deleted: false,
+      ignored: false,
+      document_type: 'TD04',
+    });
+    await expect(
+      service.update(3, { message_id: 9, name: 'Note', rules: RULES }, 7),
+    ).rejects.toThrow('Il pattern è per i documenti TD04');
+    expect(patterns.update).not.toHaveBeenCalled();
+  });
+
   it('modifica: rielabora anche le fatture già estratte con quel pattern', async () => {
     patterns.findOneBy.mockResolvedValue({
       id: 3,
       supplier_id_fk: 46,
       deleted: false,
       ignored: false,
+      document_type: 'TD01',
     });
     query.mockImplementation(async (_sql: string, params: unknown[]) =>
       params.includes(3) ? [{ id: 9 }, { id: 20 }] : [],
@@ -298,6 +342,7 @@ describe('InvoicePatternsService', () => {
         { start: 3, count: 2 },
         { start: 5, count: 1 },
       ],
+      numbers: [null, null, null, null, null, null],
     });
   });
 
@@ -319,7 +364,7 @@ describe('InvoicePatternsService', () => {
     // Simili: fatture del fornitore senza pattern.
     const similarSql = query.mock.calls
       .map(([s]) => String(s))
-      .find((s) => s.includes('SELECT id, structure_key'));
+      .find((s) => s.includes('SELECT m.id, m.structure_key'));
     expect(similarSql).toContain('pattern_id_fk IS NULL');
     expect(editor.ranked.utility[0]).toContain('AltriDatiGestionali/TipoDato=POD');
     expect(editor.xml).toContain('<Numero>EP 7/26</Numero>');
@@ -337,7 +382,7 @@ describe('InvoicePatternsService', () => {
     // documento e importo di riga).
     expect(editor.ranked.utility[editor.ranked.utility.length - 1]).toBe(`header|${PDF_PATH}|`);
     expect(editor.ranked.supplierName).toContain(`header|${PDF_PATH}|`);
-    expect(editor.ranked.documentType).toContain(`header|${PDF_PATH}|`);
+    expect(editor.ranked.documentType).not.toContain(`header|${PDF_PATH}|`);
     expect(editor.ranked.amount).toContain(`header|${PDF_PATH}|`);
   });
 

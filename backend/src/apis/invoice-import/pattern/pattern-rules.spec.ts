@@ -7,6 +7,8 @@ import {
   patternMatches,
   PDF_PATH,
   pickPattern,
+  isCreditNote,
+  documentTypeOf,
   rulePaths,
   structureKey,
   usesPdf,
@@ -533,11 +535,39 @@ describe('patternMatches e pickPattern', () => {
       header: {},
       line: { amount: { kind: 'field', path: 'PrezzoTotale' } },
     };
-    const a = { id: 1, rules: generic, paths_count: rulePaths(generic).length };
-    const b = { id: 2, rules: POD_RULES, paths_count: rulePaths(POD_RULES).length };
+    const a = {
+      id: 1,
+      rules: generic,
+      paths_count: rulePaths(generic).length,
+      document_type: 'TD01',
+    };
+    const b = {
+      id: 2,
+      rules: POD_RULES,
+      paths_count: rulePaths(POD_RULES).length,
+      document_type: 'TD01',
+    };
     expect(pickPattern(pod, [a, b])?.id).toBe(2);
     expect(pickPattern(pod, [a, { ...a, id: 3 }])).toBeNull();
     expect(pickPattern(aca, [b])).toBeNull();
+  });
+
+  it('pattern separati per tipo documento; tipo documento sempre dal tracciato', () => {
+    const invoice = { id: 1, rules: POD_RULES, paths_count: 1, document_type: 'TD01' };
+    const credit = { id: 2, rules: POD_RULES, paths_count: 1, document_type: 'TD04' };
+    const advance = { id: 3, rules: POD_RULES, paths_count: 1, document_type: 'TD02' };
+    expect(pickPattern(pod, [advance])).toBeNull();
+    expect(pickPattern(pod, [invoice, credit])?.id).toBe(1);
+    expect(pickPattern(asCreditNote(pod), [invoice, credit])?.id).toBe(2);
+    expect(pickPattern(asCreditNote(pod), [invoice])).toBeNull();
+    expect(isCreditNote(asCreditNote(pod))).toBe(true);
+    expect(documentTypeOf(pod)).toBe('TD01');
+    // Una regola sul tipo documento non conta: vale TipoDocumento.
+    const mapped: PatternRules = {
+      ...POD_RULES,
+      header: { documentType: { kind: 'none' } },
+    };
+    expect(extract(asCreditNote(pod), mapped).documentType).toBe('TD04');
   });
 });
 

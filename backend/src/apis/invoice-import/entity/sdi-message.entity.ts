@@ -56,6 +56,10 @@ export class SdiMessage {
   @Column({ type: 'varchar', length: 255, nullable: true })
   document_number: string | null;
 
+  // TipoDocumento della fattura (TD01, TD04…): fatture e note di credito hanno pattern separati.
+  @Column({ type: 'varchar', length: 4, nullable: true })
+  document_type: string | null;
+
   @Column({ type: 'date', nullable: true })
   document_date: string | null;
 

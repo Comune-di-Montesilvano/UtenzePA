@@ -16,6 +16,7 @@ import { InvoiceMatcher } from './invoice-matcher.service';
 import {
   extract,
   pickPattern,
+  documentTypeOf,
   structureKey,
   usesPdf,
   type PatternRules,
@@ -68,9 +69,11 @@ const STATE_ID = 1;
 const EMPTY: ImportRunResult = { processed: 0, linked: 0, pending: 0, extracted: 0 };
 
 // Messaggi registrati prima dei pattern (parte 1): struttura completata a blocchi.
+// Anche il tipo documento (v1.40.0), per separare fatture e note di credito.
 const BACKFILL_SQL =
   "SELECT id FROM sdi_messages WHERE kind = 'INVOICE' AND status IN ('PENDING', 'LINKED') " +
-  'AND structure_key IS NULL AND supplier_id_fk IS NOT NULL ORDER BY id LIMIT 200';
+  "AND (structure_key IS NULL OR (document_type IS NULL AND structure_key <> '')) " +
+  'AND supplier_id_fk IS NOT NULL ORDER BY id LIMIT 200';
 
 // Fatture ferme per matricola diversa (fino alla v1.38): ora la matricola si
 // aggiorna dalla fattura, quindi si rielaborano; la rielaborazione toglie la segnalazione.
@@ -356,18 +359,33 @@ export class InvoiceImportService {
     if (!file) {
       if (row.structure_key == null) {
         await this.messagesRepo.update(row.id, { structure_key: GONE_STRUCTURE });
+      } else if (row.document_type == null) {
+        // Tipo non più leggibile: vuoto, così il completamento non lo ritenta.
+        await this.messagesRepo.update(row.id, { document_type: '' });
       }
       return false;
     }
-    if (!row.structure_key) {
-      row.structure_key = this.structureOf(file.content);
-      await this.messagesRepo.update(row.id, { structure_key: row.structure_key });
+    if (!row.structure_key || !row.document_type) {
+      row.structure_key ||= this.structureOf(file.content);
+      row.document_type ||= this.documentTypeOf(file.content) ?? '';
+      await this.messagesRepo.update(row.id, {
+        structure_key: row.structure_key,
+        document_type: row.document_type,
+      });
     }
     const before = ctx.extracted;
     await this.applyPattern(row, file.content, ctx);
     if (ctx.extracted === before) return false;
     if (row.sdi_identifier) await this.refreshInvoiceStatus(row.sdi_identifier);
     return true;
+  }
+
+  private documentTypeOf(xml: Buffer): string | null {
+    try {
+      return documentTypeOf(xml)?.slice(0, 4) || null;
+    } catch {
+      return null;
+    }
   }
 
   private structureOf(xml: Buffer): string | null {
@@ -621,6 +639,7 @@ export class InvoiceImportService {
     // IdCodice estero fino a 28 caratteri: fuori perimetro, basta per riconoscerlo.
     row.supplier_vat = header.supplierVat ? header.supplierVat.slice(0, 16) : null;
     row.document_number = first?.number || null;
+    row.document_type = first?.type?.slice(0, 4) || null;
     row.document_date = first?.date || null;
 
     // Perimetro prima dell'identificativo: le copie delle fatture emesse dal
