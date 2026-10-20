@@ -351,6 +351,47 @@ describe('ConsumptionLinker: letture del contatore', () => {
     expect(manager.update).not.toHaveBeenCalledWith(UtilityConsumption, 70, expect.anything());
   });
 
+  it('lettura più bassa della precedente: non importata, segnalata (non al cambio contatore)', async () => {
+    const lower = new Map([[812, [{ date: '2026-09-30', value: 1417, estimated: false }]]]);
+    const manager = fakeManager([], {
+      c_prev_reading: () => [
+        { reading_value: '1465', reading_date: '2026-08-31', meter_number: 'M1' },
+      ],
+    });
+    const result = await linker.link(
+      manager as never,
+      500,
+      7,
+      [],
+      new Map([[812, 'M1']]),
+      new Set(),
+      new Map(),
+      lower,
+    );
+    expect(manager.save).not.toHaveBeenCalled();
+    expect(result.issues).toEqual([
+      expect.objectContaining({ type: 'READING_DECREASING', utilityId: 812, value: '1417' }),
+    ]);
+    // Matricola diversa: contatore sostituito, la lettura si importa.
+    const replaced = fakeManager([], {
+      c_prev_reading: () => [
+        { reading_value: '1465', reading_date: '2026-08-31', meter_number: 'M0' },
+      ],
+    });
+    const ok = await linker.link(
+      replaced as never,
+      500,
+      7,
+      [],
+      new Map([[812, 'M1']]),
+      new Set(),
+      new Map(),
+      lower,
+    );
+    expect(ok.issues).toEqual([]);
+    expect(replaced.save).toHaveBeenCalledTimes(1);
+  });
+
   it('proprie letture non più in fattura: tolte; fattura eliminata: tolte tutte', async () => {
     const manager = fakeManager([], {
       c_own_readings: () => [{ id: 80, utility_id_fk: 812 }],

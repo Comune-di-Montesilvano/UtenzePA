@@ -13,4 +13,6 @@ export enum ImportIssueType {
   // Il pattern legge dati dal PDF ma in questa fattura non li trova (PDF assente o
   // layout cambiato): la fattura si importa, il pattern va controllato.
   PDF_DATA_MISSING = 'PDF_DATA_MISSING',
+  // Lettura del contatore più bassa della precedente (stesso contatore): non importata.
+  READING_DECREASING = 'READING_DECREASING',
 }

@@ -8,7 +8,8 @@ export type ImportIssueType =
   | 'MIXED_CONTRACTS'
   | 'BATCH_NOT_SUPPORTED'
   | 'METER_MISMATCH'
-  | 'PDF_DATA_MISSING';
+  | 'PDF_DATA_MISSING'
+  | 'READING_DECREASING';
 
 export const IMPORT_ISSUE_LABELS: Record<ImportIssueType, string> = {
   UNKNOWN_UTILITY: 'Utenza sconosciuta',
@@ -20,6 +21,7 @@ export const IMPORT_ISSUE_LABELS: Record<ImportIssueType, string> = {
   BATCH_NOT_SUPPORTED: 'File con più fatture (lotto)',
   METER_MISMATCH: 'Matricola diversa (import fermo)',
   PDF_DATA_MISSING: 'Dati dal PDF non trovati',
+  READING_DECREASING: 'Lettura più bassa della precedente',
 };
 
 // Tipi legati a una fattura di UtenzePA (il lotto non ne ha una).
@@ -31,6 +33,7 @@ export const INVOICE_ISSUE_SIGNAL_TYPES: ImportIssueType[] = [
   'PERIOD_COVERED',
   'MIXED_CONTRACTS',
   'PDF_DATA_MISSING',
+  'READING_DECREASING',
 ];
 
 export const importIssueLabel = (type: string): string =>

@@ -247,9 +247,9 @@ describe('InvoiceApplier: matricola', () => {
     );
     const [sql, params] = manager.query.mock.calls[0];
     expect(sql).toMatch(
-      /UPDATE utilities SET meter_number = \? WHERE id = \? AND NOT \(meter_number <=> \?\)/,
+      /UPDATE utilities SET meter_number = \?, updated_by_user_id = \? WHERE id = \? AND NOT \(meter_number <=> \?\)/,
     );
-    expect(params).toEqual(['000000000000283767', 812, '000000000000283767']);
+    expect(params).toEqual(['000000000000283767', 7, 812, '000000000000283767']);
     expect(manager.save).toHaveBeenCalledWith(
       AuditLog,
       expect.objectContaining({
@@ -284,7 +284,7 @@ describe('InvoiceApplier: matricola', () => {
       3,
       7,
     );
-    expect(manager.query.mock.calls[0][1]).toEqual(['285039', 812, '285039']);
+    expect(manager.query.mock.calls[0][1]).toEqual(['285039', 7, 812, '285039']);
     expect(manager.save).toHaveBeenCalledWith(
       AuditLog,
       expect.objectContaining({

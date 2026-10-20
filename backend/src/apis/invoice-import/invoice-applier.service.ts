@@ -21,8 +21,9 @@ const KEEP_UPDATE_DATE = { update_date: () => '`update_date`' };
 const IMPORT_USER_SQL = 'SELECT id FROM system_users WHERE id = ?';
 
 // Matricola completata solo se l'utenza non l'ha (eccezione alla regola: l'import non modifica le anagrafiche).
+// «Ultima modifica» dell'utenza a nome dell'import: senza autore resterebbe chi l'ha salvata prima.
 const FILL_METER_SQL =
-  'UPDATE utilities SET meter_number = ? WHERE id = ? AND NOT (meter_number <=> ?)';
+  'UPDATE utilities SET meter_number = ?, updated_by_user_id = ? WHERE id = ? AND NOT (meter_number <=> ?)';
 
 /**
  * Scrive la fattura estratta da un pattern: la crea, o arricchisce quella già
@@ -176,6 +177,7 @@ export class InvoiceApplier {
     for (const { utilityId, meter, previous } of match.meterFills) {
       const result: { affectedRows?: number } = await manager.query(FILL_METER_SQL, [
         meter.slice(0, 255),
+        userId,
         utilityId,
         meter.slice(0, 255),
       ]);
