@@ -33,18 +33,22 @@ export type LineTarget =
   | 'amount'
   | 'description'
   | 'consumption'
+  | 'consumptionF1'
+  | 'consumptionF2'
+  | 'consumptionF3'
   | 'unit'
   | 'meter'
   | 'estimated';
 export type TargetField = HeaderTarget | LineTarget;
 
-export type WordKind = 'numberAfter' | 'numberBefore' | 'textAfter' | 'contains';
+export type WordKind = 'numberAfter' | 'numberBefore' | 'textAfter' | 'textBefore' | 'contains';
 export interface WordRule {
   kind: WordKind;
   path: string;
   word: string;
   fromHeader?: boolean;
   anchor?: string;
+  occurrence?: number;
 }
 
 export type Rule =
@@ -57,7 +61,7 @@ export type Rule =
 // Percorso speciale: testo del PDF allegato (solo regole «parola»: consumo, matricola, stima).
 export const PDF_PATH = '@pdf';
 export const PDF_LABEL = 'Testo del PDF allegato';
-export const WORD_KINDS: WordKind[] = ['numberAfter', 'numberBefore', 'textAfter', 'contains'];
+export const WORD_KINDS: WordKind[] = ['numberAfter', 'numberBefore', 'textAfter', 'textBefore', 'contains'];
 export const isWordRule = (rule: Rule): rule is WordRule => (WORD_KINDS as string[]).includes(rule.kind);
 
 export interface PatternRules {
@@ -73,6 +77,9 @@ export interface ExtractedLine {
   amount: number;
   description: string | null;
   consumption: number | null;
+  consumptionF1: number | null;
+  consumptionF2: number | null;
+  consumptionF3: number | null;
   unit: string | null;
   meter: string | null;
   estimated: boolean;
@@ -102,6 +109,22 @@ export interface PatternPreview {
   extracted: ExtractedInvoice | null;
   match: {existingInvoiceId: number | null; issues: {type: string; lineIndex: number | null; detail: string}[]} | null;
   checks: PatternCheck[];
+  // Occorrenze della parola (consumo, matricola, stima) col valore di ciascuna.
+  occurrences?: Partial<Record<string, WordOccurrence[]>>;
+}
+
+// Regole provate su un gruppo di fatture simili (POST /invoice-patterns/analyze).
+export interface PatternAnalysis {
+  analyzed: number;
+  unavailable: number;
+  matches: number;
+  found: Partial<Record<string, number>>;
+}
+
+export interface WordOccurrence {
+  n: number;
+  context: string;
+  value: string | null;
 }
 
 export interface PatternEditorData {
@@ -186,9 +209,16 @@ export const LINE_TARGETS: LineTarget[] = [
   'amount',
   'description',
   'consumption',
+  'consumptionF1',
+  'consumptionF2',
+  'consumptionF3',
   'unit',
   'meter',
   'estimated',
 ];
+
+// Consumo per fascia oraria: righe visibili solo con «Consumo: Per fasce».
+export type BandTarget = 'consumptionF1' | 'consumptionF2' | 'consumptionF3';
+export const BAND_TARGETS: BandTarget[] = ['consumptionF1', 'consumptionF2', 'consumptionF3'];
 
 export const isHeaderTarget = (t: TargetField): t is HeaderTarget => (HEADER_TARGETS as string[]).includes(t);

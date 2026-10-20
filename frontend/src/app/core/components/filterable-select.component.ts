@@ -2,6 +2,7 @@ import {Component, EventEmitter, forwardRef, Input, Output, ChangeDetectionStrat
 
 import {ControlValueAccessor, FormControl, NG_VALUE_ACCESSOR, ReactiveFormsModule} from '@angular/forms';
 import {MatFormFieldModule} from '@angular/material/form-field';
+import type {MatFormFieldAppearance} from '@angular/material/form-field';
 import {MatInputModule} from '@angular/material/input';
 import {MatAutocompleteModule, MatAutocompleteSelectedEvent} from '@angular/material/autocomplete';
 import {ErrorStateMatcher} from '@angular/material/core';
@@ -23,7 +24,7 @@ import {TOption} from '../types/option.interface';
   imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatAutocompleteModule, MatIconModule, MatButtonModule, MatTooltipModule],
   template: `
     <div class="fs-row">
-    <mat-form-field class="fs-field" [subscriptSizing]="subscriptSizing">
+    <mat-form-field class="fs-field" [subscriptSizing]="subscriptSizing" [appearance]="appearance">
       <mat-label>{{ label }}</mat-label>
       <input matInput
              [formControl]="searchControl"
@@ -94,6 +95,8 @@ export class FilterableSelectComponent implements ControlValueAccessor {
   @Input() errorMessage: string | null = null;
   // 'dynamic' nelle barre (filtri elenco): niente spazio riservato sotto, allineata alle altre select.
   @Input() subscriptSizing: 'fixed' | 'dynamic' = 'fixed';
+  // 'outline' dove le altre select della pagina sono outline (editor pattern).
+  @Input() appearance: MatFormFieldAppearance = 'fill';
   // Pulsante "+" a destra e "Crea «testo»" a ricerca vuota; null = assenti.
   @Input() createLabel: string | null = null;
   // Testo digitato ('' dal pulsante): la scheda crea l'elemento e imposta il valore.

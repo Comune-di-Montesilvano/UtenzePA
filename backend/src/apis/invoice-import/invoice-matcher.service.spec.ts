@@ -21,6 +21,9 @@ const line = (over: Partial<ExtractedLine> = {}): ExtractedLine => ({
   amount: 10,
   description: 'Materia energia',
   consumption: null,
+  consumptionF1: null,
+  consumptionF2: null,
+  consumptionF3: null,
   unit: null,
   meter: null,
   estimated: false,
@@ -181,8 +184,13 @@ describe('InvoiceMatcher', () => {
 describe('InvoiceMatcher: codice cliente del fornitore', () => {
   it('il codice cliente vale solo per le utenze con un contratto dello stesso fornitore', async () => {
     const query = jest.fn(async () => []);
-    await new InvoiceMatcher({ query } as never).match(invoice({ lines: [line({ utility: '1234567' })] }), 46);
-    const call = query.mock.calls.find((c: unknown[]) => String(c[0]).includes('m_utility')) as unknown[];
+    await new InvoiceMatcher({ query } as never).match(
+      invoice({ lines: [line({ utility: '1234567' })] }),
+      46,
+    );
+    const call = query.mock.calls.find((c: unknown[]) =>
+      String(c[0]).includes('m_utility'),
+    ) as unknown[];
     expect(String(call[0])).toMatch(/utility_code = \? AND EXISTS[\s\S]*c\.supplier_id_fk = \?/);
     expect(call[1]).toEqual(['1234567', '1234567', 46, '1234567']);
   });
@@ -199,31 +207,30 @@ describe('InvoiceMatcher: matricola del contatore', () => {
 
   it('utenza senza matricola: da completare con quella della fattura', async () => {
     const result = await matcher(withMeter(null)).match(withInvoiceMeter('000000000000283767'), 46);
-    expect(result.meterFills).toEqual([{ utilityId: 812, meter: '000000000000283767' }]);
+    expect(result.meterFills).toEqual([
+      { utilityId: 812, meter: '000000000000283767', previous: null },
+    ]);
     expect(result.blocking).toEqual([]);
   });
 
   it('stessa matricola con zeri iniziali diversi: nessuna differenza', async () => {
-    const result = await matcher(withMeter('283767')).match(withInvoiceMeter('000000000000283767'), 46);
+    const result = await matcher(withMeter('283767')).match(
+      withInvoiceMeter('000000000000283767'),
+      46,
+    );
     expect(result.meterFills).toEqual([]);
     expect(result.blocking).toEqual([]);
   });
 
-  it('matricola diversa: segnalazione bloccante con utenza e matricola della fattura', async () => {
+  it('matricola diversa: vale quella della fattura, nessun blocco', async () => {
     const result = await matcher(withMeter('000000000000003983')).match(
       withInvoiceMeter('000000000000285039'),
       46,
     );
-    expect(result.blocking).toEqual([
-      {
-        type: ImportIssueType.METER_MISMATCH,
-        lineIndex: 0,
-        utilityId: 812,
-        value: '000000000000285039',
-        detail: 'IT001E00000001: matricola in fattura 000000000000285039, in anagrafica 000000000000003983',
-      },
+    expect(result.blocking).toEqual([]);
+    expect(result.meterFills).toEqual([
+      { utilityId: 812, meter: '000000000000285039', previous: '000000000000003983' },
     ]);
-    expect(result.meterFills).toEqual([]);
   });
 
   it('fattura senza matricola: nessun controllo', async () => {

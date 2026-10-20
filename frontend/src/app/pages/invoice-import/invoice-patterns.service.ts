@@ -7,6 +7,7 @@ import type {
   InvoicePattern,
   InvoicePatternRow,
   PatternEditorData,
+  PatternAnalysis,
   PatternPreview,
   PatternRules,
   UnknownStructure,
@@ -46,6 +47,11 @@ export class InvoicePatternsService {
 
   pdf(messageId: number): Observable<Blob> {
     return this.http.get(`${this.BASE_URL}/messages/${messageId}/pdf`, {headers: this.headers, responseType: 'blob'});
+  }
+
+  analyze(messageId: number, messageIds: number[], rules: PatternRules): Observable<PatternAnalysis> {
+    return this.http.post<PatternAnalysis>(`${this.BASE_URL}/analyze`, {message_id: messageId, message_ids: messageIds, rules},
+      {headers: this.headers});
   }
 
   preview(messageId: number, rules: PatternRules): Observable<PatternPreview> {

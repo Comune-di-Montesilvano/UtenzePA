@@ -35,6 +35,7 @@ const match = (over: Partial<MatchResult> = {}): MatchResult => ({
       period_end: '2026-06-30',
       amount: 122,
       consumption: 542,
+      bands: [null, null, null],
       estimated: false,
       description: 'Materia',
       supply_code: 'IT001E00000001',
@@ -173,7 +174,15 @@ describe('InvoiceApplier', () => {
       utilityIds: [812],
     });
     await applier.apply(message(), extracted, match({ existingInvoiceId: 321, issues: [] }), 3, 7);
-    expect(linker.link).toHaveBeenCalledWith(manager, 321, 7, [60], new Map(), new Set());
+    expect(linker.link).toHaveBeenCalledWith(
+      manager,
+      321,
+      7,
+      [60],
+      new Map(),
+      new Set(),
+      new Map(),
+    );
     expect(manager.save).toHaveBeenCalledWith(InvoiceImportIssue, [
       expect.objectContaining({ type: ImportIssueType.PERIOD_COVERED }),
     ]);
@@ -194,7 +203,14 @@ describe('InvoiceApplier', () => {
 });
 
 describe('InvoiceApplier: matricola', () => {
-  let manager: { findOne: jest.Mock; find: jest.Mock; save: jest.Mock; update: jest.Mock; delete: jest.Mock; query: jest.Mock };
+  let manager: {
+    findOne: jest.Mock;
+    find: jest.Mock;
+    save: jest.Mock;
+    update: jest.Mock;
+    delete: jest.Mock;
+    query: jest.Mock;
+  };
   let linker: { link: jest.Mock };
   let applier: InvoiceApplier;
 
@@ -209,7 +225,11 @@ describe('InvoiceApplier: matricola', () => {
     };
     const dataSource = { transaction: jest.fn((cb) => cb(manager)), query: jest.fn() };
     linker = { link: jest.fn(async () => ({ issues: [], utilityIds: [812] })) };
-    applier = new InvoiceApplier(dataSource as never, linker as never, { recalcUtility: jest.fn() } as never);
+    applier = new InvoiceApplier(
+      dataSource as never,
+      linker as never,
+      { recalcUtility: jest.fn() } as never,
+    );
   });
 
   it('utenza senza matricola: la completa, con la riga nel log attività, e la passa alla rilevazione', async () => {
@@ -224,8 +244,10 @@ describe('InvoiceApplier: matricola', () => {
       7,
     );
     const [sql, params] = manager.query.mock.calls[0];
-    expect(sql).toMatch(/UPDATE utilities SET meter_number = \? WHERE id = \? AND \(meter_number IS NULL OR meter_number = ''\)/);
-    expect(params).toEqual(['000000000000283767', 812]);
+    expect(sql).toMatch(
+      /UPDATE utilities SET meter_number = \? WHERE id = \? AND NOT \(meter_number <=> \?\)/,
+    );
+    expect(params).toEqual(['000000000000283767', 812, '000000000000283767']);
     expect(manager.save).toHaveBeenCalledWith(
       AuditLog,
       expect.objectContaining({
@@ -244,6 +266,29 @@ describe('InvoiceApplier: matricola', () => {
       [],
       new Map([[812, '000000000000283767']]),
       new Set(),
+      new Map(),
+    );
+  });
+
+  it('matricola diversa: la sostituisce con quella della fattura, col valore precedente nel log', async () => {
+    await applier.apply(
+      message(),
+      extracted,
+      match({
+        meters: [{ utilityId: 812, meter: '285039', previous: '3983' }],
+        meterFills: [{ utilityId: 812, meter: '285039', previous: '3983' }],
+      }),
+      3,
+      7,
+    );
+    expect(manager.query.mock.calls[0][1]).toEqual(['285039', 812, '285039']);
+    expect(manager.save).toHaveBeenCalledWith(
+      AuditLog,
+      expect.objectContaining({
+        field_name: 'meter_number',
+        old_value: '3983',
+        new_value: '285039',
+      }),
     );
   });
 
@@ -256,7 +301,35 @@ describe('InvoiceApplier: matricola', () => {
       3,
       7,
     );
-    expect(linker.link).toHaveBeenCalledWith(manager, 500, 7, [], new Map(), new Set([812]));
+    expect(linker.link).toHaveBeenCalledWith(
+      manager,
+      500,
+      7,
+      [],
+      new Map(),
+      new Set([812]),
+      new Map(),
+    );
+  });
+
+  it('consumo per fasce: passa alla rilevazione le fasce dell’utenza', async () => {
+    const base = match();
+    await applier.apply(
+      message(),
+      extracted,
+      match({ lines: [{ ...base.lines[0], bands: [60, 25, 38] }] }),
+      3,
+      7,
+    );
+    expect(linker.link).toHaveBeenLastCalledWith(
+      manager,
+      500,
+      7,
+      [],
+      new Map(),
+      new Set(),
+      new Map([[812, { consumption_f1: 60, consumption_f2: 25, consumption_f3: 38 }]]),
+    );
   });
 
   it('blocco: nessuna fattura scritta, segnalazione con utenza e matricola, pattern sul messaggio', async () => {

@@ -36,6 +36,9 @@ export type LineTarget =
   | 'amount'
   | 'description'
   | 'consumption'
+  | 'consumptionF1'
+  | 'consumptionF2'
+  | 'consumptionF3'
   | 'unit'
   | 'meter'
   | 'estimated';
@@ -59,6 +62,9 @@ export const LINE_TARGETS: LineTarget[] = [
   'amount',
   'description',
   'consumption',
+  'consumptionF1',
+  'consumptionF2',
+  'consumptionF3',
   'unit',
   'meter',
   'estimated',
@@ -155,6 +161,9 @@ const FORMATS: Record<TargetField, (v: string) => boolean> = {
   amount: (v) => AMOUNT.test(v),
   description: (v) => /[A-Za-z]{3}/.test(v),
   consumption: (v) => /^-?\d+([.,]\d+)?$/.test(v),
+  consumptionF1: (v) => /^-?\d+([.,]\d+)?$/.test(v),
+  consumptionF2: (v) => /^-?\d+([.,]\d+)?$/.test(v),
+  consumptionF3: (v) => /^-?\d+([.,]\d+)?$/.test(v),
   unit: (v) => /^[A-Za-z0-9³]{1,6}$/.test(v),
   meter: (v) => v.length > 0,
   estimated: (v) => /stimat/i.test(v),
@@ -177,6 +186,9 @@ const HINTS: Record<TargetField, string[]> = {
   amount: ['PrezzoTotale'],
   description: ['Descrizione'],
   consumption: ['Quantita'],
+  consumptionF1: [],
+  consumptionF2: [],
+  consumptionF3: [],
   unit: ['UnitaMisura'],
   meter: ['AltriDatiGestionali/RiferimentoTesto'],
   estimated: [],

@@ -1,5 +1,12 @@
 import { createHash } from 'crypto';
-import type { FieldCondition, FieldScope, HeaderTarget, LineTarget } from './field-catalog';
+import {
+  HEADER_TARGETS,
+  type FieldCondition,
+  type FieldScope,
+  type HeaderTarget,
+  type LineTarget,
+  type TargetField,
+} from './field-catalog';
 import {
   headerScope,
   isNode,
@@ -16,16 +23,19 @@ import {
 // I campi di riga leggono la riga (DettaglioLinee) salvo fromHeader e le regole
 // «parola» con fromHeader, che leggono la testata (o il PDF).
 // numberAfter: primo numero dopo la parola; numberBefore: numero subito prima
-// (es. «594 mc»); textAfter: prima parola dopo (matricola); contains: la parola
-// c'è (consumo stimato, es. «Stimata»). anchor: la ricerca parte da lì (es.
-// «Sintesi consumi fatturati»).
-export type WordKind = 'numberAfter' | 'numberBefore' | 'textAfter' | 'contains';
+// (es. «594 mc»); textAfter: prima parola dopo (matricola); textBefore: ultima
+// parola prima; contains: la parola c'è (consumo stimato, es. «Stimata»). Le date
+// lette così (gg/mm/aaaa) diventano aaaa-mm-gg come nell'XML. anchor: la ricerca parte da lì (es.
+// «Sintesi consumi fatturati»); occurrence: quale volta della parola usare
+// (1 = la prima), quando compare più volte; senza, la prima utile.
+export type WordKind = 'numberAfter' | 'numberBefore' | 'textAfter' | 'textBefore' | 'contains';
 export interface WordRule {
   kind: WordKind;
   path: string;
   word: string;
   fromHeader?: boolean;
   anchor?: string;
+  occurrence?: number;
 }
 
 export type Rule =
@@ -42,6 +52,9 @@ export interface PatternRules {
   consumptionLineFilter?: string;
 }
 
+// Consumo per fascia oraria (energia elettrica), nello storico consumption_f1..f3.
+export const BAND_TARGETS: LineTarget[] = ['consumptionF1', 'consumptionF2', 'consumptionF3'];
+
 export interface ExtractedLine {
   utility: string | null;
   periodStart: string | null;
@@ -49,6 +62,9 @@ export interface ExtractedLine {
   amount: number;
   description: string | null;
   consumption: number | null;
+  consumptionF1: number | null;
+  consumptionF2: number | null;
+  consumptionF3: number | null;
   unit: string | null;
   meter: string | null;
   // Consumo stimato dal fornitore (lettura stimata, «di cui stimati» > 0).
@@ -80,7 +96,13 @@ const DEFAULTS: Partial<Record<HeaderTarget, string>> = {
 
 // Testo del PDF allegato: letto a parte (sdi/pdf-text.ts), solo per le regole «parola».
 export const PDF_PATH = '@pdf';
-export const WORD_KINDS: WordKind[] = ['numberAfter', 'numberBefore', 'textAfter', 'contains'];
+export const WORD_KINDS: WordKind[] = [
+  'numberAfter',
+  'numberBefore',
+  'textAfter',
+  'textBefore',
+  'contains',
+];
 
 export const isWordRule = (rule: Rule | undefined): rule is WordRule =>
   !!rule && (WORD_KINDS as string[]).includes(rule.kind);
@@ -90,6 +112,9 @@ export const usesPdf = (rules: PatternRules): boolean =>
   [...Object.values(rules.header), ...Object.values(rules.line)].some(
     (r) => isWordRule(r) && r.path === PDF_PATH,
   );
+
+type HeaderRuleTarget = keyof PatternRules['header'];
+const isHeaderField = (target: TargetField) => (HEADER_TARGETS as string[]).includes(target);
 
 // utilities: codici delle utenze della fattura, per il tratto di testo di ciascuna.
 type InvoiceDoc = InvoiceTree & { pdf: string | null; utilities: string[] };
@@ -135,65 +160,171 @@ function italianNumber(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-// Primo numero dopo la parola.
-export function numberAfter(text: string | null, word: string): number | null {
+interface Found {
+  at: number;
+  end: number;
+}
+
+// Posizioni della parola nel testo, senza distinguere maiuscole; gli spazi della
+// parola valgono qualsiasi spazio o a capo («kWh Puoi pagare» trova «kWh\nPuoi pagare»).
+function positions(text: string, word: string): Found[] {
+  const words = word.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  const re = new RegExp(
+    words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+'),
+    'gi',
+  );
+  const out: Found[] = [];
+  for (let m = re.exec(text); m; m = re.exec(text)) out.push({ at: m.index, end: re.lastIndex });
+  return out;
+}
+
+// Occorrenza scelta (1 = la prima); senza scelta la prima.
+function nthPosition(text: string, word: string, nth?: number): Found | null {
+  return positions(text, word)[(nth ?? 1) - 1] ?? null;
+}
+
+// Primo numero dopo la parola (o dopo la sua n-esima occorrenza).
+export function numberAfter(text: string | null, word: string, nth?: number): number | null {
   if (!text || !word) return null;
-  const at = text.toLowerCase().indexOf(word.toLowerCase());
-  if (at < 0) return null;
-  const match = /-?\d+(?:[.,]\d+)*/.exec(text.slice(at + word.length));
+  const found = nthPosition(text, word, nth);
+  if (!found) return null;
+  const match = /-?\d+(?:[.,]\d+)*/.exec(text.slice(found.end));
   return match ? italianNumber(match[0]) : null;
 }
 
-// Numero subito prima della parola (solo spazi in mezzo), alla prima occorrenza
-// che ne ha uno: «F1 (kWh)» si salta, «0,000 kWh» no.
-export function numberBefore(text: string | null, word: string): number | null {
+const NUMBER_BEFORE = /(?:^|[^\w.,-])(-?\d+(?:[.,]\d+)*)\s*$/;
+
+// Numero subito prima della parola (solo spazi in mezzo). Senza occorrenza scelta,
+// la prima che ne ha uno: «F1 (kWh)» si salta, «0,000 kWh» no.
+export function numberBefore(text: string | null, word: string, nth?: number): number | null {
   if (!text || !word) return null;
-  const lower = text.toLowerCase();
-  const needle = word.toLowerCase();
-  for (let at = lower.indexOf(needle); at >= 0; at = lower.indexOf(needle, at + 1)) {
-    const before = text.slice(Math.max(0, at - 40), at);
-    const match = /(?:^|[^\w.,-])(-?\d+(?:[.,]\d+)*)\s*$/.exec(before);
+  const all = positions(text, word);
+  for (const { at } of nth ? all.slice(nth - 1, nth) : all) {
+    const match = NUMBER_BEFORE.exec(text.slice(Math.max(0, at - 40), at));
     if (match) return italianNumber(match[1]);
   }
   return null;
 }
 
 // Prima parola dopo la parola cercata (es. matricola dopo «Contatore»), così com'è.
-export function textAfter(text: string | null, word: string): string | null {
+export function textAfter(text: string | null, word: string, nth?: number): string | null {
   if (!text || !word) return null;
-  const at = text.toLowerCase().indexOf(word.toLowerCase());
-  if (at < 0) return null;
-  return /^[\s:.n°]*([^\s;,]+)/i.exec(text.slice(at + word.length))?.[1] ?? null;
+  const found = nthPosition(text, word, nth);
+  if (!found) return null;
+  return /^[\s:.n°]*([^\s;,]+)/i.exec(text.slice(found.end))?.[1] ?? null;
+}
+
+// Ultima parola prima della parola cercata (es. matricola in «283767 Matricola»).
+export function textBefore(text: string | null, word: string, nth?: number): string | null {
+  if (!text || !word) return null;
+  const found = nthPosition(text, word, nth);
+  if (!found) return null;
+  return /([^\s;,:]+)[\s:.]*$/.exec(text.slice(Math.max(0, found.at - 80), found.at))?.[1] ?? null;
+}
+
+// Data nel formato dell'XML (aaaa-mm-gg), anche da gg/mm/aaaa, gg.mm.aa, gg-mm-aaaa:
+// le date passano sempre di qui, così un campo di testo scelto per intero (es. la
+// Causale) dà una data valida o nessuna, mai un testo che il database rifiuta. Un
+// testo con più date («01.09.2026-30.09.2026») dà la prima, o l'ultima con last
+// (fine periodo); senza date nessun valore.
+export function isoDate(value: string | null, last = false): string | null {
+  if (!value) return null;
+  const re = /(\d{4})-(\d{2})-(\d{2})|(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})(?!\d)/g;
+  const dates: string[] = [];
+  for (let m = re.exec(value); m; m = re.exec(value)) {
+    if (m[1]) {
+      dates.push(`${m[1]}-${m[2]}-${m[3]}`);
+    } else {
+      const year = m[6].length === 2 ? `20${m[6]}` : m[6];
+      dates.push(`${year}-${m[5].padStart(2, '0')}-${m[4].padStart(2, '0')}`);
+    }
+  }
+  return (last ? dates[dates.length - 1] : dates[0]) ?? null;
 }
 
 // Testo dall'ancora in poi; senza ancora nel testo nessun dato (meglio di uno sbagliato).
 export function fromAnchor(text: string | null, anchor: string | undefined): string | null {
-  if (!text || !anchor) return text;
-  const at = text.toLowerCase().indexOf(anchor.toLowerCase());
-  return at < 0 ? null : text.slice(at + anchor.length);
+  if (!text || !anchor?.trim()) return text;
+  const found = nthPosition(text, anchor);
+  return found ? text.slice(found.end) : null;
 }
 
 // Unità del consumo letto con una regola «parola»: la parola se è un'unità
-// («kWh 542», «594 mc»), altrimenti quella scritta dopo il numero («Consumi 2 Smc»).
+// («kWh 542», «594 mc», anche «kWh Puoi pagare» prima del numero), altrimenti
+// quella scritta dopo il numero («Consumi 2 Smc»).
 const UNIT = /^[A-Za-z³]{1,5}$/;
 function wordUnit(rule: WordRule, text: string | null): string | null {
-  if (rule.kind === 'numberBefore' || UNIT.test(rule.word)) return rule.word;
+  const words = rule.word.trim().split(/\s+/);
+  if (rule.kind === 'numberBefore') return UNIT.test(words[0]) ? words[0] : null;
+  if (words.length === 1 && UNIT.test(words[0])) return words[0];
   const scoped = fromAnchor(text, rule.anchor);
   if (!scoped) return null;
-  const at = scoped.toLowerCase().indexOf(rule.word.toLowerCase());
-  if (at < 0) return null;
-  const rest = scoped.slice(at + rule.word.length);
+  const found = nthPosition(scoped, rule.word, rule.occurrence);
+  if (!found) return null;
+  const rest = scoped.slice(found.end);
   return /^\D*?-?\d+(?:[.,]\d+)*\s*([A-Za-z³]{1,5})(?![\w³])/.exec(rest)?.[1] ?? null;
 }
 
 function readWord(rule: WordRule, text: string | null): string | null {
   const scoped = fromAnchor(text, rule.anchor);
-  if (rule.kind === 'textAfter') return textAfter(scoped, rule.word);
+  const nth = rule.occurrence;
+  if (rule.kind === 'textAfter') return textAfter(scoped, rule.word, nth);
+  if (rule.kind === 'textBefore') return textBefore(scoped, rule.word, nth);
   if (rule.kind === 'contains')
-    return scoped?.toLowerCase().includes(rule.word.toLowerCase()) ? rule.word : null;
+    return scoped && positions(scoped, rule.word).length ? rule.word : null;
   const n =
-    rule.kind === 'numberAfter' ? numberAfter(scoped, rule.word) : numberBefore(scoped, rule.word);
+    rule.kind === 'numberAfter'
+      ? numberAfter(scoped, rule.word, nth)
+      : numberBefore(scoped, rule.word, nth);
   return n === null ? null : String(n);
+}
+
+export interface WordOccurrence {
+  n: number;
+  context: string;
+  value: string | null;
+}
+
+// Occorrenze della parola nel testo letto dalla regola (prima riga con utenza),
+// col valore che darebbe ciascuna: l'editor le mostra per scegliere quella giusta.
+export function wordOccurrences(
+  xml: Buffer,
+  rules: PatternRules,
+  target: TargetField,
+  pdf: string | null = null,
+): WordOccurrence[] {
+  const header = isHeaderField(target);
+  const rule = header ? rules.header[target as HeaderRuleTarget] : rules.line[target as LineTarget];
+  if (!isWordRule(rule) || rule.kind === 'contains') return [];
+  const tree: InvoiceDoc = Object.assign(parseInvoiceTree(xml), { pdf, utilities: [] });
+  let source: string | null;
+  if (header) {
+    source = headerText(tree, rule.path);
+  } else {
+    const utilities = tree.lines.map((line) => lineRule(tree, line, rules.line.utility));
+    tree.utilities = [...new Set(utilities.filter((u): u is string => u !== null))];
+    const index = Math.max(
+      0,
+      utilities.findIndex((u) => u !== null),
+    );
+    const line = tree.lines[index];
+    if (!line) return [];
+    const segment = tree.utilities.length > 1 && target !== 'utility' ? utilities[index] : null;
+    source = wordText(tree, line, rule, segment);
+  }
+  const text = fromAnchor(source, rule.anchor);
+  if (!text) return [];
+  return positions(text, rule.word)
+    .slice(0, 30)
+    .map(({ at, end }, i) => ({
+      n: i + 1,
+      context: text
+        .slice(Math.max(0, at - 50), end + 50)
+        .replace(/\s+/g, ' ')
+        .trim(),
+      value: readWord({ ...rule, anchor: undefined, occurrence: i + 1 }, text),
+    }));
 }
 
 // Testo della testata: i campi ripetuti (Causale, max 200 caratteri l'uno) si
@@ -305,6 +436,7 @@ export function extract(
   // Consumo letto dalla testata: una volta sola per utenza, sulla prima riga ammessa.
   const headerConsumptionUsed = new Set<string>();
   const consumptionRule = rules.line.consumption;
+  const bandRules = BAND_TARGETS.map((t) => rules.line[t]);
   const utilities = tree.lines.map((line) => lineRule(tree, line, rules.line.utility));
   // Con righe intestate a un'utenza, quelle senza (bollo, indennizzi) non prendono il consumo.
   const anyUtility = utilities.some((u) => u !== null);
@@ -315,38 +447,53 @@ export function extract(
   const lines = tree.lines.map((line, index): ExtractedLine => {
     const utility = utilities[index];
     const segment = segmented ? utility : null;
-    const description = lineRule(tree, line, rules.line.description);
+    // Senza regola la Descrizione della riga (tracciato standard); «non presente» = nessuna.
+    const description = rules.line.description
+      ? lineRule(tree, line, rules.line.description)
+      : firstValue([line], 'Descrizione');
     const amountRule = rules.line.amount ?? { kind: 'grossAmount' };
     let consumption: number | null = null;
+    let bands: (number | null)[] = [null, null, null];
     let estimated = false;
     const descriptionText = description ?? firstValue([line], 'Descrizione') ?? '';
     // Una nota di credito non registra consumi (i conguagli sono un caso a parte).
     if (!creditNote && (!filter || descriptionText.toLowerCase().includes(filter))) {
       const used = utility ?? '';
-      const header = readsHeader(consumptionRule);
+      const header = readsHeader(consumptionRule) || bandRules.some(readsHeader);
       if (!header || (!headerConsumptionUsed.has(used) && (utility !== null || !anyUtility))) {
         consumption = toNumber(lineRule(tree, line, consumptionRule, segment));
+        bands = bandRules.map((r) => toNumber(lineRule(tree, line, r, segment)));
+        // Senza totale letto il consumo è la somma delle fasce.
+        if (consumption === null && bands.some((b) => b !== null)) {
+          consumption =
+            Math.round(bands.reduce((sum: number, b) => sum + (b ?? 0), 0) * 1000) / 1000;
+        }
         if (consumption !== null) {
           const rule = rules.line.estimated;
           estimated = isEstimated(rule, lineRule(tree, line, rule, segment));
         }
-        if (consumption !== null && readsHeader(consumptionRule)) headerConsumptionUsed.add(used);
+        if (consumption !== null && header) headerConsumptionUsed.add(used);
       }
     }
-    // Consumo da una regola «parola» senza unità mappata: unità dal testo (wordUnit).
+    // Consumo da una regola «parola» senza unità mappata: unità dal testo (wordUnit),
+    // dalla regola del totale o, per fasce, da quella della prima fascia.
+    const unitRule = isWordRule(consumptionRule) ? consumptionRule : bandRules.find(isWordRule);
     const unit =
-      rules.line.unit || !isWordRule(consumptionRule) || consumptionRule.kind === 'textAfter'
+      rules.line.unit || !unitRule || unitRule.kind === 'textAfter'
         ? lineRule(tree, line, rules.line.unit)
         : consumption === null
           ? null
-          : wordUnit(consumptionRule, wordText(tree, line, consumptionRule, segment));
+          : wordUnit(unitRule, wordText(tree, line, unitRule, segment));
     return {
       utility,
-      periodStart: lineRule(tree, line, rules.line.periodStart),
-      periodEnd: lineRule(tree, line, rules.line.periodEnd),
+      periodStart: isoDate(lineRule(tree, line, rules.line.periodStart, segment)),
+      periodEnd: isoDate(lineRule(tree, line, rules.line.periodEnd, segment), true),
       amount: toNumber(lineRule(tree, line, amountRule)) ?? 0,
       description,
       consumption,
+      consumptionF1: bands[0],
+      consumptionF2: bands[1],
+      consumptionF3: bands[2],
       unit,
       meter: lineRule(tree, line, rules.line.meter, segment),
       estimated,
@@ -366,7 +513,7 @@ export function extract(
     supplierVat: headerValue(tree, DEFAULTS.supplierVat) ?? '',
     supplierName: headerRule(tree, h.supplierName, DEFAULTS.supplierName),
     number: headerRule(tree, h.number, DEFAULTS.number) ?? '',
-    date: headerRule(tree, h.date, DEFAULTS.date) ?? '',
+    date: isoDate(headerRule(tree, h.date, DEFAULTS.date)) ?? '',
     documentType,
     total: signed(total),
     netAmount: signed(headerSum(tree, h.netAmount)),

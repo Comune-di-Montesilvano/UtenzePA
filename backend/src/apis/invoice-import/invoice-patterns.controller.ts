@@ -19,6 +19,7 @@ import { CurrentUser, type ICurrentUser } from '@core/auth/decorators/current-us
 import { contentDisposition } from '@apis/attachments/attachment-file-policy';
 import {
   IgnoreInvoiceStructureDto,
+  AnalyzeInvoicePatternDto,
   PreviewInvoicePatternDto,
   SaveInvoicePatternDto,
 } from './dto/save-invoice-pattern.dto';
@@ -64,6 +65,11 @@ export class InvoicePatternsController {
   @Post('preview')
   preview(@Body() dto: PreviewInvoicePatternDto) {
     return this.service.preview(dto.message_id, dto.rules);
+  }
+
+  @Post('analyze')
+  analyze(@Body() dto: AnalyzeInvoicePatternDto) {
+    return this.service.analyze(dto.message_id, dto.message_ids, dto.rules);
   }
 
   @Get(':id')

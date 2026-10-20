@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { InvoicePattern } from './entity/invoice-pattern.entity';
 import { SdiMessage } from './entity/sdi-message.entity';
 import { ImportIssueType } from './enum/import-issue-type.enum';
@@ -18,13 +18,16 @@ import {
   type TargetField,
 } from './pattern/field-catalog';
 import {
+  BAND_TARGETS,
   extract,
   patternMatches,
   PDF_PATH,
   rulePaths,
   structureKey,
   usesPdf,
+  wordOccurrences,
   WORD_KINDS,
+  type WordOccurrence,
   type ExtractedInvoice,
   type PatternRules,
   type Rule,
@@ -50,6 +53,18 @@ export interface PatternPreview {
   extracted: ExtractedInvoice | null;
   match: MatchResult | null;
   checks: PatternCheck[];
+  // Regole «parola»: dove compare la parola e cosa leggerebbe ogni occorrenza.
+  occurrences: Partial<Record<TargetField, WordOccurrence[]>>;
+}
+
+// Regole provate su un gruppo di fatture simili: su quante ogni campo mappato ha un valore.
+export interface PatternAnalysis {
+  analyzed: number;
+  // Non più sulla PEC o estrazione non riuscita.
+  unavailable: number;
+  // Struttura riconosciuta dalle regole (patternMatches).
+  matches: number;
+  found: Partial<Record<TargetField, number>>;
 }
 
 export interface PatternEditor {
@@ -106,8 +121,38 @@ const REPROCESS_SQL =
 
 const RULE_KINDS = ['field', ...WORD_KINDS, 'grossAmount', 'fromHeader', 'none'];
 const isWordKind = (kind: unknown) => (WORD_KINDS as unknown[]).includes(kind);
-// Dal testo del PDF si leggono solo consumo, matricola e consumo stimato.
-const PDF_TARGETS: LineTarget[] = ['consumption', 'meter', 'estimated'];
+// Campi che si possono leggere dal testo del PDF (non fornitore, tipo documento
+// e importo di riga, che varrebbe uguale su tutte le righe).
+const PDF_TARGETS: TargetField[] = [
+  'number',
+  'date',
+  'total',
+  'netAmount',
+  'cig',
+  'contractRef',
+  'utility',
+  'periodStart',
+  'periodEnd',
+  'consumption',
+  ...BAND_TARGETS,
+  'unit',
+  'meter',
+  'estimated',
+];
+// Nel PDF il dato di solito c'è solo per questi: il campo PDF va in cima, per gli altri in fondo.
+const PDF_FIRST: TargetField[] = ['consumption', ...BAND_TARGETS, 'meter', 'estimated'];
+// Fatture per chiamata di analisi: il frontend le manda a gruppi.
+const ANALYZE_MAX = 25;
+// File riletti dalla PEC tenuti in memoria (l'editor torna sulle stesse fatture).
+const CACHE_MAX = 200;
+const CACHE_TTL_MS = 30 * 60_000;
+
+interface CachedFile {
+  content: Buffer;
+  // Testo del PDF, letto alla prima regola che lo usa (null = nessun PDF).
+  pdf?: string | null;
+  at: number;
+}
 // Consumo stimato: numero «di cui stimati» o parola presente; «presente» solo lì.
 const ESTIMATED_KINDS = ['numberAfter', 'contains', 'none'];
 
@@ -123,6 +168,14 @@ function validRule(target: string, rule: unknown): boolean {
   }
   if (isWordKind(r.kind) && (!text(r.word, 50) || r.word === undefined)) return false;
   if (!text(r.anchor, 100) || (r.anchor !== undefined && !isWordKind(r.kind))) return false;
+  if (
+    r.occurrence !== undefined &&
+    (!isWordKind(r.kind) ||
+      !Number.isInteger(r.occurrence) ||
+      (r.occurrence as number) < 1 ||
+      (r.occurrence as number) > 50)
+  )
+    return false;
   if (target === 'estimated' ? !ESTIMATED_KINDS.includes(r.kind as string) : r.kind === 'contains')
     return false;
   if (r.path === PDF_PATH && (!isWordKind(r.kind) || !(PDF_TARGETS as string[]).includes(target)))
@@ -174,6 +227,18 @@ const pdfField = (): CatalogField => ({
   sample: null,
 });
 
+const isHeaderTarget = (t: TargetField) => (HEADER_TARGETS as string[]).includes(t);
+
+// Il campo ha un valore nella fattura estratta (di riga: su almeno una riga).
+function hasValue(extracted: ExtractedInvoice, t: TargetField): boolean {
+  const present = (v: unknown) => v !== null && v !== undefined && v !== '' && v !== false;
+  if (isHeaderTarget(t)) return present(extracted[t as keyof ExtractedInvoice]);
+  return extracted.lines.some((l) => present(l[t as LineTarget]));
+}
+
+const number = (n: number) => n.toLocaleString('it-IT', { maximumFractionDigits: 6 });
+const rows = (n: number) => (n === 1 ? '1 riga' : `${n} righe`);
+
 const euro = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 });
 
 /**
@@ -192,6 +257,38 @@ export class InvoicePatternsService {
     private readonly importer: InvoiceImportService,
     private readonly matcher: InvoiceMatcher,
   ) {}
+
+  private readonly files = new Map<number, CachedFile>();
+
+  private cached(id: number): CachedFile | undefined {
+    const hit = this.files.get(id);
+    if (!hit) return undefined;
+    if (Date.now() - hit.at > CACHE_TTL_MS) {
+      this.files.delete(id);
+      return undefined;
+    }
+    return hit;
+  }
+
+  private remember(id: number, content: Buffer): CachedFile {
+    const entry: CachedFile = { content, at: Date.now() };
+    this.files.delete(id);
+    this.files.set(id, entry);
+    while (this.files.size > CACHE_MAX) this.files.delete(this.files.keys().next().value!);
+    return entry;
+  }
+
+  private async file(row: SdiMessage): Promise<CachedFile> {
+    return (
+      this.cached(row.id) ??
+      this.remember(row.id, (await this.importer.readMessageFile(row)).content)
+    );
+  }
+
+  private async pdfOf(entry: CachedFile): Promise<string | null> {
+    if (entry.pdf === undefined) entry.pdf = await pdfText(entry.content);
+    return entry.pdf;
+  }
 
   async unknown(): Promise<UnknownStructure[]> {
     const rows: Record<string, unknown>[] = await this.dataSource.query(UNKNOWN_STRUCTURES_SQL);
@@ -217,16 +314,20 @@ export class InvoicePatternsService {
 
   async editor(messageId: number): Promise<PatternEditor> {
     const row = await this.message(messageId);
-    const xml = (await this.importer.readMessageFile(row)).content;
+    const entry = await this.file(row);
+    const xml = entry.content;
     const catalog = buildCatalog(xml);
     const ranked = Object.fromEntries(
       [...HEADER_TARGETS, ...LINE_TARGETS].map((t) => [t, rankFor(t, catalog).map((f) => f.key)]),
     ) as Record<TargetField, string[]>;
-    const pdf = await pdfText(xml);
+    const pdf = await this.pdfOf(entry);
     if (pdf !== null) {
       const field = pdfField();
       catalog.push(field);
-      for (const t of PDF_TARGETS) ranked[t].unshift(field.key);
+      for (const t of PDF_TARGETS) {
+        if (PDF_FIRST.includes(t)) ranked[t].unshift(field.key);
+        else ranked[t].push(field.key);
+      }
     }
     const [supplier] = await this.dataSource.query(SUPPLIER_SQL, [row.supplier_id_fk]);
     const similar: { id: number }[] = row.structure_key
@@ -254,7 +355,7 @@ export class InvoicePatternsService {
 
   async pdf(messageId: number): Promise<{ fileName: string; data: Buffer }> {
     const row = await this.message(messageId);
-    const pdf = extractPdf((await this.importer.readMessageFile(row)).content);
+    const pdf = extractPdf((await this.file(row)).content);
     if (!pdf) throw new BadRequestException('La fattura non contiene un PDF.');
     return {
       fileName: pdf.name || `${row.file_name.replace(/\.xml(\.p7m)?$/i, '')}.pdf`,
@@ -265,13 +366,14 @@ export class InvoicePatternsService {
   // Nessuna scrittura: estrazione e abbinamento in sola lettura.
   async preview(messageId: number, rules: PatternRules): Promise<PatternPreview> {
     const row = await this.message(messageId);
-    const xml = (await this.importer.readMessageFile(row)).content;
-    const pdf = usesPdf(rules) ? await pdfText(xml) : null;
+    const entry = await this.file(row);
+    const xml = entry.content;
+    const pdf = usesPdf(rules) ? await this.pdfOf(entry) : null;
     let extracted: ExtractedInvoice;
     try {
       extracted = extract(xml, rules, pdf);
     } catch {
-      return { matches: false, extracted: null, match: null, checks: [] };
+      return { matches: false, extracted: null, match: null, checks: [], occurrences: {} };
     }
     const match = await this.matcher.match(extracted, row.supplier_id_fk!);
     return {
@@ -279,7 +381,62 @@ export class InvoicePatternsService {
       extracted,
       match,
       checks: this.checks(rules, extracted, match, row, usesPdf(rules) && pdf === null),
+      occurrences: Object.fromEntries(
+        [...HEADER_TARGETS, ...LINE_TARGETS]
+          .map((t) => [t, wordOccurrences(xml, rules, t, pdf)] as const)
+          .filter(([, list]) => list.length),
+      ),
     };
+  }
+
+  // Regole provate su un gruppo di fatture dello stesso fornitore, in sola lettura.
+  async analyze(messageId: number, ids: number[], rules: PatternRules): Promise<PatternAnalysis> {
+    const row = await this.message(messageId);
+    if (
+      !Array.isArray(ids) ||
+      !ids.length ||
+      ids.length > ANALYZE_MAX ||
+      !ids.every(Number.isInteger)
+    ) {
+      throw new BadRequestException(`Indica da 1 a ${ANALYZE_MAX} fatture da analizzare.`);
+    }
+    const rows = await this.messagesRepo.findBy({
+      id: In(ids),
+      kind: 'INVOICE',
+      supplier_id_fk: row.supplier_id_fk!,
+    });
+    const missing = rows.filter((r) => !this.cached(r.id));
+    if (missing.length) {
+      const read = await this.importer.readMessageFiles(missing);
+      for (const [id, content] of read) this.remember(id, content);
+    }
+    const mapped = [...HEADER_TARGETS, ...LINE_TARGETS].filter((t) => {
+      const rule = isHeaderTarget(t)
+        ? rules.header[t as keyof PatternRules['header']]
+        : rules.line[t as LineTarget];
+      return !!rule && rule.kind !== 'none';
+    });
+    const pdfNeeded = usesPdf(rules);
+    const result: PatternAnalysis = { analyzed: ids.length, unavailable: 0, matches: 0, found: {} };
+    for (const id of ids) {
+      const entry = rows.some((r) => r.id === id) ? this.cached(id) : undefined;
+      if (!entry) {
+        result.unavailable++;
+        continue;
+      }
+      let extracted: ExtractedInvoice;
+      try {
+        extracted = extract(entry.content, rules, pdfNeeded ? await this.pdfOf(entry) : null);
+      } catch {
+        result.unavailable++;
+        continue;
+      }
+      if (patternMatches(entry.content, rules)) result.matches++;
+      for (const t of mapped) {
+        if (hasValue(extracted, t)) result.found[t] = (result.found[t] ?? 0) + 1;
+      }
+    }
+    return result;
   }
 
   async create(input: SavePatternInput, userId: number) {
@@ -368,7 +525,7 @@ export class InvoicePatternsService {
     if (!input.name?.trim()) throw new BadRequestException('Indica il nome del pattern.');
     assertValidRules(input.rules);
     const row = await this.message(input.message_id);
-    const xml = (await this.importer.readMessageFile(row)).content;
+    const xml = (await this.file(row)).content;
     if (!patternMatches(xml, input.rules)) {
       throw new BadRequestException('Il pattern non riconosce la fattura di partenza.');
     }
@@ -437,16 +594,63 @@ export class InvoicePatternsService {
       add('amount', 'ok', `${extracted.lines.length} righe lette`);
     }
 
-    const consumptions = extracted.lines.filter((l) => l.consumption !== null).length;
+    const read = extracted.lines.filter((l) => l.consumption !== null);
+    const consumptions = read.length;
+    // Valori letti (i primi tre), così si vede subito se la regola prende il numero giusto.
+    const values = read
+      .slice(0, 3)
+      .map((l) => `${number(l.consumption!)}${l.unit ? ` ${l.unit}` : ''}`)
+      .join(', ');
+    const bandsMapped = BAND_TARGETS.some((t) => rules.line[t] && rules.line[t].kind !== 'none');
+    const consumptionMapped = !!rules.line.consumption || bandsMapped;
     add(
       'consumption',
-      rules.line.consumption ? (consumptions ? 'ok' : 'warn') : 'off',
-      rules.line.consumption
+      consumptionMapped ? (consumptions ? 'ok' : 'warn') : 'off',
+      consumptionMapped
         ? consumptions
-          ? `Consumo su ${consumptions} righe`
+          ? `Consumo letto: ${values}${consumptions > 3 ? '…' : ''} (${rows(consumptions)})`
           : 'Nessun consumo letto'
         : 'Non mappato',
     );
+    // Fasce: valore di ciascuna; col totale letto la somma deve tornare (entro 1 kWh).
+    for (const [i, t] of BAND_TARGETS.entries()) {
+      const rule = rules.line[t];
+      if (!rule || rule.kind === 'none') continue;
+      const band = extracted.lines.find((l) => l[t] !== null);
+      add(
+        t,
+        band ? 'ok' : 'warn',
+        band
+          ? `F${i + 1} letta: ${number(band[t] as number)}${band.unit ? ` ${band.unit}` : ''}`
+          : 'Nessun valore letto',
+      );
+    }
+    if (bandsMapped && rules.line.consumption) {
+      const off = extracted.lines.find((l) => {
+        const bands = BAND_TARGETS.map((t) => l[t]).filter((b): b is number => b !== null);
+        const sum = bands.reduce((s, b) => s + b, 0);
+        return l.consumption !== null && bands.length > 0 && Math.abs(sum - l.consumption) > 1;
+      });
+      if (off)
+        add(
+          'consumption',
+          'warn',
+          `La somma delle fasce non coincide col totale ${number(off.consumption!)}`,
+        );
+    }
+    // Senza utenza riconosciuta o periodo il consumo non entra nello storico (ConsumptionLinker).
+    const unusable = extracted.lines.filter(
+      (l, i) =>
+        l.consumption !== null &&
+        (!l.periodStart || !l.periodEnd || !match.lines[i]?.utility_id_fk),
+    ).length;
+    if (unusable) {
+      add(
+        'consumption',
+        'warn',
+        `${rows(unusable)} senza utenza riconosciuta o senza periodo: il consumo non entra nello storico`,
+      );
+    }
 
     if (missingPdf) {
       for (const t of PDF_TARGETS) {
@@ -460,7 +664,7 @@ export class InvoicePatternsService {
       add(
         'estimated',
         'ok',
-        estimated ? `Consumo stimato su ${estimated} righe` : 'Consumo reale (non stimato)',
+        estimated ? `Consumo stimato (${rows(estimated)})` : 'Consumo reale (non stimato)',
       );
     }
     if (rules.header.cig && extracted.cig) add('cig', 'ok', `CIG ${extracted.cig}`);
@@ -468,8 +672,31 @@ export class InvoicePatternsService {
     // Bloccanti: la fattura non si importa finché non si sistema l'anagrafica.
     for (const issue of match.blocking)
       add(ISSUE_FIELD[issue.type], 'danger', `${issue.detail}: import fermo`);
-    for (const fill of match.meterFills)
-      add('meter', 'ok', `Matricola ${fill.meter} da completare sull'utenza ${fill.utilityId}`);
+    // Matricola in fattura accanto a quella attuale dell'utenza: verde se coincidono,
+    // gialla se l'import la completa o la aggiorna (la fattura fa fede).
+    const fills = new Set(match.meterFills.map((m) => m.utilityId));
+    for (const m of match.meters) {
+      const current = `attuale ${m.previous || 'nessuna'} (utenza ${m.utilityId})`;
+      if (!fills.has(m.utilityId))
+        add('meter', 'ok', `Matricola ${m.meter}: coincide con l'${current}`);
+      else if (m.previous)
+        add('meter', 'warn', `Matricola ${m.meter}, ${current}: verrà aggiornata`);
+      else add('meter', 'warn', `Matricola ${m.meter}, ${current}: verrà completata`);
+    }
+    if (rules.line.meter && rules.line.meter.kind !== 'none' && !match.meters.length) {
+      // La matricola della fattura si scrive sull'utenza della riga: senza utenza trovata non c'è dove.
+      const read = extracted.lines.find((l) => l.meter);
+      const unmapped = !rules.line.utility || rules.line.utility.kind === 'none';
+      add(
+        'meter',
+        'warn',
+        !read
+          ? 'Nessuna matricola letta'
+          : unmapped
+            ? `Matricola ${read.meter} letta: mappa il campo Utenza, la matricola si scrive sull'utenza della riga`
+            : `Matricola ${read.meter} letta, ma l'utenza della riga${read.utility ? ` (${read.utility})` : ''} non è in anagrafica: non c'è dove scriverla`,
+      );
+    }
     return checks;
   }
 }

@@ -5,7 +5,7 @@ import { Invoice } from '@apis/invoices/entity/invoice.entity';
 import { InvoiceLine } from '@apis/invoices/entity/invoice-line.entity';
 import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
 import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
-import { ConsumptionLinker } from './consumption-linker.service';
+import { ConsumptionLinker, type ConsumptionBands } from './consumption-linker.service';
 import { InvoiceImportIssue } from './entity/invoice-import-issue.entity';
 import { SdiMessage } from './entity/sdi-message.entity';
 import { SdiMessageStatus } from './enum/sdi-message-status.enum';
@@ -21,7 +21,7 @@ const IMPORT_USER_SQL =
 
 // Matricola completata solo se l'utenza non l'ha (eccezione alla regola: l'import non modifica le anagrafiche).
 const FILL_METER_SQL =
-  "UPDATE utilities SET meter_number = ? WHERE id = ? AND (meter_number IS NULL OR meter_number = '')";
+  'UPDATE utilities SET meter_number = ? WHERE id = ? AND NOT (meter_number <=> ?)';
 
 /**
  * Scrive la fattura estratta da un pattern: la crea, o arricchisce quella già
@@ -100,6 +100,7 @@ export class InvoiceApplier {
             previous,
             meters,
             estimated,
+            bandsByUtility(match),
           );
           issues.push(...linked.issues);
           utilityIds = linked.utilityIds;
@@ -161,10 +162,11 @@ export class InvoiceApplier {
     match: MatchResult,
     userId: number,
   ): Promise<void> {
-    for (const { utilityId, meter } of match.meterFills) {
+    for (const { utilityId, meter, previous } of match.meterFills) {
       const result: { affectedRows?: number } = await manager.query(FILL_METER_SQL, [
         meter.slice(0, 255),
         utilityId,
+        meter.slice(0, 255),
       ]);
       if (!result?.affectedRows) continue;
       await manager.save(AuditLog, {
@@ -172,7 +174,7 @@ export class InvoiceApplier {
         entity_id: utilityId,
         action: AuditAction.UPDATE,
         field_name: 'meter_number',
-        old_value: null,
+        old_value: previous ?? null,
         new_value: meter,
         old_label: null,
         new_label: null,
@@ -221,4 +223,26 @@ export class InvoiceApplier {
     });
     return existing.id;
   }
+}
+
+// Fasce lette per utenza (somma delle righe dell'utenza); solo le utenze con almeno una fascia.
+function bandsByUtility(match: MatchResult): Map<number, ConsumptionBands> {
+  const out = new Map<number, ConsumptionBands>();
+  for (const line of match.lines) {
+    if (!line.utility_id_fk || line.consumption === null || line.bands.every((b) => b === null))
+      continue;
+    const current = out.get(line.utility_id_fk) ?? {
+      consumption_f1: null,
+      consumption_f2: null,
+      consumption_f3: null,
+    };
+    const add = (a: number | null, b: number | null) =>
+      a === null && b === null ? null : Math.round(((a ?? 0) + (b ?? 0)) * 1000) / 1000;
+    out.set(line.utility_id_fk, {
+      consumption_f1: add(current.consumption_f1, line.bands[0]),
+      consumption_f2: add(current.consumption_f2, line.bands[1]),
+      consumption_f3: add(current.consumption_f3, line.bands[2]),
+    });
+  }
+  return out;
 }

@@ -38,6 +38,13 @@ const day = (value: unknown) =>
     ? `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
     : String(value);
 
+// Consumo per fascia letto in fattura, da scrivere sulla rilevazione.
+export interface ConsumptionBands {
+  consumption_f1: number | null;
+  consumption_f2: number | null;
+  consumption_f3: number | null;
+}
+
 /**
  * Consumi della fattura nel tab Consumi: una rilevazione di periodo (origine
  * fattura) per utenza e periodo, collegata alle righe. Mai doppioni: una
@@ -54,6 +61,8 @@ export class ConsumptionLinker {
     meters: Map<number, string> = new Map(),
     // Utenze col consumo stimato dal fornitore in questa fattura.
     estimated: Set<number> = new Set(),
+    // Consumi per fascia letti in fattura, per utenza.
+    bands: Map<number, ConsumptionBands> = new Map(),
   ): Promise<{ issues: MatchIssue[]; utilityIds: number[] }> {
     const lines = await manager.find(InvoiceLine, {
       where: { invoice_id_fk: invoiceId },
@@ -115,6 +124,7 @@ export class ConsumptionLinker {
           period_start: start,
           period_end: end,
           consumption: value,
+          ...(bands.get(utilityId) ?? {}),
           is_estimated: estimated.has(utilityId),
           meter_number: meters.get(utilityId) ?? null,
           created_by_user_id: userId,
@@ -125,6 +135,7 @@ export class ConsumptionLinker {
         // Il flag stimata impostato dall'utente resta; la fattura può solo accenderlo.
         await manager.update(UtilityConsumption, consumptionId, {
           consumption: value,
+          ...(bands.get(utilityId) ?? {}),
           deleted: false,
           ...(estimated.has(utilityId) ? { is_estimated: true } : {}),
           ...(meters.has(utilityId) ? { meter_number: meters.get(utilityId) } : {}),
