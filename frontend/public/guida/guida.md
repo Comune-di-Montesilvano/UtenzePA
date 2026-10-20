@@ -1,6 +1,6 @@
 # UtenzePA – Guida per gli operatori
 
-_Ultimo aggiornamento: 2026-10-19_
+_Ultimo aggiornamento: 2026-10-20_
 
 ## Cos'è e chi lo usa
 
@@ -259,11 +259,16 @@ Ogni fornitore manda le fatture con una sua struttura di XML: il pattern dice da
    - **Non presente**: il fornitore non manda il dato;
    - **Calcolato: imponibile × IVA**: solo per l'importo della riga, quando l'XML ha l'importo senza IVA; è anche la scelta predefinita se non mappi l'importo;
    - campi segnati **(dalla testata)**: lo stesso valore della testata per tutte le righe;
-   - **Numero dopo la parola**: per il consumo scritto dentro un testo, ad esempio nella Causale (es. «kWh 542»). Se non mappi l'unità di misura, vale la parola cercata (kWh);
-   - **Testo dopo la parola**: per la matricola scritta dentro un testo (es. «Contatore 000000000000283767»), con gli zeri iniziali. Se il testo elenca più utenze, ogni riga legge il tratto dopo il POD della sua utenza; il consumo letto dalla testata va una volta per utenza;
+   - per consumo e matricola scritti dentro un testo (Causale, descrizione o PDF), scegli il campo e poi in **Lettura**:
+     - **Numero dopo la parola**: il consumo che segue una parola (es. «kWh 542» nella Causale, «Consumo totale fatturato: 295 Smc» nel PDF);
+     - **Numero prima della parola**: il consumo che la precede (es. «594 mc»);
+     - **Testo dopo la parola**: la matricola (es. «Contatore 000000000000283767», «Matricola: MTSB…»), con gli zeri iniziali.
+
+     Se non mappi l'unità di misura vale la parola cercata quando è un'unità (kWh, mc), altrimenti quella scritta dopo il numero (Smc). **A partire da** (facoltativo) fa partire la ricerca da un'altra parola: serve quando la parola compare più volte (es. a partire da «Sintesi consumi fatturati», il numero prima di «kWh»). Se la fattura ha più utenze, ogni riga legge il tratto dopo il codice della sua utenza; il consumo letto dalla testata o dal PDF va una volta per utenza;
+   - **Testo del PDF allegato**: per consumo e matricola che il fornitore scrive solo nel PDF (ACA, gas, energia). Si usa sempre con una Lettura «parola»; se una fattura non ha il PDF il dato resta vuoto e la fattura si importa lo stesso;
    - un campo segnato **(non presente in questa fattura)** viene da un pattern salvato su un'altra fattura della stessa struttura: la regola resta;
    - **Consumo solo dalle righe che contengono**: quando il consumo va preso solo da alcune righe (es. «Energia»).
-3. A destra c'è l'XML della fattura, con il valore del campo su cui sei evidenziato; **Vedi PDF** apre il PDF allegato.
+3. A destra c'è l'XML della fattura, con il valore del campo su cui sei evidenziato; **Vedi PDF** apre il PDF allegato. Se la fattura ha un PDF, **Testo del PDF** mostra il testo così come lo legge UtenzePA, con evidenziate la parola cercata (giallo) e quella da cui parte la ricerca (azzurro): scegli le parole guardando questo testo, non il PDF impaginato, perché l'ordine delle righe può essere diverso.
 4. Accanto a ogni campo i bollini dicono come va l'anteprima: verde = letto e riconosciuto (es. utenza trovata in anagrafica, somma delle righe uguale al totale), giallo = da controllare, grigio = non mappato. L'anteprima si aggiorna a ogni modifica e non salva nulla.
 5. Con le frecce in alto scorri le altre fatture del fornitore senza pattern, prima quelle della stessa struttura: le scelte restano, e «la mappatura regge su K di N viste» dice su quante le regole funzionano con le utenze riconosciute. Un bollino rosso «import fermo» sulla matricola vuol dire che quella fattura non verrà importata finché non correggi l'utenza.
 6. **Salva pattern** (servono almeno utenza e importo della riga). Le fatture del fornitore in attesa vengono importate subito in background; il messaggio dice quante. Se il fornitore resta in elenco, le fatture rimaste hanno davvero una struttura diversa (es. senza POD): mappane una.
