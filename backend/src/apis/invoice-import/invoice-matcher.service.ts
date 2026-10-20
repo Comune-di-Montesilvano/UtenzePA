@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { ImportIssueType } from './enum/import-issue-type.enum';
-import type { ExtractedInvoice } from './pattern/pattern-rules';
+import type { ExtractedInvoice, ExtractedReading } from './pattern/pattern-rules';
 import { normalizeUtilityCode } from './pattern/utility-code';
 
 export interface MatchedLine {
@@ -15,6 +15,8 @@ export interface MatchedLine {
   // Consumo per fascia letto in fattura (null = non letto).
   bands: [number | null, number | null, number | null];
   estimated: boolean;
+  // Letture del contatore lette in fattura (data, valore, stimata).
+  readings: ExtractedReading[];
   description: string | null;
   supply_code: string | null;
 }
@@ -236,6 +238,7 @@ export class InvoiceMatcher {
         consumption: line.consumption,
         bands: [line.consumptionF1, line.consumptionF2, line.consumptionF3],
         estimated: line.estimated,
+        readings: line.readings ?? [],
         description: line.description ? line.description.slice(0, 255) : null,
         supply_code: line.utility ? line.utility.slice(0, 50) : null,
       });

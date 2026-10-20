@@ -8,6 +8,7 @@ import {
 } from '@apis/utility-consumptions/enum/consumption-kind.enum';
 import { ImportIssueType } from './enum/import-issue-type.enum';
 import type { MatchIssue } from './invoice-matcher.service';
+import type { ExtractedReading } from './pattern/pattern-rules';
 
 interface OwnedRow {
   id: number;
@@ -29,6 +30,11 @@ const OVERLAP_SQL =
   "/* c_overlap */ SELECT c.id, c.period_start, c.period_end FROM utility_consumptions c WHERE c.utility_id_fk = ? AND c.kind = 'PERIOD' " +
   'AND c.deleted = 0 AND c.is_estimated = 0 AND c.period_start <= ? AND c.period_end >= ? AND c.id NOT IN (?) ' +
   'ORDER BY c.id LIMIT 1';
+const READING_SQL =
+  "/* c_reading */ SELECT id, invoice_id_fk, is_estimated FROM utility_consumptions WHERE utility_id_fk = ? AND kind = 'READING' " +
+  'AND deleted = 0 AND reading_date = ? ORDER BY id LIMIT 1';
+const OWN_READINGS_SQL =
+  "/* c_own_readings */ SELECT id, utility_id_fk FROM utility_consumptions WHERE invoice_id_fk = ? AND kind = 'READING' AND deleted = 0";
 const LINKED_SQL =
   '/* c_linked */ SELECT DISTINCT c.id, c.utility_id_fk FROM invoice_lines l ' +
   'JOIN utility_consumptions c ON c.id = l.consumption_id_fk WHERE l.invoice_id_fk = ?';
@@ -63,6 +69,8 @@ export class ConsumptionLinker {
     estimated: Set<number> = new Set(),
     // Consumi per fascia letti in fattura, per utenza.
     bands: Map<number, ConsumptionBands> = new Map(),
+    // Letture del contatore lette in fattura, per utenza.
+    readings: Map<number, ExtractedReading[]> = new Map(),
   ): Promise<{ issues: MatchIssue[]; utilityIds: number[] }> {
     const lines = await manager.find(InvoiceLine, {
       where: { invoice_id_fk: invoiceId },
@@ -158,7 +166,67 @@ export class ConsumptionLinker {
         { deleted: true },
       );
     }
+    for (const id of await this.linkReadings(manager, invoiceId, userId, readings, meters)) {
+      utilityIds.add(id);
+    }
     return { issues, utilityIds: [...utilityIds] };
+  }
+
+  /**
+   * Letture della fattura come rilevazioni a data, collegate alla fattura. Una
+   * lettura alla stessa data c'è già (es. la finale della fattura precedente):
+   * non si duplica, ma una stima diventa reale. Le proprie letture non più in
+   * fattura si tolgono.
+   */
+  private async linkReadings(
+    manager: EntityManager,
+    invoiceId: number,
+    userId: number,
+    readings: Map<number, ExtractedReading[]>,
+    meters: Map<number, string>,
+  ): Promise<number[]> {
+    const own: { id: number; utility_id_fk: number }[] = await manager.query(OWN_READINGS_SQL, [
+      invoiceId,
+    ]);
+    const utilityIds = new Set<number>(own.map((o) => Number(o.utility_id_fk)));
+    const kept = new Set<number>();
+    for (const [utilityId, list] of readings) {
+      for (const r of list) {
+        const [existing] = await manager.query(READING_SQL, [utilityId, r.date]);
+        if (existing) {
+          const mine = Number(existing.invoice_id_fk) === invoiceId;
+          if (mine || (Number(existing.is_estimated) && !r.estimated)) {
+            await manager.update(UtilityConsumption, existing.id, {
+              reading_value: r.value,
+              is_estimated: r.estimated,
+              ...(meters.has(utilityId) ? { meter_number: meters.get(utilityId) } : {}),
+            });
+            utilityIds.add(utilityId);
+          }
+          if (mine) kept.add(Number(existing.id));
+          continue;
+        }
+        const saved = await manager.save(UtilityConsumption, {
+          utility_id_fk: utilityId,
+          kind: ConsumptionKind.READING,
+          source: ConsumptionSource.INVOICE,
+          reading_date: r.date,
+          reading_value: r.value,
+          is_estimated: r.estimated,
+          meter_number: meters.get(utilityId) ?? null,
+          invoice_id_fk: invoiceId,
+          created_by_user_id: userId,
+          updated_by_user_id: userId,
+        });
+        kept.add(saved.id);
+        utilityIds.add(utilityId);
+      }
+    }
+    const leftovers = own.map((o) => Number(o.id)).filter((id) => !kept.has(id));
+    if (leftovers.length) {
+      await manager.update(UtilityConsumption, { id: In(leftovers) }, { deleted: true });
+    }
+    return [...utilityIds];
   }
 
   // Righe modificate a mano: la rilevazione segue la riga con stessa utenza e
@@ -220,6 +288,17 @@ export class ConsumptionLinker {
       );
     }
     await manager.update(InvoiceLine, { invoice_id_fk: invoiceId }, { consumption_id_fk: null });
-    return [...new Set(rows.map((r) => Number(r.utility_id_fk)))];
+    const readings: { id: number; utility_id_fk: number }[] = await manager.query(
+      OWN_READINGS_SQL,
+      [invoiceId],
+    );
+    if (readings.length) {
+      await manager.update(
+        UtilityConsumption,
+        { id: In(readings.map((r) => r.id)) },
+        { deleted: true },
+      );
+    }
+    return [...new Set([...rows, ...readings].map((r) => Number(r.utility_id_fk)))];
   }
 }

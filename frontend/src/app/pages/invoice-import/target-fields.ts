@@ -1,4 +1,6 @@
-import type {TargetField} from './pattern-rules.model';
+import {READING_TARGETS, type ReadingTarget, type TargetField} from './pattern-rules.model';
+
+const READING_PARTS: Record<string, string> = {Date: 'data', Value: 'valore', Type: 'tipo (rilevata / stimata)'};
 
 // Etichette dei campi di UtenzePA nell'editor dei pattern.
 export const TARGET_LABELS: Record<TargetField, string> = {
@@ -23,6 +25,12 @@ export const TARGET_LABELS: Record<TargetField, string> = {
   unit: 'Unità di misura',
   meter: 'Matricola contatore',
   estimated: 'Consumo stimato',
+  ...(Object.fromEntries(
+    READING_TARGETS.map(t => {
+      const [, slot, part] = /^reading(\d)(\w+)$/.exec(t)!;
+      return [t, `Lettura ${slot}: ${READING_PARTS[part]}`];
+    }),
+  ) as Record<ReadingTarget, string>),
 };
 
 // Campi di testata con un percorso standard del tracciato: senza regola valgono quello.

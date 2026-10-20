@@ -541,6 +541,32 @@ describe('extract: dati nel PDF allegato', () => {
     );
   });
 
+  it('letture del contatore dal PDF: data, valore e tipo di ciascuna', () => {
+    const text = [
+      'LETTURE E CONSUMI',
+      'Lettura contatore: 73559 elettronico -',
+      'UM 31/07/2026 31/08/2026',
+      'rilevata stimata',
+      'Smc 5.782 5.790',
+    ].join('\n');
+    const r = rules({
+      reading1Date: fromPdf({ kind: 'textAfter', word: 'UM' }),
+      reading1Value: fromPdf({ kind: 'numberAfter', word: 'Smc' }),
+      reading1Type: fromPdf({ kind: 'textBefore', word: 'stimata' }),
+      reading2Date: fromPdf({ kind: 'textBefore', word: 'rilevata' }),
+      reading2Value: fromPdf({ kind: 'numberAfter', word: '5.782' }),
+      reading2Type: fromPdf({ kind: 'textAfter', word: 'rilevata' }),
+    });
+    const line = extract(aca, r, text).lines[0];
+    expect(line.readings).toEqual([
+      { date: '2026-07-31', value: 5782, estimated: false },
+      { date: '2026-08-31', value: 5790, estimated: true },
+    ]);
+    expect(line.reading2Type).toBe('stimata');
+    // Nota di credito: nessuna lettura.
+    expect(extract(asCreditNote(aca), r, text).lines[0].readings).toEqual([]);
+  });
+
   it('parola di più termini: gli spazi valgono anche l’a capo', () => {
     const text = "CONSUMO\n1.417   kWh\nPuoi pagare con l'avviso\nTotale 20 kWh";
     const r = rules({ consumption: fromPdf({ kind: 'numberBefore', word: 'kWh  Puoi pagare' }) });

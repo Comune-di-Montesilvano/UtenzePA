@@ -27,6 +27,7 @@ const line = (over: Partial<ExtractedLine> = {}): ExtractedLine => ({
   unit: null,
   meter: null,
   estimated: false,
+  readings: [],
   ...over,
 });
 

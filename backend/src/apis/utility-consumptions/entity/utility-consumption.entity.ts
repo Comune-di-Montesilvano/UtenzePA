@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Utility } from '@apis/utility/entity/utility.entity';
 import { SystemUser } from '@apis/system-users/entity/system-user.entity';
+import { Invoice } from '@apis/invoices/entity/invoice.entity';
 import { ConsumptionKind, ConsumptionSource } from '../enum/consumption-kind.enum';
 
 // Rilevazione consumo di un'utenza: lettura contatore (valore cumulativo a
@@ -87,6 +88,17 @@ export class UtilityConsumption {
 
   @Column({ type: 'boolean', default: false })
   deleted: boolean;
+
+  // Lettura importata da una fattura (le rilevazioni di periodo si collegano alle righe).
+  @Column({ type: 'int', nullable: true })
+  invoice_id_fk: number | null;
+
+  @ManyToOne(() => Invoice, { onDelete: 'SET NULL' })
+  @JoinColumn({
+    name: 'invoice_id_fk',
+    foreignKeyConstraintName: 'FK_utility_consumptions_invoice',
+  })
+  invoice: Invoice;
 
   @ManyToOne(() => Utility, { nullable: false })
   @JoinColumn({ name: 'utility_id_fk' })

@@ -41,8 +41,20 @@ export type LineTarget =
   | 'consumptionF3'
   | 'unit'
   | 'meter'
-  | 'estimated';
+  | 'estimated'
+  | ReadingTarget;
 export type TargetField = HeaderTarget | LineTarget;
+
+// Letture del contatore (in alternativa al consumo del periodo): fino a 6 per
+// riga, ciascuna con data, valore e tipo (rilevata / stimata).
+export const READING_SLOTS = 6;
+type ReadingPart = 'Date' | 'Value' | 'Type';
+export type ReadingTarget = `reading${1 | 2 | 3 | 4 | 5 | 6}${ReadingPart}`;
+export const readingTarget = (slot: number, part: ReadingPart) =>
+  `reading${slot}${part}` as ReadingTarget;
+export const READING_TARGETS: ReadingTarget[] = Array.from({ length: READING_SLOTS }, (_, i) =>
+  (['Date', 'Value', 'Type'] as ReadingPart[]).map((p) => readingTarget(i + 1, p)),
+).flat();
 
 export const HEADER_TARGETS: HeaderTarget[] = [
   'supplierVat',
@@ -68,6 +80,7 @@ export const LINE_TARGETS: LineTarget[] = [
   'unit',
   'meter',
   'estimated',
+  ...READING_TARGETS,
 ];
 
 const CONDITION_CHILD = 'TipoDato';
@@ -167,6 +180,16 @@ const FORMATS: Record<TargetField, (v: string) => boolean> = {
   unit: (v) => /^[A-Za-z0-9³]{1,6}$/.test(v),
   meter: (v) => v.length > 0,
   estimated: (v) => /stimat/i.test(v),
+  ...(Object.fromEntries(
+    READING_TARGETS.map((t) => [
+      t,
+      t.endsWith('Date')
+        ? (v: string) => DATE.test(v)
+        : t.endsWith('Value')
+          ? (v: string) => /^\d+([.,]\d+)?$/.test(v)
+          : (v: string) => /rilevat|stimat|effettiv|reale|presunt/i.test(v),
+    ]),
+  ) as Record<ReadingTarget, (v: string) => boolean>),
 };
 
 // Percorsi tipici del tracciato FatturaPA, a parità di formato.
@@ -192,6 +215,7 @@ const HINTS: Record<TargetField, string[]> = {
   unit: ['UnitaMisura'],
   meter: ['AltriDatiGestionali/RiferimentoTesto'],
   estimated: [],
+  ...(Object.fromEntries(READING_TARGETS.map((t) => [t, []])) as Record<ReadingTarget, string[]>),
 };
 
 export function targetScope(target: TargetField): FieldScope {
