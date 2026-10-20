@@ -358,7 +358,9 @@ function isoDates(value: string): string[] {
 const TABLE_REACH = 6;
 const TYPE_WORD =
   /^(?:rilevat\w*|stimat\w*|effettiv\w*|real[ei]|presunt\w*|misurat\w*|autolettur\w*)$/i;
-const DATE_AT_START = /^\s*(?:\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-](?:\d{4}|\d{2}))(?!\d)/;
+// Inizio di una riga della tabella: la data, anche dopo il tipo («Rilevata 30/06/2026 10.393», AGSM AIM).
+const DATE_AT_START =
+  /^\s*(?:(?:rilevat\w*|stimat\w*|effettiv\w*|real[ei]|presunt\w*|misurat\w*|autolettur\w*)\s+)?(?:\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-](?:\d{4}|\d{2}))(?!\d)/i;
 const FIRST_DATE = /\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-](?:\d{4}|\d{2})(?!\d)/;
 // Fascia oraria nella riga («Fascia oraria F1»): F0 = totale del monorario.
 const BAND_WORD = /\bF\s?([0-3])\b/i;
@@ -380,7 +382,9 @@ function rowReadings(
   const types = squash(rest)
     .split(' ')
     .filter((w) => TYPE_WORD.test(w));
-  const count = Math.min(dates.length, values.length);
+  // Più date che numeri: un periodo col suo consumo («01/06/2026 - 30/06/2026 2»), non letture.
+  if (values.length < dates.length) return [];
+  const count = dates.length;
   return Array.from({ length: count }, (_, k) => ({
     date: isoDates(dates[k])[0],
     value: values[k],
@@ -503,10 +507,14 @@ export function detectReadingTables(text: string | null): DetectedReadingTable[]
       let h = i - 1;
       while (h >= 0 && !squash(lines[h])) h--;
       const header = h >= 0 ? squash(lines[h]) : '';
-      if (!header || header.length > 80) continue;
+      // Intestazione con una data: è testo della bolletta (es. «accisa … dal 01/06/2026 al»
+      // sopra uno scaglione «30/06/2026 da 0000000480»), e varrebbe per un solo mese.
+      if (!header || header.length > 80 || FIRST_DATE.test(header)) continue;
       const rows: string[] = [];
       for (let j = i; j < lines.length && isRow(lines[j]); j++) rows.push(lines[j]);
-      found.push({ at: i, table: { layout: 'rows', label: header, cells: rowsCells(rows) } });
+      const cells = rowsCells(rows);
+      if (cells.dates.length)
+        found.push({ at: i, table: { layout: 'rows', label: header, cells } });
     }
   }
   const seen = new Map<string, number>();
