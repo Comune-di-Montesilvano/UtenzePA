@@ -14,8 +14,6 @@ export interface MatchedLine {
   consumption: number | null;
   // Consumo per fascia letto in fattura (null = non letto).
   bands: [number | null, number | null, number | null];
-  // Monoraria: consumo complessivo come fascia F0.
-  f0?: number | null;
   estimated: boolean;
   description: string | null;
   supply_code: string | null;
@@ -237,7 +235,6 @@ export class InvoiceMatcher {
         amount: line.amount,
         consumption: line.consumption,
         bands: [line.consumptionF1, line.consumptionF2, line.consumptionF3],
-        f0: line.consumptionF0 ?? null,
         estimated: line.estimated,
         description: line.description ? line.description.slice(0, 255) : null,
         supply_code: line.utility ? line.utility.slice(0, 50) : null,

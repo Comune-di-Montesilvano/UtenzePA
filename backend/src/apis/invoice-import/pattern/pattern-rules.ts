@@ -65,8 +65,6 @@ export interface ExtractedLine {
   consumptionF1: number | null;
   consumptionF2: number | null;
   consumptionF3: number | null;
-  // Fattura monoraria (fasce mappate, F2 e F3 assenti): consumo complessivo, nello storico consumption_f0.
-  consumptionF0?: number | null;
   unit: string | null;
   meter: string | null;
   // Consumo stimato dal fornitore (lettura stimata, «di cui stimati» > 0).
@@ -504,7 +502,6 @@ export function extract(
     const amountRule = rules.line.amount ?? { kind: 'grossAmount' };
     let consumption: number | null = null;
     let bands: (number | null)[] = [null, null, null];
-    let monoraryConsumption: number | null = null;
     let estimated = false;
     const descriptionText = description ?? firstValue([line], 'Descrizione') ?? '';
     // Una nota di credito non registra consumi (i conguagli sono un caso a parte).
@@ -520,7 +517,6 @@ export function extract(
         if (monorary && bands[0] !== null) {
           consumption ??= bands[0];
           bands = [null, null, null];
-          monoraryConsumption = consumption;
         }
         // Senza totale letto il consumo è la somma delle fasce.
         if (consumption === null && bands.some((b) => b !== null)) {
@@ -553,7 +549,6 @@ export function extract(
       consumptionF1: bands[0],
       consumptionF2: bands[1],
       consumptionF3: bands[2],
-      consumptionF0: monoraryConsumption,
       unit,
       meter: lineRule(tree, line, rules.line.meter, segment),
       estimated,

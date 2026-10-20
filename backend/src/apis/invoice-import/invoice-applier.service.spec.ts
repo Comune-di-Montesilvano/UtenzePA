@@ -328,33 +328,8 @@ describe('InvoiceApplier: matricola', () => {
       [],
       new Map(),
       new Set(),
-      new Map([
-        [812, { consumption_f0: null, consumption_f1: 60, consumption_f2: 25, consumption_f3: 38 }],
-      ]),
+      new Map([[812, { consumption_f1: 60, consumption_f2: 25, consumption_f3: 38 }]]),
     );
-  });
-
-  it('monoraria: consumo complessivo come fascia F0', async () => {
-    const base = match();
-    await applier.apply(
-      message(),
-      extracted,
-      match({
-        lines: [{ ...base.lines[0], bands: [null, null, null], f0: base.lines[0].consumption }],
-      }),
-      3,
-      7,
-    );
-    const bands = linker.link.mock.calls[linker.link.mock.calls.length - 1][6] as Map<
-      number,
-      unknown
-    >;
-    expect(bands.get(812)).toEqual({
-      consumption_f0: base.lines[0].consumption,
-      consumption_f1: null,
-      consumption_f2: null,
-      consumption_f3: null,
-    });
   });
 
   it('blocco: nessuna fattura scritta, segnalazione con utenza e matricola, pattern sul messaggio', async () => {
