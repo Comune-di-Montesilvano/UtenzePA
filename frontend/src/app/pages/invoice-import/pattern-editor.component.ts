@@ -3,6 +3,7 @@ import {NgTemplateOutlet} from '@angular/common';
 import {ActivatedRoute, Router} from '@angular/router';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
+import {MatTooltipModule} from '@angular/material/tooltip';
 import {MatButtonToggleModule} from '@angular/material/button-toggle';
 import {MatDialog} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -111,6 +112,7 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     FormsModule,
     FilterableSelectComponent,
     MatButtonModule,
+    MatTooltipModule,
     MatButtonToggleModule,
     MatFormFieldModule,
     MatIconModule,
@@ -148,7 +150,10 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     .pe-row mat-form-field { width: 100%; }
     .pe-word { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
     .pe-word mat-form-field { flex: 1 1 10rem; min-width: 0; }
-    .pe-word-open { margin-top: 0.25rem; font-size: 0.8rem; }
+    .pe-select { display: flex; align-items: center; gap: 0.25rem; }
+    .pe-select app-filterable-select { flex: 1 1 auto; min-width: 0; }
+    /* Spazio della forbice su ogni riga: i campi restano tutti della stessa larghezza. */
+    .pe-word-open { flex: none; width: 40px; height: 40px; padding: 8px; color: var(--app-muted); }
     .pe-word-hint { flex-basis: 100%; font-size: 0.75rem; color: var(--app-muted); }
     .pe-occ { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.5rem; font-size: 0.8rem; max-height: 12rem;
       overflow: auto; }
