@@ -292,6 +292,14 @@ describe('InvoicePatternsService', () => {
 
   it.each([
     [
+      '«presente la parola» fuori dal consumo stimato',
+      { meter: { kind: 'contains', path: PDF_PATH, word: 'x' } },
+    ],
+    [
+      'consumo stimato con un numero prima della parola',
+      { estimated: { kind: 'numberBefore', path: PDF_PATH, word: 'x' } },
+    ],
+    [
       'PDF fuori da consumo e matricola',
       { utility: { kind: 'textAfter', path: PDF_PATH, word: 'POD' } },
     ],

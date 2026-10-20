@@ -106,8 +106,10 @@ const REPROCESS_SQL =
 
 const RULE_KINDS = ['field', ...WORD_KINDS, 'grossAmount', 'fromHeader', 'none'];
 const isWordKind = (kind: unknown) => (WORD_KINDS as unknown[]).includes(kind);
-// Dal testo del PDF si leggono solo consumo e matricola.
-const PDF_TARGETS: LineTarget[] = ['consumption', 'meter'];
+// Dal testo del PDF si leggono solo consumo, matricola e consumo stimato.
+const PDF_TARGETS: LineTarget[] = ['consumption', 'meter', 'estimated'];
+// Consumo stimato: numero «di cui stimati» o parola presente; «presente» solo lì.
+const ESTIMATED_KINDS = ['numberAfter', 'contains', 'none'];
 
 const text = (value: unknown, max: number) =>
   value === undefined || (typeof value === 'string' && value.length > 0 && value.length <= max);
@@ -121,6 +123,8 @@ function validRule(target: string, rule: unknown): boolean {
   }
   if (isWordKind(r.kind) && (!text(r.word, 50) || r.word === undefined)) return false;
   if (!text(r.anchor, 100) || (r.anchor !== undefined && !isWordKind(r.kind))) return false;
+  if (target === 'estimated' ? !ESTIMATED_KINDS.includes(r.kind as string) : r.kind === 'contains')
+    return false;
   if (r.path === PDF_PATH && (!isWordKind(r.kind) || !(PDF_TARGETS as string[]).includes(target)))
     return false;
   if (r.where !== undefined) {
@@ -450,6 +454,14 @@ export class InvoicePatternsService {
         if (rule && 'path' in rule && rule.path === PDF_PATH)
           add(t, 'warn', 'La fattura non ha un PDF leggibile: dato non letto');
       }
+    }
+    if (rules.line.estimated && rules.line.estimated.kind !== 'none' && consumptions) {
+      const estimated = extracted.lines.filter((l) => l.estimated).length;
+      add(
+        'estimated',
+        'ok',
+        estimated ? `Consumo stimato su ${estimated} righe` : 'Consumo reale (non stimato)',
+      );
     }
     if (rules.header.cig && extracted.cig) add('cig', 'ok', `CIG ${extracted.cig}`);
     for (const issue of match.issues) add(ISSUE_FIELD[issue.type], 'warn', issue.detail);

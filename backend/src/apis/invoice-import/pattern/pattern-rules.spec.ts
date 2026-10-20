@@ -213,6 +213,20 @@ describe('extract: dati nella Causale (A2A)', () => {
     );
   });
 
+  it('più POD nel testo: il tratto di un’utenza finisce dove comincia la successiva', () => {
+    const two = Buffer.from(
+      withCausale(['POD IT001E00000001 Contatore 111 POD IT001E00000002 Contatore 222 kWh 20'])
+        .toString('utf8')
+        .replace(/(<NumeroLinea>2<\/NumeroLinea>[\s\S]*?)IT001E00000001/, '$1IT001E00000002'),
+    );
+    const lines = extract(two, A2A_RULES).lines;
+    // Senza kWh nel suo tratto la prima utenza non prende il consumo della seconda.
+    expect(lines.slice(0, 2).map((l) => [l.consumption, l.meter])).toEqual([
+      [null, '111'],
+      [20, '222'],
+    ]);
+  });
+
   it('più POD nella Causale: ogni riga legge il tratto della sua utenza', () => {
     const two = Buffer.from(
       withCausale([
@@ -300,6 +314,35 @@ describe('extract: dati nel PDF allegato', () => {
     const r = rules({ consumption: fromPdf({ kind: 'numberAfter', word: 'Consumo totale' }) });
     const text = 'Consumo totale fatturato: 9,5 Smc\nCodice Servizio 123456';
     expect(extract(aca, r, text).lines[0].consumption).toBe(9.5);
+  });
+
+  it('consumo stimato: parola presente nel tratto, oppure «di cui stimati» maggiore di zero', () => {
+    const consumption = fromPdf({
+      kind: 'numberBefore',
+      word: 'mc',
+      anchor: 'Consumo nel periodo',
+    });
+    const word = rules({
+      consumption,
+      estimated: fromPdf({ kind: 'contains', word: 'Stimata', anchor: 'Contatore n.' }),
+    });
+    const withReadings = PDF.replace(
+      'Contatore n. 98765',
+      'Contatore n. 98765\n29/06/2026 99369 mc Stimata',
+    );
+    expect(extract(aca, word, withReadings).lines.map((l) => l.estimated)).toEqual([
+      true,
+      false,
+      false,
+    ]);
+    expect(extract(aca, word, PDF).lines[0].estimated).toBe(false);
+
+    const share = rules({
+      consumption,
+      estimated: fromPdf({ kind: 'numberAfter', word: 'di cui stimati' }),
+    });
+    expect(extract(aca, share, `${PDF}\ndi cui stimati: 13 Smc`).lines[0].estimated).toBe(true);
+    expect(extract(aca, share, `${PDF}\ndi cui stimati: 0 Smc`).lines[0].estimated).toBe(false);
   });
 
   it('il PDF non conta nel riconoscimento della struttura', () => {

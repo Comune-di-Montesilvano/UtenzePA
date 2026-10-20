@@ -16,9 +16,10 @@ import {
 // I campi di riga leggono la riga (DettaglioLinee) salvo fromHeader e le regole
 // «parola» con fromHeader, che leggono la testata (o il PDF).
 // numberAfter: primo numero dopo la parola; numberBefore: numero subito prima
-// (es. «594 mc»); textAfter: prima parola dopo (matricola). anchor: la ricerca
-// parte da lì (es. «Sintesi consumi fatturati»).
-export type WordKind = 'numberAfter' | 'numberBefore' | 'textAfter';
+// (es. «594 mc»); textAfter: prima parola dopo (matricola); contains: la parola
+// c'è (consumo stimato, es. «Stimata»). anchor: la ricerca parte da lì (es.
+// «Sintesi consumi fatturati»).
+export type WordKind = 'numberAfter' | 'numberBefore' | 'textAfter' | 'contains';
 export interface WordRule {
   kind: WordKind;
   path: string;
@@ -50,6 +51,8 @@ export interface ExtractedLine {
   consumption: number | null;
   unit: string | null;
   meter: string | null;
+  // Consumo stimato dal fornitore (lettura stimata, «di cui stimati» > 0).
+  estimated: boolean;
 }
 
 export interface ExtractedInvoice {
@@ -77,7 +80,7 @@ const DEFAULTS: Partial<Record<HeaderTarget, string>> = {
 
 // Testo del PDF allegato: letto a parte (sdi/pdf-text.ts), solo per le regole «parola».
 export const PDF_PATH = '@pdf';
-export const WORD_KINDS: WordKind[] = ['numberAfter', 'numberBefore', 'textAfter'];
+export const WORD_KINDS: WordKind[] = ['numberAfter', 'numberBefore', 'textAfter', 'contains'];
 
 export const isWordRule = (rule: Rule | undefined): rule is WordRule =>
   !!rule && (WORD_KINDS as string[]).includes(rule.kind);
@@ -88,7 +91,8 @@ export const usesPdf = (rules: PatternRules): boolean =>
     (r) => isWordRule(r) && r.path === PDF_PATH,
   );
 
-type InvoiceDoc = InvoiceTree & { pdf: string | null };
+// utilities: codici delle utenze della fattura, per il tratto di testo di ciascuna.
+type InvoiceDoc = InvoiceTree & { pdf: string | null; utilities: string[] };
 
 // Note di credito (ordinaria e semplificata): in UtenzePA importi negativi.
 const CREDIT_NOTES = ['TD04', 'TD08'];
@@ -185,6 +189,8 @@ function wordUnit(rule: WordRule, text: string | null): string | null {
 function readWord(rule: WordRule, text: string | null): string | null {
   const scoped = fromAnchor(text, rule.anchor);
   if (rule.kind === 'textAfter') return textAfter(scoped, rule.word);
+  if (rule.kind === 'contains')
+    return scoped?.toLowerCase().includes(rule.word.toLowerCase()) ? rule.word : null;
   const n =
     rule.kind === 'numberAfter' ? numberAfter(scoped, rule.word) : numberBefore(scoped, rule.word);
   return n === null ? null : String(n);
@@ -199,11 +205,25 @@ function headerText(tree: InvoiceDoc, path: string): string | null {
   return values.length ? values.join('') : null;
 }
 
-// Testo con più utenze: si legge dal punto in cui compare quella della riga.
-function segmentFor(text: string | null, utility: string | null): string | null {
+// Testo con più utenze: si legge dal punto in cui compare quella della riga
+// fino alla prima delle altre.
+function segmentFor(text: string | null, utility: string | null, all: string[]): string | null {
   if (!text || !utility) return text;
-  const at = text.toLowerCase().indexOf(utility.toLowerCase());
-  return at < 0 ? text : text.slice(at + utility.length);
+  const lower = text.toLowerCase();
+  const at = lower.indexOf(utility.toLowerCase());
+  if (at < 0) return text;
+  const start = at + utility.length;
+  const ends = all
+    .filter((u) => u !== utility)
+    .map((u) => lower.indexOf(u.toLowerCase(), start))
+    .filter((i) => i >= 0);
+  return text.slice(start, ends.length ? Math.min(...ends) : undefined);
+}
+
+// Consumo stimato: «di cui stimati» maggiore di zero, oppure la parola presente.
+function isEstimated(rule: Rule | undefined, value: string | null): boolean {
+  if (!isWordRule(rule) || value === null) return false;
+  return rule.kind === 'contains' || (toNumber(value) ?? 0) > 0;
 }
 
 function toNumber(value: string | null): number | null {
@@ -263,7 +283,7 @@ function wordText(
   utility: string | null,
 ): string | null {
   return rule.fromHeader
-    ? segmentFor(headerText(tree, rule.path), utility)
+    ? segmentFor(headerText(tree, rule.path), utility, tree.utilities)
     : firstValue([line], rule.path);
 }
 
@@ -276,7 +296,7 @@ export function extract(
   rules: PatternRules,
   pdf: string | null = null,
 ): ExtractedInvoice {
-  const tree: InvoiceDoc = Object.assign(parseInvoiceTree(xml), { pdf });
+  const tree: InvoiceDoc = Object.assign(parseInvoiceTree(xml), { pdf, utilities: [] });
   const h = rules.header;
   const documentType = headerRule(tree, h.documentType, DEFAULTS.documentType) ?? '';
   const creditNote = CREDIT_NOTES.includes(documentType);
@@ -290,13 +310,15 @@ export function extract(
   const anyUtility = utilities.some((u) => u !== null);
   // Testo con più utenze (Causale, PDF): ogni riga legge dal punto della sua. Con
   // una sola utenza tutto il testo, che può citarla anche dopo il dato cercato.
-  const segmented = new Set(utilities.filter((u) => u !== null)).size > 1;
+  tree.utilities = [...new Set(utilities.filter((u): u is string => u !== null))];
+  const segmented = tree.utilities.length > 1;
   const lines = tree.lines.map((line, index): ExtractedLine => {
     const utility = utilities[index];
     const segment = segmented ? utility : null;
     const description = lineRule(tree, line, rules.line.description);
     const amountRule = rules.line.amount ?? { kind: 'grossAmount' };
     let consumption: number | null = null;
+    let estimated = false;
     const descriptionText = description ?? firstValue([line], 'Descrizione') ?? '';
     // Una nota di credito non registra consumi (i conguagli sono un caso a parte).
     if (!creditNote && (!filter || descriptionText.toLowerCase().includes(filter))) {
@@ -304,6 +326,10 @@ export function extract(
       const header = readsHeader(consumptionRule);
       if (!header || (!headerConsumptionUsed.has(used) && (utility !== null || !anyUtility))) {
         consumption = toNumber(lineRule(tree, line, consumptionRule, segment));
+        if (consumption !== null) {
+          const rule = rules.line.estimated;
+          estimated = isEstimated(rule, lineRule(tree, line, rule, segment));
+        }
         if (consumption !== null && readsHeader(consumptionRule)) headerConsumptionUsed.add(used);
       }
     }
@@ -323,6 +349,7 @@ export function extract(
       consumption,
       unit,
       meter: lineRule(tree, line, rules.line.meter, segment),
+      estimated,
     };
   });
 

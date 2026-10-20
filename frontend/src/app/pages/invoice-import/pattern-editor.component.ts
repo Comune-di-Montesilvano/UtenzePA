@@ -48,14 +48,21 @@ const PREVIEW_DEBOUNCE_MS = 400;
 // La P.IVA identifica il fornitore: non si mappa.
 const EDITABLE_HEADER = HEADER_TARGETS.filter(t => t !== 'supplierVat');
 // Regole «parola» (consumo e matricola dentro un testo: Causale, descrizione, PDF allegato).
-// Consumo: numero dopo la parola (kWh 542) o prima (594 mc); matricola: parola dopo (Contatore 000283767).
+// Consumo: numero dopo la parola (kWh 542) o prima (594 mc); matricola: parola dopo (Contatore 000283767);
+// consumo stimato: «di cui stimati» maggiore di zero o la parola presente («Stimata»).
 const WORD_MODES: Partial<Record<TargetField, {kind: WordKind; label: string}[]>> = {
   consumption: [
     {kind: 'numberAfter', label: 'Numero dopo la parola'},
     {kind: 'numberBefore', label: 'Numero prima della parola'},
   ],
   meter: [{kind: 'textAfter', label: 'Testo dopo la parola'}],
+  estimated: [
+    {kind: 'contains', label: 'Presente la parola'},
+    {kind: 'numberAfter', label: 'Numero dopo la parola maggiore di zero'},
+  ],
 };
+// Campi che si leggono solo cercando una parola.
+const WORD_ONLY: TargetField[] = ['estimated'];
 const PDF_KEY = `header|${PDF_PATH}|`;
 
 // Campo del catalogo ricostruito da una regola salvata (chiave = scope|path|condizione).
@@ -341,8 +348,8 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
         ...(anchor ? {anchor} : {}),
       };
     }
-    // Dal PDF solo con la parola: senza, il campo resta non mappato.
-    if (field.path === PDF_PATH) return null;
+    // Dal PDF (e la stima) solo con la parola: senza, il campo resta non mappato.
+    if (field.path === PDF_PATH || WORD_ONLY.includes(t)) return null;
     const where = field.where ? {where: field.where} : {};
     return fromHeader ? {kind: 'fromHeader', path: field.path, ...where} : {kind: 'field', path: field.path, ...where};
   }
@@ -364,6 +371,11 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
     return this.choice[t] === `f:${PDF_KEY}`;
   }
 
+  // Il testo del PDF e il consumo stimato si leggono solo cercando una parola.
+  wordOnly(t: TargetField): boolean {
+    return this.fromPdf(t) || WORD_ONLY.includes(t);
+  }
+
   focus(t: TargetField): void {
     this.focused = t;
     if (this.fromPdf(t) && this.data?.pdf_text) this.view = 'pdf';
@@ -372,8 +384,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
 
   changed(t: TargetField): void {
     if (!this.canWord(t)) this.wordMode[t] = '';
-    // Il testo del PDF si legge solo cercando una parola.
-    else if (this.fromPdf(t) && !this.wordMode[t]) this.wordMode[t] = this.wordModes(t)[0].kind;
+    else if (this.wordOnly(t) && !this.wordMode[t]) this.wordMode[t] = this.wordModes(t)[0].kind;
     this.focus(t);
     this.requestPreview(true);
   }

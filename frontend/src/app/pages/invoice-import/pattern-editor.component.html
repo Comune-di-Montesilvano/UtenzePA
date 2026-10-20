@@ -64,7 +64,7 @@
                 <td>{{ l.utility || '—' }}</td>
                 <td>{{ l.periodStart || '' }}{{ l.periodEnd ? ' – ' + l.periodEnd : '' }}</td>
                 <td class="num">{{ eur(l.amount) }}</td>
-                <td class="num">{{ l.consumption ?? '' }} {{ l.unit || '' }}</td>
+                <td class="num">{{ l.consumption ?? '' }} {{ l.unit || '' }}{{ l.estimated ? ' (stimato)' : '' }}</td>
               </tr>
             }
           </tbody>
@@ -134,7 +134,7 @@
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Lettura</mat-label>
               <mat-select [(ngModel)]="wordMode[t]" [disabled]="!canEdit" (ngModelChange)="changed(t)">
-                @if (!fromPdf(t)) {
+                @if (!wordOnly(t)) {
                   <mat-option value="">Valore del campo</mat-option>
                 }
                 @for (m of wordModes(t); track m.kind) {

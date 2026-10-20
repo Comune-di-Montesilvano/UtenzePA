@@ -34,10 +34,11 @@ export type LineTarget =
   | 'description'
   | 'consumption'
   | 'unit'
-  | 'meter';
+  | 'meter'
+  | 'estimated';
 export type TargetField = HeaderTarget | LineTarget;
 
-export type WordKind = 'numberAfter' | 'numberBefore' | 'textAfter';
+export type WordKind = 'numberAfter' | 'numberBefore' | 'textAfter' | 'contains';
 export interface WordRule {
   kind: WordKind;
   path: string;
@@ -53,10 +54,10 @@ export type Rule =
   | {kind: 'fromHeader'; path: string; where?: FieldCondition}
   | {kind: 'none'};
 
-// Percorso speciale: testo del PDF allegato (solo regole «parola», consumo e matricola).
+// Percorso speciale: testo del PDF allegato (solo regole «parola»: consumo, matricola, stima).
 export const PDF_PATH = '@pdf';
 export const PDF_LABEL = 'Testo del PDF allegato';
-export const WORD_KINDS: WordKind[] = ['numberAfter', 'numberBefore', 'textAfter'];
+export const WORD_KINDS: WordKind[] = ['numberAfter', 'numberBefore', 'textAfter', 'contains'];
 export const isWordRule = (rule: Rule): rule is WordRule => (WORD_KINDS as string[]).includes(rule.kind);
 
 export interface PatternRules {
@@ -74,6 +75,7 @@ export interface ExtractedLine {
   consumption: number | null;
   unit: string | null;
   meter: string | null;
+  estimated: boolean;
 }
 
 export interface ExtractedInvoice {
@@ -186,6 +188,7 @@ export const LINE_TARGETS: LineTarget[] = [
   'consumption',
   'unit',
   'meter',
+  'estimated',
 ];
 
 export const isHeaderTarget = (t: TargetField): t is HeaderTarget => (HEADER_TARGETS as string[]).includes(t);
