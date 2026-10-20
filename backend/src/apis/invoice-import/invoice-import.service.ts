@@ -72,16 +72,13 @@ const BACKFILL_SQL =
   "SELECT id FROM sdi_messages WHERE kind = 'INVOICE' AND status IN ('PENDING', 'LINKED') " +
   'AND structure_key IS NULL AND supplier_id_fk IS NOT NULL ORDER BY id LIMIT 200';
 
-// Fatture ferme per matricola diversa la cui causa è sistemata (matricola
-// dell'utenza ora uguale, zeri iniziali esclusi): si rielaborano a ogni giro.
+// Fatture ferme per matricola diversa (fino alla v1.38): ora la matricola si
+// aggiorna dalla fattura, quindi si rielaborano; la rielaborazione toglie la segnalazione.
 const UNBLOCKED_SQL =
   "SELECT m.id FROM sdi_messages m WHERE m.kind = 'INVOICE' AND m.status IN ('PENDING', 'LINKED') " +
   'AND m.pattern_id_fk IS NOT NULL ' +
   "AND EXISTS (SELECT 1 FROM invoice_import_issues ii WHERE ii.sdi_message_id_fk = m.id AND ii.type = 'METER_MISMATCH') " +
-  'AND NOT EXISTS (SELECT 1 FROM invoice_import_issues ii JOIN utilities u ON u.id = ii.utility_id_fk ' +
-  "WHERE ii.sdi_message_id_fk = m.id AND ii.type = 'METER_MISMATCH' AND COALESCE(u.meter_number, '') <> '' " +
-  "AND UPPER(TRIM(LEADING '0' FROM REPLACE(u.meter_number, ' ', ''))) <> " +
-  "UPPER(TRIM(LEADING '0' FROM REPLACE(ii.value, ' ', '')))) ORDER BY m.id LIMIT 200";
+  'ORDER BY m.id LIMIT 200';
 
 // structure_key vuota = messaggio non più sulla casella: non si ritenta.
 const GONE_STRUCTURE = '';
@@ -260,6 +257,26 @@ export class InvoiceImportService {
       );
     }
     return file;
+  }
+
+  /** Più file dalla casella con una sola connessione; i messaggi spariti dalla PEC mancano. */
+  async readMessageFiles(rows: SdiMessage[]): Promise<Map<number, Buffer>> {
+    if (!this.configured) throw new BadRequestException('Import non configurato.');
+    const files = new Map<number, Buffer>();
+    await this.withMailbox(async (mailbox) => {
+      for (const row of rows) {
+        const raw = await mailbox.fetchRaw(
+          Number(row.uid_validity),
+          Number(row.uid),
+          row.message_id,
+        );
+        const file = raw
+          ? (await parsePecMessage(raw)).files.find((f) => f.fileName === row.file_name)
+          : undefined;
+        if (file) files.set(row.id, file.content);
+      }
+    });
+    return files;
   }
 
   private state(): Promise<InvoiceImportState | null> {
@@ -460,13 +477,7 @@ export class InvoiceImportService {
       for await (const { uid, raw } of mailbox.fetchSince(lastUid)) {
         const message = await parsePecMessage(raw);
         const touched = new Set<string>();
-        const counts = await this.processMessage(
-          message,
-          String(uidValidity),
-          uid,
-          touched,
-          ctx,
-        );
+        const counts = await this.processMessage(message, String(uidValidity), uid, touched, ctx);
         for (const identifier of touched) await this.refreshInvoiceStatus(identifier);
         result.processed++;
         result.linked += counts.linked;

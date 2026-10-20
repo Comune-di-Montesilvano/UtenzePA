@@ -28,6 +28,8 @@ export interface MatchIssue {
 export interface MeterFound {
   utilityId: number;
   meter: string;
+  // Matricola in anagrafica prima dell'aggiornamento (null = vuota).
+  previous?: string | null;
 }
 
 export interface MatchResult {
@@ -38,7 +40,8 @@ export interface MatchResult {
   issues: MatchIssue[];
   // Differenze che fermano l'import della fattura finché non si risolvono.
   blocking: MatchIssue[];
-  // Matricola letta in fattura per utenza; da completare dove l'utenza non l'ha.
+  // Matricola letta in fattura per utenza; da scrivere dove l'utenza non l'ha o
+  // ne ha una diversa (vale quella della fattura).
   meters: MeterFound[];
   meterFills: MeterFound[];
 }
@@ -155,7 +158,7 @@ export class InvoiceMatcher {
       });
     }
 
-    // Matricola: la prima letta per utenza; vuota in anagrafica = da completare, diversa = blocca.
+    // Matricola: la prima letta per utenza; vuota o diversa in anagrafica = si scrive quella della fattura.
     const meters: MeterFound[] = [];
     const meterFills: MeterFound[] = [];
     const blocking: MatchIssue[] = [];
@@ -164,16 +167,8 @@ export class InvoiceMatcher {
       const meter = line.meter?.trim();
       if (!utility || !meter || meters.some((m) => m.utilityId === utility.id)) continue;
       meters.push({ utilityId: utility.id, meter });
-      if (!comparableMeter(utility.meter_number)) {
-        meterFills.push({ utilityId: utility.id, meter });
-      } else if (comparableMeter(utility.meter_number) !== comparableMeter(meter)) {
-        blocking.push({
-          type: ImportIssueType.METER_MISMATCH,
-          lineIndex: index,
-          utilityId: utility.id,
-          value: meter,
-          detail: `${line.utility ?? `Utenza ${utility.id}`}: matricola in fattura ${meter}, in anagrafica ${utility.meter_number}`,
-        });
+      if (comparableMeter(utility.meter_number) !== comparableMeter(meter)) {
+        meterFills.push({ utilityId: utility.id, meter, previous: utility.meter_number || null });
       }
     }
 

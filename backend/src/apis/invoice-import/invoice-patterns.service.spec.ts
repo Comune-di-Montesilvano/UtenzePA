@@ -36,9 +36,9 @@ const message = (over: Record<string, unknown> = {}) => ({
 
 describe('InvoicePatternsService', () => {
   let patterns: { findOneBy: jest.Mock; save: jest.Mock; update: jest.Mock };
-  let messages: { findOneBy: jest.Mock; update: jest.Mock };
+  let messages: { findOneBy: jest.Mock; findBy: jest.Mock; update: jest.Mock };
   let query: jest.Mock;
-  let importer: { readMessageFile: jest.Mock; reprocess: jest.Mock };
+  let importer: { readMessageFile: jest.Mock; readMessageFiles: jest.Mock; reprocess: jest.Mock };
   let matcher: { match: jest.Mock };
   let service: InvoicePatternsService;
 
@@ -48,10 +48,15 @@ describe('InvoicePatternsService', () => {
       save: jest.fn(async (p) => ({ id: 3, ...p })),
       update: jest.fn(),
     };
-    messages = { findOneBy: jest.fn().mockResolvedValue(message()), update: jest.fn() };
+    messages = {
+      findOneBy: jest.fn().mockResolvedValue(message()),
+      findBy: jest.fn().mockResolvedValue([]),
+      update: jest.fn(),
+    };
     query = jest.fn().mockResolvedValue([]);
     importer = {
       readMessageFile: jest.fn().mockResolvedValue({ content: podXml }),
+      readMessageFiles: jest.fn().mockResolvedValue(new Map()),
       reprocess: jest.fn().mockResolvedValue({ extracted: 0, skipped: 0, queued: 0 }),
     };
     matcher = {
@@ -77,6 +82,25 @@ describe('InvoicePatternsService', () => {
       importer as never,
       matcher as never,
     );
+  });
+
+  it('analisi: su quante fatture simili ogni campo mappato ha un valore, file in memoria', async () => {
+    messages.findBy.mockResolvedValue([message({ id: 9 }), message({ id: 10 })]);
+    importer.readMessageFiles.mockResolvedValue(new Map([[9, podXml]]));
+    const rules: PatternRules = { ...RULES, header: { cig: { kind: 'none' } } };
+    expect(await service.analyze(9, [9, 10], rules)).toEqual({
+      analyzed: 2,
+      unavailable: 1,
+      matches: 1,
+      found: { utility: 1, amount: 1 },
+    });
+    expect(messages.findBy).toHaveBeenCalledWith(expect.objectContaining({ supplier_id_fk: 46 }));
+    // La seconda volta la fattura 9 è già in memoria: si chiede alla PEC solo la 10.
+    await service.analyze(9, [9, 10], rules);
+    expect(importer.readMessageFiles).toHaveBeenLastCalledWith([
+      expect.objectContaining({ id: 10 }),
+    ]);
+    await expect(service.analyze(9, [], rules)).rejects.toThrow('Indica da 1 a 25 fatture');
   });
 
   it('fatture senza pattern: una riga per fornitore, esempio dalla struttura più frequente', async () => {
@@ -274,7 +298,9 @@ describe('InvoicePatternsService', () => {
     expect(editor.pdf_text).toBe('Contatore n. 98765');
     expect(editor.ranked.consumption[0]).toBe(`header|${PDF_PATH}|`);
     expect(editor.ranked.meter[0]).toBe(`header|${PDF_PATH}|`);
-    expect(editor.ranked.utility).not.toContain(`header|${PDF_PATH}|`);
+    // Per gli altri campi il PDF c'è, ma in fondo; mai per l'importo di riga.
+    expect(editor.ranked.utility[editor.ranked.utility.length - 1]).toBe(`header|${PDF_PATH}|`);
+    expect(editor.ranked.amount).not.toContain(`header|${PDF_PATH}|`);
   });
 
   it('anteprima con regola sul PDF: legge il testo del PDF', async () => {
@@ -288,6 +314,9 @@ describe('InvoicePatternsService', () => {
     };
     const preview = await service.preview(9, rules);
     expect(preview.extracted?.lines[0].meter).toBe('98765');
+    expect(preview.occurrences.meter).toEqual([
+      { n: 1, context: 'Codice 1 Contatore n. 98765', value: '98765' },
+    ]);
   });
 
   it.each([
@@ -300,8 +329,14 @@ describe('InvoicePatternsService', () => {
       { estimated: { kind: 'numberBefore', path: PDF_PATH, word: 'x' } },
     ],
     [
-      'PDF fuori da consumo e matricola',
-      { utility: { kind: 'textAfter', path: PDF_PATH, word: 'POD' } },
+      'occorrenza non intera',
+      {
+        meter: { kind: 'textAfter', path: PDF_PATH, word: 'x', fromHeader: true, occurrence: 1.5 },
+      },
+    ],
+    [
+      'PDF per l’importo di riga',
+      { amount: { kind: 'numberAfter', path: PDF_PATH, word: 'Totale' } },
     ],
     [
       'PDF con una regola che non cerca una parola',

@@ -255,23 +255,20 @@ Sono considerate solo le fatture dei fornitori in anagrafica con partita IVA e a
 Ogni fornitore manda le fatture con una sua struttura di XML: il pattern dice da quale campo leggere ciascun dato di UtenzePA. Di norma basta un pattern per fornitore: vale per tutte le sue fatture che hanno i campi usati, anche se differiscono per dati facoltativi (aliquote esenti, convenzione, quantità). Amministratori e operatori possono salvare, i lettori solo consultare.
 
 1. Apri la segnalazione **Fornitori con fatture senza pattern** in dashboard, oppure **Impostazioni → Import fatture**, tab **Pattern**: c'è una riga per fornitore con le fatture non coperte da nessun pattern e quante varianti di struttura hanno. **Mappa** apre l'ultima fattura della variante più frequente.
-2. Nell'editor, a sinistra, per ogni campo (testata e righe) scegli dall'elenco il campo dell'XML: le voci più probabili sono in cima, con accanto il valore letto da questa fattura; i dati del Comune (committente) sono in fondo. Le altre scelte possibili:
+2. Nell'editor, a sinistra, per ogni campo (testata e righe) scegli dall'elenco il campo dell'XML: scrivi nel campo per cercare tra i nomi e i valori (es. «POD», «Causale» o il numero che cerchi). Le voci più probabili sono in cima, con sotto il valore letto da questa fattura; i dati del Comune (committente) sono in fondo. Senza scelta la **Descrizione** è quella della riga. Le altre scelte possibili:
    - **Non presente**: il fornitore non manda il dato;
    - **Calcolato: imponibile × IVA**: solo per l'importo della riga, quando l'XML ha l'importo senza IVA; è anche la scelta predefinita se non mappi l'importo;
    - campi segnati **(dalla testata)**: lo stesso valore della testata per tutte le righe;
-   - per consumo e matricola scritti dentro un testo (Causale, descrizione o PDF), scegli il campo e poi in **Lettura**:
-     - **Numero dopo la parola**: il consumo che segue una parola (es. «kWh 542» nella Causale, «Consumo totale fatturato: 295 Smc» nel PDF);
-     - **Numero prima della parola**: il consumo che la precede (es. «594 mc»);
-     - **Testo dopo la parola**: la matricola (es. «Contatore 000000000000283767», «Matricola: MTSB…»), con gli zeri iniziali.
+   - per un dato scritto dentro un testo (Causale, descrizione o PDF), scegli il campo e scrivi **Dopo il testo** e/o **Prima del testo**: il valore è quello compreso fra i due, e basta uno dei due. Per esempio consumo dopo «CONSUMO» e prima di «kWh» (nel PDF «CONSUMO 1.417 kWh»), consumo dopo «kWh» («kWh 542» nella Causale), consumo prima di «mc» («594 mc»), matricola dopo «Contatore» («Contatore 000000000000283767», con gli zeri iniziali). Con tutti e due i testi si cerca il primo, poi il valore subito prima del secondo. Lasciati vuoti, si legge il valore intero del campo (per il PDF serve almeno un testo). UtenzePA legge un numero per consumo, totale e imponibile, un testo per gli altri campi. Le date scritte gg/mm/aaaa o gg.mm.aaaa vengono convertite; se il testo ne contiene due (es. «periodo: 01.09.2026-30.09.2026») l'inizio periodo prende la prima e la fine l'ultima.
 
-     Se non mappi l'unità di misura vale la parola cercata quando è un'unità (kWh, mc), altrimenti quella scritta dopo il numero (Smc). **A partire da** (facoltativo) fa partire la ricerca da un'altra parola: serve quando la parola compare più volte (es. a partire da «Sintesi consumi fatturati», il numero prima di «kWh»). Se la fattura ha più utenze, ogni riga legge il tratto dopo il codice della sua utenza; il consumo letto dalla testata o dal PDF va una volta per utenza;
-   - **Consumo stimato**: dice se il consumo letto è stimato dal fornitore, che di solito lo scrive solo nel PDF. In **Lettura** scegli **Presente la parola** (es. «Stimata» accanto alle letture, a partire da «Contatore n.») oppure **Numero dopo la parola maggiore di zero** (es. «di cui stimati: 13 Smc»). Il consumo entra nello storico dell'utenza come rilevazione **Stimata**, che lascia il posto al dato reale quando arriva;
-   - **Testo del PDF allegato**: per consumo, matricola e consumo stimato che il fornitore scrive solo nel PDF (ACA, gas, energia). Si usa sempre con una Lettura «parola»; se una fattura non ha il PDF il dato resta vuoto e la fattura si importa lo stesso;
+     Un testo può essere di più parole: gli spazi valgono anche per l'a capo del PDF (es. prima di «kWh Puoi pagare» trova il kWh seguito, nella riga sotto, da «Puoi pagare»). Se il testo cercato compare più volte, sotto i campi trovi l'elenco delle occorrenze con il testo intorno e il valore che darebbe ciascuna: fai clic su quella giusta («La prima utile» torna alla scelta automatica). Se non mappi l'unità di misura vale il testo cercato quando è un'unità (kWh, mc), altrimenti quella scritta dopo il numero (Smc). Se la fattura ha più utenze, ogni riga legge il tratto dopo il codice della sua utenza; il consumo letto dalla testata o dal PDF va una volta per utenza;
+   - **Consumo stimato**: dice se il consumo letto è stimato dal fornitore, che di solito lo scrive solo nel PDF. In **Lettura** scegli **Presente la parola** (es. «Stimata» accanto alle letture, con **Cerca dopo il testo** «Contatore n.») oppure **Numero dopo la parola maggiore di zero** (es. «di cui stimati: 13 Smc»). Il consumo entra nello storico dell'utenza come rilevazione **Stimata**, che lascia il posto al dato reale quando arriva;
+   - **Testo del PDF allegato**: per i dati che il fornitore scrive solo nel PDF (ACA, gas, energia). È in cima per consumo, matricola e consumo stimato, in fondo all'elenco per gli altri campi (numero, data, totale, imponibile, CIG, riferimento contratto, utenza, periodo, unità); non vale per l'importo della riga. Si usa sempre con un testo da cercare; se una fattura non ha il PDF il dato resta vuoto e la fattura si importa lo stesso;
    - un campo segnato **(non presente in questa fattura)** viene da un pattern salvato su un'altra fattura della stessa struttura: la regola resta;
    - **Consumo solo dalle righe che contengono**: quando il consumo va preso solo da alcune righe (es. «Energia»).
-3. A destra c'è l'XML della fattura, con il valore del campo su cui sei evidenziato; **Vedi PDF** apre il PDF allegato. Se la fattura ha un PDF, **Testo del PDF** mostra il testo così come lo legge UtenzePA, con evidenziate la parola cercata (giallo) e quella da cui parte la ricerca (azzurro): scegli le parole guardando questo testo, non il PDF impaginato, perché l'ordine delle righe può essere diverso.
-4. Accanto a ogni campo i bollini dicono come va l'anteprima: verde = letto e riconosciuto (es. utenza trovata in anagrafica, somma delle righe uguale al totale), giallo = da controllare, grigio = non mappato. L'anteprima si aggiorna a ogni modifica e non salva nulla.
-5. Con le frecce in alto scorri le altre fatture del fornitore senza pattern, prima quelle della stessa struttura: le scelte restano, e «la mappatura regge su K di N viste» dice su quante le regole funzionano con le utenze riconosciute. Un bollino rosso «import fermo» sulla matricola vuol dire che quella fattura non verrà importata finché non correggi l'utenza.
+3. A destra c'è l'XML della fattura, con il valore del campo su cui sei evidenziato; **Vedi PDF** apre il PDF allegato. Se la fattura ha un PDF, **Testo del PDF** mostra il testo così come lo legge UtenzePA, con evidenziati il testo cercato (giallo) e quello da cui parte la ricerca (azzurro), con un riquadro sull'occorrenza scelta: scegli i testi guardando questo testo, non il PDF impaginato, perché l'ordine delle righe può essere diverso.
+4. Accanto a ogni campo i bollini dicono come va l'anteprima: verde = letto e riconosciuto (es. «Consumo letto: 59 kWh», utenza trovata in anagrafica, somma delle righe uguale al totale), giallo = da controllare, grigio = non mappato. Sul consumo un bollino giallo avvisa se una riga non ha utenza riconosciuta o periodo: senza, il consumo non entra nello storico. Sotto, l'anteprima delle righe mostra utenza, descrizione, periodo, importo, consumo e matricola. L'anteprima si aggiorna a ogni modifica e non salva nulla.
+5. La barra in alto resta sempre visibile: con le frecce scorri le altre fatture del fornitore senza pattern, prima quelle della stessa struttura, e la pagina resta alla stessa altezza. Le scelte restano, e «regge su K/N viste» dice su quante delle fatture viste le regole funzionano con le utenze riconosciute. **Analizza le N simili** prova le regole su tutte le fatture simili e aggiunge a ogni campo mappato il bollino «Trovato su X di N simili» (verde se c'è su tutte, giallo se manca su alcune, rosso se su nessuna); la prima volta servono circa 30 secondi ogni 100 fatture, poi l'analisi si ripete da sola a ogni modifica in pochi secondi.
 6. **Salva pattern** (servono almeno utenza e importo della riga). Le fatture del fornitore in attesa vengono importate subito in background; il messaggio dice quante. Se il fornitore resta in elenco, le fatture rimaste hanno davvero una struttura diversa (es. senza POD): mappane una.
 
 Se una struttura non va importata (es. documenti che non sono fatture di utenze), usa **Ignora questa struttura**: le sue fatture non verranno più proposte. Per tornare indietro elimina la struttura ignorata dall'elenco dei pattern.
@@ -281,7 +278,7 @@ Con un pattern, a ogni fattura l'import:
 - **crea** la fattura se non c'è, oppure **arricchisce** quella già inserita a mano (stesso fornitore, numero e data), che mantiene il suo numero interno;
 - sostituisce le righe con quelle dell'XML (utenza, periodo, importo IVA inclusa, descrizione, consumo), con il capitolo dall'impegno o, se manca, dall'utenza;
 - registra i **consumi** delle righe nello storico dell'utenza, salvo i periodi già coperti da una rilevazione, con la matricola letta in fattura;
-- confronta la **matricola** del contatore: se l'utenza non ce l'ha la completa (con una riga nel log attività); se è diversa la fattura **non viene importata** e compare la segnalazione «Matricola diversa (import fermo)». Corretta la matricola dell'utenza (o verificato il cambio contatore), l'import riparte da solo al giro successivo;
+- aggiorna la **matricola** del contatore dell'utenza con quella della fattura, se manca o è diversa (con una riga nel log attività, dove resta il valore precedente);
 - le **note di credito** (TD04, TD08) entrano con importi negativi, sia che il fornitore li scriva positivi sia già negativi; l'imponibile somma tutte le aliquote;
 - la spesa conta subito; una fattura **rifiutata** non ha effetti e i suoi consumi vengono tolti.
 
@@ -381,7 +378,7 @@ L'import non corregge mai le anagrafiche: segnala le differenze, che trovi in da
 | Periodo di consumo già coperto | Il periodo della riga è già coperto da una rilevazione: il consumo della fattura non è stato registrato. | Controlla lo storico consumi dell'utenza. |
 | Contratti diversi sulle righe | Le righe sono su utenze di contratti di fornitura diversi. | Verifica che utenze e contratti siano giusti. |
 | File con più fatture (lotto) | Il file contiene più fatture: non è stato importato. | Inserisci le fatture a mano. |
-| Matricola diversa (import fermo) | Il POD è dell'utenza ma la matricola in fattura è diversa da quella in anagrafica: la fattura **non è stata importata**. | Correggi la matricola nella scheda utenza (o verifica il contatore): al giro successivo la fattura si importa da sola. Le utenze da sistemare sono anche tra le segnalazioni dell'elenco utenze. |
+| Matricola diversa (import fermo) | Segnalazione delle versioni precedenti: la fattura era ferma per una matricola diversa. | Nessuna azione: al primo giro la fattura si importa e la matricola dell'utenza prende quella della fattura. |
 
 ## Problemi frequenti
 
@@ -559,11 +556,11 @@ L'import non corregge mai le anagrafiche: segnala le differenze, che trovi in da
 
 ### Il fornitore ha un pattern ma una fattura resta in attesa
 
-**Causa:** la matricola del contatore letta in fattura è diversa da quella dell'utenza: l'import la ferma (segnalazione «Matricola diversa (import fermo)»).
+**Causa:** la fattura ha una struttura che il pattern non legge (mancano campi usati dalle regole), oppure il suo messaggio non è più sulla casella PEC.
 
-**Soluzione:** dalla segnalazione apri l'utenza e correggi la matricola, se il contatore è stato sostituito. Al giro successivo (entro 15 minuti) la fattura si importa.
+**Soluzione:** apri l'editor del pattern dalla fattura e usa **Analizza le N simili**: i campi con il bollino giallo o rosso sono quelli che mancano su alcune fatture. Correggi la regola o mappa la struttura diversa con un altro pattern.
 
-**Apri un ticket se:** la matricola dell'utenza coincide con quella in fattura e la fattura resta ferma dopo un'ora.
+**Apri un ticket se:** l'analisi trova tutti i campi e la fattura resta in attesa dopo un'ora.
 
 ### Una fattura importata che ho corretto non si aggiorna più
 

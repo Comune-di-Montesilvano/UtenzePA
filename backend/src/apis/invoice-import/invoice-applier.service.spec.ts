@@ -194,7 +194,14 @@ describe('InvoiceApplier', () => {
 });
 
 describe('InvoiceApplier: matricola', () => {
-  let manager: { findOne: jest.Mock; find: jest.Mock; save: jest.Mock; update: jest.Mock; delete: jest.Mock; query: jest.Mock };
+  let manager: {
+    findOne: jest.Mock;
+    find: jest.Mock;
+    save: jest.Mock;
+    update: jest.Mock;
+    delete: jest.Mock;
+    query: jest.Mock;
+  };
   let linker: { link: jest.Mock };
   let applier: InvoiceApplier;
 
@@ -209,7 +216,11 @@ describe('InvoiceApplier: matricola', () => {
     };
     const dataSource = { transaction: jest.fn((cb) => cb(manager)), query: jest.fn() };
     linker = { link: jest.fn(async () => ({ issues: [], utilityIds: [812] })) };
-    applier = new InvoiceApplier(dataSource as never, linker as never, { recalcUtility: jest.fn() } as never);
+    applier = new InvoiceApplier(
+      dataSource as never,
+      linker as never,
+      { recalcUtility: jest.fn() } as never,
+    );
   });
 
   it('utenza senza matricola: la completa, con la riga nel log attività, e la passa alla rilevazione', async () => {
@@ -224,8 +235,10 @@ describe('InvoiceApplier: matricola', () => {
       7,
     );
     const [sql, params] = manager.query.mock.calls[0];
-    expect(sql).toMatch(/UPDATE utilities SET meter_number = \? WHERE id = \? AND \(meter_number IS NULL OR meter_number = ''\)/);
-    expect(params).toEqual(['000000000000283767', 812]);
+    expect(sql).toMatch(
+      /UPDATE utilities SET meter_number = \? WHERE id = \? AND NOT \(meter_number <=> \?\)/,
+    );
+    expect(params).toEqual(['000000000000283767', 812, '000000000000283767']);
     expect(manager.save).toHaveBeenCalledWith(
       AuditLog,
       expect.objectContaining({
@@ -244,6 +257,28 @@ describe('InvoiceApplier: matricola', () => {
       [],
       new Map([[812, '000000000000283767']]),
       new Set(),
+    );
+  });
+
+  it('matricola diversa: la sostituisce con quella della fattura, col valore precedente nel log', async () => {
+    await applier.apply(
+      message(),
+      extracted,
+      match({
+        meters: [{ utilityId: 812, meter: '285039' }],
+        meterFills: [{ utilityId: 812, meter: '285039', previous: '3983' }],
+      }),
+      3,
+      7,
+    );
+    expect(manager.query.mock.calls[0][1]).toEqual(['285039', 812, '285039']);
+    expect(manager.save).toHaveBeenCalledWith(
+      AuditLog,
+      expect.objectContaining({
+        field_name: 'meter_number',
+        old_value: '3983',
+        new_value: '285039',
+      }),
     );
   });
 

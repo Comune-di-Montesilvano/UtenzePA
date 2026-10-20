@@ -21,7 +21,7 @@ const IMPORT_USER_SQL =
 
 // Matricola completata solo se l'utenza non l'ha (eccezione alla regola: l'import non modifica le anagrafiche).
 const FILL_METER_SQL =
-  "UPDATE utilities SET meter_number = ? WHERE id = ? AND (meter_number IS NULL OR meter_number = '')";
+  'UPDATE utilities SET meter_number = ? WHERE id = ? AND NOT (meter_number <=> ?)';
 
 /**
  * Scrive la fattura estratta da un pattern: la crea, o arricchisce quella già
@@ -161,10 +161,11 @@ export class InvoiceApplier {
     match: MatchResult,
     userId: number,
   ): Promise<void> {
-    for (const { utilityId, meter } of match.meterFills) {
+    for (const { utilityId, meter, previous } of match.meterFills) {
       const result: { affectedRows?: number } = await manager.query(FILL_METER_SQL, [
         meter.slice(0, 255),
         utilityId,
+        meter.slice(0, 255),
       ]);
       if (!result?.affectedRows) continue;
       await manager.save(AuditLog, {
@@ -172,7 +173,7 @@ export class InvoiceApplier {
         entity_id: utilityId,
         action: AuditAction.UPDATE,
         field_name: 'meter_number',
-        old_value: null,
+        old_value: previous ?? null,
         new_value: meter,
         old_label: null,
         new_label: null,

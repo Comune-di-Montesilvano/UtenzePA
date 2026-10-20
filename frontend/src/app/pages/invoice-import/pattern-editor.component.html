@@ -14,8 +14,17 @@
       <mat-icon>chevron_right</mat-icon>
     </button>
     @if (seen) {
-      <span class="pe-holds">la mappatura regge su {{ holds }} di {{ seen }} viste</span>
+      <span class="pe-holds">regge su {{ holds }}/{{ seen }} viste</span>
     }
+    @if (analysis; as a) {
+      <span class="pe-holds" [title]="'Struttura riconosciuta dalle regole su ' + a.matches + ' fatture'">
+        @if (a.analyzed < a.total) { analisi {{ a.analyzed }}/{{ a.total }} } @else { struttura {{ a.matches }}/{{ a.analyzed - a.unavailable }} }
+        @if (a.unavailable) { · {{ a.unavailable }} non leggibili }
+      </span>
+    }
+    <button mat-stroked-button type="button" [disabled]="analyzing || loading" (click)="analyze()">
+      <mat-icon>fact_check</mat-icon> Analizza le {{ similar.length }} simili
+    </button>
     @if (previewing || loading) {
       <mat-spinner diameter="18"></mat-spinner>
     }
@@ -56,15 +65,21 @@
         <h3>Anteprima ({{ ex.lines.length }} righe)</h3>
         <table class="pe-lines">
           <thead>
-            <tr><th>Utenza</th><th>Periodo</th><th>Importo</th><th>Consumo</th></tr>
+            <tr><th>Utenza</th><th>Descrizione</th><th>Periodo</th><th class="num">Importo</th><th class="num">Consumo</th><th>Matricola</th></tr>
           </thead>
           <tbody>
             @for (l of ex.lines.slice(0, 30); track $index) {
               <tr>
                 <td>{{ l.utility || '—' }}</td>
-                <td>{{ l.periodStart || '' }}{{ l.periodEnd ? ' – ' + l.periodEnd : '' }}</td>
+                <td class="pe-desc">{{ l.description || '' }}</td>
+                <td class="nowrap">{{ l.periodStart || '' }}{{ l.periodEnd ? ' – ' + l.periodEnd : '' }}</td>
                 <td class="num">{{ eur(l.amount) }}</td>
-                <td class="num">{{ l.consumption ?? '' }} {{ l.unit || '' }}{{ l.estimated ? ' (stimato)' : '' }}</td>
+                <td class="num">
+                  @if (l.consumption !== null) {
+                    {{ qty(l.consumption) }} {{ l.unit || '' }}{{ l.estimated ? ' (stimato)' : '' }}
+                  }
+                </td>
+                <td>{{ l.meter || '' }}</td>
               </tr>
             }
           </tbody>
@@ -113,52 +128,71 @@
   <ng-template #fieldRow let-t="t">
     <div class="pe-row" [class.focused]="focused === t" (focusin)="focus(t)">
       <div>
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>{{ labels[t] }}</mat-label>
-          <mat-select [(ngModel)]="choice[t]" [disabled]="!canEdit" (ngModelChange)="changed(t)" (openedChange)="focus(t)">
-            <mat-option value="">{{ defaultLabel(t) }}</mat-option>
-            @if (t === 'amount') {
-              <mat-option value="gross">Calcolato: imponibile × IVA</mat-option>
-            }
-            <mat-option value="none">Non presente</mat-option>
-            @for (o of options[t] ?? []; track o.value) {
-              <mat-option [value]="o.value">
-                {{ o.label }}{{ o.header ? ' (dalla testata)' : '' }}
-                <span class="pe-opt-sample">· {{ o.sample ?? '—' }}{{ o.committente ? ' · dati del Comune' : '' }}</span>
-              </mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <app-filterable-select [label]="labels[t]" [options]="selectOptions[t] ?? []" placeholder="Cerca un campo o un valore"
+                               appearance="outline" subscriptSizing="dynamic" [ngModel]="choice[t] ?? ''" [disabled]="!canEdit"
+                               (ngModelChange)="choice[t] = $event ?? ''; changed(t)"></app-filterable-select>
         @if (canWord(t)) {
           <div class="pe-word">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Lettura</mat-label>
-              <mat-select [(ngModel)]="wordMode[t]" [disabled]="!canEdit" (ngModelChange)="changed(t)">
-                @if (!wordOnly(t)) {
-                  <mat-option value="">Valore del campo</mat-option>
-                }
-                @for (m of wordModes(t); track m.kind) {
-                  <mat-option [value]="m.kind">{{ m.label }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            @if (wordMode[t]) {
+            @if (t === 'estimated') {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Lettura</mat-label>
+                <mat-select [ngModel]="wordMode[t] ?? ''" [disabled]="!canEdit" (ngModelChange)="wordMode[t] = $event; changed(t)">
+                  @for (m of estimatedModes; track m.kind) {
+                    <mat-option [value]="m.kind">{{ m.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Parola</mat-label>
                 <input matInput [(ngModel)]="words[t]" [disabled]="!canEdit" maxlength="50" (ngModelChange)="changed(t)">
               </mat-form-field>
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                <mat-label>A partire da</mat-label>
+                <mat-label>Cerca dopo il testo</mat-label>
                 <input matInput [(ngModel)]="anchors[t]" [disabled]="!canEdit" maxlength="100" (ngModelChange)="changed(t)"
                        placeholder="facoltativo">
               </mat-form-field>
+            } @else {
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Dopo il testo</mat-label>
+                <input matInput [(ngModel)]="after[t]" [disabled]="!canEdit" maxlength="100" (ngModelChange)="changed(t)"
+                       placeholder="es. CONSUMO">
+              </mat-form-field>
+              <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                <mat-label>Prima del testo</mat-label>
+                <input matInput [(ngModel)]="before[t]" [disabled]="!canEdit" maxlength="50" (ngModelChange)="changed(t)"
+                       placeholder="es. kWh">
+              </mat-form-field>
+              <span class="pe-word-hint">
+                @if (fromPdf(t)) {
+                  Il valore tra i due testi (basta uno dei due).
+                } @else {
+                  Vuoti: il valore intero del campo. Con un testo: il valore tra i due (basta uno dei due).
+                }
+              </span>
             }
           </div>
+          @if (searchedWord(t) && wordOccurrences(t).length) {
+            <div class="pe-occ">
+              <span class="pe-occ-title">«{{ searchedWord(t) }}» compare più volte: scegli quale usare</span>
+              <button type="button" [class.pe-occ-on]="!occurrences[t]" [disabled]="!canEdit" (click)="setOccurrence(t, null)">
+                La prima utile
+              </button>
+              @for (o of wordOccurrences(t); track o.n) {
+                <button type="button" [class.pe-occ-on]="occurrences[t] === o.n" [disabled]="!canEdit"
+                        (click)="setOccurrence(t, o.n)">
+                  {{ o.n }}ª · …{{ o.context }}… → <span class="pe-occ-value">{{ o.value ?? 'nessun valore' }}</span>
+                </button>
+              }
+            </div>
+          }
         }
       </div>
       <div class="pe-checks">
         @for (c of checks[t] ?? []; track $index) {
           <span [class]="'pe-badge tone-' + c.tone">{{ c.text }}</span>
+        }
+        @if (analysisBadge(t); as b) {
+          <span [class]="'pe-badge tone-' + b.tone">{{ b.text }}</span>
         }
       </div>
     </div>

@@ -66,7 +66,10 @@ function fakeMailbox(messages: { uid: number; raw: Buffer }[], uidValidity = 7, 
   return box;
 }
 
-const noLinker = { link: jest.fn(async () => ({ issues: [], utilityIds: [] })), unlink: jest.fn(async () => []) };
+const noLinker = {
+  link: jest.fn(async () => ({ issues: [], utilityIds: [] })),
+  unlink: jest.fn(async () => []),
+};
 const noRecalc = { recalcUtility: jest.fn() };
 
 const ENV = {
@@ -387,11 +390,40 @@ describe('InvoiceImportService con i pattern', () => {
   });
 
   it('rifiuto superato (scarto dell’esito): consumi ricollegati', async () => {
-    messages.rows.push({ id: 40, kind: 'INVOICE', status: SdiMessageStatus.EXTRACTED, invoice_id_fk: 77, sdi_identifier: '99000000001' });
-    invoices.rows.push({ id: 77, deleted: false, sdi_identifier: '99000000001', sdi_status: SdiStatus.REJECTED, import_locked: false, updated_by_user_id: 7 });
+    messages.rows.push({
+      id: 40,
+      kind: 'INVOICE',
+      status: SdiMessageStatus.EXTRACTED,
+      invoice_id_fk: 77,
+      sdi_identifier: '99000000001',
+    });
+    invoices.rows.push({
+      id: 77,
+      deleted: false,
+      sdi_identifier: '99000000001',
+      sdi_status: SdiStatus.REJECTED,
+      import_locked: false,
+      updated_by_user_id: 7,
+    });
     mailbox = fakeMailbox([
-      { uid: 2, raw: notificationEml('<n1@pec>', 'IT01234567897_a1B2c_EC_001.xml', 'ec02.xml', 'Fri, 10 Jul 2026 10:00:00 +0200') },
-      { uid: 3, raw: notificationEml('<n2@pec>', 'IT01234567897_a1B2c_SE_001.xml', 'se.xml', 'Fri, 10 Jul 2026 11:00:00 +0200') },
+      {
+        uid: 2,
+        raw: notificationEml(
+          '<n1@pec>',
+          'IT01234567897_a1B2c_EC_001.xml',
+          'ec02.xml',
+          'Fri, 10 Jul 2026 10:00:00 +0200',
+        ),
+      },
+      {
+        uid: 3,
+        raw: notificationEml(
+          '<n2@pec>',
+          'IT01234567897_a1B2c_SE_001.xml',
+          'se.xml',
+          'Fri, 10 Jul 2026 11:00:00 +0200',
+        ),
+      },
     ]);
     await service().runOnce();
     expect(invoices.rows[0].sdi_status).not.toBe(SdiStatus.REJECTED);
@@ -432,21 +464,42 @@ describe('InvoiceImportService con i pattern', () => {
 
   it('matricola diversa: fattura non scritta finché non si risolve, resta in attesa', async () => {
     patterns.rows.push(pricePattern());
-    const blocking = [{ type: ImportIssueType.METER_MISMATCH, lineIndex: 0, utilityId: 812, value: '9', detail: 'x' }];
-    matcher.match.mockResolvedValue({ supplierId: 9, existingInvoiceId: null, contratto_id_fk: null, lines: [], issues: [], blocking, meterFills: [] });
+    const blocking = [
+      {
+        type: ImportIssueType.METER_MISMATCH,
+        lineIndex: 0,
+        utilityId: 812,
+        value: '9',
+        detail: 'x',
+      },
+    ];
+    matcher.match.mockResolvedValue({
+      supplierId: 9,
+      existingInvoiceId: null,
+      contratto_id_fk: null,
+      lines: [],
+      issues: [],
+      blocking,
+      meterFills: [],
+    });
     const result = await service().runOnce();
     expect(result.extracted).toBe(0);
     expect(applier.apply).not.toHaveBeenCalled();
-    expect(applier.block).toHaveBeenCalledWith(expect.objectContaining({ id: expect.anything() }), expect.objectContaining({ blocking }), 3);
+    expect(applier.block).toHaveBeenCalledWith(
+      expect.objectContaining({ id: expect.anything() }),
+      expect.objectContaining({ blocking }),
+      3,
+    );
     expect(messages.rows[0].status).toBe(SdiMessageStatus.PENDING);
   });
 
-  it('a ogni giro si rielaborano le fatture bloccate la cui causa è sistemata', async () => {
+  it('a ogni giro si rielaborano le fatture ferme per matricola diversa', async () => {
     mailbox = fakeMailbox([]);
     await service().runOnce();
     const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('METER_MISMATCH'));
-    // Bloccata finché la matricola dell'utenza è diversa da quella in fattura (zeri iniziali esclusi).
-    expect(sql).toMatch(/NOT EXISTS[\s\S]*TRIM\(LEADING '0'/);
+    // Ora la matricola si aggiorna dalla fattura: si rielaborano tutte, senza altre condizioni.
+    expect(sql).toMatch(/EXISTS \(SELECT 1 FROM invoice_import_issues/);
+    expect(sql).not.toMatch(/NOT EXISTS/);
   });
 
   it('nessun pattern: comportamento della parte 1 (in attesa)', async () => {
