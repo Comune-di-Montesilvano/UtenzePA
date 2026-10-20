@@ -41,6 +41,7 @@ import {
   TargetField,
   WordKind,
   isWordRule,
+  documentTypeLabel,
 } from './pattern-rules.model';
 
 interface FieldOption {
@@ -186,6 +187,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
 
   readonly canEdit = isEditorRole(inject(AuthService).getCurrentUser()?.role);
   readonly headerTargets = EDITABLE_HEADER;
+  readonly typeLabel = documentTypeLabel;
   readonly lineTargets = LINE_TARGETS;
   // Sezione Consumi dell'editor: consumo, fasce, unità, matricola e stima; il resto in Righe.
   readonly consumptionTargets: TargetField[] = ['consumption', ...BAND_TARGETS, 'unit', 'meter', 'estimated'];

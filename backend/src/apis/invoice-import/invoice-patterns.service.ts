@@ -21,7 +21,6 @@ import {
   BAND_TARGETS,
   documentTypeOf,
   extract,
-  isCreditNote,
   isCreditNoteType,
   patternMatches,
   PDF_PATH,
@@ -38,7 +37,6 @@ import {
 import { pdfText } from './sdi/pdf-text';
 import { extractPdf } from './sdi/sdi-files';
 import {
-  CREDIT_NOTE_SQL,
   toUnknownStructure,
   UNTYPED_SQL,
   UNKNOWN_STRUCTURES_SQL,
@@ -115,7 +113,7 @@ const SUPPLIER_NAME = "COALESCE(tp.company_name, CONCAT_WS(' ', tp.last_name, tp
 
 const LIST_SQL =
   `SELECT p.id, p.name, p.supplier_id_fk AS supplier_id, ${SUPPLIER_NAME} AS supplier, ` +
-  'p.ignored, p.credit_note, p.structure_key, p.update_date, ' +
+  'p.ignored, p.document_type, p.structure_key, p.update_date, ' +
   "(SELECT COUNT(*) FROM sdi_messages m WHERE m.pattern_id_fk = p.id AND m.status = 'EXTRACTED') AS extracted, " +
   '(SELECT MAX(m.id) FROM sdi_messages m WHERE m.supplier_id_fk = p.supplier_id_fk ' +
   "AND m.structure_key = p.structure_key AND m.kind = 'INVOICE') AS sample_message_id " +
@@ -127,9 +125,7 @@ const SUPPLIER_SQL = `SELECT ${SUPPLIER_NAME} AS supplier FROM third_parties tp 
 // Simili: fatture del fornitore senza pattern, prima quelle con la stessa struttura.
 const SIMILAR_SQL =
   'SELECT m.id, m.structure_key, m.document_number FROM sdi_messages m ' +
-  "WHERE m.kind = 'INVOICE' AND m.supplier_id_fk = ? AND " +
-  CREDIT_NOTE_SQL +
-  ' = ? ' +
+  "WHERE m.kind = 'INVOICE' AND m.supplier_id_fk = ? AND IFNULL(m.document_type, '') = ? " +
   "AND m.status IN ('PENDING', 'LINKED') AND m.pattern_id_fk IS NULL " +
   'ORDER BY m.id DESC LIMIT 1000';
 
@@ -352,7 +348,7 @@ export class InvoicePatternsService {
   async unknown(): Promise<UnknownStructure[]> {
     const rows: Record<string, unknown>[] = await this.dataSource.query(UNKNOWN_STRUCTURES_SQL);
     const result = rows.map(toUnknownStructure);
-    if (result.some((r) => r.untyped > 0)) this.fillDocumentTypes();
+    if (result.some((r) => !r.document_type)) this.fillDocumentTypes();
     return result;
   }
 
@@ -360,7 +356,7 @@ export class InvoicePatternsService {
 
   // Completa in background il tipo delle fatture senza pattern registrate prima
   // della v1.40.0, rileggendo la PEC (sola lettura) anche a import spento: l'elenco
-  // le divide fra fatture e note di credito man mano. File sparito = tipo vuoto.
+  // le divide per tipo man mano. File sparito = tipo vuoto.
   private fillDocumentTypes(): void {
     if (this.typing || !this.importer.configured) return;
     this.typing = true;
@@ -387,7 +383,6 @@ export class InvoicePatternsService {
       ...r,
       supplier_id: Number(r.supplier_id),
       ignored: !!Number(r.ignored),
-      credit_note: !!Number(r.credit_note),
       extracted: Number(r.extracted),
       sample_message_id: r.sample_message_id === null ? null : Number(r.sample_message_id),
     }));
@@ -417,10 +412,10 @@ export class InvoicePatternsService {
       }
     }
     const [supplier] = await this.dataSource.query(SUPPLIER_SQL, [row.supplier_id_fk]);
-    const creditNote = await this.creditNoteOf(row, xml);
+    const documentType = await this.documentTypeFor(row, xml);
     const { similar, variants, numbers } = groupVariants(
       row.structure_key
-        ? await this.dataSource.query(SIMILAR_SQL, [row.supplier_id_fk, creditNote ? 1 : 0])
+        ? await this.dataSource.query(SIMILAR_SQL, [row.supplier_id_fk, documentType])
         : [],
     );
     return {
@@ -434,8 +429,8 @@ export class InvoicePatternsService {
         document_date: row.document_date,
         status: row.status,
         pattern_id: row.pattern_id_fk,
-        document_type: row.document_type || null,
-        credit_note: creditNote,
+        document_type: documentType || null,
+        credit_note: isCreditNoteType(documentType),
       },
       xml: xml.toString('utf8'),
       pdf_text: pdf,
@@ -448,7 +443,7 @@ export class InvoicePatternsService {
   }
 
   // Tipo del documento dal tracciato; completa document_type sui messaggi registrati prima.
-  private async creditNoteOf(row: SdiMessage, xml: Buffer): Promise<boolean> {
+  private async documentTypeFor(row: SdiMessage, xml: Buffer): Promise<string> {
     if (row.document_type === null || row.document_type === undefined) {
       const type = documentTypeOf(xml);
       if (type) {
@@ -456,7 +451,7 @@ export class InvoicePatternsService {
         await this.messagesRepo.update(row.id, { document_type: type });
       }
     }
-    return isCreditNoteType(row.document_type);
+    return row.document_type ?? '';
   }
 
   async pdf(messageId: number): Promise<{ fileName: string; data: Buffer }> {
@@ -563,7 +558,7 @@ export class InvoicePatternsService {
       rules: input.rules,
       structure_key: structureKey(xml),
       paths_count: rulePaths(input.rules).length,
-      credit_note: isCreditNote(xml),
+      document_type: documentTypeOf(xml) ?? '',
       created_by_user_id: userId,
       updated_by_user_id: userId,
     });
@@ -577,11 +572,9 @@ export class InvoicePatternsService {
     if (row.supplier_id_fk !== existing.supplier_id_fk) {
       throw new BadRequestException('La fattura è di un altro fornitore.');
     }
-    if (isCreditNote(xml) !== !!existing.credit_note) {
+    if ((documentTypeOf(xml) ?? '') !== existing.document_type) {
       throw new BadRequestException(
-        existing.credit_note
-          ? 'Il pattern è per le note di credito: scegli una nota di credito.'
-          : 'Il pattern è per le fatture: per le note di credito salvane uno a parte.',
+        `Il pattern è per i documenti ${existing.document_type}: scegline uno dello stesso tipo, per gli altri tipi salva un pattern a parte.`,
       );
     }
     await this.patternsRepo.update(id, {
@@ -613,6 +606,7 @@ export class InvoicePatternsService {
       ignored: true,
       rules: null,
       structure_key: row.structure_key,
+      document_type: row.document_type ?? '',
       paths_count: 0,
       created_by_user_id: userId,
       updated_by_user_id: userId,

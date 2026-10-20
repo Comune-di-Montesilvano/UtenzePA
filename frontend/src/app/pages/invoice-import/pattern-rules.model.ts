@@ -160,13 +160,10 @@ export interface PatternEditorData {
 export interface UnknownStructure {
   supplier_id: number;
   supplier: string;
-  // Note di credito (TD04, TD08): elenco e pattern a parte.
-  credit_note: boolean;
+  // TipoDocumento (TD01, TD02, TD04…): pattern separati per tipo; vuoto = non ancora letto.
+  document_type: string;
   structure_key: string;
   count: number;
-  // TipoDocumento presenti (es. «TD01, TD02») e fatture col tipo non ancora letto.
-  document_types: string;
-  untyped: number;
   structures: number;
   message_id: number;
 }
@@ -177,7 +174,7 @@ export interface InvoicePatternRow {
   supplier_id: number;
   supplier: string;
   ignored: boolean;
-  credit_note: boolean;
+  document_type: string;
   structure_key: string;
   update_date: string;
   extracted: number;
@@ -238,3 +235,35 @@ export type BandTarget = 'consumptionF1' | 'consumptionF2' | 'consumptionF3';
 export const BAND_TARGETS: BandTarget[] = ['consumptionF1', 'consumptionF2', 'consumptionF3'];
 
 export const isHeaderTarget = (t: TargetField): t is HeaderTarget => (HEADER_TARGETS as string[]).includes(t);
+
+// TipoDocumento della FatturaPA (specifiche SDI).
+const DOCUMENT_TYPES: Record<string, string> = {
+  TD01: 'Fattura',
+  TD02: 'Acconto/anticipo su fattura',
+  TD03: 'Acconto/anticipo su parcella',
+  TD04: 'Nota di credito',
+  TD05: 'Nota di debito',
+  TD06: 'Parcella',
+  TD07: 'Fattura semplificata',
+  TD08: 'Nota di credito semplificata',
+  TD09: 'Nota di debito semplificata',
+  TD16: 'Integrazione fattura reverse charge interno',
+  TD17: 'Integrazione/autofattura per acquisto servizi dall\'estero',
+  TD18: 'Integrazione per acquisto di beni intracomunitari',
+  TD19: 'Integrazione/autofattura per acquisto di beni ex art. 17 c. 2 DPR 633/72',
+  TD20: 'Autofattura per regolarizzazione e integrazione delle fatture',
+  TD21: 'Autofattura per splafonamento',
+  TD22: 'Estrazione beni da Deposito IVA',
+  TD23: 'Estrazione beni da Deposito IVA con versamento dell\'IVA',
+  TD24: 'Fattura differita (art. 21, c. 4, lett. a)',
+  TD25: 'Fattura differita (art. 21, c. 4, terzo periodo, lett. b)',
+  TD26: 'Cessione di beni ammortizzabili e passaggi interni',
+  TD27: 'Fattura per autoconsumo o cessioni gratuite senza rivalsa',
+  TD28: 'Acquisti da San Marino con IVA',
+};
+
+// «TD02 · Acconto/anticipo su fattura»; vuoto = tipo non ancora letto dalla PEC.
+export function documentTypeLabel(type: string | null | undefined): string {
+  if (!type) return 'Tipo da leggere';
+  return DOCUMENT_TYPES[type] ? `${type} · ${DOCUMENT_TYPES[type]}` : type;
+}

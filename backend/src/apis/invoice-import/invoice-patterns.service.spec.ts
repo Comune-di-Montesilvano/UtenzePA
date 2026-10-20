@@ -119,25 +119,21 @@ describe('InvoicePatternsService', () => {
         supplier_id: 46,
         supplier: 'Energia Prova',
         structure_key: 'abc',
-        credit_note: '1',
+        document_type: 'TD04',
         count: '88',
         structures: '4',
         message_id: '12',
-        document_types: 'TD04',
-        untyped: '3',
       },
     ]);
     expect(await service.unknown()).toEqual([
       {
         supplier_id: 46,
         supplier: 'Energia Prova',
-        credit_note: true,
+        document_type: 'TD04',
         structure_key: 'abc',
         count: 88,
         structures: 4,
         message_id: 12,
-        document_types: 'TD04',
-        untyped: 3,
       },
     ]);
     const sql = String(query.mock.calls[0][0]);
@@ -149,7 +145,7 @@ describe('InvoicePatternsService', () => {
   it('fatture senza pattern col tipo da leggere: tipo completato in background dalla PEC', async () => {
     (importer as unknown as { configured: boolean }).configured = true;
     query
-      .mockResolvedValueOnce([{ supplier_id: 46, supplier: 'Energia Prova', untyped: '2' }])
+      .mockResolvedValueOnce([{ supplier_id: 46, supplier: 'Energia Prova', document_type: '' }])
       .mockResolvedValueOnce([{ id: 9 }, { id: 10 }])
       .mockResolvedValueOnce([]);
     messages.findBy.mockResolvedValue([message({ id: 9 }), message({ id: 10 })]);
@@ -297,12 +293,27 @@ describe('InvoicePatternsService', () => {
     expect(patterns.save).not.toHaveBeenCalled();
   });
 
+  it('modifica: documento di un altro tipo rifiutato (pattern separati per tipo)', async () => {
+    patterns.findOneBy.mockResolvedValue({
+      id: 3,
+      supplier_id_fk: 46,
+      deleted: false,
+      ignored: false,
+      document_type: 'TD04',
+    });
+    await expect(
+      service.update(3, { message_id: 9, name: 'Note', rules: RULES }, 7),
+    ).rejects.toThrow('Il pattern è per i documenti TD04');
+    expect(patterns.update).not.toHaveBeenCalled();
+  });
+
   it('modifica: rielabora anche le fatture già estratte con quel pattern', async () => {
     patterns.findOneBy.mockResolvedValue({
       id: 3,
       supplier_id_fk: 46,
       deleted: false,
       ignored: false,
+      document_type: 'TD01',
     });
     query.mockImplementation(async (_sql: string, params: unknown[]) =>
       params.includes(3) ? [{ id: 9 }, { id: 20 }] : [],

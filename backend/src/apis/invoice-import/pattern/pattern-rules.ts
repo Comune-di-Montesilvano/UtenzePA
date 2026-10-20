@@ -629,13 +629,13 @@ export function isCreditNoteType(type: string | null | undefined): boolean {
   return CREDIT_NOTES.includes(type ?? '');
 }
 
-// Fatture e note di credito hanno pattern separati (credit_note del pattern).
+// Pattern separati per tipo documento: vale solo quello dello stesso TipoDocumento.
 export function pickPattern<
-  T extends { id: number; rules: PatternRules; paths_count: number; credit_note?: boolean },
+  T extends { id: number; rules: PatternRules; paths_count: number; document_type: string },
 >(xml: Buffer, patterns: T[]): T | null {
-  const creditNote = isCreditNote(xml);
+  const type = documentTypeOf(xml) ?? '';
   const matching = patterns
-    .filter((p) => !!p.credit_note === creditNote && patternMatches(xml, p.rules))
+    .filter((p) => p.document_type === type && patternMatches(xml, p.rules))
     .sort((a, b) => b.paths_count - a.paths_count);
   if (!matching.length) return null;
   if (matching.length > 1 && matching[1].paths_count === matching[0].paths_count) return null;

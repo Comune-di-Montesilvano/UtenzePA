@@ -11,7 +11,7 @@ import {ToastService} from '../../core/services/toast.service';
 import {isEditorRole} from '../../core/components/entity-sheet/sheet-utils';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 import {InvoicePatternsService} from './invoice-patterns.service';
-import type {InvoicePatternRow, UnknownStructure} from './pattern-rules.model';
+import {documentTypeLabel, type InvoicePatternRow, type UnknownStructure} from './pattern-rules.model';
 
 // Strutture di fattura ancora da mappare (per fornitore) e pattern esistenti.
 @Component({
@@ -28,33 +28,27 @@ import type {InvoicePatternRow, UnknownStructure} from './pattern-rules.model';
       @if (loading) {
         <mat-spinner diameter="32"></mat-spinner>
       } @else {
-        <h3>Fatture senza pattern</h3>
-        @if (unknownInvoices.length) {
-          <ng-container *ngTemplateOutlet="unknownTable; context: {rows: unknownInvoices, noun: 'Fatture'}"></ng-container>
-        } @else {
-          <p class="muted">Tutte le fatture dei fornitori in perimetro sono coperte da un pattern.</p>
+        <h3>Documenti senza pattern</h3>
+        <p class="muted">Un elenco per tipo documento: ogni tipo ha i suoi pattern (le note di credito senza consumi).</p>
+        @for (g of unknownGroups; track g.type) {
+          <h4>{{ g.label }}</h4>
+          @if (!g.type) {
+            <p class="muted">Tipo ancora da leggere dalla PEC: si completa da solo in pochi minuti, ricarica la pagina.</p>
+          }
+          <ng-container *ngTemplateOutlet="unknownTable; context: {rows: g.rows}"></ng-container>
+        } @empty {
+          <p class="muted">Tutti i documenti dei fornitori in perimetro sono coperti da un pattern.</p>
         }
-        <h3>Note di credito senza pattern</h3>
-        <p class="muted">TD04 e TD08: hanno pattern a parte, senza consumi.</p>
-        @if (unknownCreditNotes.length) {
-          <ng-container *ngTemplateOutlet="unknownTable; context: {rows: unknownCreditNotes, noun: 'Note'}"></ng-container>
-        } @else {
-          <p class="muted">Nessuna nota di credito in attesa di pattern.</p>
+        @if (!hasCreditNotes) {
+          <p class="muted">Nessuna nota di credito (TD04, TD08) in attesa di pattern.</p>
         }
-        @if (untyped) {
-          <p class="muted">Tipo documento ancora da leggere dalla PEC per {{ untyped }} {{ untyped === 1 ? 'fattura' : 'fatture' }}: le note di credito fra queste compaiono qui man mano (ricarica la pagina).</p>
-        }
-        <ng-template #unknownTable let-rows="rows" let-noun="noun">
-          <table class="ip-table">
-            <thead><tr><th>Fornitore</th><th>Tipo</th><th class="num">{{ noun }}</th><th class="num">Varianti</th><th></th></tr></thead>
+        <ng-template #unknownTable let-rows="rows">
+          <table class="ip-table ip-unknown">
+            <thead><tr><th>Fornitore</th><th class="num">Documenti</th><th class="num">Varianti</th><th></th></tr></thead>
             <tbody>
               @for (u of rows; track u.supplier_id) {
                 <tr>
                   <td>{{ u.supplier }}</td>
-                  <td>
-                    {{ u.document_types || '—' }}
-                    @if (u.untyped) { <span class="muted" title="Tipo letto dalla PEC al prossimo giro di import">· {{ u.untyped }} da leggere</span> }
-                  </td>
                   <td class="num">{{ u.count }}</td>
                   <td class="num">{{ u.structures }}</td>
                   <td class="act">
@@ -80,7 +74,7 @@ import type {InvoicePatternRow, UnknownStructure} from './pattern-rules.model';
                   <td>
                     {{ p.name }}
                     @if (p.ignored) { <span class="badge tone-off">Ignorata</span> }
-                    @if (p.credit_note) { <span class="badge tone-off">Note di credito</span> }
+                    <span class="badge tone-off" [title]="typeLabel(p.document_type)">{{ p.document_type || '—' }}</span>
                   </td>
                   <td>{{ p.supplier }}</td>
                   <td class="num">{{ p.ignored ? '' : p.extracted }}</td>
@@ -109,6 +103,11 @@ import type {InvoicePatternRow, UnknownStructure} from './pattern-rules.model';
   styles: [`
     .ip { display: flex; flex-direction: column; gap: 0.5rem; padding: 1rem 0; max-width: 960px; }
     .ip h3 { margin: 1rem 0 0.25rem; }
+    .ip h4 { margin: 0.75rem 0 0.25rem; font-weight: 500; }
+    /* Tabelle per tipo una sotto l'altra: stesse colonne alla stessa larghezza. */
+    .ip-unknown { table-layout: fixed; }
+    .ip-unknown th:nth-child(2), .ip-unknown th:nth-child(3) { width: 8rem; }
+    .ip-unknown th:nth-child(4) { width: 8rem; }
     .ip-table { width: 100%; border-collapse: collapse; }
     .ip-table th, .ip-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--app-border); }
     .ip-table .num { text-align: right; }
@@ -126,10 +125,10 @@ export class InvoicePatternsTabComponent implements OnInit {
   readonly canEdit = isEditorRole(inject(AuthService).getCurrentUser()?.role);
 
   loading = true;
-  // Fatture senza pattern divise per tipo: fatture e note di credito hanno pattern separati.
-  unknownInvoices: UnknownStructure[] = [];
-  unknownCreditNotes: UnknownStructure[] = [];
-  untyped = 0;
+  // Documenti senza pattern divisi per tipo (TD01, TD02, TD04…): pattern separati per tipo.
+  unknownGroups: {type: string; label: string; rows: UnknownStructure[]}[] = [];
+  hasCreditNotes = false;
+  readonly typeLabel = documentTypeLabel;
   patterns: InvoicePatternRow[] = [];
 
   ngOnInit(): void {
@@ -139,9 +138,13 @@ export class InvoicePatternsTabComponent implements OnInit {
   private load(): void {
     forkJoin({unknown: this.service.unknown(), patterns: this.service.list()}).subscribe({
       next: r => {
-        this.unknownInvoices = r.unknown.filter(u => !u.credit_note);
-        this.unknownCreditNotes = r.unknown.filter(u => u.credit_note);
-        this.untyped = r.unknown.reduce((n, u) => n + u.untyped, 0);
+        const types = [...new Set(r.unknown.map(u => u.document_type))].sort((a, b) => (a || 'ZZ').localeCompare(b || 'ZZ'));
+        this.unknownGroups = types.map(type => ({
+          type,
+          label: documentTypeLabel(type),
+          rows: r.unknown.filter(u => u.document_type === type),
+        }));
+        this.hasCreditNotes = types.some(t => t === 'TD04' || t === 'TD08');
         this.patterns = r.patterns;
         this.loading = false;
       },

@@ -78,9 +78,9 @@
       </div>
       <div class="pe-row">
         <div>
-          <strong>{{ labels['documentType'] }}</strong>: {{ data.message.document_type || '—' }}
+          <strong>{{ labels['documentType'] }}</strong>: {{ typeLabel(data.message.document_type) }}
           <div class="pe-opt-sample">
-            Dal tracciato, non si mappa: {{ data.message.credit_note ? 'pattern per le note di credito (TD04, TD08)' : 'pattern per le fatture' }}.
+            Dal tracciato, non si mappa: il pattern vale solo per i documenti {{ data.message.document_type || 'dello stesso tipo' }}.
           </div>
         </div>
       </div>
