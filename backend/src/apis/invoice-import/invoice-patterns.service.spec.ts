@@ -142,32 +142,43 @@ describe('InvoicePatternsService', () => {
     expect(messages.update).not.toHaveBeenCalled();
   });
 
-  it('anteprima con matricola diversa: badge rosso «import fermo», da completare in verde', async () => {
+  it('anteprima della matricola: accanto a quella attuale, verde se coincide', async () => {
     matcher.match.mockResolvedValueOnce({
       supplierId: 46,
       existingInvoiceId: null,
       contratto_id_fk: 5,
       lines: [],
       issues: [],
-      blocking: [
-        {
-          type: 'METER_MISMATCH',
-          lineIndex: 0,
-          utilityId: 812,
-          value: '9',
-          detail: 'IT001E1: matricola in fattura 9, in anagrafica 8',
-        },
+      blocking: [],
+      meters: [
+        { utilityId: 811, meter: '0055', previous: '55' },
+        { utilityId: 812, meter: '9', previous: '8' },
+        { utilityId: 813, meter: '77', previous: null },
       ],
-      meters: [],
-      meterFills: [{ utilityId: 813, meter: '77' }],
+      meterFills: [
+        { utilityId: 812, meter: '9', previous: '8' },
+        { utilityId: 813, meter: '77', previous: null },
+      ],
     });
     const preview = await service.preview(9, RULES);
-    expect(preview.checks).toContainEqual({
-      field: 'meter',
-      tone: 'danger',
-      text: 'IT001E1: matricola in fattura 9, in anagrafica 8: import fermo',
-    });
-    expect(preview.checks).toContainEqual(expect.objectContaining({ field: 'meter', tone: 'ok' }));
+    const meter = preview.checks.filter((c) => c.field === 'meter');
+    expect(meter).toEqual([
+      {
+        field: 'meter',
+        tone: 'ok',
+        text: "Matricola 0055: coincide con l'attuale 55 (utenza 811)",
+      },
+      {
+        field: 'meter',
+        tone: 'warn',
+        text: 'Matricola 9, attuale 8 (utenza 812): verrà aggiornata',
+      },
+      {
+        field: 'meter',
+        tone: 'warn',
+        text: 'Matricola 77, attuale nessuna (utenza 813): verrà completata',
+      },
+    ]);
   });
 
   it('anteprima con differenze: badge giallo sul campo', async () => {

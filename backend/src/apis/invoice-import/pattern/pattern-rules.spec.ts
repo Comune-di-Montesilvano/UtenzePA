@@ -427,6 +427,35 @@ describe('extract: dati nel PDF allegato', () => {
     expect(extract(aca, rules({ description: { kind: 'none' } })).lines[0].description).toBeNull();
   });
 
+  it('consumo per fasce dal PDF: ogni fascia col suo testo, totale = somma', () => {
+    const text = [
+      'Tipo di Consumo',
+      '31.08.2026 30.09.2026 Fascia oraria F1 4.007 Rilevata 4.067 Rilevata 60 kWh Effettivo',
+      '31.08.2026 30.09.2026 Fascia oraria F2 1.066 Rilevata 1.091 Rilevata 25 kWh Effettivo',
+      '31.08.2026 30.09.2026 Fascia oraria F3 1.629 Rilevata 1.667 Rilevata 38 kWh Effettivo',
+    ].join('\n');
+    const band = (n: number) =>
+      fromPdf({ kind: 'numberBefore', word: 'kWh', anchor: `Fascia oraria F${n}` });
+    const r = rules({ consumptionF1: band(1), consumptionF2: band(2), consumptionF3: band(3) });
+    expect(extract(aca, r, text).lines[0]).toEqual(
+      expect.objectContaining({
+        consumption: 123,
+        consumptionF1: 60,
+        consumptionF2: 25,
+        consumptionF3: 38,
+        unit: 'kWh',
+      }),
+    );
+    // Col totale letto restano tutti e due: il totale non è ricalcolato.
+    const withTotal = rules({
+      consumption: fromPdf({ kind: 'numberAfter', word: 'Consumo' }),
+      consumptionF1: band(1),
+    });
+    expect(extract(aca, withTotal, 'Consumo 130 kWh\n' + text).lines[0]).toEqual(
+      expect.objectContaining({ consumption: 130, consumptionF1: 60, consumptionF2: null }),
+    );
+  });
+
   it('parola di più termini: gli spazi valgono anche l’a capo', () => {
     const text = "CONSUMO\n1.417   kWh\nPuoi pagare con l'avviso\nTotale 20 kWh";
     const r = rules({ consumption: fromPdf({ kind: 'numberBefore', word: 'kWh  Puoi pagare' }) });

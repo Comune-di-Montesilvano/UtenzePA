@@ -50,7 +50,23 @@
 
       <h3>Righe</h3>
       @for (t of lineTargets; track t) {
-        <ng-container *ngTemplateOutlet="fieldRow; context: {t}"></ng-container>
+        @if (showTarget(t)) {
+          <ng-container *ngTemplateOutlet="fieldRow; context: {t}"></ng-container>
+        }
+        @if (t === 'consumption') {
+          <div class="pe-row">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Consumo</mat-label>
+              <mat-select [ngModel]="consumptionMode" [disabled]="!canEdit" (ngModelChange)="consumptionModeChanged($event)">
+                <mat-option value="total">Totale</mat-option>
+                <mat-option value="bands">Per fasce (F1, F2, F3)</mat-option>
+              </mat-select>
+              @if (consumptionMode === 'bands') {
+                <mat-hint>Senza il totale letto, il consumo è la somma delle fasce.</mat-hint>
+              }
+            </mat-form-field>
+          </div>
+        }
       }
       <div class="pe-row">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
@@ -77,6 +93,9 @@
                 <td class="num">
                   @if (l.consumption !== null) {
                     {{ qty(l.consumption) }} {{ l.unit || '' }}{{ l.estimated ? ' (stimato)' : '' }}
+                    @if (bands(l); as b) {
+                      <div class="pe-bands">{{ b }}</div>
+                    }
                   }
                 </td>
                 <td>{{ l.meter || '' }}</td>

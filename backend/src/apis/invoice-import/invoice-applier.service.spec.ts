@@ -35,6 +35,7 @@ const match = (over: Partial<MatchResult> = {}): MatchResult => ({
       period_end: '2026-06-30',
       amount: 122,
       consumption: 542,
+      bands: [null, null, null],
       estimated: false,
       description: 'Materia',
       supply_code: 'IT001E00000001',
@@ -173,7 +174,15 @@ describe('InvoiceApplier', () => {
       utilityIds: [812],
     });
     await applier.apply(message(), extracted, match({ existingInvoiceId: 321, issues: [] }), 3, 7);
-    expect(linker.link).toHaveBeenCalledWith(manager, 321, 7, [60], new Map(), new Set());
+    expect(linker.link).toHaveBeenCalledWith(
+      manager,
+      321,
+      7,
+      [60],
+      new Map(),
+      new Set(),
+      new Map(),
+    );
     expect(manager.save).toHaveBeenCalledWith(InvoiceImportIssue, [
       expect.objectContaining({ type: ImportIssueType.PERIOD_COVERED }),
     ]);
@@ -257,6 +266,7 @@ describe('InvoiceApplier: matricola', () => {
       [],
       new Map([[812, '000000000000283767']]),
       new Set(),
+      new Map(),
     );
   });
 
@@ -265,7 +275,7 @@ describe('InvoiceApplier: matricola', () => {
       message(),
       extracted,
       match({
-        meters: [{ utilityId: 812, meter: '285039' }],
+        meters: [{ utilityId: 812, meter: '285039', previous: '3983' }],
         meterFills: [{ utilityId: 812, meter: '285039', previous: '3983' }],
       }),
       3,
@@ -291,7 +301,35 @@ describe('InvoiceApplier: matricola', () => {
       3,
       7,
     );
-    expect(linker.link).toHaveBeenCalledWith(manager, 500, 7, [], new Map(), new Set([812]));
+    expect(linker.link).toHaveBeenCalledWith(
+      manager,
+      500,
+      7,
+      [],
+      new Map(),
+      new Set([812]),
+      new Map(),
+    );
+  });
+
+  it('consumo per fasce: passa alla rilevazione le fasce dell’utenza', async () => {
+    const base = match();
+    await applier.apply(
+      message(),
+      extracted,
+      match({ lines: [{ ...base.lines[0], bands: [60, 25, 38] }] }),
+      3,
+      7,
+    );
+    expect(linker.link).toHaveBeenLastCalledWith(
+      manager,
+      500,
+      7,
+      [],
+      new Map(),
+      new Set(),
+      new Map([[812, { consumption_f1: 60, consumption_f2: 25, consumption_f3: 38 }]]),
+    );
   });
 
   it('blocco: nessuna fattura scritta, segnalazione con utenza e matricola, pattern sul messaggio', async () => {

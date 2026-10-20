@@ -33,6 +33,9 @@ export type LineTarget =
   | 'amount'
   | 'description'
   | 'consumption'
+  | 'consumptionF1'
+  | 'consumptionF2'
+  | 'consumptionF3'
   | 'unit'
   | 'meter'
   | 'estimated';
@@ -74,6 +77,9 @@ export interface ExtractedLine {
   amount: number;
   description: string | null;
   consumption: number | null;
+  consumptionF1: number | null;
+  consumptionF2: number | null;
+  consumptionF3: number | null;
   unit: string | null;
   meter: string | null;
   estimated: boolean;
@@ -203,9 +209,16 @@ export const LINE_TARGETS: LineTarget[] = [
   'amount',
   'description',
   'consumption',
+  'consumptionF1',
+  'consumptionF2',
+  'consumptionF3',
   'unit',
   'meter',
   'estimated',
 ];
+
+// Consumo per fascia oraria: righe visibili solo con «Consumo: Per fasce».
+export type BandTarget = 'consumptionF1' | 'consumptionF2' | 'consumptionF3';
+export const BAND_TARGETS: BandTarget[] = ['consumptionF1', 'consumptionF2', 'consumptionF3'];
 
 export const isHeaderTarget = (t: TargetField): t is HeaderTarget => (HEADER_TARGETS as string[]).includes(t);

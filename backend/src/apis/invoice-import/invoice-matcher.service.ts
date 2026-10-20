@@ -12,6 +12,8 @@ export interface MatchedLine {
   period_end: string | null;
   amount: number;
   consumption: number | null;
+  // Consumo per fascia letto in fattura (null = non letto).
+  bands: [number | null, number | null, number | null];
   estimated: boolean;
   description: string | null;
   supply_code: string | null;
@@ -166,7 +168,7 @@ export class InvoiceMatcher {
       const utility = lineUtilities[index];
       const meter = line.meter?.trim();
       if (!utility || !meter || meters.some((m) => m.utilityId === utility.id)) continue;
-      meters.push({ utilityId: utility.id, meter });
+      meters.push({ utilityId: utility.id, meter, previous: utility.meter_number || null });
       if (comparableMeter(utility.meter_number) !== comparableMeter(meter)) {
         meterFills.push({ utilityId: utility.id, meter, previous: utility.meter_number || null });
       }
@@ -232,6 +234,7 @@ export class InvoiceMatcher {
         period_end: line.periodEnd,
         amount: line.amount,
         consumption: line.consumption,
+        bands: [line.consumptionF1, line.consumptionF2, line.consumptionF3],
         estimated: line.estimated,
         description: line.description ? line.description.slice(0, 255) : null,
         supply_code: line.utility ? line.utility.slice(0, 50) : null,

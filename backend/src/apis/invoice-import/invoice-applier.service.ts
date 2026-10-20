@@ -5,7 +5,7 @@ import { Invoice } from '@apis/invoices/entity/invoice.entity';
 import { InvoiceLine } from '@apis/invoices/entity/invoice-line.entity';
 import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
 import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
-import { ConsumptionLinker } from './consumption-linker.service';
+import { ConsumptionLinker, type ConsumptionBands } from './consumption-linker.service';
 import { InvoiceImportIssue } from './entity/invoice-import-issue.entity';
 import { SdiMessage } from './entity/sdi-message.entity';
 import { SdiMessageStatus } from './enum/sdi-message-status.enum';
@@ -100,6 +100,7 @@ export class InvoiceApplier {
             previous,
             meters,
             estimated,
+            bandsByUtility(match),
           );
           issues.push(...linked.issues);
           utilityIds = linked.utilityIds;
@@ -222,4 +223,26 @@ export class InvoiceApplier {
     });
     return existing.id;
   }
+}
+
+// Fasce lette per utenza (somma delle righe dell'utenza); solo le utenze con almeno una fascia.
+function bandsByUtility(match: MatchResult): Map<number, ConsumptionBands> {
+  const out = new Map<number, ConsumptionBands>();
+  for (const line of match.lines) {
+    if (!line.utility_id_fk || line.consumption === null || line.bands.every((b) => b === null))
+      continue;
+    const current = out.get(line.utility_id_fk) ?? {
+      consumption_f1: null,
+      consumption_f2: null,
+      consumption_f3: null,
+    };
+    const add = (a: number | null, b: number | null) =>
+      a === null && b === null ? null : Math.round(((a ?? 0) + (b ?? 0)) * 1000) / 1000;
+    out.set(line.utility_id_fk, {
+      consumption_f1: add(current.consumption_f1, line.bands[0]),
+      consumption_f2: add(current.consumption_f2, line.bands[1]),
+      consumption_f3: add(current.consumption_f3, line.bands[2]),
+    });
+  }
+  return out;
 }

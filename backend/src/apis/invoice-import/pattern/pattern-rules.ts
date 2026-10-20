@@ -52,6 +52,9 @@ export interface PatternRules {
   consumptionLineFilter?: string;
 }
 
+// Consumo per fascia oraria (energia elettrica), nello storico consumption_f1..f3.
+export const BAND_TARGETS: LineTarget[] = ['consumptionF1', 'consumptionF2', 'consumptionF3'];
+
 export interface ExtractedLine {
   utility: string | null;
   periodStart: string | null;
@@ -59,6 +62,9 @@ export interface ExtractedLine {
   amount: number;
   description: string | null;
   consumption: number | null;
+  consumptionF1: number | null;
+  consumptionF2: number | null;
+  consumptionF3: number | null;
   unit: string | null;
   meter: string | null;
   // Consumo stimato dal fornitore (lettura stimata, «di cui stimati» > 0).
@@ -430,6 +436,7 @@ export function extract(
   // Consumo letto dalla testata: una volta sola per utenza, sulla prima riga ammessa.
   const headerConsumptionUsed = new Set<string>();
   const consumptionRule = rules.line.consumption;
+  const bandRules = BAND_TARGETS.map((t) => rules.line[t]);
   const utilities = tree.lines.map((line) => lineRule(tree, line, rules.line.utility));
   // Con righe intestate a un'utenza, quelle senza (bollo, indennizzi) non prendono il consumo.
   const anyUtility = utilities.some((u) => u !== null);
@@ -446,28 +453,37 @@ export function extract(
       : firstValue([line], 'Descrizione');
     const amountRule = rules.line.amount ?? { kind: 'grossAmount' };
     let consumption: number | null = null;
+    let bands: (number | null)[] = [null, null, null];
     let estimated = false;
     const descriptionText = description ?? firstValue([line], 'Descrizione') ?? '';
     // Una nota di credito non registra consumi (i conguagli sono un caso a parte).
     if (!creditNote && (!filter || descriptionText.toLowerCase().includes(filter))) {
       const used = utility ?? '';
-      const header = readsHeader(consumptionRule);
+      const header = readsHeader(consumptionRule) || bandRules.some(readsHeader);
       if (!header || (!headerConsumptionUsed.has(used) && (utility !== null || !anyUtility))) {
         consumption = toNumber(lineRule(tree, line, consumptionRule, segment));
+        bands = bandRules.map((r) => toNumber(lineRule(tree, line, r, segment)));
+        // Senza totale letto il consumo è la somma delle fasce.
+        if (consumption === null && bands.some((b) => b !== null)) {
+          consumption =
+            Math.round(bands.reduce((sum: number, b) => sum + (b ?? 0), 0) * 1000) / 1000;
+        }
         if (consumption !== null) {
           const rule = rules.line.estimated;
           estimated = isEstimated(rule, lineRule(tree, line, rule, segment));
         }
-        if (consumption !== null && readsHeader(consumptionRule)) headerConsumptionUsed.add(used);
+        if (consumption !== null && header) headerConsumptionUsed.add(used);
       }
     }
-    // Consumo da una regola «parola» senza unità mappata: unità dal testo (wordUnit).
+    // Consumo da una regola «parola» senza unità mappata: unità dal testo (wordUnit),
+    // dalla regola del totale o, per fasce, da quella della prima fascia.
+    const unitRule = isWordRule(consumptionRule) ? consumptionRule : bandRules.find(isWordRule);
     const unit =
-      rules.line.unit || !isWordRule(consumptionRule) || consumptionRule.kind === 'textAfter'
+      rules.line.unit || !unitRule || unitRule.kind === 'textAfter'
         ? lineRule(tree, line, rules.line.unit)
         : consumption === null
           ? null
-          : wordUnit(consumptionRule, wordText(tree, line, consumptionRule, segment));
+          : wordUnit(unitRule, wordText(tree, line, unitRule, segment));
     return {
       utility,
       periodStart: isoDate(lineRule(tree, line, rules.line.periodStart, segment)),
@@ -475,6 +491,9 @@ export function extract(
       amount: toNumber(lineRule(tree, line, amountRule)) ?? 0,
       description,
       consumption,
+      consumptionF1: bands[0],
+      consumptionF2: bands[1],
+      consumptionF3: bands[2],
       unit,
       meter: lineRule(tree, line, rules.line.meter, segment),
       estimated,

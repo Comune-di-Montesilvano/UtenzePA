@@ -21,7 +21,9 @@ import {TOption} from '../../core/types/option.interface';
 import {InvoicePatternsService} from './invoice-patterns.service';
 import {HEADER_DEFAULTS, TARGET_LABELS} from './target-fields';
 import {
+  BAND_TARGETS,
   CatalogField,
+  ExtractedLine,
   HEADER_TARGETS,
   isHeaderTarget,
   LINE_TARGETS,
@@ -56,10 +58,10 @@ const EDITABLE_HEADER = HEADER_TARGETS.filter(t => t !== 'supplierVat');
 // campo; date gg/mm/aaaa convertite. Con tutti e due: il primo testo fa da ancora,
 // il valore è quello subito prima del secondo (es. dopo «CONSUMO», prima di «kWh»).
 const WORD_TARGETS: TargetField[] = [
-  'total', 'netAmount', 'consumption', 'number', 'date', 'cig', 'contractRef',
+  'total', 'netAmount', 'consumption', ...BAND_TARGETS, 'number', 'date', 'cig', 'contractRef',
   'utility', 'periodStart', 'periodEnd', 'unit', 'meter', 'estimated',
 ];
-const NUMBER_TARGETS: TargetField[] = ['total', 'netAmount', 'consumption'];
+const NUMBER_TARGETS: TargetField[] = ['total', 'netAmount', 'consumption', ...BAND_TARGETS];
 // Consumo stimato: «di cui stimati» maggiore di zero o la parola presente («Stimata»).
 const ESTIMATED_MODES: {kind: WordKind; label: string}[] = [
   {kind: 'contains', label: 'Presente la parola'},
@@ -68,6 +70,8 @@ const ESTIMATED_MODES: {kind: WordKind; label: string}[] = [
 // Campi che si leggono solo cercando una parola.
 const WORD_ONLY: TargetField[] = ['estimated'];
 const PDF_KEY = `header|${PDF_PATH}|`;
+// Etichette delle fasce nei PDF, dalla più precisa: la prima presente fa da «Dopo il testo».
+const BAND_LABELS = ['Fascia oraria F', 'Fascia F'];
 // Fatture per chiamata di analisi (limite del backend).
 const ANALYZE_CHUNK = 25;
 
@@ -154,6 +158,7 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     .pe-lines .num { text-align: right; white-space: nowrap; }
     .pe-lines .nowrap { white-space: nowrap; }
     .pe-lines .pe-desc { overflow-wrap: anywhere; }
+    .pe-bands { font-size: 0.8em; color: var(--app-muted); white-space: nowrap; }
     .pe-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 1rem; }
     .pe-actions mat-form-field { width: 22rem; max-width: 100%; }
     .center { display: flex; justify-content: center; padding: 2rem; }
@@ -170,6 +175,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   readonly canEdit = isEditorRole(inject(AuthService).getCurrentUser()?.role);
   readonly headerTargets = EDITABLE_HEADER;
   readonly lineTargets = LINE_TARGETS;
+  readonly bandTargets: TargetField[] = BAND_TARGETS;
   readonly labels: Record<string, string> = TARGET_LABELS;
 
   data: PatternEditorData | null = null;
@@ -197,6 +203,8 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   view: 'xml' | 'pdf' = 'xml';
   pdfHtml = '';
   consumptionFilter = '';
+  // Consumo letto come totale o per fasce orarie (F1, F2, F3).
+  consumptionMode: 'total' | 'bands' = 'total';
   name = '';
   patternId: number | null = null;
 
@@ -434,12 +442,14 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
       }
     }
     this.consumptionFilter = rules.consumptionLineFilter ?? '';
+    this.consumptionMode = BAND_TARGETS.some(t => rules.line[t]) ? 'bands' : 'total';
     if (this.data) this.buildOptions(this.data);
   }
 
   rules(): PatternRules {
     const rules: PatternRules = {header: {}, line: {}};
     for (const t of [...EDITABLE_HEADER, ...LINE_TARGETS]) {
+      if (!this.showTarget(t)) continue;
       const rule = this.ruleFor(t);
       if (!rule) continue;
       if (isHeaderTarget(t)) rules.header[t as keyof PatternRules['header']] = rule;
@@ -473,6 +483,29 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
     if (field.path === PDF_PATH || WORD_ONLY.includes(t)) return null;
     const where = field.where ? {where: field.where} : {};
     return fromHeader ? {kind: 'fromHeader', path: field.path, ...where} : {kind: 'field', path: field.path, ...where};
+  }
+
+  // Righe delle fasce solo con «Per fasce».
+  showTarget(t: TargetField): boolean {
+    return this.consumptionMode === 'bands' || !(BAND_TARGETS as TargetField[]).includes(t);
+  }
+
+  // Per fasce: ogni fascia parte dal campo del consumo, dopo la sua etichetta
+  // («Fascia oraria F1» se il PDF la scrive, altrimenti «F1») e prima dell'unità del
+  // consumo (o «kWh»). Tornando al totale le fasce si svuotano.
+  consumptionModeChanged(mode: 'total' | 'bands'): void {
+    this.consumptionMode = mode;
+    const pdf = (this.data?.pdf_text ?? '').replace(/\s+/g, ' ').toLowerCase();
+    for (const [i, t] of BAND_TARGETS.entries()) {
+      const label = BAND_LABELS.map(l => `${l}${i + 1}`).find(l => pdf.includes(l.toLowerCase())) ?? `F${i + 1}`;
+      this.choice[t] = mode === 'bands' ? (this.choice['consumption'] ?? '') : '';
+      this.after[t] = mode === 'bands' ? label : '';
+      this.before[t] = mode === 'bands' ? (this.before['consumption']?.trim() || 'kWh') : '';
+      this.legacyAnchor[t] = '';
+      this.occurrences[t] = null;
+      this.occPicked[t] = false;
+    }
+    this.requestPreview(true);
   }
 
   defaultLabel(t: TargetField): string {
@@ -748,5 +781,15 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
 
   qty(n: number): string {
     return n.toLocaleString('it-IT', {maximumFractionDigits: 6});
+  }
+
+  // Fasce lette sulla riga, per l'anteprima («F1 60 · F2 25 · F3 38»).
+  bands(l: ExtractedLine): string {
+    return BAND_TARGETS.map((t, i) => {
+      const value = l[t];
+      return value === null || value === undefined ? '' : `F${i + 1} ${this.qty(value)}`;
+    })
+      .filter(Boolean)
+      .join(' · ');
   }
 }

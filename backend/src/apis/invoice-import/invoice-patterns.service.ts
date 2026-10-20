@@ -18,6 +18,7 @@ import {
   type TargetField,
 } from './pattern/field-catalog';
 import {
+  BAND_TARGETS,
   extract,
   patternMatches,
   PDF_PATH,
@@ -133,12 +134,13 @@ const PDF_TARGETS: TargetField[] = [
   'periodStart',
   'periodEnd',
   'consumption',
+  ...BAND_TARGETS,
   'unit',
   'meter',
   'estimated',
 ];
 // Nel PDF il dato di solito c'è solo per questi: il campo PDF va in cima, per gli altri in fondo.
-const PDF_FIRST: TargetField[] = ['consumption', 'meter', 'estimated'];
+const PDF_FIRST: TargetField[] = ['consumption', ...BAND_TARGETS, 'meter', 'estimated'];
 // Fatture per chiamata di analisi: il frontend le manda a gruppi.
 const ANALYZE_MAX = 25;
 // File riletti dalla PEC tenuti in memoria (l'editor torna sulle stesse fatture).
@@ -599,15 +601,43 @@ export class InvoicePatternsService {
       .slice(0, 3)
       .map((l) => `${number(l.consumption!)}${l.unit ? ` ${l.unit}` : ''}`)
       .join(', ');
+    const bandsMapped = BAND_TARGETS.some((t) => rules.line[t] && rules.line[t].kind !== 'none');
+    const consumptionMapped = !!rules.line.consumption || bandsMapped;
     add(
       'consumption',
-      rules.line.consumption ? (consumptions ? 'ok' : 'warn') : 'off',
-      rules.line.consumption
+      consumptionMapped ? (consumptions ? 'ok' : 'warn') : 'off',
+      consumptionMapped
         ? consumptions
           ? `Consumo letto: ${values}${consumptions > 3 ? '…' : ''} (${rows(consumptions)})`
           : 'Nessun consumo letto'
         : 'Non mappato',
     );
+    // Fasce: valore di ciascuna; col totale letto la somma deve tornare (entro 1 kWh).
+    for (const [i, t] of BAND_TARGETS.entries()) {
+      const rule = rules.line[t];
+      if (!rule || rule.kind === 'none') continue;
+      const band = extracted.lines.find((l) => l[t] !== null);
+      add(
+        t,
+        band ? 'ok' : 'warn',
+        band
+          ? `F${i + 1} letta: ${number(band[t] as number)}${band.unit ? ` ${band.unit}` : ''}`
+          : 'Nessun valore letto',
+      );
+    }
+    if (bandsMapped && rules.line.consumption) {
+      const off = extracted.lines.find((l) => {
+        const bands = BAND_TARGETS.map((t) => l[t]).filter((b): b is number => b !== null);
+        const sum = bands.reduce((s, b) => s + b, 0);
+        return l.consumption !== null && bands.length > 0 && Math.abs(sum - l.consumption) > 1;
+      });
+      if (off)
+        add(
+          'consumption',
+          'warn',
+          `La somma delle fasce non coincide col totale ${number(off.consumption!)}`,
+        );
+    }
     // Senza utenza riconosciuta o periodo il consumo non entra nello storico (ConsumptionLinker).
     const unusable = extracted.lines.filter(
       (l, i) =>
@@ -642,17 +672,17 @@ export class InvoicePatternsService {
     // Bloccanti: la fattura non si importa finché non si sistema l'anagrafica.
     for (const issue of match.blocking)
       add(ISSUE_FIELD[issue.type], 'danger', `${issue.detail}: import fermo`);
-    for (const fill of match.meterFills)
-      add(
-        'meter',
-        'ok',
-        fill.previous
-          ? `Matricola ${fill.meter}: aggiornerà l'utenza ${fill.utilityId} (ora ${fill.previous})`
-          : `Matricola ${fill.meter} da completare sull'utenza ${fill.utilityId}`,
-      );
-    const flagged = new Set(match.meterFills.map((m) => m.utilityId));
-    for (const m of match.meters.filter((x) => !flagged.has(x.utilityId)))
-      add('meter', 'ok', `Matricola ${m.meter}: uguale all'utenza ${m.utilityId}`);
+    // Matricola in fattura accanto a quella attuale dell'utenza: verde se coincidono,
+    // gialla se l'import la completa o la aggiorna (la fattura fa fede).
+    const fills = new Set(match.meterFills.map((m) => m.utilityId));
+    for (const m of match.meters) {
+      const current = `attuale ${m.previous || 'nessuna'} (utenza ${m.utilityId})`;
+      if (!fills.has(m.utilityId))
+        add('meter', 'ok', `Matricola ${m.meter}: coincide con l'${current}`);
+      else if (m.previous)
+        add('meter', 'warn', `Matricola ${m.meter}, ${current}: verrà aggiornata`);
+      else add('meter', 'warn', `Matricola ${m.meter}, ${current}: verrà completata`);
+    }
     if (rules.line.meter && rules.line.meter.kind !== 'none' && !match.meters.length) {
       // La matricola della fattura si scrive sull'utenza della riga: senza utenza trovata non c'è dove.
       const read = extracted.lines.find((l) => l.meter);
