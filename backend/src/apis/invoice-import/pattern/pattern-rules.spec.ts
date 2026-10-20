@@ -15,6 +15,7 @@ import {
   wordOccurrences,
   type PatternRules,
   type WordRule,
+  numberAfter,
 } from './pattern-rules';
 
 const fixture = (name: string) => readFileSync(join(__dirname, '../sdi/fixtures', name));
@@ -565,6 +566,12 @@ describe('extract: dati nel PDF allegato', () => {
     expect(line.reading2Type).toBe('stimata');
     // Nota di credito: nessuna lettura.
     expect(extract(asCreditNote(aca), r, text).lines[0].readings).toEqual([]);
+  });
+
+  it('carattere jolly: «*» vale qualsiasi carattere dentro la parola, anche nessuno', () => {
+    expect(numberAfter('rilevata rilevata\nSmc 89.323', 'rilevata *mc')).toBe(89323);
+    expect(numberAfter('rilevata rilevata\nmc 4.815', 'rilevata *mc')).toBe(4815);
+    expect(numberAfter('kWh 12', '*')).toBe(12);
   });
 
   it('parola di più termini: gli spazi valgono anche l’a capo', () => {

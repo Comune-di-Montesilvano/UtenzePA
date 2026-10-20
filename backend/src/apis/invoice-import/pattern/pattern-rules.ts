@@ -193,16 +193,26 @@ interface Found {
 }
 
 // Posizioni della parola nel testo, senza distinguere maiuscole; gli spazi della
-// parola valgono qualsiasi spazio o a capo («kWh Puoi pagare» trova «kWh\nPuoi pagare»).
+// parola valgono qualsiasi spazio o a capo («kWh Puoi pagare» trova «kWh\nPuoi pagare»);
+// «*» vale qualsiasi carattere dentro la parola, anche nessuno («rilevata *mc» trova
+// «rilevata mc» e «rilevata Smc»).
 function positions(text: string, word: string): Found[] {
   const words = word.trim().split(/\s+/).filter(Boolean);
   if (!words.length) return [];
   const re = new RegExp(
-    words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+'),
+    words
+      .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '\\S*'))
+      .join('\\s+'),
     'gi',
   );
   const out: Found[] = [];
-  for (let m = re.exec(text); m; m = re.exec(text)) out.push({ at: m.index, end: re.lastIndex });
+  for (let m = re.exec(text); m; m = re.exec(text)) {
+    if (!m[0]) {
+      re.lastIndex++;
+      continue;
+    }
+    out.push({ at: m.index, end: re.lastIndex });
+  }
   return out;
 }
 

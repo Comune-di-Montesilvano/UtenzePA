@@ -798,8 +798,9 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
     ].filter(m => m.word);
     let html = escapeHtml(text);
     for (const m of marks) {
-      // Gli spazi della parola valgono anche l'a capo, come nella lettura lato server.
-      const pattern = m.word.split(/\s+/).map(w => escapeRegExp(escapeHtml(w))).join('\\s+');
+      // Gli spazi della parola valgono anche l'a capo e «*» qualsiasi carattere, come lato server.
+      const pattern = m.word.trim().split(/\s+/)
+        .map(w => escapeRegExp(escapeHtml(w)).replace(/\\\*/g, '[^\\s<]*')).join('\\s+');
       const re = new RegExp(pattern, 'gi');
       html = html.replace(re, s => `<mark${m.cls ? ` class="${m.cls}"` : ''}>${s}</mark>`);
     }
