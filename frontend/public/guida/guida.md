@@ -405,7 +405,7 @@ L'import non corregge mai le anagrafiche: segnala le differenze, che trovi in da
 
 ### L'applicazione mi ha riportato al login
 
-**Causa:** dopo 30 minuti di inattività l'applicazione esce da sola, per sicurezza.
+**Causa:** dopo 30 minuti di inattività l'applicazione esce da sola, per sicurezza. Il login compare appena scade, oppure quando torni sulla pagina (PC in sospensione, altra scheda del browser), senza dover prima fare clic.
 
 **Soluzione:** accedi di nuovo. I dati già salvati restano; quelli in una scheda non salvata vanno reinseriti.
 
