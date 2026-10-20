@@ -717,13 +717,13 @@ describe('AnomaliesService', () => {
 
     it('strutture di fattura da mappare, per fornitore', async () => {
       only('/* invoice_patterns_unknown */', [
-        { supplier_id: '46', supplier: 'Energia Prova S.p.A.', structure_key: 'abc', count: '3', structures: '2', message_id: '12' },
+        { supplier_id: '46', supplier: 'Energia Prova S.p.A.', document_type: 'TD01', structure_key: 'abc', count: '3', structures: '2', message_id: '12' },
       ]);
       const r = await service.getAnomalies();
       expect(r.invoice_patterns_unknown).toEqual({
         count: 1,
         items: [
-          { supplier_id: 46, supplier: 'Energia Prova S.p.A.', structure_key: 'abc', count: 3, structures: 2, message_id: 12 },
+          { supplier_id: 46, supplier: 'Energia Prova S.p.A.', document_type: 'TD01', structure_key: 'abc', count: 3, structures: 2, message_id: 12 },
         ],
       });
     });
