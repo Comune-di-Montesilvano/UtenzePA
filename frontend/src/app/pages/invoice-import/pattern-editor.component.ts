@@ -3,7 +3,7 @@ import {NgTemplateOutlet} from '@angular/common';
 import {ActivatedRoute, Router} from '@angular/router';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
-import {MatCheckboxModule} from '@angular/material/checkbox';
+import {MatButtonToggleModule} from '@angular/material/button-toggle';
 import {MatDialog} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
@@ -27,9 +27,13 @@ import {
   PatternEditorData,
   PatternPreview,
   PatternRules,
+  PDF_LABEL,
+  PDF_PATH,
   Rule,
   ruleFieldKey,
   TargetField,
+  WordKind,
+  isWordRule,
 } from './pattern-rules.model';
 
 interface FieldOption {
@@ -43,20 +47,38 @@ interface FieldOption {
 const PREVIEW_DEBOUNCE_MS = 400;
 // La P.IVA identifica il fornitore: non si mappa.
 const EDITABLE_HEADER = HEADER_TARGETS.filter(t => t !== 'supplierVat');
-// «Numero dopo la parola» restituisce un numero: solo per il consumo (es. «kWh 542» nella descrizione).
-// Consumo: numero dopo la parola (kWh 542); matricola: parola dopo (Contatore 000283767).
-const AFTER_WORD_TARGETS: TargetField[] = ['consumption', 'meter'];
+// Regole «parola» (consumo e matricola dentro un testo: Causale, descrizione, PDF allegato).
+// Consumo: numero dopo la parola (kWh 542) o prima (594 mc); matricola: parola dopo (Contatore 000283767);
+// consumo stimato: «di cui stimati» maggiore di zero o la parola presente («Stimata»).
+const WORD_MODES: Partial<Record<TargetField, {kind: WordKind; label: string}[]>> = {
+  consumption: [
+    {kind: 'numberAfter', label: 'Numero dopo la parola'},
+    {kind: 'numberBefore', label: 'Numero prima della parola'},
+  ],
+  meter: [{kind: 'textAfter', label: 'Testo dopo la parola'}],
+  estimated: [
+    {kind: 'contains', label: 'Presente la parola'},
+    {kind: 'numberAfter', label: 'Numero dopo la parola maggiore di zero'},
+  ],
+};
+// Campi che si leggono solo cercando una parola.
+const WORD_ONLY: TargetField[] = ['estimated'];
+const PDF_KEY = `header|${PDF_PATH}|`;
 
 // Campo del catalogo ricostruito da una regola salvata (chiave = scope|path|condizione).
 function missingField(key: string, rule: Rule & {path: string}): CatalogField {
   const [scope] = key.split('|') as [CatalogField['scope']];
   const where = 'where' in rule ? rule.where : undefined;
-  const label = rule.path.split('/').join(' › ') + (where ? ` [${where.path.split('/').pop()}=${where.equals}]` : '');
+  const label =
+    rule.path === PDF_PATH
+      ? PDF_LABEL
+      : rule.path.split('/').join(' › ') + (where ? ` [${where.path.split('/').pop()}=${where.equals}]` : '');
   return {key, scope, label, path: rule.path, ...(where ? {where} : {}), sample: null};
 }
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Editor dei pattern: per ogni campo di UtenzePA il campo XML da cui leggerlo,
 // con anteprima (senza scritture) sulla fattura e su quelle della stessa struttura.
@@ -67,7 +89,7 @@ const escapeHtml = (s: string) =>
     NgTemplateOutlet,
     FormsModule,
     MatButtonModule,
-    MatCheckboxModule,
+    MatButtonToggleModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -89,7 +111,7 @@ const escapeHtml = (s: string) =>
       padding: 0.25rem 0.5rem; border-radius: 6px; }
     .pe-row.focused { background: var(--tone-info-bg); }
     .pe-row mat-form-field { width: 100%; }
-    .pe-word { display: flex; gap: 0.5rem; align-items: center; margin-top: -0.75rem; margin-bottom: 0.5rem; }
+    .pe-word { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: -0.75rem; margin-bottom: 0.5rem; }
     .pe-word mat-form-field { width: 10rem; }
     .pe-checks { display: flex; flex-direction: column; gap: 4px; padding-top: 0.75rem; }
     .pe-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; line-height: 1.4; }
@@ -101,7 +123,10 @@ const escapeHtml = (s: string) =>
     .pe-xml { position: sticky; top: 0.5rem; }
     .pe-xml pre { max-height: 75vh; overflow: auto; white-space: pre-wrap; word-break: break-all; font-size: 0.75rem;
       margin: 0; padding: 0.75rem; border: 1px solid var(--app-border); border-radius: 6px; background: var(--app-surface); }
-    .pe-xml-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+    .pe-xml-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;
+      margin-bottom: 0.5rem; }
+    /* Contenuto in innerHTML: fuori dall'incapsulamento degli stili. */
+    .pe-xml pre ::ng-deep mark.pe-anchor { background: var(--tone-info-bg); color: inherit; }
     .pe-lines { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 0.5rem; }
     .pe-lines th, .pe-lines td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--app-border); }
     .pe-lines td.num { text-align: right; }
@@ -129,10 +154,15 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   saving = false;
 
   // Regole in forma di form: scelta per campo ('' = predefinito/non mappato,
-  // 'none', 'gross', 'f:<chiave del catalogo>'), più «numero dopo la parola».
+  // 'none', 'gross', 'f:<chiave del catalogo>'), più lettura «parola» (tipo,
+  // parola cercata, ancora da cui parte la ricerca).
   choice: Record<string, string> = {};
-  afterWord: Record<string, boolean> = {};
+  wordMode: Record<string, WordKind | ''> = {};
   words: Record<string, string> = {};
+  anchors: Record<string, string> = {};
+  // Pannello di destra: XML o testo del PDF allegato.
+  view: 'xml' | 'pdf' = 'xml';
+  pdfHtml = '';
   consumptionFilter = '';
   name = '';
   patternId: number | null = null;
@@ -246,7 +276,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
           label: f.label,
           sample: f.sample,
           committente: f.path.includes('CessionarioCommittente'),
-          header: f.scope === 'header' && !isHeaderTarget(t),
+          header: f.scope === 'header' && !isHeaderTarget(t) && f.path !== PDF_PATH,
         }));
       // Regola su un campo che questa fattura non ha: resta selezionata, non si perde al salvataggio.
       const chosen = this.choice[t] ?? '';
@@ -257,7 +287,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
           label: `${missing.label} (non presente in questa fattura)`,
           sample: null,
           committente: false,
-          header: missing.scope === 'header' && !isHeaderTarget(t),
+          header: missing.scope === 'header' && !isHeaderTarget(t) && missing.path !== PDF_PATH,
         });
       }
     }
@@ -276,9 +306,10 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
         const key = ruleFieldKey(t, rule)!;
         this.choice[t] = `f:${key}`;
         if (!this.fields.has(key)) this.fields.set(key, missingField(key, rule));
-        if (rule.kind === 'numberAfter' || rule.kind === 'textAfter') {
-          this.afterWord[t] = true;
+        if (isWordRule(rule)) {
+          this.wordMode[t] = rule.kind;
           this.words[t] = rule.word;
+          this.anchors[t] = rule.anchor ?? '';
         }
       }
     }
@@ -306,10 +337,19 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
     const field = this.fields.get(c.slice(2));
     if (!field) return null;
     const fromHeader = !isHeaderTarget(t) && field.scope === 'header';
-    if (this.afterWord[t] && this.words[t]?.trim()) {
-      const kind = t === 'meter' ? 'textAfter' : 'numberAfter';
-      return {kind, path: field.path, word: this.words[t].trim(), ...(fromHeader ? {fromHeader: true} : {})};
+    const kind = this.wordMode[t];
+    if (kind && this.words[t]?.trim()) {
+      const anchor = this.anchors[t]?.trim();
+      return {
+        kind,
+        path: field.path,
+        word: this.words[t].trim(),
+        ...(fromHeader ? {fromHeader: true} : {}),
+        ...(anchor ? {anchor} : {}),
+      };
     }
+    // Dal PDF (e la stima) solo con la parola: senza, il campo resta non mappato.
+    if (field.path === PDF_PATH || WORD_ONLY.includes(t)) return null;
     const where = field.where ? {where: field.where} : {};
     return fromHeader ? {kind: 'fromHeader', path: field.path, ...where} : {kind: 'field', path: field.path, ...where};
   }
@@ -319,23 +359,33 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
     return HEADER_DEFAULTS.includes(t) ? 'Tracciato standard' : 'Non mappato';
   }
 
-  afterWordLabel(t: TargetField): string {
-    return t === 'meter' ? 'Testo dopo la parola' : 'Numero dopo la parola';
+  wordModes(t: TargetField): {kind: WordKind; label: string}[] {
+    return WORD_MODES[t] ?? [];
   }
 
-  canAfterWord(t: TargetField): boolean {
-    return AFTER_WORD_TARGETS.includes(t) && (this.choice[t] ?? '').startsWith('f:');
+  canWord(t: TargetField): boolean {
+    return !!WORD_MODES[t] && (this.choice[t] ?? '').startsWith('f:');
+  }
+
+  fromPdf(t: TargetField): boolean {
+    return this.choice[t] === `f:${PDF_KEY}`;
+  }
+
+  // Il testo del PDF e il consumo stimato si leggono solo cercando una parola.
+  wordOnly(t: TargetField): boolean {
+    return this.fromPdf(t) || WORD_ONLY.includes(t);
   }
 
   focus(t: TargetField): void {
     this.focused = t;
+    if (this.fromPdf(t) && this.data?.pdf_text) this.view = 'pdf';
     this.refreshXml();
   }
 
   changed(t: TargetField): void {
-    if (!this.canAfterWord(t)) this.afterWord[t] = false;
-    this.focused = t;
-    this.refreshXml();
+    if (!this.canWord(t)) this.wordMode[t] = '';
+    else if (this.wordOnly(t) && !this.wordMode[t]) this.wordMode[t] = this.wordModes(t)[0].kind;
+    this.focus(t);
     this.requestPreview(true);
   }
 
@@ -365,9 +415,11 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
     this.holds = all.filter(p => p.matches && !p.match?.issues.some(i => i.type === 'UNKNOWN_UTILITY')).length;
   }
 
-  // XML senza il PDF allegato (base64), col valore del campo in focus evidenziato.
+  // XML senza il PDF allegato (base64), col valore del campo in focus evidenziato;
+  // nel testo del PDF parola e ancora del campo in focus.
   private refreshXml(): void {
     if (!this.data) return;
+    this.refreshPdf();
     let html = escapeHtml(this.data.xml.replace(/(<(?:\w+:)?Attachment>)[\s\S]*?(<\/(?:\w+:)?Attachment>)/g, '$1[PDF allegato]$2'));
     const c = this.focused ? (this.choice[this.focused] ?? '') : '';
     const sample = c.startsWith('f:') ? this.data.catalog.find(f => f.key === c.slice(2))?.sample : null;
@@ -377,6 +429,33 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
       setTimeout(() => document.querySelector('.pe-xml pre mark')?.scrollIntoView({block: 'center', behavior: 'smooth'}));
     }
     this.xmlHtml = html;
+  }
+
+  private refreshPdf(): void {
+    const text = this.data?.pdf_text;
+    if (!text) {
+      this.pdfHtml = '';
+      if (this.view === 'pdf') this.view = 'xml';
+      return;
+    }
+    const t = this.focused;
+    const marks = [
+      {word: t && this.fromPdf(t) ? this.anchors[t]?.trim() : '', cls: 'pe-anchor'},
+      {word: t && this.fromPdf(t) ? this.words[t]?.trim() : '', cls: ''},
+    ].filter(m => m.word);
+    let html = escapeHtml(text);
+    for (const m of marks) {
+      const re = new RegExp(escapeRegExp(escapeHtml(m.word)), 'gi');
+      html = html.replace(re, s => `<mark${m.cls ? ` class="${m.cls}"` : ''}>${s}</mark>`);
+    }
+    this.pdfHtml = html;
+    if (marks.length && this.view === 'pdf') {
+      setTimeout(() => document.querySelector('.pe-xml pre mark')?.scrollIntoView({block: 'center', behavior: 'smooth'}));
+    }
+  }
+
+  setView(view: 'xml' | 'pdf'): void {
+    this.view = view;
   }
 
   go(step: number): void {

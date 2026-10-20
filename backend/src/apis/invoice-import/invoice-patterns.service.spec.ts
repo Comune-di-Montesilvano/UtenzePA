@@ -2,7 +2,11 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { SdiMessageStatus } from './enum/sdi-message-status.enum';
 import { InvoicePatternsService } from './invoice-patterns.service';
-import { rulePaths, structureKey, type PatternRules } from './pattern/pattern-rules';
+import { PDF_PATH, rulePaths, structureKey, type PatternRules } from './pattern/pattern-rules';
+import { pdfText } from './sdi/pdf-text';
+
+jest.mock('./sdi/pdf-text', () => ({ pdfText: jest.fn() }));
+const mockPdfText = pdfText as jest.MockedFunction<typeof pdfText>;
 
 const podXml = readFileSync(join(__dirname, 'sdi/fixtures/fattura-pod.xml'));
 const acaXml = readFileSync(join(__dirname, 'sdi/fixtures/fattura-aca.xml'));
@@ -87,7 +91,14 @@ describe('InvoicePatternsService', () => {
       },
     ]);
     expect(await service.unknown()).toEqual([
-      { supplier_id: 46, supplier: 'Energia Prova', structure_key: 'abc', count: 88, structures: 4, message_id: 12 },
+      {
+        supplier_id: 46,
+        supplier: 'Energia Prova',
+        structure_key: 'abc',
+        count: 88,
+        structures: 4,
+        message_id: 12,
+      },
     ]);
     const sql = String(query.mock.calls[0][0]);
     // Tag facoltativi diversi non fanno righe separate: si raggruppa per fornitore.
@@ -114,7 +125,15 @@ describe('InvoicePatternsService', () => {
       contratto_id_fk: 5,
       lines: [],
       issues: [],
-      blocking: [{ type: 'METER_MISMATCH', lineIndex: 0, utilityId: 812, value: '9', detail: 'IT001E1: matricola in fattura 9, in anagrafica 8' }],
+      blocking: [
+        {
+          type: 'METER_MISMATCH',
+          lineIndex: 0,
+          utilityId: 812,
+          value: '9',
+          detail: 'IT001E1: matricola in fattura 9, in anagrafica 8',
+        },
+      ],
       meters: [],
       meterFills: [{ utilityId: 813, meter: '77' }],
     });
@@ -204,7 +223,9 @@ describe('InvoicePatternsService', () => {
 
   it('struttura già ignorata: 400, nessun doppione', async () => {
     patterns.findOneBy.mockResolvedValue({ id: 8, ignored: true, deleted: false });
-    await expect(service.ignore({ message_id: 9, name: 'Avvisi' }, 7)).rejects.toThrow('Struttura già ignorata.');
+    await expect(service.ignore({ message_id: 9, name: 'Avvisi' }, 7)).rejects.toThrow(
+      'Struttura già ignorata.',
+    );
     expect(patterns.save).not.toHaveBeenCalled();
   });
 
@@ -228,16 +249,79 @@ describe('InvoicePatternsService', () => {
 
   it('editor: XML, catalogo ordinato, simili e nome del fornitore', async () => {
     query.mockImplementation(async (sql: string) =>
-      sql.includes('FROM third_parties') ? [{ supplier: 'Energia Prova S.p.A.' }] : [{ id: 12 }, { id: 9 }],
+      sql.includes('FROM third_parties')
+        ? [{ supplier: 'Energia Prova S.p.A.' }]
+        : [{ id: 12 }, { id: 9 }],
     );
     const editor = await service.editor(9);
-    expect(editor.message).toEqual(expect.objectContaining({ id: 9, supplier_id: 46, supplier: 'Energia Prova S.p.A.' }));
+    expect(editor.message).toEqual(
+      expect.objectContaining({ id: 9, supplier_id: 46, supplier: 'Energia Prova S.p.A.' }),
+    );
     expect(editor.similar).toEqual([12, 9]);
     // Simili: fatture del fornitore senza pattern, prima quelle con la stessa struttura.
-    const similarSql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('ORDER BY (structure_key'));
+    const similarSql = query.mock.calls
+      .map(([s]) => String(s))
+      .find((s) => s.includes('ORDER BY (structure_key'));
     expect(similarSql).toContain('pattern_id_fk IS NULL');
     expect(editor.ranked.utility[0]).toContain('AltriDatiGestionali/TipoDato=POD');
     expect(editor.xml).toContain('<Numero>EP 7/26</Numero>');
+  });
+
+  it('editor con PDF allegato: testo e fonte «Testo del PDF» in cima a consumo e matricola', async () => {
+    query.mockResolvedValue([]);
+    mockPdfText.mockResolvedValueOnce('Contatore n. 98765');
+    const editor = await service.editor(9);
+    expect(editor.pdf_text).toBe('Contatore n. 98765');
+    expect(editor.ranked.consumption[0]).toBe(`header|${PDF_PATH}|`);
+    expect(editor.ranked.meter[0]).toBe(`header|${PDF_PATH}|`);
+    expect(editor.ranked.utility).not.toContain(`header|${PDF_PATH}|`);
+  });
+
+  it('anteprima con regola sul PDF: legge il testo del PDF', async () => {
+    mockPdfText.mockResolvedValueOnce('Codice 1 Contatore n. 98765');
+    const rules: PatternRules = {
+      header: {},
+      line: {
+        ...RULES.line,
+        meter: { kind: 'textAfter', path: PDF_PATH, word: 'Contatore n.', fromHeader: true },
+      },
+    };
+    const preview = await service.preview(9, rules);
+    expect(preview.extracted?.lines[0].meter).toBe('98765');
+  });
+
+  it.each([
+    [
+      '«presente la parola» fuori dal consumo stimato',
+      { meter: { kind: 'contains', path: PDF_PATH, word: 'x' } },
+    ],
+    [
+      'consumo stimato con un numero prima della parola',
+      { estimated: { kind: 'numberBefore', path: PDF_PATH, word: 'x' } },
+    ],
+    [
+      'PDF fuori da consumo e matricola',
+      { utility: { kind: 'textAfter', path: PDF_PATH, word: 'POD' } },
+    ],
+    [
+      'PDF con una regola che non cerca una parola',
+      { meter: { kind: 'fromHeader', path: PDF_PATH } },
+    ],
+    [
+      'ancora su una regola senza parola',
+      { meter: { kind: 'field', path: 'Descrizione', anchor: 'x' } },
+    ],
+  ])('regole non valide: %s', async (_, line) => {
+    await expect(
+      service.create(
+        {
+          message_id: 9,
+          name: 'X',
+          rules: { header: {}, line: { ...RULES.line, ...line } } as never,
+        },
+        7,
+      ),
+    ).rejects.toThrow('Regole del pattern non valide.');
   });
 
   it('regole non valide: 400', async () => {

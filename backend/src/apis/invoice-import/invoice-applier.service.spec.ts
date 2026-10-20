@@ -35,6 +35,7 @@ const match = (over: Partial<MatchResult> = {}): MatchResult => ({
       period_end: '2026-06-30',
       amount: 122,
       consumption: 542,
+      estimated: false,
       description: 'Materia',
       supply_code: 'IT001E00000001',
     },
@@ -172,7 +173,7 @@ describe('InvoiceApplier', () => {
       utilityIds: [812],
     });
     await applier.apply(message(), extracted, match({ existingInvoiceId: 321, issues: [] }), 3, 7);
-    expect(linker.link).toHaveBeenCalledWith(manager, 321, 7, [60], new Map());
+    expect(linker.link).toHaveBeenCalledWith(manager, 321, 7, [60], new Map(), new Set());
     expect(manager.save).toHaveBeenCalledWith(InvoiceImportIssue, [
       expect.objectContaining({ type: ImportIssueType.PERIOD_COVERED }),
     ]);
@@ -236,7 +237,26 @@ describe('InvoiceApplier: matricola', () => {
         user_id: 7,
       }),
     );
-    expect(linker.link).toHaveBeenCalledWith(manager, 500, 7, [], new Map([[812, '000000000000283767']]));
+    expect(linker.link).toHaveBeenCalledWith(
+      manager,
+      500,
+      7,
+      [],
+      new Map([[812, '000000000000283767']]),
+      new Set(),
+    );
+  });
+
+  it('consumo stimato dal fornitore: l’utenza passa alla rilevazione come stimata', async () => {
+    const base = match();
+    await applier.apply(
+      message(),
+      extracted,
+      match({ lines: [{ ...base.lines[0], estimated: true }] }),
+      3,
+      7,
+    );
+    expect(linker.link).toHaveBeenCalledWith(manager, 500, 7, [], new Map(), new Set([812]));
   });
 
   it('blocco: nessuna fattura scritta, segnalazione con utenza e matricola, pattern sul messaggio', async () => {

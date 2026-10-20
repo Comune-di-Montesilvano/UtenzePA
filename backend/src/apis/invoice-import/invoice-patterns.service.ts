@@ -9,21 +9,27 @@ import { InvoiceImportService } from './invoice-import.service';
 import { InvoiceMatcher, type MatchResult } from './invoice-matcher.service';
 import {
   buildCatalog,
+  fieldKey,
   HEADER_TARGETS,
   LINE_TARGETS,
   rankFor,
   type CatalogField,
+  type LineTarget,
   type TargetField,
 } from './pattern/field-catalog';
 import {
   extract,
   patternMatches,
+  PDF_PATH,
   rulePaths,
   structureKey,
+  usesPdf,
+  WORD_KINDS,
   type ExtractedInvoice,
   type PatternRules,
   type Rule,
 } from './pattern/pattern-rules';
+import { pdfText } from './sdi/pdf-text';
 import { extractPdf } from './sdi/sdi-files';
 import {
   toUnknownStructure,
@@ -59,6 +65,8 @@ export interface PatternEditor {
     pattern_id: number | null;
   };
   xml: string;
+  // Testo del PDF allegato (null se manca): fonte delle regole «parola».
+  pdf_text: string | null;
   catalog: CatalogField[];
   ranked: Record<TargetField, string[]>;
   similar: number[];
@@ -96,20 +104,28 @@ const REPROCESS_SQL =
   "AND (status IN ('PENDING', 'LINKED') OR (status = 'EXTRACTED' AND pattern_id_fk = ?)) " +
   'ORDER BY id';
 
-const RULE_KINDS = ['field', 'numberAfter', 'textAfter', 'grossAmount', 'fromHeader', 'none'];
-const WORD_KINDS = ['numberAfter', 'textAfter'];
+const RULE_KINDS = ['field', ...WORD_KINDS, 'grossAmount', 'fromHeader', 'none'];
+const isWordKind = (kind: unknown) => (WORD_KINDS as unknown[]).includes(kind);
+// Dal testo del PDF si leggono solo consumo, matricola e consumo stimato.
+const PDF_TARGETS: LineTarget[] = ['consumption', 'meter', 'estimated'];
+// Consumo stimato: numero «di cui stimati» o parola presente; «presente» solo lì.
+const ESTIMATED_KINDS = ['numberAfter', 'contains', 'none'];
 
 const text = (value: unknown, max: number) =>
   value === undefined || (typeof value === 'string' && value.length > 0 && value.length <= max);
 
-function validRule(rule: unknown): boolean {
+function validRule(target: string, rule: unknown): boolean {
   if (!rule || typeof rule !== 'object') return false;
   const r = rule as Record<string, unknown>;
   if (!RULE_KINDS.includes(r.kind as string)) return false;
-  if (r.kind === 'field' || r.kind === 'fromHeader' || WORD_KINDS.includes(r.kind as string)) {
+  if (r.kind === 'field' || r.kind === 'fromHeader' || isWordKind(r.kind)) {
     if (!text(r.path, 255) || r.path === undefined) return false;
   }
-  if (WORD_KINDS.includes(r.kind as string) && (!text(r.word, 50) || r.word === undefined))
+  if (isWordKind(r.kind) && (!text(r.word, 50) || r.word === undefined)) return false;
+  if (!text(r.anchor, 100) || (r.anchor !== undefined && !isWordKind(r.kind))) return false;
+  if (target === 'estimated' ? !ESTIMATED_KINDS.includes(r.kind as string) : r.kind === 'contains')
+    return false;
+  if (r.path === PDF_PATH && (!isWordKind(r.kind) || !(PDF_TARGETS as string[]).includes(target)))
     return false;
   if (r.where !== undefined) {
     const w = r.where as Record<string, unknown> | null;
@@ -124,10 +140,10 @@ function assertValidRules(rules: PatternRules): void {
     typeof rules.header === 'object' &&
     typeof rules.line === 'object' &&
     Object.entries(rules.header ?? {}).every(
-      ([k, r]) => (HEADER_TARGETS as string[]).includes(k) && validRule(r),
+      ([k, r]) => (HEADER_TARGETS as string[]).includes(k) && validRule(k, r),
     ) &&
     Object.entries(rules.line ?? {}).every(
-      ([k, r]) => (LINE_TARGETS as string[]).includes(k) && validRule(r),
+      ([k, r]) => (LINE_TARGETS as string[]).includes(k) && validRule(k, r),
     ) &&
     (rules.consumptionLineFilter === undefined || text(rules.consumptionLineFilter, 50));
   if (!valid) throw new BadRequestException('Regole del pattern non valide.');
@@ -148,6 +164,15 @@ const ISSUE_FIELD: Record<ImportIssueType, TargetField> = {
   [ImportIssueType.BATCH_NOT_SUPPORTED]: 'number',
   [ImportIssueType.METER_MISMATCH]: 'meter',
 };
+
+// Fonte «Testo del PDF allegato» nelle select di consumo e matricola.
+const pdfField = (): CatalogField => ({
+  key: fieldKey('header', PDF_PATH),
+  scope: 'header',
+  label: 'Testo del PDF allegato',
+  path: PDF_PATH,
+  sample: null,
+});
 
 const euro = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 });
 
@@ -197,6 +222,12 @@ export class InvoicePatternsService {
     const ranked = Object.fromEntries(
       [...HEADER_TARGETS, ...LINE_TARGETS].map((t) => [t, rankFor(t, catalog).map((f) => f.key)]),
     ) as Record<TargetField, string[]>;
+    const pdf = await pdfText(xml);
+    if (pdf !== null) {
+      const field = pdfField();
+      catalog.push(field);
+      for (const t of PDF_TARGETS) ranked[t].unshift(field.key);
+    }
     const [supplier] = await this.dataSource.query(SUPPLIER_SQL, [row.supplier_id_fk]);
     const similar: { id: number }[] = row.structure_key
       ? await this.dataSource.query(SIMILAR_SQL, [row.supplier_id_fk, row.structure_key])
@@ -214,6 +245,7 @@ export class InvoicePatternsService {
         pattern_id: row.pattern_id_fk,
       },
       xml: xml.toString('utf8'),
+      pdf_text: pdf,
       catalog,
       ranked,
       similar: similar.length ? similar.map((s) => Number(s.id)) : [row.id],
@@ -234,9 +266,10 @@ export class InvoicePatternsService {
   async preview(messageId: number, rules: PatternRules): Promise<PatternPreview> {
     const row = await this.message(messageId);
     const xml = (await this.importer.readMessageFile(row)).content;
+    const pdf = usesPdf(rules) ? await pdfText(xml) : null;
     let extracted: ExtractedInvoice;
     try {
-      extracted = extract(xml, rules);
+      extracted = extract(xml, rules, pdf);
     } catch {
       return { matches: false, extracted: null, match: null, checks: [] };
     }
@@ -245,7 +278,7 @@ export class InvoicePatternsService {
       matches: patternMatches(xml, rules),
       extracted,
       match,
-      checks: this.checks(rules, extracted, match, row),
+      checks: this.checks(rules, extracted, match, row, usesPdf(rules) && pdf === null),
     };
   }
 
@@ -358,6 +391,7 @@ export class InvoicePatternsService {
     extracted: ExtractedInvoice,
     match: MatchResult,
     row: SdiMessage,
+    missingPdf: boolean,
   ): PatternCheck[] {
     const checks: PatternCheck[] = [];
     const add = (field: TargetField, tone: PatternCheck['tone'], text: string) =>
@@ -414,6 +448,21 @@ export class InvoicePatternsService {
         : 'Non mappato',
     );
 
+    if (missingPdf) {
+      for (const t of PDF_TARGETS) {
+        const rule = rules.line[t];
+        if (rule && 'path' in rule && rule.path === PDF_PATH)
+          add(t, 'warn', 'La fattura non ha un PDF leggibile: dato non letto');
+      }
+    }
+    if (rules.line.estimated && rules.line.estimated.kind !== 'none' && consumptions) {
+      const estimated = extracted.lines.filter((l) => l.estimated).length;
+      add(
+        'estimated',
+        'ok',
+        estimated ? `Consumo stimato su ${estimated} righe` : 'Consumo reale (non stimato)',
+      );
+    }
     if (rules.header.cig && extracted.cig) add('cig', 'ok', `CIG ${extracted.cig}`);
     for (const issue of match.issues) add(ISSUE_FIELD[issue.type], 'warn', issue.detail);
     // Bloccanti: la fattura non si importa finché non si sistema l'anagrafica.

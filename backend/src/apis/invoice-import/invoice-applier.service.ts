@@ -88,7 +88,19 @@ export class InvoiceApplier {
         // Fattura rifiutata: nessun effetto sui consumi.
         if (existing?.sdi_status !== SdiStatus.REJECTED) {
           const meters = new Map(match.meters.map((m) => [m.utilityId, m.meter]));
-          const linked = await this.linker.link(manager, invoiceId, authorId, previous, meters);
+          const estimated = new Set(
+            match.lines
+              .filter((l) => l.estimated && l.consumption !== null && l.utility_id_fk)
+              .map((l) => l.utility_id_fk!),
+          );
+          const linked = await this.linker.link(
+            manager,
+            invoiceId,
+            authorId,
+            previous,
+            meters,
+            estimated,
+          );
           issues.push(...linked.issues);
           utilityIds = linked.utilityIds;
         }

@@ -12,6 +12,7 @@ export interface MatchedLine {
   period_end: string | null;
   amount: number;
   consumption: number | null;
+  estimated: boolean;
   description: string | null;
   supply_code: string | null;
 }
@@ -236,6 +237,7 @@ export class InvoiceMatcher {
         period_end: line.periodEnd,
         amount: line.amount,
         consumption: line.consumption,
+        estimated: line.estimated,
         description: line.description ? line.description.slice(0, 255) : null,
         supply_code: line.utility ? line.utility.slice(0, 50) : null,
       });

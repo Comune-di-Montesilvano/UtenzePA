@@ -34,16 +34,31 @@ export type LineTarget =
   | 'description'
   | 'consumption'
   | 'unit'
-  | 'meter';
+  | 'meter'
+  | 'estimated';
 export type TargetField = HeaderTarget | LineTarget;
+
+export type WordKind = 'numberAfter' | 'numberBefore' | 'textAfter' | 'contains';
+export interface WordRule {
+  kind: WordKind;
+  path: string;
+  word: string;
+  fromHeader?: boolean;
+  anchor?: string;
+}
 
 export type Rule =
   | {kind: 'field'; path: string; where?: FieldCondition}
-  | {kind: 'numberAfter'; path: string; word: string; fromHeader?: boolean}
-  | {kind: 'textAfter'; path: string; word: string; fromHeader?: boolean}
+  | WordRule
   | {kind: 'grossAmount'}
   | {kind: 'fromHeader'; path: string; where?: FieldCondition}
   | {kind: 'none'};
+
+// Percorso speciale: testo del PDF allegato (solo regole «parola»: consumo, matricola, stima).
+export const PDF_PATH = '@pdf';
+export const PDF_LABEL = 'Testo del PDF allegato';
+export const WORD_KINDS: WordKind[] = ['numberAfter', 'numberBefore', 'textAfter', 'contains'];
+export const isWordRule = (rule: Rule): rule is WordRule => (WORD_KINDS as string[]).includes(rule.kind);
 
 export interface PatternRules {
   header: Partial<Record<Exclude<HeaderTarget, 'supplierVat'>, Rule>>;
@@ -60,6 +75,7 @@ export interface ExtractedLine {
   consumption: number | null;
   unit: string | null;
   meter: string | null;
+  estimated: boolean;
 }
 
 export interface ExtractedInvoice {
@@ -101,6 +117,7 @@ export interface PatternEditorData {
     pattern_id: number | null;
   };
   xml: string;
+  pdf_text: string | null;
   catalog: CatalogField[];
   ranked: Record<TargetField, string[]>;
   similar: number[];
@@ -145,7 +162,7 @@ export function fieldKey(scope: FieldScope, path: string, where?: FieldCondition
 export function ruleFieldKey(target: TargetField, rule: Rule): string | null {
   if (rule.kind === 'field') return fieldKey(isHeaderTarget(target) ? 'header' : 'line', rule.path, rule.where);
   if (rule.kind === 'fromHeader') return fieldKey('header', rule.path, rule.where);
-  if (rule.kind === 'numberAfter' || rule.kind === 'textAfter') {
+  if (isWordRule(rule)) {
     return fieldKey(isHeaderTarget(target) || rule.fromHeader ? 'header' : 'line', rule.path);
   }
   return null;
@@ -171,6 +188,7 @@ export const LINE_TARGETS: LineTarget[] = [
   'consumption',
   'unit',
   'meter',
+  'estimated',
 ];
 
 export const isHeaderTarget = (t: TargetField): t is HeaderTarget => (HEADER_TARGETS as string[]).includes(t);

@@ -19,6 +19,7 @@ export const TARGET_LABELS: Record<TargetField, string> = {
   consumption: 'Consumo',
   unit: 'Unità di misura',
   meter: 'Matricola contatore',
+  estimated: 'Consumo stimato',
 };
 
 // Campi di testata con un percorso standard del tracciato: senza regola valgono quello.

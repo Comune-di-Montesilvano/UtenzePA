@@ -2,11 +2,16 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
   extract,
+  fromAnchor,
+  numberBefore,
   patternMatches,
+  PDF_PATH,
   pickPattern,
   rulePaths,
   structureKey,
+  usesPdf,
   type PatternRules,
+  type WordRule,
 } from './pattern-rules';
 
 const fixture = (name: string) => readFileSync(join(__dirname, '../sdi/fixtures', name));
@@ -134,13 +139,17 @@ describe('extract', () => {
     );
     const result = extract(twoRates, {
       ...POD_RULES,
-      header: { netAmount: { kind: 'field', path: 'DatiBeniServizi/DatiRiepilogo/ImponibileImporto' } },
+      header: {
+        netAmount: { kind: 'field', path: 'DatiBeniServizi/DatiRiepilogo/ImponibileImporto' },
+      },
     });
     expect(result.netAmount).toBe(149.99);
   });
 
   it('nota di credito semplificata TD08: importi negativi come la TD04', () => {
-    const td08 = Buffer.from(pod.toString('utf8').replace('<TipoDocumento>TD01<', '<TipoDocumento>TD08<'));
+    const td08 = Buffer.from(
+      pod.toString('utf8').replace('<TipoDocumento>TD01<', '<TipoDocumento>TD08<'),
+    );
     expect(extract(td08, POD_RULES).lines[0].amount).toBe(-122);
   });
 
@@ -204,6 +213,20 @@ describe('extract: dati nella Causale (A2A)', () => {
     );
   });
 
+  it('più POD nel testo: il tratto di un’utenza finisce dove comincia la successiva', () => {
+    const two = Buffer.from(
+      withCausale(['POD IT001E00000001 Contatore 111 POD IT001E00000002 Contatore 222 kWh 20'])
+        .toString('utf8')
+        .replace(/(<NumeroLinea>2<\/NumeroLinea>[\s\S]*?)IT001E00000001/, '$1IT001E00000002'),
+    );
+    const lines = extract(two, A2A_RULES).lines;
+    // Senza kWh nel suo tratto la prima utenza non prende il consumo della seconda.
+    expect(lines.slice(0, 2).map((l) => [l.consumption, l.meter])).toEqual([
+      [null, '111'],
+      [20, '222'],
+    ]);
+  });
+
   it('più POD nella Causale: ogni riga legge il tratto della sua utenza', () => {
     const two = Buffer.from(
       withCausale([
@@ -225,6 +248,123 @@ describe('extract: dati nella Causale (A2A)', () => {
       line: { ...A2A_RULES.line, unit: { kind: 'none' } },
     };
     expect(extract(withCausale([A2A_CAUSALE]), rules).lines[0].unit).toBeNull();
+  });
+});
+
+describe('extract: dati nel PDF allegato', () => {
+  const fromPdf = (r: Omit<WordRule, 'path' | 'fromHeader'>): WordRule => ({
+    ...r,
+    path: PDF_PATH,
+    fromHeader: true,
+  });
+  const rules = (line: PatternRules['line']): PatternRules => ({
+    header: {},
+    line: { ...ACA_RULES.line, consumption: undefined, unit: undefined, ...line },
+  });
+  // Testo come lo restituisce pdfjs: righe spezzate, numeri all'italiana.
+  const PDF = [
+    'Codice Servizio 123456',
+    'Contatore n. 98765',
+    'Consumo annuo: 28.908 kWh',
+    'Sintesi consumi fatturati',
+    'F1 (kWh)   F2 (kWh)   Totale',
+    '137,000   954,000   1.091,000 kWh',
+    'Consumo nel periodo di 39 giorni',
+    '594 mc',
+    'Gas prelevato   18,344 Smc',
+  ].join('\n');
+
+  it('numero prima della parola dall’ancora in poi; unità = la parola', () => {
+    const r = rules({
+      consumption: fromPdf({ kind: 'numberBefore', word: 'kWh', anchor: 'Sintesi consumi' }),
+    });
+    const line = extract(aca, r, PDF).lines[0];
+    expect(line).toEqual(expect.objectContaining({ consumption: 1091, unit: 'kWh' }));
+  });
+
+  it('numero dopo la parola: unità scritta dopo il numero', () => {
+    const r = rules({ consumption: fromPdf({ kind: 'numberAfter', word: 'Gas prelevato' }) });
+    expect(extract(aca, r, PDF).lines[0]).toEqual(
+      expect.objectContaining({ consumption: 18.344, unit: 'Smc' }),
+    );
+  });
+
+  it('matricola dal PDF su tutte le righe; consumo una volta sola', () => {
+    const r = rules({
+      consumption: fromPdf({ kind: 'numberBefore', word: 'mc', anchor: 'Consumo nel periodo' }),
+      meter: fromPdf({ kind: 'textAfter', word: 'Contatore n.' }),
+    });
+    const lines = extract(aca, r, PDF).lines;
+    expect(lines.map((l) => l.meter)).toEqual(['98765', '98765', '98765']);
+    expect(lines.map((l) => l.consumption)).toEqual([594, null, null]);
+  });
+
+  it('senza PDF o senza ancora nel testo: nessun dato', () => {
+    const r = rules({
+      consumption: fromPdf({ kind: 'numberBefore', word: 'kWh', anchor: 'Riepilogo' }),
+      meter: fromPdf({ kind: 'textAfter', word: 'Contatore n.' }),
+    });
+    expect(extract(aca, r, PDF).lines[0].consumption).toBeNull();
+    expect(extract(aca, r).lines[0]).toEqual(
+      expect.objectContaining({ consumption: null, meter: null }),
+    );
+  });
+
+  it('una sola utenza, citata dopo il dato: si legge tutto il testo', () => {
+    const r = rules({ consumption: fromPdf({ kind: 'numberAfter', word: 'Consumo totale' }) });
+    const text = 'Consumo totale fatturato: 9,5 Smc\nCodice Servizio 123456';
+    expect(extract(aca, r, text).lines[0].consumption).toBe(9.5);
+  });
+
+  it('consumo stimato: parola presente nel tratto, oppure «di cui stimati» maggiore di zero', () => {
+    const consumption = fromPdf({
+      kind: 'numberBefore',
+      word: 'mc',
+      anchor: 'Consumo nel periodo',
+    });
+    const word = rules({
+      consumption,
+      estimated: fromPdf({ kind: 'contains', word: 'Stimata', anchor: 'Contatore n.' }),
+    });
+    const withReadings = PDF.replace(
+      'Contatore n. 98765',
+      'Contatore n. 98765\n29/06/2026 99369 mc Stimata',
+    );
+    expect(extract(aca, word, withReadings).lines.map((l) => l.estimated)).toEqual([
+      true,
+      false,
+      false,
+    ]);
+    expect(extract(aca, word, PDF).lines[0].estimated).toBe(false);
+
+    const share = rules({
+      consumption,
+      estimated: fromPdf({ kind: 'numberAfter', word: 'di cui stimati' }),
+    });
+    expect(extract(aca, share, `${PDF}\ndi cui stimati: 13 Smc`).lines[0].estimated).toBe(true);
+    expect(extract(aca, share, `${PDF}\ndi cui stimati: 0 Smc`).lines[0].estimated).toBe(false);
+  });
+
+  it('il PDF non conta nel riconoscimento della struttura', () => {
+    const r = rules({ meter: fromPdf({ kind: 'textAfter', word: 'Contatore n.' }) });
+    expect(usesPdf(r)).toBe(true);
+    expect(usesPdf(ACA_RULES)).toBe(false);
+    expect(patternMatches(aca, r)).toBe(true);
+    expect(rulePaths(r)).toEqual(rulePaths(rules({})));
+  });
+});
+
+describe('numberBefore e fromAnchor', () => {
+  it('salta le occorrenze senza un numero subito prima', () => {
+    expect(numberBefore('F1 (kWh) Fascia F2 kWh 0,000 kWh', 'kWh')).toBe(0);
+    expect(numberBefore('totale 4.078,000   kWh', 'KWH')).toBe(4078);
+    expect(numberBefore('nessun numero kWh', 'kWh')).toBeNull();
+  });
+
+  it('ancora assente: null; senza ancora: tutto il testo', () => {
+    expect(fromAnchor('abc def', 'xyz')).toBeNull();
+    expect(fromAnchor('abc def', 'ABC')).toBe(' def');
+    expect(fromAnchor('abc', undefined)).toBe('abc');
   });
 });
 

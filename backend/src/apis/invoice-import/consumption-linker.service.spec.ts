@@ -105,6 +105,21 @@ describe('ConsumptionLinker.link', () => {
     ]);
   });
 
+  it('consumo stimato dal fornitore: rilevazione nuova stimata, adottata accesa a stimata', async () => {
+    const created = fakeManager([line(1)]);
+    await linker.link(created as never, 500, 7, [], new Map(), new Set([812]));
+    expect(created.save).toHaveBeenCalledWith(
+      UtilityConsumption,
+      expect.objectContaining({ is_estimated: true }),
+    );
+    const adopted = fakeManager([line(1)], { c_adopt: () => [{ id: 55 }] });
+    await linker.link(adopted as never, 500, 7, [], new Map(), new Set([812]));
+    const update = adopted.update.mock.calls.find(
+      (c: unknown[]) => c[0] === UtilityConsumption && c[1] === 55,
+    );
+    expect(update?.[2]).toEqual(expect.objectContaining({ is_estimated: true }));
+  });
+
   it('rilevazione adottata o riusata: il flag stimata resta quello impostato', async () => {
     const manager = fakeManager([line(1)], { c_adopt: () => [{ id: 55 }] });
     await linker.link(manager as never, 500, 7, []);

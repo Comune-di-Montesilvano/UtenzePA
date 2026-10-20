@@ -37,7 +37,8 @@ export type LineTarget =
   | 'description'
   | 'consumption'
   | 'unit'
-  | 'meter';
+  | 'meter'
+  | 'estimated';
 export type TargetField = HeaderTarget | LineTarget;
 
 export const HEADER_TARGETS: HeaderTarget[] = [
@@ -60,6 +61,7 @@ export const LINE_TARGETS: LineTarget[] = [
   'consumption',
   'unit',
   'meter',
+  'estimated',
 ];
 
 const CONDITION_CHILD = 'TipoDato';
@@ -155,6 +157,7 @@ const FORMATS: Record<TargetField, (v: string) => boolean> = {
   consumption: (v) => /^-?\d+([.,]\d+)?$/.test(v),
   unit: (v) => /^[A-Za-z0-9³]{1,6}$/.test(v),
   meter: (v) => v.length > 0,
+  estimated: (v) => /stimat/i.test(v),
 };
 
 // Percorsi tipici del tracciato FatturaPA, a parità di formato.
@@ -176,6 +179,7 @@ const HINTS: Record<TargetField, string[]> = {
   consumption: ['Quantita'],
   unit: ['UnitaMisura'],
   meter: ['AltriDatiGestionali/RiferimentoTesto'],
+  estimated: [],
 };
 
 export function targetScope(target: TargetField): FieldScope {
