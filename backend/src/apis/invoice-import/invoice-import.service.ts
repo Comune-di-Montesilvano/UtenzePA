@@ -84,6 +84,15 @@ const UNBLOCKED_SQL =
   "AND EXISTS (SELECT 1 FROM invoice_import_issues ii WHERE ii.sdi_message_id_fk = m.id AND ii.type = 'METER_MISMATCH') " +
   'ORDER BY m.id LIMIT 200';
 
+// Fatture fuori perimetro il cui fornitore ora è in perimetro (aggiunto in anagrafica
+// con un contratto dopo l'arrivo): tornano in attesa e si rielaborano. Senza
+// identificativo SDI (copie delle fatture emesse dal Comune) restano fuori.
+const RESCOPE_SQL =
+  "SELECT m.id, tp.id AS supplier_id FROM sdi_messages m JOIN third_parties tp ON tp.vat_number = m.supplier_vat AND tp.deleted = 0 " +
+  "WHERE m.kind = 'INVOICE' AND m.status = 'OUT_OF_SCOPE' AND m.sdi_identifier IS NOT NULL " +
+  'AND EXISTS (SELECT 1 FROM contracts c WHERE c.supplier_id_fk = tp.id AND c.deleted = 0) ' +
+  'ORDER BY m.id LIMIT 200';
+
 // structure_key vuota = messaggio non più sulla casella: non si ritenta.
 const GONE_STRUCTURE = '';
 
@@ -305,8 +314,20 @@ export class InvoiceImportService {
   private async processBacklog(ctx: RunContext): Promise<void> {
     const backfill: { id: number }[] = await this.dataSource.query(BACKFILL_SQL);
     const unblocked: { id: number }[] = await this.dataSource.query(UNBLOCKED_SQL);
+    const rescoped: { id: number; supplier_id: number }[] =
+      await this.dataSource.query(RESCOPE_SQL);
+    for (const r of rescoped) {
+      await this.messagesRepo.update(Number(r.id), {
+        supplier_id_fk: Number(r.supplier_id),
+        status: SdiMessageStatus.PENDING,
+        error: null,
+      });
+    }
     const ids = [
-      ...new Set([...this.queue, ...[...backfill, ...unblocked].map((r) => Number(r.id))]),
+      ...new Set([
+        ...this.queue,
+        ...[...backfill, ...unblocked, ...rescoped].map((r) => Number(r.id)),
+      ]),
     ];
     this.queue.clear();
     if (ids.length) await this.withMailbox((mailbox) => this.processStored(mailbox, ids, ctx));

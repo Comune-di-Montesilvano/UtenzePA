@@ -503,6 +503,25 @@ describe('InvoiceImportService con i pattern', () => {
     expect(sql).not.toMatch(/NOT EXISTS/);
   });
 
+  it('fornitore aggiunto dopo: le fatture fuori perimetro tornano in attesa e si importano', async () => {
+    query.mockResolvedValue([]);
+    await service().runOnce();
+    expect(messages.rows[0].status).toBe(SdiMessageStatus.OUT_OF_SCOPE);
+    expect(messages.rows[0].sdi_identifier).toBe('99000000001');
+
+    // Fornitore e contratto inseriti: il giro successivo lo riprende senza nuove PEC.
+    patterns.rows.push(pricePattern());
+    mailbox.fetchRaw.mockResolvedValue(invoiceEml('<m1@pec>') as never);
+    const id = messages.rows[0].id;
+    query.mockImplementation(async (sql: string) =>
+      sql.includes("m.status = 'OUT_OF_SCOPE'") ? [{ id, supplier_id: 9 }] : [],
+    );
+    await service().runOnce();
+    expect(messages.rows[0]).toMatchObject({ supplier_id_fk: 9 });
+    expect(applier.apply).toHaveBeenCalled();
+    expect(messages.rows[0].status).toBe(SdiMessageStatus.EXTRACTED);
+  });
+
   it('nessun pattern: comportamento della parte 1 (in attesa)', async () => {
     await service().runOnce();
     expect(applier.apply).not.toHaveBeenCalled();
