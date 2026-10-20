@@ -389,9 +389,11 @@ describe('InvoicePatternsService', () => {
     expect(editor.ranked.consumption[0]).toBe(`header|${PDF_PATH}|`);
     expect(editor.ranked.meter[0]).toBe(`header|${PDF_PATH}|`);
     expect(editor.ranked.contractRef[0]).toBe(`header|${PDF_PATH}|`);
-    // Per gli altri campi il PDF c'è, ma in fondo (anche ragione sociale, tipo
-    // documento e importo di riga).
-    expect(editor.ranked.utility[editor.ranked.utility.length - 1]).toBe(`header|${PDF_PATH}|`);
+    // Per gli altri campi il PDF c'è, dopo i campi XML più probabili (anche ragione
+    // sociale e importo di riga; mai il tipo documento).
+    const pdfAt = editor.ranked.utility.indexOf(`header|${PDF_PATH}|`);
+    expect(pdfAt).toBe(Math.min(3, editor.ranked.utility.length - 1));
+    expect(editor.ranked.utility[0]).not.toBe(`header|${PDF_PATH}|`);
     expect(editor.ranked.supplierName).toContain(`header|${PDF_PATH}|`);
     expect(editor.ranked.documentType).not.toContain(`header|${PDF_PATH}|`);
     expect(editor.ranked.amount).toContain(`header|${PDF_PATH}|`);

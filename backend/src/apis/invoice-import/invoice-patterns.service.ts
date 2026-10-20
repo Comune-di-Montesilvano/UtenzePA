@@ -193,6 +193,8 @@ const PDF_TARGETS: TargetField[] = [
 ];
 // Nel PDF il dato di solito c'è solo per questi (il riferimento contratto non è
 // mai nell'XML): il campo PDF va in cima, per gli altri in fondo.
+// Posizione del campo PDF per gli altri: dopo i campi XML più probabili.
+const PDF_AFTER = 3;
 const PDF_FIRST: TargetField[] = [
   'contractRef',
   'consumption',
@@ -440,9 +442,9 @@ export class InvoicePatternsService {
     if (pdf !== null) {
       const field = pdfField();
       catalog.push(field);
+      // In fondo a decine di campi XML non si vedeva (es. utenza): dopo i primi tre.
       for (const t of PDF_TARGETS) {
-        if (PDF_FIRST.includes(t)) ranked[t].unshift(field.key);
-        else ranked[t].push(field.key);
+        ranked[t].splice(PDF_FIRST.includes(t) ? 0 : PDF_AFTER, 0, field.key);
       }
     }
     const [supplier] = await this.dataSource.query(SUPPLIER_SQL, [row.supplier_id_fk]);
