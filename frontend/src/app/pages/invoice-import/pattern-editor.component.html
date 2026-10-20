@@ -6,11 +6,21 @@
     <button mat-icon-button aria-label="Torna all'elenco" (click)="back()"><mat-icon>arrow_back</mat-icon></button>
     <h2>{{ data.message.supplier }} · {{ data.message.document_number || data.message.file_name }}</h2>
     <span class="spacer"></span>
-    <button mat-icon-button aria-label="Fattura precedente" [disabled]="index === 0 || loading" (click)="go(-1)">
+    @if (variants.length > 1) {
+      <mat-form-field class="pe-variant" appearance="outline" subscriptSizing="dynamic">
+        <mat-select aria-label="Variante di struttura" [ngModel]="variant" [disabled]="loading" (ngModelChange)="pickVariant($event)">
+          <mat-select-trigger>Variante {{ variant + 1 }} di {{ variants.length }}</mat-select-trigger>
+          @for (v of variants; track $index) {
+            <mat-option [value]="$index">Variante {{ $index + 1 }} di {{ variants.length }} · {{ v.count }} {{ v.count === 1 ? 'fattura' : 'fatture' }}{{ variantResult($index) }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    }
+    <button mat-icon-button aria-label="Fattura precedente" [disabled]="variantPosition === 0 || loading" (click)="go(-1)">
       <mat-icon>chevron_left</mat-icon>
     </button>
-    <span>Fattura {{ index + 1 }} di {{ similar.length }} simili</span>
-    <button mat-icon-button aria-label="Fattura successiva" [disabled]="index >= similar.length - 1 || loading" (click)="go(1)">
+    <span>Fattura {{ variantPosition + 1 }} di {{ variantCount }}{{ variants.length > 1 ? '' : ' simili' }}</span>
+    <button mat-icon-button aria-label="Fattura successiva" [disabled]="variantPosition >= variantCount - 1 || loading" (click)="go(1)">
       <mat-icon>chevron_right</mat-icon>
     </button>
     @if (seen) {
@@ -19,11 +29,18 @@
     @if (analysis; as a) {
       <span class="pe-holds" [title]="'Struttura riconosciuta dalle regole su ' + a.matches + ' fatture'">
         @if (a.analyzed < a.total) { analisi {{ a.analyzed }}/{{ a.total }} } @else { struttura {{ a.matches }}/{{ a.analyzed - a.unavailable }} }
+        @if (variants.length > 1 && a.analyzed === a.total) { · varianti {{ variantsOk }}/{{ variants.length }} }
         @if (a.unavailable) { · {{ a.unavailable }} non leggibili }
       </span>
     }
-    <button mat-stroked-button type="button" [disabled]="analyzing || loading" (click)="analyze()">
-      <mat-icon>fact_check</mat-icon> Analizza le {{ similar.length }} simili
+    <button mat-stroked-button type="button" [disabled]="analyzing || loading" (click)="analyze()"
+            [title]="'Prova le regole sulle ' + analyzeIds.length + ' fatture più recenti, fino a 50 per variante'">
+      <mat-icon>fact_check</mat-icon>
+      @if (variants.length > 1) {
+        Analizza le {{ variants.length }} varianti
+      } @else {
+        Analizza {{ analyzeIds.length === 1 ? 'la simile' : 'le ' + analyzeIds.length + ' simili' }}
+      }
     </button>
     @if (previewing || loading) {
       <mat-spinner diameter="18"></mat-spinner>
@@ -49,23 +66,27 @@
       }
 
       <h3>Righe</h3>
-      @for (t of lineTargets; track t) {
+      @for (t of rowTargets; track t) {
+        <ng-container *ngTemplateOutlet="fieldRow; context: {t}"></ng-container>
+      }
+
+      <h3>Consumi</h3>
+      <p class="pe-section-hint">Entrano nello storico consumi dell'utenza della riga, per il periodo della riga.</p>
+      <div class="pe-row">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Lettura del consumo</mat-label>
+          <mat-select [ngModel]="consumptionMode" [disabled]="!canEdit" (ngModelChange)="consumptionModeChanged($event)">
+            <mat-option value="total">Totale</mat-option>
+            <mat-option value="bands">Per fasce (F1, F2, F3)</mat-option>
+          </mat-select>
+          @if (consumptionMode === 'bands') {
+            <mat-hint>Senza il totale letto, il consumo è la somma delle fasce.</mat-hint>
+          }
+        </mat-form-field>
+      </div>
+      @for (t of consumptionTargets; track t) {
         @if (showTarget(t)) {
           <ng-container *ngTemplateOutlet="fieldRow; context: {t}"></ng-container>
-        }
-        @if (t === 'consumption') {
-          <div class="pe-row">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Consumo</mat-label>
-              <mat-select [ngModel]="consumptionMode" [disabled]="!canEdit" (ngModelChange)="consumptionModeChanged($event)">
-                <mat-option value="total">Totale</mat-option>
-                <mat-option value="bands">Per fasce (F1, F2, F3)</mat-option>
-              </mat-select>
-              @if (consumptionMode === 'bands') {
-                <mat-hint>Senza il totale letto, il consumo è la somma delle fasce.</mat-hint>
-              }
-            </mat-form-field>
-          </div>
         }
       }
       <div class="pe-row">

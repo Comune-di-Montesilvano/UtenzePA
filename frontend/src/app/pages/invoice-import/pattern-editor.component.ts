@@ -10,7 +10,7 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
 import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
 import {MatSelectModule} from '@angular/material/select';
-import {Subject, Subscription, debounceTime, switchMap, of, catchError, from, concatMap, finalize} from 'rxjs';
+import {Subject, Subscription, debounceTime, switchMap, of, catchError, from, concatMap, finalize, map} from 'rxjs';
 import {AuthService} from '../../services/auth.service';
 import {ToastService} from '../../core/services/toast.service';
 import {isEditorRole} from '../../core/components/entity-sheet/sheet-utils';
@@ -58,10 +58,10 @@ const EDITABLE_HEADER = HEADER_TARGETS.filter(t => t !== 'supplierVat');
 // campo; date gg/mm/aaaa convertite. Con tutti e due: il primo testo fa da ancora,
 // il valore è quello subito prima del secondo (es. dopo «CONSUMO», prima di «kWh»).
 const WORD_TARGETS: TargetField[] = [
-  'total', 'netAmount', 'consumption', ...BAND_TARGETS, 'number', 'date', 'cig', 'contractRef',
+  'supplierName', 'documentType', 'total', 'amount', 'netAmount', 'consumption', ...BAND_TARGETS, 'number', 'date', 'cig', 'contractRef',
   'utility', 'periodStart', 'periodEnd', 'unit', 'meter', 'estimated',
 ];
-const NUMBER_TARGETS: TargetField[] = ['total', 'netAmount', 'consumption', ...BAND_TARGETS];
+const NUMBER_TARGETS: TargetField[] = ['total', 'netAmount', 'amount', 'consumption', ...BAND_TARGETS];
 // Consumo stimato: «di cui stimati» maggiore di zero o la parola presente («Stimata»).
 const ESTIMATED_MODES: {kind: WordKind; label: string}[] = [
   {kind: 'contains', label: 'Presente la parola'},
@@ -74,6 +74,8 @@ const PDF_KEY = `header|${PDF_PATH}|`;
 const BAND_LABELS = ['Fascia oraria F', 'Fascia F'];
 // Fatture per chiamata di analisi (limite del backend).
 const ANALYZE_CHUNK = 25;
+// Fatture analizzate per variante di struttura (le più recenti).
+const ANALYZE_PER_VARIANT = 50;
 
 // Campo del catalogo ricostruito da una regola salvata (chiave = scope|path|condizione).
 function missingField(key: string, rule: Rule & {path: string}): CatalogField {
@@ -117,6 +119,9 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     .pe-bar > span, .pe-bar button { flex: 0 0 auto; white-space: nowrap; }
     .pe-bar h2 { margin: 0; font-size: 1.15rem; }
     .pe-bar .spacer { flex: 1; }
+    .pe-section-hint { margin: -0.5rem 0 0.75rem; font-size: 0.85em; color: var(--app-muted); }
+    .pe-bar .pe-variant { flex: 0 0 11rem; --mat-form-field-container-height: 36px;
+      --mat-form-field-container-vertical-padding: 6px; }
     .pe-holds { color: var(--app-muted); }
     .pe-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
     @media (max-width: 1100px) { .pe-grid { grid-template-columns: minmax(0, 1fr); } }
@@ -175,6 +180,9 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   readonly canEdit = isEditorRole(inject(AuthService).getCurrentUser()?.role);
   readonly headerTargets = EDITABLE_HEADER;
   readonly lineTargets = LINE_TARGETS;
+  // Sezione Consumi dell'editor: consumo, fasce, unità, matricola e stima; il resto in Righe.
+  readonly consumptionTargets: TargetField[] = ['consumption', ...BAND_TARGETS, 'unit', 'meter', 'estimated'];
+  readonly rowTargets: TargetField[] = LINE_TARGETS.filter(t => !this.consumptionTargets.includes(t));
   readonly bandTargets: TargetField[] = BAND_TARGETS;
   readonly labels: Record<string, string> = TARGET_LABELS;
 
@@ -218,6 +226,12 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   focused: TargetField | null = null;
   similar: number[] = [];
   index = 0;
+  // Varianti di struttura delle simili: lo sfoglia resta dentro quella scelta.
+  variants: {start: number; count: number}[] = [];
+  variant = 0;
+  analyzeIds: number[] = [];
+  // Esito dell'analisi per variante (stesso indice di variants).
+  variantStats: {analyzed: number; unavailable: number; matches: number}[] = [];
   holds = 0;
   seen = 0;
   // Analisi sulle fatture simili: parte col pulsante, poi si ripete a ogni cambio di regola.
@@ -264,20 +278,34 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
             if (!this.data) return of(null);
             const id = this.data.message.id;
             const rules = this.rules();
-            const chunks: number[][] = [];
-            for (let i = 0; i < this.similar.length; i += ANALYZE_CHUNK) chunks.push(this.similar.slice(i, i + ANALYZE_CHUNK));
+            // Gruppi dentro una sola variante, prima quella aperta: esito anche per variante.
+            const chunks: {k: number; ids: number[]}[] = [];
+            const order = [this.variant, ...this.variants.map((_, k) => k).filter(k => k !== this.variant)];
+            for (const k of order) {
+              const ids = this.variantIds(k);
+              for (let i = 0; i < ids.length; i += ANALYZE_CHUNK) chunks.push({k, ids: ids.slice(i, i + ANALYZE_CHUNK)});
+            }
             this.analyzing = true;
-            this.analysis = {analyzed: 0, unavailable: 0, matches: 0, found: {}, total: this.similar.length};
+            this.analysis = {analyzed: 0, unavailable: 0, matches: 0, found: {}, total: this.analyzeIds.length};
+            this.variantStats = this.variants.map(() => ({analyzed: 0, unavailable: 0, matches: 0}));
             return from(chunks).pipe(
-              concatMap(chunk => this.service.analyze(id, chunk, rules).pipe(
-                catchError(() => of({analyzed: chunk.length, unavailable: chunk.length, matches: 0, found: {}} as PatternAnalysis)),
+              concatMap(({k, ids}) => this.service.analyze(id, ids, rules).pipe(
+                catchError(() => of({analyzed: ids.length, unavailable: ids.length, matches: 0, found: {}} as PatternAnalysis)),
+                map(part => ({k, part})),
               )),
               finalize(() => this.analyzing = false),
             );
           }),
         )
-        .subscribe(part => {
-          if (!part || !this.analysis) return;
+        .subscribe(r => {
+          if (!r || !this.analysis) return;
+          const {k, part} = r;
+          const s = this.variantStats[k];
+          if (s) {
+            s.analyzed += part.analyzed;
+            s.unavailable += part.unavailable;
+            s.matches += part.matches;
+          }
           const a = this.analysis;
           a.analyzed += part.analyzed;
           a.unavailable += part.unavailable;
@@ -320,6 +348,9 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
         data.catalog.forEach(f => this.fields.set(f.key, f));
         this.similar = data.similar;
         this.index = Math.max(0, data.similar.indexOf(data.message.id));
+        this.variants = data.variants?.length ? data.variants : [{start: 0, count: data.similar.length}];
+        this.variant = Math.max(0, this.variants.findIndex(v => this.index >= v.start && this.index < v.start + v.count));
+        this.analyzeIds = this.variants.flatMap((_, k) => this.variantIds(k));
         this.buildOptions(data);
         this.loading = false;
         if (this.firstLoad) {
@@ -699,10 +730,49 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
     this.view = view;
   }
 
+  // Fatture analizzate della variante k: le più recenti, al massimo ANALYZE_PER_VARIANT.
+  private variantIds(k: number): number[] {
+    const v = this.variants[k];
+    return v ? this.similar.slice(v.start, v.start + Math.min(v.count, ANALYZE_PER_VARIANT)) : [];
+  }
+
+  // Esito dell'analisi sulla variante k («struttura 9/9»), vuoto se non ancora analizzata.
+  variantResult(k: number): string {
+    const s = this.variantStats[k];
+    if (!s?.analyzed) return '';
+    const readable = s.analyzed - s.unavailable;
+    return ` · struttura ${s.matches}/${readable}`;
+  }
+
+  // Varianti analizzate su cui le regole reggono su tutte le fatture leggibili.
+  get variantsOk(): number {
+    return this.variantStats.filter(s => s.analyzed && s.matches === s.analyzed - s.unavailable).length;
+  }
+
+  // Posizione della fattura aperta dentro la sua variante (da 0).
+  get variantPosition(): number {
+    return this.index - (this.variants[this.variant]?.start ?? 0);
+  }
+
+  get variantCount(): number {
+    return this.variants[this.variant]?.count ?? this.similar.length;
+  }
+
   go(step: number): void {
-    const next = this.similar[this.index + step];
-    if (next === undefined) return;
-    this.router.navigate(['/invoice-import/editor', next], {queryParamsHandling: 'preserve'});
+    const position = this.variantPosition + step;
+    if (position < 0 || position >= this.variantCount) return;
+    this.open(this.similar[this.index + step]);
+  }
+
+  // Prima fattura (la più recente) della variante scelta.
+  pickVariant(k: number): void {
+    const v = this.variants[k];
+    if (v) this.open(this.similar[v.start]);
+  }
+
+  private open(id: number | undefined): void {
+    if (id === undefined) return;
+    this.router.navigate(['/invoice-import/editor', id], {queryParamsHandling: 'preserve'});
   }
 
   openPdf(): void {

@@ -1,7 +1,7 @@
 import { Component, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
-import { filter } from 'rxjs';
+import { distinctUntilChanged, fromEvent } from 'rxjs';
 import { AuthService } from './services/auth.service';
 import { Idle, DEFAULT_INTERRUPTSOURCES } from '@ng-idle/core';
 import { Keepalive } from '@ng-idle/keepalive';
@@ -29,10 +29,6 @@ export class App implements OnInit {
     this.idle.setTimeout(60);
     this.idle.setInterrupts(DEFAULT_INTERRUPTSOURCES);
 
-    // Qualsiasi uscita (inattività, refresh rifiutato, 401, Esci) chiude le
-    // schede aperte: MatDialog non segue il routing e resterebbero sopra il login.
-    this.authService.currentUser$.pipe(filter(user => !user)).subscribe(() => this.dialog.closeAll());
-
     this.idle.onIdleStart.subscribe(() => console.log('Utente inattivo...'));
     this.idle.onTimeout.subscribe(() => {
       this.authService.logout('TIMEOUT');
@@ -47,7 +43,30 @@ export class App implements OnInit {
     this.keepalive.onPing.subscribe(() => this.refreshToken());
     this.refreshToken();
 
-    this.idle.watch();
+    // Ritorno sulla pagina (PC in sospensione, scheda in background): i timer
+    // erano fermi, si verifica subito la sessione invece di aspettare un clic.
+    // Prima l'inattività (scaduta = timeout e login), poi il token.
+    fromEvent(document, 'visibilitychange').subscribe(() => {
+      if (document.visibilityState !== 'visible') return;
+      this.idle.interrupt();
+      this.refreshToken();
+    });
+
+    // Sorveglianza dell'inattività legata alla sessione: dopo un timeout ng-idle si
+    // ferma (keepalive compreso) e un nuovo login senza ricaricare la pagina deve
+    // farla ripartire, altrimenti il token scade e lo si scopre solo al clic.
+    // Qualsiasi uscita (inattività, refresh rifiutato, 401, Esci) chiude anche le
+    // schede aperte: MatDialog non segue il routing e resterebbero sopra il login.
+    this.authService.currentUser$
+      .pipe(distinctUntilChanged((a, b) => !!a === !!b))
+      .subscribe(user => {
+        if (user) {
+          this.idle.watch();
+          return;
+        }
+        this.idle.stop();
+        this.dialog.closeAll();
+      });
   }
 
   private refreshToken(): void {

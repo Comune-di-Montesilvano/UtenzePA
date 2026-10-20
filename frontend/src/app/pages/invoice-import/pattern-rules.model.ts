@@ -143,7 +143,10 @@ export interface PatternEditorData {
   pdf_text: string | null;
   catalog: CatalogField[];
   ranked: Record<TargetField, string[]>;
+  // Fatture del fornitore senza pattern, raggruppate per variante di struttura.
   similar: number[];
+  // Varianti: posizione della prima fattura in similar e quante sono.
+  variants: {start: number; count: number}[];
 }
 
 // Fatture del fornitore senza pattern: l'esempio è della variante più frequente.
