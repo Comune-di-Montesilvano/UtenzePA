@@ -445,6 +445,8 @@ Da fare dopo il deploy: controllare i log di `reconcileAll` e la distribuzione d
 
 Emerso dall'analisi delle fatture ACA (2026-10-19): le fatture riportano letture con tipo «Stimata» o reale. Fatto in v1.34.0: flag «Stimata» (`utility_consumptions.is_estimated`) su letture e periodi; nel calcolo ogni giorno prende il dato da periodi reali, poi letture reali, poi periodi stimati, poi letture stimate; le stime coperte dal reale sono «superate» (in grigio nel tab Consumi). Spec `docs/superpowers/specs/2026-10-19-letture-stimate-design.md`. Resta nella voce 6 il parser del PDF/XML della fattura che valorizza il flag; i conguagli scritti come consumi negativi non sono gestiti (da valutare quando l'import ne trova uno).
 
+**Letture miste in una fattura** (emerso 2026-10-20, v1.39.1): l'import fa una rilevazione per utenza e periodo della riga, e il flag «stimata» vale per utenza su tutta la fattura; dal PDF il consumo è un solo valore per utenza. Una fattura di 2 mesi con un mese a lettura reale e uno stimato diventa quindi una rilevazione stimata per intero (nessun doppio conteggio: il reale successivo la rende «superata»). Soluzione possibile: regola «tabella letture» che legge dal PDF più righe (data, lettura, tipo) e crea una rilevazione per intervallo, ciascuna col suo flag. Da verificare col prossimo ciclo di fatture ACA, l'unico fornitore senza contatori elettronici: se compaiono letture miste nella stessa fattura, riprendere la voce.
+
 ## Archivio 4_IMMOBILIARE: stato degli import
 
 Archivio dell'ufficio patrimonio classificato il 2026-10-15 (12.191 file, script e report in `.audit-w/immobiliare/`: `classifica_report.md`, `import_*_report.md`). Import una tantum solo sul DB locale (produzione via export). Stato per area:
