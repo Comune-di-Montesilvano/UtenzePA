@@ -288,7 +288,17 @@ const isHeaderTarget = (t: TargetField) => (HEADER_TARGETS as string[]).includes
 function hasValue(extracted: ExtractedInvoice, t: TargetField): boolean {
   const present = (v: unknown) => v !== null && v !== undefined && v !== '' && v !== false;
   if (isHeaderTarget(t)) return present(extracted[t as keyof ExtractedInvoice]);
+  // Fasce: una fattura con solo il consumo totale (fasce non tutte presenti) conta come trovata.
+  if ((BAND_TARGETS as TargetField[]).includes(t) && totalOnly(extracted)) return true;
   return extracted.lines.some((l) => present(l[t as LineTarget]));
+}
+
+// Consumo letto ma nessuna fascia: fasce non tutte presenti (vedi extractInvoice).
+function totalOnly(extracted: ExtractedInvoice): boolean {
+  return (
+    extracted.lines.some((l) => l.consumption !== null) &&
+    extracted.lines.every((l) => BAND_TARGETS.every((b) => l[b] === null))
+  );
 }
 
 const number = (n: number) => n.toLocaleString('it-IT', { maximumFractionDigits: 6 });
@@ -736,12 +746,15 @@ export class InvoicePatternsService {
       const rule = rules.line[t];
       if (!rule || rule.kind === 'none') continue;
       const band = extracted.lines.find((l) => l[t] !== null);
+      const onlyTotal = !band && totalOnly(extracted);
       add(
         t,
-        band ? 'ok' : 'warn',
+        band || onlyTotal ? 'ok' : 'warn',
         band
           ? `F${i + 1} letta: ${number(band[t] as number)}${band.unit ? ` ${band.unit}` : ''}`
-          : 'Nessun valore letto',
+          : onlyTotal
+            ? 'Fasce non tutte presenti: solo il consumo totale'
+            : 'Nessun valore letto',
       );
     }
     if (bandsMapped && rules.line.consumption) {

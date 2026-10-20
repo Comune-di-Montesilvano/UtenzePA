@@ -499,6 +499,48 @@ describe('extract: dati nel PDF allegato', () => {
     );
   });
 
+  it('fasce non tutte presenti (monoraria): solo il consumo totale, la F1 letta se manca il totale', () => {
+    const text =
+      '31.08.2026 30.09.2026 Energia attiva 0 Rilevata 1.417 Rilevata 1.417 kWh Effettivo';
+    const band = (n: number) =>
+      fromPdf({
+        kind: 'numberBefore',
+        word: 'kWh Effettivo',
+        anchor: n === 1 ? 'Rilevata' : `Fascia oraria F${n}`,
+      });
+    const r = rules({ consumptionF1: band(1), consumptionF2: band(2), consumptionF3: band(3) });
+    expect(extract(aca, r, text).lines[0]).toEqual(
+      expect.objectContaining({
+        consumption: 1417,
+        consumptionF1: null,
+        consumptionF2: null,
+        consumptionF3: null,
+      }),
+    );
+    // F3 mancante con il totale letto: resta il totale, nessuna fascia.
+    const two = [
+      'CONSUMO 90 kWh',
+      'Fascia oraria F1 60 kWh Effettivo',
+      'Fascia oraria F2 25 kWh Effettivo',
+    ].join('\n');
+    const byBand = (n: number) =>
+      fromPdf({ kind: 'numberBefore', word: 'kWh Effettivo', anchor: `Fascia oraria F${n}` });
+    const withTotal = rules({
+      consumption: fromPdf({ kind: 'numberBefore', word: 'kWh', anchor: 'CONSUMO' }),
+      consumptionF1: byBand(1),
+      consumptionF2: byBand(2),
+      consumptionF3: byBand(3),
+    });
+    expect(extract(aca, withTotal, two).lines[0]).toEqual(
+      expect.objectContaining({
+        consumption: 90,
+        consumptionF1: null,
+        consumptionF2: null,
+        consumptionF3: null,
+      }),
+    );
+  });
+
   it('parola di più termini: gli spazi valgono anche l’a capo', () => {
     const text = "CONSUMO\n1.417   kWh\nPuoi pagare con l'avviso\nTotale 20 kWh";
     const r = rules({ consumption: fromPdf({ kind: 'numberBefore', word: 'kWh  Puoi pagare' }) });

@@ -511,6 +511,17 @@ export function extract(
       if (!header || (!headerConsumptionUsed.has(used) && (utility !== null || !anyUtility))) {
         consumption = toNumber(lineRule(tree, line, consumptionRule, segment));
         bands = bandRules.map((r) => toNumber(lineRule(tree, line, r, segment)));
+        // Fasce mappate ma non tutte trovate (monoraria, nota di credito…): solo il
+        // consumo totale, nessuna fascia. Senza totale letto vale quanto trovato (es.
+        // la sola F1 di una monoraria).
+        const incomplete = bandRules.some((r, i) => r && bands[i] === null);
+        if (incomplete) {
+          const found = bands.filter((b): b is number => b !== null);
+          if (found.length) {
+            consumption ??= Math.round(found.reduce((sum, b) => sum + b, 0) * 1000) / 1000;
+          }
+          bands = [null, null, null];
+        }
         // Senza totale letto il consumo è la somma delle fasce.
         if (consumption === null && bands.some((b) => b !== null)) {
           consumption =
