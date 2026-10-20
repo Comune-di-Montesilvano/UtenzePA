@@ -15,6 +15,8 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Git, CI e release").
 - `gh pr merge --auto` fallisce sempre ("Auto merge is not allowed"). Merge manuale: `gh pr merge --squash --delete-branch`.
 - Dopo ogni merge le altre PR tornano `BEHIND`: `gh api repos/OWNER/REPO/pulls/N/update-branch -X PUT`, una PR alla volta.
 - `gh pr merge` fallisce se lanciato da un worktree diverso da quello con `main` ("'main' is already used by worktree at ..."): eseguirlo dal worktree principale.
+- `--delete-branch` con il branch ancora in uso da un altro worktree: errore sul branch locale e il branch remoto **non** viene cancellato. Cancellarlo a mano con `git push origin --delete <branch>`, poi `git checkout --detach origin/main` nel worktree e `git branch -D`.
+- `gh pr checks` subito dopo `gh pr create` risponde «no checks reported» per circa 30 s: aspettare, poi `--watch`.
 - Mai `git add .`/`git add -A`: `.playwright-mcp/`, `.serena/`, `docker-compose.proxy.yml`, `proxy/` sono scratch locale non tracciato (finiti nei commit più volte, PR #78).
 
 ## CI (`tests.yml`)

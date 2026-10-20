@@ -146,7 +146,7 @@ Nessun ESLint, nessun browser nel container (Karma non eseguibile). Verifica = `
 ## Verifica (dettagli in `docs/claude/testing-e2e.md`)
 - Nessuna credenziale di test: utente temporaneo su `system_users`, eliminato subito dopo (FK su ~17 tabelle e `audit_logs`).
 - Login via API: `POST /api/v1/authModule/login` con `{"email":"<username>","password":"..."}`, token in `token.access_token`.
-- Playwright: `?selectedId=<id>` su `/utilities`, `/building`, `/contracts`; datepicker `gg/mm/aaaa`; dopo un Salva ricercare prima di riaprire; screenshot solo in `.playwright-mcp/`.
+- Playwright: `?selectedId=<id>` su `/utilities`, `/building`, `/contracts`; datepicker `gg/mm/aaaa`; dopo un Salva ricercare prima di riaprire; screenshot solo in `.playwright-mcp/`; viewport 1500×950 e `mat-select` aperto dal `mat-label` (dettagli in testing-e2e).
 - `curl` verso `localhost:3010` dal Bash tool: serve `dangerouslyDisableSandbox`.
 - Deploy dove login/wizard non risponde: prima `CORS_ORIGIN`/`API_URL`, poi admin già presente.
 

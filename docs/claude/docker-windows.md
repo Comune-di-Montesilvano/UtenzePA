@@ -35,6 +35,7 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Docker e Windows").
 
 - Alcuni sorgenti hanno fine riga CRLF (es. `backend/src/app.module.ts`): `sed` con `;$` non matcha. Per modifiche via script usare Python preservando `\r\n` e ricontrollare doppioni.
 - Generare SQL con apostrofi/virgolette da un heredoc Python dentro Bash è inaffidabile (escaping perso in silenzio in un caso reale). Scrivere uno script `.py` vero con il tool Write.
+- `npm i` nel container `api` (es. per valutare un pacchetto in `/tmp`) scrive la cache in `backend/.npm/` (`HOME=/usr/src/app`), che non è ignorata: cancellarla dopo.
 - `curl http://localhost:3010/...` dal Bash tool torna exit 52 (empty reply) per la sandbox: serve `dangerouslyDisableSandbox`, non è l'API giù.
 - `child_process.execFile`/`exec` asincroni non supportano `input` per lo stdin (solo le varianti `*Sync`): per pipare dati (es. `mysql < dump.sql`) serve `spawn` con scrittura su `child.stdin` (PR #36).
 - `stat.birthtime` non affidabile su overlay2/tmpfs nei container (identico per file scritti a pochi ms di distanza): mettere il timestamp nel nome file o in un campo DB.
