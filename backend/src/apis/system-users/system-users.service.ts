@@ -6,6 +6,7 @@ import { SystemUser } from './entity/system-user.entity';
 import { UpdateSystemUserDto } from './dto/update-system-user.dto';
 import { CreateSystemUserDto } from './dto/create-system-user.dto';
 import { BaseService } from '@/apis/shared/base.service';
+import { SYSTEM_USER_ID } from './system-user.constants';
 
 @Injectable()
 export class SystemUsersService extends BaseService<
@@ -31,6 +32,7 @@ export class SystemUsersService extends BaseService<
   async findAll(filters?: Partial<SystemUser>): Promise<SystemUser[]> {
     const qb = this.repo.createQueryBuilder('user');
     qb.where('user.deleted = :deleted', { deleted: false });
+    qb.andWhere('user.id <> :system', { system: SYSTEM_USER_ID });
 
     if (filters) {
       if (filters.firstName?.trim()) {
@@ -58,6 +60,7 @@ export class SystemUsersService extends BaseService<
   }
 
   findOne(id: number): Promise<SystemUser | null> {
+    if (id === SYSTEM_USER_ID) return Promise.resolve(null);
     return this.repo.findOne({ where: { id, deleted: false } as never });
   }
 
@@ -74,6 +77,8 @@ export class SystemUsersService extends BaseService<
   }
 
   async update(id: number, dto: UpdateSystemUserDto, userId?: number): Promise<SystemUser> {
+    if (id === SYSTEM_USER_ID)
+      throw new BadRequestException("L'utente di sistema non si modifica.");
     if (userId !== undefined) {
       dto.updated_by_user_id = userId;
     }
@@ -81,6 +86,7 @@ export class SystemUsersService extends BaseService<
   }
 
   async remove(id: number, updatedByUserId?: number): Promise<void> {
+    if (id === SYSTEM_USER_ID) throw new BadRequestException("L'utente di sistema non si elimina.");
     return super.remove(id, updatedByUserId ?? 0);
   }
 }

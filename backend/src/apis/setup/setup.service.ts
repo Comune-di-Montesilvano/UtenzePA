@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Not, Repository } from 'typeorm';
+import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
 import { SystemUser } from '../system-users/entity/system-user.entity';
 import { EMailerService } from '@/core/email/email.service';
 import * as bcrypt from 'bcrypt';
@@ -33,7 +34,8 @@ export class SetupService {
   ) {}
 
   async isAvailable(): Promise<boolean> {
-    return (await this.userRepository.count()) === 0;
+    // L'utente di sistema non conta: su un'installazione nuova c'è già.
+    return (await this.userRepository.count({ where: { id: Not(SYSTEM_USER_ID) } })) === 0;
   }
 
   async requestOtp(dto: {

@@ -3,6 +3,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { AuditAction, AuditLog } from '@apis/audit-log/entity/audit-log.entity';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
 import { InvoiceLine } from '@apis/invoices/entity/invoice-line.entity';
+import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
 import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
 import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
 import { ConsumptionLinker, type ConsumptionBands } from './consumption-linker.service';
@@ -15,9 +16,9 @@ import type { ExtractedInvoice, ExtractedReading } from './pattern/pattern-rules
 // Scrittura di sistema: non tocca "Ultima modifica" della fattura.
 const KEEP_UPDATE_DATE = { update_date: () => '`update_date`' };
 
-// Nessun utente di sistema: le fatture create dall'import hanno come autore il primo Admin attivo.
-const IMPORT_USER_SQL =
-  "SELECT id FROM system_users WHERE role = 'Admin' AND status = 'Attivo' AND deleted = 0 ORDER BY id LIMIT 1";
+// Autore delle scritture dell'import: l'utente di sistema (prima il primo Admin attivo,
+// che risultava autore di fatture, letture e matricole).
+const IMPORT_USER_SQL = 'SELECT id FROM system_users WHERE id = ?';
 
 // Matricola completata solo se l'utenza non l'ha (eccezione alla regola: l'import non modifica le anagrafiche).
 const FILL_METER_SQL =
@@ -37,8 +38,8 @@ export class InvoiceApplier {
   ) {}
 
   async importUserId(): Promise<number | null> {
-    const [row] = await this.dataSource.query(IMPORT_USER_SQL);
-    return row?.id ?? null;
+    const [row] = await this.dataSource.query(IMPORT_USER_SQL, [SYSTEM_USER_ID]);
+    return row ? Number(row.id) : null;
   }
 
   async apply(

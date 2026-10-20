@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { SystemUsersService } from './system-users.service';
 import { SystemUser } from './entity/system-user.entity';
+import { SYSTEM_USER_ID } from './system-user.constants';
 
 describe('SystemUsersService', () => {
   let service: SystemUsersService;
@@ -36,6 +37,19 @@ describe('SystemUsersService', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  describe('utente di sistema', () => {
+    it("non compare nell'elenco, non si legge, non si modifica né si elimina", async () => {
+      await service.findAll();
+      expect(qb.andWhere).toHaveBeenCalledWith('user.id <> :system', { system: SYSTEM_USER_ID });
+      await expect(service.findOne(SYSTEM_USER_ID)).resolves.toBeNull();
+      expect(repo.findOne).not.toHaveBeenCalled();
+      await expect(service.update(SYSTEM_USER_ID, {} as never, 1)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.remove(SYSTEM_USER_ID, 1)).rejects.toThrow(BadRequestException);
+    });
   });
 
   describe('findAll', () => {
