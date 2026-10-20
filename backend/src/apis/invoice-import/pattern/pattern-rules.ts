@@ -114,6 +114,7 @@ export const usesPdf = (rules: PatternRules): boolean =>
   );
 
 type HeaderRuleTarget = keyof PatternRules['header'];
+const DATE_TARGETS: TargetField[] = ['date', 'periodStart', 'periodEnd'];
 const isHeaderField = (target: TargetField) => (HEADER_TARGETS as string[]).includes(target);
 
 // utilities: codici delle utenze della fattura, per il tratto di testo di ciascuna.
@@ -223,6 +224,27 @@ export function textBefore(text: string | null, word: string, nth?: number): str
   return /([^\s;,:]+)[\s:.]*$/.exec(text.slice(Math.max(0, found.at - 80), found.at))?.[1] ?? null;
 }
 
+// Date lette con «Dopo il testo»/«Prima del testo»: la prima data dopo il testo
+// o l'ultima prima, saltando le parole in mezzo («29/06/2026 99369 mc Stimata
+// 07/08/2026 … Consumo nel periodo»: prima di «Consumo nel periodo» = 07/08/2026).
+const DATE_IN_TEXT = /\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-](?:\d{4}|\d{2})(?!\d)/g;
+const DATE_WINDOW = 200;
+
+export function dateAfter(text: string | null, word: string, nth?: number): string | null {
+  if (!text || !word) return null;
+  const found = nthPosition(text, word, nth);
+  if (!found) return null;
+  return text.slice(found.end, found.end + DATE_WINDOW).match(DATE_IN_TEXT)?.[0] ?? null;
+}
+
+export function dateBefore(text: string | null, word: string, nth?: number): string | null {
+  if (!text || !word) return null;
+  const found = nthPosition(text, word, nth);
+  if (!found) return null;
+  const dates = text.slice(Math.max(0, found.at - DATE_WINDOW), found.at).match(DATE_IN_TEXT);
+  return dates?.[dates.length - 1] ?? null;
+}
+
 // Data nel formato dell'XML (aaaa-mm-gg), anche da gg/mm/aaaa, gg.mm.aa, gg-mm-aaaa:
 // le date passano sempre di qui, così un campo di testo scelto per intero (es. la
 // Causale) dà una data valida o nessuna, mai un testo che il database rifiuta. Un
@@ -266,11 +288,18 @@ function wordUnit(rule: WordRule, text: string | null): string | null {
   return /^\D*?-?\d+(?:[.,]\d+)*\s*([A-Za-z³]{1,5})(?![\w³])/.exec(rest)?.[1] ?? null;
 }
 
-function readWord(rule: WordRule, text: string | null): string | null {
+// date: il campo è una data (data fattura, periodo), letta con dateAfter/dateBefore.
+function readWord(rule: WordRule, text: string | null, date = false): string | null {
   const scoped = fromAnchor(text, rule.anchor);
   const nth = rule.occurrence;
-  if (rule.kind === 'textAfter') return textAfter(scoped, rule.word, nth);
-  if (rule.kind === 'textBefore') return textBefore(scoped, rule.word, nth);
+  if (rule.kind === 'textAfter' || rule.kind === 'textBefore') {
+    const after = rule.kind === 'textAfter';
+    const token = (after ? textAfter : textBefore)(scoped, rule.word, nth);
+    // Data: la parola accanto se ne contiene (anche due, «01.09.2026-30.09.2026»),
+    // altrimenti la data più vicina saltando le parole in mezzo.
+    if (!date || (token && isoDate(token))) return token;
+    return (after ? dateAfter : dateBefore)(scoped, rule.word, nth);
+  }
   if (rule.kind === 'contains')
     return scoped && positions(scoped, rule.word).length ? rule.word : null;
   const n =
@@ -323,7 +352,11 @@ export function wordOccurrences(
         .slice(Math.max(0, at - 50), end + 50)
         .replace(/\s+/g, ' ')
         .trim(),
-      value: readWord({ ...rule, anchor: undefined, occurrence: i + 1 }, text),
+      value: readWord(
+        { ...rule, anchor: undefined, occurrence: i + 1 },
+        text,
+        DATE_TARGETS.includes(target),
+      ),
     }));
 }
 
@@ -374,9 +407,14 @@ function headerSum(tree: InvoiceDoc, rule: Rule | undefined): number | null {
   return values.length ? round2(values.reduce((sum, n) => sum + n, 0)) : null;
 }
 
-function headerRule(tree: InvoiceDoc, rule: Rule | undefined, fallback?: string): string | null {
+function headerRule(
+  tree: InvoiceDoc,
+  rule: Rule | undefined,
+  fallback?: string,
+  date = false,
+): string | null {
   if (!rule) return fallback ? headerValue(tree, fallback) : null;
-  if (isWordRule(rule)) return readWord(rule, headerText(tree, rule.path));
+  if (isWordRule(rule)) return readWord(rule, headerText(tree, rule.path), date);
   if (rule.kind === 'field' || rule.kind === 'fromHeader')
     return headerValue(tree, rule.path, rule.where);
   return null;
@@ -387,9 +425,10 @@ function lineRule(
   line: XmlValue,
   rule: Rule | undefined,
   utility: string | null = null,
+  date = false,
 ): string | null {
   if (!rule) return null;
-  if (isWordRule(rule)) return readWord(rule, wordText(tree, line, rule, utility));
+  if (isWordRule(rule)) return readWord(rule, wordText(tree, line, rule, utility), date);
   switch (rule.kind) {
     case 'field':
       return firstValue([line], rule.path, rule.where);
@@ -486,8 +525,8 @@ export function extract(
           : wordUnit(unitRule, wordText(tree, line, unitRule, segment));
     return {
       utility,
-      periodStart: isoDate(lineRule(tree, line, rules.line.periodStart, segment)),
-      periodEnd: isoDate(lineRule(tree, line, rules.line.periodEnd, segment), true),
+      periodStart: isoDate(lineRule(tree, line, rules.line.periodStart, segment, true)),
+      periodEnd: isoDate(lineRule(tree, line, rules.line.periodEnd, segment, true), true),
       amount: toNumber(lineRule(tree, line, amountRule)) ?? 0,
       description,
       consumption,
@@ -513,7 +552,7 @@ export function extract(
     supplierVat: headerValue(tree, DEFAULTS.supplierVat) ?? '',
     supplierName: headerRule(tree, h.supplierName, DEFAULTS.supplierName),
     number: headerRule(tree, h.number, DEFAULTS.number) ?? '',
-    date: isoDate(headerRule(tree, h.date, DEFAULTS.date)) ?? '',
+    date: isoDate(headerRule(tree, h.date, DEFAULTS.date, true)) ?? '',
     documentType,
     total: signed(total),
     netAmount: signed(headerSum(tree, h.netAmount)),

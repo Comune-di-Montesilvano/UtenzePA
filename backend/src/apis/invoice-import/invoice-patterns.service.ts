@@ -148,7 +148,9 @@ const REPROCESS_SQL =
 const RULE_KINDS = ['field', ...WORD_KINDS, 'grossAmount', 'fromHeader', 'none'];
 const isWordKind = (kind: unknown) => (WORD_KINDS as unknown[]).includes(kind);
 // Campi che si possono leggere dal testo del PDF: tutti tranne la P.IVA del
-// fornitore (lo identifica) e l'importo di riga (varrebbe uguale su tutte le righe).
+// fornitore, che lo identifica (fornitori senza dati utili nell'XML, es. ACA).
+// L'importo di riga dal PDF vale per fatture di una riga o con più utenze (ogni
+// riga legge il tratto dopo il codice della sua utenza).
 const PDF_TARGETS: TargetField[] = [
   'supplierName',
   'number',
@@ -161,6 +163,7 @@ const PDF_TARGETS: TargetField[] = [
   'utility',
   'periodStart',
   'periodEnd',
+  'amount',
   'consumption',
   ...BAND_TARGETS,
   'unit',

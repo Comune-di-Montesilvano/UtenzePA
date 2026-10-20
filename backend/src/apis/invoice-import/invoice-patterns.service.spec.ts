@@ -333,12 +333,12 @@ describe('InvoicePatternsService', () => {
     expect(editor.ranked.consumption[0]).toBe(`header|${PDF_PATH}|`);
     expect(editor.ranked.meter[0]).toBe(`header|${PDF_PATH}|`);
     expect(editor.ranked.contractRef[0]).toBe(`header|${PDF_PATH}|`);
-    // Per gli altri campi il PDF c'è, ma in fondo (anche ragione sociale e tipo
-    // documento); mai per l'importo di riga.
+    // Per gli altri campi il PDF c'è, ma in fondo (anche ragione sociale, tipo
+    // documento e importo di riga).
     expect(editor.ranked.utility[editor.ranked.utility.length - 1]).toBe(`header|${PDF_PATH}|`);
     expect(editor.ranked.supplierName).toContain(`header|${PDF_PATH}|`);
     expect(editor.ranked.documentType).toContain(`header|${PDF_PATH}|`);
-    expect(editor.ranked.amount).not.toContain(`header|${PDF_PATH}|`);
+    expect(editor.ranked.amount).toContain(`header|${PDF_PATH}|`);
   });
 
   it('anteprima con regola sul PDF: legge il testo del PDF', async () => {
@@ -371,10 +371,6 @@ describe('InvoicePatternsService', () => {
       {
         meter: { kind: 'textAfter', path: PDF_PATH, word: 'x', fromHeader: true, occurrence: 1.5 },
       },
-    ],
-    [
-      'PDF per l’importo di riga',
-      { amount: { kind: 'numberAfter', path: PDF_PATH, word: 'Totale' } },
     ],
     [
       'PDF con una regola che non cerca una parola',

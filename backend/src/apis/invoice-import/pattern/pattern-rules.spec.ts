@@ -427,6 +427,22 @@ describe('extract: dati nel PDF allegato', () => {
     expect(extract(aca, rules({ description: { kind: 'none' } })).lines[0].description).toBeNull();
   });
 
+  it('periodo dal PDF: data dopo il testo e ultima data prima del testo', () => {
+    const text = [
+      'Data Lettura Tipo lettura',
+      '29/06/2026 99369 mc Stimata',
+      '07/08/2026 99963 mc Stimata',
+      'Consumo nel periodo di 39 giorni 594 mc',
+    ].join('\n');
+    const r = rules({
+      periodStart: fromPdf({ kind: 'textAfter', word: 'Tipo lettura' }),
+      periodEnd: fromPdf({ kind: 'textBefore', word: 'Consumo nel periodo' }),
+    });
+    expect(extract(aca, r, text).lines[0]).toEqual(
+      expect.objectContaining({ periodStart: '2026-06-29', periodEnd: '2026-08-07' }),
+    );
+  });
+
   it('consumo per fasce dal PDF: ogni fascia col suo testo, totale = somma', () => {
     const text = [
       'Tipo di Consumo',
