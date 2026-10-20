@@ -499,7 +499,7 @@ describe('extract: dati nel PDF allegato', () => {
     );
   });
 
-  it('fattura monoraria: F2 e F3 non trovate, la F1 letta diventa il consumo complessivo', () => {
+  it('fasce non tutte presenti (monoraria): solo il consumo totale, la F1 letta se manca il totale', () => {
     const text =
       '31.08.2026 30.09.2026 Energia attiva 0 Rilevata 1.417 Rilevata 1.417 kWh Effettivo';
     const band = (n: number) =>
@@ -512,6 +512,28 @@ describe('extract: dati nel PDF allegato', () => {
     expect(extract(aca, r, text).lines[0]).toEqual(
       expect.objectContaining({
         consumption: 1417,
+        consumptionF1: null,
+        consumptionF2: null,
+        consumptionF3: null,
+      }),
+    );
+    // F3 mancante con il totale letto: resta il totale, nessuna fascia.
+    const two = [
+      'CONSUMO 90 kWh',
+      'Fascia oraria F1 60 kWh Effettivo',
+      'Fascia oraria F2 25 kWh Effettivo',
+    ].join('\n');
+    const byBand = (n: number) =>
+      fromPdf({ kind: 'numberBefore', word: 'kWh Effettivo', anchor: `Fascia oraria F${n}` });
+    const withTotal = rules({
+      consumption: fromPdf({ kind: 'numberBefore', word: 'kWh', anchor: 'CONSUMO' }),
+      consumptionF1: byBand(1),
+      consumptionF2: byBand(2),
+      consumptionF3: byBand(3),
+    });
+    expect(extract(aca, withTotal, two).lines[0]).toEqual(
+      expect.objectContaining({
+        consumption: 90,
         consumptionF1: null,
         consumptionF2: null,
         consumptionF3: null,
