@@ -285,6 +285,12 @@ function assertValidRules(rules: PatternRules): void {
   }
 }
 
+// Casi isolati che si registrano a mano: la segnalazione si può silenziare.
+const MUTABLE_ISSUES: string[] = [
+  ImportIssueType.PDF_DATA_MISSING,
+  ImportIssueType.READING_DECREASING,
+];
+
 // Badge del riscontro per ogni segnalazione dell'abbinamento.
 const ISSUE_FIELD: Record<ImportIssueType, TargetField> = {
   [ImportIssueType.UNKNOWN_UTILITY]: 'utility',
@@ -296,6 +302,7 @@ const ISSUE_FIELD: Record<ImportIssueType, TargetField> = {
   [ImportIssueType.BATCH_NOT_SUPPORTED]: 'number',
   [ImportIssueType.METER_MISMATCH]: 'meter',
   [ImportIssueType.PDF_DATA_MISSING]: 'readings',
+  [ImportIssueType.READING_DECREASING]: 'readings',
 };
 
 // Fonte «Testo del PDF allegato» nelle select di consumo e matricola.
@@ -587,15 +594,17 @@ export class InvoicePatternsService {
     return result;
   }
 
-  // Segnalazione «dati dal PDF non trovati» silenziata: non compare più tra le anomalie.
+  // Segnalazione «dati dal PDF non trovati» o «lettura più bassa» silenziata: non compare più tra le anomalie.
   async muteIssue(id: number): Promise<void> {
     const [issue] = await this.dataSource.query(
       'SELECT id, type FROM invoice_import_issues WHERE id = ?',
       [id],
     );
     if (!issue) throw new BadRequestException('Segnalazione non trovata.');
-    if (issue.type !== ImportIssueType.PDF_DATA_MISSING) {
-      throw new BadRequestException('Si possono silenziare solo i dati dal PDF non trovati.');
+    if (!MUTABLE_ISSUES.includes(issue.type)) {
+      throw new BadRequestException(
+        'Si possono silenziare solo i dati dal PDF non trovati e le letture più basse.',
+      );
     }
     await this.dataSource.query('UPDATE invoice_import_issues SET muted = 1 WHERE id = ?', [id]);
   }

@@ -587,7 +587,7 @@ const formatDate = (iso: string | null): string => {
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
                 @for (d of data.invoice_import_issues.items; track $index) {
-                  @if (d.type === 'PDF_DATA_MISSING') {
+                  @if (d.type === 'PDF_DATA_MISSING' || d.type === 'READING_DECREASING') {
                     <!-- Il PDF va controllato nell'editor; caso isolato: si silenzia. -->
                     <li (click)="openPatternEditor(d.message_id)">
                       {{ issueLabel(d.type) }} · {{ d.number || 'senza fattura' }} · {{ d.detail }}

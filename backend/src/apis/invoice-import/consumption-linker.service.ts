@@ -40,6 +40,10 @@ const readingBands = (r: ExtractedReading) => ({
   consumption_f3: r.bands?.f3 ?? null,
 });
 
+// Lettura precedente dell'utenza (per data): una lettura nuova non può essere più bassa.
+const PREVIOUS_READING_SQL =
+  "/* c_prev_reading */ SELECT reading_value, reading_date, meter_number FROM utility_consumptions WHERE utility_id_fk = ? AND kind = 'READING' " +
+  'AND deleted = 0 AND reading_value IS NOT NULL AND reading_date < ? ORDER BY reading_date DESC, id DESC LIMIT 1';
 const OWN_READINGS_SQL =
   "/* c_own_readings */ SELECT id, utility_id_fk FROM utility_consumptions WHERE invoice_id_fk = ? AND kind = 'READING' AND deleted = 0";
 const LINKED_SQL =
@@ -173,9 +177,9 @@ export class ConsumptionLinker {
         { deleted: true },
       );
     }
-    for (const id of await this.linkReadings(manager, invoiceId, userId, readings, meters)) {
-      utilityIds.add(id);
-    }
+    const linked = await this.linkReadings(manager, invoiceId, userId, readings, meters);
+    for (const id of linked.utilityIds) utilityIds.add(id);
+    issues.push(...linked.issues);
     return { issues, utilityIds: [...utilityIds] };
   }
 
@@ -183,7 +187,8 @@ export class ConsumptionLinker {
    * Letture della fattura come rilevazioni a data, collegate alla fattura. Una
    * lettura alla stessa data c'è già (es. la finale della fattura precedente):
    * non si duplica, ma una stima diventa reale. Le proprie letture non più in
-   * fattura si tolgono.
+   * fattura si tolgono. Una lettura più bassa della precedente sullo stesso
+   * contatore non si importa: diventa una segnalazione.
    */
   private async linkReadings(
     manager: EntityManager,
@@ -191,14 +196,29 @@ export class ConsumptionLinker {
     userId: number,
     readings: Map<number, ExtractedReading[]>,
     meters: Map<number, string>,
-  ): Promise<number[]> {
+  ): Promise<{ utilityIds: number[]; issues: MatchIssue[] }> {
     const own: { id: number; utility_id_fk: number }[] = await manager.query(OWN_READINGS_SQL, [
       invoiceId,
     ]);
     const utilityIds = new Set<number>(own.map((o) => Number(o.utility_id_fk)));
     const kept = new Set<number>();
+    const issues: MatchIssue[] = [];
     for (const [utilityId, list] of readings) {
-      for (const r of list) {
+      for (const r of [...list].sort((a, b) => a.date.localeCompare(b.date))) {
+        const [previous] = await manager.query(PREVIOUS_READING_SQL, [utilityId, r.date]);
+        const meter = meters.get(utilityId);
+        // Cambio contatore (matricola diversa): la lettura riparte, non è un errore.
+        const sameMeter = !previous?.meter_number || !meter || previous.meter_number === meter;
+        if (previous && sameMeter && r.value < Number(previous.reading_value)) {
+          issues.push({
+            type: ImportIssueType.READING_DECREASING,
+            lineIndex: null,
+            detail: `Lettura ${r.value} del ${r.date} più bassa della precedente ${Number(previous.reading_value)} del ${day(previous.reading_date)}: non importata`,
+            utilityId,
+            value: String(r.value),
+          });
+          continue;
+        }
         const [existing] = await manager.query(READING_SQL, [utilityId, r.date]);
         if (existing) {
           const mine = Number(existing.invoice_id_fk) === invoiceId;
@@ -235,7 +255,7 @@ export class ConsumptionLinker {
     if (leftovers.length) {
       await manager.update(UtilityConsumption, { id: In(leftovers) }, { deleted: true });
     }
-    return [...utilityIds];
+    return { utilityIds: [...utilityIds], issues };
   }
 
   // Righe modificate a mano: la rilevazione segue la riga con stessa utenza e
