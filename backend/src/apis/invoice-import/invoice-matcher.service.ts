@@ -205,7 +205,7 @@ export class InvoiceMatcher {
     for (const [index, line] of extracted.lines.entries()) {
       const utility = lineUtilities[index];
       const day = line.periodEnd ?? extracted.date;
-      let contract: { id: number; cig_contract: string | null } | null = null;
+      let contract: { id: number; cig_contract: string | null } | null;
       let commitmentId: number | null = null;
       if (utility) {
         const contractKey = `${utility.id}|${day}`;
