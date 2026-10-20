@@ -34,10 +34,15 @@ import type {InvoicePatternRow, UnknownStructure} from './pattern-rules.model';
         } @else {
           <p class="muted">Tutte le fatture dei fornitori in perimetro sono coperte da un pattern.</p>
         }
+        <h3>Note di credito senza pattern</h3>
+        <p class="muted">TD04 e TD08: hanno pattern a parte, senza consumi.</p>
         @if (unknownCreditNotes.length) {
-          <h3>Note di credito senza pattern</h3>
-          <p class="muted">Hanno pattern a parte, senza consumi.</p>
           <ng-container *ngTemplateOutlet="unknownTable; context: {rows: unknownCreditNotes, noun: 'Note'}"></ng-container>
+        } @else {
+          <p class="muted">Nessuna nota di credito in attesa di pattern.</p>
+        }
+        @if (untyped) {
+          <p class="muted">Tipo documento ancora da leggere dalla PEC per {{ untyped }} {{ untyped === 1 ? 'fattura' : 'fatture' }}: le note di credito fra queste compaiono qui man mano (ricarica la pagina).</p>
         }
         <ng-template #unknownTable let-rows="rows" let-noun="noun">
           <table class="ip-table">
@@ -124,6 +129,7 @@ export class InvoicePatternsTabComponent implements OnInit {
   // Fatture senza pattern divise per tipo: fatture e note di credito hanno pattern separati.
   unknownInvoices: UnknownStructure[] = [];
   unknownCreditNotes: UnknownStructure[] = [];
+  untyped = 0;
   patterns: InvoicePatternRow[] = [];
 
   ngOnInit(): void {
@@ -135,6 +141,7 @@ export class InvoicePatternsTabComponent implements OnInit {
       next: r => {
         this.unknownInvoices = r.unknown.filter(u => !u.credit_note);
         this.unknownCreditNotes = r.unknown.filter(u => u.credit_note);
+        this.untyped = r.unknown.reduce((n, u) => n + u.untyped, 0);
         this.patterns = r.patterns;
         this.loading = false;
       },
