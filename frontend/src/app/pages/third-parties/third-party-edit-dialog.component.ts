@@ -1,4 +1,5 @@
 import {EntityHistoryComponent} from '../../core/components/entity-history.component';
+import {InvoicesTabComponent} from '../invoices/invoices-tab.component';
 import {ChangeDetectionStrategy, Component, inject, OnInit} from '@angular/core';
 import {AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
@@ -48,7 +49,7 @@ function formatIgnoringSpaces(re: RegExp): ValidatorFn {
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatButtonToggleModule,
     MatTabsModule, MatIconModule, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, LinkedTableComponent,
-    EntityHistoryComponent,
+    EntityHistoryComponent, InvoicesTabComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './third-party-edit-dialog.component.html',
@@ -73,6 +74,7 @@ export class ThirdPartyEditDialogComponent implements OnInit {
   // Campi cache per app-linked-table (mai getter).
   grants: UtilizerGrant[] = [];
   contracts: Contract[] = [];
+  invoiceCount: number | null = null;
   agreements: ConsipAgreement[] = [];
 
   readonly grantColumns: LinkedColumn<UtilizerGrant>[] = [

@@ -37,6 +37,7 @@ import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navig
 import {ToastService} from '../../core/services/toast.service';
 import {ContractsService} from './contract.service';
 import {ContractCommitmentsTabComponent} from './commitments/contract-commitments-tab.component';
+import {InvoicesTabComponent} from '../invoices/invoices-tab.component';
 import {chapterLabel} from './commitments/commitment.model';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
 import {EntityDocumentsComponent} from '../acts/entity-documents.component';
@@ -63,7 +64,7 @@ function cigRequiredUnlessExempt(group: AbstractControl): ValidationErrors | nul
     ReactiveFormsModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatDatepickerModule, MatButtonModule, MatCheckboxModule, MatTabsModule, MatIconModule, MatTooltipModule,
     FilterableSelectComponent, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, PreviewCardComponent,
-    LinkedTableComponent, ValidityBarComponent, ContractCommitmentsTabComponent,
+    LinkedTableComponent, ValidityBarComponent, ContractCommitmentsTabComponent, InvoicesTabComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './contract-edit-dialog.component.html'
@@ -89,6 +90,7 @@ export class ContractEditDialogComponent implements OnInit {
   isNew = this.data.mode === 'create';
   // Tab Documenti: allegati + atti collegati (si aggiorna alla prima apertura).
   documentCount: number | null = null;
+  invoiceCount: number | null = null;
   readonly canEdit = isEditorRole(this.authService.getCurrentUser()?.role);
   readonly lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
 

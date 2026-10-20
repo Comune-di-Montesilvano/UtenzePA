@@ -136,6 +136,15 @@
             (changed)="commitmentCount = $event">
           </app-contract-commitments-tab>
         </mat-tab>
+        <mat-tab aria-label="Fatture">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="receipt_long" label="Fatture" [count]="invoiceCount"></app-tab-label>
+          </ng-template>
+          <app-invoices-tab [contractIds]="[data.item.id]" [canEdit]="canEdit"
+                            [newInvoice]="{contratto_id_fk: data.item.id}"
+                            emptyText="Nessuna fattura su questo contratto."
+                            (countChange)="invoiceCount = $event"></app-invoices-tab>
+        </mat-tab>
         <mat-tab aria-label="Documenti">
           <ng-template mat-tab-label>
             <app-tab-label icon="folder_open" label="Documenti" [count]="documentCount"></app-tab-label>
