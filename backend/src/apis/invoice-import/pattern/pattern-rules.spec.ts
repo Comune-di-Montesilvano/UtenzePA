@@ -617,6 +617,30 @@ describe('extract: dati nel PDF allegato', () => {
     ]);
   });
 
+  it('tabella a righe col tipo in testa (AGSM AIM); scaglioni di prezzo non sono letture', () => {
+    const text = [
+      'Dati relativi alle letture e ai consumi',
+      'Tipologia   Data   Letture',
+      'Rilevata   31/05/2026   10.391',
+      'Stimata   30/06/2026   10.393',
+      'Tipologia   Periodo   Consumi',
+      'Effettivi   01/06/2026 - 30/06/2026   2',
+      'accisa usi domestici dal 01/06/2026 al',
+      '30/06/2026 da 0000000480 a 0000001560',
+    ].join('\n');
+    expect(detectReadingTables(text).map((t) => [t.layout, t.label])).toEqual([
+      ['rows', 'Tipologia Data Letture'],
+    ]);
+    const r: PatternRules = {
+      ...rules({}),
+      readingTable: { layout: 'rows', label: 'Tipologia Data Letture' },
+    };
+    expect(extract(aca, r, text).lines[0].readings).toEqual([
+      { date: '2026-05-31', value: 10391, estimated: false },
+      { date: '2026-06-30', value: 10393, estimated: true },
+    ]);
+  });
+
   it('dati dal PDF non trovati: segnalati, tranne quelli che mancano per regola', () => {
     const table: PatternRules = {
       ...rules({ meter: fromPdf({ kind: 'textAfter', word: 'Contatore n.' }) }),
