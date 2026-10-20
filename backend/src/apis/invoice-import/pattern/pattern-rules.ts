@@ -94,6 +94,8 @@ const DEFAULTS: Partial<Record<HeaderTarget, string>> = {
   documentType: 'DatiGenerali/DatiGeneraliDocumento/TipoDocumento',
 };
 
+const TOTAL_PATH = 'DatiGenerali/DatiGeneraliDocumento/ImportoTotaleDocumento';
+
 // Testo del PDF allegato: letto a parte (sdi/pdf-text.ts), solo per le regole «parola».
 export const PDF_PATH = '@pdf';
 export const WORD_KINDS: WordKind[] = [
@@ -471,6 +473,12 @@ export function extract(
   // Tipo documento sempre dal tracciato: decide fattura o nota di credito, non si mappa.
   const documentType = headerValue(tree, DEFAULTS.documentType) ?? '';
   const creditNote = CREDIT_NOTES.includes(documentType);
+  const total = toNumber(headerRule(tree, h.total));
+  // Niente consumi da note di credito né da fatture col totale negativo (rettifiche
+  // emesse come TD01 invece che TD04): gli importi restano come scritti.
+  // Totale del tracciato, altrimenti quello mappato (anche se il pattern non lo legge).
+  const documentTotal = toNumber(headerValue(tree, TOTAL_PATH)) ?? total;
+  const noConsumption = creditNote || (documentTotal !== null && documentTotal < 0);
 
   const filter = rules.consumptionLineFilter?.trim().toLowerCase();
   // Consumo letto dalla testata: una volta sola per utenza, sulla prima riga ammessa.
@@ -497,7 +505,7 @@ export function extract(
     let estimated = false;
     const descriptionText = description ?? firstValue([line], 'Descrizione') ?? '';
     // Una nota di credito non registra consumi (i conguagli sono un caso a parte).
-    if (!creditNote && (!filter || descriptionText.toLowerCase().includes(filter))) {
+    if (!noConsumption && (!filter || descriptionText.toLowerCase().includes(filter))) {
       const used = utility ?? '';
       const header = readsHeader(consumptionRule) || bandRules.some(readsHeader);
       if (!header || (!headerConsumptionUsed.has(used) && (utility !== null || !anyUtility))) {
@@ -543,7 +551,6 @@ export function extract(
   // Nota di credito: c'è chi scrive gli importi positivi e chi già negativi.
   // Il segno si decide sul documento (totale, altrimenti somma delle righe) e
   // vale per tutti gli importi: i segni tra le righe restano quelli dell'XML.
-  const total = toNumber(headerRule(tree, h.total));
   const documentSign = total ?? lines.reduce((sum, l) => sum + l.amount, 0);
   const factor = creditNote && documentSign > 0 ? -1 : 1;
   const signed = (n: number | null) => (n === null || n === 0 ? n : n * factor);

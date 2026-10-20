@@ -131,6 +131,31 @@ describe('extract', () => {
     expect(result.lines.map((l) => l.amount)).toEqual([-122, -61, 0.01]);
   });
 
+  it('fattura TD01 col totale negativo (rettifica non emessa come TD04): importi come scritti, niente consumi', () => {
+    const negative = Buffer.from(
+      pod
+        .toString('utf8')
+        .replace('<ImportoTotaleDocumento>183.00<', '<ImportoTotaleDocumento>-10.00<'),
+    );
+    const rules: PatternRules = {
+      ...POD_RULES,
+      header: {
+        ...POD_RULES.header,
+        total: { kind: 'field', path: 'DatiGenerali/DatiGeneraliDocumento/ImportoTotaleDocumento' },
+      },
+    };
+    const result = extract(negative, rules);
+    expect(result.documentType).toBe('TD01');
+    expect(result.total).toBe(-10);
+    expect(result.lines.map((l) => l.amount)).toEqual(
+      extract(pod, rules).lines.map((l) => l.amount),
+    );
+    expect(result.lines.every((l) => l.consumption === null)).toBe(true);
+    expect(extract(pod, rules).lines[0].consumption).toBe(542);
+    // Anche se il pattern non mappa il totale: vale ImportoTotaleDocumento.
+    expect(extract(negative, POD_RULES).lines.every((l) => l.consumption === null)).toBe(true);
+  });
+
   it('imponibile con più aliquote: somma dei DatiRiepilogo', () => {
     const twoRates = Buffer.from(
       pod
