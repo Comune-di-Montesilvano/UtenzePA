@@ -115,8 +115,8 @@ importers:
         specifier: ^3.24.5
         version: 3.24.5(@types/node@26.5.1)
       nodemailer:
-        specifier: ^10.0.0
-        version: 10.0.0
+        specifier: ^10.1.2
+        version: 10.1.6
       passport:
         specifier: ^0.7.0
         version: 0.7.0
@@ -4941,10 +4941,6 @@ packages:
   node-releases@2.0.53:
     resolution: {integrity: sha512-D9UOmYG3UH1V+ENW56t5QXBwJw1YEY18ruVeus89Rw+SyIgjPkCO84bRzO3uNIYosJbNwiabWVn48o3uJLjxFQ==}
     engines: {node: '>=18'}
-
-  nodemailer@10.0.0:
-    resolution: {integrity: sha512-wdv+hXBg0iIPIOf108FaZyTxqjQpCvQeAJt9pHHTooPy/y3vQtI9eiImM9AIVKR3e/0FeMA1oueNfBjFJcaK+Q==}
-    engines: {node: '>=20.0.0'}
 
   nodemailer@10.1.6:
     resolution: {integrity: sha512-8j/UEmA4AXr51URr3Ob0h+RCBtr0NKJ76Y2P9wJT6Eu3dRyruj2ULh2e6aiKrGg8nlUj1oX6N5h8dHA82EouaQ==}
@@ -11885,8 +11881,6 @@ snapshots:
   node-int64@0.4.0: {}
 
   node-releases@2.0.53: {}
-
-  nodemailer@10.0.0: {}
 
   nodemailer@10.1.6: {}
 
