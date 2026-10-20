@@ -10,6 +10,7 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
 import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
 import {MatSelectModule} from '@angular/material/select';
+import {MatMenuModule} from '@angular/material/menu';
 import {Subject, Subscription, debounceTime, switchMap, of, catchError, from, concatMap, finalize, map} from 'rxjs';
 import {AuthService} from '../../services/auth.service';
 import {ToastService} from '../../core/services/toast.service';
@@ -106,6 +107,7 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatMenuModule,
     MatProgressSpinnerModule,
     MatSelectModule,
   ],
@@ -119,6 +121,10 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     .pe-bar > span, .pe-bar button { flex: 0 0 auto; white-space: nowrap; }
     .pe-bar h2 { margin: 0; font-size: 1.15rem; }
     .pe-bar .spacer { flex: 1; }
+    .pe-bar .pe-invoice { flex: 0 0 11rem; --mat-form-field-container-height: 36px;
+      --mat-form-field-container-vertical-padding: 6px; }
+    .pe-bar h2 { flex: 1 1 auto; min-width: 8rem; }
+    .pe-missing { font-size: 0.8em; min-height: 0; line-height: 1.6; padding: 0 8px; }
     .pe-section-hint { margin: -0.5rem 0 0.75rem; font-size: 0.85em; color: var(--app-muted); }
     .pe-bar .pe-variant { flex: 0 0 11rem; --mat-form-field-container-height: 36px;
       --mat-form-field-container-vertical-padding: 6px; }
@@ -230,6 +236,9 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   variants: {start: number; count: number}[] = [];
   variant = 0;
   analyzeIds: number[] = [];
+  // Selettore della fattura da aprire: tutte le simili, cercabili per numero.
+  invoiceOptions: TOption[] = [];
+  private numberOf = new Map<number, string | null>();
   // Esito dell'analisi per variante (stesso indice di variants).
   variantStats: {analyzed: number; unavailable: number; matches: number}[] = [];
   holds = 0;
@@ -286,11 +295,15 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
               for (let i = 0; i < ids.length; i += ANALYZE_CHUNK) chunks.push({k, ids: ids.slice(i, i + ANALYZE_CHUNK)});
             }
             this.analyzing = true;
-            this.analysis = {analyzed: 0, unavailable: 0, matches: 0, found: {}, total: this.analyzeIds.length};
+            this.analysis = {
+              analyzed: 0, unavailable: 0, matches: 0, found: {}, notFound: {}, unmatched: [], total: this.analyzeIds.length,
+            };
             this.variantStats = this.variants.map(() => ({analyzed: 0, unavailable: 0, matches: 0}));
             return from(chunks).pipe(
               concatMap(({k, ids}) => this.service.analyze(id, ids, rules).pipe(
-                catchError(() => of({analyzed: ids.length, unavailable: ids.length, matches: 0, found: {}} as PatternAnalysis)),
+                catchError(() => of({
+                  analyzed: ids.length, unavailable: ids.length, matches: 0, found: {}, notFound: {}, unmatched: [],
+                } as PatternAnalysis)),
                 map(part => ({k, part})),
               )),
               finalize(() => this.analyzing = false),
@@ -311,6 +324,8 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
           a.unavailable += part.unavailable;
           a.matches += part.matches;
           for (const [t, n] of Object.entries(part.found)) a.found[t] = (a.found[t] ?? 0) + (n ?? 0);
+          for (const [t, ids] of Object.entries(part.notFound ?? {})) a.notFound[t] = [...(a.notFound[t] ?? []), ...(ids ?? [])];
+          a.unmatched.push(...(part.unmatched ?? []));
         }),
     );
     this.subs.add(this.route.paramMap.subscribe(params => this.load(Number(params.get('messageId')))));
@@ -351,6 +366,17 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
         this.variants = data.variants?.length ? data.variants : [{start: 0, count: data.similar.length}];
         this.variant = Math.max(0, this.variants.findIndex(v => this.index >= v.start && this.index < v.start + v.count));
         this.analyzeIds = this.variants.flatMap((_, k) => this.variantIds(k));
+        this.numberOf = new Map(data.similar.map((id, i) => [id, data.numbers?.[i] ?? null]));
+        this.invoiceOptions = data.similar.map((id, i) => {
+          const k = this.variants.findIndex(v => i >= v.start && i < v.start + v.count);
+          const label = this.invoiceLabel(id);
+          return {
+            label,
+            value: id,
+            sublabel: this.variants.length > 1 ? `Variante ${k + 1}` : undefined,
+            searchText: `${label} ${id}`,
+          };
+        });
         this.buildOptions(data);
         this.loading = false;
         if (this.firstLoad) {
@@ -728,6 +754,21 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
 
   setView(view: 'xml' | 'pdf'): void {
     this.view = view;
+  }
+
+  // Etichetta di una fattura: numero documento, altrimenti l'id del messaggio.
+  invoiceLabel(id: number): string {
+    return this.numberOf.get(id) ?? `Messaggio ${id}`;
+  }
+
+  // Fatture analizzate dove il campo non è stato trovato (vuoto = nessuna o analisi non fatta).
+  notFoundIds(t: TargetField): number[] {
+    return this.ruleFor(t) ? (this.analysis?.notFound[t] ?? []) : [];
+  }
+
+  // Apre la fattura scelta dal selettore o da un elenco di non trovate: le regole restano.
+  openInvoice(id: number | null | undefined): void {
+    if (id && id !== this.data?.message.id) this.open(Number(id));
   }
 
   // Fatture analizzate della variante k: le più recenti, al massimo ANALYZE_PER_VARIANT.

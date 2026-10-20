@@ -93,7 +93,17 @@ describe('InvoicePatternsService', () => {
       unavailable: 1,
       matches: 1,
       found: { utility: 1, amount: 1 },
+      notFound: {},
+      unmatched: [],
     });
+    // Campo senza valore: l'id della fattura, per aprirla dall'editor.
+    const withMeter: PatternRules = {
+      ...RULES,
+      line: { ...RULES.line, meter: { kind: 'field', path: 'Assente/Matricola' } },
+    };
+    expect(await service.analyze(9, [9], withMeter)).toEqual(
+      expect.objectContaining({ notFound: { meter: [9] }, unmatched: [9] }),
+    );
     expect(messages.findBy).toHaveBeenCalledWith(expect.objectContaining({ supplier_id_fk: 46 }));
     // La seconda volta la fattura 9 è già in memoria: si chiede alla PEC solo la 10.
     await service.analyze(9, [9, 10], rules);
@@ -298,6 +308,7 @@ describe('InvoicePatternsService', () => {
         { start: 3, count: 2 },
         { start: 5, count: 1 },
       ],
+      numbers: [null, null, null, null, null, null],
     });
   });
 

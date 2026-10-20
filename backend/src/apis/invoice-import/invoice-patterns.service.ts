@@ -65,6 +65,10 @@ export interface PatternAnalysis {
   // Struttura riconosciuta dalle regole (patternMatches).
   matches: number;
   found: Partial<Record<TargetField, number>>;
+  // Fatture leggibili dove il campo mappato non ha valore (l'editor le apre).
+  notFound: Partial<Record<TargetField, number[]>>;
+  // Fatture leggibili con struttura non riconosciuta dalle regole.
+  unmatched: number[];
 }
 
 export interface PatternEditor {
@@ -89,6 +93,8 @@ export interface PatternEditor {
   similar: number[];
   // Varianti: posizione della prima fattura in similar e quante sono.
   variants: { start: number; count: number }[];
+  // Numero documento di ciascuna fattura di similar (stesso indice), per cercarla.
+  numbers: (string | null)[];
 }
 
 export interface SavePatternInput {
@@ -112,21 +118,26 @@ const SUPPLIER_SQL = `SELECT ${SUPPLIER_NAME} AS supplier FROM third_parties tp 
 
 // Simili: fatture del fornitore senza pattern, prima quelle con la stessa struttura.
 const SIMILAR_SQL =
-  'SELECT id, structure_key FROM sdi_messages ' +
+  'SELECT id, structure_key, document_number FROM sdi_messages ' +
   "WHERE kind = 'INVOICE' AND supplier_id_fk = ? " +
   "AND status IN ('PENDING', 'LINKED') AND pattern_id_fk IS NULL " +
   'ORDER BY id DESC LIMIT 1000';
 
 // Simili per variante, dalla più numerosa (a parità la più recente): numerazione
 // stabile qualunque fattura sia aperta. Dentro la variante dalla più recente.
-export function groupVariants(rows: { id: number | string; structure_key: string | null }[]): {
+export function groupVariants(
+  rows: { id: number | string; structure_key: string | null; document_number?: string | null }[],
+): {
   similar: number[];
   variants: { start: number; count: number }[];
+  numbers: (string | null)[];
 } {
   const groups = new Map<string, number[]>();
+  const numberOf = new Map<number, string | null>();
   for (const r of rows) {
     const key = r.structure_key ?? '';
     groups.set(key, [...(groups.get(key) ?? []), Number(r.id)]);
+    numberOf.set(Number(r.id), r.document_number ?? null);
   }
   const ordered = [...groups.values()].sort((a, b) => b.length - a.length || b[0] - a[0]);
   const similar: number[] = [];
@@ -135,7 +146,7 @@ export function groupVariants(rows: { id: number | string; structure_key: string
     similar.push(...ids);
     return { start, count: ids.length };
   });
-  return { similar, variants };
+  return { similar, variants, numbers: similar.map((id) => numberOf.get(id) ?? null) };
 }
 
 // Da rielaborare: fatture del fornitore non estratte (senza pattern o ferme per
@@ -368,7 +379,7 @@ export class InvoicePatternsService {
       }
     }
     const [supplier] = await this.dataSource.query(SUPPLIER_SQL, [row.supplier_id_fk]);
-    const { similar, variants } = groupVariants(
+    const { similar, variants, numbers } = groupVariants(
       row.structure_key ? await this.dataSource.query(SIMILAR_SQL, [row.supplier_id_fk]) : [],
     );
     return {
@@ -389,6 +400,7 @@ export class InvoicePatternsService {
       ranked,
       similar: similar.length ? similar : [row.id],
       variants: variants.length ? variants : [{ start: 0, count: 1 }],
+      numbers: similar.length ? numbers : [row.document_number],
     };
   }
 
@@ -456,7 +468,14 @@ export class InvoicePatternsService {
       return !!rule && rule.kind !== 'none';
     });
     const pdfNeeded = usesPdf(rules);
-    const result: PatternAnalysis = { analyzed: ids.length, unavailable: 0, matches: 0, found: {} };
+    const result: PatternAnalysis = {
+      analyzed: ids.length,
+      unavailable: 0,
+      matches: 0,
+      found: {},
+      notFound: {},
+      unmatched: [],
+    };
     for (const id of ids) {
       const entry = rows.some((r) => r.id === id) ? this.cached(id) : undefined;
       if (!entry) {
@@ -471,8 +490,10 @@ export class InvoicePatternsService {
         continue;
       }
       if (patternMatches(entry.content, rules)) result.matches++;
+      else result.unmatched.push(id);
       for (const t of mapped) {
         if (hasValue(extracted, t)) result.found[t] = (result.found[t] ?? 0) + 1;
+        else (result.notFound[t] ??= []).push(id);
       }
     }
     return result;

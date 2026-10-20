@@ -119,6 +119,9 @@ export interface PatternAnalysis {
   unavailable: number;
   matches: number;
   found: Partial<Record<string, number>>;
+  // Fatture dove il campo mappato non ha valore, e quelle con struttura non riconosciuta.
+  notFound: Partial<Record<string, number[]>>;
+  unmatched: number[];
 }
 
 export interface WordOccurrence {
@@ -147,6 +150,8 @@ export interface PatternEditorData {
   similar: number[];
   // Varianti: posizione della prima fattura in similar e quante sono.
   variants: {start: number; count: number}[];
+  // Numero documento di ciascuna fattura di similar (stesso indice).
+  numbers: (string | null)[];
 }
 
 // Fatture del fornitore senza pattern: l'esempio è della variante più frequente.
