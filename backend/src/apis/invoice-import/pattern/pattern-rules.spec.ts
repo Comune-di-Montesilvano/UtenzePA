@@ -512,6 +512,7 @@ describe('extract: dati nel PDF allegato', () => {
     expect(extract(aca, r, text).lines[0]).toEqual(
       expect.objectContaining({
         consumption: 1417,
+        consumptionF0: 1417,
         consumptionF1: null,
         consumptionF2: null,
         consumptionF3: null,

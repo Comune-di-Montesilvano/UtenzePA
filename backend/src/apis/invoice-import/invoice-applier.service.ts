@@ -225,13 +225,20 @@ export class InvoiceApplier {
   }
 }
 
-// Fasce lette per utenza (somma delle righe dell'utenza); solo le utenze con almeno una fascia.
+// Fasce lette per utenza (somma delle righe dell'utenza); solo le utenze con almeno una
+// fascia. Monoraria: F0 = consumo complessivo.
 function bandsByUtility(match: MatchResult): Map<number, ConsumptionBands> {
   const out = new Map<number, ConsumptionBands>();
   for (const line of match.lines) {
-    if (!line.utility_id_fk || line.consumption === null || line.bands.every((b) => b === null))
+    const f0 = line.f0 ?? null;
+    if (
+      !line.utility_id_fk ||
+      line.consumption === null ||
+      (f0 === null && line.bands.every((b) => b === null))
+    )
       continue;
     const current = out.get(line.utility_id_fk) ?? {
+      consumption_f0: null,
       consumption_f1: null,
       consumption_f2: null,
       consumption_f3: null,
@@ -239,6 +246,7 @@ function bandsByUtility(match: MatchResult): Map<number, ConsumptionBands> {
     const add = (a: number | null, b: number | null) =>
       a === null && b === null ? null : Math.round(((a ?? 0) + (b ?? 0)) * 1000) / 1000;
     out.set(line.utility_id_fk, {
+      consumption_f0: add(current.consumption_f0 ?? null, f0),
       consumption_f1: add(current.consumption_f1, line.bands[0]),
       consumption_f2: add(current.consumption_f2, line.bands[1]),
       consumption_f3: add(current.consumption_f3, line.bands[2]),

@@ -40,6 +40,7 @@ const day = (value: unknown) =>
 
 // Consumo per fascia letto in fattura, da scrivere sulla rilevazione.
 export interface ConsumptionBands {
+  consumption_f0?: number | null;
   consumption_f1: number | null;
   consumption_f2: number | null;
   consumption_f3: number | null;
