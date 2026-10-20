@@ -423,6 +423,8 @@ function rowsCells(rows: string[]): ReadingCells {
   return cells;
 }
 
+const isZeroReading = (r: ExtractedReading) =>
+  r.value === 0 && Object.values(r.bands ?? {}).every((v) => !v);
 const squash = (s: string) => s.replace(/\s+/g, ' ').trim();
 const numbersOf = (s: string) =>
   (s.match(/-?\d+(?:[.,]\d+)*/g) ?? []).map(italianNumber).filter((n): n is number => n !== null);
@@ -754,6 +756,8 @@ export function extract(
   const filter = rules.consumptionLineFilter?.trim().toLowerCase();
   // Consumo letto dalla testata: una volta sola per utenza, sulla prima riga ammessa.
   const headerConsumptionUsed = new Set<string>();
+  // Consumo da una tabella delle letture che riparte da zero: una volta per utenza.
+  const tableConsumptionUsed = new Set<string>();
   const consumptionRule = rules.line.consumption;
   const bandRules = BAND_TARGETS.map((t) => rules.line[t]);
   const utilities = tree.lines.map((line) => lineRule(tree, line, rules.line.utility));
@@ -816,7 +820,7 @@ export function extract(
           : wordUnit(unitRule, wordText(tree, line, unitRule, segment));
     // Letture del contatore: come il consumo, niente da note di credito e righe senza utenza.
     let cells: ReadingCells | null = null;
-    const readings: ExtractedReading[] = [];
+    let readings: ExtractedReading[] = [];
     if (rules.readingTable && !noConsumption && (utility !== null || !anyUtility)) {
       cells = readingCells(segmentFor(tree.pdf, segment, tree.utilities), rules.readingTable);
       const columns = cells ? Math.min(cells.dates.length, cells.values.length) : 0;
@@ -828,6 +832,19 @@ export function extract(
           estimated: isEstimatedReading(cells!.types[i]),
           ...(bands ? { bands } : {}),
         });
+      }
+      // Lettura iniziale 0 e finale: contatore che riparte da zero a ogni periodo
+      // (A2A «Energia attiva 0 Rilevata 1.417»), la finale è il consumo del periodo.
+      if (readings.length === 2 && isZeroReading(readings[0])) {
+        const [, end] = readings;
+        readings = [];
+        const used = utility ?? '';
+        if (consumption === null && !tableConsumptionUsed.has(used)) {
+          tableConsumptionUsed.add(used);
+          consumption = end.value;
+          if (end.bands) bands = [end.bands.f1 ?? null, end.bands.f2 ?? null, end.bands.f3 ?? null];
+          estimated = end.estimated;
+        }
       }
     }
     return {
@@ -927,7 +944,9 @@ export function missingPdfData(
     const scope = t === 'utility' ? extracted.lines : lines;
     if (scope.every((l) => l[t] === null || l[t] === '')) missing.push(t);
   }
-  if (rules.readingTable && !extracted.noConsumption && !lines.some((l) => l.readings.length)) {
+  // Tabella letta come consumo (contatore che riparte da zero): trovata anche senza letture.
+  const tableRead = (l: ExtractedLine) => l.readings.length || l.readingCells?.values.length;
+  if (rules.readingTable && !extracted.noConsumption && !lines.some(tableRead)) {
     missing.push('readings');
   }
   if (!missing.length) return null;

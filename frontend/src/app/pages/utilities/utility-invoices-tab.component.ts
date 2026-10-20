@@ -14,7 +14,7 @@ interface Row {
   number: string;
   iso: string;
   period: string;
-  consumption: string;
+  consumption: number | null;
   amount: number;
   chapter: string;
 }
@@ -27,7 +27,8 @@ const eur = (n: number): string => n.toLocaleString('it-IT', {style: 'currency',
 const isoOf = (v: Date | string | null | undefined): string =>
   !v ? '' : typeof v === 'string' ? v.slice(0, 10) : (DateHelper.toLocalIsoString(v) ?? '');
 
-// Tab "Fatture" della scheda utenza: righe di fattura dell'utenza e totale per anno.
+// Tab "Fatture" della scheda utenza: una riga per fattura, periodo e impegno (le righe
+// della stessa bolletta, es. energia, trasporto, oneri e imposte, sommate) e totale per anno.
 @Component({
   selector: 'app-utility-invoices-tab',
   standalone: true,
@@ -57,7 +58,7 @@ const isoOf = (v: Date | string | null | undefined): string =>
               <td>{{ dateIt(r.iso) }}</td>
               <td>{{ r.number }}</td>
               <td>{{ r.period }}</td>
-              <td>{{ r.consumption }}</td>
+              <td>{{ r.consumption === null ? '' : r.consumption.toLocaleString('it-IT') }}</td>
               <td>{{ eur(r.amount) }}</td>
               <td>{{ r.chapter }}</td>
             </tr>
@@ -96,7 +97,7 @@ export class UtilityInvoicesTabComponent implements OnInit {
     forkJoin([this.invoices.search({utility_id: this.utilityId} as never), this.spending.utility(this.utilityId)])
       .subscribe(([list, years]) => {
         this.years = years;
-        this.rows = (list as Invoice[])
+        const rows = (list as Invoice[])
           .flatMap(inv => (inv.lines ?? [])
             .filter(l => l.utility_id_fk === this.utilityId)
             .map(l => ({
@@ -104,13 +105,24 @@ export class UtilityInvoicesTabComponent implements OnInit {
               number: inv.invoice_id,
               iso: isoOf(inv.invoice_date),
               period: l.period_start || l.period_end ? `${dateIt(l.period_start)} – ${dateIt(l.period_end)}` : '',
-              consumption: l.consumption !== null && l.consumption !== undefined ? Number(l.consumption).toLocaleString('it-IT') : '',
+              consumption: l.consumption !== null && l.consumption !== undefined ? Number(l.consumption) : null,
               amount: Number(l.amount),
               chapter: l.commitment?.budgetChapter
                 ? `${l.commitment.budgetChapter.chapter_code}/${l.commitment.budgetChapter.article ?? 0} (${l.commitment.fiscal_year})`
                 : '',
-            })))
-          .sort((a, b) => b.iso.localeCompare(a.iso));
+            })));
+        const grouped = new Map<string, Row>();
+        for (const r of rows) {
+          const key = `${r.invoiceId}|${r.period}|${r.chapter}`;
+          const same = grouped.get(key);
+          if (!same) {
+            grouped.set(key, {...r});
+            continue;
+          }
+          same.amount = Math.round((same.amount + r.amount) * 100) / 100;
+          if (r.consumption !== null) same.consumption = (same.consumption ?? 0) + r.consumption;
+        }
+        this.rows = [...grouped.values()].sort((a, b) => b.iso.localeCompare(a.iso));
         this.countChange.emit(new Set(this.rows.map(r => r.invoiceId)).size);
       });
   }

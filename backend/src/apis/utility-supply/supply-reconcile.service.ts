@@ -535,9 +535,9 @@ export class SupplyReconcileService {
     return changed;
   }
 
-  // Autore delle righe automatiche dei giri di sistema (job, avvio): il
-  // primo utente, come la migration dello storico. Non in cache: l'utente
-  // può essere eliminato tra un giro e l'altro.
+  // Autore delle righe automatiche dei giri di sistema (job, avvio): il primo
+  // utente, cioè l'utente di sistema (SYSTEM_USER_ID = -1) dove esiste. Non in
+  // cache: l'utente può essere eliminato tra un giro e l'altro.
   private async fallbackUserId(m: EntityManager): Promise<number> {
     const rows: { id: number | null }[] = await m.query(
       'SELECT MIN(id) AS id FROM system_users',

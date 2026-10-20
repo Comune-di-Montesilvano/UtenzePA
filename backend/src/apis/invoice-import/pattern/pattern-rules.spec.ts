@@ -641,6 +641,21 @@ describe('extract: dati nel PDF allegato', () => {
     ]);
   });
 
+  it('lettura iniziale 0: contatore che riparte da zero, la finale è il consumo (A2A)', () => {
+    const text = [
+      'Periodo',
+      'Tipo di',
+      'Consumo',
+      '31.08.2026 30.09.2026   Energia attiva   0   Rilevata   1.417   Rilevata   1.417 kWh   Effettivo',
+    ].join('\n');
+    const r: PatternRules = { ...rules({}), readingTable: { layout: 'rows', label: 'Consumo' } };
+    const line = extract(aca, r, text).lines[0];
+    expect(line.readings).toEqual([]);
+    expect(line.consumption).toBe(1417);
+    expect(line.estimated).toBe(false);
+    expect(missingPdfData(r, extract(aca, r, text), text)).toBeNull();
+  });
+
   it('dati dal PDF non trovati: segnalati, tranne quelli che mancano per regola', () => {
     const table: PatternRules = {
       ...rules({ meter: fromPdf({ kind: 'textAfter', word: 'Contatore n.' }) }),
