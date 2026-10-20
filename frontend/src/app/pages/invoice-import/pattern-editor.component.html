@@ -223,7 +223,11 @@
         <app-filterable-select [label]="labels[t]" [options]="selectOptions[t] ?? []" placeholder="Cerca un campo o un valore"
                                appearance="outline" subscriptSizing="dynamic" [ngModel]="choice[t] ?? ''" [disabled]="!canEdit"
                                (ngModelChange)="choice[t] = $event ?? ''; choiceChanged(t)"></app-filterable-select>
-        @if (canWord(t)) {
+        @if (canWord(t) && wordFolded(t)) {
+          <button mat-button type="button" class="pe-word-open" [disabled]="!canEdit" (click)="wordOpen[t] = true">
+            <mat-icon>content_cut</mat-icon> Solo una parte del testo
+          </button>
+        } @else if (canWord(t)) {
           <div class="pe-word">
             @if (t === 'estimated') {
               <mat-form-field appearance="outline" subscriptSizing="dynamic">

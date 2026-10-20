@@ -148,6 +148,7 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     .pe-row mat-form-field { width: 100%; }
     .pe-word { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
     .pe-word mat-form-field { flex: 1 1 10rem; min-width: 0; }
+    .pe-word-open { margin-top: 0.25rem; font-size: 0.8rem; }
     .pe-word-hint { flex-basis: 100%; font-size: 0.75rem; color: var(--app-muted); }
     .pe-occ { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.5rem; font-size: 0.8rem; max-height: 12rem;
       overflow: auto; }
@@ -654,6 +655,14 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
 
   // Ricerca dentro il testo solo dove ha senso: PDF, campi con frasi (Causale,
   // Descrizione) o regola «parola» già impostata; non su valori secchi (date, importi).
+  // Campo XML di testo lungo: «Dopo/Prima del testo» nascosti finché non servono.
+  wordOpen: Record<string, boolean> = {};
+
+  wordFolded(t: TargetField): boolean {
+    return t !== 'estimated' && !this.fromPdf(t) && !this.wordOpen[t]
+      && !this.after[t]?.trim() && !this.before[t]?.trim();
+  }
+
   canWord(t: TargetField): boolean {
     const c = this.choice[t] ?? '';
     if (!WORD_TARGETS.includes(t) || !c.startsWith('f:')) return false;
