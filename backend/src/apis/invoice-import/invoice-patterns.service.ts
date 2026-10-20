@@ -84,7 +84,11 @@ export interface PatternEditor {
   pdf_text: string | null;
   catalog: CatalogField[];
   ranked: Record<TargetField, string[]>;
+  // Fatture del fornitore senza pattern, raggruppate per variante di struttura
+  // (dalla più numerosa).
   similar: number[];
+  // Varianti: posizione della prima fattura in similar e quante sono.
+  variants: { start: number; count: number }[];
 }
 
 export interface SavePatternInput {
@@ -108,9 +112,31 @@ const SUPPLIER_SQL = `SELECT ${SUPPLIER_NAME} AS supplier FROM third_parties tp 
 
 // Simili: fatture del fornitore senza pattern, prima quelle con la stessa struttura.
 const SIMILAR_SQL =
-  "SELECT id FROM sdi_messages WHERE kind = 'INVOICE' AND supplier_id_fk = ? " +
+  'SELECT id, structure_key FROM sdi_messages ' +
+  "WHERE kind = 'INVOICE' AND supplier_id_fk = ? " +
   "AND status IN ('PENDING', 'LINKED') AND pattern_id_fk IS NULL " +
-  'ORDER BY (structure_key = ?) DESC, id DESC LIMIT 200';
+  'ORDER BY id DESC LIMIT 1000';
+
+// Simili per variante, dalla più numerosa (a parità la più recente): numerazione
+// stabile qualunque fattura sia aperta. Dentro la variante dalla più recente.
+export function groupVariants(rows: { id: number | string; structure_key: string | null }[]): {
+  similar: number[];
+  variants: { start: number; count: number }[];
+} {
+  const groups = new Map<string, number[]>();
+  for (const r of rows) {
+    const key = r.structure_key ?? '';
+    groups.set(key, [...(groups.get(key) ?? []), Number(r.id)]);
+  }
+  const ordered = [...groups.values()].sort((a, b) => b.length - a.length || b[0] - a[0]);
+  const similar: number[] = [];
+  const variants = ordered.map((ids) => {
+    const start = similar.length;
+    similar.push(...ids);
+    return { start, count: ids.length };
+  });
+  return { similar, variants };
+}
 
 // Da rielaborare: fatture del fornitore non estratte (senza pattern o ferme per
 // una differenza bloccante) e, in modifica, quelle estratte col pattern.
@@ -330,9 +356,9 @@ export class InvoicePatternsService {
       }
     }
     const [supplier] = await this.dataSource.query(SUPPLIER_SQL, [row.supplier_id_fk]);
-    const similar: { id: number }[] = row.structure_key
-      ? await this.dataSource.query(SIMILAR_SQL, [row.supplier_id_fk, row.structure_key])
-      : [];
+    const { similar, variants } = groupVariants(
+      row.structure_key ? await this.dataSource.query(SIMILAR_SQL, [row.supplier_id_fk]) : [],
+    );
     return {
       message: {
         id: row.id,
@@ -349,7 +375,8 @@ export class InvoicePatternsService {
       pdf_text: pdf,
       catalog,
       ranked,
-      similar: similar.length ? similar.map((s) => Number(s.id)) : [row.id],
+      similar: similar.length ? similar : [row.id],
+      variants: variants.length ? variants : [{ start: 0, count: 1 }],
     };
   }
 

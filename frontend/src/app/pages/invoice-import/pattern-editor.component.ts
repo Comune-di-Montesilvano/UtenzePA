@@ -74,6 +74,8 @@ const PDF_KEY = `header|${PDF_PATH}|`;
 const BAND_LABELS = ['Fascia oraria F', 'Fascia F'];
 // Fatture per chiamata di analisi (limite del backend).
 const ANALYZE_CHUNK = 25;
+// Fatture analizzate al massimo (prima quelle della variante aperta).
+const ANALYZE_MAX = 200;
 
 // Campo del catalogo ricostruito da una regola salvata (chiave = scope|path|condizione).
 function missingField(key: string, rule: Rule & {path: string}): CatalogField {
@@ -117,6 +119,8 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     .pe-bar > span, .pe-bar button { flex: 0 0 auto; white-space: nowrap; }
     .pe-bar h2 { margin: 0; font-size: 1.15rem; }
     .pe-bar .spacer { flex: 1; }
+    .pe-bar .pe-variant { flex: 0 0 11rem; --mat-form-field-container-height: 36px;
+      --mat-form-field-container-vertical-padding: 6px; }
     .pe-holds { color: var(--app-muted); }
     .pe-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
     @media (max-width: 1100px) { .pe-grid { grid-template-columns: minmax(0, 1fr); } }
@@ -218,6 +222,10 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   focused: TargetField | null = null;
   similar: number[] = [];
   index = 0;
+  // Varianti di struttura delle simili: lo sfoglia resta dentro quella scelta.
+  variants: {start: number; count: number}[] = [];
+  variant = 0;
+  analyzeIds: number[] = [];
   holds = 0;
   seen = 0;
   // Analisi sulle fatture simili: parte col pulsante, poi si ripete a ogni cambio di regola.
@@ -265,9 +273,10 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
             const id = this.data.message.id;
             const rules = this.rules();
             const chunks: number[][] = [];
-            for (let i = 0; i < this.similar.length; i += ANALYZE_CHUNK) chunks.push(this.similar.slice(i, i + ANALYZE_CHUNK));
+            const ids = this.analyzeIds;
+            for (let i = 0; i < ids.length; i += ANALYZE_CHUNK) chunks.push(ids.slice(i, i + ANALYZE_CHUNK));
             this.analyzing = true;
-            this.analysis = {analyzed: 0, unavailable: 0, matches: 0, found: {}, total: this.similar.length};
+            this.analysis = {analyzed: 0, unavailable: 0, matches: 0, found: {}, total: ids.length};
             return from(chunks).pipe(
               concatMap(chunk => this.service.analyze(id, chunk, rules).pipe(
                 catchError(() => of({analyzed: chunk.length, unavailable: chunk.length, matches: 0, found: {}} as PatternAnalysis)),
@@ -320,6 +329,12 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
         data.catalog.forEach(f => this.fields.set(f.key, f));
         this.similar = data.similar;
         this.index = Math.max(0, data.similar.indexOf(data.message.id));
+        this.variants = data.variants?.length ? data.variants : [{start: 0, count: data.similar.length}];
+        this.variant = Math.max(0, this.variants.findIndex(v => this.index >= v.start && this.index < v.start + v.count));
+        // Analisi: prima la variante aperta, poi le altre.
+        const v = this.variants[this.variant];
+        const own = data.similar.slice(v.start, v.start + v.count);
+        this.analyzeIds = [...own, ...data.similar.filter(id => !own.includes(id))].slice(0, ANALYZE_MAX);
         this.buildOptions(data);
         this.loading = false;
         if (this.firstLoad) {
@@ -699,10 +714,30 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
     this.view = view;
   }
 
+  // Posizione della fattura aperta dentro la sua variante (da 0).
+  get variantPosition(): number {
+    return this.index - (this.variants[this.variant]?.start ?? 0);
+  }
+
+  get variantCount(): number {
+    return this.variants[this.variant]?.count ?? this.similar.length;
+  }
+
   go(step: number): void {
-    const next = this.similar[this.index + step];
-    if (next === undefined) return;
-    this.router.navigate(['/invoice-import/editor', next], {queryParamsHandling: 'preserve'});
+    const position = this.variantPosition + step;
+    if (position < 0 || position >= this.variantCount) return;
+    this.open(this.similar[this.index + step]);
+  }
+
+  // Prima fattura (la più recente) della variante scelta.
+  pickVariant(k: number): void {
+    const v = this.variants[k];
+    if (v) this.open(this.similar[v.start]);
+  }
+
+  private open(id: number | undefined): void {
+    if (id === undefined) return;
+    this.router.navigate(['/invoice-import/editor', id], {queryParamsHandling: 'preserve'});
   }
 
   openPdf(): void {

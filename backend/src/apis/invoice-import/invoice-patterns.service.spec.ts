@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { SdiMessageStatus } from './enum/sdi-message-status.enum';
-import { InvoicePatternsService } from './invoice-patterns.service';
+import { groupVariants, InvoicePatternsService } from './invoice-patterns.service';
 import { PDF_PATH, rulePaths, structureKey, type PatternRules } from './pattern/pattern-rules';
 import { pdfText } from './sdi/pdf-text';
 
@@ -282,21 +282,44 @@ describe('InvoicePatternsService', () => {
     expect(importer.reprocess).toHaveBeenCalledWith([9, 20]);
   });
 
+  it('varianti: dalla più numerosa, numerazione uguale da qualunque fattura', () => {
+    const rows = [
+      { id: 50, structure_key: 'b' },
+      { id: 40, structure_key: 'a' },
+      { id: 30, structure_key: 'b' },
+      { id: 20, structure_key: 'c' },
+      { id: 10, structure_key: 'b' },
+      { id: 5, structure_key: 'c' },
+    ];
+    expect(groupVariants(rows)).toEqual({
+      similar: [50, 30, 10, 20, 5, 40],
+      variants: [
+        { start: 0, count: 3 },
+        { start: 3, count: 2 },
+        { start: 5, count: 1 },
+      ],
+    });
+  });
+
   it('editor: XML, catalogo ordinato, simili e nome del fornitore', async () => {
     query.mockImplementation(async (sql: string) =>
       sql.includes('FROM third_parties')
         ? [{ supplier: 'Energia Prova S.p.A.' }]
-        : [{ id: 12 }, { id: 9 }],
+        : [
+            { id: 12, structure_key: 'x' },
+            { id: 9, structure_key: 'x' },
+          ],
     );
     const editor = await service.editor(9);
     expect(editor.message).toEqual(
       expect.objectContaining({ id: 9, supplier_id: 46, supplier: 'Energia Prova S.p.A.' }),
     );
     expect(editor.similar).toEqual([12, 9]);
-    // Simili: fatture del fornitore senza pattern, prima quelle con la stessa struttura.
+    expect(editor.variants).toEqual([{ start: 0, count: 2 }]);
+    // Simili: fatture del fornitore senza pattern.
     const similarSql = query.mock.calls
       .map(([s]) => String(s))
-      .find((s) => s.includes('ORDER BY (structure_key'));
+      .find((s) => s.includes('SELECT id, structure_key'));
     expect(similarSql).toContain('pattern_id_fk IS NULL');
     expect(editor.ranked.utility[0]).toContain('AltriDatiGestionali/TipoDato=POD');
     expect(editor.xml).toContain('<Numero>EP 7/26</Numero>');

@@ -6,11 +6,21 @@
     <button mat-icon-button aria-label="Torna all'elenco" (click)="back()"><mat-icon>arrow_back</mat-icon></button>
     <h2>{{ data.message.supplier }} · {{ data.message.document_number || data.message.file_name }}</h2>
     <span class="spacer"></span>
-    <button mat-icon-button aria-label="Fattura precedente" [disabled]="index === 0 || loading" (click)="go(-1)">
+    @if (variants.length > 1) {
+      <mat-form-field class="pe-variant" appearance="outline" subscriptSizing="dynamic">
+        <mat-select aria-label="Variante di struttura" [ngModel]="variant" [disabled]="loading" (ngModelChange)="pickVariant($event)">
+          <mat-select-trigger>Variante {{ variant + 1 }} di {{ variants.length }}</mat-select-trigger>
+          @for (v of variants; track $index) {
+            <mat-option [value]="$index">Variante {{ $index + 1 }} di {{ variants.length }} · {{ v.count }} {{ v.count === 1 ? 'fattura' : 'fatture' }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    }
+    <button mat-icon-button aria-label="Fattura precedente" [disabled]="variantPosition === 0 || loading" (click)="go(-1)">
       <mat-icon>chevron_left</mat-icon>
     </button>
-    <span>Fattura {{ index + 1 }} di {{ similar.length }} simili</span>
-    <button mat-icon-button aria-label="Fattura successiva" [disabled]="index >= similar.length - 1 || loading" (click)="go(1)">
+    <span>Fattura {{ variantPosition + 1 }} di {{ variantCount }}{{ variants.length > 1 ? '' : ' simili' }}</span>
+    <button mat-icon-button aria-label="Fattura successiva" [disabled]="variantPosition >= variantCount - 1 || loading" (click)="go(1)">
       <mat-icon>chevron_right</mat-icon>
     </button>
     @if (seen) {
@@ -23,7 +33,7 @@
       </span>
     }
     <button mat-stroked-button type="button" [disabled]="analyzing || loading" (click)="analyze()">
-      <mat-icon>fact_check</mat-icon> Analizza le {{ similar.length }} simili
+      <mat-icon>fact_check</mat-icon> Analizza {{ analyzeIds.length === 1 ? 'la simile' : 'le ' + analyzeIds.length + ' simili' }}
     </button>
     @if (previewing || loading) {
       <mat-spinner diameter="18"></mat-spinner>
