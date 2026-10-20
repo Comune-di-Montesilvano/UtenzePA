@@ -5,6 +5,11 @@ import { GroundingClass, PlantStatus, PlantType } from '@apis/plants/enum/plant.
 import { todayIso } from '@apis/utilizer-grant/real-estate-contract.calc';
 import { DataSource } from 'typeorm';
 import { partyNameSql } from '@apis/third-parties/third-party.name';
+import {
+  toUnknownStructure,
+  UNKNOWN_STRUCTURES_SQL,
+  type UnknownStructureRow,
+} from '@apis/invoice-import/pattern/unknown-structures';
 import { CostStatus, costStatusSql, inChargeSql } from '@apis/utility/cost-status';
 import { chaptersYearSummary, currentYear } from '@apis/spending/chapter-year';
 import { dbDay, romeDay } from '@apis/utility-supply/supply-reconcile.service';
@@ -98,20 +103,17 @@ export interface Anomalies {
     date: string | null;
   }>;
   invoice_sdi_outcome_discarded: AnomalyList<{ invoice_id: number; number: string }>;
-  invoice_patterns_unknown: AnomalyList<{
-    supplier_id: number;
-    supplier: string;
-    structure_key: string;
-    count: number;
-    // Fattura più recente della struttura: apre l'editor.
-    message_id: number;
-  }>;
+  // Fatture senza pattern, per fornitore: l'esempio apre l'editor.
+  invoice_patterns_unknown: AnomalyList<UnknownStructureRow>;
   invoice_import_issues: AnomalyList<{
     invoice_id: number | null;
     number: string | null;
     type: string;
     detail: string;
+    utility_id: number | null;
   }>;
+  // Utenze con fatture ferme perché la matricola in fattura è diversa.
+  utilities_with_meter_mismatch: AnomalyList<{ id: number; utility_id: string; detail: string }>;
 }
 
 // Import fatture fermo: nessun giro riuscito da più di 2 ore (giro ogni 15 minuti).
@@ -692,20 +694,14 @@ export class AnomaliesService {
         ORDER BY i.invoice_date DESC, i.id DESC`,
     );
     const patternsUnknown: Record<string, unknown>[] = await this.dataSource.query(
-      `/* invoice_patterns_unknown */
-       SELECT m.supplier_id_fk AS supplier_id, ${partyNameSql('tp')} AS supplier, m.structure_key,
-              COUNT(*) AS count, MAX(m.id) AS message_id
-         FROM sdi_messages m
-         JOIN third_parties tp ON tp.id = m.supplier_id_fk
-        WHERE m.kind = 'INVOICE' AND m.status IN ('PENDING', 'LINKED') AND m.pattern_id_fk IS NULL
-          AND m.structure_key IS NOT NULL AND m.structure_key <> ''
-        GROUP BY m.supplier_id_fk, supplier, m.structure_key
-        ORDER BY count DESC, supplier`,
+      `/* invoice_patterns_unknown */ ${UNKNOWN_STRUCTURES_SQL}`,
     );
     const importIssues: Record<string, unknown>[] = await this.dataSource.query(
       `/* invoice_import_issues */
-       SELECT ii.invoice_id_fk AS invoice_id, i.invoice_id AS number, ii.type, ii.detail
+       SELECT ii.invoice_id_fk AS invoice_id, i.invoice_id AS number, ii.type, ii.detail,
+              ii.utility_id_fk AS utility_id, uu.utility_id AS utility_code
          FROM invoice_import_issues ii
+         LEFT JOIN utilities uu ON uu.id = ii.utility_id_fk
          JOIN sdi_messages m ON m.id = ii.sdi_message_id_fk
          LEFT JOIN invoices i ON i.id = ii.invoice_id_fk
          LEFT JOIN third_parties tp ON tp.id = m.supplier_id_fk
@@ -719,6 +715,10 @@ export class AnomaliesService {
                  WHERE l.invoice_id_fk = ii.invoice_id_fk AND l.utility_id_fk IS NOT NULL AND l.commitment_id_fk IS NULL))
           AND (ii.type <> 'SUPPLIER_NAME_MISMATCH' OR tp.update_date <= ii.create_date)
           AND (ii.type <> 'BATCH_NOT_SUPPORTED' OR m.status = 'PENDING')
+          AND (ii.type <> 'METER_MISMATCH' OR (m.status IN ('PENDING', 'LINKED') AND EXISTS (
+                 SELECT 1 FROM utilities u WHERE u.id = ii.utility_id_fk AND COALESCE(u.meter_number, '') <> ''
+                    AND UPPER(TRIM(LEADING '0' FROM REPLACE(u.meter_number, ' ', ''))) <>
+                        UPPER(TRIM(LEADING '0' FROM REPLACE(ii.value, ' ', ''))))))
         ORDER BY ii.type, ii.id DESC`,
     );
     const lastSuccess = importState?.last_success_at
@@ -758,23 +758,30 @@ export class AnomaliesService {
       invoice_sdi_outcome_discarded: list(
         outcomeDiscarded.map((r) => ({ invoice_id: Number(r.invoice_id), number: String(r.number) })),
       ),
-      invoice_patterns_unknown: list(
-        patternsUnknown.map((r) => ({
-          supplier_id: Number(r.supplier_id),
-          supplier: String(r.supplier),
-          structure_key: String(r.structure_key),
-          count: Number(r.count),
-          message_id: Number(r.message_id),
-        })),
-      ),
+      invoice_patterns_unknown: list(patternsUnknown.map(toUnknownStructure)),
       invoice_import_issues: list(
         importIssues.map((r) => ({
           invoice_id: r.invoice_id == null ? null : Number(r.invoice_id),
           number: (r.number as string) ?? null,
           type: String(r.type),
           detail: String(r.detail),
+          utility_id: r.utility_id == null ? null : Number(r.utility_id),
         })),
       ),
+      utilities_with_meter_mismatch: list([
+        ...new Map(
+          importIssues
+            .filter((r) => r.type === 'METER_MISMATCH' && r.utility_id != null)
+            .map((r) => [
+              Number(r.utility_id),
+              {
+                id: Number(r.utility_id),
+                utility_id: String(r.utility_code),
+                detail: String(r.detail),
+              },
+            ]),
+        ).values(),
+      ]),
       assets_without_cadastre: assetItems(withoutCadastre),
       assets_without_mef_id: assetItems(withoutMefId),
       units_without_subordinate: assetItems(withoutSubordinate),

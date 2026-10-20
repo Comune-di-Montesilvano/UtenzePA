@@ -13,10 +13,12 @@ import {
 
 // Regole di un pattern: per ogni campo di UtenzePA da dove prenderlo nell'XML.
 // Solo XML, mai il PDF. I campi di riga leggono la riga (DettaglioLinee) salvo
-// fromHeader / numberAfter con fromHeader, che leggono la testata.
+// fromHeader e numberAfter / textAfter con fromHeader, che leggono la testata.
+// numberAfter: primo numero dopo la parola; textAfter: prima parola dopo (matricola).
 export type Rule =
   | { kind: 'field'; path: string; where?: FieldCondition }
   | { kind: 'numberAfter'; path: string; word: string; fromHeader?: boolean }
+  | { kind: 'textAfter'; path: string; word: string; fromHeader?: boolean }
   | { kind: 'grossAmount' }
   | { kind: 'fromHeader'; path: string; where?: FieldCondition }
   | { kind: 'none' };
@@ -62,7 +64,7 @@ const DEFAULTS: Partial<Record<HeaderTarget, string>> = {
   documentType: 'DatiGenerali/DatiGeneraliDocumento/TipoDocumento',
 };
 
-// Note di credito (ordinaria e semplificata): importi col segno invertito.
+// Note di credito (ordinaria e semplificata): in UtenzePA importi negativi.
 const CREDIT_NOTES = ['TD04', 'TD08'];
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -108,10 +110,44 @@ export function numberAfter(text: string | null, word: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// Prima parola dopo la parola cercata (es. matricola dopo «Contatore»), così com'è.
+export function textAfter(text: string | null, word: string): string | null {
+  if (!text || !word) return null;
+  const at = text.toLowerCase().indexOf(word.toLowerCase());
+  if (at < 0) return null;
+  return /^[\s:.n°]*([^\s;,]+)/i.exec(text.slice(at + word.length))?.[1] ?? null;
+}
+
+// Testo della testata: i campi ripetuti (Causale, max 200 caratteri l'uno) si
+// uniscono senza separatore perché il fornitore li spezza anche a metà parola.
+function headerText(tree: InvoiceTree, path: string): string | null {
+  const scope = headerScope(tree, path);
+  const values = leafValues(scope.nodes, scope.path);
+  return values.length ? values.join('') : null;
+}
+
+// Testo con più utenze: si legge dal punto in cui compare quella della riga.
+function segmentFor(text: string | null, utility: string | null): string | null {
+  if (!text || !utility) return text;
+  const at = text.toLowerCase().indexOf(utility.toLowerCase());
+  return at < 0 ? text : text.slice(at + utility.length);
+}
+
 function toNumber(value: string | null): number | null {
   if (value === null || value === '') return null;
   const n = Number(value.replace(',', '.'));
   return Number.isFinite(n) ? n : null;
+}
+
+// Somma dei valori del campo in testata (imponibile con più DatiRiepilogo).
+function headerSum(tree: InvoiceTree, rule: Rule | undefined): number | null {
+  if (!rule || (rule.kind !== 'field' && rule.kind !== 'fromHeader') || rule.where)
+    return toNumber(headerRule(tree, rule));
+  const scope = headerScope(tree, rule.path);
+  const values = leafValues(scope.nodes, scope.path)
+    .map(toNumber)
+    .filter((n): n is number => n !== null);
+  return values.length ? round2(values.reduce((sum, n) => sum + n, 0)) : null;
 }
 
 function headerRule(tree: InvoiceTree, rule: Rule | undefined, fallback?: string): string | null {
@@ -121,23 +157,34 @@ function headerRule(tree: InvoiceTree, rule: Rule | undefined, fallback?: string
     case 'fromHeader':
       return headerValue(tree, rule.path, rule.where);
     case 'numberAfter': {
-      const n = numberAfter(headerValue(tree, rule.path), rule.word);
+      const n = numberAfter(headerText(tree, rule.path), rule.word);
       return n === null ? null : String(n);
     }
+    case 'textAfter':
+      return textAfter(headerText(tree, rule.path), rule.word);
     default:
       return null;
   }
 }
 
-function lineRule(tree: InvoiceTree, line: XmlValue, rule: Rule | undefined): string | null {
+function lineRule(
+  tree: InvoiceTree,
+  line: XmlValue,
+  rule: Rule | undefined,
+  utility: string | null = null,
+): string | null {
   if (!rule) return null;
   switch (rule.kind) {
     case 'field':
       return firstValue([line], rule.path, rule.where);
     case 'fromHeader':
       return headerValue(tree, rule.path, rule.where);
-    case 'numberAfter': {
-      const text = rule.fromHeader ? headerValue(tree, rule.path) : firstValue([line], rule.path);
+    case 'numberAfter':
+    case 'textAfter': {
+      const text = rule.fromHeader
+        ? segmentFor(headerText(tree, rule.path), utility)
+        : firstValue([line], rule.path);
+      if (rule.kind === 'textAfter') return textAfter(text, rule.word);
       const n = numberAfter(text, rule.word);
       return n === null ? null : String(n);
     }
@@ -152,42 +199,64 @@ function lineRule(tree: InvoiceTree, line: XmlValue, rule: Rule | undefined): st
 }
 
 const readsHeader = (rule: Rule | undefined) =>
-  rule?.kind === 'fromHeader' || (rule?.kind === 'numberAfter' && rule.fromHeader === true);
+  rule?.kind === 'fromHeader' ||
+  ((rule?.kind === 'numberAfter' || rule?.kind === 'textAfter') && rule.fromHeader === true);
 
 export function extract(xml: Buffer, rules: PatternRules): ExtractedInvoice {
   const tree = parseInvoiceTree(xml);
   const h = rules.header;
   const documentType = headerRule(tree, h.documentType, DEFAULTS.documentType) ?? '';
   const creditNote = CREDIT_NOTES.includes(documentType);
-  const sign = (n: number | null) => (n === null ? null : creditNote && n !== 0 ? -n : n);
 
   const filter = rules.consumptionLineFilter?.trim().toLowerCase();
-  // Consumo letto dalla testata: una volta sola, sulla prima riga ammessa.
-  let headerConsumptionUsed = false;
-  const lines = tree.lines.map((line): ExtractedLine => {
+  // Consumo letto dalla testata: una volta sola per utenza, sulla prima riga ammessa.
+  const headerConsumptionUsed = new Set<string>();
+  const consumptionRule = rules.line.consumption;
+  const utilities = tree.lines.map((line) => lineRule(tree, line, rules.line.utility));
+  // Con righe intestate a un'utenza, quelle senza (bollo, indennizzi) non prendono il consumo.
+  const anyUtility = utilities.some((u) => u !== null);
+  const lines = tree.lines.map((line, index): ExtractedLine => {
+    const utility = utilities[index];
     const description = lineRule(tree, line, rules.line.description);
     const amountRule = rules.line.amount ?? { kind: 'grossAmount' };
     let consumption: number | null = null;
     const descriptionText = description ?? firstValue([line], 'Descrizione') ?? '';
     // Una nota di credito non registra consumi (i conguagli sono un caso a parte).
     if (!creditNote && (!filter || descriptionText.toLowerCase().includes(filter))) {
-      if (!readsHeader(rules.line.consumption) || !headerConsumptionUsed) {
-        consumption = toNumber(lineRule(tree, line, rules.line.consumption));
-        if (consumption !== null && readsHeader(rules.line.consumption))
-          headerConsumptionUsed = true;
+      const used = utility ?? '';
+      const header = readsHeader(consumptionRule);
+      if (!header || (!headerConsumptionUsed.has(used) && (utility !== null || !anyUtility))) {
+        consumption = toNumber(lineRule(tree, line, consumptionRule, utility));
+        if (consumption !== null && readsHeader(consumptionRule)) headerConsumptionUsed.add(used);
       }
     }
+    // Consumo «dopo la parola» senza unità mappata: l'unità è la parola (kWh, Smc…).
+    const unit =
+      rules.line.unit || consumptionRule?.kind !== 'numberAfter'
+        ? lineRule(tree, line, rules.line.unit)
+        : consumption === null
+          ? null
+          : consumptionRule.word;
     return {
-      utility: lineRule(tree, line, rules.line.utility),
+      utility,
       periodStart: lineRule(tree, line, rules.line.periodStart),
       periodEnd: lineRule(tree, line, rules.line.periodEnd),
-      amount: sign(toNumber(lineRule(tree, line, amountRule)) ?? 0) ?? 0,
+      amount: toNumber(lineRule(tree, line, amountRule)) ?? 0,
       description,
       consumption,
-      unit: lineRule(tree, line, rules.line.unit),
-      meter: lineRule(tree, line, rules.line.meter),
+      unit,
+      meter: lineRule(tree, line, rules.line.meter, utility),
     };
   });
+
+  // Nota di credito: c'è chi scrive gli importi positivi e chi già negativi.
+  // Il segno si decide sul documento (totale, altrimenti somma delle righe) e
+  // vale per tutti gli importi: i segni tra le righe restano quelli dell'XML.
+  const total = toNumber(headerRule(tree, h.total));
+  const documentSign = total ?? lines.reduce((sum, l) => sum + l.amount, 0);
+  const factor = creditNote && documentSign > 0 ? -1 : 1;
+  const signed = (n: number | null) => (n === null || n === 0 ? n : n * factor);
+  for (const l of lines) l.amount = signed(l.amount) ?? 0;
 
   return {
     supplierVat: headerValue(tree, DEFAULTS.supplierVat) ?? '',
@@ -195,8 +264,8 @@ export function extract(xml: Buffer, rules: PatternRules): ExtractedInvoice {
     number: headerRule(tree, h.number, DEFAULTS.number) ?? '',
     date: headerRule(tree, h.date, DEFAULTS.date) ?? '',
     documentType,
-    total: sign(toNumber(headerRule(tree, h.total))),
-    netAmount: sign(toNumber(headerRule(tree, h.netAmount))),
+    total: signed(total),
+    netAmount: signed(headerSum(tree, h.netAmount)),
     cig: headerRule(tree, h.cig),
     contractRef: headerRule(tree, h.contractRef),
     lines,
@@ -227,7 +296,7 @@ function requirements(rules: PatternRules): Requirement[] {
       out.push({ scope: 'line', path: rule.path, where: rule.where });
     } else if (rule.kind === 'fromHeader') {
       out.push({ scope: 'header', path: rule.path, where: rule.where });
-    } else if (rule.kind === 'numberAfter') {
+    } else if (rule.kind === 'numberAfter' || rule.kind === 'textAfter') {
       out.push({ scope: rule.fromHeader ? 'header' : 'line', path: rule.path });
     }
   }

@@ -2,6 +2,7 @@ import { maintenance } from '@common/maintenance/maintenance';
 import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
 import { InvoiceImportService } from './invoice-import.service';
 import { SdiMessageStatus } from './enum/sdi-message-status.enum';
+import { ImportIssueType } from './enum/import-issue-type.enum';
 import type { PecMailbox } from './pec-imap.client';
 import {
   attachment,
@@ -307,7 +308,7 @@ describe('InvoiceImportService con i pattern', () => {
   let query: jest.Mock;
   let mailbox: ReturnType<typeof fakeMailbox>;
   let matcher: { match: jest.Mock };
-  let applier: { apply: jest.Mock; importUserId: jest.Mock };
+  let applier: { apply: jest.Mock; importUserId: jest.Mock; block: jest.Mock };
   let linker: { link: jest.Mock; unlink: jest.Mock };
   let recalc: { recalcUtility: jest.Mock };
   const savedEnv = { ...process.env };
@@ -345,9 +346,12 @@ describe('InvoiceImportService con i pattern', () => {
         contratto_id_fk: null,
         lines: [],
         issues: [],
+        blocking: [],
+        meterFills: [],
       })),
     };
     applier = {
+      block: jest.fn(),
       apply: jest.fn(async () => {
         invoices.rows.push({
           id: 77,
@@ -424,6 +428,25 @@ describe('InvoiceImportService con i pattern', () => {
     await service().runOnce();
     expect(applier.apply).not.toHaveBeenCalled();
     expect(messages.rows[0].status).toBe(SdiMessageStatus.IGNORED);
+  });
+
+  it('matricola diversa: fattura non scritta finché non si risolve, resta in attesa', async () => {
+    patterns.rows.push(pricePattern());
+    const blocking = [{ type: ImportIssueType.METER_MISMATCH, lineIndex: 0, utilityId: 812, value: '9', detail: 'x' }];
+    matcher.match.mockResolvedValue({ supplierId: 9, existingInvoiceId: null, contratto_id_fk: null, lines: [], issues: [], blocking, meterFills: [] });
+    const result = await service().runOnce();
+    expect(result.extracted).toBe(0);
+    expect(applier.apply).not.toHaveBeenCalled();
+    expect(applier.block).toHaveBeenCalledWith(expect.objectContaining({ id: expect.anything() }), expect.objectContaining({ blocking }), 3);
+    expect(messages.rows[0].status).toBe(SdiMessageStatus.PENDING);
+  });
+
+  it('a ogni giro si rielaborano le fatture bloccate la cui causa è sistemata', async () => {
+    mailbox = fakeMailbox([]);
+    await service().runOnce();
+    const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('METER_MISMATCH'));
+    // Bloccata finché la matricola dell'utenza è diversa da quella in fattura (zeri iniziali esclusi).
+    expect(sql).toMatch(/NOT EXISTS[\s\S]*TRIM\(LEADING '0'/);
   });
 
   it('nessun pattern: comportamento della parte 1 (in attesa)', async () => {

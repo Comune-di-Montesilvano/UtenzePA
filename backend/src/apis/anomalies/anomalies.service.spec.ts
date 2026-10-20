@@ -717,31 +717,46 @@ describe('AnomaliesService', () => {
 
     it('strutture di fattura da mappare, per fornitore', async () => {
       only('/* invoice_patterns_unknown */', [
-        { supplier_id: '46', supplier: 'Energia Prova S.p.A.', structure_key: 'abc', count: '3', message_id: '12' },
+        { supplier_id: '46', supplier: 'Energia Prova S.p.A.', structure_key: 'abc', count: '3', structures: '2', message_id: '12' },
       ]);
       const r = await service.getAnomalies();
       expect(r.invoice_patterns_unknown).toEqual({
         count: 1,
-        items: [{ supplier_id: 46, supplier: 'Energia Prova S.p.A.', structure_key: 'abc', count: 3, message_id: 12 }],
+        items: [
+          { supplier_id: 46, supplier: 'Energia Prova S.p.A.', structure_key: 'abc', count: 3, structures: 2, message_id: 12 },
+        ],
       });
     });
 
     it('differenze trovate dall’import, escluse fatture rifiutate e strutture ignorate', async () => {
       only('/* invoice_import_issues */', [
-        { invoice_id: '77', number: 'EP 7/26', type: 'CIG_MISMATCH', detail: 'CIG fattura A, contratto B' },
-        { invoice_id: null, number: null, type: 'BATCH_NOT_SUPPORTED', detail: 'Lotto' },
+        { invoice_id: '77', number: 'EP 7/26', type: 'CIG_MISMATCH', detail: 'CIG fattura A, contratto B', utility_id: null },
+        { invoice_id: null, number: null, type: 'BATCH_NOT_SUPPORTED', detail: 'Lotto', utility_id: null },
       ]);
       const r = await service.getAnomalies();
       expect(r.invoice_import_issues).toEqual({
         count: 2,
         items: [
-          { invoice_id: 77, number: 'EP 7/26', type: 'CIG_MISMATCH', detail: 'CIG fattura A, contratto B' },
-          { invoice_id: null, number: null, type: 'BATCH_NOT_SUPPORTED', detail: 'Lotto' },
+          { invoice_id: 77, number: 'EP 7/26', type: 'CIG_MISMATCH', detail: 'CIG fattura A, contratto B', utility_id: null },
+          { invoice_id: null, number: null, type: 'BATCH_NOT_SUPPORTED', detail: 'Lotto', utility_id: null },
         ],
       });
       const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('/* invoice_import_issues */'));
       expect(sql).toContain("<> 'REJECTED'");
       expect(sql).toContain("<> 'IGNORED'");
+    });
+
+    it('matricola diversa: utenze da sistemare, una volta sola anche con più fatture ferme', async () => {
+      only('/* invoice_import_issues */', [
+        { invoice_id: null, number: null, type: 'METER_MISMATCH', detail: 'IT001E1: matricola in fattura 9, in anagrafica 8', utility_id: '812', utility_code: 'IT001E1' },
+        { invoice_id: null, number: null, type: 'METER_MISMATCH', detail: 'IT001E1: matricola in fattura 9, in anagrafica 8', utility_id: '812', utility_code: 'IT001E1' },
+      ]);
+      const r = await service.getAnomalies();
+      expect(r.utilities_with_meter_mismatch).toEqual({
+        count: 1,
+        items: [{ id: 812, utility_id: 'IT001E1', detail: 'IT001E1: matricola in fattura 9, in anagrafica 8' }],
+      });
+      expect(r.invoice_import_issues.items[0].utility_id).toBe(812);
     });
 
     it('differenze ricontrollate al momento: spariscono quando la causa è sistemata', async () => {
@@ -755,6 +770,8 @@ describe('AnomaliesService', () => {
       // Ragione sociale: sparisce se l'anagrafica è stata aggiornata dopo; lotto: finché il file è in attesa.
       expect(sql).toMatch(/SUPPLIER_NAME_MISMATCH'[\s\S]*tp\.update_date <= ii\.create_date/);
       expect(sql).toMatch(/BATCH_NOT_SUPPORTED'[\s\S]*m\.status = 'PENDING'/);
+      // Matricola: finché quella dell'utenza resta diversa (vuota = si completa al prossimo giro).
+      expect(sql).toMatch(/METER_MISMATCH'[\s\S]*TRIM\(LEADING '0'/);
     });
 
     it('fatture con esito scartato dallo SDI', async () => {

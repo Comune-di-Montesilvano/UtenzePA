@@ -1,3 +1,4 @@
+import { AuditAction, AuditLog } from '@apis/audit-log/entity/audit-log.entity';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
 import { InvoiceLine } from '@apis/invoices/entity/invoice-line.entity';
 import { InvoiceImportIssue } from './entity/invoice-import-issue.entity';
@@ -41,6 +42,9 @@ const match = (over: Partial<MatchResult> = {}): MatchResult => ({
   issues: [
     { type: ImportIssueType.CIG_MISMATCH, lineIndex: 0, detail: 'CIG fattura X, contratto Y' },
   ],
+  blocking: [],
+  meters: [],
+  meterFills: [],
   ...over,
 });
 
@@ -168,7 +172,7 @@ describe('InvoiceApplier', () => {
       utilityIds: [812],
     });
     await applier.apply(message(), extracted, match({ existingInvoiceId: 321, issues: [] }), 3, 7);
-    expect(linker.link).toHaveBeenCalledWith(manager, 321, 7, [60]);
+    expect(linker.link).toHaveBeenCalledWith(manager, 321, 7, [60], new Map());
     expect(manager.save).toHaveBeenCalledWith(InvoiceImportIssue, [
       expect.objectContaining({ type: ImportIssueType.PERIOD_COVERED }),
     ]);
@@ -185,5 +189,79 @@ describe('InvoiceApplier', () => {
     await applier.apply(message(), extracted, match({ existingInvoiceId: 321 }), 3, 7);
     expect(linker.link).not.toHaveBeenCalled();
     expect(manager.save).toHaveBeenCalledWith(InvoiceLine, expect.anything());
+  });
+});
+
+describe('InvoiceApplier: matricola', () => {
+  let manager: { findOne: jest.Mock; find: jest.Mock; save: jest.Mock; update: jest.Mock; delete: jest.Mock; query: jest.Mock };
+  let linker: { link: jest.Mock };
+  let applier: InvoiceApplier;
+
+  beforeEach(() => {
+    manager = {
+      findOne: jest.fn().mockResolvedValue(null),
+      find: jest.fn().mockResolvedValue([]),
+      save: jest.fn(async (_e, data) => (Array.isArray(data) ? data : { id: 500, ...data })),
+      update: jest.fn(),
+      delete: jest.fn(),
+      query: jest.fn(async () => ({ affectedRows: 1 })),
+    };
+    const dataSource = { transaction: jest.fn((cb) => cb(manager)), query: jest.fn() };
+    linker = { link: jest.fn(async () => ({ issues: [], utilityIds: [812] })) };
+    applier = new InvoiceApplier(dataSource as never, linker as never, { recalcUtility: jest.fn() } as never);
+  });
+
+  it('utenza senza matricola: la completa, con la riga nel log attività, e la passa alla rilevazione', async () => {
+    await applier.apply(
+      message(),
+      extracted,
+      match({
+        meters: [{ utilityId: 812, meter: '000000000000283767' }],
+        meterFills: [{ utilityId: 812, meter: '000000000000283767' }],
+      }),
+      3,
+      7,
+    );
+    const [sql, params] = manager.query.mock.calls[0];
+    expect(sql).toMatch(/UPDATE utilities SET meter_number = \? WHERE id = \? AND \(meter_number IS NULL OR meter_number = ''\)/);
+    expect(params).toEqual(['000000000000283767', 812]);
+    expect(manager.save).toHaveBeenCalledWith(
+      AuditLog,
+      expect.objectContaining({
+        entity_name: 'utilities',
+        entity_id: 812,
+        action: AuditAction.UPDATE,
+        field_name: 'meter_number',
+        new_value: '000000000000283767',
+        user_id: 7,
+      }),
+    );
+    expect(linker.link).toHaveBeenCalledWith(manager, 500, 7, [], new Map([[812, '000000000000283767']]));
+  });
+
+  it('blocco: nessuna fattura scritta, segnalazione con utenza e matricola, pattern sul messaggio', async () => {
+    const blocking = [
+      {
+        type: ImportIssueType.METER_MISMATCH,
+        lineIndex: 0,
+        utilityId: 812,
+        value: '285039',
+        detail: 'IT001E00000001: matricola in fattura 285039, in anagrafica 3983',
+      },
+    ];
+    await applier.block(message(), match({ blocking, existingInvoiceId: 321 }), 3);
+    expect(manager.save).not.toHaveBeenCalledWith(Invoice, expect.anything());
+    expect(manager.delete).toHaveBeenCalledWith(InvoiceImportIssue, { sdi_message_id_fk: 9 });
+    expect(manager.save).toHaveBeenCalledWith(InvoiceImportIssue, [
+      expect.objectContaining({
+        sdi_message_id_fk: 9,
+        invoice_id_fk: 321,
+        type: ImportIssueType.METER_MISMATCH,
+        utility_id_fk: 812,
+        value: '285039',
+      }),
+      expect.objectContaining({ type: ImportIssueType.CIG_MISMATCH }),
+    ]);
+    expect(manager.update).toHaveBeenCalledWith(SdiMessage, 9, { pattern_id_fk: 3, error: null });
   });
 });

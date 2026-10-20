@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
+import { AuditAction, AuditLog } from '@apis/audit-log/entity/audit-log.entity';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
 import { InvoiceLine } from '@apis/invoices/entity/invoice-line.entity';
 import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
@@ -8,7 +9,7 @@ import { ConsumptionLinker } from './consumption-linker.service';
 import { InvoiceImportIssue } from './entity/invoice-import-issue.entity';
 import { SdiMessage } from './entity/sdi-message.entity';
 import { SdiMessageStatus } from './enum/sdi-message-status.enum';
-import type { MatchResult } from './invoice-matcher.service';
+import type { MatchIssue, MatchResult } from './invoice-matcher.service';
 import type { ExtractedInvoice } from './pattern/pattern-rules';
 
 // Scrittura di sistema: non tocca "Ultima modifica" della fattura.
@@ -17,6 +18,10 @@ const KEEP_UPDATE_DATE = { update_date: () => '`update_date`' };
 // Nessun utente di sistema: le fatture create dall'import hanno come autore il primo Admin attivo.
 const IMPORT_USER_SQL =
   "SELECT id FROM system_users WHERE role = 'Admin' AND status = 'Attivo' AND deleted = 0 ORDER BY id LIMIT 1";
+
+// Matricola completata solo se l'utenza non l'ha (eccezione alla regola: l'import non modifica le anagrafiche).
+const FILL_METER_SQL =
+  "UPDATE utilities SET meter_number = ? WHERE id = ? AND (meter_number IS NULL OR meter_number = '')";
 
 /**
  * Scrive la fattura estratta da un pattern: la crea, o arricchisce quella già
@@ -79,27 +84,17 @@ export class InvoiceApplier {
             })),
           );
         }
+        await this.fillMeters(manager, match, authorId);
         // Fattura rifiutata: nessun effetto sui consumi.
         if (existing?.sdi_status !== SdiStatus.REJECTED) {
-          const linked = await this.linker.link(manager, invoiceId, authorId, previous);
+          const meters = new Map(match.meters.map((m) => [m.utilityId, m.meter]));
+          const linked = await this.linker.link(manager, invoiceId, authorId, previous, meters);
           issues.push(...linked.issues);
           utilityIds = linked.utilityIds;
         }
       }
 
-      await manager.delete(InvoiceImportIssue, { sdi_message_id_fk: message.id });
-      if (issues.length) {
-        await manager.save(
-          InvoiceImportIssue,
-          issues.map((i) => ({
-            sdi_message_id_fk: message.id,
-            invoice_id_fk: invoiceId,
-            line_index: i.lineIndex,
-            type: i.type,
-            detail: i.detail.slice(0, 500),
-          })),
-        );
-      }
+      await this.saveIssues(manager, message.id, invoiceId, issues);
       await manager.update(SdiMessage, message.id, {
         status: SdiMessageStatus.EXTRACTED,
         pattern_id_fk: patternId,
@@ -110,6 +105,68 @@ export class InvoiceApplier {
     });
     for (const utilityId of utilityIds) await this.recalc.recalcUtility(utilityId);
     return invoiceId;
+  }
+
+  /**
+   * Differenze bloccanti (matricola diversa): la fattura non si scrive. Il
+   * messaggio resta in attesa col pattern assegnato e si rielabora quando la
+   * causa è sistemata.
+   */
+  async block(message: SdiMessage, match: MatchResult, patternId: number): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      await this.saveIssues(manager, message.id, match.existingInvoiceId, [
+        ...match.blocking,
+        ...match.issues,
+      ]);
+      await manager.update(SdiMessage, message.id, { pattern_id_fk: patternId, error: null });
+    });
+  }
+
+  private async saveIssues(
+    manager: EntityManager,
+    messageId: number,
+    invoiceId: number | null,
+    issues: MatchIssue[],
+  ): Promise<void> {
+    await manager.delete(InvoiceImportIssue, { sdi_message_id_fk: messageId });
+    if (!issues.length) return;
+    await manager.save(
+      InvoiceImportIssue,
+      issues.map((i) => ({
+        sdi_message_id_fk: messageId,
+        invoice_id_fk: invoiceId,
+        line_index: i.lineIndex,
+        type: i.type,
+        detail: i.detail.slice(0, 500),
+        utility_id_fk: i.utilityId ?? null,
+        value: i.value ? i.value.slice(0, 100) : null,
+      })),
+    );
+  }
+
+  private async fillMeters(
+    manager: EntityManager,
+    match: MatchResult,
+    userId: number,
+  ): Promise<void> {
+    for (const { utilityId, meter } of match.meterFills) {
+      const result: { affectedRows?: number } = await manager.query(FILL_METER_SQL, [
+        meter.slice(0, 255),
+        utilityId,
+      ]);
+      if (!result?.affectedRows) continue;
+      await manager.save(AuditLog, {
+        entity_name: 'utilities',
+        entity_id: utilityId,
+        action: AuditAction.UPDATE,
+        field_name: 'meter_number',
+        old_value: null,
+        new_value: meter,
+        old_label: null,
+        new_label: null,
+        user_id: userId,
+      });
+    }
   }
 
   private async create(

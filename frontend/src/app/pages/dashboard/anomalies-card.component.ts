@@ -560,11 +560,11 @@ const formatDate = (iso: string | null): string => {
               <mat-expansion-panel-header>
                 <mat-panel-title>
                   <span class="anomaly-count">{{ data.invoice_patterns_unknown.count }}</span>
-                  Strutture di fattura da mappare
+                  Fornitori con fatture senza pattern
                 </mat-panel-title>
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
-                @for (u of data.invoice_patterns_unknown.items; track u.structure_key + u.supplier_id) {
+                @for (u of data.invoice_patterns_unknown.items; track u.supplier_id) {
                   <li (click)="openPatternEditor(u.message_id)">{{ u.supplier }} · {{ u.count }} {{ u.count === 1 ? 'fattura' : 'fatture' }}</li>
                 }
               </ul>
@@ -580,7 +580,7 @@ const formatDate = (iso: string | null): string => {
               </mat-expansion-panel-header>
               <ul class="anomaly-list">
                 @for (d of data.invoice_import_issues.items; track $index) {
-                  <li (click)="d.invoice_id ? openInvoice(d.invoice_id) : openInvoiceImport()">
+                  <li (click)="d.utility_id ? openUtility(d.utility_id) : d.invoice_id ? openInvoice(d.invoice_id) : openInvoiceImport()">
                     {{ issueLabel(d.type) }} · {{ d.number || 'senza fattura' }} · {{ d.detail }}
                   </li>
                 }

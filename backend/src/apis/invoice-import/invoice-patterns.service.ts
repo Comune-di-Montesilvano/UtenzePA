@@ -25,18 +25,17 @@ import {
   type Rule,
 } from './pattern/pattern-rules';
 import { extractPdf } from './sdi/sdi-files';
+import {
+  toUnknownStructure,
+  UNKNOWN_STRUCTURES_SQL,
+  type UnknownStructureRow,
+} from './pattern/unknown-structures';
 
-export interface UnknownStructure {
-  supplier_id: number;
-  supplier: string;
-  structure_key: string;
-  count: number;
-  message_ids: number[];
-}
+export type UnknownStructure = UnknownStructureRow;
 
 export interface PatternCheck {
   field: TargetField;
-  tone: 'ok' | 'warn' | 'off';
+  tone: 'ok' | 'warn' | 'danger' | 'off';
   text: string;
 }
 
@@ -73,14 +72,6 @@ export interface SavePatternInput {
 
 const SUPPLIER_NAME = "COALESCE(tp.company_name, CONCAT_WS(' ', tp.last_name, tp.first_name))";
 
-const UNKNOWN_SQL =
-  `SELECT m.supplier_id_fk AS supplier_id, ${SUPPLIER_NAME} AS supplier, m.structure_key, ` +
-  'COUNT(*) AS count, GROUP_CONCAT(m.id ORDER BY m.id DESC) AS ids ' +
-  'FROM sdi_messages m JOIN third_parties tp ON tp.id = m.supplier_id_fk ' +
-  "WHERE m.kind = 'INVOICE' AND m.status IN ('PENDING', 'LINKED') AND m.pattern_id_fk IS NULL " +
-  "AND m.structure_key IS NOT NULL AND m.structure_key <> '' " +
-  'GROUP BY m.supplier_id_fk, supplier, m.structure_key ORDER BY count DESC, supplier';
-
 const LIST_SQL =
   `SELECT p.id, p.name, p.supplier_id_fk AS supplier_id, ${SUPPLIER_NAME} AS supplier, ` +
   'p.ignored, p.structure_key, p.update_date, ' +
@@ -92,17 +83,21 @@ const LIST_SQL =
 
 const SUPPLIER_SQL = `SELECT ${SUPPLIER_NAME} AS supplier FROM third_parties tp WHERE tp.id = ?`;
 
+// Simili: fatture del fornitore senza pattern, prima quelle con la stessa struttura.
 const SIMILAR_SQL =
-  "SELECT id FROM sdi_messages WHERE kind = 'INVOICE' AND supplier_id_fk = ? AND structure_key = ? " +
-  'ORDER BY id DESC LIMIT 200';
+  "SELECT id FROM sdi_messages WHERE kind = 'INVOICE' AND supplier_id_fk = ? " +
+  "AND status IN ('PENDING', 'LINKED') AND pattern_id_fk IS NULL " +
+  'ORDER BY (structure_key = ?) DESC, id DESC LIMIT 200';
 
-// Da rielaborare: fatture del fornitore senza pattern e, in modifica, quelle estratte col pattern.
+// Da rielaborare: fatture del fornitore non estratte (senza pattern o ferme per
+// una differenza bloccante) e, in modifica, quelle estratte col pattern.
 const REPROCESS_SQL =
   "SELECT id FROM sdi_messages WHERE kind = 'INVOICE' AND supplier_id_fk = ? " +
-  "AND ((status IN ('PENDING', 'LINKED') AND pattern_id_fk IS NULL) OR (status = 'EXTRACTED' AND pattern_id_fk = ?)) " +
+  "AND (status IN ('PENDING', 'LINKED') OR (status = 'EXTRACTED' AND pattern_id_fk = ?)) " +
   'ORDER BY id';
 
-const RULE_KINDS = ['field', 'numberAfter', 'grossAmount', 'fromHeader', 'none'];
+const RULE_KINDS = ['field', 'numberAfter', 'textAfter', 'grossAmount', 'fromHeader', 'none'];
+const WORD_KINDS = ['numberAfter', 'textAfter'];
 
 const text = (value: unknown, max: number) =>
   value === undefined || (typeof value === 'string' && value.length > 0 && value.length <= max);
@@ -111,10 +106,11 @@ function validRule(rule: unknown): boolean {
   if (!rule || typeof rule !== 'object') return false;
   const r = rule as Record<string, unknown>;
   if (!RULE_KINDS.includes(r.kind as string)) return false;
-  if (r.kind === 'field' || r.kind === 'fromHeader' || r.kind === 'numberAfter') {
+  if (r.kind === 'field' || r.kind === 'fromHeader' || WORD_KINDS.includes(r.kind as string)) {
     if (!text(r.path, 255) || r.path === undefined) return false;
   }
-  if (r.kind === 'numberAfter' && (!text(r.word, 50) || r.word === undefined)) return false;
+  if (WORD_KINDS.includes(r.kind as string) && (!text(r.word, 50) || r.word === undefined))
+    return false;
   if (r.where !== undefined) {
     const w = r.where as Record<string, unknown> | null;
     if (!w || !text(w.path, 255) || !text(w.equals, 100) || !w.path || !w.equals) return false;
@@ -150,6 +146,7 @@ const ISSUE_FIELD: Record<ImportIssueType, TargetField> = {
   [ImportIssueType.PERIOD_COVERED]: 'consumption',
   [ImportIssueType.MIXED_CONTRACTS]: 'utility',
   [ImportIssueType.BATCH_NOT_SUPPORTED]: 'number',
+  [ImportIssueType.METER_MISMATCH]: 'meter',
 };
 
 const euro = (n: number) => n.toLocaleString('it-IT', { minimumFractionDigits: 2 });
@@ -172,23 +169,8 @@ export class InvoicePatternsService {
   ) {}
 
   async unknown(): Promise<UnknownStructure[]> {
-    const rows: {
-      supplier_id: number;
-      supplier: string;
-      structure_key: string;
-      count: string;
-      ids: string;
-    }[] = await this.dataSource.query(UNKNOWN_SQL);
-    return rows.map((r) => ({
-      supplier_id: Number(r.supplier_id),
-      supplier: r.supplier,
-      structure_key: r.structure_key,
-      count: Number(r.count),
-      message_ids: String(r.ids ?? '')
-        .split(',')
-        .filter(Boolean)
-        .map(Number),
-    }));
+    const rows: Record<string, unknown>[] = await this.dataSource.query(UNKNOWN_STRUCTURES_SQL);
+    return rows.map(toUnknownStructure);
   }
 
   async list(): Promise<Record<string, unknown>[]> {
@@ -434,6 +416,11 @@ export class InvoicePatternsService {
 
     if (rules.header.cig && extracted.cig) add('cig', 'ok', `CIG ${extracted.cig}`);
     for (const issue of match.issues) add(ISSUE_FIELD[issue.type], 'warn', issue.detail);
+    // Bloccanti: la fattura non si importa finché non si sistema l'anagrafica.
+    for (const issue of match.blocking)
+      add(ISSUE_FIELD[issue.type], 'danger', `${issue.detail}: import fermo`);
+    for (const fill of match.meterFills)
+      add('meter', 'ok', `Matricola ${fill.meter} da completare sull'utenza ${fill.utilityId}`);
     return checks;
   }
 }

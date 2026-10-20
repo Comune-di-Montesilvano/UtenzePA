@@ -65,6 +65,17 @@ const BACKFILL_SQL =
   "SELECT id FROM sdi_messages WHERE kind = 'INVOICE' AND status IN ('PENDING', 'LINKED') " +
   'AND structure_key IS NULL AND supplier_id_fk IS NOT NULL ORDER BY id LIMIT 200';
 
+// Fatture ferme per matricola diversa la cui causa è sistemata (matricola
+// dell'utenza ora uguale, zeri iniziali esclusi): si rielaborano a ogni giro.
+const UNBLOCKED_SQL =
+  "SELECT m.id FROM sdi_messages m WHERE m.kind = 'INVOICE' AND m.status IN ('PENDING', 'LINKED') " +
+  'AND m.pattern_id_fk IS NOT NULL ' +
+  "AND EXISTS (SELECT 1 FROM invoice_import_issues ii WHERE ii.sdi_message_id_fk = m.id AND ii.type = 'METER_MISMATCH') " +
+  'AND NOT EXISTS (SELECT 1 FROM invoice_import_issues ii JOIN utilities u ON u.id = ii.utility_id_fk ' +
+  "WHERE ii.sdi_message_id_fk = m.id AND ii.type = 'METER_MISMATCH' AND COALESCE(u.meter_number, '') <> '' " +
+  "AND UPPER(TRIM(LEADING '0' FROM REPLACE(u.meter_number, ' ', ''))) <> " +
+  "UPPER(TRIM(LEADING '0' FROM REPLACE(ii.value, ' ', '')))) ORDER BY m.id LIMIT 200";
+
 // structure_key vuota = messaggio non più sulla casella: non si ritenta.
 const GONE_STRUCTURE = '';
 
@@ -265,7 +276,10 @@ export class InvoiceImportService {
   // Dopo la lettura: rielaborazioni in coda e struttura dei messaggi della parte 1.
   private async processBacklog(ctx: RunContext): Promise<void> {
     const backfill: { id: number }[] = await this.dataSource.query(BACKFILL_SQL);
-    const ids = [...new Set([...this.queue, ...backfill.map((r) => Number(r.id))])];
+    const unblocked: { id: number }[] = await this.dataSource.query(UNBLOCKED_SQL);
+    const ids = [
+      ...new Set([...this.queue, ...[...backfill, ...unblocked].map((r) => Number(r.id))]),
+    ];
     this.queue.clear();
     if (ids.length) await this.withMailbox((mailbox) => this.processStored(mailbox, ids, ctx));
   }
@@ -380,7 +394,18 @@ export class InvoiceImportService {
       (p): p is InvoicePattern & { rules: PatternRules } => !p.ignored && p.rules !== null,
     );
     const pattern = pickPattern(xml, usable);
-    if (!pattern) return;
+    if (!pattern) {
+      // Era ferma con un pattern che non la riconosce più: torna tra le fatture senza pattern.
+      if (row.pattern_id_fk && row.status !== SdiMessageStatus.EXTRACTED) {
+        await this.dataSource.query(
+          'DELETE FROM invoice_import_issues WHERE sdi_message_id_fk = ?',
+          [row.id],
+        );
+        row.pattern_id_fk = null;
+        await this.messagesRepo.update(row.id, { pattern_id_fk: null });
+      }
+      return;
+    }
     if (ctx.author === undefined) ctx.author = await this.applier.importUserId();
     if (!ctx.author) {
       this.fail(row, 'Nessun amministratore per le fatture importate');
@@ -390,6 +415,11 @@ export class InvoiceImportService {
     try {
       const extracted = extract(xml, pattern.rules);
       const match = await this.matcher.match(extracted, row.supplier_id_fk!);
+      if (match.blocking.length) {
+        await this.applier.block(row, match, pattern.id);
+        Object.assign(row, { pattern_id_fk: pattern.id, error: null });
+        return;
+      }
       const invoiceId = await this.applier.apply(row, extracted, match, pattern.id, ctx.author);
       Object.assign(row, {
         status: SdiMessageStatus.EXTRACTED,
@@ -569,7 +599,8 @@ export class InvoiceImportService {
       return this.fail(row, `XML illeggibile: ${error instanceof Error ? error.message : error}`);
     }
     const first = header.documents[0];
-    row.supplier_vat = header.supplierVat || null;
+    // IdCodice estero fino a 28 caratteri: fuori perimetro, basta per riconoscerlo.
+    row.supplier_vat = header.supplierVat ? header.supplierVat.slice(0, 16) : null;
     row.document_number = first?.number || null;
     row.document_date = first?.date || null;
 

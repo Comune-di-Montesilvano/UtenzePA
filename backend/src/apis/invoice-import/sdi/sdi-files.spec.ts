@@ -32,6 +32,11 @@ describe('sdiFileKind', () => {
     ['IT01234567897_a1B2c_DT_001.xml', 'DT'],
     ['IT01234567897_a1B2c_SE_001.xml', 'SE'],
     ['IT01234567897_a1B2c_RC_001.xml', 'OTHER'],
+    // Trasmittenti esteri: codice paese e identificativo di lunghezza variabile.
+    ['SM03473_Gv5iL.xml.p7m', 'INVOICE'],
+    ['NL10209790152_NdqCn.xml.p7m', 'INVOICE'],
+    ['SM03473_Gv5iL_DT_004.xml', 'DT'],
+    ['NL10209790152_NdqCn_MT_001.xml', 'MT'],
     ['daticert.xml', 'OTHER'],
   ])('%s → %s', (name, kind) => {
     expect(sdiFileKind(name)).toBe(kind);

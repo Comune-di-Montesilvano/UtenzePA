@@ -252,20 +252,21 @@ Sono considerate solo le fatture dei fornitori in anagrafica con partita IVA e a
 
 ### Mappare una struttura di fattura
 
-Ogni fornitore manda le fatture con una sua struttura di XML: il pattern dice da quale campo leggere ciascun dato di UtenzePA. Si fa una volta per fornitore e struttura; amministratori e operatori possono salvare, i lettori solo consultare.
+Ogni fornitore manda le fatture con una sua struttura di XML: il pattern dice da quale campo leggere ciascun dato di UtenzePA. Di norma basta un pattern per fornitore: vale per tutte le sue fatture che hanno i campi usati, anche se differiscono per dati facoltativi (aliquote esenti, convenzione, quantità). Amministratori e operatori possono salvare, i lettori solo consultare.
 
-1. Apri la segnalazione **Strutture di fattura da mappare** in dashboard, oppure **Impostazioni → Import fatture**, tab **Pattern**, e premi **Mappa** sulla riga del fornitore.
+1. Apri la segnalazione **Fornitori con fatture senza pattern** in dashboard, oppure **Impostazioni → Import fatture**, tab **Pattern**: c'è una riga per fornitore con le fatture non coperte da nessun pattern e quante varianti di struttura hanno. **Mappa** apre l'ultima fattura della variante più frequente.
 2. Nell'editor, a sinistra, per ogni campo (testata e righe) scegli dall'elenco il campo dell'XML: le voci più probabili sono in cima, con accanto il valore letto da questa fattura; i dati del Comune (committente) sono in fondo. Le altre scelte possibili:
    - **Non presente**: il fornitore non manda il dato;
-   - **Calcolato: imponibile × IVA**: solo per l'importo della riga, quando l'XML ha l'importo senza IVA;
+   - **Calcolato: imponibile × IVA**: solo per l'importo della riga, quando l'XML ha l'importo senza IVA; è anche la scelta predefinita se non mappi l'importo;
    - campi segnati **(dalla testata)**: lo stesso valore della testata per tutte le righe;
-   - **Numero dopo la parola**: per il consumo scritto dentro una descrizione (es. «kWh 542»);
+   - **Numero dopo la parola**: per il consumo scritto dentro un testo, ad esempio nella Causale (es. «kWh 542»). Se non mappi l'unità di misura, vale la parola cercata (kWh);
+   - **Testo dopo la parola**: per la matricola scritta dentro un testo (es. «Contatore 000000000000283767»), con gli zeri iniziali. Se il testo elenca più utenze, ogni riga legge il tratto dopo il POD della sua utenza; il consumo letto dalla testata va una volta per utenza;
    - un campo segnato **(non presente in questa fattura)** viene da un pattern salvato su un'altra fattura della stessa struttura: la regola resta;
    - **Consumo solo dalle righe che contengono**: quando il consumo va preso solo da alcune righe (es. «Energia»).
 3. A destra c'è l'XML della fattura, con il valore del campo su cui sei evidenziato; **Vedi PDF** apre il PDF allegato.
 4. Accanto a ogni campo i bollini dicono come va l'anteprima: verde = letto e riconosciuto (es. utenza trovata in anagrafica, somma delle righe uguale al totale), giallo = da controllare, grigio = non mappato. L'anteprima si aggiorna a ogni modifica e non salva nulla.
-5. Con le frecce in alto scorri le altre fatture della stessa struttura: le scelte restano, e «la mappatura regge su K di N viste» dice su quante le regole funzionano con le utenze riconosciute.
-6. **Salva pattern** (servono almeno utenza e importo della riga). Le fatture del fornitore in attesa vengono importate subito in background; il messaggio dice quante.
+5. Con le frecce in alto scorri le altre fatture del fornitore senza pattern, prima quelle della stessa struttura: le scelte restano, e «la mappatura regge su K di N viste» dice su quante le regole funzionano con le utenze riconosciute. Un bollino rosso «import fermo» sulla matricola vuol dire che quella fattura non verrà importata finché non correggi l'utenza.
+6. **Salva pattern** (servono almeno utenza e importo della riga). Le fatture del fornitore in attesa vengono importate subito in background; il messaggio dice quante. Se il fornitore resta in elenco, le fatture rimaste hanno davvero una struttura diversa (es. senza POD): mappane una.
 
 Se una struttura non va importata (es. documenti che non sono fatture di utenze), usa **Ignora questa struttura**: le sue fatture non verranno più proposte. Per tornare indietro elimina la struttura ignorata dall'elenco dei pattern.
 
@@ -273,7 +274,9 @@ Con un pattern, a ogni fattura l'import:
 
 - **crea** la fattura se non c'è, oppure **arricchisce** quella già inserita a mano (stesso fornitore, numero e data), che mantiene il suo numero interno;
 - sostituisce le righe con quelle dell'XML (utenza, periodo, importo IVA inclusa, descrizione, consumo), con il capitolo dall'impegno o, se manca, dall'utenza;
-- registra i **consumi** delle righe nello storico dell'utenza, salvo i periodi già coperti da una rilevazione;
+- registra i **consumi** delle righe nello storico dell'utenza, salvo i periodi già coperti da una rilevazione, con la matricola letta in fattura;
+- confronta la **matricola** del contatore: se l'utenza non ce l'ha la completa (con una riga nel log attività); se è diversa la fattura **non viene importata** e compare la segnalazione «Matricola diversa (import fermo)». Corretta la matricola dell'utenza (o verificato il cambio contatore), l'import riparte da solo al giro successivo;
+- le **note di credito** (TD04, TD08) entrano con importi negativi, sia che il fornitore li scriva positivi sia già negativi; l'imponibile somma tutte le aliquote;
 - la spesa conta subito; una fattura **rifiutata** non ha effetti e i suoi consumi vengono tolti.
 
 Una fattura importata che modifichi a mano non viene più aggiornata dall'import. Le fatture già importate con un pattern che correggi vengono rielaborate al salvataggio. I file con più fatture (lotti) non vengono importati: vanno inseriti a mano.
@@ -357,7 +360,7 @@ Se lo SDI scarta un esito inviato dal Comune, la fattura torna allo stato preced
 | Capitoli di spesa | Oltre l'assestato dell'anno · Senza assestato dell'anno |
 | Soggetti terzi | Senza P.IVA o codice fiscale |
 
-In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni usate da immobili di proprietà a cui manca la tipologia del censimento MEF. Per l'import dalla PEC compaiono **Import fatture fermo** (nessun giro riuscito da più di 2 ore), **Fatture PEC in attesa di import** (fatture di fornitori in perimetro non ancora inserite), **Strutture di fattura da mappare** (un clic apre l'editor) e **Differenze trovate dall'import fatture**.
+In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni usate da immobili di proprietà a cui manca la tipologia del censimento MEF. Per l'import dalla PEC compaiono **Import fatture fermo** (nessun giro riuscito da più di 2 ore), **Fatture PEC in attesa di import** (fatture di fornitori in perimetro non ancora inserite), **Fornitori con fatture senza pattern** (un clic apre l'editor) e **Differenze trovate dall'import fatture**.
 
 ### Differenze trovate dall'import
 
@@ -372,6 +375,7 @@ L'import non corregge mai le anagrafiche: segnala le differenze, che trovi in da
 | Periodo di consumo già coperto | Il periodo della riga è già coperto da una rilevazione: il consumo della fattura non è stato registrato. | Controlla lo storico consumi dell'utenza. |
 | Contratti diversi sulle righe | Le righe sono su utenze di contratti di fornitura diversi. | Verifica che utenze e contratti siano giusti. |
 | File con più fatture (lotto) | Il file contiene più fatture: non è stato importato. | Inserisci le fatture a mano. |
+| Matricola diversa (import fermo) | Il POD è dell'utenza ma la matricola in fattura è diversa da quella in anagrafica: la fattura **non è stata importata**. | Correggi la matricola nella scheda utenza (o verifica il contatore): al giro successivo la fattura si importa da sola. Le utenze da sistemare sono anche tra le segnalazioni dell'elenco utenze. |
 
 ## Problemi frequenti
 
@@ -546,6 +550,14 @@ L'import non corregge mai le anagrafiche: segnala le differenze, che trovi in da
 **Soluzione:** correggi a mano le fatture rimaste, dalla scheda della fattura.
 
 **Apri un ticket se:** una fattura recente, mai modificata a mano, non si aggiorna dopo qualche minuto.
+
+### Il fornitore ha un pattern ma una fattura resta in attesa
+
+**Causa:** la matricola del contatore letta in fattura è diversa da quella dell'utenza: l'import la ferma (segnalazione «Matricola diversa (import fermo)»).
+
+**Soluzione:** dalla segnalazione apri l'utenza e correggi la matricola, se il contatore è stato sostituito. Al giro successivo (entro 15 minuti) la fattura si importa.
+
+**Apri un ticket se:** la matricola dell'utenza coincide con quella in fattura e la fattura resta ferma dopo un'ora.
 
 ### Una fattura importata che ho corretto non si aggiorna più
 

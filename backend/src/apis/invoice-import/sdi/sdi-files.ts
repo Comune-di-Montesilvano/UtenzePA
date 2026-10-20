@@ -5,8 +5,9 @@ import { XMLParser } from 'fast-xml-parser';
 
 export type SdiFileKind = 'INVOICE' | 'MT' | 'EC' | 'DT' | 'SE' | 'OTHER';
 
-const INVOICE_NAME = /^IT[0-9A-Z]{11,16}_[0-9A-Z]{1,5}\.xml(\.p7m)?$/i;
-const NOTIFICATION_NAME = /^IT[0-9A-Z]{11,16}_[0-9A-Z]{1,5}_([A-Z]{2})_\d{3}\.xml$/i;
+// Codice paese del trasmittente + identificativo (2-28 caratteri), anche esteri.
+const INVOICE_NAME = /^[A-Z]{2}[0-9A-Z]{2,28}_[0-9A-Z]{1,5}\.xml(\.p7m)?$/i;
+const NOTIFICATION_NAME = /^[A-Z]{2}[0-9A-Z]{2,28}_[0-9A-Z]{1,5}_([A-Z]{2})_\d{3}\.xml$/i;
 const NOTIFICATION_KINDS = ['MT', 'EC', 'DT', 'SE'];
 
 export function sdiFileKind(fileName: string): SdiFileKind {

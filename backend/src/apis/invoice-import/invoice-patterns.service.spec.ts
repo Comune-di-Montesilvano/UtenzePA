@@ -61,6 +61,9 @@ describe('InvoicePatternsService', () => {
           { utility_id_fk: 812, amount: -0.01, contract_id: 5, commitment_id_fk: 70 },
         ],
         issues: [],
+        blocking: [],
+        meters: [],
+        meterFills: [],
       })),
     };
     service = new InvoicePatternsService(
@@ -72,25 +75,24 @@ describe('InvoicePatternsService', () => {
     );
   });
 
-  it('strutture da mappare raggruppate per fornitore e struttura', async () => {
+  it('fatture senza pattern: una riga per fornitore, esempio dalla struttura più frequente', async () => {
     query.mockResolvedValue([
       {
         supplier_id: 46,
         supplier: 'Energia Prova',
         structure_key: 'abc',
-        count: '3',
-        ids: '12,11,9',
+        count: '88',
+        structures: '4',
+        message_id: '12',
       },
     ]);
     expect(await service.unknown()).toEqual([
-      {
-        supplier_id: 46,
-        supplier: 'Energia Prova',
-        structure_key: 'abc',
-        count: 3,
-        message_ids: [12, 11, 9],
-      },
+      { supplier_id: 46, supplier: 'Energia Prova', structure_key: 'abc', count: 88, structures: 4, message_id: 12 },
     ]);
+    const sql = String(query.mock.calls[0][0]);
+    // Tag facoltativi diversi non fanno righe separate: si raggruppa per fornitore.
+    expect(sql).toMatch(/PARTITION BY m\.supplier_id_fk/);
+    expect(sql).toContain('rn = 1');
   });
 
   it('anteprima: estrae e riscontra senza scrivere nulla', async () => {
@@ -105,6 +107,26 @@ describe('InvoicePatternsService', () => {
     expect(messages.update).not.toHaveBeenCalled();
   });
 
+  it('anteprima con matricola diversa: badge rosso «import fermo», da completare in verde', async () => {
+    matcher.match.mockResolvedValueOnce({
+      supplierId: 46,
+      existingInvoiceId: null,
+      contratto_id_fk: 5,
+      lines: [],
+      issues: [],
+      blocking: [{ type: 'METER_MISMATCH', lineIndex: 0, utilityId: 812, value: '9', detail: 'IT001E1: matricola in fattura 9, in anagrafica 8' }],
+      meters: [],
+      meterFills: [{ utilityId: 813, meter: '77' }],
+    });
+    const preview = await service.preview(9, RULES);
+    expect(preview.checks).toContainEqual({
+      field: 'meter',
+      tone: 'danger',
+      text: 'IT001E1: matricola in fattura 9, in anagrafica 8: import fermo',
+    });
+    expect(preview.checks).toContainEqual(expect.objectContaining({ field: 'meter', tone: 'ok' }));
+  });
+
   it('anteprima con differenze: badge giallo sul campo', async () => {
     matcher.match.mockResolvedValueOnce({
       supplierId: 46,
@@ -112,6 +134,9 @@ describe('InvoicePatternsService', () => {
       contratto_id_fk: 5,
       lines: [],
       issues: [{ type: 'CIG_MISMATCH', lineIndex: 0, detail: 'CIG fattura A, contratto B' }],
+      blocking: [],
+      meters: [],
+      meterFills: [],
     });
     const preview = await service.preview(9, {
       ...RULES,
@@ -208,6 +233,9 @@ describe('InvoicePatternsService', () => {
     const editor = await service.editor(9);
     expect(editor.message).toEqual(expect.objectContaining({ id: 9, supplier_id: 46, supplier: 'Energia Prova S.p.A.' }));
     expect(editor.similar).toEqual([12, 9]);
+    // Simili: fatture del fornitore senza pattern, prima quelle con la stessa struttura.
+    const similarSql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('ORDER BY (structure_key'));
+    expect(similarSql).toContain('pattern_id_fk IS NULL');
     expect(editor.ranked.utility[0]).toContain('AltriDatiGestionali/TipoDato=POD');
     expect(editor.xml).toContain('<Numero>EP 7/26</Numero>');
   });

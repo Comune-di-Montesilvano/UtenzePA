@@ -8,4 +8,6 @@ export enum ImportIssueType {
   PERIOD_COVERED = 'PERIOD_COVERED',
   MIXED_CONTRACTS = 'MIXED_CONTRACTS',
   BATCH_NOT_SUPPORTED = 'BATCH_NOT_SUPPORTED',
+  // Bloccante: POD trovato ma matricola diversa da quella in anagrafica.
+  METER_MISMATCH = 'METER_MISMATCH',
 }
