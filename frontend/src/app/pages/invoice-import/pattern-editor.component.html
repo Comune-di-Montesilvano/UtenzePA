@@ -110,25 +110,45 @@
             <mat-hint>Senza il totale letto, il consumo è la somma delle fasce.</mat-hint>
           }
           @if (consumptionMode === 'readings') {
-            <mat-hint>Ogni lettura (data, valore, tipo) diventa una rilevazione a data; il consumo del periodo non si registra.</mat-hint>
+            <mat-hint>UtenzePA trova le tabelle delle letture nel PDF: scegli quella giusta. Ogni lettura diventa una rilevazione a data; il consumo del periodo non si registra.</mat-hint>
           }
         </mat-form-field>
       </div>
       @if (consumptionMode === 'readings') {
-        @for (slot of [1, 2, 3, 4, 5, 6].slice(0, readingCount); track slot) {
-          <h4 class="pe-reading">Lettura {{ slot }}</h4>
-          @for (t of readingParts(slot); track t) {
-            <ng-container *ngTemplateOutlet="fieldRow; context: {t}"></ng-container>
-          }
-        }
-        @if (canEdit) {
-          <div class="pe-reading-actions">
-            <button mat-stroked-button type="button" [disabled]="readingCount >= maxReadings" (click)="addReading()">
-              <mat-icon>add</mat-icon> Aggiungi lettura
-            </button>
-            <button mat-button type="button" [disabled]="readingCount <= 1" (click)="removeReading()">Togli l'ultima</button>
+        <div class="pe-row" [class.focused]="focused === 'readings'" (focusin)="focus('readings')">
+          <div>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="pe-reading-select">
+              <mat-label>Tabella delle letture</mat-label>
+              <mat-select [ngModel]="readingKey" [disabled]="!canEdit" (ngModelChange)="readingTableChanged($event)">
+                @for (o of readingOptions; track o.key) {
+                  <mat-option [value]="o.key">{{ o.label }}</mat-option>
+                }
+              </mat-select>
+              @if (!readingOptions.length) {
+                <mat-hint>Nessuna tabella delle letture nel PDF di questa fattura.</mat-hint>
+              }
+            </mat-form-field>
+            @if (readingColumns(); as cols) {
+              @if (cols.length) {
+                <table class="pe-reading-table">
+                  <thead>
+                    <tr><th></th>@for (c of cols; track $index) {<th>Lettura {{ $index + 1 }}</th>}</tr>
+                  </thead>
+                  <tbody>
+                    <tr><th>Data</th>@for (c of cols; track $index) {<td [class.incomplete]="!c.complete">{{ c.date }}</td>}</tr>
+                    <tr><th>Valore</th>@for (c of cols; track $index) {<td [class.incomplete]="!c.complete">{{ c.value }}</td>}</tr>
+                    <tr><th>Tipo</th>@for (c of cols; track $index) {
+                      <td [class.incomplete]="!c.complete">
+                        @if (c.complete) {<span class="pe-dot" [class.estimated]="c.estimated"></span>}{{ c.complete ? c.type : 'non importata' }}
+                      </td>
+                    }</tr>
+                  </tbody>
+                </table>
+              }
+            }
           </div>
-        }
+          <ng-container *ngTemplateOutlet="checksCol; context: {t: 'readings'}"></ng-container>
+        </div>
       }
       @for (t of consumptionTargets; track t) {
         @if (showTarget(t)) {
@@ -302,6 +322,11 @@
           }
         }
       </div>
+      <ng-container *ngTemplateOutlet="checksCol; context: {t}"></ng-container>
+    </div>
+  </ng-template>
+
+  <ng-template #checksCol let-t="t">
       <div class="pe-checks">
         @for (c of checks[t] ?? []; track $index) {
           <span [class]="'pe-badge tone-' + c.tone">{{ c.text }}</span>
@@ -322,7 +347,6 @@
           }
         }
       </div>
-    </div>
   </ng-template>
 } @else {
   <div class="center"><mat-spinner diameter="40"></mat-spinner></div>
