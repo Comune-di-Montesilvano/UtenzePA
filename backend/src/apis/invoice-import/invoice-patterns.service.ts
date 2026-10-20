@@ -653,14 +653,20 @@ export class InvoicePatternsService {
     const flagged = new Set(match.meterFills.map((m) => m.utilityId));
     for (const m of match.meters.filter((x) => !flagged.has(x.utilityId)))
       add('meter', 'ok', `Matricola ${m.meter}: uguale all'utenza ${m.utilityId}`);
-    if (rules.line.meter && rules.line.meter.kind !== 'none' && !match.meters.length)
+    if (rules.line.meter && rules.line.meter.kind !== 'none' && !match.meters.length) {
+      // La matricola della fattura si scrive sull'utenza della riga: senza utenza trovata non c'è dove.
+      const read = extracted.lines.find((l) => l.meter);
+      const unmapped = !rules.line.utility || rules.line.utility.kind === 'none';
       add(
         'meter',
         'warn',
-        extracted.lines.some((l) => l.meter)
-          ? 'Matricola letta ma utenza non riconosciuta'
-          : 'Nessuna matricola letta',
+        !read
+          ? 'Nessuna matricola letta'
+          : unmapped
+            ? `Matricola ${read.meter} letta: mappa il campo Utenza, la matricola si scrive sull'utenza della riga`
+            : `Matricola ${read.meter} letta, ma l'utenza della riga${read.utility ? ` (${read.utility})` : ''} non è in anagrafica: non c'è dove scriverla`,
       );
+    }
     return checks;
   }
 }

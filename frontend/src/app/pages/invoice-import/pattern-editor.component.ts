@@ -132,6 +132,8 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     .pe-occ button.pe-occ-on { border-color: var(--tone-info-fg); background: var(--tone-info-bg); }
     .pe-occ button:disabled { cursor: default; }
     .pe-occ-value { font-weight: 600; white-space: nowrap; }
+    .pe-occ-summary { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; margin-bottom: 0.5rem; min-width: 0; }
+    .pe-occ-summary span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
     .pe-checks { display: flex; flex-direction: column; gap: 4px; padding-top: 0.75rem; }
     .pe-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; line-height: 1.4; }
     .tone-ok { background: var(--tone-ok-bg); color: var(--tone-ok-fg); }
@@ -189,6 +191,8 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   anchors: Record<string, string> = {};
   // Quale volta della parola usare quando compare più volte (null = la prima utile).
   occurrences: Record<string, number | null> = {};
+  // Occorrenza scelta dall'elenco (anche «la prima utile»): l'elenco si chiude.
+  occPicked: Record<string, boolean> = {};
   // Pannello di destra: XML o testo del PDF allegato.
   view: 'xml' | 'pdf' = 'xml';
   pdfHtml = '';
@@ -414,6 +418,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
         if (!this.fields.has(key)) this.fields.set(key, missingField(key, rule));
         if (isWordRule(rule)) {
           this.occurrences[t] = rule.occurrence ?? null;
+          this.occPicked[t] = !!rule.occurrence;
           if (t === 'estimated') {
             this.wordMode[t] = rule.kind;
             this.words[t] = rule.word;
@@ -500,8 +505,39 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
     return word && word.kind !== 'contains' ? word.word : '';
   }
 
+  // Ricerca dentro il testo solo dove ha senso: PDF, campi con frasi (Causale,
+  // Descrizione) o regola «parola» già impostata; non su valori secchi (date, importi).
   canWord(t: TargetField): boolean {
-    return WORD_TARGETS.includes(t) && (this.choice[t] ?? '').startsWith('f:');
+    const c = this.choice[t] ?? '';
+    if (!WORD_TARGETS.includes(t) || !c.startsWith('f:')) return false;
+    if (t === 'estimated' || this.fromPdf(t) || this.after[t]?.trim() || this.before[t]?.trim()) return true;
+    const sample = this.fields.get(c.slice(2))?.sample ?? '';
+    return /\s/.test(sample.trim()) && sample.length > 15;
+  }
+
+  // Elenco delle occorrenze aperto: finché non se ne sceglie una, o con «Cambia».
+  occOpen(t: TargetField): boolean {
+    return !this.occPicked[t];
+  }
+
+  // Cambia il campo: i testi cercati erano per quello precedente.
+  choiceChanged(t: TargetField): void {
+    this.after[t] = '';
+    this.before[t] = '';
+    this.legacyAnchor[t] = '';
+    this.textChanged(t);
+  }
+
+  // Cambia il testo cercato: l'occorrenza scelta non vale più.
+  textChanged(t: TargetField): void {
+    this.occurrences[t] = null;
+    this.occPicked[t] = false;
+    this.changed(t);
+  }
+
+  chosenOccurrence(t: TargetField): WordOccurrence | null {
+    const n = this.occurrences[t];
+    return n ? (this.wordOccurrences(t).find(o => o.n === n) ?? null) : null;
   }
 
   fromPdf(t: TargetField): boolean {
@@ -554,6 +590,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
 
   setOccurrence(t: TargetField, n: number | null): void {
     this.occurrences[t] = n;
+    this.occPicked[t] = true;
     this.changed(t);
   }
 

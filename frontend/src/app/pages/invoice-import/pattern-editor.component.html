@@ -130,7 +130,7 @@
       <div>
         <app-filterable-select [label]="labels[t]" [options]="selectOptions[t] ?? []" placeholder="Cerca un campo o un valore"
                                appearance="outline" subscriptSizing="dynamic" [ngModel]="choice[t] ?? ''" [disabled]="!canEdit"
-                               (ngModelChange)="choice[t] = $event ?? ''; changed(t)"></app-filterable-select>
+                               (ngModelChange)="choice[t] = $event ?? ''; choiceChanged(t)"></app-filterable-select>
         @if (canWord(t)) {
           <div class="pe-word">
             @if (t === 'estimated') {
@@ -144,22 +144,22 @@
               </mat-form-field>
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Parola</mat-label>
-                <input matInput [(ngModel)]="words[t]" [disabled]="!canEdit" maxlength="50" (ngModelChange)="changed(t)">
+                <input matInput [(ngModel)]="words[t]" [disabled]="!canEdit" maxlength="50" (ngModelChange)="textChanged(t)">
               </mat-form-field>
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Cerca dopo il testo</mat-label>
-                <input matInput [(ngModel)]="anchors[t]" [disabled]="!canEdit" maxlength="100" (ngModelChange)="changed(t)"
+                <input matInput [(ngModel)]="anchors[t]" [disabled]="!canEdit" maxlength="100" (ngModelChange)="textChanged(t)"
                        placeholder="facoltativo">
               </mat-form-field>
             } @else {
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Dopo il testo</mat-label>
-                <input matInput [(ngModel)]="after[t]" [disabled]="!canEdit" maxlength="100" (ngModelChange)="changed(t)"
+                <input matInput [(ngModel)]="after[t]" [disabled]="!canEdit" maxlength="100" (ngModelChange)="textChanged(t)"
                        placeholder="es. CONSUMO">
               </mat-form-field>
               <mat-form-field appearance="outline" subscriptSizing="dynamic">
                 <mat-label>Prima del testo</mat-label>
-                <input matInput [(ngModel)]="before[t]" [disabled]="!canEdit" maxlength="50" (ngModelChange)="changed(t)"
+                <input matInput [(ngModel)]="before[t]" [disabled]="!canEdit" maxlength="50" (ngModelChange)="textChanged(t)"
                        placeholder="es. kWh">
               </mat-form-field>
               <span class="pe-word-hint">
@@ -171,7 +171,20 @@
               </span>
             }
           </div>
-          @if (searchedWord(t) && wordOccurrences(t).length) {
+          @if (searchedWord(t) && wordOccurrences(t).length && !occOpen(t)) {
+            <div class="pe-occ-summary">
+              <span>
+                «{{ searchedWord(t) }}»:
+                @if (chosenOccurrence(t); as o) {
+                  {{ o.n }}ª occorrenza · …{{ o.context }}… → <strong>{{ o.value ?? 'nessun valore' }}</strong>
+                } @else {
+                  la prima utile
+                }
+              </span>
+              <button mat-button type="button" [disabled]="!canEdit" (click)="occPicked[t] = false">Cambia</button>
+            </div>
+          }
+          @if (searchedWord(t) && wordOccurrences(t).length && occOpen(t)) {
             <div class="pe-occ">
               <span class="pe-occ-title">«{{ searchedWord(t) }}» compare più volte: scegli quale usare</span>
               <button type="button" [class.pe-occ-on]="!occurrences[t]" [disabled]="!canEdit" (click)="setOccurrence(t, null)">
