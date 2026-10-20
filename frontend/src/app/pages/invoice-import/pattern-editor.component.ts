@@ -43,9 +43,7 @@ import {
   WordKind,
   isWordRule,
   documentTypeLabel,
-  READING_SLOTS,
-  READING_TARGETS,
-  readingTarget,
+  type ReadingTable,
 } from './pattern-rules.model';
 
 interface FieldOption {
@@ -66,12 +64,10 @@ const EDITABLE_HEADER = HEADER_TARGETS.filter(t => t !== 'supplierVat' && t !== 
 // il valore è quello subito prima del secondo (es. dopo «CONSUMO», prima di «kWh»).
 const WORD_TARGETS: TargetField[] = [
   'supplierName', 'total', 'amount', 'netAmount', 'consumption', ...BAND_TARGETS, 'number', 'date', 'cig', 'contractRef',
-  'utility', 'periodStart', 'periodEnd', 'unit', 'meter', 'estimated', ...READING_TARGETS,
+  'utility', 'periodStart', 'periodEnd', 'unit', 'meter', 'estimated',
 ];
-const NUMBER_TARGETS: TargetField[] = [
-  'total', 'netAmount', 'amount', 'consumption', ...BAND_TARGETS,
-  ...READING_TARGETS.filter(t => t.endsWith('Value')),
-];
+const NUMBER_TARGETS: TargetField[] = ['total', 'netAmount', 'amount', 'consumption', ...BAND_TARGETS];
+const tableKey = (t: ReadingTable) => `${t.layout}|${t.label.toLowerCase()}|${t.occurrence ?? 1}`;
 // Consumo stimato: «di cui stimati» maggiore di zero o la parola presente («Stimata»).
 const ESTIMATED_MODES: {kind: WordKind; label: string}[] = [
   {kind: 'contains', label: 'Presente la parola'},
@@ -135,8 +131,13 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       --mat-form-field-container-vertical-padding: 6px; }
     .pe-bar h2 { flex: 1 1 auto; min-width: 8rem; }
     .pe-missing { font-size: 0.8em; min-height: 0; line-height: 1.6; padding: 0 8px; }
-    .pe-reading { margin: 0.75rem 0 0.25rem; font-weight: 500; }
-    .pe-reading-actions { display: flex; gap: 0.5rem; margin: 0.25rem 0 0.75rem; }
+    .pe-reading-select { display: block; }
+    .pe-reading-table { border-collapse: collapse; margin: 0.5rem 0; font-size: 0.85rem; }
+    .pe-reading-table th, .pe-reading-table td { padding: 0.2rem 0.75rem 0.2rem 0; text-align: left; white-space: nowrap; }
+    .pe-reading-table th { color: var(--app-muted); font-weight: 500; }
+    .pe-reading-table .incomplete { opacity: 0.5; }
+    .pe-dot { display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; margin-right: 0.3rem; background: var(--tone-ok-fg); }
+    .pe-dot.estimated { background: var(--tone-warn-fg); }
     .pe-section-hint { margin: -0.5rem 0 0.75rem; font-size: 0.85em; color: var(--app-muted); }
     .pe-bar .pe-variant { flex: 0 0 11rem; --mat-form-field-container-height: 36px;
       --mat-form-field-container-vertical-padding: 6px; }
@@ -205,12 +206,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   readonly lineTargets = LINE_TARGETS;
   // Sezione Consumi dell'editor: consumo, fasce, unità, matricola e stima; il resto in Righe.
   readonly consumptionTargets: TargetField[] = ['consumption', ...BAND_TARGETS, 'unit', 'meter', 'estimated'];
-  readonly rowTargets: TargetField[] = LINE_TARGETS.filter(
-    t => !this.consumptionTargets.includes(t) && !(READING_TARGETS as TargetField[]).includes(t),
-  );
-  readonly readingParts = (slot: number): TargetField[] =>
-    (['Date', 'Value', 'Type'] as const).map(p => readingTarget(slot, p));
-  readonly maxReadings = READING_SLOTS;
+  readonly rowTargets: TargetField[] = LINE_TARGETS.filter(t => !this.consumptionTargets.includes(t));
   readonly bandTargets: TargetField[] = BAND_TARGETS;
   readonly labels: Record<string, string> = TARGET_LABELS;
 
@@ -241,8 +237,10 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   consumptionFilter = '';
   // Nello storico: consumo del periodo (totale o per fasce F1, F2, F3) oppure letture a data.
   consumptionMode: 'total' | 'bands' | 'readings' = 'total';
-  // Letture mostrate nel modo «Letture del contatore».
-  readingCount = 2;
+  // Tabella delle letture scelta (modo «Letture del contatore») e voci del selettore:
+  // le tabelle trovate nel PDF, più quella del pattern se in questa fattura manca.
+  readingTable: ReadingTable | null = null;
+  readingOptions: {key: string; label: string; table: ReadingTable}[] = [];
   name = '';
   patternId: number | null = null;
 
@@ -402,6 +400,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
           };
         });
         this.buildOptions(data);
+        this.buildReadingOptions();
         this.loading = false;
         if (this.firstLoad) {
           this.firstLoad = false;
@@ -523,10 +522,9 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
       }
     }
     this.consumptionFilter = rules.consumptionLineFilter ?? '';
-    const slots = Array.from({length: READING_SLOTS}, (_, i) => i + 1)
-      .filter(slot => this.readingParts(slot).some(t => rules.line[t as keyof PatternRules['line']]));
-    this.readingCount = slots.length ? Math.max(...slots) : 2;
-    this.consumptionMode = slots.length ? 'readings' : BAND_TARGETS.some(t => rules.line[t]) ? 'bands' : 'total';
+    this.readingTable = rules.readingTable ?? null;
+    this.buildReadingOptions();
+    this.consumptionMode = this.readingTable ? 'readings' : BAND_TARGETS.some(t => rules.line[t]) ? 'bands' : 'total';
     if (this.data) this.buildOptions(this.data);
   }
 
@@ -539,7 +537,12 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
       if (isHeaderTarget(t)) rules.header[t as keyof PatternRules['header']] = rule;
       else rules.line[t] = rule;
     }
-    if (!this.data?.message.credit_note && this.consumptionMode !== 'readings' && this.consumptionFilter.trim()) rules.consumptionLineFilter = this.consumptionFilter.trim();
+    const credit = !!this.data?.message.credit_note;
+    if (!credit && this.consumptionMode !== 'readings' && this.consumptionFilter.trim()) rules.consumptionLineFilter = this.consumptionFilter.trim();
+    if (!credit && this.consumptionMode === 'readings' && this.readingTable) {
+      const {layout, label, occurrence} = this.readingTable;
+      rules.readingTable = {layout, label, ...(occurrence && occurrence > 1 ? {occurrence} : {})};
+    }
     return rules;
   }
 
@@ -572,10 +575,8 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   // Righe delle fasce solo con «Per fasce».
   showTarget(t: TargetField): boolean {
     // Note di credito senza consumi: le regole della sezione non si salvano.
-    const reading = /^reading(\d)/.exec(t);
-    if (this.data?.message.credit_note && (this.consumptionTargets.includes(t) || reading)) return false;
+    if (this.data?.message.credit_note && this.consumptionTargets.includes(t)) return false;
     // Letture del contatore al posto del consumo del periodo (e della sua stima).
-    if (reading) return this.consumptionMode === 'readings' && Number(reading[1]) <= this.readingCount;
     if (this.consumptionMode === 'readings' && ['consumption', 'estimated', ...BAND_TARGETS].includes(t)) return false;
     return this.consumptionMode === 'bands' || !(BAND_TARGETS as TargetField[]).includes(t);
   }
@@ -586,6 +587,10 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
   consumptionModeChanged(mode: 'total' | 'bands' | 'readings'): void {
     this.consumptionMode = mode;
     if (mode === 'readings') {
+      // Proposta: la prima tabella trovata nel PDF.
+      this.readingTable ??= this.readingOptions[0]?.table ?? null;
+      this.buildReadingOptions();
+      this.focus('readings');
       this.requestPreview(true);
       return;
     }
@@ -602,29 +607,61 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
     this.requestPreview(true);
   }
 
-  // Letture: una in più (fino a 6) o via l'ultima, coi suoi campi svuotati.
-  addReading(): void {
-    if (this.readingCount < READING_SLOTS) this.readingCount++;
+  get readingKey(): string {
+    return this.readingTable ? tableKey(this.readingTable) : '';
   }
 
-  removeReading(): void {
-    if (this.readingCount <= 1) return;
-    for (const t of this.readingParts(this.readingCount)) {
-      this.choice[t] = '';
-      this.after[t] = '';
-      this.before[t] = '';
-      this.legacyAnchor[t] = '';
-      this.occurrences[t] = null;
-      this.occPicked[t] = false;
-    }
-    this.readingCount--;
+  readingTableChanged(key: string): void {
+    this.readingTable = this.readingOptions.find(o => o.key === key)?.table ?? null;
+    this.refreshPdf();
     this.requestPreview(true);
+  }
+
+  // Voci del selettore: tabelle trovate in questa fattura (con le letture) e, se manca,
+  // quella del pattern salvato.
+  private buildReadingOptions(): void {
+    const day = (iso: string) => iso.split('-').reverse().join('/');
+    const options = (this.data?.reading_tables ?? []).map(t => {
+      const n = Math.min(t.cells.dates.length, t.cells.values.length);
+      const where = t.layout === 'columns' ? `In colonna, riga «${t.label}»` : `In righe, sotto «${t.label}»`;
+      const occurrence = t.occurrence > 1 ? ` (${t.occurrence}ª)` : '';
+      const first = t.cells.dates[0] ? `, dal ${day(t.cells.dates[0])}` : '';
+      const table: ReadingTable = {layout: t.layout, label: t.label, occurrence: t.occurrence};
+      return {key: tableKey(table), label: `${where}${occurrence}: ${n === 1 ? '1 lettura' : `${n} letture`}${first}`, table};
+    });
+    if (this.readingTable && !options.some(o => o.key === tableKey(this.readingTable!))) {
+      const t = this.readingTable;
+      options.push({
+        key: tableKey(t),
+        label: `${t.layout === 'columns' ? 'In colonna, riga' : 'In righe, sotto'} «${t.label}»: non trovata in questa fattura`,
+        table: t,
+      });
+    }
+    this.readingOptions = options;
+  }
+
+  // Colonne della tabella delle letture letta nell'anteprima (anche incomplete).
+  readingColumns(): {date: string; value: string; type: string; estimated: boolean; complete: boolean}[] {
+    const cells = this.preview?.extracted?.lines.find(l => l.readingCells)?.readingCells;
+    if (!cells) return [];
+    const complete = Math.min(cells.dates.length, cells.values.length);
+    const count = Math.max(cells.dates.length, cells.values.length, cells.types.length);
+    return Array.from({length: count}, (_, i) => {
+      const type = cells.types[i] || 'rilevata';
+      return {
+        date: cells.dates[i] ? cells.dates[i].split('-').reverse().join('/') : '—',
+        value: cells.values[i] !== undefined ? this.qty(cells.values[i]) : '—',
+        type: type || '—',
+        estimated: /stim|presun/i.test(type),
+        complete: i < complete,
+      };
+    });
   }
 
   // Letture lette nella riga dell'anteprima.
   readingsText(l: ExtractedLine): string {
     return (l.readings ?? [])
-      .map(r => `${r.date.split('-').reverse().join('/')} ${this.qty(r.value)}${r.estimated ? ' (stimata)' : ''}`)
+      .map(r => `${r.date.split('-').reverse().join('/')} ${this.qty(r.value)} ${r.estimated ? 'stimata' : 'rilevata'}`)
       .join(' · ');
   }
 
@@ -712,7 +749,7 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
 
   focus(t: TargetField): void {
     this.focused = t;
-    if (this.fromPdf(t) && this.data?.pdf_text) this.view = 'pdf';
+    if ((t === 'readings' || this.fromPdf(t)) && this.data?.pdf_text) this.view = 'pdf';
     this.refreshXml();
   }
 
@@ -791,18 +828,28 @@ export class PatternEditorComponent implements OnInit, OnDestroy {
       return;
     }
     const t = this.focused;
-    const word = t && this.fromPdf(t) ? this.wordParts(t) : null;
-    const marks = [
-      {word: word?.anchor ?? '', cls: 'pe-anchor'},
-      {word: word?.word ?? '', cls: ''},
-    ].filter(m => m.word);
+    const word = t && t !== 'readings' && this.fromPdf(t) ? this.wordParts(t) : null;
+    // Tabella delle letture: la sua intestazione, a inizio riga.
+    const marks: {word: string; cls: string; start?: boolean}[] = (t === 'readings'
+      ? [{word: (this.readingTable?.label ?? '').replace(/[*|]/g, ' '), cls: '', start: true}]
+      : [
+          {word: word?.anchor ?? '', cls: 'pe-anchor'},
+          {word: word?.word ?? '', cls: ''},
+        ]).filter(m => m.word.trim());
     let html = escapeHtml(text);
     for (const m of marks) {
-      // Gli spazi della parola valgono anche l'a capo e «*» qualsiasi carattere, come lato server.
-      const pattern = m.word.trim().split(/\s+/)
-        .map(w => escapeRegExp(escapeHtml(w)).replace(/\\\*/g, '[^\\s<]*')).join('\\s+');
-      const re = new RegExp(pattern, 'gi');
-      html = html.replace(re, s => `<mark${m.cls ? ` class="${m.cls}"` : ''}>${s}</mark>`);
+      // Gli spazi della parola valgono anche l'a capo, «*» qualsiasi carattere e «|» separa
+      // le alternative, come lato server (wordPattern).
+      const pattern = m.word.trim().split(/\s+/).filter(Boolean).map(w => {
+        const alts = w.split('|').filter(Boolean)
+          .map(a => escapeRegExp(escapeHtml(a)).replace(/\\\*/g, '[^\\s<]*'));
+        return alts.length > 1 ? `(?:${alts.join('|')})` : (alts[0] ?? '');
+      }).filter(Boolean).join('\\s+');
+      if (!pattern) continue;
+      const open = `<mark${m.cls ? ` class="${m.cls}"` : ''}>`;
+      html = m.start
+        ? html.replace(new RegExp(`^([ \\t]*)(${pattern})`, 'gim'), (_, lead, s) => `${lead}${open}${s}</mark>`)
+        : html.replace(new RegExp(pattern, 'gi'), s => `${open}${s}</mark>`);
     }
     this.pdfHtml = html;
     if (marks.length && this.view === 'pdf') this.scrollToMark(t ? this.occurrences[t] : null);

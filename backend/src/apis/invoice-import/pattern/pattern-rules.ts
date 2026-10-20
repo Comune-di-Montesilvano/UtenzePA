@@ -5,10 +5,7 @@ import {
   type FieldScope,
   type HeaderTarget,
   type LineTarget,
-  type ReadingTarget,
   type TargetField,
-  READING_SLOTS,
-  readingTarget,
 } from './field-catalog';
 import {
   headerScope,
@@ -50,9 +47,40 @@ export type Rule =
 
 export interface PatternRules {
   header: Partial<Record<Exclude<HeaderTarget, 'supplierVat'>, Rule>>;
-  line: Partial<Record<LineTarget, Rule>>;
+  line: Partial<Record<Exclude<LineTarget, 'readings'>, Rule>>;
   // Consumo solo dalle righe la cui descrizione contiene la parola.
   consumptionLineFilter?: string;
+  // Letture del contatore dalla tabella del PDF, al posto del consumo del periodo.
+  readingTable?: ReadingTable;
+}
+
+/**
+ * Tabella delle letture nel testo del PDF, riconosciuta da UtenzePA (detectReadingTables)
+ * e scelta nell'editor. Due versi:
+ *   colonne (una lettura per colonna)      righe (una lettura per riga)
+ *   UM   31/07/2026   31/08/2026           Data   Lettura   Tipo lettura
+ *   rilevata   stimata                     29/06/2026   99369 mc   Stimata
+ *   Smc   5.782   5.790                    07/08/2026   99963 mc   Stimata
+ * label: testo prima delle date (colonne) o riga di intestazione (righe);
+ * occurrence: quale tabella con la stessa intestazione (1 = la prima).
+ */
+export interface ReadingTable {
+  layout: 'columns' | 'rows';
+  label: string;
+  occurrence?: number;
+}
+
+// Tabella trovata nel testo, con le letture lette (anteprima e selettore dell'editor).
+export interface DetectedReadingTable extends ReadingTable {
+  occurrence: number;
+  cells: ReadingCells;
+}
+
+// Colonne lette dalla tabella delle letture, anche incomplete (per l'anteprima).
+export interface ReadingCells {
+  dates: string[];
+  values: number[];
+  types: string[];
 }
 
 // Consumo per fascia oraria (energia elettrica), nello storico consumption_f1..f3.
@@ -69,10 +97,7 @@ export interface ExtractedReading {
 export const isEstimatedReading = (type: string | null | undefined): boolean =>
   !!type && /stim|presun/i.test(type);
 
-export type ExtractedLine = ExtractedLineBase &
-  Partial<Record<ReadingTarget, string | number | null>>;
-
-interface ExtractedLineBase {
+export interface ExtractedLine {
   utility: string | null;
   periodStart: string | null;
   periodEnd: string | null;
@@ -86,8 +111,10 @@ interface ExtractedLineBase {
   meter: string | null;
   // Consumo stimato dal fornitore (lettura stimata, «di cui stimati» > 0).
   estimated: boolean;
-  // Letture complete (data e valore), nell'ordine delle regole.
+  // Letture complete (data e valore), nell'ordine delle colonne.
   readings: ExtractedReading[];
+  // Tabella delle letture com'è stata letta (null = non trovata o non mappata).
+  readingCells: ReadingCells | null;
 }
 
 export interface ExtractedInvoice {
@@ -130,17 +157,13 @@ export const isWordRule = (rule: Rule | undefined): rule is WordRule =>
 
 // Le regole leggono il PDF: va estratto prima di extract().
 export const usesPdf = (rules: PatternRules): boolean =>
+  !!rules.readingTable ||
   [...Object.values(rules.header), ...Object.values(rules.line)].some(
     (r) => isWordRule(r) && r.path === PDF_PATH,
   );
 
 type HeaderRuleTarget = keyof PatternRules['header'];
-const DATE_TARGETS: TargetField[] = [
-  'date',
-  'periodStart',
-  'periodEnd',
-  ...Array.from({ length: READING_SLOTS }, (_, i) => readingTarget(i + 1, 'Date')),
-];
+const DATE_TARGETS: TargetField[] = ['date', 'periodStart', 'periodEnd'];
 const isHeaderField = (target: TargetField) => (HEADER_TARGETS as string[]).includes(target);
 
 // utilities: codici delle utenze della fattura, per il tratto di testo di ciascuna.
@@ -195,16 +218,27 @@ interface Found {
 // Posizioni della parola nel testo, senza distinguere maiuscole; gli spazi della
 // parola valgono qualsiasi spazio o a capo («kWh Puoi pagare» trova «kWh\nPuoi pagare»);
 // «*» vale qualsiasi carattere dentro la parola, anche nessuno («rilevata *mc» trova
-// «rilevata mc» e «rilevata Smc»).
+// «rilevata mc» e «rilevata Smc»); «|» separa parole alternative («rilevata|stimata»).
+export function wordPattern(word: string): string {
+  return word
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => {
+      const alts = w
+        .split('|')
+        .filter(Boolean)
+        .map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '\\S*'));
+      return alts.length > 1 ? `(?:${alts.join('|')})` : (alts[0] ?? '');
+    })
+    .filter(Boolean)
+    .join('\\s+');
+}
+
 function positions(text: string, word: string): Found[] {
-  const words = word.trim().split(/\s+/).filter(Boolean);
-  if (!words.length) return [];
-  const re = new RegExp(
-    words
-      .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '\\S*'))
-      .join('\\s+'),
-    'gi',
-  );
+  const pattern = wordPattern(word);
+  if (!pattern) return [];
+  const re = new RegExp(pattern, 'gi');
   const out: Found[] = [];
   for (let m = re.exec(text); m; m = re.exec(text)) {
     if (!m[0]) {
@@ -288,6 +322,12 @@ export function dateBefore(text: string | null, word: string, nth?: number): str
 // (fine periodo); senza date nessun valore.
 export function isoDate(value: string | null, last = false): string | null {
   if (!value) return null;
+  const dates = isoDates(value);
+  return (last ? dates[dates.length - 1] : dates[0]) ?? null;
+}
+
+// Tutte le date del testo, in AAAA-MM-GG.
+function isoDates(value: string): string[] {
   const re = /(\d{4})-(\d{2})-(\d{2})|(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})(?!\d)/g;
   const dates: string[] = [];
   for (let m = re.exec(value); m; m = re.exec(value)) {
@@ -298,7 +338,135 @@ export function isoDate(value: string | null, last = false): string | null {
       dates.push(`${year}-${m[5].padStart(2, '0')}-${m[4].padStart(2, '0')}`);
     }
   }
-  return (last ? dates[dates.length - 1] : dates[0]) ?? null;
+  return dates;
+}
+
+// Righe della tabella cercate vicino alla riga delle date (prima o dopo).
+const TABLE_REACH = 6;
+const TYPE_WORD =
+  /^(?:rilevat\w*|stimat\w*|effettiv\w*|real[ei]|presunt\w*|misurat\w*|autolettur\w*)$/i;
+const DATE_AT_START = /^\s*(?:\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-](?:\d{4}|\d{2}))(?!\d)/;
+const FIRST_DATE = /\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-](?:\d{4}|\d{2})(?!\d)/;
+
+const squash = (s: string) => s.replace(/\s+/g, ' ').trim();
+const numbersOf = (s: string) =>
+  (s.match(/-?\d+(?:[.,]\d+)*/g) ?? []).map(italianNumber).filter((n): n is number => n !== null);
+const typeOf = (s: string) =>
+  squash(s)
+    .split(' ')
+    .find((w) => TYPE_WORD.test(w)) ?? '';
+// Riga di soli tipi di lettura («rilevata   stimata»).
+const isTypesLine = (s: string) => {
+  const words = squash(s).split(' ').filter(Boolean);
+  return words.length > 0 && words.every((w) => TYPE_WORD.test(w));
+};
+// Testo prima del primo numero (o data): l'etichetta della riga, senza cifre.
+const leadOf = (s: string, first: RegExp) => {
+  const m = first.exec(s);
+  return m ? squash(s.slice(0, m.index)) : null;
+};
+
+/**
+ * Tabelle delle letture nel testo, nell'ordine in cui compaiono (vedi ReadingTable).
+ * Colonne: una riga che inizia con un'etichetta senza cifre e poi solo date, e vicino
+ * una riga con etichetta e tanti numeri quante le date (più, se c'è, una riga di tipi).
+ * Righe: righe consecutive che iniziano con una data seguita da un numero, sotto
+ * una riga di intestazione.
+ */
+export function detectReadingTables(text: string | null): DetectedReadingTable[] {
+  if (!text) return [];
+  const lines = text.split(/\r?\n/);
+  const found: { at: number; table: Omit<DetectedReadingTable, 'occurrence'> }[] = [];
+  const near = (at: number, test: (l: string) => boolean): string | null => {
+    for (let d = 1; d <= TABLE_REACH; d++) {
+      for (const i of [at + d, at - d]) {
+        if (i >= 0 && i < lines.length && test(lines[i])) return lines[i];
+      }
+    }
+    return null;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // Colonne.
+    const sq = squash(line);
+    const dates = isoDates(sq);
+    const label = leadOf(sq, FIRST_DATE);
+    // Dopo l'etichetta solo date: «UM 31/07/2026 31/08/2026».
+    const pureDates =
+      !!label &&
+      squash(sq.slice(label.length).replace(new RegExp(FIRST_DATE.source, 'g'), '')) === '';
+    if (dates.length && label && !/\d/.test(label) && label.length <= 30 && pureDates) {
+      // Riga dei valori: etichetta corta (l'unità, «Smc») e tanti numeri quante le date.
+      const valueLine = near(i, (l) => {
+        const lead = leadOf(l, /-?\d/);
+        return (
+          !!lead &&
+          !/\d/.test(lead) &&
+          lead.length <= 6 &&
+          isoDates(l).length === 0 &&
+          numbersOf(l).length === dates.length
+        );
+      });
+      const typeLine = valueLine ? near(i, isTypesLine) : null;
+      // Una sola data senza tipi è quasi sempre altro («Data emissione 25/09/2026 … 896»).
+      if (valueLine && (dates.length > 1 || typeLine)) {
+        found.push({
+          at: i,
+          table: {
+            layout: 'columns',
+            label,
+            cells: {
+              dates,
+              values: numbersOf(valueLine),
+              types: typeLine ? squash(typeLine).split(' ') : [],
+            },
+          },
+        });
+        continue;
+      }
+    }
+    // Righe: inizio di una serie di righe data + numero.
+    const isRow = (l: string) => {
+      const m = DATE_AT_START.exec(l);
+      return !!m && numbersOf(l.slice(m[0].length)).length > 0;
+    };
+    if (isRow(line) && !(i > 0 && isRow(lines[i - 1]))) {
+      let h = i - 1;
+      while (h >= 0 && !squash(lines[h])) h--;
+      const header = h >= 0 ? squash(lines[h]) : '';
+      if (!header || header.length > 80) continue;
+      const cells: ReadingCells = { dates: [], values: [], types: [] };
+      for (let j = i; j < lines.length && isRow(lines[j]); j++) {
+        const m = DATE_AT_START.exec(lines[j])!;
+        const rest = lines[j].slice(m[0].length);
+        cells.dates.push(isoDates(m[0])[0]);
+        cells.values.push(numbersOf(rest)[0]);
+        cells.types.push(typeOf(rest));
+      }
+      if (cells.types.every((t) => !t)) cells.types = [];
+      found.push({ at: i, table: { layout: 'rows', label: header, cells } });
+    }
+  }
+  const seen = new Map<string, number>();
+  return found.map(({ table }) => {
+    const key = `${table.layout}|${table.label.toLowerCase()}`;
+    const occurrence = (seen.get(key) ?? 0) + 1;
+    seen.set(key, occurrence);
+    return { ...table, occurrence };
+  });
+}
+
+// Letture della tabella scelta nel pattern (stesso verso, intestazione e occorrenza).
+export function readingCells(text: string | null, table: ReadingTable): ReadingCells | null {
+  const label = squash(table.label).toLowerCase();
+  const match = detectReadingTables(text).find(
+    (t) =>
+      t.layout === table.layout &&
+      t.label.toLowerCase() === label &&
+      t.occurrence === (table.occurrence ?? 1),
+  );
+  return match?.cells ?? null;
 }
 
 // Testo dall'ancora in poi; senza ancora nel testo nessun dato (meglio di uno sbagliato).
@@ -578,22 +746,17 @@ export function extract(
           ? null
           : wordUnit(unitRule, wordText(tree, line, unitRule, segment));
     // Letture del contatore: come il consumo, niente da note di credito e righe senza utenza.
-    const readingFields: Partial<Record<ReadingTarget, string | number | null>> = {};
+    let cells: ReadingCells | null = null;
     const readings: ExtractedReading[] = [];
-    if (!noConsumption && (utility !== null || !anyUtility)) {
-      for (let slot = 1; slot <= READING_SLOTS; slot++) {
-        const [dateT, valueT, typeT] = (['Date', 'Value', 'Type'] as const).map((p) =>
-          readingTarget(slot, p),
-        );
-        if (!rules.line[dateT] && !rules.line[valueT]) continue;
-        const date = isoDate(lineRule(tree, line, rules.line[dateT], segment, true));
-        const value = toNumber(lineRule(tree, line, rules.line[valueT], segment));
-        const type = lineRule(tree, line, rules.line[typeT], segment);
-        readingFields[dateT] = date;
-        readingFields[valueT] = value;
-        readingFields[typeT] = type;
-        if (date && value !== null)
-          readings.push({ date, value, estimated: isEstimatedReading(type) });
+    if (rules.readingTable && !noConsumption && (utility !== null || !anyUtility)) {
+      cells = readingCells(segmentFor(tree.pdf, segment, tree.utilities), rules.readingTable);
+      const columns = cells ? Math.min(cells.dates.length, cells.values.length) : 0;
+      for (let i = 0; i < columns; i++) {
+        readings.push({
+          date: cells!.dates[i],
+          value: cells!.values[i],
+          estimated: isEstimatedReading(cells!.types[i]),
+        });
       }
     }
     return {
@@ -610,7 +773,7 @@ export function extract(
       meter: lineRule(tree, line, rules.line.meter, segment),
       estimated,
       readings,
-      ...readingFields,
+      readingCells: cells,
     };
   });
 

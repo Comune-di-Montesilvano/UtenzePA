@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
+  detectReadingTables,
   extract,
   fromAnchor,
   numberBefore,
@@ -16,6 +17,7 @@ import {
   type PatternRules,
   type WordRule,
   numberAfter,
+  textBefore,
 } from './pattern-rules';
 
 const fixture = (name: string) => readFileSync(join(__dirname, '../sdi/fixtures', name));
@@ -542,36 +544,62 @@ describe('extract: dati nel PDF allegato', () => {
     );
   });
 
-  it('letture del contatore dal PDF: data, valore e tipo di ciascuna', () => {
+  it('tabella delle letture in colonna: riconosciuta, colonna i = lettura i, il tipo decide la stima', () => {
     const text = [
-      'LETTURE E CONSUMI',
-      'Lettura contatore: 73559 elettronico -',
-      'UM 31/07/2026 31/08/2026',
-      'rilevata stimata',
-      'Smc 5.782 5.790',
+      'Codice REMI: 34810200',
+      'Data di inizio fornitura   03/12/2002',
+      'LETTURE contatore: 8201 tradizionale -',
+      'UM   30/06/2026   31/07/2026   31/08/2026',
+      'rilevata   stimata   rilevata',
+      'mc   14.399   14.434   14.470',
+      'CONSUMI',
+      'mc   Smc   PERIODO',
     ].join('\n');
-    const r = rules({
-      reading1Date: fromPdf({ kind: 'textAfter', word: 'UM' }),
-      reading1Value: fromPdf({ kind: 'numberAfter', word: 'Smc' }),
-      reading1Type: fromPdf({ kind: 'textBefore', word: 'stimata' }),
-      reading2Date: fromPdf({ kind: 'textBefore', word: 'rilevata' }),
-      reading2Value: fromPdf({ kind: 'numberAfter', word: '5.782' }),
-      reading2Type: fromPdf({ kind: 'textAfter', word: 'rilevata' }),
-    });
+    expect(detectReadingTables(text).map((t) => [t.layout, t.label])).toEqual([['columns', 'UM']]);
+    const r: PatternRules = { ...rules({}), readingTable: { layout: 'columns', label: 'UM' } };
     const line = extract(aca, r, text).lines[0];
     expect(line.readings).toEqual([
-      { date: '2026-07-31', value: 5782, estimated: false },
-      { date: '2026-08-31', value: 5790, estimated: true },
+      { date: '2026-06-30', value: 14399, estimated: false },
+      { date: '2026-07-31', value: 14434, estimated: true },
+      { date: '2026-08-31', value: 14470, estimated: false },
     ]);
-    expect(line.reading2Type).toBe('stimata');
+    expect(line.readingCells?.types).toEqual(['rilevata', 'stimata', 'rilevata']);
     // Nota di credito: nessuna lettura.
     expect(extract(asCreditNote(aca), r, text).lines[0].readings).toEqual([]);
+  });
+
+  it('tabella delle letture in righe: una lettura per riga sotto l’intestazione', () => {
+    const text = [
+      'Contatore n. 55268',
+      'Data   Lettura   Tipo lettura',
+      '29/06/2026   99369 mc   Stimata',
+      '07/08/2026   99963 mc   Rilevata',
+      'Consumo nel periodo di 39 giorni   594 mc',
+    ].join('\n');
+    const [table] = detectReadingTables(text);
+    expect([table.layout, table.label]).toEqual(['rows', 'Data Lettura Tipo lettura']);
+    const r: PatternRules = { ...rules({}), readingTable: { layout: 'rows', label: table.label } };
+    expect(extract(aca, r, text).lines[0].readings).toEqual([
+      { date: '2026-06-29', value: 99369, estimated: true },
+      { date: '2026-08-07', value: 99963, estimated: false },
+    ]);
+    // Altra fattura senza quella tabella: nessuna lettura.
+    expect(extract(aca, r, 'Consumo 594 mc').lines[0].readings).toEqual([]);
   });
 
   it('carattere jolly: «*» vale qualsiasi carattere dentro la parola, anche nessuno', () => {
     expect(numberAfter('rilevata rilevata\nSmc 89.323', 'rilevata *mc')).toBe(89323);
     expect(numberAfter('rilevata rilevata\nmc 4.815', 'rilevata *mc')).toBe(4815);
     expect(numberAfter('kWh 12', '*')).toBe(12);
+  });
+
+  it('parole alternative: «|» trova l’una o l’altra (lettura rilevata o stimata)', () => {
+    const stimata = 'UM 30/06/2026 31/07/2026\nstimata stimata\nmc 14.399 14.434';
+    const rilevata = 'UM 31/07/2026 31/08/2026\nrilevata rilevata\nSmc 89.323 89.323';
+    expect(numberAfter(stimata, 'rilevata|stimata *mc')).toBe(14399);
+    expect(numberAfter(rilevata, 'rilevata|stimata *mc')).toBe(89323);
+    expect(textBefore(stimata, 'rilevata|stimata *mc')).toBe('stimata');
+    expect(textBefore(rilevata, '*mc')).toBe('rilevata');
   });
 
   it('parola di più termini: gli spazi valgono anche l’a capo', () => {

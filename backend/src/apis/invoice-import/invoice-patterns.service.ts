@@ -13,9 +13,6 @@ import {
   HEADER_TARGETS,
   LINE_TARGETS,
   rankFor,
-  READING_SLOTS,
-  READING_TARGETS,
-  readingTarget,
   type CatalogField,
   type LineTarget,
   type TargetField,
@@ -23,9 +20,9 @@ import {
 import {
   BAND_TARGETS,
   documentTypeOf,
+  detectReadingTables,
   extract,
   isCreditNoteType,
-  isEstimatedReading,
   patternMatches,
   PDF_PATH,
   rulePaths,
@@ -34,6 +31,7 @@ import {
   wordOccurrences,
   WORD_KINDS,
   type WordOccurrence,
+  type DetectedReadingTable,
   type ExtractedInvoice,
   type PatternRules,
   type Rule,
@@ -96,6 +94,8 @@ export interface PatternEditor {
   xml: string;
   // Testo del PDF allegato (null se manca): fonte delle regole «parola».
   pdf_text: string | null;
+  // Tabelle delle letture trovate nel PDF (selettore del modo «Letture del contatore»).
+  reading_tables: DetectedReadingTable[];
   catalog: CatalogField[];
   ranked: Record<TargetField, string[]>;
   // Fatture del fornitore senza pattern, raggruppate per variante di struttura
@@ -190,7 +190,6 @@ const PDF_TARGETS: TargetField[] = [
   'unit',
   'meter',
   'estimated',
-  ...READING_TARGETS,
 ];
 // Nel PDF il dato di solito c'è solo per questi (il riferimento contratto non è
 // mai nell'XML): il campo PDF va in cima, per gli altri in fondo.
@@ -200,7 +199,6 @@ const PDF_FIRST: TargetField[] = [
   ...BAND_TARGETS,
   'meter',
   'estimated',
-  ...READING_TARGETS,
 ];
 // Fatture per chiamata di analisi: il frontend le manda a gruppi.
 const ANALYZE_MAX = 25;
@@ -248,6 +246,22 @@ function validRule(target: string, rule: unknown): boolean {
   return true;
 }
 
+function validReadingTable(table: unknown): boolean {
+  if (table === undefined) return true;
+  if (!table || typeof table !== 'object') return false;
+  const t = table as Record<string, unknown>;
+  return (
+    (t.layout === 'columns' || t.layout === 'rows') &&
+    typeof t.label === 'string' &&
+    !!t.label.trim() &&
+    text(t.label, 80) &&
+    (t.occurrence === undefined ||
+      (Number.isInteger(t.occurrence) &&
+        (t.occurrence as number) >= 1 &&
+        (t.occurrence as number) <= 20))
+  );
+}
+
 function assertValidRules(rules: PatternRules): void {
   const valid =
     rules &&
@@ -259,7 +273,8 @@ function assertValidRules(rules: PatternRules): void {
     Object.entries(rules.line ?? {}).every(
       ([k, r]) => (LINE_TARGETS as string[]).includes(k) && validRule(k, r),
     ) &&
-    (rules.consumptionLineFilter === undefined || text(rules.consumptionLineFilter, 50));
+    (rules.consumptionLineFilter === undefined || text(rules.consumptionLineFilter, 50)) &&
+    validReadingTable(rules.readingTable);
   if (!valid) throw new BadRequestException('Regole del pattern non valide.');
   const mapped = (r: Rule | undefined) => !!r && r.kind !== 'none';
   if (!mapped(rules.line.utility) || !mapped(rules.line.amount)) {
@@ -294,9 +309,10 @@ const isHeaderTarget = (t: TargetField) => (HEADER_TARGETS as string[]).includes
 function hasValue(extracted: ExtractedInvoice, t: TargetField): boolean {
   const present = (v: unknown) => v !== null && v !== undefined && v !== '' && v !== false;
   if (isHeaderTarget(t)) return present(extracted[t as keyof ExtractedInvoice]);
+  if (t === 'readings') return extracted.lines.some((l) => l.readings.length > 0);
   // Fasce: una fattura con solo il consumo totale (fasce non tutte presenti) conta come trovata.
   if ((BAND_TARGETS as TargetField[]).includes(t) && totalOnly(extracted)) return true;
-  return extracted.lines.some((l) => present(l[t as LineTarget]));
+  return extracted.lines.some((l) => present(l[t as Exclude<LineTarget, 'readings'>]));
 }
 
 // Consumo letto ma nessuna fascia: fasce non tutte presenti (vedi extractInvoice).
@@ -450,6 +466,7 @@ export class InvoicePatternsService {
       },
       xml: xml.toString('utf8'),
       pdf_text: pdf,
+      reading_tables: detectReadingTables(pdf),
       catalog,
       ranked,
       similar: similar.length ? similar : [row.id],
@@ -527,12 +544,13 @@ export class InvoicePatternsService {
       const read = await this.importer.readMessageFiles(missing);
       for (const [id, content] of read) this.remember(id, content);
     }
-    const mapped = [...HEADER_TARGETS, ...LINE_TARGETS].filter((t) => {
+    const mapped: TargetField[] = [...HEADER_TARGETS, ...LINE_TARGETS].filter((t) => {
       const rule = isHeaderTarget(t)
         ? rules.header[t as keyof PatternRules['header']]
-        : rules.line[t as LineTarget];
+        : rules.line[t as keyof PatternRules['line']];
       return !!rule && rule.kind !== 'none';
     });
+    if (rules.readingTable) mapped.push('readings');
     const pdfNeeded = usesPdf(rules);
     const result: PatternAnalysis = {
       analyzed: ids.length,
@@ -790,46 +808,44 @@ export class InvoicePatternsService {
       );
     }
 
-    // Letture del contatore: data, valore e tipo di ciascuna, dalla prima riga che le ha.
-    const day = (iso: unknown) => String(iso).split('-').reverse().join('/');
-    for (let slot = 1; slot <= READING_SLOTS; slot++) {
-      const [dateT, valueT, typeT] = (['Date', 'Value', 'Type'] as const).map((p) =>
-        readingTarget(slot, p),
-      );
-      if (!rules.line[dateT] && !rules.line[valueT]) continue;
-      const read = extracted.lines.find(
-        (l) => (l[dateT] ?? null) !== null || (l[valueT] ?? null) !== null,
-      );
-      const date = read?.[dateT] ?? null;
-      const value = read?.[valueT] ?? null;
-      const type = read?.[typeT] ?? null;
-      add(dateT, date ? 'ok' : 'warn', date ? `Data letta: ${day(date)}` : 'Nessuna data letta');
-      add(
-        valueT,
-        value !== null ? 'ok' : 'warn',
-        value !== null ? `Lettura letta: ${number(value as number)}` : 'Nessuna lettura letta',
-      );
-      if (rules.line[typeT] && rules.line[typeT]!.kind !== 'none') {
+    // Tabella delle letture: quante colonne complete e se le righe tornano.
+    if (rules.readingTable) {
+      const cells = extracted.lines.find((l) => l.readingCells)?.readingCells ?? null;
+      if (!cells) {
+        add('readings', 'warn', 'Tabella delle letture non trovata in questa fattura');
+      } else {
+        const complete = Math.min(cells.dates.length, cells.values.length);
+        const counts = [cells.dates.length, cells.values.length];
+        if (cells.types.length) counts.push(cells.types.length);
+        if (!complete) {
+          add('readings', 'warn', 'Nessuna lettura completa (data e valore)');
+        } else if (new Set(counts).size > 1) {
+          add(
+            'readings',
+            'warn',
+            `Colonne diverse (date ${cells.dates.length}, valori ${cells.values.length}` +
+              `${cells.types.length ? `, tipi ${cells.types.length}` : ''}): ` +
+              `si importano le prime ${complete}`,
+          );
+        } else {
+          add('readings', 'ok', complete === 1 ? '1 lettura letta' : `${complete} letture lette`);
+        }
+      }
+      const readingsWithoutUtility = extracted.lines.filter(
+        (l, i) => l.readings.length && !match.lines[i]?.utility_id_fk,
+      ).length;
+      if (readingsWithoutUtility) {
         add(
-          typeT,
-          type ? 'ok' : 'warn',
-          type
-            ? `«${String(type)}»: lettura ${isEstimatedReading(String(type)) ? 'stimata' : 'rilevata'}`
-            : 'Nessun tipo letto: la lettura vale come rilevata',
+          'readings',
+          'warn',
+          `${rows(readingsWithoutUtility)} senza utenza riconosciuta: le letture non entrano nello storico`,
         );
       }
     }
-    const readingsWithoutUtility = extracted.lines.filter(
-      (l, i) => l.readings.length && !match.lines[i]?.utility_id_fk,
-    ).length;
-    if (readingsWithoutUtility) {
-      add(
-        readingTarget(1, 'Value'),
-        'warn',
-        `${rows(readingsWithoutUtility)} senza utenza riconosciuta: le letture non entrano nello storico`,
-      );
-    }
 
+    if (missingPdf && rules.readingTable) {
+      add('readings', 'warn', 'La fattura non ha un PDF leggibile: letture non lette');
+    }
     if (missingPdf) {
       for (const t of PDF_TARGETS) {
         const rule = rules.line[t];

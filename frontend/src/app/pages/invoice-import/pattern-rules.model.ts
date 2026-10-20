@@ -39,18 +39,29 @@ export type LineTarget =
   | 'unit'
   | 'meter'
   | 'estimated'
-  | ReadingTarget;
+  // Tabella delle letture del contatore (regola readingTable, non un campo di riga).
+  | 'readings';
 export type TargetField = HeaderTarget | LineTarget;
 
-// Letture del contatore (in alternativa al consumo del periodo): fino a 6, ciascuna
-// con data, valore e tipo (rilevata / stimata). Gemelle del backend (field-catalog.ts).
-export const READING_SLOTS = 6;
-export type ReadingPart = 'Date' | 'Value' | 'Type';
-export type ReadingTarget = `reading${1 | 2 | 3 | 4 | 5 | 6}${ReadingPart}`;
-export const readingTarget = (slot: number, part: ReadingPart) => `reading${slot}${part}` as ReadingTarget;
-export const READING_TARGETS: ReadingTarget[] = Array.from({length: READING_SLOTS}, (_, i) =>
-  (['Date', 'Value', 'Type'] as ReadingPart[]).map(p => readingTarget(i + 1, p)),
-).flat();
+// Tabella delle letture nel PDF (gemella di ReadingTable in pattern-rules.ts): verso,
+// intestazione e quale tabella con la stessa intestazione.
+export interface ReadingTable {
+  layout: 'columns' | 'rows';
+  label: string;
+  occurrence?: number;
+}
+
+export interface ReadingCells {
+  dates: string[];
+  values: number[];
+  types: string[];
+}
+
+// Tabella riconosciuta nel PDF dal server, con le letture lette.
+export interface DetectedReadingTable extends ReadingTable {
+  occurrence: number;
+  cells: ReadingCells;
+}
 
 export type WordKind = 'numberAfter' | 'numberBefore' | 'textAfter' | 'textBefore' | 'contains';
 export interface WordRule {
@@ -77,8 +88,9 @@ export const isWordRule = (rule: Rule): rule is WordRule => (WORD_KINDS as strin
 
 export interface PatternRules {
   header: Partial<Record<Exclude<HeaderTarget, 'supplierVat'>, Rule>>;
-  line: Partial<Record<LineTarget, Rule>>;
+  line: Partial<Record<Exclude<LineTarget, 'readings'>, Rule>>;
   consumptionLineFilter?: string;
+  readingTable?: ReadingTable;
 }
 
 export interface ExtractedLine {
@@ -95,6 +107,7 @@ export interface ExtractedLine {
   meter: string | null;
   estimated: boolean;
   readings: {date: string; value: number; estimated: boolean}[];
+  readingCells: ReadingCells | null;
 }
 
 export interface ExtractedInvoice {
@@ -158,6 +171,7 @@ export interface PatternEditorData {
   };
   xml: string;
   pdf_text: string | null;
+  reading_tables: DetectedReadingTable[];
   catalog: CatalogField[];
   ranked: Record<TargetField, string[]>;
   // Fatture del fornitore senza pattern, raggruppate per variante di struttura.
@@ -227,7 +241,7 @@ export const HEADER_TARGETS: HeaderTarget[] = [
   'cig',
   'contractRef',
 ];
-export const LINE_TARGETS: LineTarget[] = [
+export const LINE_TARGETS: Exclude<LineTarget, 'readings'>[] = [
   'utility',
   'periodStart',
   'periodEnd',
@@ -240,7 +254,6 @@ export const LINE_TARGETS: LineTarget[] = [
   'unit',
   'meter',
   'estimated',
-  ...READING_TARGETS,
 ];
 
 // Consumo per fascia oraria: righe visibili solo con «Consumo: Per fasce».
