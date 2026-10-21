@@ -9,7 +9,7 @@ Nessuna credenziale dev/seed documentata. Per un test one-off creare un utente v
 - Hash: `docker exec utenzepa-api-1 node -e "require('bcrypt').hash('pwd', 10).then(console.log)"`.
 - Colonne: password in `password_hash` (non `password`); NOT NULL anche `first_name`, `last_name`, `status` (enum `Attivo`/`Disattivo`), `created_by_user_id`, `updated_by_user_id` (usare `1`, l'admin seed). Valorizzare `username` (il login è per username) e `auth_provider='local'`.
 - Il ripristino del backup esclude `system_users`: i dati portano id di utenti di produzione che in locale non esistono (es. 23, migliaia di righe di audit, allegati, consumi). Un utente temporaneo con id automatico può prendere uno di quegli id e diventarne l'autore: inserirlo con un `id` esplicito alto e libero (es. `90001`). Alla pulizia eliminare solo le proprie righe di audit (per `created_at`) e mai riassegnare quelle altrui a `1`.
-- Pulizia: prima `DELETE FROM audit_logs WHERE user_id=<id>` (FK). Se l'utente ha creato master data (capitolo, fornitore…), riassegnarle a `created_by_user_id=1`. Le FK verso `system_users` sono su ~17 tabelle:
+- Pulizia: prima `DELETE FROM audit_logs WHERE user_id=<id>` (FK). Se l'utente ha creato master data (capitolo, fornitore…), riassegnarle all'utente di sistema (`-1`), anche `updated_by_user_id` e le righe di `audit_logs` non di accesso. Le FK verso `system_users` sono su ~17 tabelle:
   ```
   SELECT CONCAT(TABLE_NAME,'.',COLUMN_NAME) FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA='mydatabase' AND REFERENCED_TABLE_NAME='system_users';
   ```
