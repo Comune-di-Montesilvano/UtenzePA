@@ -4,11 +4,12 @@ import { Repository, IsNull, Not } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Asset } from '@apis/asset/entity/asset.entity';
 import { Plant } from '@apis/plants/entity/plant.entity';
-import { PLANTS_MUNICIPALITY } from '@apis/plants/plant.calc';
+import { SettingsModule } from '@apis/settings/settings.module';
+import { SettingsService } from '@apis/settings/settings.service';
 import { GeocodingService } from './geocoding.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Asset, Plant])],
+  imports: [TypeOrmModule.forFeature([Asset, Plant]), SettingsModule],
   providers: [GeocodingService],
   exports: [GeocodingService],
 })
@@ -19,6 +20,7 @@ export class GeocodingModule implements OnModuleInit {
     @InjectRepository(Asset) private readonly assetRepo: Repository<Asset>,
     @InjectRepository(Plant) private readonly plantRepo: Repository<Plant>,
     private readonly geocodingService: GeocodingService,
+    private readonly settings: SettingsService,
   ) {}
 
   onModuleInit(): void {
@@ -83,12 +85,13 @@ export class GeocodingModule implements OnModuleInit {
     this.logger.log(`Scan geocoding all'avvio: ${pending.length} impianti da elaborare.`);
     let succeeded = 0;
     let failed = 0;
+    const municipality = await this.settings.municipality();
     for (const plant of pending) {
       const query = this.geocodingService.buildQuery({
         address: plant.address,
         civic_number: plant.civic_number,
         zip_code: null,
-        municipality: PLANTS_MUNICIPALITY,
+        municipality,
       });
       if (!query) continue;
       const result = await this.geocodingService.geocode(query);

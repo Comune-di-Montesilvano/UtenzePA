@@ -1,6 +1,6 @@
 # UtenzePA – Guida per gli operatori
 
-_Ultimo aggiornamento: 2026-10-20_
+_Ultimo aggiornamento: 2026-10-21_
 
 ## Cos'è e chi lo usa
 
@@ -137,7 +137,7 @@ Nella scheda delle utenze elettriche, tab **Dati tecnici**, c'è anche il **Codi
 
 - Tipologia e funzione dell'immobile filtrano anche utenze e impianti; lo stato filtra solo gli immobili.
 - Di default immobili dismessi, utenze cessate e utenze volturate sono nascosti: **Includi utenze cessate e volturate** li mostra. Le utenze volturate a un terzo hanno il segnaposto grigio.
-- La ricerca indirizzo cerca prima nel territorio del Comune, poi altrove.
+- La ricerca indirizzo cerca prima nel territorio del Comune, poi altrove. Il Comune è quello del nome dell'ente in **Impostazioni → Branding** («Comune di X»): lo stesso Comune completa l'indirizzo degli impianti quando si calcola la loro posizione.
 - Il livello **Complessi** raggruppa gli immobili di un complesso in un solo pin (vedi «Gestire i complessi»).
 
 Un'utenza compare sulla mappa con le sue coordinate. Se non le ha, usa la posizione dell'immobile collegato, poi quella dell'impianto collegato.
@@ -302,6 +302,8 @@ Una fattura importata che modifichi a mano non viene più aggiornata dall'import
 I ruoli si assegnano da **Impostazioni → Utenti e ruoli**, pagina riservata agli Admin: Operatori e Lettori non vedono l'elenco degli utenti.
 
 Quello che UtenzePA scrive da solo (fatture, letture e matricole dall'import della PEC, righe automatiche dello storico delle forniture) ha come autore **UtenzePA (automatico)** in «Ultima modifica» (anche dell'utenza, quando l'import ne scrive la matricola) e nello storico delle modifiche. Non è una persona: non accede e non compare in Utenti e ruoli. Fino alla versione 1.43 queste scritture risultavano fatte dal primo amministratore; sono state riassegnate.
+
+Su un'installazione nuova UtenzePA crea da solo i quattro tipi di utenza di base (energia elettrica, gas, acqua, connettività), uno per ciascuna categoria che il programma conosce. Puoi rinominarli da **Impostazioni → Tipologie uso contatore**; se ne aggiungi altri, scegli la categoria giusta, perché da quella dipendono unità di consumo, categorie ARERA e controlli.
 
 ### A carico di: gli stati
 

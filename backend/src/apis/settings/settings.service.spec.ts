@@ -78,6 +78,15 @@ describe('SettingsService', () => {
     });
   });
 
+  it('municipality ricava il comune dal nome ente, null se vuoto', async () => {
+    repo.findOneOrFail.mockResolvedValueOnce({ entity_name: 'Comune di Pescara' });
+    await expect(service.municipality()).resolves.toBe('Pescara');
+    repo.findOneOrFail.mockResolvedValueOnce({ entity_name: 'Unione dei Comuni' });
+    await expect(service.municipality()).resolves.toBe('Unione dei Comuni');
+    repo.findOneOrFail.mockResolvedValueOnce({ entity_name: '' });
+    await expect(service.municipality()).resolves.toBeNull();
+  });
+
   it('updateBranding valida il mime e salva favicon come data URI', async () => {
     const existing = { id: 1, entity_name: 'x' } as AppSettings;
     repo.findOneOrFail.mockResolvedValue(existing);
