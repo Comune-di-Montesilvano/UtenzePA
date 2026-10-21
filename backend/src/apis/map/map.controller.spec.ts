@@ -7,12 +7,18 @@ describe('MapController', () => {
   let controller: MapController;
   let geocodingService: { geocode: jest.Mock };
   let mapService: MapService;
-  let settings: { getBrandingSummary: jest.Mock };
+  let settings: { getBrandingSummary: jest.Mock; municipality: jest.Mock };
 
   beforeEach(() => {
     geocodingService = { geocode: jest.fn() };
     mapService = {} as MapService;
-    settings = { getBrandingSummary: jest.fn().mockResolvedValue({ default_latitude: null, default_longitude: null }) };
+    settings = {
+      getBrandingSummary: jest.fn().mockResolvedValue({ default_latitude: null, default_longitude: null }),
+      municipality: jest.fn(async () => {
+        const { entity_name } = await settings.getBrandingSummary();
+        return String(entity_name ?? '').replace(/^comune di\s+/i, '').trim() || null;
+      }),
+    };
     controller = new MapController(mapService, geocodingService as unknown as GeocodingService, settings as unknown as SettingsService);
   });
 

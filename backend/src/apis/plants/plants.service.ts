@@ -26,7 +26,6 @@ import { PlantElevatorDto } from './dto/plant-elevator.dto';
 import { PlantElectricalDto } from './dto/plant-electrical.dto';
 import { FireEquipmentType, InspectionStatus, PlantType, PositionQuality } from './enum/plant.enum';
 import {
-  PLANTS_MUNICIPALITY,
   computeNextDate,
   electricalPeriodUpdates,
   firstLocatedAsset,
@@ -37,6 +36,7 @@ import {
   resolvePlantPosition,
 } from './plant.calc';
 import { ThermalPlantObligations, thermalPlantObligations } from './thermal-plant-obligations';
+import { SettingsService } from '@apis/settings/settings.service';
 
 export type PlantRow = Plant & {
   position_quality: PositionQuality;
@@ -114,6 +114,7 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     @InjectRepository(Asset) private readonly assetRepo: Repository<Asset>,
     @InjectRepository(Utility) private readonly utilityRepo: Repository<Utility>,
     private readonly geocodingService: GeocodingService,
+    private readonly settings: SettingsService,
   ) {
     super();
   }
@@ -392,7 +393,8 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
       address,
       civic_number: civic,
       zip_code: null,
-      municipality: PLANTS_MUNICIPALITY,
+      // Gli impianti non hanno CAP/comune propri: si geocodifica nel comune dell'ente.
+      municipality: await this.settings.municipality(),
     });
     if (!query) return;
     const result = await this.geocodingService.geocode(query);

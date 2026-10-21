@@ -13,7 +13,7 @@ interface GeocodeResult {
 }
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
-const USER_AGENT = 'UtenzePA/1.0 (Comune di Montesilvano; gestionale patrimonio interno)';
+const USER_AGENT = 'UtenzePA/1.0 (gestionale patrimonio; https://github.com/Comune-di-Montesilvano/UtenzePA)';
 const MIN_DELAY_MS = 1500;
 // Il throttle rispetta gia' il limite documentato di Nominatim (1 req/sec),
 // ma in pratica il server pubblico risponde comunque 429 sotto carico

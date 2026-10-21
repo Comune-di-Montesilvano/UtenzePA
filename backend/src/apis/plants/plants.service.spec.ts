@@ -75,6 +75,7 @@ describe('PlantsService', () => {
       assetRepo as never,
       utilityRepo as never,
       geocoding as never,
+      { municipality: jest.fn().mockResolvedValue('Montesilvano') } as never,
     );
     jest.spyOn(service as never, 'today' as never).mockReturnValue('2026-10-02' as never);
   });

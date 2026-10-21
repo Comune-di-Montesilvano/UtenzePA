@@ -34,8 +34,8 @@ export class MapController {
     // "via Roma" senza città resta nel Comune: prima con il nome del Comune
     // (dal branding, "Comune di X" → "X"), poi nel riquadro attorno alle sue
     // coordinate di default, infine ovunque.
-    const { entity_name, default_latitude, default_longitude } = await this.settings.getBrandingSummary();
-    const city = String(entity_name ?? '').replace(/^comune di\s+/i, '').trim();
+    const { default_latitude, default_longitude } = await this.settings.getBrandingSummary();
+    const city = await this.settings.municipality();
     const lat = parseFloat(String(default_latitude ?? '').replace(',', '.'));
     const lng = parseFloat(String(default_longitude ?? '').replace(',', '.'));
     let result = null;

@@ -9,6 +9,7 @@ import { PlantElectrical } from './entity/plant-electrical.entity';
 import { PlantInspection } from './entity/plant-inspection.entity';
 import { PlantFireEquipment } from './entity/plant-fire-equipment.entity';
 import { GeocodingModule } from '@apis/geocoding/geocoding.module';
+import { SettingsModule } from '@apis/settings/settings.module';
 import { PlantsService } from './plants.service';
 import { PlantsController } from './plants.controller';
 
@@ -25,6 +26,7 @@ import { PlantsController } from './plants.controller';
       Utility,
     ]),
     GeocodingModule,
+    SettingsModule,
   ],
   controllers: [PlantsController],
   providers: [PlantsService],

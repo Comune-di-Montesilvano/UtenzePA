@@ -46,6 +46,13 @@ export class SettingsService {
     });
   }
 
+  // Comune dell'ente dal nome in branding ("Comune di X" → "X"): completa gli
+  // indirizzi senza comune proprio (impianti, ricerca in mappa).
+  async municipality(): Promise<string | null> {
+    const { entity_name } = await this.getBrandingSummary();
+    return String(entity_name ?? '').replace(/^comune di\s+/i, '').trim() || null;
+  }
+
   async updateBranding(dto: UpdateBrandingDto, userId: number): Promise<AppSettings> {
     const existing = await this.repo.findOneOrFail({ where: { id: SETTINGS_ID } });
 
