@@ -1,6 +1,6 @@
 # Roadmap: estensione del perimetro di UtenzePA al patrimonio
 
-Aggiornata: 2026-10-19
+Aggiornata: 2026-10-21
 
 Obiettivo: portare UtenzePA da gestionale delle utenze a gestionale del **patrimonio** comunale (immobili, contratti, impianti, inventario), sfruttando i dati già presenti in `W:\PATRIMONIO`.
 
@@ -446,6 +446,27 @@ Da fare dopo il deploy: controllare i log di `reconcileAll` e la distribuzione d
 Emerso dall'analisi delle fatture ACA (2026-10-19): le fatture riportano letture con tipo «Stimata» o reale. Fatto in v1.34.0: flag «Stimata» (`utility_consumptions.is_estimated`) su letture e periodi; nel calcolo ogni giorno prende il dato da periodi reali, poi letture reali, poi periodi stimati, poi letture stimate; le stime coperte dal reale sono «superate» (in grigio nel tab Consumi). Spec `docs/superpowers/specs/2026-10-19-letture-stimate-design.md`. Resta nella voce 6 il parser del PDF/XML della fattura che valorizza il flag; i conguagli scritti come consumi negativi non sono gestiti (da valutare quando l'import ne trova uno).
 
 **Letture miste in una fattura** (emerso 2026-10-20, v1.39.1): l'import fa una rilevazione per utenza e periodo della riga, e il flag «stimata» vale per utenza su tutta la fattura; dal PDF il consumo è un solo valore per utenza. Una fattura di 2 mesi con un mese a lettura reale e uno stimato diventa quindi una rilevazione stimata per intero (nessun doppio conteggio: il reale successivo la rende «superata»). Soluzione possibile: regola «tabella letture» che legge dal PDF più righe (data, lettura, tipo) e crea una rilevazione per intervallo, ciascuna col suo flag. Da verificare col prossimo ciclo di fatture ACA, l'unico fornitore senza contatori elettronici: se compaiono letture miste nella stessa fattura, riprendere la voce.
+
+## Riunione di presentazione all'ufficio (2026-10-21)
+
+Presentazione del software ai colleghi dei lavori pubblici. Accesso per ora in sola lettura per tutti (credenziali del PC, dal Cruscotto); chi inserisce cosa lo decide il dirigente in una riunione successiva. Principio condiviso: l'app diventa la fonte di verità e chi lavora su un immobile o un impianto carica i dati che recupera.
+
+Ordine di lavoro sui dati proposto: geolocalizzare immobili e impianti → dati catastali → agganciare le utenze (contatore anche lontano dall'impianto che alimenta) → scadenze delle verifiche.
+
+Richieste emerse:
+
+- **Dashboard per ruolo** (voci 8 e 16): oggi circa 100 segnalazioni tutte insieme ("se tutto è allarme niente è allarme"); chi segue un ambito (ascensori, antincendio, contratti immobiliari…) deve vedere solo le sue. Più avanti notifiche email delle scadenze.
+- **Elenco impianti con scadenza della verifica** (voce 3): colonna con prossima scadenza/stato della verifica, per vedere per tipo (es. impianti elettrici) quali sono senza verifica o scaduti. Il dato c'è già in `plant_inspections`.
+- **Export MEF** (voce 2): obiettivo la comunicazione del 2027. Le vie corrette dal collega nel tracciato MEF non sono state importate (l'import ha preso solo catasto e dati mancanti): allinearle dopo la geolocalizzazione, con controllo manuale delle differenze app ↔ MEF prima di sovrascrivere.
+- **Vie validate** da toponomastica/catasto (voce 2): oggi testo libero senza controllo.
+- **Terreni e particelle in mappa** come layer, con foglio e particella proposti dalla posizione (voce 2, già prevista).
+- **Contratti finali dell'azienda speciale** con i singoli assegnatari (voce 1): oggi c'è solo il contratto quadro Comune ↔ azienda.
+
+Dati da sistemare (non codice): fontane di via Marinelli/via Aldo Moro geolocalizzate tutte nello stesso punto e alcune classificate come presa d'acqua; ecocompattatore da censire come impianto con la sua utenza; ~17 pompe di sollevamento da posizionare con chi le conosce; presidi antincendio con verifiche successive al 2022 non caricate.
+
+Non bug: impianto con utenza collegata senza icona in mappa = livello Utenze spento.
+
+Fuori perimetro confermato: censimento arboreo (sezione a parte), singoli pali della pubblica illuminazione (ci si ferma al contatore/quadro).
 
 ## Archivio 4_IMMOBILIARE: stato degli import
 
