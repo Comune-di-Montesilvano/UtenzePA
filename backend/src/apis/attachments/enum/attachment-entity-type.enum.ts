@@ -6,4 +6,6 @@ export enum AttachmentEntityType {
   UTILIZER_GRANT = 'utilizer_grant',
   CONTRACT = 'contract',
   ACT = 'act',
+  CONSIP_AGREEMENT = 'consip_agreement',
+  BUDGET_COMMITMENT = 'budget_commitment',
 }
