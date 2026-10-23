@@ -24,6 +24,7 @@ import { maintenanceInfo, maintenanceStatusSql } from './maintenance-status';
 import { SupplyReconcileService, romeDay, dbDay } from '@apis/utility-supply/supply-reconcile.service';
 import { GrantUtilityDecision } from '@apis/utility-supply/entity/grant-utility-decision.entity';
 import { SupplyEventsService } from '@apis/utility-supply/supply-events.service';
+import { CommitmentReconcileService } from '@apis/budget-commitments/commitment-reconcile.service';
 
 // Colonne scritte solo dalla riconciliazione dello storico (apis/utility-supply):
 // mai dal payload di create/update, anche se un chiamante interno le passasse,
@@ -66,6 +67,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     private readonly plantRepo: Repository<Plant>,
     private readonly supplyReconcile: SupplyReconcileService,
     private readonly supplyEvents: SupplyEventsService,
+    private readonly commitments: CommitmentReconcileService,
   ) {
     super();
   }
@@ -793,11 +795,18 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       estimateReset = value === 0;
     }
 
+    // Le righe automatiche prendono il capitolo dell'utenza: vanno riassegnate.
+    // Confronto prima di super.update, che aggiorna l'entity letta.
+    const chapterChanged =
+      rest.budget_chapter_code_fk !== undefined &&
+      (rest.budget_chapter_code_fk ?? null) !== (current.budget_chapter_code_fk ?? null);
     await super.update(id, payload as UpdateUtilityDto, userId);
 
     if (estimateReset) {
       await this.recalc.recalcUtility(id);
     }
+
+    if (chapterChanged) await this.commitments.reconcileUtilities([id]);
 
     if (linksChanged) {
       // repo.findOne diretto (non this.findOne, che proietta i campi del

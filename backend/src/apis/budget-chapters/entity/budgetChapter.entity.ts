@@ -32,6 +32,10 @@ export class BudgetChapter {
   @Column({ length: 100, nullable: true })
   pdc: string;
 
+  // Note locali (la descrizione è quella ufficiale della ragioneria).
+  @Column({ type: 'text', nullable: true })
+  notes: string | null;
+
   // Tipi utenza a cui il capitolo si applica; nessuno = tutti (es. SPRAR).
   @ManyToMany(() => UtilityType)
   @JoinTable({

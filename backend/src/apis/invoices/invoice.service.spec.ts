@@ -11,6 +11,7 @@ describe('InvoicesService', () => {
   let dataSource: { transaction: jest.Mock };
   let linker: { follow: jest.Mock; unlink: jest.Mock };
   let recalc: { recalcUtility: jest.Mock };
+  let reconcile: { reconcileSafe: jest.Mock };
   let manager: {
     create: jest.Mock;
     save: jest.Mock;
@@ -34,18 +35,20 @@ describe('InvoicesService', () => {
     dataSource = { transaction: jest.fn((cb) => cb(manager)) };
     linker = { follow: jest.fn().mockResolvedValue([]), unlink: jest.fn().mockResolvedValue([]) };
     recalc = { recalcUtility: jest.fn() };
+    reconcile = { reconcileSafe: jest.fn().mockResolvedValue(undefined) };
     service = new InvoicesService(
       repo as never,
       contractRepo as never,
       dataSource as never,
       linker as never,
       recalc as never,
+      reconcile as never,
     );
   });
 
   describe('create', () => {
     it('salva testata e righe in transazione, fornitore preso dal contratto', async () => {
-      manager.find.mockResolvedValue([{ id: 5, contract_id_fk: 1 }]);
+      manager.find.mockResolvedValue([{ id: 5, contracts: [{ id: 1 }] }]);
       await service.create(
         {
           invoice_id: 'F-1',
@@ -60,13 +63,45 @@ describe('InvoicesService', () => {
         expect.objectContaining({ supplier_id_fk: 44 }),
       );
       expect(manager.save).toHaveBeenCalledWith(InvoiceLine, [
-        expect.objectContaining({ invoice_id_fk: 10, amount: 10, commitment_id_fk: 5 }),
-        expect.objectContaining({ amount: 2 }),
+        expect.objectContaining({ invoice_id_fk: 10, amount: 10, commitment_id_fk: 5, commitment_auto: false }),
+        expect.objectContaining({ amount: 2, commitment_id_fk: null, commitment_auto: true }),
+      ]);
+      expect(reconcile.reconcileSafe).toHaveBeenCalledWith([1]);
+    });
+
+    it('riga automatica: l’impegno lo sceglie il ricalcolo, nessun controllo', async () => {
+      manager.find.mockResolvedValue([]);
+      await service.create(
+        {
+          invoice_id: 'F-1',
+          invoice_date: '2025-03-15',
+          contratto_id_fk: 1,
+          lines: [{ amount: 10, commitment_id_fk: 99, commitment_auto: true }],
+        } as never,
+        3,
+      );
+      expect(manager.save).toHaveBeenCalledWith(InvoiceLine, [
+        expect.objectContaining({ commitment_id_fk: null, commitment_auto: true }),
       ]);
     });
 
+    it('riga manuale su impegno condiviso: basta che includa il contratto della fattura', async () => {
+      manager.find.mockResolvedValue([{ id: 5, contracts: [{ id: 3 }, { id: 1 }] }]);
+      await expect(
+        service.create(
+          {
+            invoice_id: 'F-1',
+            invoice_date: '2025-03-15',
+            contratto_id_fk: 1,
+            lines: [{ amount: 10, commitment_id_fk: 5 }],
+          } as never,
+          3,
+        ),
+      ).resolves.toBeDefined();
+    });
+
     it('rifiuta un impegno di un altro contratto, indicando la riga (Review Focus 3)', async () => {
-      manager.find.mockResolvedValue([{ id: 5, contract_id_fk: 2 }]);
+      manager.find.mockResolvedValue([{ id: 5, contracts: [{ id: 2 }, { id: 3 }] }]);
       await expect(
         service.create(
           {
@@ -229,7 +264,7 @@ describe('InvoicesService', () => {
 
   describe('impegni e contratto (review)', () => {
     it('riga con impegno su fattura senza contratto: 400', async () => {
-      manager.find.mockResolvedValue([{ id: 5, contract_id_fk: 1 }]);
+      manager.find.mockResolvedValue([{ id: 5, contracts: [{ id: 1 }] }]);
       await expect(
         service.create(
           { invoice_id: 'F-1', invoice_date: '2025-03-15', lines: [{ amount: 1, commitment_id_fk: 5 }] } as never,
@@ -244,12 +279,41 @@ describe('InvoicesService', () => {
       manager.find.mockImplementation(async (entity: unknown) =>
         entity === InvoiceLine
           ? [{ amount: '10.00', commitment_id_fk: 5 }]
-          : [{ id: 5, contract_id_fk: 1 }],
+          : [{ id: 5, contracts: [{ id: 1 }] }],
       );
       await expect(service.update(20, { contratto_id_fk: 2 } as never, 7)).rejects.toThrow(
         "L'impegno della riga 1 non è del contratto della fattura",
       );
       expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('update con riga manuale su impegno non legato al contratto: 400', async () => {
+      repo.findOne.mockResolvedValue({ id: 20, invoice_id: 'F', contratto_id_fk: 1, deleted: false });
+      manager.find.mockImplementation(async (entity: unknown) =>
+        entity === InvoiceLine ? [] : [{ id: 5, contracts: [{ id: 2 }] }],
+      );
+      await expect(
+        service.update(20, { lines: [{ amount: 10, commitment_id_fk: 5, commitment_auto: false }] } as never, 7),
+      ).rejects.toThrow("L'impegno della riga 1 non è del contratto della fattura");
+    });
+
+    it('cambio contratto: le righe automatiche non bloccano, ricalcolo su vecchio e nuovo', async () => {
+      repo.findOne.mockResolvedValue({ id: 20, invoice_id: 'F', contratto_id_fk: 1, deleted: false });
+      manager.findOne.mockResolvedValue({ id: 20, invoice_id: 'F', contratto_id_fk: 2 });
+      manager.find.mockImplementation(async (entity: unknown) =>
+        entity === InvoiceLine
+          ? [{ amount: '10.00', commitment_id_fk: 5, commitment_auto: true }]
+          : [{ id: 5, contracts: [{ id: 1 }] }],
+      );
+      await service.update(20, { contratto_id_fk: 2 } as never, 7);
+      expect(reconcile.reconcileSafe).toHaveBeenCalledWith([1, 2]);
+    });
+
+    it('eliminando la fattura si ricalcola il consumo degli impegni del contratto', async () => {
+      repo.findOne.mockResolvedValue({ id: 20, contratto_id_fk: 4, deleted: false });
+      (repo as unknown as { save: jest.Mock }).save = jest.fn();
+      await service.remove(20, 7);
+      expect(reconcile.reconcileSafe).toHaveBeenCalledWith([4]);
     });
   });
 

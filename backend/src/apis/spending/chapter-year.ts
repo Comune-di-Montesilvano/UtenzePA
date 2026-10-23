@@ -1,21 +1,28 @@
 import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
+import { lineYearSql } from './line-year';
 
 // Esercizio di un capitolo: dati della ragioneria (budget_chapter_spending) +
 // impegni + fatturato, sempre calcolati. Condiviso da spesa e anomalie.
 export type Query = (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
 
-// Riga fattura: esercizio e capitolo dall'impegno, altrimenti anno della
-// fattura e capitolo dell'utenza (stesse regole di apis/spending).
-export const LINE_YEAR = 'COALESCE(bcm.fiscal_year, YEAR(i.invoice_date))';
+// Riga fattura: esercizio e capitolo dall'impegno, altrimenti competenza del
+// periodo della riga (line-year.ts) e capitolo dell'utenza.
+export const LINE_YEAR = `COALESCE(bcm.fiscal_year, ${lineYearSql({ line: 'il', invoice: 'i' })})`;
 export const LINE_CHAPTER = 'COALESCE(bcm.budget_chapter_id_fk, u.budget_chapter_code_fk)';
 export const CHAPTER_LINES = `FROM invoice_lines il
   JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
   LEFT JOIN budget_commitments bcm ON bcm.id = il.commitment_id_fk
   LEFT JOIN utilities u ON u.id = il.utility_id_fk`;
 
-// Impegni contati solo su contratti non cancellati (come il tab Impegni).
-export const COMMITMENTS = `FROM budget_commitments bcm
-  JOIN contracts c ON c.id = bcm.contract_id_fk AND c.deleted = 0`;
+// Impegni contati una volta, qualunque sia il numero dei contratti collegati.
+export const COMMITMENTS = 'FROM budget_commitments bcm';
+
+// Speso di un impegno: righe assegnate di fatture valide.
+export const COMMITMENT_SPENT = `(SELECT COALESCE(SUM(sl.amount), 0) FROM invoice_lines sl
+  JOIN invoices si ON si.id = sl.invoice_id_fk AND si.deleted = 0 AND ${NOT_REJECTED_SQL('si')}
+  WHERE sl.commitment_id_fk = bcm.id)`;
+// Rimanenza degli impegni con importo (null se nessuno ne ha).
+export const COMMITMENTS_REMAINING = `SUM(CASE WHEN bcm.amount IS NULL THEN NULL ELSE bcm.amount - ${COMMITMENT_SPENT} END)`;
 
 export interface ChapterYear {
   year: number;
@@ -27,6 +34,8 @@ export interface ChapterYear {
   committed: number;
   commitments: number;
   commitments_without_amount: number;
+  // Somma delle rimanenze degli impegni con importo; null se nessuno ne ha.
+  remaining: number | null;
   invoiced: number;
   invoices: number;
   available: number | null;
@@ -61,6 +70,7 @@ export function buildChapterYear(
     committed,
     commitments: Number(commitments?.commitments ?? 0),
     commitments_without_amount: Number(commitments?.without_amount ?? 0),
+    remaining: num(commitments?.remaining) === null ? null : round2(Number(commitments?.remaining)),
     invoiced: inv,
     invoices: Number(invoiced?.invoices ?? 0),
     available: adjusted === null ? null : round2(adjusted - committed),
@@ -93,7 +103,7 @@ export async function chaptersYearSummary(query: Query, year: number): Promise<C
   );
   const commitments = await query(
     `SELECT bcm.budget_chapter_id_fk AS chapter_id, COUNT(*) AS commitments, SUM(bcm.amount) AS total,
-            SUM(bcm.amount IS NULL) AS without_amount
+            SUM(bcm.amount IS NULL) AS without_amount, ${COMMITMENTS_REMAINING} AS remaining
      ${COMMITMENTS}
      WHERE bcm.fiscal_year = ? AND bcm.deleted = 0
      GROUP BY bcm.budget_chapter_id_fk`,

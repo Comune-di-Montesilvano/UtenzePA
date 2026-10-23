@@ -13,6 +13,8 @@ export interface ChapterYear {
   invoiced: number;
   invoices: number;
   available: number | null;
+  // Somma delle rimanenze degli impegni dell'esercizio (null = nessun importo noto).
+  remaining: number | null;
   over_budget: boolean;
 }
 
@@ -22,12 +24,13 @@ export interface ChapterYearSummary extends ChapterYear {
 
 export interface ChapterCommitment {
   id: number;
-  contract_id: number;
+  label: string;
   fiscal_year: number;
-  commitment_number: string | null;
   amount: number | null;
-  cig_contract: string | null;
+  spent: number;
+  remaining: number | null;
   supplier: string | null;
+  contract_ids: number[];
 }
 
 export interface ChapterInvoiceLine {
@@ -53,5 +56,11 @@ export interface BudgetWarning {
 export interface BudgetCheckPayload {
   invoice_id?: number | null;
   invoice_date: string;
-  lines: {utility_id_fk: number | null; commitment_id_fk: number | null; amount: number}[];
+  lines: {
+    utility_id_fk: number | null;
+    commitment_id_fk: number | null;
+    amount: number;
+    period_start?: string | null;
+    period_end?: string | null;
+  }[];
 }

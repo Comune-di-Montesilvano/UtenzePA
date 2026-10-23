@@ -1,3 +1,6 @@
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { CreateBudgetChapterDto } from './dto/create-budget-chapters.dto';
 import { BadRequestException } from '@nestjs/common';
 import { BudgetChaptersService } from './budget-chapters.service';
 import { BudgetChapter } from './entity/budgetChapter.entity';
@@ -138,6 +141,21 @@ describe('BudgetChaptersService', () => {
         expect.objectContaining({ utilityTypes: [{ id: 36 }, { id: 35 }] }),
       );
       expect(repo.save).not.toHaveBeenCalledWith(expect.objectContaining({ utility_type_ids: expect.anything() }));
+    });
+
+    it('note del capitolo: testo validato, salvato come arriva', async () => {
+      const bad = await validate(plainToInstance(CreateBudgetChapterDto, { chapter_code: '1', notes: 5 }), {
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      });
+      expect(bad.map((e) => e.property)).toEqual(['notes']);
+      const ok = await validate(plainToInstance(CreateBudgetChapterDto, { chapter_code: '1', notes: 'Da rinumerare' }), {
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      });
+      expect(ok).toEqual([]);
+      await service.create({ chapter_code: 'CAP-1', notes: 'Da rinumerare' } as never, 1);
+      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ notes: 'Da rinumerare' }));
     });
 
     it('crea il capitolo di spesa', async () => {

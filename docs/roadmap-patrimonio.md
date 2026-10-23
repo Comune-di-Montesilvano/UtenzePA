@@ -34,13 +34,15 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 14 | Schede di fornitori, capitoli, fatture | fatto in v1.14.0 (scheda capitolo; fornitori e fatture già fatti) |
 | 15 | UI e identità (elenchi, filtri, dark mode, sidebar, nome) | elenchi, filtri, segnalazioni e sidebar fatti in v1.11.0; creazione al volo dalle schede ("+" sulle select, "Nuovo …" sui collegamenti); dark mode in v1.17.0; nome da approfondire |
 | 16 | Dashboard e mappa | mappa a livelli in v1.11.0 (filtri a perimetro, inattivi nascosti, ricerca nel Comune); dashboard per ultima |
-| 17 | Impegni di spesa (contratto ↔ capitolo) | fatto, v1.10.0 (impegni ACA 2025–2026 senza numero né importo, da completare con la ragioneria) |
+| 17 | Impegni di spesa (contratto ↔ capitolo) | fatto, v1.10.0; v1.47.0 impegni reali (numero anno/num/sub, N-N con i contratti, consumo automatico in ordine di numero, rimanenza, elenco e scheda; scheda convenzione CONSIP); import impegni e capitoli 2026 dalla contabilità da fare dopo il rilascio |
 | 18 | Pulizia entità e incongruenze del modello | fatto: parte 1 v1.9.0 (tabelle morte, aggregati immobili, gestori manutenzione → manutenzione calcolata), parte 2 v1.9.1 (campi doppi) |
 | 19 | Allegati di contratti, immobili e impianti | fatto, v1.22.0 (allegati e atti; utenze e complessi, ricerca nei PDF e firma digitale rimandati) |
 | 20 | Assestato dei capitoli e disponibilità | fatto in v1.14.0 (mandati non ancora) |
 | 21 | Scadenzario degli obblighi dell'immobile | da approfondire |
 | 22 | Storico di attivazione delle utenze | fatto, v1.33.0 (storico di attivazioni, cessazioni, volture e reintestazioni; decisioni per utenza sul contratto immobiliare; dati da portare in produzione con la migration) |
 | 23 | Letture stimate | fatto (v1.34.0) |
+| 24 | Stima e previsione della spesa | da approfondire (dopo la voce 17: storico per capitolo, stima macro del fabbisogno dell'esercizio successivo) |
+| 25 | Nuovo contratto che sostituisce più contratti | da fare (richiesta 2026-10-23: nel tab Utenze del contratto di fornitura collegare in un colpo le utenze di un altro contratto, oltre alla singola utenza; oggi il rinnovo copia un solo contratto) |
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
 
@@ -328,6 +330,8 @@ Dalla v1.14.0 il totale del riquadro anomalie somma tutte le voci (prima una som
 
 ## 17. Impegni di spesa (contratto ↔ capitolo)
 
+**v1.47.0** (spec `docs/superpowers/specs/2026-10-23-impegni-convenzioni-design.md`): impegno = numero della ragioneria (anno/num/sub, facoltativo per i preimpegni), capitolo, esercizio di competenza, importo, fornitore e 0..N contratti (`budget_commitment_contracts`); più impegni ammessi sullo stesso contratto, capitolo ed esercizio. Le righe di fattura automatiche consumano gli impegni in ordine di numero (riga intera, competenza dal periodo della riga), quelle scelte a mano restano sull'impegno scelto (`invoice_lines.commitment_auto`); ricalcolo a ogni salvataggio di fattura o impegno e dopo l'import PEC. Elenco e scheda impegno (Dati, Contratti, Fatture con speso progressivo, Documenti), scheda convenzione CONSIP (Dati, Contratti, Impegni, Documenti), note sui capitoli. Fuori scope: condominiali, residui prima del 2024, disponibilità della contabilità, previsioni (voce 24). Da fare dopo il rilascio: import one-off di impegni e capitoli 2026 dai CSV della contabilità sul DB locale ripristinato dalla produzione.
+
 Fatto in v1.10.0 con la voce 6: impegno = contratto di fornitura + capitolo + esercizio, numero e importo facoltativi; tab "Impegni e capitoli" nella scheda contratto (riepilogo calcolato per capitolo: utenze, impegnato, speso); nella scheda utenza i capitoli impegnati sui contratti aperti compaiono in cima al select (nessun blocco), con anomalia per i contratti che hanno impegni. Sul DB locale 12 impegni ACA (6 capitoli × 2025–2026) senza numero né importo: da completare con la ragioneria. Il testo sotto è il censimento di partenza.
 
 Oggi il capitolo sta solo sull'utenza (`utilities.budget_chapter_code_fk`); il contratto di fornitura non ne ha. Non si può spostare sul contratto e derivarlo: lo stesso contratto copre utenze su capitoli diversi (al 2026-10-03, utenze attive: un contratto da 160 utenze su 15 capitoli, uno da 105 su 7, uno da 36 su 13). Il capitolo dipende da cosa serve l'utenza (scuola, uffici, SPRAR, illuminazione), non dal fornitore.
@@ -446,6 +450,14 @@ Da fare dopo il deploy: controllare i log di `reconcileAll` e la distribuzione d
 Emerso dall'analisi delle fatture ACA (2026-10-19): le fatture riportano letture con tipo «Stimata» o reale. Fatto in v1.34.0: flag «Stimata» (`utility_consumptions.is_estimated`) su letture e periodi; nel calcolo ogni giorno prende il dato da periodi reali, poi letture reali, poi periodi stimati, poi letture stimate; le stime coperte dal reale sono «superate» (in grigio nel tab Consumi). Spec `docs/superpowers/specs/2026-10-19-letture-stimate-design.md`. Resta nella voce 6 il parser del PDF/XML della fattura che valorizza il flag; i conguagli scritti come consumi negativi non sono gestiti (da valutare quando l'import ne trova uno).
 
 **Letture miste in una fattura** (emerso 2026-10-20, v1.39.1): l'import fa una rilevazione per utenza e periodo della riga, e il flag «stimata» vale per utenza su tutta la fattura; dal PDF il consumo è un solo valore per utenza. Una fattura di 2 mesi con un mese a lettura reale e uno stimato diventa quindi una rilevazione stimata per intero (nessun doppio conteggio: il reale successivo la rende «superata»). Soluzione possibile: regola «tabella letture» che legge dal PDF più righe (data, lettura, tipo) e crea una rilevazione per intervallo, ciascuna col suo flag. Da verificare col prossimo ciclo di fatture ACA, l'unico fornitore senza contatori elettronici: se compaiono letture miste nella stessa fattura, riprendere la voce.
+
+## 24. Stima e previsione della spesa
+
+Emerso con la voce 17 (2026-10-23): con gli impegni reali e lo speso per impegno, serve una stima macro del fabbisogno: dallo storico per capitolo (e per contratto) capire se gli impegni dell'esercizio basteranno e quanto impegnare per l'esercizio successivo. Nessun dettaglio per utenza: basta una stima. Da progettare a parte.
+
+## 25. Nuovo contratto che sostituisce più contratti
+
+Richiesta 2026-10-23: un nuovo contratto di fornitura può sostituirne N (es. accorpamento di più ordini). Oggi **Nuovo contratto con queste utenze** clona un solo contratto. Basta che nel tab **Utenze** della scheda contratto, accanto al collegamento della singola utenza, si possano collegare tutte le utenze di un altro contratto (scelto da select); da valutare se proporre anche la chiusura dei contratti sostituiti come fa il rinnovo.
 
 ## Archivio 4_IMMOBILIARE: stato degli import
 

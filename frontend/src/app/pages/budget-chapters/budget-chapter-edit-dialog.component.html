@@ -36,6 +36,10 @@
             <mat-label>Descrizione</mat-label>
             <textarea matInput formControlName="description" rows="2"></textarea>
           </mat-form-field>
+          <mat-form-field class="span-all">
+            <mat-label>Note</mat-label>
+            <textarea matInput formControlName="notes" rows="2"></textarea>
+          </mat-form-field>
         </div>
 
         @if (!isNew) {
@@ -83,7 +87,8 @@
             <app-tab-label icon="description" label="Impegni" [count]="commitments.length"></app-tab-label>
           </ng-template>
           <app-linked-table [columns]="commitmentColumns" [rows]="commitments"
-                            emptyText="Nessun impegno su questo capitolo." (open)="openContract($event)"></app-linked-table>
+                            [createLabel]="canEdit ? 'Nuovo impegno' : null" (create)="newCommitment()"
+                            emptyText="Nessun impegno su questo capitolo." (open)="openCommitment($event)"></app-linked-table>
         </mat-tab>
 
         <mat-tab aria-label="Fatture">

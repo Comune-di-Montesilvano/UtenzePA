@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsNumber, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
+import { IsBoolean, IsInt, IsNumber, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
 import { DateOnly } from '@/common/decorators/date-only.decorator';
 
 // Riga di fattura: solo l'importo (IVA inclusa) è obbligatorio.
@@ -17,6 +17,12 @@ export class InvoiceLineDto {
   @ValidateIf((_o, v) => v !== null)
   @IsInt()
   commitment_id_fk?: number | null;
+
+  // Impegno scelto dal ricalcolo (true) o a mano (false). Assente: a mano se
+  // commitment_id_fk è valorizzato.
+  @IsOptional()
+  @IsBoolean()
+  commitment_auto?: boolean;
 
   @IsOptional()
   @DateOnly()

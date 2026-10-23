@@ -25,6 +25,10 @@ export class InvoiceLine {
   @Column({ type: 'int', nullable: true })
   commitment_id_fk: number | null;
 
+  // true = impegno assegnato dal consumo automatico (ricalcolabile), false = scelto a mano.
+  @Column({ type: 'boolean', default: true })
+  commitment_auto: boolean;
+
   @Column({ type: 'date', nullable: true })
   period_start: string | null;
 

@@ -34,6 +34,8 @@ const OWNERS: Record<T, { table: string; audit: string; label: string }> = {
   },
   [T.CONTRACT]: { table: 'contracts', audit: 'contract', label: 'Contratto di fornitura' },
   [T.ACT]: { table: 'acts', audit: 'acts', label: 'Atto' },
+  [T.CONSIP_AGREEMENT]: { table: 'consip_agreement', audit: 'consip_agreement', label: 'Convenzione' },
+  [T.BUDGET_COMMITMENT]: { table: 'budget_commitments', audit: 'budget_commitments', label: 'Impegno' },
 };
 
 type Owner = { id: number; plant_id?: number; kind?: string };

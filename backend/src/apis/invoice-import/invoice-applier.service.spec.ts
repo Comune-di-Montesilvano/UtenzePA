@@ -30,7 +30,6 @@ const match = (over: Partial<MatchResult> = {}): MatchResult => ({
     {
       utility_id_fk: 812,
       contract_id: 5,
-      commitment_id_fk: 70,
       period_start: '2026-06-01',
       period_end: '2026-06-30',
       amount: 122,
@@ -100,7 +99,8 @@ describe('InvoiceApplier', () => {
       expect.objectContaining({
         invoice_id_fk: 500,
         utility_id_fk: 812,
-        commitment_id_fk: 70,
+        commitment_id_fk: null,
+        commitment_auto: true,
         amount: 122,
       }),
     ]);

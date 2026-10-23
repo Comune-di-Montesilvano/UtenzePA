@@ -12,7 +12,7 @@ import {ScreenSizeService} from '../../services/screen-size.service';
 import {ConsipAgreement} from './entity/consip-agreement.entity';
 import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
-import {ConsipAgreementEditDialogComponent} from './consip-agreement-edit-dialog.component';
+import {ConsipAgreementSheetComponent} from './consip-agreement-sheet.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 import {BooleanYesNoPipe} from '../../core/pipes/boolean-yes-no-pipe';
 import {partyName} from '../../core/helpers/party-name.helper';
@@ -71,8 +71,12 @@ export class DataTableConsipAgreementComponent extends AbstractDataTableComponen
     return ConsipAgreement.create();
   }
 
+  protected override useSheet(): boolean {
+    return true;
+  }
+
   override editDialogComponent(): Type<unknown> {
-    return ConsipAgreementEditDialogComponent;
+    return ConsipAgreementSheetComponent;
   }
 
   protected override entityLabel(): string {

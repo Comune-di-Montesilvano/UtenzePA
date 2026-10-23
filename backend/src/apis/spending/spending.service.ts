@@ -2,10 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
 import { DataSource } from 'typeorm';
 import { partyNameSql } from '@apis/third-parties/third-party.name';
+import { idList } from '@apis/budget-commitments/id-list';
 import { inChargeSql } from '@apis/utility/cost-status';
 import {
   CHAPTER_LINES,
+  COMMITMENT_SPENT,
   COMMITMENTS,
+  COMMITMENTS_REMAINING,
   ChapterYear,
   ChapterYearSummary,
   chaptersYearSummary,
@@ -16,6 +19,10 @@ import {
   Query,
 } from './chapter-year';
 import { BudgetCheckDto } from './dto/budget-check.dto';
+import { lineFiscalYear } from './line-year';
+import { commitmentLabel } from '@apis/budget-commitments/commitment-label';
+
+const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 
 export interface YearSpending {
   year: number;
@@ -35,12 +42,13 @@ export interface ChapterSummary {
 
 export interface ChapterCommitment {
   id: number;
-  contract_id: number;
+  label: string;
   fiscal_year: number;
-  commitment_number: string | null;
   amount: number | null;
-  cig_contract: string | null;
+  spent: number;
+  remaining: number | null;
   supplier: string | null;
+  contract_ids: number[];
 }
 
 export interface ChapterInvoiceLine {
@@ -63,8 +71,8 @@ export interface BudgetWarning {
   adjusted_budget: number;
 }
 
-// Anno di una riga: esercizio dell'impegno, altrimenti anno della fattura.
-const YEAR = 'COALESCE(bcm.fiscal_year, YEAR(i.invoice_date))';
+// Anno di una riga: esercizio dell'impegno, altrimenti competenza del periodo.
+const YEAR = LINE_YEAR;
 const LINES = `FROM invoice_lines il
   JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
   LEFT JOIN budget_commitments bcm ON bcm.id = il.commitment_id_fk`;
@@ -88,7 +96,7 @@ export class SpendingService {
     );
     const commitments = await this.q(
       `SELECT bcm.fiscal_year AS year, COUNT(*) AS commitments, SUM(bcm.amount) AS total,
-              SUM(bcm.amount IS NULL) AS without_amount
+              SUM(bcm.amount IS NULL) AS without_amount, ${COMMITMENTS_REMAINING} AS remaining
        ${COMMITMENTS} WHERE bcm.budget_chapter_id_fk = ? AND bcm.deleted = 0 GROUP BY bcm.fiscal_year`,
       [chapterId],
     );
@@ -102,24 +110,30 @@ export class SpendingService {
 
   async chapterCommitments(chapterId: number): Promise<ChapterCommitment[]> {
     const rows = await this.q(
-      `SELECT bcm.id, bcm.contract_id_fk AS contract_id, bcm.fiscal_year, bcm.commitment_number, bcm.amount,
-              c.cig_contract, ${partyNameSql('s')} AS supplier
+      `SELECT bcm.id, bcm.commitment_year, bcm.commitment_num, bcm.commitment_sub, bcm.fiscal_year, bcm.amount,
+              ${COMMITMENT_SPENT} AS spent, ${partyNameSql('s')} AS supplier,
+              (SELECT JSON_ARRAYAGG(x.contract_id) FROM budget_commitment_contracts x
+                WHERE x.commitment_id = bcm.id) AS contract_ids
        FROM budget_commitments bcm
-       JOIN contracts c ON c.id = bcm.contract_id_fk AND c.deleted = 0
-       LEFT JOIN third_parties s ON s.id = c.supplier_id_fk
+       LEFT JOIN third_parties s ON s.id = bcm.supplier_id_fk
        WHERE bcm.budget_chapter_id_fk = ? AND bcm.deleted = 0
-       ORDER BY bcm.fiscal_year DESC, supplier`,
+       ORDER BY bcm.fiscal_year DESC, bcm.commitment_num IS NULL, bcm.commitment_year, bcm.commitment_num, bcm.commitment_sub`,
       [chapterId],
     );
-    return rows.map((r) => ({
-      id: Number(r.id),
-      contract_id: Number(r.contract_id),
-      fiscal_year: Number(r.fiscal_year),
-      commitment_number: (r.commitment_number as string) ?? null,
-      amount: r.amount == null ? null : Number(r.amount),
-      cig_contract: (r.cig_contract as string) ?? null,
-      supplier: (r.supplier as string) ?? null,
-    }));
+    return rows.map((r) => {
+      const amount = r.amount == null ? null : Number(r.amount);
+      const spent = Math.round(Number(r.spent ?? 0) * 100) / 100;
+      return {
+        id: Number(r.id),
+        label: commitmentLabel(num(r.commitment_year), num(r.commitment_num), num(r.commitment_sub)),
+        fiscal_year: Number(r.fiscal_year),
+        amount,
+        spent,
+        remaining: amount === null ? null : Math.round((amount - spent) * 100) / 100,
+        supplier: (r.supplier as string) ?? null,
+        contract_ids: idList(r.contract_ids),
+      };
+    });
   }
 
   async chapterInvoiceLines(chapterId: number): Promise<ChapterInvoiceLine[]> {
@@ -164,7 +178,6 @@ export class SpendingService {
       : [];
     const byCommitment = new Map(commitments.map((c) => [Number(c.id), c] as const));
     const byUtility = new Map(utilities.map((u) => [Number(u.id), u] as const));
-    const invoiceYear = Number(String(dto.invoice_date).slice(0, 4));
 
     // Somma delle righe per capitolo + esercizio (righe senza capitolo ignorate).
     const groups = new Map<string, { chapter: number; year: number; amount: number }>();
@@ -172,7 +185,9 @@ export class SpendingService {
       const c = line.commitment_id_fk ? byCommitment.get(line.commitment_id_fk) : undefined;
       const chapter = c ? c.chapter_id : line.utility_id_fk ? byUtility.get(line.utility_id_fk)?.chapter_id : null;
       if (chapter === null || chapter === undefined) continue;
-      const year = c ? Number(c.fiscal_year) : invoiceYear;
+      const year = c
+        ? Number(c.fiscal_year)
+        : lineFiscalYear(line.period_start ?? null, line.period_end ?? null, dto.invoice_date);
       const key = `${chapter}-${year}`;
       const g = groups.get(key) ?? { chapter: Number(chapter), year, amount: 0 };
       g.amount += Number(line.amount) || 0;
@@ -266,7 +281,8 @@ export class SpendingService {
       `SELECT bcm.id, bcm.budget_chapter_id_fk AS budget_chapter_id, bcm.fiscal_year, bcm.amount,
               b.chapter_code, b.article, b.description
        FROM budget_commitments bcm JOIN budget_chapters b ON b.id = bcm.budget_chapter_id_fk
-       WHERE bcm.contract_id_fk = ? AND bcm.deleted = 0
+       JOIN budget_commitment_contracts bcc ON bcc.commitment_id = bcm.id AND bcc.contract_id = ?
+       WHERE bcm.deleted = 0
        ORDER BY bcm.fiscal_year DESC`,
       [contractId],
     );

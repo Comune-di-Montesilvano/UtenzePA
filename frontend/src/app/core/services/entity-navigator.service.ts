@@ -27,9 +27,8 @@ import {AssetNaturesService} from '../../pages/asset-nature/asset-nature.service
 import {AssetNature} from '../../pages/asset-nature/entity/asset-nature.entity';
 import {AssetFunctionsService} from '../../pages/asset-function/asset-function.service';
 import {AssetFunction} from '../../pages/asset-function/entity/asset-function.entity';
-import {CommitmentService} from '../../pages/contracts/commitments/commitment.service';
-import {chapterLabel, Commitment, CommitmentPayload} from '../../pages/contracts/commitments/commitment.model';
-import type {CommitmentDialogData} from '../../pages/contracts/commitments/commitment-edit-dialog.component';
+import {CommitmentService} from '../../pages/commitments/commitment.service';
+import {Commitment} from '../../pages/commitments/commitment.model';
 import type {Plant} from '../../pages/plants/plant.model';
 import type {Complex, ComplexPayload} from '../../pages/complexes/complex.model';
 import type {Act, ActPayload} from '../../pages/acts/act.model';
@@ -48,11 +47,11 @@ const GRANT_DIALOG = () => import('../../pages/utilizer-grant/utilizer-grant-edi
 const INVOICE_DIALOG = () => import('../../pages/invoices/invoice-edit-dialog.component').then(m => m.InvoiceEditDialogComponent);
 const THIRD_PARTY_DIALOG = () => import('../../pages/third-parties/third-party-edit-dialog.component').then(m => m.ThirdPartyEditDialogComponent);
 const BUDGET_CHAPTER_DIALOG = () => import('../../pages/budget-chapters/budget-chapter-edit-dialog.component').then(m => m.BudgetChapterEditDialogComponent);
-const CONSIP_DIALOG = () => import('../../pages/consip-agreement/consip-agreement-edit-dialog.component').then(m => m.ConsipAgreementEditDialogComponent);
+const CONSIP_DIALOG = () => import('../../pages/consip-agreement/consip-agreement-sheet.component').then(m => m.ConsipAgreementSheetComponent);
 const UTILITY_TYPE_DIALOG = () => import('../../pages/utility-types/utility-type-edit-dialog.component').then(m => m.UtilityTypeEditDialogComponent);
 const NATURE_DIALOG = () => import('../../pages/asset-nature/asset-nature-edit-dialog.component').then(m => m.AssetNatureEditDialogComponent);
 const FUNCTION_DIALOG = () => import('../../pages/asset-function/asset-function-edit-dialog.component').then(m => m.AssetFunctionEditDialogComponent);
-const COMMITMENT_DIALOG = () => import('../../pages/contracts/commitments/commitment-edit-dialog.component').then(m => m.CommitmentEditDialogComponent);
+const COMMITMENT_DIALOG = () => import('../../pages/commitments/commitment-sheet.component').then(m => m.CommitmentSheetComponent);
 
 // Testo digitato in una select → campo nome dell'entità creata al volo.
 export const nameFrom = (text: string): string | undefined => (text.trim() ? text.trim() : undefined);
@@ -236,8 +235,17 @@ export class EntityNavigatorService {
     );
   }
 
+  // La scheda collega/scollega contratti da sé: chiusa senza salvare = null.
+  openConsipAgreement(id: number): Observable<ConsipAgreement | null> {
+    return this.consip.getById(id).pipe(
+      switchMap(item => this.sheet<EditDialogData<ConsipAgreement>, unknown>(CONSIP_DIALOG, {mode: 'edit', item})),
+      switchMap(r => (r instanceof ConsipAgreement ? this.consip.update(r.id, ConsipAgreement.toPayload(r)) : of(null))),
+      catchError(err => this.fail('Errore apertura/salvataggio della convenzione CONSIP', err)),
+    );
+  }
+
   createConsipAgreement(prefill: Partial<ConsipAgreement> = {}): Observable<ConsipAgreement | null> {
-    return this.simple<EditDialogData<ConsipAgreement>, ConsipAgreement>(CONSIP_DIALOG, {mode: 'create', item: ConsipAgreement.create(prefill)}).pipe(
+    return this.sheet<EditDialogData<ConsipAgreement>, ConsipAgreement>(CONSIP_DIALOG, {mode: 'create', item: ConsipAgreement.create(prefill)}).pipe(
       switchMap(r => (r ? this.consip.create({...ConsipAgreement.toPayload(r), ...this.authorship()}) : of(null))),
       catchError(err => this.fail('Errore nella creazione della convenzione CONSIP', err)),
     );
@@ -291,15 +299,18 @@ export class EntityNavigatorService {
     );
   }
 
-  createCommitment(contractId: number): Observable<Commitment | null> {
-    return this.chapters.search({deleted: false}).pipe(
-      map(list => list
-        .map(c => ({label: chapterLabel(c), value: c.id,
-          searchText: `${c.chapter_code}/${c.article ?? 0} ${c.description ?? ''} ${c.pdc ?? ''}`}))
-        .sort((a, b) => a.label.localeCompare(b.label))),
-      switchMap(chapterOptions => this.simple<CommitmentDialogData, CommitmentPayload>(
-        COMMITMENT_DIALOG, {item: null, chapterOptions}, '560px')),
-      switchMap(p => (p ? this.commitmentService.create(contractId, p) : of(null))),
+  openCommitment(id: number): Observable<Commitment | null> {
+    return this.commitmentService.getById(id).pipe(
+      switchMap(item => this.sheet<EditDialogData<Commitment>, Commitment>(COMMITMENT_DIALOG, {mode: 'edit', item})),
+      switchMap(r => (r ? this.commitmentService.update(r.id, Commitment.toPayload(r)) : of(null))),
+      catchError(err => this.fail("Errore apertura/salvataggio dell'impegno", err)),
+    );
+  }
+
+  // prefill: contratti (dalla fattura o dal contratto) e capitolo già scelti.
+  createCommitment(prefill: Partial<Commitment> = {}): Observable<Commitment | null> {
+    return this.sheet<EditDialogData<Commitment>, Commitment>(COMMITMENT_DIALOG, {mode: 'create', item: Commitment.create(prefill)}).pipe(
+      switchMap(r => (r ? this.commitmentService.create(Commitment.toPayload(r)) : of(null))),
       catchError(err => this.fail("Errore nella creazione dell'impegno", err)),
     );
   }

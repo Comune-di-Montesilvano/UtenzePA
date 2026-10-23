@@ -65,9 +65,9 @@ describe('InvoicePatternsService', () => {
         existingInvoiceId: null,
         contratto_id_fk: 5,
         lines: [
-          { utility_id_fk: 812, amount: 122, contract_id: 5, commitment_id_fk: 70 },
-          { utility_id_fk: 812, amount: 61, contract_id: 5, commitment_id_fk: 70 },
-          { utility_id_fk: 812, amount: -0.01, contract_id: 5, commitment_id_fk: 70 },
+          { utility_id_fk: 812, amount: 122, contract_id: 5 },
+          { utility_id_fk: 812, amount: 61, contract_id: 5 },
+          { utility_id_fk: 812, amount: -0.01, contract_id: 5 },
         ],
         issues: [],
         blocking: [],

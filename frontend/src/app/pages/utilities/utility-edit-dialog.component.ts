@@ -52,7 +52,7 @@ import {UtilitySupplyTabComponent} from './supply/utility-supply-tab.component';
 import {SUPPLY_EVENT_LABEL} from './supply/supply.model';
 import {toIsoDate} from '../../core/helpers/date.helper';
 import type {CostInfo} from './entity/utility.interface';
-import {CommitmentService} from '../contracts/commitments/commitment.service';
+import {CommitmentService} from '../commitments/commitment.service';
 import {forkJoin} from 'rxjs';
 
 
@@ -597,7 +597,7 @@ export class UtilityEditDialogComponent implements OnInit {
   private loadCommittedChapters(): void {
     const open = this.contracts.filter(c => !c.closed);
     if (!open.length) return;
-    forkJoin(open.map(c => this.commitmentService.list(c.id))).subscribe({
+    forkJoin(open.map(c => this.commitmentService.byContract(c.id))).subscribe({
       next: lists => {
         this.committedChapterIds = new Set(lists.flat().map(c => c.budget_chapter_id_fk));
         this.buildBudgetChapterOptions();

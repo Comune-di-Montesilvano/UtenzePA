@@ -17,6 +17,7 @@ import { SupplyEventLike } from '@apis/utility-supply/supply-state';
 import { outOfPeriod } from '@apis/utility-supply/out-of-period';
 import { SupplyEventType } from '@apis/utility-supply/enum/supply-event-type.enum';
 import { imapConfigFromEnv, importForcedOff } from '@apis/invoice-import/pec-imap.client';
+import { commitmentLabel } from '@apis/budget-commitments/commitment-label';
 
 // Contratto valido oggi: stessa definizione di "contratto corrente" usata in
 // UtilitiesService (scadenza assente o non ancora passata).
@@ -116,6 +117,9 @@ export interface Anomalies {
   }>;
   // Utenze con fatture ferme perché la matricola in fattura è diversa.
   utilities_with_meter_mismatch: AnomalyList<{ id: number; utility_id: string; detail: string }>;
+  commitments_overspent: AnomalyList<CommitmentAnomaly>;
+  commitments_without_contract: AnomalyList<CommitmentAnomaly>;
+  commitments_without_amount: AnomalyList<CommitmentAnomaly>;
 }
 
 // Import fatture fermo: nessun giro riuscito da più di 2 ore (giro ogni 15 minuti).
@@ -144,6 +148,15 @@ export interface RealEstateContractAnomaly {
 }
 
 const list = <T>(items: T[]): AnomalyList<T> => ({ count: items.length, items });
+
+export interface CommitmentAnomaly {
+  id: number;
+  label: string;
+  chapter: string;
+  fiscal_year: number;
+  amount: number | null;
+  remaining: number | null;
+}
 
 const daysSince = (since: string | null, today: string): number =>
   since
@@ -387,10 +400,10 @@ export class AnomaliesService {
        AND EXISTS (
          SELECT 1 FROM contract_utilities cu JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
          WHERE cu.utility_id = u.id AND c.closed = 0
-           AND EXISTS (SELECT 1 FROM budget_commitments any_c WHERE any_c.contract_id_fk = c.id AND any_c.deleted = 0)
-           AND NOT EXISTS (SELECT 1 FROM budget_commitments bc
-                           WHERE bc.contract_id_fk = c.id AND bc.deleted = 0
-                             AND bc.budget_chapter_id_fk = u.budget_chapter_code_fk))
+           AND EXISTS (SELECT 1 FROM budget_commitment_contracts x JOIN budget_commitments any_c ON any_c.id = x.commitment_id AND any_c.deleted = 0 WHERE x.contract_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM budget_commitment_contracts y
+                           JOIN budget_commitments bc ON bc.id = y.commitment_id AND bc.deleted = 0
+                           WHERE y.contract_id = c.id AND bc.budget_chapter_id_fk = u.budget_chapter_code_fk))
        ORDER BY t.name, u.utility_id`,
     );
 
@@ -728,6 +741,38 @@ export class AnomaliesService {
                         UPPER(TRIM(LEADING '0' FROM REPLACE(ii.value, ' ', ''))))))
         ORDER BY ii.type, ii.id DESC`,
     );
+    // Impegni dell'esercizio in corso e successivi: speso dalle righe assegnate.
+    const commitmentRows: Record<string, unknown>[] = await this.dataSource.query(
+      `/* commitments_check */
+       SELECT bc.id, bc.commitment_year, bc.commitment_num, bc.commitment_sub, bc.fiscal_year, bc.amount,
+              CONCAT(b.chapter_code, '/', b.article) AS chapter,
+              (SELECT COUNT(*) FROM budget_commitment_contracts x WHERE x.commitment_id = bc.id) AS contracts,
+              (SELECT COALESCE(SUM(il.amount), 0) FROM invoice_lines il
+                 JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
+                WHERE il.commitment_id_fk = bc.id) AS spent
+         FROM budget_commitments bc JOIN budget_chapters b ON b.id = bc.budget_chapter_id_fk
+        WHERE bc.deleted = 0 AND bc.fiscal_year >= ?
+        ORDER BY bc.fiscal_year, b.chapter_code, b.article, bc.commitment_year, bc.commitment_num, bc.commitment_sub`,
+      [year],
+    );
+    const commitments = commitmentRows.map((r) => {
+      const amount = r.amount == null ? null : Number(r.amount);
+      return {
+        item: {
+          id: Number(r.id),
+          label: commitmentLabel(
+            r.commitment_year == null ? null : Number(r.commitment_year),
+            r.commitment_num == null ? null : Number(r.commitment_num),
+            r.commitment_sub == null ? null : Number(r.commitment_sub),
+          ),
+          chapter: String(r.chapter),
+          fiscal_year: Number(r.fiscal_year),
+          amount,
+          remaining: amount === null ? null : Math.round((amount - Number(r.spent ?? 0)) * 100) / 100,
+        } as CommitmentAnomaly,
+        contracts: Number(r.contracts ?? 0),
+      };
+    });
     const lastSuccess = importState?.last_success_at
       ? new Date(importState.last_success_at as string | Date)
       : null;
@@ -777,6 +822,13 @@ export class AnomaliesService {
           utility_id: r.utility_id == null ? null : Number(r.utility_id),
         })),
       ),
+      commitments_overspent: list(
+        commitments
+          .filter((c) => c.item.fiscal_year === year && c.item.remaining !== null && c.item.remaining < 0)
+          .map((c) => c.item),
+      ),
+      commitments_without_contract: list(commitments.filter((c) => c.contracts === 0).map((c) => c.item)),
+      commitments_without_amount: list(commitments.filter((c) => c.item.amount === null).map((c) => c.item)),
       utilities_with_meter_mismatch: list([
         ...new Map(
           importIssues

@@ -10,7 +10,11 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ConsipAgreementService } from '@apis/consip-agreement/consip-agreement.service';
+import {
+  AgreementCommitments,
+  AgreementContract,
+  ConsipAgreementService,
+} from '@apis/consip-agreement/consip-agreement.service';
 import { ConsipAgreement } from '@apis/consip-agreement/entity/consip-agreement.entity';
 import { Roles } from '@core/auth/decorators/roles.decorator';
 import { CurrentUser, ICurrentUser } from '@/core/auth/decorators/current-user.decorator';
@@ -39,8 +43,33 @@ export class ConsipAgreementController {
   async getOne(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: ICurrentUser,
-  ): Promise<ConsipAgreement> {
-    return maskSupplierOf(await this.service.findOne(id), user?.role);
+  ): Promise<ConsipAgreement & { contracts: AgreementContract[] }> {
+    return maskSupplierOf(await this.service.findOneWithContracts(id), user?.role);
+  }
+
+  @Get(':id/commitments')
+  commitments(@Param('id', ParseIntPipe) id: number): Promise<AgreementCommitments> {
+    return this.service.commitments(id);
+  }
+
+  @Roles('Admin', 'Operatore')
+  @Post(':id/contracts/:contractId')
+  linkContract(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('contractId', ParseIntPipe) contractId: number,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<void> {
+    return this.service.linkContract(id, contractId, user.id);
+  }
+
+  @Roles('Admin', 'Operatore')
+  @Delete(':id/contracts/:contractId')
+  unlinkContract(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('contractId', ParseIntPipe) contractId: number,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<void> {
+    return this.service.unlinkContract(id, contractId, user.id);
   }
 
   @Roles('Admin', 'Operatore')

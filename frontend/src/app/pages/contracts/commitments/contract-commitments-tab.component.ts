@@ -1,27 +1,26 @@
-import {ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnInit, Output} from '@angular/core';
-import {MatDialog} from '@angular/material/dialog';
-import {MatButtonModule} from '@angular/material/button';
+import {ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, SimpleChanges} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {forkJoin} from 'rxjs';
-import {CommitmentService} from './commitment.service';
-import {chapterLabel, Commitment} from './commitment.model';
-import {CommitmentDialogData, CommitmentEditDialogComponent} from './commitment-edit-dialog.component';
+import {LinkedColumn, LinkedTableComponent} from '../../../core/components/entity-sheet/linked-table.component';
+import type {StatusInfo} from '../../../core/helpers/entity-status';
+import {EntityNavigatorService} from '../../../core/services/entity-navigator.service';
+import {ToastService} from '../../../core/services/toast.service';
+import type {TOption} from '../../../core/types/option.interface';
+import {chapterLabel, Commitment} from '../../commitments/commitment.model';
+import {CommitmentService} from '../../commitments/commitment.service';
 import {SpendingService} from '../../spending/spending.service';
 import type {ChapterSummary} from '../../spending/spending.model';
-import type {TOption} from '../../../core/types/option.interface';
-import {ToastService} from '../../../core/services/toast.service';
-import {ConfirmDialogComponent, ConfirmDialogData} from '../../../core/components/confirm-dialog.component';
 
 const eur = (n: number | null | undefined): string =>
   n === null || n === undefined ? '—' : n.toLocaleString('it-IT', {style: 'currency', currency: 'EUR'});
 
 // Tab "Impegni e capitoli" della scheda contratto di fornitura: riepilogo per
-// capitolo (calcolato) ed elenco degli impegni censiti.
+// capitolo (calcolato) e impegni collegati (N-N, si aprono nella loro scheda).
 @Component({
   selector: 'app-contract-commitments-tab',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatTooltipModule],
+  imports: [MatIconModule, MatTooltipModule, LinkedTableComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <h3 class="sheet-section-title">Capitoli</h3>
@@ -48,72 +47,73 @@ const eur = (n: number | null | undefined): string =>
       </table>
     }
 
-    <div style="display: flex; align-items: center; margin-top: 20px;">
-      <h3 class="sheet-section-title" style="margin: 0;">Impegni</h3>
-      @if (canEdit) {
-        <button mat-stroked-button type="button" style="margin-left: auto;" (click)="edit(null)">
-          <mat-icon>add</mat-icon> Nuovo impegno
-        </button>
-      }
-    </div>
-    @if (!commitments.length) {
-      <p class="sheet-empty">Nessun impegno censito.</p>
-    } @else {
-      <table class="sheet-table">
-        <thead>
-          <tr>
-            <th>Esercizio</th><th>Capitolo</th><th>Numero</th><th>Importo</th><th>Note</th>
-            @if (canEdit) { <th></th> }
-          </tr>
-        </thead>
-        <tbody>
-          @for (c of commitments; track c.id) {
-            <tr>
-              <td>{{ c.fiscal_year }}</td>
-              <td>{{ chapterLabel(c.budgetChapter) }}</td>
-              <td>{{ c.commitment_number || '—' }}</td>
-              <td>{{ eur(c.amount) }}</td>
-              <td>{{ c.notes || '' }}</td>
-              @if (canEdit) {
-                <td style="white-space: nowrap; text-align: right;">
-                  <button mat-icon-button type="button" aria-label="Modifica impegno" (click)="edit(c)"><mat-icon>edit</mat-icon></button>
-                  <button mat-icon-button type="button" aria-label="Elimina impegno" (click)="remove(c)"><mat-icon>delete</mat-icon></button>
-                </td>
-              }
-            </tr>
-          }
-        </tbody>
-      </table>
-    }
+    <h3 class="sheet-section-title" style="margin-top: 20px;">Impegni</h3>
+    <app-linked-table [columns]="columns" [rows]="commitments" [rowStatus]="status"
+                      [addOptions]="canEdit ? addOptions : null" addLabel="Collega impegno"
+                      [unlinkable]="canEdit" itemLabel="l'impegno"
+                      [createLabel]="canEdit ? 'Nuovo impegno' : null" (create)="create()"
+                      (add)="link($event)" (unlink)="unlink($event)" (open)="open($event)"
+                      emptyText="Nessun impegno collegato."></app-linked-table>
   `,
 })
-export class ContractCommitmentsTabComponent implements OnInit {
+export class ContractCommitmentsTabComponent implements OnInit, OnChanges {
   @Input({required: true}) contractId!: number;
+  @Input() supplierId: number | null = null;
   @Input() canEdit = false;
-  @Input() chapterOptions: TOption[] = [];
   @Output() changed = new EventEmitter<number>();
 
   private commitmentService = inject(CommitmentService);
   private spending = inject(SpendingService);
-  private dialog = inject(MatDialog);
+  private navigator = inject(EntityNavigatorService);
   private toast = inject(ToastService);
 
+  // Campi cache (vedi LinkedTableComponent): aggiornati solo su evento.
   commitments: Commitment[] = [];
+  addOptions: TOption[] = [];
   summary: ChapterSummary[] = [];
-  readonly chapterLabel = chapterLabel;
-  readonly eur = eur;
+
+  readonly columns: LinkedColumn<Commitment>[] = [
+    {label: 'Numero', value: c => c.label},
+    {label: 'Competenza', value: c => String(c.fiscal_year)},
+    {label: 'Capitolo', value: c => c.chapter_label},
+    {label: 'Importo', value: c => (c.amount === null ? 'senza importo' : eur(c.amount))},
+    {label: 'Rimanenza', value: c => eur(c.remaining)},
+  ];
+
+  readonly status = (c: Commitment): StatusInfo | null =>
+    c.remaining !== null && c.remaining < 0 ? {tone: 'danger', label: 'Sforato', icon: 'report'} : null;
 
   ngOnInit(): void {
     this.load();
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['supplierId'] && !changes['supplierId'].firstChange) this.loadOptions();
+  }
+
   load(): void {
-    forkJoin([this.commitmentService.list(this.contractId), this.spending.contractChapters(this.contractId)])
+    forkJoin([this.commitmentService.byContract(this.contractId), this.spending.contractChapters(this.contractId)])
       .subscribe(([commitments, summary]) => {
-        this.commitments = commitments;
+        this.commitments = commitments.filter(c => !c.deleted);
         this.summary = summary;
-        this.changed.emit(commitments.length);
+        this.changed.emit(this.commitments.length);
+        this.loadOptions();
       });
+  }
+
+  // Collegabili: impegni del fornitore del contratto non ancora collegati.
+  private loadOptions(): void {
+    if (!this.canEdit || !this.supplierId) {
+      this.addOptions = [];
+      return;
+    }
+    const linked = new Set(this.commitments.map(c => c.id));
+    this.commitmentService.search({supplier_id: this.supplierId, deleted: false} as never).subscribe({
+      next: list => this.addOptions = list
+        .filter(c => !linked.has(c.id))
+        .map(c => ({label: `${c.label} · competenza ${c.fiscal_year}`, value: c.id, sublabel: c.chapter_label})),
+      error: err => console.error('Errore nel caricamento degli impegni del fornitore:', err),
+    });
   }
 
   label(row: ChapterSummary): string {
@@ -135,33 +135,31 @@ export class ContractCommitmentsTabComponent implements OnInit {
     return row.spent.length ? row.spent.map(s => `${s.year}: ${eur(s.total)}`).join(' · ') : '—';
   }
 
-  edit(item: Commitment | null): void {
-    this.dialog.open<CommitmentEditDialogComponent, CommitmentDialogData>(CommitmentEditDialogComponent, {
-      width: '560px', maxWidth: '95vw', data: {item, chapterOptions: this.chapterOptions},
-    }).afterClosed().subscribe(payload => {
-      if (!payload) return;
-      const req = item ? this.commitmentService.update(item.id, payload) : this.commitmentService.create(this.contractId, payload);
-      req.subscribe({
-        next: () => this.load(),
-        error: err => this.toast.add({severity: 'error', summary: 'Impegno non salvato', detail: err?.error?.message}),
-      });
+  create(): void {
+    this.navigator.createCommitment({contract_ids: [this.contractId], supplier_id_fk: this.supplierId}).subscribe(c => {
+      if (c) this.load();
     });
   }
 
-  remove(item: Commitment): void {
-    this.dialog.open<ConfirmDialogComponent, ConfirmDialogData>(ConfirmDialogComponent, {
-      data: {
-        title: 'Elimina impegno',
-        message: `Eliminare l'impegno ${item.fiscal_year} sul capitolo ${chapterLabel(item.budgetChapter)}?`,
-        confirmLabel: 'Elimina',
-        danger: true,
-      },
-    }).afterClosed().subscribe(ok => {
-      if (!ok) return;
-      this.commitmentService.delete(item.id).subscribe({
-        next: () => this.load(),
-        error: err => this.toast.add({severity: 'error', summary: 'Impegno non eliminato', detail: err?.error?.message}),
-      });
+  open(c: Commitment): void {
+    this.navigator.openCommitment(c.id).subscribe(saved => {
+      if (saved) this.load();
+    });
+  }
+
+  link(id: number): void {
+    this.commitmentService.getById(id).subscribe(c => this.saveContracts(c, [...c.contract_ids, this.contractId]));
+  }
+
+  unlink(id: number): void {
+    const c = this.commitments.find(x => x.id === id);
+    if (c) this.saveContracts(c, c.contract_ids.filter(x => x !== this.contractId));
+  }
+
+  private saveContracts(c: Commitment, contractIds: number[]): void {
+    this.commitmentService.update(c.id, {contract_ids: [...new Set(contractIds)]} as Partial<Commitment>).subscribe({
+      next: () => this.load(),
+      error: err => this.toast.add({severity: 'error', summary: 'Impegno non aggiornato', detail: err?.error?.message}),
     });
   }
 }

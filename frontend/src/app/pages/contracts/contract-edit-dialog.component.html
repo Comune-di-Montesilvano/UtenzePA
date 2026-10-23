@@ -50,10 +50,16 @@
             <app-filterable-select label="Fornitore" placeholder="Cerca fornitore..." [options]="supplierOptions" formControlName="supplier_id_fk"
               [createLabel]="canEdit ? 'Nuovo soggetto terzo' : null" (create)="newSupplier($event)"></app-filterable-select>
           </div>
-          <div class="span-2">
-            <app-filterable-select label="Convenzione CONSIP" placeholder="Cerca convenzione..." [options]="consipOptions"
+          <div class="span-2" style="display: flex; align-items: flex-start; gap: 4px;">
+            <app-filterable-select style="flex: 1;" label="Convenzione CONSIP" placeholder="Cerca convenzione..." [options]="consipOptions"
               formControlName="consip_agreement_id" [createLabel]="canEdit ? 'Nuova convenzione CONSIP' : null"
               (create)="newConsip($event)"></app-filterable-select>
+            @if (form.controls.consip_agreement_id.value) {
+              <button mat-icon-button type="button" aria-label="Apri scheda convenzione" matTooltip="Apri scheda convenzione"
+                      style="margin-top: 4px;" (click)="openConsip()">
+                <mat-icon>open_in_new</mat-icon>
+              </button>
+            }
           </div>
           <mat-form-field class="span-2">
             <mat-label>Numero ordine (ODA)</mat-label>
@@ -131,8 +137,8 @@
           </ng-template>
           <app-contract-commitments-tab
             [contractId]="data.item.id"
+            [supplierId]="form.controls.supplier_id_fk.value"
             [canEdit]="canEdit"
-            [chapterOptions]="chapterOptions"
             (changed)="commitmentCount = $event">
           </app-contract-commitments-tab>
         </mat-tab>

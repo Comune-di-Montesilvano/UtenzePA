@@ -98,6 +98,7 @@ describe('InvoiceImportService.runOnce', () => {
       {} as never,
       noLinker as never,
       noRecalc as never,
+      { reconcileAll: jest.fn() } as never,
     );
 
   beforeEach(() => {
@@ -315,6 +316,7 @@ describe('InvoiceImportService con i pattern', () => {
   let applier: { apply: jest.Mock; importUserId: jest.Mock; block: jest.Mock };
   let linker: { link: jest.Mock; unlink: jest.Mock };
   let recalc: { recalcUtility: jest.Mock };
+  const reconcile = { reconcileAll: jest.fn() };
   const savedEnv = { ...process.env };
   const manager = {};
 
@@ -330,6 +332,7 @@ describe('InvoiceImportService con i pattern', () => {
       applier as never,
       linker as never,
       recalc as never,
+      reconcile as never,
     );
 
   beforeEach(() => {
@@ -433,8 +436,10 @@ describe('InvoiceImportService con i pattern', () => {
 
   it('pattern che riconosce la fattura: estratta e scritta, struttura registrata', async () => {
     patterns.rows.push(pricePattern());
+    reconcile.reconcileAll.mockClear();
     const result = await service().runOnce();
     expect(result.extracted).toBe(1);
+    expect(reconcile.reconcileAll).toHaveBeenCalledTimes(1);
     expect(applier.apply).toHaveBeenCalledWith(
       expect.objectContaining({ file_name: 'IT01234567897_a1B2c.xml.p7m' }),
       expect.objectContaining({ number: 'FPR 1/26' }),
@@ -594,7 +599,9 @@ describe('InvoiceImportService con i pattern', () => {
     });
 
     it('estrae i messaggi ancora sulla PEC, salta spariti e fatture modificate a mano', async () => {
+      reconcile.reconcileAll.mockClear();
       expect(await service().reprocess([1, 2, 3])).toEqual({ extracted: 1, skipped: 2, queued: 0 });
+      expect(reconcile.reconcileAll).toHaveBeenCalledTimes(1);
       expect(applier.apply).toHaveBeenCalledTimes(1);
       expect(mailbox.open).toHaveBeenCalledTimes(1);
     });
@@ -667,6 +674,7 @@ describe('InvoiceImportService.getStatus', () => {
       {} as never,
       noLinker as never,
       noRecalc as never,
+      {} as never,
     );
     const status = await service.getStatus();
     expect(status.counts).toEqual({ LINKED: 3 });
@@ -694,6 +702,7 @@ describe('InvoiceImportService.getDocument', () => {
       {} as never,
       noLinker as never,
       noRecalc as never,
+      {} as never,
     );
 
   beforeEach(() => {

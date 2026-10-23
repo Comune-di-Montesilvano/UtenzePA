@@ -38,8 +38,6 @@ import {ToastService} from '../../core/services/toast.service';
 import {ContractsService} from './contract.service';
 import {ContractCommitmentsTabComponent} from './commitments/contract-commitments-tab.component';
 import {InvoicesTabComponent} from '../invoices/invoices-tab.component';
-import {chapterLabel} from './commitments/commitment.model';
-import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
 import {EntityDocumentsComponent} from '../acts/entity-documents.component';
 
 /** Precompila l'associazione utenze quando aperto dal dettaglio Utenza ("Nuovo contratto"). */
@@ -79,7 +77,6 @@ export class ContractEditDialogComponent implements OnInit {
   private consipService = inject(ConsipAgreementService);
   private utilityService = inject(UtilityService);
   private navigator = inject(EntityNavigatorService);
-  private budgetChaptersService = inject(BudgetChaptersService);
   private contractsService = inject(ContractsService);
   private toast = inject(ToastService);
   protected data = inject<EditDialogData<Contract> & ContractDialogExtra>(MAT_DIALOG_DATA);
@@ -95,8 +92,7 @@ export class ContractEditDialogComponent implements OnInit {
   readonly lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
 
   supplierOptions: TOption[] = [];
-  // Tab "Impegni e capitoli": capitoli selezionabili e numero di impegni.
-  chapterOptions: TOption[] = [];
+  // Tab "Impegni e capitoli": numero di impegni collegati.
   commitmentCount: number | null = null;
   consipAgreementOptions: ConsipAgreement[] = [];
   consipOptions: TOption[] = [];
@@ -161,18 +157,6 @@ export class ContractEditDialogComponent implements OnInit {
     if (this.canEdit) {
       this.form.controls.consip_agreement_id.valueChanges.subscribe(id => this.onConsipAgreementChange(id));
     }
-    if (!this.isNew) {
-      this.budgetChaptersService.search({deleted: false}).subscribe({
-        next: data => this.chapterOptions = data
-          .map(c => ({
-            label: chapterLabel(c),
-            value: c.id,
-            searchText: `${c.chapter_code}/${c.article ?? 0} ${c.description ?? ''} ${c.pdc ?? ''}`,
-          }))
-          .sort((a, b) => a.label.localeCompare(b.label)),
-        error: err => console.error('Errore nel caricamento dei capitoli:', err)
-      });
-    }
     this.loadUtilities();
   }
 
@@ -208,6 +192,12 @@ export class ContractEditDialogComponent implements OnInit {
       this.form.controls.supplier_id_fk.markAsDirty();
       this.loadSuppliers();
     });
+  }
+
+  openConsip(): void {
+    const id = this.form.controls.consip_agreement_id.value;
+    if (!id) return;
+    this.navigator.openConsipAgreement(id).subscribe(() => this.loadConsip());
   }
 
   newConsip(text: string): void {

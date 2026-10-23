@@ -8,7 +8,8 @@ import {MatDatepickerModule} from '@angular/material/datepicker';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import type {TOption} from '../../core/types/option.interface';
-import {InvoiceLine} from './entity/invoice-line.model';
+import {AUTO_COMMITMENT, InvoiceLine, isAutoLine} from './entity/invoice-line.model';
+import {commitmentRefLabel} from '../commitments/commitment.model';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {Utility} from '../utilities/entity/utility.entity';
 import {toIsoDate} from '../utilities/consumptions/consumption.model';
@@ -59,11 +60,15 @@ const eur = (n: number | null | undefined): string =>
           }
         </div>
         <div class="f-commitment">
-          <app-filterable-select label="Impegno" placeholder="Esercizio o capitolo..." [options]="commitmentOptions"
-            [ngModel]="l.commitment_id_fk" [ngModelOptions]="{standalone: true}" (ngModelChange)="set(l, 'commitment_id_fk', $event)" [disabled]="readOnly"
+          <app-filterable-select label="Impegno" placeholder="Numero, esercizio o capitolo..." [options]="selectOptions"
+            [ngModel]="commitmentValue(l)" [ngModelOptions]="{standalone: true}" (ngModelChange)="setCommitment(l, $event)" [disabled]="readOnly"
             [createLabel]="readOnly || !contractId ? null : 'Nuovo impegno'" (create)="newCommitment(l)"></app-filterable-select>
           @if (!readOnly && !contractId) {
             <span class="line-hint">Impegni disponibili scegliendo il contratto.</span>
+          } @else if (autoHint(l)) {
+            <span class="line-hint" matTooltip="Assegnato automaticamente in ordine di numero; cambia salvando la fattura">
+              <mat-icon style="font-size: 14px; width: 14px; height: 14px; vertical-align: text-bottom;">auto_mode</mat-icon> {{ autoHint(l) }}
+            </span>
           }
         </div>
         <mat-form-field class="f-date">
@@ -133,10 +138,16 @@ export class InvoiceLinesTabComponent implements OnChanges {
   @Input() lines: InvoiceLine[] = [];
   @Input() total: number | null | undefined = null;
   @Input() utilityOptions: TOption[] = [];
-  @Input() commitmentOptions: TOption[] = [];
+  // «Automatico» in testa alle opzioni: campo cache, ricalcolato col setter.
+  selectOptions: TOption[] = [{label: 'Automatico', value: AUTO_COMMITMENT, sublabel: 'in ordine di numero'}];
+  @Input() set commitmentOptions(list: TOption[]) {
+    this.selectOptions = [{label: 'Automatico', value: AUTO_COMMITMENT, sublabel: 'in ordine di numero'}, ...(list ?? [])];
+  }
   @Input() readOnly = false;
   // Contratto della fattura: serve a creare un impegno dalla riga.
   @Input() contractId: number | null = null;
+  // Fornitore della fattura: precompilato sugli impegni creati da una riga.
+  @Input() supplierId: number | null = null;
   @Output() linesChange = new EventEmitter<InvoiceLine[]>();
   // Elemento creato da una riga: il padre ricarica quelle opzioni.
   @Output() optionsStale = new EventEmitter<'utilities' | 'commitments'>();
@@ -194,18 +205,36 @@ export class InvoiceLinesTabComponent implements OnChanges {
     });
   }
 
+  // «Automatico» in testa: l'impegno lo sceglie il ricalcolo dopo il Salva.
+  commitmentValue(l: EditableLine): number | null {
+    return isAutoLine(l) ? AUTO_COMMITMENT : l.commitment_id_fk;
+  }
+
+  setCommitment(l: EditableLine, value: number | null): void {
+    const auto = value === AUTO_COMMITMENT || value === null;
+    l.commitment_auto = auto;
+    l.commitment_id_fk = auto ? null : value;
+    if (auto) l.commitment = null;
+    this.emit();
+  }
+
+  // Riga automatica già assegnata dal server: quale impegno sta consumando.
+  autoHint(l: EditableLine): string | null {
+    return isAutoLine(l) && l.commitment ? `Ora: ${commitmentRefLabel(l.commitment)}` : null;
+  }
+
   newCommitment(l: EditableLine): void {
     if (!this.contractId) return;
-    this.navigator.createCommitment(this.contractId).subscribe(c => {
+    this.navigator.createCommitment({contract_ids: [this.contractId], supplier_id_fk: this.supplierId}).subscribe(c => {
       if (!c) return;
       this.optionsStale.emit('commitments');
-      this.set(l, 'commitment_id_fk', c.id);
+      this.setCommitment(l, c.id);
     });
   }
 
   add(): void {
     this.rows = [...this.rows, {
-      amount: 0, utility_id_fk: null, commitment_id_fk: null, period_start: null, period_end: null,
+      amount: 0, utility_id_fk: null, commitment_id_fk: null, commitment_auto: true, period_start: null, period_end: null,
       consumption: null, supply_code: null, description: null, start: null, end: null,
     }];
     this.emit();
