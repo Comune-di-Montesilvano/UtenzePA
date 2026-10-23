@@ -181,12 +181,14 @@ export function chapterBudgetStatus(
   if (y.commitments_without_amount) {
     return {
       tone: 'warn',
-      label: `Disponibile al massimo ${euro(y.available)}`,
+      label: `Da impegnare al massimo ${euro(y.available)}`,
       icon: 'warning',
       tooltip: `${y.commitments_without_amount} impegni senza importo: l'impegnato è parziale`,
     };
   }
-  return {tone: 'ok', label: `Disponibile ${euro(y.available)}`, icon: 'check_circle'};
+  if (!y.available) return {tone: 'info', label: 'Assestato tutto impegnato', icon: 'check_circle'};
+  return {tone: 'ok', label: `Da impegnare ${euro(y.available)}`, icon: 'check_circle',
+    tooltip: 'Assestato meno impegnato'};
 }
 
 // Stessa regola del validatore cigRequiredUnlessExempt del dialog.

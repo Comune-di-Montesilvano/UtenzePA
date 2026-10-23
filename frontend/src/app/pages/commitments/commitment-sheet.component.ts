@@ -219,6 +219,12 @@ export class CommitmentSheetComponent implements OnInit {
     });
   }
 
+  openChapter(): void {
+    const id = this.form.controls.budget_chapter_id_fk.value;
+    if (!id) return;
+    this.navigator.openBudgetChapter(id).subscribe(() => this.loadChapters());
+  }
+
   newChapter(): void {
     this.navigator.createBudgetChapter().subscribe(c => {
       if (!c) return;
