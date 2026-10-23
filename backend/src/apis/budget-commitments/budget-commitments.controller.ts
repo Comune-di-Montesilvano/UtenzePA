@@ -7,47 +7,74 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '@/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/core/auth/guards/roles.guard';
 import { Roles } from '@/core/auth/decorators/roles.decorator';
 import { CurrentUser, ICurrentUser } from '@/core/auth/decorators/current-user.decorator';
-import { BudgetCommitmentsService } from './budget-commitments.service';
-import { BudgetCommitment } from './entity/budget-commitment.entity';
+import { BudgetCommitmentsService, CommitmentLine, CommitmentRow } from './budget-commitments.service';
 import { CreateBudgetCommitmentDto } from './dto/create-budget-commitment.dto';
 import { UpdateBudgetCommitmentDto } from './dto/update-budget-commitment.dto';
+import { SearchBudgetCommitmentDto } from './dto/search-budget-commitment.dto';
 
-// Annidati sotto contracts/:contractId (lista/creazione), diretti su
-// commitments/:id (modifica/eliminazione), come la spesa storica dei capitoli.
+// Impegni: elenco e scheda su commitments; contracts/:contractId/commitments
+// resta come scorciatoia (tab Impegni del contratto, "Nuovo impegno" in fattura).
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class BudgetCommitmentsController {
   constructor(private readonly service: BudgetCommitmentsService) {}
 
+  @Get('commitments')
+  list(@Query() search: SearchBudgetCommitmentDto): Promise<CommitmentRow[]> {
+    return this.service.listRows(search);
+  }
+
+  @Get('commitments/:id')
+  get(@Param('id', ParseIntPipe) id: number): Promise<CommitmentRow> {
+    return this.service.getRow(id);
+  }
+
+  @Get('commitments/:id/lines')
+  lines(@Param('id', ParseIntPipe) id: number): Promise<CommitmentLine[]> {
+    return this.service.lines(id);
+  }
+
   @Get('contracts/:contractId/commitments')
-  list(@Param('contractId', ParseIntPipe) contractId: number): Promise<BudgetCommitment[]> {
-    return this.service.findByContract(contractId);
+  byContract(@Param('contractId', ParseIntPipe) contractId: number): Promise<CommitmentRow[]> {
+    return this.service.listRows({ contract_id: contractId });
+  }
+
+  @Roles('Admin', 'Operatore')
+  @Post('commitments')
+  async create(
+    @Body() dto: CreateBudgetCommitmentDto,
+    @CurrentUser() user: ICurrentUser,
+  ): Promise<CommitmentRow> {
+    const saved = await this.service.create(dto, user.id);
+    return this.service.getRow(saved.id);
   }
 
   @Roles('Admin', 'Operatore')
   @Post('contracts/:contractId/commitments')
-  create(
+  createForContract(
     @Param('contractId', ParseIntPipe) contractId: number,
     @Body() dto: CreateBudgetCommitmentDto,
     @CurrentUser() user: ICurrentUser,
-  ): Promise<BudgetCommitment> {
+  ): Promise<CommitmentRow> {
     return this.service.createForContract(contractId, dto, user.id);
   }
 
   @Roles('Admin', 'Operatore')
   @Patch('commitments/:id')
-  update(
+  async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateBudgetCommitmentDto,
     @CurrentUser() user: ICurrentUser,
-  ): Promise<BudgetCommitment> {
-    return this.service.update(id, dto, user.id);
+  ): Promise<CommitmentRow> {
+    await this.service.update(id, dto, user.id);
+    return this.service.getRow(id);
   }
 
   @Roles('Admin', 'Operatore')
