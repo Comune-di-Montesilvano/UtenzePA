@@ -11,7 +11,7 @@ import { CommitmentReconcileService } from './commitment-reconcile.service';
 @Module({
   imports: [TypeOrmModule.forFeature([BudgetCommitment, Contract, BudgetChapter, InvoiceLine])],
   providers: [BudgetCommitmentsService, CommitmentReconcileService],
-  exports: [CommitmentReconcileService],
+  exports: [CommitmentReconcileService, BudgetCommitmentsService],
   controllers: [BudgetCommitmentsController],
 })
 export class BudgetCommitmentsModule {}

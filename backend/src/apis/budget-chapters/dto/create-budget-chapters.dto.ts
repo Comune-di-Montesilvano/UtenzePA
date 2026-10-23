@@ -24,6 +24,10 @@ export class CreateBudgetChapterDto {
   @MaxLength(100)
   pdc?: string;
 
+  @IsOptional()
+  @IsString()
+  notes?: string | null;
+
   // Tipi utenza del capitolo (tabella budget_chapter_utility_types); vuoto = tutti.
   @IsOptional()
   @IsArray({ message: 'I tipi utenza devono essere un array.' })

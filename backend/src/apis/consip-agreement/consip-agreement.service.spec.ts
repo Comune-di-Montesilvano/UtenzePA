@@ -10,6 +10,8 @@ describe('ConsipAgreementService', () => {
     create: jest.Mock;
     save: jest.Mock;
   };
+  let contractRepo: { find: jest.Mock; findOne: jest.Mock; save: jest.Mock };
+  let commitments: { listRows: jest.Mock };
   let qb: {
     where: jest.Mock;
     andWhere: jest.Mock;
@@ -32,7 +34,72 @@ describe('ConsipAgreementService', () => {
       create: jest.fn((data) => data),
       save: jest.fn(async (data) => data),
     };
-    service = new ConsipAgreementService(repo as never);
+    contractRepo = {
+      find: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn(),
+      save: jest.fn(async (d) => d),
+    };
+    commitments = { listRows: jest.fn().mockResolvedValue([]) };
+    service = new ConsipAgreementService(repo as never, contractRepo as never, commitments as never);
+  });
+
+  describe('contratti e impegni della convenzione', () => {
+    const agreement = { id: 57, supplier_id: 46, deleted: false };
+
+    it('collega un contratto dello stesso fornitore, con audit sul contratto', async () => {
+      repo.findOne.mockResolvedValue(agreement);
+      contractRepo.findOne.mockResolvedValue({ id: 9, supplier_id_fk: 46, consip_agreement_id: null, deleted: false });
+      const record = jest.fn();
+      (service as unknown as { auditLogService: unknown }).auditLogService = { record };
+      await service.linkContract(57, 9, 3);
+      expect(contractRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 9, consip_agreement_id: 57, updated_by_user_id: 3 }),
+      );
+      expect(record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entityName: 'contract',
+          entityId: 9,
+          fields: [expect.objectContaining({ fieldName: 'consip_agreement_id', oldValue: null, newValue: 57 })],
+        }),
+      );
+    });
+
+    it('rifiuta un contratto di un altro fornitore', async () => {
+      repo.findOne.mockResolvedValue(agreement);
+      contractRepo.findOne.mockResolvedValue({ id: 9, supplier_id_fk: 12, consip_agreement_id: null, deleted: false });
+      await expect(service.linkContract(57, 9, 3)).rejects.toThrow(BadRequestException);
+      expect(contractRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('scollega solo un contratto di questa convenzione', async () => {
+      repo.findOne.mockResolvedValue(agreement);
+      contractRepo.findOne.mockResolvedValue({ id: 9, supplier_id_fk: 46, consip_agreement_id: 58, deleted: false });
+      await expect(service.unlinkContract(57, 9, 3)).rejects.toThrow(BadRequestException);
+      contractRepo.findOne.mockResolvedValue({ id: 9, supplier_id_fk: 46, consip_agreement_id: 57, deleted: false });
+      await service.unlinkContract(57, 9, 3);
+      expect(contractRepo.save).toHaveBeenCalledWith(expect.objectContaining({ consip_agreement_id: null }));
+    });
+
+    it('impegni: quelli dei contratti della convenzione, totali sui soli importi noti', async () => {
+      commitments.listRows.mockResolvedValue([
+        { id: 1, amount: 100, spent: 30, remaining: 70 },
+        { id: 2, amount: null, spent: 5, remaining: null },
+      ]);
+      const result = await service.commitments(57);
+      expect(commitments.listRows).toHaveBeenCalledWith({ consip_agreement_id: 57 });
+      expect(result.items.map((r) => r.id)).toEqual([1, 2]);
+      expect(result.totals).toEqual({ amount: 100, spent: 35, remaining: 70 });
+    });
+
+    it('scheda: contratti collegati non cancellati', async () => {
+      repo.findOne.mockResolvedValue(agreement);
+      contractRepo.find.mockResolvedValue([{ id: 9, cig_contract: 'A', consip_order: '1', supply_start_date: null, supply_expiry_date: null, closed: false }]);
+      const result = await service.findOneWithContracts(57);
+      expect(result.contracts.map((c) => c.id)).toEqual([9]);
+      expect(contractRepo.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { consip_agreement_id: 57, deleted: false } }),
+      );
+    });
   });
 
   describe('findAll', () => {
