@@ -212,10 +212,11 @@ describe('InvoiceMatcher: righe senza utenza', () => {
     expect(headerCalls[0][1]).toEqual([46, '7334657E6B', null, null]);
   });
 
-  it('nessun impegno del contratto: segnalazione; più impegni: nessuna (sceglie il ricalcolo)', async () => {
+  it('riga senza utenza: nessun impegno o impegni su più capitoli = segnalazione; un capitolo = nessuna', async () => {
     for (const [rows, issues] of [
       [[], 1],
-      [[{ id: 71 }, { id: 72 }], 0],
+      [[{ chapter: 7 }], 0],
+      [[{ chapter: 7 }, { chapter: 8 }], 1],
     ] as const) {
       const result = await matcher({
         ...baseHandlers(),

@@ -42,6 +42,11 @@ const ALL_CONTRACTS_SQL =
   '/* r_all */ SELECT DISTINCT i.contratto_id_fk AS contract_id FROM invoices i WHERE i.contratto_id_fk IS NOT NULL ' +
   'UNION SELECT DISTINCT contract_id FROM budget_commitment_contracts';
 
+// Contratti in testata alle fatture con righe di queste utenze (cambio di capitolo).
+const UTILITY_CONTRACTS_SQL =
+  '/* r_utility_contracts */ SELECT DISTINCT i.contratto_id_fk AS contract_id FROM invoice_lines il ' +
+  'JOIN invoices i ON i.id = il.invoice_id_fk WHERE il.utility_id_fk IN (?) AND i.contratto_id_fk IS NOT NULL';
+
 const ids = (rows: Record<string, unknown>[]): number[] => rows.map((r) => Number(r.contract_id));
 
 // Assegna l'impegno alle righe di fattura automatiche (commitment-allocation.ts).
@@ -62,12 +67,15 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
 
   reconcileContracts(contractIds: number[]): Promise<void> {
     contractIds.filter((id) => !!id).forEach((id) => this.pending.add(Number(id)));
-    this.chain = this.chain.then(async () => {
+    // Un giro fallito non blocca i successivi: la coda riparte dal catch,
+    // il chiamante riceve comunque l'esito del proprio giro.
+    const next = this.chain.catch(() => undefined).then(async () => {
       const batch = [...this.pending];
       this.pending.clear();
       if (batch.length) await this.run(batch);
     });
-    return this.chain;
+    this.chain = next;
+    return next;
   }
 
   // Dopo un salvataggio già confermato: un errore non fa fallire la richiesta,
@@ -76,8 +84,18 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
     try {
       await this.reconcileContracts(contractIds);
     } catch (e) {
-      this.chain = Promise.resolve();
       this.logger.error(`Consumo impegni fallito per i contratti ${contractIds.join(', ')}`, e as Error);
+    }
+  }
+
+  // Capitolo dell'utenza cambiato: le sue righe automatiche cambiano capitolo.
+  async reconcileUtilities(utilityIds: number[]): Promise<void> {
+    if (!utilityIds.length) return;
+    try {
+      const contracts = ids(await this.dataSource.query(UTILITY_CONTRACTS_SQL, [utilityIds]));
+      if (contracts.length) await this.reconcileContracts(contracts);
+    } catch (e) {
+      this.logger.error(`Consumo impegni fallito per le utenze ${utilityIds.join(', ')}`, e as Error);
     }
   }
 

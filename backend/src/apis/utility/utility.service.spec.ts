@@ -47,6 +47,7 @@ describe('UtilitiesService', () => {
   let plantRepo: { count: jest.Mock; find: jest.Mock };
   let recalc: { recalcUtility: jest.Mock };
   let supplyReconcile: { reconcileManySafe: jest.Mock };
+  let commitments: { reconcileUtilities: jest.Mock };
   let supplyEvents: { createInitial: jest.Mock };
 
   beforeEach(() => {
@@ -82,6 +83,7 @@ describe('UtilitiesService', () => {
     plantRepo = { count: jest.fn().mockResolvedValue(1), find: jest.fn().mockResolvedValue([]) };
     supplyReconcile = { reconcileManySafe: jest.fn().mockResolvedValue(undefined) };
     supplyEvents = { createInitial: jest.fn().mockResolvedValue({ id: 1 }) };
+    commitments = { reconcileUtilities: jest.fn().mockResolvedValue(undefined) };
     service = new UtilitiesService(
       repo as never,
       assetRepo as never,
@@ -89,6 +91,7 @@ describe('UtilitiesService', () => {
       plantRepo as never,
       supplyReconcile as never,
       supplyEvents as never,
+      commitments as never,
     );
   });
 
@@ -959,6 +962,19 @@ describe('UtilitiesService', () => {
       repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false });
       await service.update(10, { notes: 'x' } as never, 1);
       expect(supplyReconcile.reconcileManySafe).not.toHaveBeenCalled();
+    });
+
+    it('cambio di capitolo: le righe automatiche dell’utenza si riassegnano', async () => {
+      repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false, budget_chapter_code_fk: 7 });
+      await service.update(10, { budget_chapter_code_fk: 8 } as never, 1);
+      expect(commitments.reconcileUtilities).toHaveBeenCalledWith([10]);
+    });
+
+    it('stesso capitolo o capitolo non inviato: nessun ricalcolo degli impegni', async () => {
+      repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false, budget_chapter_code_fk: 7 });
+      await service.update(10, { budget_chapter_code_fk: 7 } as never, 1);
+      await service.update(10, { notes: 'x' } as never, 1);
+      expect(commitments.reconcileUtilities).not.toHaveBeenCalled();
     });
 
     it('i campi dello storico nel payload non vengono scritti', async () => {

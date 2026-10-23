@@ -102,6 +102,21 @@ describe('BudgetCommitmentsService', () => {
     expect(reconcile.reconcileSafe).toHaveBeenCalledWith([1]);
   });
 
+  it('contratto o capitolo cancellati già collegati non bloccano il salvataggio', async () => {
+    repo.findOne.mockResolvedValue({ id: 9, ...dto, contracts: [{ id: 1 }, { id: 2 }] });
+    contractRepo.find.mockResolvedValue([{ id: 1, deleted: false }, { id: 2, deleted: true }]);
+    chapterRepo.findOne.mockResolvedValue(null);
+    await expect(
+      service.update(9, { amount: 50, budget_chapter_id_fk: 7, contract_ids: [1, 2] }, 3),
+    ).resolves.toBeDefined();
+  });
+
+  it('collegare un contratto cancellato non ancora collegato è rifiutato', async () => {
+    repo.findOne.mockResolvedValue({ id: 9, ...dto, contracts: [{ id: 1 }] });
+    contractRepo.find.mockResolvedValue([{ id: 1, deleted: false }, { id: 2, deleted: true }]);
+    await expect(service.update(9, { contract_ids: [1, 2] }, 3)).rejects.toThrow('Contratto non trovato');
+  });
+
   it('ripristino: numero ancora libero, contratti ricalcolati', async () => {
     repo.findOne.mockImplementation(async () => ({
       id: 9, ...dto, commitment_year: 2026, commitment_num: 514, commitment_sub: 1,

@@ -88,9 +88,9 @@ const HEADER_CONTRACT_SQL =
 // Esiste almeno un impegno per la riga? L'impegno lo sceglie poi il ricalcolo
 // (CommitmentReconcileService); qui solo la segnalazione se manca.
 const CONTRACT_COMMITMENT_SQL =
-  '/* m_contract_commitment */ SELECT bc.id FROM budget_commitments bc ' +
+  '/* m_contract_commitment */ SELECT DISTINCT bc.budget_chapter_id_fk AS chapter FROM budget_commitments bc ' +
   'JOIN budget_commitment_contracts bcc ON bcc.commitment_id = bc.id ' +
-  'WHERE bc.deleted = 0 AND bcc.contract_id = ? AND bc.fiscal_year = ? LIMIT 1';
+  'WHERE bc.deleted = 0 AND bcc.contract_id = ? AND bc.fiscal_year = ? LIMIT 2';
 const COMMITMENT_SQL =
   '/* m_commitment */ SELECT bc.id FROM budget_commitments bc ' +
   'JOIN budget_commitment_contracts bcc ON bcc.commitment_id = bc.id ' +
@@ -256,12 +256,16 @@ export class InvoiceMatcher {
         const key = `${contract.id}|*|${year}`;
         if (!commitments.has(key)) {
           commitments.add(key);
+          // Riga senza utenza = nessun capitolo proprio: con impegni su più
+          // capitoli la riconciliazione non sceglie, serve la scelta a mano.
           const rows = await this.dataSource.query(CONTRACT_COMMITMENT_SQL, [contract.id, year]);
-          if (!rows[0]) {
+          if (rows.length !== 1) {
             issues.push({
               type: ImportIssueType.MISSING_COMMITMENT,
               lineIndex: index,
-              detail: `Nessun impegno per il contratto ${contract.id}, esercizio ${year}`,
+              detail: rows.length
+                ? `Impegni su più capitoli per il contratto ${contract.id}, esercizio ${year}: scegliere quello della riga`
+                : `Nessun impegno per il contratto ${contract.id}, esercizio ${year}`,
             });
           }
         }

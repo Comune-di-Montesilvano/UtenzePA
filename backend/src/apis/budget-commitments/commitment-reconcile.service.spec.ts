@@ -90,6 +90,35 @@ describe('CommitmentReconcileService', () => {
     expect(sql).not.toMatch(/\bi\.contract_id_fk\b|FROM invoices WHERE contract_id_fk/);
   });
 
+  it('dopo un giro fallito le chiamate successive lavorano lo stesso', async () => {
+    const { ds, calls } = fakeDataSource({ commitments: [commitment(10, 1, 100)], lines: [line(1, 50, '2026-02-01')] });
+    const query = (ds as unknown as { query: jest.Mock }).query;
+    const original = query.getMockImplementation()!;
+    query.mockImplementationOnce(async () => {
+      throw new Error('deadlock');
+    });
+    const service = new CommitmentReconcileService(ds);
+    await expect(service.reconcileContracts([1])).rejects.toThrow('deadlock');
+    query.mockImplementation(original);
+    await service.reconcileContracts([1]);
+    expect(writes(calls)).toHaveLength(1);
+  });
+
+  it('reconcileUtilities ricalcola i contratti delle fatture con righe di quelle utenze', async () => {
+    const { ds, calls } = fakeDataSource({ commitments: [commitment(10, 1, 100)], lines: [line(1, 50, '2026-02-01')] });
+    const query = (ds as unknown as { query: jest.Mock }).query;
+    const original = query.getMockImplementation()!;
+    query.mockImplementation(async (sql: string, params: unknown[] = []) => {
+      if (!sql.includes('/* r_utility_contracts */')) return original(sql, params);
+      calls.push({ sql, params });
+      return [{ contract_id: 1 }];
+    });
+    const service = new CommitmentReconcileService(ds);
+    await service.reconcileUtilities([50]);
+    expect(calls.find((c) => c.sql.includes('/* r_utility_contracts */'))?.params).toEqual([[50]]);
+    expect(writes(calls)).toHaveLength(1);
+  });
+
   it('chiamate concorrenti sugli stessi contratti fanno un solo giro', async () => {
     const { ds, calls } = fakeDataSource({});
     const service = new CommitmentReconcileService(ds);

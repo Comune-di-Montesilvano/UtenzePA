@@ -221,13 +221,16 @@ export class BudgetCommitmentsService extends BaseService<
     if (!current) throw new BadRequestException('Impegno non trovato');
     const merged = { ...current, ...dto };
     const number = this.number(merged);
-    if (dto.budget_chapter_id_fk !== undefined) await this.ensureChapter(merged.budget_chapter_id_fk);
+    // Capitolo controllato solo se cambia: uno cancellato dopo resta valido.
+    if (dto.budget_chapter_id_fk !== undefined && dto.budget_chapter_id_fk !== current.budget_chapter_id_fk) {
+      await this.ensureChapter(merged.budget_chapter_id_fk);
+    }
     await this.ensureFreeNumber(number, id);
     const before = (current.contracts ?? []).map((c) => c.id);
     const { contract_ids, ...fields } = dto;
     const changes: { fieldName: string; oldValue: unknown; newValue: unknown }[] = [];
     if (contract_ids !== undefined) {
-      const contracts = await this.contracts(contract_ids);
+      const contracts = await this.contracts(contract_ids, before);
       const after = contracts.map((c) => c.id);
       if (before.join(',') !== [...after].sort((a, b) => a - b).join(',')) {
         changes.push({ fieldName: 'contract_ids', oldValue: before.join(', '), newValue: after.join(', ') });
@@ -310,10 +313,15 @@ export class BudgetCommitmentsService extends BaseService<
     }
   }
 
-  private async contracts(ids: number[]): Promise<Contract[]> {
+  // I contratti già collegati restano validi anche se cancellati nel frattempo
+  // (la scheda li rimanda tutti): solo i nuovi devono essere attivi.
+  private async contracts(ids: number[], linked: number[] = []): Promise<Contract[]> {
     const unique = [...new Set(ids)];
     if (!unique.length) return [];
-    const found = await this.contractRepo.find({ where: { id: In(unique), deleted: false } });
+    const kept = new Set(linked);
+    const found = (await this.contractRepo.find({ where: { id: In(unique) } })).filter(
+      (c) => !c.deleted || kept.has(c.id),
+    );
     if (found.length !== unique.length) throw new BadRequestException('Contratto non trovato');
     return unique.map((id) => found.find((c) => c.id === id)!);
   }
