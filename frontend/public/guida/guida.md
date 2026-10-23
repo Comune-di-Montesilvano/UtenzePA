@@ -81,7 +81,7 @@ Le segnalazioni «Oltre l'assestato dell'anno» e «Senza assestato dell'anno» 
 3. Nel tab **Contratti** collega i contratti di fornitura che possono consumare l'impegno: un impegno può servire più contratti e lo stesso contratto può avere più impegni sullo stesso capitolo ed esercizio. Senza contratti l'impegno non viene consumato dalle fatture.
 4. Il tab **Fatture** elenca le righe di fattura che consumano l'impegno nell'ordine in cui lo consumano, con lo **speso progressivo** e l'assegnazione (**Automatico** o **Manuale**). Il tab **Documenti** contiene la determina o gli altri file dell'impegno.
 
-Le righe automatiche consumano gli impegni in ordine di numero: quando un impegno è esaurito la riga successiva passa al seguente. Ogni salvataggio di fattura o di impegno ricalcola le assegnazioni dei contratti coinvolti. Si possono creare impegni anche dal tab **Impegni e capitoli** del contratto di fornitura, dal tab **Impegni** del capitolo e dalla riga della fattura.
+Le righe automatiche consumano gli impegni in ordine di numero: quando un impegno è esaurito la riga successiva passa al seguente. Ogni salvataggio di fattura o di impegno, e il cambio di capitolo di un'utenza, ricalcola le assegnazioni dei contratti coinvolti; ogni notte il ricalcolo passa su tutti i contratti. Un impegno senza importo non si esaurisce mai: le righe successive restano su di lui finché esiste, quindi inserisci l'importo appena lo conosci. Si possono creare impegni anche dal tab **Impegni e capitoli** del contratto di fornitura, dal tab **Impegni** del capitolo e dalla riga della fattura.
 
 Le segnalazioni dell'elenco sono «Sforati» (rimanenza negativa nell'esercizio in corso), «Senza contratto» e «Senza importo» (dall'esercizio in corso in poi).
 
