@@ -214,6 +214,9 @@ export class BudgetCommitmentsService extends BaseService<
   }
 
   async update(id: number, dto: UpdateBudgetCommitmentDto, userId?: number): Promise<BudgetCommitment> {
+    if (dto.deleted === false) return this.restore(id, userId);
+    delete dto.deleted;
+    delete dto.updated_by_user_id;
     const current = await this.repo.findOne({ where: { id, deleted: false }, relations: { contracts: true } });
     if (!current) throw new BadRequestException('Impegno non trovato');
     const merged = { ...current, ...dto };
@@ -236,6 +239,22 @@ export class BudgetCommitmentsService extends BaseService<
     if (changes.length) await this.recordAudit(AuditAction.UPDATE, id, userId, changes);
     await this.reconcile.reconcileSafe([...new Set([...before, ...(contract_ids ?? before)])]);
     return result;
+  }
+
+  // Il numero deve essere ancora libero: nel frattempo può essere stato riusato.
+  private async restore(id: number, userId?: number): Promise<BudgetCommitment> {
+    const current = await this.repo.findOne({ where: { id }, relations: { contracts: true } });
+    if (!current) throw new BadRequestException('Impegno non trovato');
+    if (!current.deleted) return current;
+    await this.ensureFreeNumber(this.number(current), id);
+    current.deleted = false;
+    if (userId !== undefined) current.updated_by_user_id = userId;
+    const saved = await this.repo.save(current);
+    await this.recordAudit(AuditAction.UPDATE, id, userId, [
+      { fieldName: 'deleted', oldValue: true, newValue: false },
+    ]);
+    await this.reconcile.reconcileSafe((current.contracts ?? []).map((c) => c.id));
+    return saved;
   }
 
   // Le righe assegnate in automatico si riassegnano; quelle scelte a mano

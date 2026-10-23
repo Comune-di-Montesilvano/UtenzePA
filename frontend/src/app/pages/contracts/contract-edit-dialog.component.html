@@ -131,8 +131,8 @@
           </ng-template>
           <app-contract-commitments-tab
             [contractId]="data.item.id"
+            [supplierId]="form.controls.supplier_id_fk.value"
             [canEdit]="canEdit"
-            [chapterOptions]="chapterOptions"
             (changed)="commitmentCount = $event">
           </app-contract-commitments-tab>
         </mat-tab>

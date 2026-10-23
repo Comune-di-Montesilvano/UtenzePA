@@ -23,6 +23,7 @@ export const GUIDA_PER_PAGINA: Record<string, string> = {
   'asset-function': 'catasto-e-dati-di-patrimonio',
   'invoices': 'registrare-una-fattura',
   'budget-chapter': 'controllare-la-spesa-di-un-capitolo',
+  'commitments': 'gestire-gli-impegni-di-spesa',
   'contracts': 'contratti-di-fornitura',
   'utilizer-grant': 'a-carico-di-gli-stati',
   'third-parties': 'trovare-un-elemento-negli-elenchi',

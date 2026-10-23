@@ -73,6 +73,7 @@ export class SidebarComponent implements OnInit {
     {label: 'Atti', icon: 'gavel', route: '/acts'},
     {label: 'Soggetti terzi', icon: 'groups', route: '/third-parties', groupLabel: 'Gestione economica'},
     {label: 'Capitoli di spesa', icon: 'attach_money', route: '/budget-chapter'},
+    {label: 'Impegni', icon: 'request_quote', route: '/commitments'},
     {label: 'Fatture', icon: 'receipt_long', route: '/invoices'},
     {label: 'Contratti di fornitura', icon: 'description', route: '/contracts'},
     {label: 'Convenzioni CONSIP', icon: 'handshake', route: '/consip-agreement'},

@@ -102,6 +102,18 @@ describe('BudgetCommitmentsService', () => {
     expect(reconcile.reconcileSafe).toHaveBeenCalledWith([1]);
   });
 
+  it('ripristino: numero ancora libero, contratti ricalcolati', async () => {
+    repo.findOne.mockImplementation(async () => ({
+      id: 9, ...dto, commitment_year: 2026, commitment_num: 514, commitment_sub: 1,
+      deleted: true, contracts: [{ id: 1 }],
+    }));
+    await service.update(9, { deleted: false, updated_by_user_id: 3 }, 3);
+    expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ id: 9, deleted: false, updated_by_user_id: 3 }));
+    expect(reconcile.reconcileSafe).toHaveBeenCalledWith([1]);
+    repo.find.mockResolvedValue([{ id: 12 }]);
+    await expect(service.update(9, { deleted: false }, 3)).rejects.toThrow('Impegno 2026/514/1 già presente');
+  });
+
   it('elenco: speso, rimanenza ed etichetta calcolati', async () => {
     rows = [
       { id: 1, commitment_year: 2026, commitment_num: 514, commitment_sub: 1, amount: '100.00', spent: '30.00', contract_ids: '1,2' },

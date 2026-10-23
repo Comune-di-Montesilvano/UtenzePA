@@ -11,7 +11,7 @@ import {catchError, debounceTime, of, Subject, switchMap} from 'rxjs';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {Invoice} from './entity/invoice.entity';
-import {InvoiceLine} from './entity/invoice-line.model';
+import {InvoiceLine, isAutoLine} from './entity/invoice-line.model';
 import {AuthService} from '../../services/auth.service';
 import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
@@ -22,8 +22,7 @@ import {partyName} from '../../core/helpers/party-name.helper';
 import {ThirdPartiesService} from '../third-parties/third-parties.service';
 import {PartyRole} from '../third-parties/third-party.model';
 import {UtilityService} from '../utilities/utility.service';
-import {CommitmentService} from '../contracts/commitments/commitment.service';
-import {chapterLabel} from '../contracts/commitments/commitment.model';
+import {CommitmentService} from '../commitments/commitment.service';
 import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
@@ -125,8 +124,10 @@ export class InvoiceEditDialogComponent implements OnInit {
           invoice_date: toIsoDate(date),
           lines: this.lines.map(l => ({
             utility_id_fk: l.utility_id_fk ?? null,
-            commitment_id_fk: l.commitment_id_fk ?? null,
+            commitment_id_fk: isAutoLine(l) ? null : (l.commitment_id_fk ?? null),
             amount: Number(l.amount) || 0,
+            period_start: l.period_start ?? null,
+            period_end: l.period_end ?? null,
           })),
         }).pipe(catchError(() => of([] as BudgetWarning[])));
       }),
@@ -252,12 +253,13 @@ export class InvoiceEditDialogComponent implements OnInit {
       if (contractChanged) this.dropForeignCommitments(new Set());
       return;
     }
-    this.commitmentService.list(contractId).subscribe({
+    this.commitmentService.byContract(contractId).subscribe({
       next: list => {
-        this.commitmentOptions = list.map(c => ({
-          label: `${c.fiscal_year} · ${chapterLabel(c.budgetChapter)}`,
+        this.commitmentOptions = list.filter(c => !c.deleted).map(c => ({
+          label: `${c.label} · competenza ${c.fiscal_year}`,
           value: c.id,
-          sublabel: c.commitment_number ? `impegno n. ${c.commitment_number}` : undefined,
+          sublabel: `${c.chapter_label}${c.remaining !== null ? ' · rimanenza ' + this.eur(c.remaining) : ''}`,
+          searchText: `${c.label} ${c.fiscal_year} ${c.chapter_label} ${c.chapter_description ?? ''}`,
         }));
         if (contractChanged) this.dropForeignCommitments(new Set(list.map(c => c.id)));
       },
@@ -265,16 +267,20 @@ export class InvoiceEditDialogComponent implements OnInit {
     });
   }
 
+  // Le righe automatiche si riassegnano da sole al Salva; quelle scelte a mano
+  // su un impegno di un altro contratto tornano automatiche.
   private dropForeignCommitments(allowed: Set<number>): void {
-    const foreign = this.lines.filter(l => l.commitment_id_fk && !allowed.has(l.commitment_id_fk)).length;
-    if (!foreign) return;
+    const foreign = (l: InvoiceLine) => !!l.commitment_id_fk && !allowed.has(l.commitment_id_fk);
+    const manual = this.lines.filter(l => foreign(l) && !isAutoLine(l)).length;
+    if (!this.lines.some(foreign)) return;
     this.lines = this.lines.map(l =>
-      l.commitment_id_fk && !allowed.has(l.commitment_id_fk) ? {...l, commitment_id_fk: null, commitment: null} : l);
+      foreign(l) ? {...l, commitment_id_fk: null, commitment_auto: true, commitment: null} : l);
     this.checkBudget();
+    if (!manual) return;
     this.toast.add({
       severity: 'warn',
-      summary: 'Impegni rimossi dalle righe',
-      detail: `${foreign} righe avevano un impegno del contratto precedente: sceglierne uno del nuovo contratto.`,
+      summary: 'Impegni tornati automatici',
+      detail: `${manual} righe avevano un impegno del contratto precedente: al Salva si assegnano in ordine di numero.`,
     });
   }
 

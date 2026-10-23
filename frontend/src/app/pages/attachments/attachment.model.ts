@@ -1,5 +1,5 @@
 // Gemello di backend/src/apis/attachments/enum/attachment-entity-type.enum.ts.
-export type AttachmentEntityType = 'asset' | 'plant' | 'plant_inspection' | 'utilizer_grant' | 'contract' | 'act';
+export type AttachmentEntityType = 'asset' | 'plant' | 'plant_inspection' | 'utilizer_grant' | 'contract' | 'act' | 'consip_agreement' | 'budget_commitment';
 
 export interface Attachment {
   id: number;

@@ -1,0 +1,21 @@
+<div style="padding: 1rem;">
+  <h1>Impegni di spesa</h1>
+  <p class="list-subtitle">Impegni della ragioneria sui capitoli: le righe di fattura li consumano in ordine di numero.</p>
+  <app-list-filters [defs]="filterDefs" [values]="filterValues" placeholder="Cerca numero, capitolo, fornitore..."
+                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"
+                    [extraChips]="signalChips" (extraChipRemoved)="clearSignal()"></app-list-filters>
+  <app-list-signals [signals]="signals" [reloadToken]="signalsToken" [activeKey]="signal?.key ?? null"
+                    (selected)="onSignal($event)"></app-list-signals>
+  <div style="margin-top: 1rem;">
+    <app-data-table-commitments
+      #dataTable
+      [data]="list"
+      [loading]="loading"
+      (onSave)="onSave($event)"
+      (onDelete)="onDelete($event)"
+      (onCreate)="onCreate($event)"
+      (onRestore)="onRestore($event)"
+      [resetPagingTrigger]="resetPagingCount"
+    ></app-data-table-commitments>
+  </div>
+</div>

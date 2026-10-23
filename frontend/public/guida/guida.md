@@ -51,7 +51,7 @@ Eliminare un elemento non lo cancella davvero: sparisce dagli elenchi ma resta r
 1. Apri **Fatture** (l'elenco parte dalle fatture più recenti) e crea una nuova fattura.
 2. Nel **Riepilogo** inserisci fornitore, contratto di fornitura, numero e data della fattura, numero di protocollo, totale documento IVA inclusa. Imponibile, morosità e note sono facoltativi. Per una **nota di credito** inserisci il totale, l'imponibile e gli importi delle righe con il segno meno: la fattura è segnata «Nota di credito» e riduce la spesa. L'imponibile può essere negativo solo se lo è anche il totale.
 3. Nel tab **Righe** premi **Aggiungi riga** per ogni utenza fatturata. Cerca l'utenza per POD/PDR o codice cliente, indica l'importo IVA inclusa e, se serve, consumo e descrizione. Con il pulsante accanto all'utenza ne apri la scheda; nella scheda dell'utenza il tab **Fatture** mostra quante fatture ha, una riga per fattura e periodo (le righe della stessa bolletta, es. energia, trasporto, oneri e imposte, sono sommate). Se l'utenza non ha fatture proprie, il tab mostra quelle dei suoi contratti di fornitura (es. un canone unico per tutte le utenze del contratto). Il consumo della riga resta sulla fattura: lo storico consumi dell'utenza si registra nel suo tab **Consumi**.
-4. Per ogni riga scegli l'**Impegno**: gli impegni disponibili sono quelli del contratto scelto. Se non ne scegli uno, vale il capitolo dell'utenza.
+4. Per ogni riga lascia l'**Impegno** su **Automatico**: al salvataggio la riga consuma il primo impegno del contratto, in ordine di numero, che ha ancora rimanenza sul capitolo e sull'esercizio di competenza della riga (preso dal periodo della riga, altrimenti dalla data della fattura). Sotto il campo compare l'impegno assegnato («Ora: 2026/514/1»). Se serve un impegno preciso sceglilo dall'elenco: la riga resta su quello anche quando gli altri cambiano. Senza impegni sul contratto vale il capitolo dell'utenza.
 5. Premi **Salva**.
 
 Una fattura non deve per forza indicare le utenze: per i canoni e i servizi di un contratto (es. Servizio Luce, connettività) basta il contratto di fornitura nel Riepilogo e righe senza utenza, ognuna con il suo impegno. Il tab **Fatture** della scheda del contratto di fornitura elenca tutte le fatture del contratto, quello della scheda del soggetto terzo tutte le fatture del fornitore (con il CIG del contratto): una riga per fattura con data, numero, periodo, totale e stato SDI, e sopra il totale per anno della fattura (escluse le rifiutate, barrate nell'elenco).
@@ -72,6 +72,17 @@ Le fatture elettroniche arrivano dallo SDI sulla casella PEC del Comune. UtenzeP
 3. I tab **Impegni**, **Fatture** e **Utenze** mostrano cosa pesa sul capitolo.
 
 Le segnalazioni «Oltre l'assestato dell'anno» e «Senza assestato dell'anno» riguardano l'esercizio in corso.
+
+### Gestire gli impegni di spesa
+
+1. Apri **Impegni** (sotto Capitoli di spesa). L'elenco mostra numero (anno/numero/sub della ragioneria), capitolo, esercizio di competenza, fornitore, numero di contratti, importo, speso e rimanenza. I filtri principali sono competenza, capitolo e fornitore; in **Filtri avanzati** ci sono convenzione e contratto.
+2. Premi **Nuovo impegno** e compila nel tab **Dati** anno, numero e sub dell'impegno (anno e numero vanno insieme; il sub vale 1 se lo lasci vuoto), il **Capitolo**, l'**Esercizio di competenza**, il **Fornitore** e l'**Importo**. Un preimpegno senza numero si può inserire lasciando vuoti anno e numero.
+3. Nel tab **Contratti** collega i contratti di fornitura che possono consumare l'impegno: un impegno può servire più contratti e lo stesso contratto può avere più impegni sullo stesso capitolo ed esercizio. Senza contratti l'impegno non viene consumato dalle fatture.
+4. Il tab **Fatture** elenca le righe di fattura che consumano l'impegno nell'ordine in cui lo consumano, con lo **speso progressivo** e l'assegnazione (**Automatico** o **Manuale**). Il tab **Documenti** contiene la determina o gli altri file dell'impegno.
+
+Le righe automatiche consumano gli impegni in ordine di numero: quando un impegno è esaurito la riga successiva passa al seguente. Ogni salvataggio di fattura o di impegno ricalcola le assegnazioni dei contratti coinvolti. Si possono creare impegni anche dal tab **Impegni e capitoli** del contratto di fornitura, dal tab **Impegni** del capitolo e dalla riga della fattura.
+
+Le segnalazioni dell'elenco sono «Sforati» (rimanenza negativa nell'esercizio in corso), «Senza contratto» e «Senza importo» (dall'esercizio in corso in poi).
 
 ### Attivazioni, cessazioni e volture di un'utenza
 
@@ -494,11 +505,11 @@ L'import non corregge mai le anagrafiche: segnala le differenze, che trovi in da
 
 ### Non riesco a eliminare un impegno
 
-**Causa:** l'impegno è usato da una o più righe di fattura («Impegno usato da … righe fattura»). Inoltre per ogni contratto, capitolo ed esercizio può esistere un solo impegno («Impegno già presente per questo capitolo ed esercizio»).
+**Causa:** l'impegno è stato scelto a mano su una o più righe di fattura («Impegno scelto a mano su … righe fattura»). Le righe automatiche invece non bloccano: passano da sole agli altri impegni del contratto. Il ripristino di un impegno eliminato non riesce se nel frattempo il suo numero è stato usato da un altro impegno («Impegno … già presente»).
 
-**Soluzione:** sposta prima le righe di fattura su un altro impegno, poi elimina quello vecchio. Per un capitolo ed esercizio già impegnati modifica l'impegno esistente invece di crearne un altro.
+**Soluzione:** apri le fatture dal tab **Fatture** dell'impegno e rimetti quelle righe su **Automatico** o su un altro impegno, poi elimina. Per il ripristino correggi prima il numero dell'impegno che lo usa.
 
-**Apri un ticket se:** l'impegno non è usato da nessuna fattura ma non si elimina.
+**Apri un ticket se:** l'impegno non ha righe manuali ma non si elimina.
 
 ### Un'utenza o un impianto risulta «senza posizione»
 

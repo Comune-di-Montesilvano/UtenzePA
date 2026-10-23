@@ -81,11 +81,12 @@ export class BudgetChapterEditDialogComponent implements OnInit {
   linePreview: PreviewItem[] = [];
 
   readonly commitmentColumns: LinkedColumn<ChapterCommitment>[] = [
-    {label: 'Esercizio', value: c => String(c.fiscal_year)},
+    {label: 'Numero', value: c => c.label},
+    {label: 'Competenza', value: c => String(c.fiscal_year)},
     {label: 'Fornitore', value: c => c.supplier ?? ''},
-    {label: 'CIG', value: c => c.cig_contract || 'CIG non specificato'},
-    {label: 'Numero', value: c => c.commitment_number ?? ''},
     {label: 'Importo', value: c => (c.amount === null ? 'senza importo' : formatEuro(c.amount))},
+    {label: 'Speso', value: c => formatEuro(c.spent)},
+    {label: 'Rimanenza', value: c => (c.remaining === null ? '—' : formatEuro(c.remaining))},
   ];
   readonly lineColumns: LinkedColumn<ChapterInvoiceLine>[] = [
     {label: 'Fattura', value: l => `${l.number} del ${dateIt(l.invoice_date)}`},
@@ -135,8 +136,8 @@ export class BudgetChapterEditDialogComponent implements OnInit {
         this.commitments = rows;
         this.commitmentPreview = rows.map(c => ({
           id: c.id,
-          label: `${c.fiscal_year} · ${c.supplier ?? ''}`,
-          sublabel: c.amount === null ? 'senza importo' : formatEuro(c.amount),
+          label: `${c.label} · ${c.fiscal_year}`,
+          sublabel: c.remaining === null ? 'senza importo' : `rimanenza ${formatEuro(c.remaining)}`,
         }));
       },
       error: err => console.error('Errore caricamento impegni del capitolo:', err),
@@ -189,9 +190,17 @@ export class BudgetChapterEditDialogComponent implements OnInit {
   }
 
   // Un contratto o una fattura salvati possono cambiare impegnato e fatturato.
-  openContract(c: ChapterCommitment): void {
-    this.navigator.openSupplyContract(c.contract_id).subscribe(saved => {
+  openCommitment(c: ChapterCommitment): void {
+    this.navigator.openCommitment(c.id).subscribe(saved => {
       if (!saved) return;
+      this.loadYears();
+      this.loadLinks();
+    });
+  }
+
+  newCommitment(): void {
+    this.navigator.createCommitment({budget_chapter_id_fk: this.data.item.id}).subscribe(c => {
+      if (!c) return;
       this.loadYears();
       this.loadLinks();
     });
