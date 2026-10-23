@@ -112,6 +112,13 @@
           <input matInput [(ngModel)]="utilityFilter" [ngModelOptions]="{standalone: true}" (ngModelChange)="applyFilter()"
                  placeholder="Codice, matricola, tipo, immobile">
         </mat-form-field>
+        @if (canEdit) {
+          <app-filterable-select label="Collega le utenze di un contratto" placeholder="Cerca contratto..."
+                                 subscriptSizing="dynamic" [options]="sourceContractOptions"
+                                 [(ngModel)]="sourceContractId" [ngModelOptions]="{standalone: true}"
+                                 (ngModelChange)="addUtilitiesOf($event)"></app-filterable-select>
+          <mat-checkbox [(ngModel)]="includeInactive" [ngModelOptions]="{standalone: true}">Collega anche le utenze non attive</mat-checkbox>
+        }
         <app-linked-table
           [columns]="utilityColumns"
           [rows]="filteredRows"

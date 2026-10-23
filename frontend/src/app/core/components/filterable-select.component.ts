@@ -236,5 +236,8 @@ export class FilterableSelectComponent implements ControlValueAccessor {
       return;
     }
     this.searchControl.setValue(found ?? '', {emitEvent: false});
+    // Campo svuotato da fuori (es. select azzerata dopo l'uso): senza evento
+    // l'elenco resterebbe filtrato sull'ultima opzione scelta.
+    if (!found) this.filteredOptions = this._options;
   }
 }

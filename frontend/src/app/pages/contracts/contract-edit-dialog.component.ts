@@ -99,6 +99,11 @@ export class ContractEditDialogComponent implements OnInit {
   // Tutte le utenze: quelle collegate sono form.utility_ids.
   private allUtilities: Utility[] = [];
   utilityOptions: TOption[] = [];
+  // Contratti da cui copiare le utenze (nuovo contratto che ne sostituisce più d'uno).
+  sourceContractOptions: TOption[] = [];
+  sourceContractId: number | null = null;
+  // Di default solo le utenze non disattive (supply_active false = Non attiva).
+  includeInactive = false;
   utilityFilter = '';
   // Campi cache (vedi LinkedTableComponent): aggiornati solo su evento.
   linkedRows: Utility[] = [];
@@ -158,6 +163,61 @@ export class ContractEditDialogComponent implements OnInit {
       this.form.controls.consip_agreement_id.valueChanges.subscribe(id => this.onConsipAgreementChange(id));
     }
     this.loadUtilities();
+    if (this.canEdit) this.loadSourceContracts();
+  }
+
+  // Prima i contratti dello stesso fornitore, poi gli altri; mai questo.
+  private loadSourceContracts(): void {
+    this.contractsService.search({deleted: false}).subscribe({
+      next: list => {
+        const supplier = this.form.controls.supplier_id_fk.value;
+        this.sourceContractOptions = list
+          .filter(c => c.id !== this.data.item.id)
+          .sort((a, b) => Number(b.supplier_id_fk === supplier) - Number(a.supplier_id_fk === supplier)
+            || (a.consip_order || a.cig_contract || '').localeCompare(b.consip_order || b.cig_contract || '', 'it'))
+          .map(c => ({
+            label: c.consip_order || c.cig_contract || `Contratto id ${c.id}`,
+            value: c.id,
+            sublabel: [partyName(c.supplier), c.cig_contract ? `CIG ${c.cig_contract}` : null, c.closed ? 'chiuso' : null]
+              .filter(Boolean).join(' · '),
+            searchText: [c.consip_order, c.cig_contract, partyName(c.supplier), `id ${c.id}`].filter(Boolean).join(' '),
+          }));
+      },
+      error: err => console.error('Errore nel caricamento dei contratti:', err),
+    });
+  }
+
+  // Collega in un colpo le utenze (non cancellate) di un altro contratto.
+  addUtilitiesOf(contractId: number | null): void {
+    if (!contractId) return;
+    this.contractsService.getById(contractId).subscribe({
+      next: source => {
+        const all = (source.utilities ?? [])
+          .map(s => this.allUtilities.find(u => u.id === s.id))
+          .filter((u): u is Utility => !!u);
+        const ids = all.filter(u => this.includeInactive || u.supply_active !== false).map(u => u.id);
+        const skipped = all.length - ids.length;
+        const added = ids.filter(id => !this.linkedIds.includes(id));
+        if (added.length) {
+          this.form.controls.utility_ids.setValue([...this.linkedIds, ...added]);
+          this.form.markAsDirty();
+          this.refreshLinks();
+        }
+        this.toast.add({
+          severity: added.length ? 'success' : 'info',
+          summary: added.length ? `${added.length} utenze collegate` : 'Nessuna utenza nuova',
+          detail: [
+            ids.length > added.length ? `${ids.length - added.length} erano già collegate.` : null,
+            skipped ? `${skipped} non attive escluse.` : null,
+          ].filter(Boolean).join(' ') || undefined,
+        });
+        this.sourceContractId = null;
+      },
+      error: err => {
+        this.toast.add({severity: 'error', summary: 'Utenze non collegate', detail: err?.error?.message});
+        this.sourceContractId = null;
+      },
+    });
   }
 
   // Il fornitore corrente resta tra le opzioni anche se non risulta fornitore
