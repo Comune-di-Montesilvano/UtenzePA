@@ -42,7 +42,8 @@
           }
           <div class="span-2">
             <app-filterable-select label="Capitolo *" placeholder="Cerca capitolo..." [options]="chapterOptions"
-                                   formControlName="budget_chapter_id_fk" errorMessage="Capitolo obbligatorio"
+                                   formControlName="budget_chapter_id_fk"
+                                   [errorMessage]="form.controls.budget_chapter_id_fk.invalid && form.controls.budget_chapter_id_fk.touched ? 'Capitolo obbligatorio' : null"
                                    [createLabel]="canEdit ? 'Nuovo capitolo' : null" (create)="newChapter()"></app-filterable-select>
           </div>
           <div class="span-2">

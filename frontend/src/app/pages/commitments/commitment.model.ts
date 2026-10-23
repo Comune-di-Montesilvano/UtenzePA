@@ -86,8 +86,12 @@ export interface CommitmentRef {
   budgetChapter?: BudgetChapter;
 }
 
-export const commitmentRefLabel = (c: CommitmentRef | null | undefined): string =>
-  c ? commitmentLabel(c.commitment_year, c.commitment_num, c.commitment_sub) : '—';
+// Impegno senza numero (preimpegno): «senza numero» al posto del trattino.
+export const commitmentRefLabel = (c: CommitmentRef | null | undefined): string => {
+  if (!c) return '—';
+  const label = commitmentLabel(c.commitment_year, c.commitment_num, c.commitment_sub);
+  return label === '—' ? `senza numero ${c.fiscal_year}` : label;
+};
 
 export const chapterLabel = (c: {chapter_code?: string | null; article?: number | string | null; description?: string | null} | null | undefined): string =>
   c?.chapter_code ? `${c.chapter_code}/${c.article ?? 0}${c.description ? ' — ' + c.description : ''}` : 'Senza capitolo';

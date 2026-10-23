@@ -256,7 +256,7 @@ export class InvoiceEditDialogComponent implements OnInit {
     this.commitmentService.byContract(contractId).subscribe({
       next: list => {
         this.commitmentOptions = list.filter(c => !c.deleted).map(c => ({
-          label: `${c.label} · competenza ${c.fiscal_year}`,
+          label: `${c.label === '—' ? 'Senza numero' : c.label} · competenza ${c.fiscal_year}`,
           value: c.id,
           sublabel: `${c.chapter_label}${c.remaining !== null ? ' · rimanenza ' + this.eur(c.remaining) : ''}`,
           searchText: `${c.label} ${c.fiscal_year} ${c.chapter_label} ${c.chapter_description ?? ''}`,

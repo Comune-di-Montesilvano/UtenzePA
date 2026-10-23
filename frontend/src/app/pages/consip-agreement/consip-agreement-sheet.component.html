@@ -45,7 +45,8 @@
           </mat-form-field>
           <div class="span-2">
             <app-filterable-select label="Fornitore *" placeholder="Cerca fornitore..." [options]="supplierOptions"
-                                   formControlName="supplier_id" errorMessage="Obbligatorio"
+                                   formControlName="supplier_id"
+                                   [errorMessage]="form.controls.supplier_id.invalid && form.controls.supplier_id.touched ? 'Obbligatorio' : null"
                                    [createLabel]="canEdit ? 'Nuovo soggetto terzo' : null" (create)="newSupplier($event)"></app-filterable-select>
           </div>
           <mat-form-field>

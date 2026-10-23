@@ -13,6 +13,7 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Frontend"). Quasi tutt
 
 - `FormControl.setValue(v, {emitEvent:false})` non garantisce che nessun subscriber di `valueChanges` riceva un'emissione (visto in `FilterableSelectComponent`). In un `ControlValueAccessor` custom, gating della logica "input libero" dietro un flag di interazione reale (keydown/paste).
 - `ngModel` dentro un figlio di `<form [formGroup]>`: `[ngModelOptions]="{standalone: true}"`, altrimenti warning NG01354.
+- `app-filterable-select` mostra `errorMessage` appena valorizzato (`isErrorState = !!errorMessage`): passarlo condizionato, `[errorMessage]="ctrl.invalid && ctrl.touched ? '…' : null"`, mai statico.
 - Tab di un dialog che modifica lato server l'entity del dialog stesso (es. tab Consumi che aggiorna matricola/stima): riallineare il form (solo i controlli `pristine`), altrimenti "Salva" riporta il DB ai valori vecchi.
 
 ## Layout flex
@@ -40,3 +41,7 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Frontend"). Quasi tutt
 
 - Lat/lng da fonti Access/Excel hanno la virgola decimale: `parseFloat` tronca in silenzio (`"42,51..."` → `42`). Usare sempre `CoordinateHelper.parseCoordinate()` (`core/helpers/coordinate.helper.ts`).
 - Date (`'AAAA-MM-GG'`, convenzione unica dal 2026-10-05): il frontend invia il giorno locale, il backend lo salva così com'è. Nei form leggerle come giorno locale (`new Date(y, m - 1, d)`, mai `new Date(v)` = mezzanotte UTC; per "oggi" `setHours(0, 0, 0, 0)`); in invio mai `toISOString()` (giorno prima): `@DateOnly()` (`core/helpers/date.helper.ts`, vale anche per gli array `_range` dei filtri) o `toIsoDate`. Backend: `@DateOnly()` nei DTO (`common/decorators/date-only.decorator.ts`), `DateHelper.dateOnly` nei filtri, mai passare da `Date`. Prima esistevano `NormalizeDate` (+1 giorno a ogni Salva) e `slice(0, 10)` sull'ISO (fatture salvate il giorno prima): trovati solo salvando due volte la stessa scheda.
+
+## ng serve nel container
+
+- File sostituito con `sed -i` (nuovo inode): il watcher può non vederlo, e anche dopo `docker restart` la cache `.angular/cache` tiene l'errore vecchio mentre `ng build` passa. Rimedio: `docker exec utenzepa-frontend-1 sh -c "rm -rf .angular/cache"` + `docker restart utenzepa-frontend-1`. Per le modifiche usare script Python che riscrivono il file.
