@@ -15,19 +15,23 @@ import { BudgetCommitment } from '@apis/budget-commitments/entity/budget-commitm
 import { SdiMessage } from '@apis/invoice-import/entity/sdi-message.entity';
 import { ConsumptionLinker } from '@apis/invoice-import/consumption-linker.service';
 import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
+import { CommitmentReconcileService } from '@apis/budget-commitments/commitment-reconcile.service';
 
 // Confronto righe per l'audit: stessi valori normalizzati, stesso ordine.
 const lineKey = (l: Partial<InvoiceLine>): string =>
   JSON.stringify([
     Number(l.amount).toFixed(2),
     l.utility_id_fk ?? null,
-    l.commitment_id_fk ?? null,
+    l.commitment_auto === false ? (l.commitment_id_fk ?? null) : 'auto',
     l.period_start ? String(l.period_start).slice(0, 10) : null,
     l.period_end ? String(l.period_end).slice(0, 10) : null,
     l.consumption === null || l.consumption === undefined ? null : Number(l.consumption).toFixed(3),
     l.supply_code ?? null,
     l.description ?? null,
   ]);
+// Impegno automatico se dichiarato, altrimenti se la riga non ne indica uno.
+const isAuto = (l: { commitment_auto?: boolean | null; commitment_id_fk?: number | null }): boolean =>
+  l.commitment_auto ?? !l.commitment_id_fk;
 const sameLines = (a: Partial<InvoiceLine>[], b: Partial<InvoiceLine>[]): boolean =>
   a.length === b.length && a.every((l, i) => lineKey(l) === lineKey(b[i]));
 
@@ -66,15 +70,24 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     private readonly dataSource: DataSource,
     private readonly linker: ConsumptionLinker,
     private readonly recalc: ConsumptionRecalcService,
+    private readonly reconcile: CommitmentReconcileService,
   ) {
     super();
   }
 
   // Eliminata la fattura, i suoi consumi da fattura non contano più.
   override async remove(id: number, updatedByUserId: number): Promise<void> {
+    const before = await this.repo.findOne({ where: { id } as never });
     await super.remove(id, updatedByUserId);
     const utilityIds = await this.dataSource.transaction((manager) => this.linker.unlink(manager, id));
     await this.recalcUtilities(utilityIds);
+    await this.reconcileContracts(before?.contratto_id_fk);
+  }
+
+  // Consumo degli impegni: le righe automatiche seguono fattura e contratto.
+  private async reconcileContracts(...ids: (number | null | undefined)[]): Promise<void> {
+    const contracts = [...new Set(ids.filter((id): id is number => !!id))];
+    if (contracts.length) await this.reconcile.reconcileSafe(contracts);
   }
 
   private async recalcUtilities(utilityIds: number[]): Promise<void> {
@@ -177,6 +190,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       });
     });
     await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
+    await this.reconcileContracts(header.contratto_id_fk);
     return saved;
   }
 
@@ -239,6 +253,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       console.error(`[InvoicesService] Errore durante il calcolo/registrazione audit`, error);
     }
     await this.recalcUtilities(utilityIds);
+    await this.reconcileContracts(before.contratto_id_fk, contractId);
     return result;
   }
 
@@ -276,21 +291,26 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
         throw new BadRequestException(`Riga ${i + 1}: la fine del periodo è prima dell’inizio`);
       }
     });
-    const ids = [...new Set(lines.map((l) => l.commitment_id_fk).filter((v): v is number => !!v))];
+    // Solo le righe con impegno scelto a mano: le automatiche le assegna il ricalcolo.
+    const manual = (l: InvoiceLineDto) => !isAuto(l) && !!l.commitment_id_fk;
+    const ids = [...new Set(lines.filter(manual).map((l) => l.commitment_id_fk!))];
     if (!ids.length) return;
     // Senza contratto l'impegno non ha un contratto con cui essere coerente.
     if (!contractId) {
-      const i = lines.findIndex((l) => !!l.commitment_id_fk);
+      const i = lines.findIndex(manual);
       throw new BadRequestException(
         `La riga ${i + 1} ha un impegno ma la fattura non ha un contratto`,
       );
     }
-    const found = await manager.find(BudgetCommitment, { where: { id: In(ids), deleted: false } });
+    const found = await manager.find(BudgetCommitment, {
+      where: { id: In(ids), deleted: false },
+      relations: { contracts: true },
+    });
     lines.forEach((l, i) => {
-      if (!l.commitment_id_fk) return;
+      if (!manual(l)) return;
       const c = found.find((f) => f.id === l.commitment_id_fk);
       if (!c) throw new BadRequestException(`L'impegno della riga ${i + 1} non esiste`);
-      if (contractId && c.contract_id_fk !== contractId) {
+      if (!(c.contracts ?? []).some((k) => k.id === contractId)) {
         throw new BadRequestException(
           `L'impegno della riga ${i + 1} non è del contratto della fattura`,
         );
@@ -303,7 +323,8 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       invoice_id_fk: invoiceId,
       amount: l.amount,
       utility_id_fk: l.utility_id_fk ?? null,
-      commitment_id_fk: l.commitment_id_fk ?? null,
+      commitment_id_fk: isAuto(l) ? null : (l.commitment_id_fk ?? null),
+      commitment_auto: isAuto(l),
       period_start: l.period_start ?? null,
       period_end: l.period_end ?? null,
       consumption: l.consumption ?? null,

@@ -3,11 +3,11 @@ import { DataSource } from 'typeorm';
 import { ImportIssueType } from './enum/import-issue-type.enum';
 import type { ExtractedInvoice, ExtractedReading } from './pattern/pattern-rules';
 import { normalizeUtilityCode } from './pattern/utility-code';
+import { lineFiscalYear } from '@apis/spending/line-year';
 
 export interface MatchedLine {
   utility_id_fk: number | null;
   contract_id: number | null;
-  commitment_id_fk: number | null;
   period_start: string | null;
   period_end: string | null;
   amount: number;
@@ -85,13 +85,16 @@ const CONTRACT_SQL =
 const HEADER_CONTRACT_SQL =
   '/* m_header_contract */ SELECT id, cig_contract FROM contracts WHERE deleted = 0 AND supplier_id_fk = ? ' +
   'AND (TRIM(cig_contract) IN (?, ?) OR TRIM(consip_order) = ?) LIMIT 2';
-// Impegno di una riga senza utenza (nessun capitolo da cui partire): l'unico del contratto nell'esercizio.
+// Esiste almeno un impegno per la riga? L'impegno lo sceglie poi il ricalcolo
+// (CommitmentReconcileService); qui solo la segnalazione se manca.
 const CONTRACT_COMMITMENT_SQL =
-  '/* m_contract_commitment */ SELECT id FROM budget_commitments WHERE deleted = 0 ' +
-  'AND contract_id_fk = ? AND fiscal_year = ? LIMIT 2';
+  '/* m_contract_commitment */ SELECT bc.id FROM budget_commitments bc ' +
+  'JOIN budget_commitment_contracts bcc ON bcc.commitment_id = bc.id ' +
+  'WHERE bc.deleted = 0 AND bcc.contract_id = ? AND bc.fiscal_year = ? LIMIT 1';
 const COMMITMENT_SQL =
-  '/* m_commitment */ SELECT id FROM budget_commitments WHERE deleted = 0 ' +
-  'AND contract_id_fk = ? AND budget_chapter_id_fk = ? AND fiscal_year = ? LIMIT 1';
+  '/* m_commitment */ SELECT bc.id FROM budget_commitments bc ' +
+  'JOIN budget_commitment_contracts bcc ON bcc.commitment_id = bc.id ' +
+  'WHERE bc.deleted = 0 AND bcc.contract_id = ? AND bc.budget_chapter_id_fk = ? AND bc.fiscal_year = ? LIMIT 1';
 const SUPPLIER_SQL =
   '/* m_supplier */ SELECT company_name, last_name, first_name FROM third_parties WHERE id = ?';
 const INVOICE_SQL =
@@ -187,7 +190,7 @@ export class InvoiceMatcher {
     }
 
     const contracts = new Map<string, { id: number; cig_contract: string | null } | null>();
-    const commitments = new Map<string, number | null>();
+    const commitments = new Set<string>();
     const cigChecked = new Set<number>();
     const lines: MatchedLine[] = [];
     let headerContract: { id: number; cig_contract: string | null } | null | undefined;
@@ -206,7 +209,6 @@ export class InvoiceMatcher {
       const utility = lineUtilities[index];
       const day = line.periodEnd ?? extracted.date;
       let contract: { id: number; cig_contract: string | null } | null;
-      let commitmentId: number | null = null;
       if (utility) {
         const contractKey = `${utility.id}|${day}`;
         if (!contracts.has(contractKey)) {
@@ -232,16 +234,16 @@ export class InvoiceMatcher {
           });
         }
       }
+      const year = lineFiscalYear(line.periodStart, line.periodEnd, extracted.date);
       if (contract && utility?.budget_chapter_code_fk) {
-        const year = Number(day.slice(0, 4));
         const key = `${contract.id}|${utility.budget_chapter_code_fk}|${year}`;
         if (!commitments.has(key)) {
+          commitments.add(key);
           const rows = await this.dataSource.query(COMMITMENT_SQL, [
             contract.id,
             utility.budget_chapter_code_fk,
             year,
           ]);
-          commitments.set(key, rows[0]?.id ?? null);
           if (!rows[0]) {
             issues.push({
               type: ImportIssueType.MISSING_COMMITMENT,
@@ -250,29 +252,23 @@ export class InvoiceMatcher {
             });
           }
         }
-        commitmentId = commitments.get(key) ?? null;
       } else if (contract && !utility) {
-        const year = Number(day.slice(0, 4));
         const key = `${contract.id}|*|${year}`;
         if (!commitments.has(key)) {
+          commitments.add(key);
           const rows = await this.dataSource.query(CONTRACT_COMMITMENT_SQL, [contract.id, year]);
-          commitments.set(key, rows.length === 1 ? rows[0].id : null);
-          if (rows.length !== 1) {
+          if (!rows[0]) {
             issues.push({
               type: ImportIssueType.MISSING_COMMITMENT,
               lineIndex: index,
-              detail: rows.length
-                ? `Più impegni per il contratto ${contract.id}, esercizio ${year}: scegliere quello della riga`
-                : `Nessun impegno per il contratto ${contract.id}, esercizio ${year}`,
+              detail: `Nessun impegno per il contratto ${contract.id}, esercizio ${year}`,
             });
           }
         }
-        commitmentId = commitments.get(key) ?? null;
       }
       lines.push({
         utility_id_fk: utility?.id ?? null,
         contract_id: contract?.id ?? null,
-        commitment_id_fk: commitmentId,
         period_start: line.periodStart,
         period_end: line.periodEnd,
         amount: line.amount,

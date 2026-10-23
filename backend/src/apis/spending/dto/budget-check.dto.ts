@@ -11,6 +11,15 @@ export class BudgetCheckLineDto {
   @IsInt()
   commitment_id_fk?: number | null;
 
+  // Periodo della riga: esercizio per competenza se la riga non ha impegno.
+  @IsOptional()
+  @DateOnly()
+  period_start?: string | null;
+
+  @IsOptional()
+  @DateOnly()
+  period_end?: string | null;
+
   @Type(() => Number)
   @IsNumber()
   amount: number;

@@ -21,6 +21,7 @@ import {
   PEC_MAILBOX_FACTORY,
   type PecMailboxFactory,
 } from './pec-imap.client';
+import { BudgetCommitmentsModule } from '@apis/budget-commitments/budget-commitments.module';
 
 // Cron registrato qui come in utility-consumptions.module.ts (@nestjs/schedule
 // è ESM-only per jest). Il service esce subito se non configurato o spento.
@@ -34,6 +35,7 @@ import {
       InvoiceImportIssue,
     ]),
     UtilityConsumptionsModule,
+    BudgetCommitmentsModule,
   ],
   providers: [
     InvoiceImportService,

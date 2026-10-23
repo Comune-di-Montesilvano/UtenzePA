@@ -33,6 +33,7 @@ import {
 import { parsePecMessage, type PecMessage, type SdiFile } from './sdi/pec-message';
 import { pdfText } from './sdi/pdf-text';
 import { extractPdf, parseInvoiceHeader, parseNotification } from './sdi/sdi-files';
+import { CommitmentReconcileService } from '@apis/budget-commitments/commitment-reconcile.service';
 
 export interface ImportRunResult {
   processed: number;
@@ -135,6 +136,7 @@ export class InvoiceImportService {
     private readonly applier: InvoiceApplier,
     private readonly linker: ConsumptionLinker,
     private readonly recalc: ConsumptionRecalcService,
+    private readonly reconcile: CommitmentReconcileService,
   ) {}
 
   get configured(): boolean {
@@ -186,6 +188,7 @@ export class InvoiceImportService {
       const ctx = this.newContext();
       const result = await this.read(state, ctx);
       await this.processBacklog(ctx);
+      if (ctx.extracted) await this.reconcileCommitments();
       return { ...result, linked: result.linked + relinked, extracted: ctx.extracted };
     } catch (error) {
       await this.recordError(error).catch(() => undefined);
@@ -211,12 +214,22 @@ export class InvoiceImportService {
       const result = await this.withMailbox((mailbox) =>
         this.processStored(mailbox, ids, this.newContext()),
       );
+      if (result.extracted) await this.reconcileCommitments();
       return { ...result, queued: 0 };
     } catch (error) {
       this.logger.error(`Rielaborazione fatture non riuscita: ${(error as Error).message}`);
       return { extracted: 0, skipped: 0, queued: 0 };
     } finally {
       this.running = false;
+    }
+  }
+
+  // Righe importate senza impegno: lo assegna il ricalcolo, mai bloccante per l'import.
+  private async reconcileCommitments(): Promise<void> {
+    try {
+      await this.reconcile.reconcileAll();
+    } catch (error) {
+      this.logger.error(`Consumo impegni dopo l'import non riuscito: ${(error as Error).message}`);
     }
   }
 

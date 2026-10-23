@@ -111,7 +111,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(39);
+    expect(query).toHaveBeenCalledTimes(40);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -347,7 +347,7 @@ describe('AnomaliesService', () => {
 
     it('fatture fuori dai periodi di attività: due query, filtro in Node', async () => {
       query.mockImplementation(async (sql: string) => {
-        if (sql.includes('FROM invoice_lines il') && sql.includes('il.period_start'))
+        if (sql.includes('FROM invoice_lines il') && sql.includes('INTERVAL 12 MONTH'))
           return [
             // Cessata il 2025-07-07: periodo oltre la tolleranza.
             { invoice_id: '741', number: 'F-1', invoice_date: '2025-10-05', utility_id: '3', utility_code: 'ACQ1', period_start: '2025-09-01', period_end: '2025-09-16' },
@@ -376,7 +376,7 @@ describe('AnomaliesService', () => {
       });
       expect((a as unknown as Record<string, unknown>).invoices_on_ceased_utilities).toBeUndefined();
       const calls = query.mock.calls.map(([s, p]) => [String(s), p] as const);
-      const lines = calls.find(([s]) => s.includes('FROM invoice_lines il') && s.includes('il.period_start'));
+      const lines = calls.find(([s]) => s.includes('FROM invoice_lines il') && s.includes('INTERVAL 12 MONTH'));
       expect(lines?.[0]).toContain('i.deleted = 0');
       expect(lines?.[0]).toContain('u.deleted = 0');
       expect(lines?.[0]).toContain('COALESCE(il.period_end, i.invoice_date)');
@@ -396,7 +396,7 @@ describe('AnomaliesService', () => {
 
   it('utenze con capitolo non impegnato: solo contratti con almeno un impegno', async () => {
     query.mockImplementation(async (sql: string) =>
-      sql.includes('NOT EXISTS (SELECT 1 FROM budget_commitments')
+      sql.includes('NOT EXISTS (SELECT 1 FROM budget_commitment_contracts')
         ? [{ id: '5', utility_id: 'IT01', type: 'acqua', contracts: '#1 ACA', chapter: '11428/0' }]
         : [],
     );
@@ -406,10 +406,40 @@ describe('AnomaliesService', () => {
     ]);
     const sql = query.mock.calls
       .map(([s]) => String(s))
-      .find((s) => s.includes('NOT EXISTS (SELECT 1 FROM budget_commitments'));
+      .find((s) => s.includes('NOT EXISTS (SELECT 1 FROM budget_commitment_contracts'));
     expect(sql).toContain(
-      'EXISTS (SELECT 1 FROM budget_commitments any_c WHERE any_c.contract_id_fk = c.id AND any_c.deleted = 0)',
+      'EXISTS (SELECT 1 FROM budget_commitment_contracts x JOIN budget_commitments any_c ON any_c.id = x.commitment_id AND any_c.deleted = 0 WHERE x.contract_id = c.id)',
     );
+    expect(sql).not.toContain('contract_id_fk');
+  });
+
+  it('impegni: sforati nell’esercizio in corso, senza contratto e senza importo (query in fondo)', async () => {
+    const year = new Date().getFullYear();
+    const row = (over: Record<string, unknown>) => ({
+      id: '1', commitment_year: year, commitment_num: 514, commitment_sub: 1, chapter: '11428/0',
+      fiscal_year: year, amount: '100.00', spent: '0', contracts: '1', ...over,
+    });
+    query.mockImplementation(async (sql: string) =>
+      sql.includes('/* commitments_check */')
+        ? [
+            row({ id: '1', spent: '120.50' }),
+            row({ id: '2', fiscal_year: year - 1, spent: '500' }),
+            row({ id: '3', contracts: '0' }),
+            row({ id: '4', amount: null, commitment_year: null, commitment_num: null }),
+          ]
+        : [],
+    );
+    const result = await service.getAnomalies();
+    expect(result.commitments_overspent.items).toEqual([
+      { id: 1, label: `${year}/514/1`, chapter: '11428/0', fiscal_year: year, amount: 100, remaining: -20.5 },
+    ]);
+    expect(result.commitments_without_contract.items.map((i) => i.id)).toEqual([3]);
+    expect(result.commitments_without_amount.items).toEqual([
+      { id: 4, label: '—', chapter: '11428/0', fiscal_year: year, amount: null, remaining: null },
+    ]);
+    const sqls = query.mock.calls.map(([s]) => String(s));
+    expect(sqls[sqls.length - 1]).toContain('/* commitments_check */');
+    expect(sqls[sqls.length - 1]).toContain('i.deleted = 0');
   });
 
   it('CIG: richiesto solo ai contratti ordinari (non esclusi né gratuiti)', async () => {

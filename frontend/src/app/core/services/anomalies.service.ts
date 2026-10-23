@@ -5,6 +5,15 @@ import {environment} from '../../../environments/environment';
 import {AuthService} from '../../services/auth.service';
 
 // Anomalie dei dati (GET /anomalies): dashboard e segnalazioni degli elenchi.
+export interface CommitmentAnomaly {
+  id: number;
+  label: string;
+  chapter: string;
+  fiscal_year: number;
+  amount: number | null;
+  remaining: number | null;
+}
+
 export interface AnomalyList<T> {
   count: number;
   items: T[];
@@ -75,6 +84,9 @@ export interface Anomalies {
   invoice_patterns_unknown: AnomalyList<{supplier_id: number; supplier: string; structure_key: string; count: number; structures: number; message_id: number}>;
   invoice_import_issues: AnomalyList<{id: number; message_id: number; invoice_id: number | null; number: string | null; type: string; detail: string; utility_id: number | null}>;
   utilities_with_meter_mismatch: AnomalyList<{id: number; utility_id: string; detail: string}>;
+  commitments_overspent: AnomalyList<CommitmentAnomaly>;
+  commitments_without_contract: AnomalyList<CommitmentAnomaly>;
+  commitments_without_amount: AnomalyList<CommitmentAnomaly>;
 }
 
 // Non estende AbstractService: header Authorization messo a mano (nessun
