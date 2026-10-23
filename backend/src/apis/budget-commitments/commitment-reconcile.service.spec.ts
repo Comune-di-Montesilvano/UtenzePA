@@ -81,6 +81,15 @@ describe('CommitmentReconcileService', () => {
     expect(sql).toContain('sdi_status');
   });
 
+  it('il contratto della riga è quello in testata alla fattura (invoices.contratto_id_fk)', async () => {
+    const { ds, calls } = fakeDataSource({});
+    const service = new CommitmentReconcileService(ds);
+    await service.reconcileAll();
+    const sql = calls.map((c) => c.sql).join('\n');
+    expect(sql).toContain('i.contratto_id_fk');
+    expect(sql).not.toMatch(/\bi\.contract_id_fk\b|FROM invoices WHERE contract_id_fk/);
+  });
+
   it('chiamate concorrenti sugli stessi contratti fanno un solo giro', async () => {
     const { ds, calls } = fakeDataSource({});
     const service = new CommitmentReconcileService(ds);

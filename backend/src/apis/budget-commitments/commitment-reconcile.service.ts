@@ -22,12 +22,12 @@ const COMMITMENTS_SQL =
 
 const LINES_SQL =
   '/* r_lines */ SELECT il.id, il.amount, i.invoice_date AS date, il.commitment_auto AS auto, ' +
-  'il.commitment_id_fk AS commitment_id, i.contract_id_fk AS contract_id, il.utility_id_fk AS utility_id, ' +
+  'il.commitment_id_fk AS commitment_id, i.contratto_id_fk AS contract_id, il.utility_id_fk AS utility_id, ' +
   `u.budget_chapter_code_fk AS chapter, ${lineYearSql({ line: 'il', invoice: 'i' })} AS year ` +
   'FROM invoice_lines il ' +
   `JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')} ` +
   'LEFT JOIN utilities u ON u.id = il.utility_id_fk ' +
-  'WHERE i.contract_id_fk IN (?)';
+  'WHERE i.contratto_id_fk IN (?)';
 
 const WRITE_SQL =
   '/* r_write */ UPDATE invoice_lines SET commitment_id_fk = ? WHERE id IN (?) AND commitment_auto = 1';
@@ -35,11 +35,11 @@ const WRITE_SQL =
 // Righe automatiche di fatture senza contratto: nessun impegno possibile.
 const ORPHANS_SQL =
   '/* r_orphans */ UPDATE invoice_lines il JOIN invoices i ON i.id = il.invoice_id_fk ' +
-  'SET il.commitment_id_fk = NULL WHERE i.contract_id_fk IS NULL AND il.commitment_auto = 1 ' +
+  'SET il.commitment_id_fk = NULL WHERE i.contratto_id_fk IS NULL AND il.commitment_auto = 1 ' +
   'AND il.commitment_id_fk IS NOT NULL';
 
 const ALL_CONTRACTS_SQL =
-  '/* r_all */ SELECT DISTINCT contract_id_fk AS contract_id FROM invoices WHERE contract_id_fk IS NOT NULL ' +
+  '/* r_all */ SELECT DISTINCT i.contratto_id_fk AS contract_id FROM invoices i WHERE i.contratto_id_fk IS NOT NULL ' +
   'UNION SELECT DISTINCT contract_id FROM budget_commitment_contracts';
 
 const ids = (rows: Record<string, unknown>[]): number[] => rows.map((r) => Number(r.contract_id));
