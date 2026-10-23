@@ -1,8 +1,12 @@
-// Consumo degli impegni di un gruppo (stesso contratto + capitolo + esercizio):
-// le righe automatiche, in ordine di data fattura e id, vanno per intero sul
-// primo impegno (ordine anno/num/sub, senza numero dopo) che ha ancora
-// rimanenza; con tutti esauriti sull'ultimo. Un impegno senza importo non si
-// esaurisce. Le righe scelte a mano contano nella rimanenza e non si spostano.
+// Consumo degli impegni: le righe automatiche, in ordine di data fattura e id,
+// vanno per intero sul primo impegno candidato (ordine anno/num/sub, senza
+// numero dopo) che ha ancora rimanenza; con tutti esauriti sull'ultimo.
+// Candidati = impegni del contratto della riga, sul suo capitolo e nel suo
+// esercizio (campi assenti = nessun filtro). Riga senza utenza (chapter null):
+// impegni del contratto nell'esercizio, solo se tutti dello stesso capitolo.
+// La rimanenza è una sola per impegno anche se è condiviso da più contratti.
+// Un impegno senza importo non si esaurisce. Le righe scelte a mano contano
+// nella rimanenza e non si spostano.
 
 export interface AllocCommitment {
   id: number;
@@ -10,6 +14,9 @@ export interface AllocCommitment {
   num: number | null;
   sub: number | null;
   amount: number | null;
+  contract_ids?: number[];
+  chapter?: number;
+  fiscal_year?: number;
 }
 
 export interface AllocLine {
@@ -18,6 +25,20 @@ export interface AllocLine {
   date: string;
   auto: boolean;
   commitment_id: number | null;
+  contract_id?: number;
+  chapter?: number | null;
+  year?: number;
+}
+
+function candidates(ordered: AllocCommitment[], l: AllocLine): AllocCommitment[] {
+  const found = ordered.filter(
+    (c) =>
+      (l.contract_id === undefined || !c.contract_ids || c.contract_ids.includes(l.contract_id)) &&
+      (l.year === undefined || c.fiscal_year === undefined || c.fiscal_year === l.year) &&
+      (l.chapter === undefined || l.chapter === null || c.chapter === undefined || c.chapter === l.chapter),
+  );
+  if (l.chapter === null && new Set(found.map((c) => c.chapter)).size > 1) return [];
+  return found;
 }
 
 const numbered = (c: AllocCommitment) => (c.num === null ? 1 : 0);
@@ -49,11 +70,12 @@ export function allocate(commitments: AllocCommitment[], lines: AllocLine[]): Ma
     .filter((l) => l.auto)
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id));
   for (const l of autoLines) {
-    if (!ordered.length) {
+    const pool = candidates(ordered, l);
+    if (!pool.length) {
       result.set(l.id, null);
       continue;
     }
-    const target = ordered.find((c) => remaining.get(c.id)! > 0) ?? ordered[ordered.length - 1];
+    const target = pool.find((c) => remaining.get(c.id)! > 0) ?? pool[pool.length - 1];
     remaining.set(target.id, remaining.get(target.id)! - Number(l.amount));
     result.set(l.id, target.id);
   }

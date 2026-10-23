@@ -55,6 +55,33 @@ describe('allocate', () => {
     expect(ids(allocate([], [line(1, 10, '2026-01-10')]), [1])).toEqual([null]);
   });
 
+  it('un impegno condiviso da due contratti ha una sola rimanenza', () => {
+    const shared = { ...c(10, 521, 100), contract_ids: [1, 2], chapter: 7, fiscal_year: 2026 };
+    const second = { ...c(20, 1886, 50), contract_ids: [2], chapter: 7, fiscal_year: 2026 };
+    const lines = [
+      { ...line(1, 100, '2026-01-10'), contract_id: 1, chapter: 7, year: 2026 },
+      { ...line(2, 80, '2026-02-10'), contract_id: 2, chapter: 7, year: 2026 },
+    ];
+    expect(ids(allocate([shared, second], lines), [1, 2])).toEqual([10, 20]);
+  });
+
+  it('una riga sceglie solo tra gli impegni del suo contratto, capitolo ed esercizio', () => {
+    const other = { ...c(10, 1, 100), contract_ids: [2], chapter: 7, fiscal_year: 2026 };
+    const otherChapter = { ...c(20, 2, 100), contract_ids: [1], chapter: 8, fiscal_year: 2026 };
+    const otherYear = { ...c(30, 3, 100), contract_ids: [1], chapter: 7, fiscal_year: 2025 };
+    const right = { ...c(40, 4, 100), contract_ids: [1], chapter: 7, fiscal_year: 2026 };
+    const lines = [{ ...line(1, 10, '2026-01-10'), contract_id: 1, chapter: 7, year: 2026 }];
+    expect(ids(allocate([other, otherChapter, otherYear, right], lines), [1])).toEqual([40]);
+  });
+
+  it('riga senza utenza: un solo capitolo impegnato nell’anno, altrimenti nessun impegno', () => {
+    const a = { ...c(10, 1, 100), contract_ids: [1], chapter: 7, fiscal_year: 2026 };
+    const b = { ...c(20, 2, 100), contract_ids: [1], chapter: 8, fiscal_year: 2026 };
+    const noUtility = { ...line(1, 10, '2026-01-10'), contract_id: 1, chapter: null, year: 2026 };
+    expect(ids(allocate([a], [noUtility]), [1])).toEqual([10]);
+    expect(ids(allocate([a, b], [noUtility]), [1])).toEqual([null]);
+  });
+
   it('scorre le righe per data e poi per id', () => {
     const lines = [line(2, 60, '2026-01-10'), line(1, 60, '2026-01-10'), line(3, 60, '2026-01-05')];
     expect(ids(allocate([A, B], lines), [3, 1, 2])).toEqual([10, 10, 20]);
