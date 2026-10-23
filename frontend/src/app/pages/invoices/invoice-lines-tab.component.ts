@@ -66,8 +66,13 @@ const eur = (n: number | null | undefined): string =>
           @if (!readOnly && !contractId) {
             <span class="line-hint">Impegni disponibili scegliendo il contratto.</span>
           } @else if (autoHint(l)) {
-            <span class="line-hint" matTooltip="Assegnato automaticamente in ordine di numero; cambia salvando la fattura">
-              <mat-icon style="font-size: 14px; width: 14px; height: 14px; vertical-align: text-bottom;">auto_mode</mat-icon> {{ autoHint(l) }}
+            <button type="button" class="line-hint line-hint--link" (click)="openCommitment(l)"
+                    matTooltip="Assegnato automaticamente in ordine di numero (cambia salvando la fattura). Clic per aprire l'impegno.">
+              <mat-icon>auto_mode</mat-icon> {{ autoHint(l) }}
+            </button>
+          } @else if (autoMissing(l)) {
+            <span class="line-hint line-hint--warn" matTooltip="Nessun impegno del contratto per il capitolo e l'esercizio della riga">
+              <mat-icon>warning</mat-icon> Automatico: nessun impegno disponibile
             </span>
           }
         </div>
@@ -132,6 +137,11 @@ const eur = (n: number | null | undefined): string =>
     .f-code { width: 160px; }
     .f-desc { flex: 1 1 220px; }
     .line-hint { display: block; font-size: 0.75rem; color: var(--sheet-muted); margin-top: -12px; }
+    .line-hint--link, .line-hint--warn { display: flex; align-items: flex-start; gap: 4px; font: inherit; font-size: 0.8125rem; line-height: 1.35; margin-top: -10px; }
+    .line-hint--link { background: none; border: 0; padding: 0; cursor: pointer; color: var(--app-link); font-weight: 500; text-align: left; }
+    .line-hint--link:hover { text-decoration: underline; }
+    .line-hint--warn { color: var(--tone-warn-fg); }
+    .line-hint mat-icon { font-size: 16px; width: 16px; height: 16px; }
   `],
 })
 export class InvoiceLinesTabComponent implements OnChanges {
@@ -220,7 +230,19 @@ export class InvoiceLinesTabComponent implements OnChanges {
 
   // Riga automatica già assegnata dal server: quale impegno sta consumando.
   autoHint(l: EditableLine): string | null {
-    return isAutoLine(l) && l.commitment ? `Ora: ${commitmentRefLabel(l.commitment)}` : null;
+    const c = l.commitment;
+    if (!isAutoLine(l) || !c) return null;
+    const chapter = c.budgetChapter?.chapter_code ? ` · cap. ${c.budgetChapter.chapter_code}/${c.budgetChapter.article ?? 0}` : '';
+    return `Assegnato ${commitmentRefLabel(c)}${chapter} · comp. ${c.fiscal_year}`;
+  }
+
+  // Riga salvata, automatica, senza impegno: il ricalcolo non ne ha trovati.
+  autoMissing(l: EditableLine): boolean {
+    return !!l.id && isAutoLine(l) && !l.commitment && !!this.contractId;
+  }
+
+  openCommitment(l: EditableLine): void {
+    if (l.commitment) this.navigator.openCommitment(l.commitment.id).subscribe();
   }
 
   newCommitment(l: EditableLine): void {

@@ -23,7 +23,7 @@ export interface PreviewItem {
       <div class="pc-head">
         <mat-icon [style.color]="color">{{ icon }}</mat-icon>
         <span class="pc-title">{{ title }}</span>
-        <span [class]="'pc-count tone-' + (items.length ? 'info' : 'off')">{{ items.length }}</span>
+        <span [class]="'pc-count tone-' + ((total ?? items.length) ? 'info' : 'off')">{{ total ?? items.length }}</span>
       </div>
       @if (items.length === 0) {
         <div class="pc-empty">{{ emptyText }}</div>
@@ -85,6 +85,8 @@ export class PreviewCardComponent {
   @Input() items: PreviewItem[] = [];
   @Input() emptyText = 'Nessuno';
   @Input() max = 3;
+  // Conteggio del badge quando le voci sono un riepilogo (es. utenze per tipo).
+  @Input() total: number | null = null;
   @Output() seeAll = new EventEmitter<void>();
   @Output() open = new EventEmitter<PreviewItem>();
 }

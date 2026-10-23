@@ -40,11 +40,17 @@
           @if (numberIncomplete() && form.touched) {
             <p class="sheet-hint span-all" style="color: var(--tone-danger-fg);">Anno e numero dell'impegno vanno indicati insieme.</p>
           }
-          <div class="span-2">
-            <app-filterable-select label="Capitolo *" placeholder="Cerca capitolo..." [options]="chapterOptions"
+          <div class="span-2" style="display: flex; align-items: flex-start; gap: 4px;">
+            <app-filterable-select style="flex: 1;" label="Capitolo *" placeholder="Cerca capitolo..." [options]="chapterOptions"
                                    formControlName="budget_chapter_id_fk"
                                    [errorMessage]="form.controls.budget_chapter_id_fk.invalid && form.controls.budget_chapter_id_fk.touched ? 'Capitolo obbligatorio' : null"
                                    [createLabel]="canEdit ? 'Nuovo capitolo' : null" (create)="newChapter()"></app-filterable-select>
+            @if (form.controls.budget_chapter_id_fk.value) {
+              <button mat-icon-button type="button" aria-label="Apri scheda capitolo" matTooltip="Apri scheda capitolo"
+                      style="margin-top: 4px;" (click)="openChapter()">
+                <mat-icon>open_in_new</mat-icon>
+              </button>
+            }
           </div>
           <div class="span-2">
             <app-filterable-select label="Fornitore" placeholder="Cerca fornitore..." [options]="supplierOptions"
@@ -63,14 +69,9 @@
 
         @if (!isNew) {
           <div class="sheet-section-title"><mat-icon>euro</mat-icon>Consumo</div>
-          <div class="commitment-totals">
-            <div><span class="sheet-hint">Importo</span><strong>{{ data.item.amount === null ? 'senza importo' : eur(data.item.amount) }}</strong></div>
-            <div><span class="sheet-hint">Speso</span><strong>{{ eur(data.item.spent) }}</strong></div>
-            <div>
-              <span class="sheet-hint">Rimanenza</span>
-              <strong [class.tone-danger]="data.item.remaining !== null && data.item.remaining < 0">{{ data.item.remaining === null ? '—' : eur(data.item.remaining) }}</strong>
-            </div>
-          </div>
+          <app-stacked-bar [segments]="barSegments">
+            Importo <strong>{{ data.item.amount === null ? 'senza importo: nessun limite' : eur(data.item.amount) }}</strong>
+          </app-stacked-bar>
         }
       </mat-tab>
 

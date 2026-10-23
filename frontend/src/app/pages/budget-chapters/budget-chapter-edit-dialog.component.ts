@@ -6,6 +6,8 @@ import {MatInputModule} from '@angular/material/input';
 import {MatButtonModule} from '@angular/material/button';
 import {MatTab, MatTabGroup, MatTabsModule} from '@angular/material/tabs';
 import {MatIconModule} from '@angular/material/icon';
+import {MatTooltipModule} from '@angular/material/tooltip';
+import {ChapterBudgetBarComponent} from './chapter-budget-bar.component';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
@@ -38,15 +40,13 @@ import {HardTypeDescription} from '../utility-types/enum/hard-type.enum';
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatTabsModule,
-    MatIconModule, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, LinkedTableComponent,
+    MatIconModule, MatTooltipModule, ChapterBudgetBarComponent, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, LinkedTableComponent,
     PreviewCardComponent, EntityHistoryComponent, MultiSelectComponent, OnlyNumbersDirective,
     BudgetChapterUtilitiesTabComponent, BudgetChapterYearsTabComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './budget-chapter-edit-dialog.component.html',
   styles: [`
-    .chapter-year { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 8px; }
-    .chapter-year > div { display: flex; flex-direction: column; gap: 2px; }
   `],
 })
 export class BudgetChapterEditDialogComponent implements OnInit {
@@ -77,6 +77,7 @@ export class BudgetChapterEditDialogComponent implements OnInit {
   commitments: ChapterCommitment[] = [];
   lines: ChapterInvoiceLine[] = [];
   utilityPreview: PreviewItem[] = [];
+  utilitiesCount: number | null = null;
   commitmentPreview: PreviewItem[] = [];
   linePreview: PreviewItem[] = [];
 
@@ -151,10 +152,13 @@ export class BudgetChapterEditDialogComponent implements OnInit {
       error: err => console.error('Errore caricamento fatture del capitolo:', err),
     });
     this.consumption.chapterSummary(id).subscribe({
-      next: rows => this.utilityPreview = rows.map((r, i) => ({
-        id: i + 1,
-        label: `${HardTypeDescription[r.hard_type]}: ${r.utilities_count}`,
-      })),
+      next: rows => {
+        this.utilityPreview = rows.map((r, i) => ({
+          id: i + 1,
+          label: `${HardTypeDescription[r.hard_type]}: ${r.utilities_count}`,
+        }));
+        this.utilitiesCount = rows.reduce((sum, r) => sum + Number(r.utilities_count), 0);
+      },
       error: err => console.error('Errore caricamento utenze del capitolo:', err),
     });
   }
