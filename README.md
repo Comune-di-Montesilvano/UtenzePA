@@ -5,7 +5,9 @@
   </picture>
 </p>
 
-Gestionale del patrimonio immobiliare e delle utenze per enti pubblici locali (asset, utenze, contratti, fornitori, fatture). Nato per il Comune di Montesilvano, ma l'ente (nome, tipo, coordinate mappa di default, logo, favicon) è configurabile da interfaccia in **Impostazioni > Branding** — nessuna modifica al codice o rebuild necessari per adattarlo a un altro ente.
+Gestionale open-source del patrimonio immobiliare, degli impianti tecnici e delle utenze per enti pubblici locali: complessi, immobili (catasto e censimento MEF), impianti e verifiche di legge, utenze (storico forniture, volture e consumi), soggetti terzi, contratti immobiliari e di fornitura, convenzioni CONSIP, capitoli e impegni di spesa, fatture (con importazione automatica da PEC SDI) e atti amministrativi.
+
+Nato per il Comune di Montesilvano, ma pensato per il riuso: nome ente, tipo, coordinate mappa di default, logo e favicon sono configurabili da interfaccia in **Impostazioni > Branding** (da cui viene derivato anche il Comune per la geocodifica e la ricerca indirizzi), senza alcuna modifica al codice né rebuild delle immagini.
 
 ## Screenshot
 
@@ -79,26 +81,52 @@ Configurazione tramite un file `.env` nella root, copiato da `.env.example` (ele
 
 ### Secret applicativi (obbligatori in produzione)
 
-| Variabile | Descrizione |
-|---|---|
-| `JWT_ACCESS_SECRET` | Firma i token JWT — genera con `openssl rand -hex 32` |
-| `COOKIE_SECRET` | Firma i cookie — genera con `openssl rand -hex 32` |
-| `SETUP_BOOTSTRAP_TOKEN` | Protegge il wizard di creazione del primo Admin — comunicato fuori banda a chi lo esegue |
+| Variabile | Default | Descrizione |
+|---|---|---|
+| `JWT_ACCESS_SECRET` | _(obbligatoria)_ | Firma i token JWT — genera con `openssl rand -hex 32` |
+| `JWT_EXPIRES_IN` | `1h` | Durata del token di accesso (rinnovato automaticamente ogni 15 min durante la sessione attiva) |
+| `COOKIE_SECRET` | _(obbligatoria)_ | Firma i cookie — genera con `openssl rand -hex 32` |
+| `SETUP_BOOTSTRAP_TOKEN` | _(obbligatoria)_ | Protegge il wizard di creazione del primo Admin — comunicato fuori banda a chi lo esegue |
 
 ### Rete / CORS
 
 | Variabile | Descrizione |
 |---|---|
 | `CORS_ORIGIN` | Origine (o lista separata da virgola) ammessa dal backend — deve combaciare con l'URL reale del frontend visto dal browser |
-| `API_URL` | URL del backend raggiungibile dal browser, usato dal frontend a runtime |
+| `API_URL` | URL del backend raggiungibile dal browser, iniettato a runtime nel frontend |
 
-### Altro
+### Login LDAP / Active Directory (opzionale, ruolo Lettore)
 
 | Variabile | Default | Descrizione |
 |---|---|---|
+| `LDAP_HOST` | _(vuota)_ | URL server LDAP/AD (es. `ldap://...` o `ldaps://...`). Vuoto = login LDAP disabilitato |
+| `LDAP_USER_DN_TEMPLATE` | `%s@comune.montesilvano.pe.it` | Template DN utente (`%s` sostituito con lo username AD inserito al login) |
+| `LDAP_BASE_DN` | `DC=comune,DC=montesilvano,DC=pe,DC=it` | Base DN per la ricerca dell'utente |
+| `LDAP_REQUIRED_GROUP` | _(vuota)_ | `CN` del gruppo AD richiesto per l'accesso in sola lettura (con auto-provisioning al primo login) |
+| `LDAP_TLS_SKIP_VERIFY` | `false` | Solo per test con certificato self-signed, mai `true` in produzione |
+
+### Import fatture dalla PEC SDI (opzionale, IMAP in sola lettura)
+
+| Variabile | Default | Descrizione |
+|---|---|---|
+| `PEC_IMAP_HOST` | _(vuota)_ | Host IMAP della casella PEC che riceve le fatture dallo SDI |
+| `PEC_IMAP_PORT` | `993` | Porta IMAP |
+| `PEC_IMAP_TLS` | `true` | Connessione TLS |
+| `PEC_IMAP_USER` / `PEC_IMAP_PASSWORD` | _(vuote)_ | Credenziali della casella PEC |
+| `INVOICE_IMPORT_CRON` | `*/15 * * * *` | Frequenza di lettura della casella PEC |
+| `INVOICE_IMPORT_DISABLED` | `false` (prod) / `true` (dev) | Spegne forzatamente il motore di importazione, interruttore UI incluso |
+
+### Backup, Allegati e Osservabilità
+
+| Variabile | Default | Descrizione |
+|---|---|---|
+| `BACKUP_CRON_SCHEDULE` | `0 0 * * *` | Pianificazione cron dei backup automatici |
+| `BACKUP_KEEP_DAILY` / `WEEKLY` / `MONTHLY` / `YEARLY` | `7` / `4` / `12` / `0` | Retention a scaglioni: conserva il backup più recente di ciascuno degli ultimi N giorni, settimane ISO, mesi e anni con backup |
+| `BACKUP_MAX_SIZE_MB` | `20480` | Dimensione massima del file di backup caricabile per il ripristino (in MB) |
+| `ATTACHMENT_MAX_SIZE_MB` | `50` | Dimensione massima per singolo allegato di immobili, impianti, contratti e atti (in MB) |
 | `SWAGGER` | `false` | Espone `/api-docs` — mai `true` in produzione pubblica |
 | `LOG_LEVEL` | `info` | `error`/`warn`/`info`/`debug`/`verbose` — cambiabile senza rebuild, solo restart |
-| `SENTRY_DSN` | _(vuota)_ | DSN Sentry/GlitchTip per error tracking — assente = tracking disabilitato |
+| `SENTRY_DSN` / `SENTRY_ENVIRONMENT` | _(vuote)_ | DSN e tag ambiente Sentry/GlitchTip per error tracking — assente = tracking disabilitato |
 
 ## Moduli API
 
@@ -106,30 +134,29 @@ Il backend espone risorse REST sotto `/api/v1`, un modulo NestJS per dominio (`b
 
 | Modulo | Descrizione |
 |---|---|
-| `auth`, `setup` | Login, reset password, bootstrap del primo Admin |
-| `system-users` | Utenti di sistema e ruoli |
-| `settings` | Branding ente (nome/tipo, coordinate mappa, logo, favicon) |
-| `asset`, `asset-aggregators` | Immobili e loro aggregati |
-| `utility`, `utility-types`, `utility-aggregators` | Utenze, tipologie e aggregati |
-| `map` | Punti geolocalizzati (immobili + utenze) per la mappa |
-| `invoices` | Fatture |
-| `contracts` | Contratti (fornitore, CIG, date, cauzione — può coprire più utenze, storicizzato) |
-| `suppliers` | Fornitori |
-| `budget-chapters` | Capitoli di spesa |
-| `consip-agreement` | Convenzioni CONSIP |
-| `costs-borne-by` | Oneri a carico di |
-| `maintenance-managers` | Fornitori manutenzione |
-| `purpose` | Finalità d'uso |
-| `utilizer`, `utilizer-grant` | Utilizzatori e concessioni |
-| `backup` | Backup/restore database |
-| `geocoding` | Geocodifica indirizzi (asset senza coordinate manuali) |
-| `health` | Health check |
+| `auth`, `setup` | Login (locale email+password e LDAP/AD), rinnovo token, logout, reset password via OTP, bootstrap del primo Admin |
+| `system-users` | Utenti di sistema, ruoli (`Admin`, `Operatore`, `Lettore`) e utente di sistema `UtenzePA (automatico)` |
+| `settings` | Branding ente (nome/tipo, coordinate mappa, logo, favicon) e Comune di riferimento |
+| `complexes` | Complessi immobiliari (fisici e amministrativi, 13 tipologie di compendio MEF 2025) |
+| `asset`, `asset-natures`, `asset-functions` | Immobili, unità catastali multiple, dati patrimoniali/MEF e classificazione Tipologia × Funzione |
+| `plants` | Impianti tecnici (termici, elettrici DM 37/08 – DPR 462/01, fotovoltaici, ascensori, presidi antincendio, vie di esodo, sollevamento/acque meteoriche, ecocompattatori) e verifiche periodiche di legge |
+| `utility`, `utility-types`, `utility-supply`, `utility-consumptions` | Utenze (luce, gas, acqua, connettività), tipologie ARERA e categorie uso gas, storico attivazioni/cessazioni/volture (`SupplyReconcileService`), rilevazioni e stime consumi (anche per fasce `F1`–`F3` e penali reattiva) |
+| `third-parties` | Soggetti terzi: anagrafica unificata di fornitori, locatori, conduttori e concessionari con ruoli derivati |
+| `utilizer-grant` | Contratti immobiliari (concessioni, locazioni attive/passive, comodati), parti contraenti N-N, regime IVA e decisioni di voltura utenze |
+| `contracts`, `consip-agreement` | Contratti di fornitura (ordinari con CIG, esclusi da CIG, gratuiti), rinnovi/accorpamenti e convenzioni CONSIP |
+| `budget-chapters`, `budget-chapter-spending`, `budget-commitments`, `spending` | Capitoli di spesa, stanziamenti e assestato per esercizio, impegni di spesa N-N con i contratti (riconciliazione automatica delle righe fattura) e calcolo della spesa per competenza |
+| `invoices`, `invoice-import` | Fatture e note di credito con righe per utenza/contratto, stato SDI, lettura automatica da PEC SDI ed editor dei pattern di estrazione (XML e testo/tabelle del PDF allegato) |
+| `acts`, `act-types`, `attachments`, `photos` | Atti amministrativi (determine, delibere, verbali, ecc.), allegati (upload a chunk con verifica firme binarie, inclusi `.p7m` e `.dwg`) e foto |
+| `map`, `geocoding` | Mappa interattiva a livelli (Complessi, Immobili, Utenze, Impianti), ricerca indirizzo e geocodifica automatica |
+| `anomalies` | Controlli e segnalazioni di coerenza per la dashboard e per i singoli elenchi |
+| `audit-log` | Registro attività: tracciamento modifiche campo-per-campo (`CREATE`, `UPDATE`, `DELETE`) e accessi (`LOGIN`, `LOGOUT`, `TIMEOUT`) |
+| `backup`, `health` | Backup/ripristino con foto e allegati multi-GB, retention a scaglioni, modalità manutenzione e health check |
 
 ## Bootstrap del primo Admin
 
-Non esiste un modo per creare un utente amministratore da riga di comando: la creazione utenti (`POST /system-users`) richiede già un Admin autenticato. Il primo Admin si crea tramite il wizard `/setup` (disponibile solo finché il database non ha alcun utente, si disattiva automaticamente dopo):
+Non esiste un modo per creare un utente amministratore da riga di comando: la creazione utenti (`POST /system-users`) richiede già un Admin autenticato. Il primo Admin si crea tramite il wizard `/setup` (disponibile solo finché il database non ha alcun utente umano, si disattiva automaticamente dopo):
 
-1. Apri `http://localhost:4300/setup` (o viene reindirizzato lì automaticamente da `/login` finché non esiste alcun utente).
+1. Apri `http://localhost:4300/setup` (o vieni reindirizzato lì automaticamente da `/login` finché non esiste alcun utente).
 2. Inserisci nome, cognome, email, password e il `SETUP_BOOTSTRAP_TOKEN` configurato in `.env`.
 3. Ricevi un codice OTP via email (in sviluppo: [mailpit](http://localhost:8026), porta da `docker-compose.override.yml` — verifica in `.env` se sovrascritta per conflitti con altri progetti locali).
 4. Inserisci il codice per completare la creazione dell'Admin.
@@ -138,7 +165,7 @@ Non esiste un modo per creare un utente amministratore da riga di comando: la cr
 
 Da `Impostazioni > Branding` (solo ruolo Admin) si configurano, senza toccare codice o rebuild:
 
-- Nome e tipo ente (es. "Comune di Montesilvano" / "Comune")
+- Nome e tipo ente (es. "Comune di Montesilvano" / "Comune") — dal nome ente viene ricavato anche il Comune usato per geocodificare gli impianti e dare priorità alla ricerca indirizzi in mappa
 - Coordinate di default della mappa geolocalizzazione (scelte cliccando su una mini-mappa)
 - Logo (mostrato in header e login)
 - Favicon (tab del browser)
@@ -147,12 +174,15 @@ Il valore di default al primo avvio (seed di migration) è quello del Comune di 
 
 ## Frontend
 
-Interfaccia in **Angular 22** con **Angular Material**. Sezioni principali (menu laterale):
+Interfaccia in **Angular 22** con **Angular Material**, schede entità navigabili a pila con creazione al volo (`+`), elenchi uniformi con filtri avanzati a sezioni e pannello **Segnalazioni**, selettore **Tema** (Chiaro / Scuro / Sistema) e **Guida operatori** integrata (`/guida`, apribile anche contestualmente con `?`).
 
-- **Dashboard**, **Mappa** (geolocalizzazione immobili/contatori)
-- **Immobili**, **Utenze**, **Concessioni**, **Fornitori**, **Capitoli di Spesa**, **Fatture**, **Contratti**
-- **Impostazioni** — Aggregati Utenze/Immobili, Fornitori Manutenzione, Tipologie uso contatore, Convenzioni CONSIP, Finalità d'uso, Utilizzatori, Backup e manutenzione, Branding
-- **Utenti e ruoli**
+Sezioni principali del menu laterale:
+
+- **Dashboard** e **Mappa** a livelli (*Complessi*, *Immobili*, *Utenze*, *Impianti*, ricerca indirizzo e apertura Google Street View)
+- **Patrimonio** — **Complessi**, **Immobili**, **Impianti**, **Contratti immobiliari**, **Utenze**
+- **Gestione economica** — **Soggetti terzi**, **Contratti di fornitura**, **Convenzioni CONSIP**, **Capitoli di spesa**, **Impegni di spesa**, **Fatture**, **Atti**
+- **Impostazioni** — Tipi di utenza, Tipologie e Funzioni immobile, Tipi di atto, Import fatture (Motore PEC e Pattern), Backup e manutenzione, Branding, Utenti e ruoli, Log attività
+- **Guida** (`/guida`)
 
 ## Sviluppo
 
@@ -172,16 +202,17 @@ pnpm run start:dev        # watch mode, porta 3000
 cd frontend
 pnpm install
 pnpm run start             # ng serve, porta 4300
+pnpm run build             # verifica guida Markdown (check-guida.mjs) + ng build production
 ```
 
-### Test (backend)
+### Test e controlli (backend)
 
 ```bash
 cd backend
-pnpm run test -- --maxWorkers=2               # tutti gli unit test
-pnpm run test:e2e -- --maxWorkers=2            # test/jest-e2e.json
-pnpm run test:integration -- --maxWorkers=2    # usa mongodb-memory-server
-pnpm run test:cov -- --maxWorkers=2            # con coverage
+pnpm run test:unit -- --maxWorkers=2          # tutti gli unit test (src/**/*.spec.ts)
+pnpm run lint                                 # ESLint
+pnpm run type-check                           # tsc --noEmit
+pnpm run build                                # nest build
 ```
 
 `--maxWorkers=2` sempre: l'ambiente di sviluppo tipico ha poche CPU disponibili, jest di default ne satura quante ne trova.
@@ -201,15 +232,15 @@ pnpm run artillery:all      # tutti in sequenza
 
 ## Sicurezza
 
-- Autenticazione JWT — solo access token, nessun refresh token
-- OTP via email (non TOTP/app authenticator) per il bootstrap del primo Admin e il reset password — non richiesto al login ordinario
-- Hashing password con bcrypt (cost factor 10)
-- Header di sicurezza HTTP via [helmet](https://helmetjs.github.io/)
-- CORS ristretto a whitelist esplicita (`CORS_ORIGIN`)
-- Gestione secret con [Infisical](https://infisical.com/) (opzionale)
-- Error tracking con [Sentry](https://sentry.io/) o [GlitchTip](https://glitchtip.com/) (opzionale, via `SENTRY_DSN`)
-
-Non implementati allo stato attuale (nessuna feature di sicurezza aggiuntiva oltre quanto sopra): blocco account dopo tentativi di login falliti, rate limiting sulle API.
+- Autenticazione **JWT con scadenza** (`JWT_EXPIRES_IN`, default `1h`) e rinnovo automatico ogni 15 minuti durante la sessione attiva (`POST /authModule/refresh`, che verifica stato e ruolo sul DB); disconnessione automatica dopo 30 minuti di inattività
+- Login **LDAP / Active Directory** opzionale per gli utenti con ruolo `Lettore` (con filtro per gruppo AD e auto-provisioning al primo accesso)
+- **OTP via email** per il bootstrap del primo Admin (`/setup`, protetto anche da `SETUP_BOOTSTRAP_TOKEN`) e per il reset password — mai esposto nelle risposte API
+- Hashing password con **bcrypt** (cost factor 10)
+- Tutela dati personali per il ruolo `Lettore`: oscuramento automatico di codice fiscale e contatti dei soggetti terzi persone fisiche; elenco utenti e log globale riservati agli `Admin`
+- Validazione delle firme binarie e della struttura reale dei file caricati come allegati (`attachment-file-policy.ts`, mai basata sul solo MIME dichiarato dal browser)
+- Tracciamento degli accessi (`LOGIN`, `LOGOUT`, `TIMEOUT`) e delle modifiche in `audit_logs`
+- Header di sicurezza HTTP via [helmet](https://helmetjs.github.io/) e CORS ristretto a whitelist esplicita (`CORS_ORIGIN`)
+- Gestione secret con [Infisical](https://infisical.com/) (opzionale) ed error tracking con [Sentry](https://sentry.io/) / [GlitchTip](https://glitchtip.com/) (opzionale, via `SENTRY_DSN`)
 
 ## Struttura del progetto
 
@@ -220,6 +251,7 @@ UtenzePA/
 ├── docker-compose.override.yml  # Override sviluppo (build locale, bind mount, mailpit)
 ├── .env.example                 # Variabili d'ambiente documentate
 ├── publiccode.yml               # Metadata per il catalogo riuso PA
+├── docs/                        # Screenshot, asset, roadmap e note tecniche (docs/claude/)
 ├── backend/                     # API NestJS
 │   ├── src/
 │   │   ├── apis/                # Moduli di dominio (controller/service/entity per risorsa)
@@ -229,18 +261,20 @@ UtenzePA/
 │   ├── artillery/                # Configurazioni load test
 │   └── postman/                  # Collection Postman
 └── frontend/                     # App Angular
+    ├── public/guida/guida.md     # Guida operativa in Markdown
+    ├── scripts/check-guida.mjs   # Validazione ancore e struttura della guida
     └── src/
         ├── app/
-        │   ├── pages/             # Pagine (include branding-settings/, setup/)
+        │   ├── pages/             # Pagine, schede entità e impostazioni
         │   ├── services/          # Servizi comunicazione API
-        │   ├── guards/, layout/, core/
+        │   └── guards/, layout/, core/
         └── environments/
 ```
 
 ## Contribuire
 
 Prima di aprire una PR:
-- lancia `pnpm run lint`/`pnpm run test` (backend) e `pnpm run build` (frontend, se tocchi codice Angular) — dentro il container se l'host non ha Node ≥24
+- lancia `pnpm run lint`/`pnpm run test:unit -- --maxWorkers=2` (backend) e `pnpm run build` (frontend, se tocchi codice Angular) — dentro il container se l'host non ha Node ≥24
 - affidati a CI (`.github/workflows/tests.yml`, gira su ogni push/PR verso `main`) come gate autoritativo prima del merge
 - leggi `CLAUDE.md` per le convenzioni del repo e le note operative accumulate
 
