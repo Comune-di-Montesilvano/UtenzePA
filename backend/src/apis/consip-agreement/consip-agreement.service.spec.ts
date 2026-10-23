@@ -71,6 +71,13 @@ describe('ConsipAgreementService', () => {
       expect(contractRepo.save).not.toHaveBeenCalled();
     });
 
+    it('non sposta in silenzio un contratto già su un’altra convenzione', async () => {
+      repo.findOne.mockResolvedValue(agreement);
+      contractRepo.findOne.mockResolvedValue({ id: 9, supplier_id_fk: 46, consip_agreement_id: 58, deleted: false });
+      await expect(service.linkContract(57, 9, 3)).rejects.toThrow('già collegato a un’altra convenzione');
+      expect(contractRepo.save).not.toHaveBeenCalled();
+    });
+
     it('scollega solo un contratto di questa convenzione', async () => {
       repo.findOne.mockResolvedValue(agreement);
       contractRepo.findOne.mockResolvedValue({ id: 9, supplier_id_fk: 46, consip_agreement_id: 58, deleted: false });

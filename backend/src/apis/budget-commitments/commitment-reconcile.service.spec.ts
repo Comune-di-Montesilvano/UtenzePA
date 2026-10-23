@@ -119,6 +119,16 @@ describe('CommitmentReconcileService', () => {
     expect(writes(calls)).toHaveLength(1);
   });
 
+  it('carica anche le righe manuali sugli impegni di fatture di altri contratti', async () => {
+    const { ds, calls } = fakeDataSource({ commitments: [commitment(10, 1, 100)], lines: [] });
+    await new CommitmentReconcileService(ds).reconcileContracts([1]);
+    const lines = calls.find((c) => c.sql.includes('/* r_lines */'))!;
+    expect(lines.sql).toContain('commitment_auto = 0 AND il.commitment_id_fk IN (?)');
+    expect(lines.params).toEqual([[1], [10]]);
+    const commitments = calls.find((c) => c.sql.includes('/* r_commitments */'))!;
+    expect(commitments.sql).not.toContain('GROUP_CONCAT');
+  });
+
   it('chiamate concorrenti sugli stessi contratti fanno un solo giro', async () => {
     const { ds, calls } = fakeDataSource({});
     const service = new CommitmentReconcileService(ds);
@@ -145,6 +155,6 @@ describe('CommitmentReconcileService', () => {
     const { ds, calls } = fakeDataSource({ closure: [{ contract_id: 1 }, { contract_id: 2 }] });
     await new CommitmentReconcileService(ds).reconcileContracts([1]);
     const linesCall = calls.find((c) => c.sql.includes('/* r_lines */'))!;
-    expect(linesCall.params).toEqual([[1, 2]]);
+    expect(linesCall.params).toEqual([[1, 2], [-1]]);
   });
 });

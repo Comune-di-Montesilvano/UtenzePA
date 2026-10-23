@@ -13,8 +13,8 @@ export interface ChapterYear {
   invoiced: number;
   invoices: number;
   available: number | null;
-  // Somma delle rimanenze degli impegni dell'esercizio.
-  remaining: number;
+  // Somma delle rimanenze degli impegni dell'esercizio (null = nessun importo noto).
+  remaining: number | null;
   over_budget: boolean;
 }
 

@@ -78,6 +78,13 @@ export class RealCommitments1795800000000 implements MigrationInterface {
       "UPDATE `budget_commitments` SET `commitment_number` = CONCAT(`commitment_year`, '/', `commitment_num`, '/', COALESCE(`commitment_sub`, 1)), " +
         '`update_date` = `update_date` WHERE `commitment_num` IS NOT NULL',
     );
+    // Il testo libero portato nelle note dall'up torna nella colonna e il
+    // prefisso sparisce: un nuovo up non lo ripete.
+    await q.query(
+      "UPDATE `budget_commitments` SET `commitment_number` = SUBSTRING_INDEX(SUBSTRING(`notes`, 9), '\n', 1), " +
+        "`notes` = NULLIF(IF(LOCATE('\n', `notes`) > 0, SUBSTRING(`notes`, LOCATE('\n', `notes`) + 1), ''), ''), " +
+        "`update_date` = `update_date` WHERE `notes` LIKE 'Numero: %'",
+    );
     await q.query(
       'UPDATE `invoice_lines` SET `commitment_id_fk` = NULL WHERE `commitment_id_fk` IN ' +
         '(SELECT `id` FROM `budget_commitments` WHERE `contract_id_fk` IS NULL)',

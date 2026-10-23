@@ -146,6 +146,8 @@ export class InvoiceLinesTabComponent implements OnChanges {
   @Input() readOnly = false;
   // Contratto della fattura: serve a creare un impegno dalla riga.
   @Input() contractId: number | null = null;
+  // Fornitore della fattura: precompilato sugli impegni creati da una riga.
+  @Input() supplierId: number | null = null;
   @Output() linesChange = new EventEmitter<InvoiceLine[]>();
   // Elemento creato da una riga: il padre ricarica quelle opzioni.
   @Output() optionsStale = new EventEmitter<'utilities' | 'commitments'>();
@@ -223,7 +225,7 @@ export class InvoiceLinesTabComponent implements OnChanges {
 
   newCommitment(l: EditableLine): void {
     if (!this.contractId) return;
-    this.navigator.createCommitment({contract_ids: [this.contractId]}).subscribe(c => {
+    this.navigator.createCommitment({contract_ids: [this.contractId], supplier_id_fk: this.supplierId}).subscribe(c => {
       if (!c) return;
       this.optionsStale.emit('commitments');
       this.setCommitment(l, c.id);

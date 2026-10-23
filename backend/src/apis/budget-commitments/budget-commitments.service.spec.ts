@@ -141,6 +141,20 @@ describe('BudgetCommitmentsService', () => {
     expect(list[1]).toEqual(expect.objectContaining({ label: '—', remaining: null, contract_ids: [] }));
   });
 
+  it('righe manuali che bloccano l’eliminazione: solo fatture non cancellate e non rifiutate', async () => {
+    repo.findOne.mockResolvedValue({ id: 9, ...dto, deleted: false, contracts: [{ id: 1 }] });
+    await service.remove(9, 3).catch(() => undefined);
+    const sql = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_manual */'))![0] as string;
+    expect(sql).toContain('i.deleted = 0');
+    expect(sql).toContain('sdi_status');
+  });
+
+  it('elenco e speso senza GROUP_CONCAT (troncato oltre 1024 caratteri)', async () => {
+    await service.listRows({});
+    const sql = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_rows */'))![0] as string;
+    expect(sql).not.toContain('GROUP_CONCAT');
+  });
+
   it('elenco: lo speso conta solo fatture non cancellate e non rifiutate', async () => {
     await service.listRows({});
     const sql = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_rows */'))![0] as string;

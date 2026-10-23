@@ -12,6 +12,7 @@ import { UpdateBudgetCommitmentDto } from './dto/update-budget-commitment.dto';
 import { SearchBudgetCommitmentDto } from './dto/search-budget-commitment.dto';
 import { CommitmentReconcileService } from './commitment-reconcile.service';
 import { commitmentLabel } from './commitment-label';
+import { idList } from './id-list';
 
 const toNumber = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 const round2 = (n: number): number => Math.round(n * 100) / 100;
@@ -56,7 +57,7 @@ const ROWS_SQL = (where: string) => `/* c_rows */ SELECT bc.id, bc.commitment_ye
     ch.description AS chapter_description, bc.fiscal_year, bc.amount, bc.supplier_id_fk,
     COALESCE(tp.company_name, TRIM(CONCAT(COALESCE(tp.last_name, ''), ' ', COALESCE(tp.first_name, '')))) AS supplier_name,
     bc.notes, bc.deleted,
-    (SELECT GROUP_CONCAT(bcc.contract_id ORDER BY bcc.contract_id) FROM budget_commitment_contracts bcc
+    (SELECT JSON_ARRAYAGG(bcc.contract_id) FROM budget_commitment_contracts bcc
       WHERE bcc.commitment_id = bc.id) AS contract_ids,
     (SELECT COALESCE(SUM(il.amount), 0) FROM invoice_lines il
       JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
@@ -69,7 +70,7 @@ const ROWS_SQL = (where: string) => `/* c_rows */ SELECT bc.id, bc.commitment_ye
 
 const MANUAL_LINES_SQL =
   '/* c_manual */ SELECT COUNT(*) AS n FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 ' +
-  'WHERE il.commitment_id_fk = ? AND il.commitment_auto = 0';
+  `AND ${NOT_REJECTED_SQL('i')} WHERE il.commitment_id_fk = ? AND il.commitment_auto = 0`;
 
 const LINES_SQL = `/* c_lines */ SELECT il.id AS line_id, i.id AS invoice_id, i.invoice_id AS invoice_number,
     i.invoice_date, il.period_start, il.period_end, il.utility_id_fk AS utility_id, u.utility_id AS utility_code,
@@ -107,7 +108,7 @@ function toRow(r: Record<string, unknown>): CommitmentRow {
     remaining: amount === null ? null : round2(amount - spent),
     supplier_id_fk: toNumber(r.supplier_id_fk),
     supplier_name: (r.supplier_name as string | null) || null,
-    contract_ids: r.contract_ids ? String(r.contract_ids).split(',').map(Number) : [],
+    contract_ids: idList(r.contract_ids),
     notes: (r.notes as string | null) ?? null,
     deleted: Boolean(Number(r.deleted ?? 0)),
   };

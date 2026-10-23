@@ -42,6 +42,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 22 | Storico di attivazione delle utenze | fatto, v1.33.0 (storico di attivazioni, cessazioni, volture e reintestazioni; decisioni per utenza sul contratto immobiliare; dati da portare in produzione con la migration) |
 | 23 | Letture stimate | fatto (v1.34.0) |
 | 24 | Stima e previsione della spesa | da approfondire (dopo la voce 17: storico per capitolo, stima macro del fabbisogno dell'esercizio successivo) |
+| 25 | Nuovo contratto che sostituisce più contratti | da fare (richiesta 2026-10-23: nel tab Utenze del contratto di fornitura collegare in un colpo le utenze di un altro contratto, oltre alla singola utenza; oggi il rinnovo copia un solo contratto) |
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
 
@@ -453,6 +454,10 @@ Emerso dall'analisi delle fatture ACA (2026-10-19): le fatture riportano letture
 ## 24. Stima e previsione della spesa
 
 Emerso con la voce 17 (2026-10-23): con gli impegni reali e lo speso per impegno, serve una stima macro del fabbisogno: dallo storico per capitolo (e per contratto) capire se gli impegni dell'esercizio basteranno e quanto impegnare per l'esercizio successivo. Nessun dettaglio per utenza: basta una stima. Da progettare a parte.
+
+## 25. Nuovo contratto che sostituisce più contratti
+
+Richiesta 2026-10-23: un nuovo contratto di fornitura può sostituirne N (es. accorpamento di più ordini). Oggi **Nuovo contratto con queste utenze** clona un solo contratto. Basta che nel tab **Utenze** della scheda contratto, accanto al collegamento della singola utenza, si possano collegare tutte le utenze di un altro contratto (scelto da select); da valutare se proporre anche la chiusura dei contratti sostituiti come fa il rinnovo.
 
 ## Archivio 4_IMMOBILIARE: stato degli import
 

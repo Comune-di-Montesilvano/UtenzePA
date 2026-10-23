@@ -4,6 +4,7 @@ import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
 import { lineYearSql } from '@apis/spending/line-year';
 import { dbDay } from '@apis/utility-supply/supply-reconcile.service';
 import { allocate, AllocCommitment, AllocLine } from './commitment-allocation';
+import { idList } from './id-list';
 
 // Contratti che condividono un impegno con quelli dati: la rimanenza di un
 // impegno è una sola, quindi si ricalcolano insieme.
@@ -16,7 +17,7 @@ const CLOSURE_SQL =
 const COMMITMENTS_SQL =
   '/* r_commitments */ SELECT bc.id, bc.commitment_year AS year, bc.commitment_num AS num, ' +
   'bc.commitment_sub AS sub, bc.amount, bc.budget_chapter_id_fk AS chapter, bc.fiscal_year, ' +
-  'GROUP_CONCAT(bcc.contract_id) AS contract_ids ' +
+  'JSON_ARRAYAGG(bcc.contract_id) AS contract_ids ' +
   'FROM budget_commitments bc JOIN budget_commitment_contracts bcc ON bcc.commitment_id = bc.id ' +
   'WHERE bc.deleted = 0 AND bcc.contract_id IN (?) GROUP BY bc.id';
 
@@ -27,7 +28,9 @@ const LINES_SQL =
   'FROM invoice_lines il ' +
   `JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')} ` +
   'LEFT JOIN utilities u ON u.id = il.utility_id_fk ' +
-  'WHERE i.contratto_id_fk IN (?)';
+  // Anche le righe manuali sugli impegni di fatture di contratti scollegati:
+  // consumano la stessa rimanenza mostrata nella scheda.
+  'WHERE i.contratto_id_fk IN (?) OR (il.commitment_auto = 0 AND il.commitment_id_fk IN (?))';
 
 const WRITE_SQL =
   '/* r_write */ UPDATE invoice_lines SET commitment_id_fk = ? WHERE id IN (?) AND commitment_auto = 1';
@@ -126,10 +129,12 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
         amount: r.amount === null ? null : Number(r.amount),
         chapter: Number(r.chapter),
         fiscal_year: Number(r.fiscal_year),
-        contract_ids: String(r.contract_ids).split(',').map(Number),
+        contract_ids: idList(r.contract_ids),
       }),
     );
-    const rows: Record<string, unknown>[] = await this.dataSource.query(LINES_SQL, [contracts]);
+    // [-1]: IN () vuoto non è SQL valido.
+    const commitmentIds = commitments.length ? commitments.map((c) => c.id) : [-1];
+    const rows: Record<string, unknown>[] = await this.dataSource.query(LINES_SQL, [contracts, commitmentIds]);
     const current = new Map(rows.map((r) => [Number(r.id), r.commitment_id === null ? null : Number(r.commitment_id)]));
     const lines: AllocLine[] = rows.map((r) => ({
       id: Number(r.id),

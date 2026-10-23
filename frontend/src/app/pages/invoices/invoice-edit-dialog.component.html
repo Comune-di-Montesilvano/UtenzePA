@@ -81,6 +81,7 @@
           [commitmentOptions]="commitmentOptions"
           [readOnly]="!canEdit"
           [contractId]="form.controls.contratto_id_fk.value"
+          [supplierId]="form.controls.supplier_id_fk.value"
           (optionsStale)="onOptionsStale($event)"
           (linesChange)="lines = $event; checkBudget()">
         </app-invoice-lines-tab>

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
 import { DataSource } from 'typeorm';
 import { partyNameSql } from '@apis/third-parties/third-party.name';
+import { idList } from '@apis/budget-commitments/id-list';
 import { inChargeSql } from '@apis/utility/cost-status';
 import {
   CHAPTER_LINES,
@@ -111,7 +112,7 @@ export class SpendingService {
     const rows = await this.q(
       `SELECT bcm.id, bcm.commitment_year, bcm.commitment_num, bcm.commitment_sub, bcm.fiscal_year, bcm.amount,
               ${COMMITMENT_SPENT} AS spent, ${partyNameSql('s')} AS supplier,
-              (SELECT GROUP_CONCAT(x.contract_id ORDER BY x.contract_id) FROM budget_commitment_contracts x
+              (SELECT JSON_ARRAYAGG(x.contract_id) FROM budget_commitment_contracts x
                 WHERE x.commitment_id = bcm.id) AS contract_ids
        FROM budget_commitments bcm
        LEFT JOIN third_parties s ON s.id = bcm.supplier_id_fk
@@ -130,7 +131,7 @@ export class SpendingService {
         spent,
         remaining: amount === null ? null : Math.round((amount - spent) * 100) / 100,
         supplier: (r.supplier as string) ?? null,
-        contract_ids: r.contract_ids ? String(r.contract_ids).split(',').map(Number) : [],
+        contract_ids: idList(r.contract_ids),
       };
     });
   }

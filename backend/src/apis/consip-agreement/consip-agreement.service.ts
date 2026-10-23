@@ -85,6 +85,9 @@ export class ConsipAgreementService extends BaseService<
     if (contract.supplier_id_fk !== agreement.supplier_id) {
       throw new BadRequestException('Il contratto è di un fornitore diverso da quello della convenzione');
     }
+    if (contract.consip_agreement_id && contract.consip_agreement_id !== id) {
+      throw new BadRequestException('Contratto già collegato a un’altra convenzione: scollegarlo prima da quella');
+    }
     await this.setAgreement(contract, id, userId);
   }
 
