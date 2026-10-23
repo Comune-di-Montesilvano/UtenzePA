@@ -5,6 +5,11 @@ import * as path from 'path';
 import * as tar from 'tar';
 import { createConnection, RowDataPacket } from 'mysql2/promise';
 import { maintenance } from '@common/maintenance/maintenance';
+import {
+  RetentionPolicy,
+  retentionPolicyFromEnv,
+  selectBackupsToKeep,
+} from './backup-retention';
 
 // Due formati: ".sql" (solo dump, sempre) e ".tar.gz" (dump.sql + foto,
 // solo backup manuali — vedi createBackup). Entrambi coesistono nella
@@ -184,8 +189,8 @@ export class BackupService {
 
   // includePhotos/includeAttachments: solo sui backup manuali (POST /backup)
   // — lo schedulato (handleScheduledBackup) resta sempre solo SQL, per non far
-  // crescere senza controllo lo storage dei backup giornalieri con retention
-  // 30gg quando ci sono molte foto o molti allegati.
+  // crescere senza controllo lo storage dei backup giornalieri conservati
+  // dalla retention quando ci sono molte foto o molti allegati.
   async createBackup(includePhotos = false, includeAttachments = false): Promise<BackupInfo> {
     const archive = includePhotos || includeAttachments;
     const ext = archive ? 'tar.gz' : 'sql';
@@ -361,13 +366,15 @@ export class BackupService {
     }
   }
 
-  async applyRetention(retentionDays: number): Promise<{ deleted: string[] }> {
-    const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  // Vale per tutti i file della cartella, manuali compresi: un backup manuale
+  // conta come backup del suo giorno (vedi backup-retention.ts).
+  async applyRetention(policy: RetentionPolicy): Promise<{ deleted: string[] }> {
     const backups = await this.listBackups();
+    const keep = selectBackupsToKeep(backups, policy);
     const deleted: string[] = [];
 
     for (const backup of backups) {
-      if (backup.createdAt.getTime() < cutoff) {
+      if (!keep.has(backup)) {
         await this.deleteBackup(backup.filename);
         deleted.push(backup.filename);
       }
@@ -375,7 +382,7 @@ export class BackupService {
 
     if (deleted.length > 0) {
       this.logger.log(
-        `Retention: cancellati ${deleted.length} backup oltre ${retentionDays} giorni`,
+        `Retention: cancellati ${deleted.length} backup (giornalieri ${policy.daily}, settimanali ${policy.weekly}, mensili ${policy.monthly}, annuali ${policy.yearly})`,
       );
     }
     return { deleted };
@@ -471,8 +478,7 @@ export class BackupService {
     }
     try {
       await this.createBackup();
-      const retentionDays = parseInt(process.env.BACKUP_RETENTION_DAYS ?? '30', 10);
-      await this.applyRetention(retentionDays);
+      await this.applyRetention(retentionPolicyFromEnv());
     } catch (err) {
       this.logger.error(`Backup schedulato fallito: ${(err as Error).message}`);
     }

@@ -292,7 +292,7 @@ describe('BackupService', () => {
     fs.rmSync(target, { recursive: true, force: true });
   });
 
-  it('applyRetention cancella solo i backup più vecchi della retention', async () => {
+  it('applyRetention cancella i backup che nessuno scaglione tiene', async () => {
     const pad = (n: number) => n.toString().padStart(2, '0');
     const buildName = (date: Date) => {
       const y = date.getFullYear();
@@ -311,7 +311,7 @@ describe('BackupService', () => {
     fs.writeFileSync(oldFile, 'old');
     fs.writeFileSync(recentFile, 'recent');
 
-    const result = await service.applyRetention(30);
+    const result = await service.applyRetention({ daily: 1, weekly: 0, monthly: 0, yearly: 0 });
 
     expect(result.deleted).toEqual([oldName]);
     expect(fs.existsSync(oldFile)).toBe(false);

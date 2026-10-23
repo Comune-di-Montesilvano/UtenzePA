@@ -1,6 +1,6 @@
 # UtenzePA – Guida per gli operatori
 
-_Ultimo aggiornamento: 2026-10-21_
+_Ultimo aggiornamento: 2026-10-23_
 
 ## Cos'è e chi lo usa
 
@@ -231,7 +231,7 @@ Nell'elenco immobili puoi cercare per foglio e particella (valore esatto), natur
 
 ### Fare un backup (solo amministratori)
 
-Da **Impostazioni → Backup e manutenzione** puoi creare un backup, scaricarlo, eliminarlo o ripristinarlo. Ogni notte l'applicazione crea da sola un backup dei soli dati. Con **Includi foto** e **Includi gli allegati** il backup contiene anche i file: può diventare di molti GB.
+Da **Impostazioni → Backup e manutenzione** puoi creare un backup, scaricarlo, eliminarlo o ripristinarlo. Ogni notte l'applicazione crea da sola un backup dei soli dati e cancella quelli vecchi: restano il più recente di ciascuno degli ultimi 7 giorni, delle ultime 4 settimane e degli ultimi 12 mesi (anche i backup creati a mano seguono questa regola: per tenerne uno più a lungo, scaricalo). Con **Includi foto** e **Includi gli allegati** il backup contiene anche i file: può diventare di molti GB.
 
 Nel tab **Consumi** della stessa pagina, **Ricalcola consumi** aggiorna subito per tutte le utenze il consumo effettivo degli ultimi 12 mesi, i giorni coperti e la stima annua. Lo stesso ricalcolo avviene ogni notte: serve dopo un'importazione di dati, per non aspettare.
 

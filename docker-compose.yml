@@ -61,7 +61,10 @@ services:
       - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-}
       # Backup DB — schedulazione cron, retention, dimensioni massime
       - BACKUP_CRON_SCHEDULE=${BACKUP_CRON_SCHEDULE:-0 0 * * *}
-      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
+      - BACKUP_KEEP_DAILY=${BACKUP_KEEP_DAILY:-7}
+      - BACKUP_KEEP_WEEKLY=${BACKUP_KEEP_WEEKLY:-4}
+      - BACKUP_KEEP_MONTHLY=${BACKUP_KEEP_MONTHLY:-12}
+      - BACKUP_KEEP_YEARLY=${BACKUP_KEEP_YEARLY:-0}
       - BACKUP_MAX_SIZE_MB=${BACKUP_MAX_SIZE_MB:-20480}
       # Import fatture dalla PEC dello SDI (IMAP in sola lettura) — host vuoto = non configurato
       - PEC_IMAP_HOST=${PEC_IMAP_HOST:-}
