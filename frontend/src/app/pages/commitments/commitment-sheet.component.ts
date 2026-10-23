@@ -16,6 +16,7 @@ import {LinkedColumn, LinkedTableComponent} from '../../core/components/entity-s
 import {dateIt, hasInvalid, isEditorRole} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityHistoryComponent} from '../../core/components/entity-history.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
+import {BarSegment, StackedBarComponent} from '../../core/components/stacked-bar.component';
 import {OnlyNumbersDirective} from '../../core/directives/only-numbers.directive';
 import type {StatusInfo} from '../../core/helpers/entity-status';
 import {partyName} from '../../core/helpers/party-name.helper';
@@ -44,14 +45,13 @@ const toNumber = (v: unknown): number | null => (v === null || v === undefined |
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatTabsModule,
-    MatIconModule, MatTooltipModule, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent,
+    MatIconModule, MatTooltipModule, StackedBarComponent, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent,
     LinkedTableComponent, EntityHistoryComponent, FilterableSelectComponent, OnlyNumbersDirective, AttachmentsComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './commitment-sheet.component.html',
   styles: [`
-    .commitment-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 8px; }
-    .commitment-totals > div { display: flex; flex-direction: column; gap: 2px; }
+    app-stacked-bar strong { color: var(--app-text); font-weight: 500; }
     .line-row { cursor: pointer; }
   `],
 })
@@ -63,6 +63,7 @@ export class CommitmentSheetComponent implements OnInit {
   private parties = inject(ThirdPartiesService);
   private contracts = inject(ContractsService);
   private navigator = inject(EntityNavigatorService);
+  barSegments: BarSegment[] = [];
   protected data = inject<EditDialogData<Commitment>>(MAT_DIALOG_DATA);
 
   readonly isNew = this.data.mode === 'create';
@@ -103,6 +104,21 @@ export class CommitmentSheetComponent implements OnInit {
   constructor() {
     if (!this.canEdit) this.form.disable();
     this.status = this.statusOf(this.data.item);
+    this.barSegments = this.barOf(this.data.item);
+  }
+
+  // Speso → rimanenza; oltre l'importo in rosso. Senza importo: solo speso.
+  private barOf(c: Commitment): BarSegment[] {
+    const spent = Math.max(Number(c.spent ?? 0), 0);
+    if (c.amount === null) {
+      return [{key: 'spent', label: 'Fatturato', value: spent, tone: 'spent', hint: 'righe di fattura che consumano l’impegno', keepEmpty: true}];
+    }
+    const amount = Math.max(Number(c.amount), 0);
+    return [
+      {key: 'spent', label: 'Fatturato', value: Math.min(spent, amount), tone: 'spent', hint: 'righe di fattura che consumano l’impegno', keepEmpty: true},
+      {key: 'left', label: 'Rimanenza', value: Math.max(amount - spent, 0), tone: 'left', hint: 'importo non ancora fatturato', keepEmpty: true},
+      {key: 'over', label: 'Oltre l’importo', value: Math.max(spent - amount, 0), tone: 'over', hint: 'fatturato oltre l’importo dell’impegno'},
+    ];
   }
 
   ngOnInit(): void {

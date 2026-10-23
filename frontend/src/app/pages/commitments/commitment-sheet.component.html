@@ -69,14 +69,9 @@
 
         @if (!isNew) {
           <div class="sheet-section-title"><mat-icon>euro</mat-icon>Consumo</div>
-          <div class="commitment-totals">
-            <div><span class="sheet-hint">Importo</span><strong>{{ data.item.amount === null ? 'senza importo' : eur(data.item.amount) }}</strong></div>
-            <div><span class="sheet-hint">Speso</span><strong>{{ eur(data.item.spent) }}</strong></div>
-            <div>
-              <span class="sheet-hint">Rimanenza</span>
-              <strong [class.tone-danger]="data.item.remaining !== null && data.item.remaining < 0">{{ data.item.remaining === null ? '—' : eur(data.item.remaining) }}</strong>
-            </div>
-          </div>
+          <app-stacked-bar [segments]="barSegments">
+            Importo <strong>{{ data.item.amount === null ? 'senza importo: nessun limite' : eur(data.item.amount) }}</strong>
+          </app-stacked-bar>
         }
       </mat-tab>
 
