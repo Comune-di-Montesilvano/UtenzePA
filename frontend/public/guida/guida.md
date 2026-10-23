@@ -369,6 +369,8 @@ Nella scheda dell'utenza i contratti di fornitura compaiono con quelli **in cors
 
 **Rinnovo con le stesse utenze:** nella scheda di un contratto, **Nuovo contratto con queste utenze** apre un nuovo contratto con le stesse utenze collegate e con fornitore, tipologia, convenzione CONSIP e «Manutenzione inclusa» già compilati. CIG, ordine e date vanno inseriti. Con **Chiudi il contratto precedente** spuntata (scelta predefinita), il contratto precedente scade il giorno prima della decorrenza del nuovo (se la sua scadenza manca o non è anteriore), così non risultano contratti sovrapposti. Se la decorrenza del nuovo è già arrivata il precedente diventa subito chiuso; se è futura resta il contratto corrente fino ad allora. Prima di usare l'azione salva o annulla le modifiche alla scheda.
 
+**Nuovo contratto che ne sostituisce più d'uno:** nel tab **Utenze** della scheda del nuovo contratto, **Collega le utenze di un contratto** aggiunge in un colpo le utenze del contratto scelto (in cima quelli dello stesso fornitore; cerca per ordine, CIG o fornitore). Le utenze **Non attive** restano fuori, salvo spuntare **Collega anche le utenze non attive**. Ripetilo per ogni contratto sostituito. Le utenze già collegate non si duplicano e il collegamento vale al **Salva**. I contratti sostituiti non si chiudono da soli: aggiorna la loro scadenza o spunta **Chiuso** nelle loro schede.
+
 ### Stati SDI delle fatture
 
 | Stato | Significato | Spesa |
