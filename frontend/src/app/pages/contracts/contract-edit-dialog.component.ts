@@ -194,6 +194,12 @@ export class ContractEditDialogComponent implements OnInit {
     });
   }
 
+  openConsip(): void {
+    const id = this.form.controls.consip_agreement_id.value;
+    if (!id) return;
+    this.navigator.openConsipAgreement(id).subscribe(() => this.loadConsip());
+  }
+
   newConsip(text: string): void {
     const supplier = this.form.controls.supplier_id_fk.value;
     this.navigator.createConsipAgreement({name: nameFrom(text), ...(supplier ? {supplier_id: supplier} : {})}).subscribe(a => {

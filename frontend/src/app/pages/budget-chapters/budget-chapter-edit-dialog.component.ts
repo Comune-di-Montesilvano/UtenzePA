@@ -100,6 +100,7 @@ export class BudgetChapterEditDialogComponent implements OnInit {
     chapter_code: [{value: this.data.item.chapter_code ?? '', disabled: !this.isNew}, Validators.required],
     article: [this.data.item.article ?? '', Validators.required],
     pdc: [this.data.item.pdc ?? ''],
+    notes: [this.data.item.notes ?? ''],
     utility_type_ids: [(this.data.item.utilityTypes ?? []).map(t => t.id)],
     description: [this.data.item.description ?? ''],
   });

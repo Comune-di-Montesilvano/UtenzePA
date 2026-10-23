@@ -12,6 +12,8 @@ export class BudgetChapter extends AbstractEntity implements IBudgetChapter {
   code?: string;
   pdc?: string;
   description?: string;
+  // Note libere (es. cosa paga il capitolo, accordi con la ragioneria).
+  notes?: string | null;
   // Tipi utenza del capitolo; nessuno = tutti (es. SPRAR).
   @Type(() => UtilityType)
   utilityTypes?: UtilityType[];
@@ -32,6 +34,7 @@ export class BudgetChapter extends AbstractEntity implements IBudgetChapter {
   static toPayload(e: BudgetChapter): Partial<BudgetChapter> {
     return {
       chapter_code: e.chapter_code, article: e.article, description: e.description, pdc: e.pdc,
+      notes: e.notes?.trim() || null,
       utility_type_ids: e.utility_type_ids ?? (e.utilityTypes ?? []).map(t => t.id),
     };
   }

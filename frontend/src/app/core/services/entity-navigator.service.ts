@@ -47,7 +47,7 @@ const GRANT_DIALOG = () => import('../../pages/utilizer-grant/utilizer-grant-edi
 const INVOICE_DIALOG = () => import('../../pages/invoices/invoice-edit-dialog.component').then(m => m.InvoiceEditDialogComponent);
 const THIRD_PARTY_DIALOG = () => import('../../pages/third-parties/third-party-edit-dialog.component').then(m => m.ThirdPartyEditDialogComponent);
 const BUDGET_CHAPTER_DIALOG = () => import('../../pages/budget-chapters/budget-chapter-edit-dialog.component').then(m => m.BudgetChapterEditDialogComponent);
-const CONSIP_DIALOG = () => import('../../pages/consip-agreement/consip-agreement-edit-dialog.component').then(m => m.ConsipAgreementEditDialogComponent);
+const CONSIP_DIALOG = () => import('../../pages/consip-agreement/consip-agreement-sheet.component').then(m => m.ConsipAgreementSheetComponent);
 const UTILITY_TYPE_DIALOG = () => import('../../pages/utility-types/utility-type-edit-dialog.component').then(m => m.UtilityTypeEditDialogComponent);
 const NATURE_DIALOG = () => import('../../pages/asset-nature/asset-nature-edit-dialog.component').then(m => m.AssetNatureEditDialogComponent);
 const FUNCTION_DIALOG = () => import('../../pages/asset-function/asset-function-edit-dialog.component').then(m => m.AssetFunctionEditDialogComponent);
@@ -235,8 +235,17 @@ export class EntityNavigatorService {
     );
   }
 
+  // La scheda collega/scollega contratti da sé: chiusa senza salvare = null.
+  openConsipAgreement(id: number): Observable<ConsipAgreement | null> {
+    return this.consip.getById(id).pipe(
+      switchMap(item => this.sheet<EditDialogData<ConsipAgreement>, unknown>(CONSIP_DIALOG, {mode: 'edit', item})),
+      switchMap(r => (r instanceof ConsipAgreement ? this.consip.update(r.id, ConsipAgreement.toPayload(r)) : of(null))),
+      catchError(err => this.fail('Errore apertura/salvataggio della convenzione CONSIP', err)),
+    );
+  }
+
   createConsipAgreement(prefill: Partial<ConsipAgreement> = {}): Observable<ConsipAgreement | null> {
-    return this.simple<EditDialogData<ConsipAgreement>, ConsipAgreement>(CONSIP_DIALOG, {mode: 'create', item: ConsipAgreement.create(prefill)}).pipe(
+    return this.sheet<EditDialogData<ConsipAgreement>, ConsipAgreement>(CONSIP_DIALOG, {mode: 'create', item: ConsipAgreement.create(prefill)}).pipe(
       switchMap(r => (r ? this.consip.create({...ConsipAgreement.toPayload(r), ...this.authorship()}) : of(null))),
       catchError(err => this.fail('Errore nella creazione della convenzione CONSIP', err)),
     );
