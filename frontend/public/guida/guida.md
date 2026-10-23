@@ -69,7 +69,8 @@ Le fatture elettroniche arrivano dallo SDI sulla casella PEC del Comune. UtenzeP
 
 1. Apri **Capitoli di spesa** e scegli il capitolo.
 2. Nel tab **Esercizi** trovi, anno per anno, stanziamento iniziale, assestato e spesa della ragioneria. Impegnato, fatturato, disponibile ed eventuale sforamento sono calcolati.
-3. I tab **Impegni**, **Fatture** e **Utenze** mostrano cosa pesa sul capitolo.
+3. I tab **Impegni**, **Fatture** e **Utenze** mostrano cosa pesa sul capitolo. Nel tab **Impegni** ogni impegno ha importo, speso e rimanenza, e **Nuovo impegno** ne crea uno già sul capitolo.
+4. Nel tab **Dati** il campo **Note** raccoglie le informazioni utili sul capitolo (es. cosa paga, accordi con la ragioneria).
 
 Le segnalazioni «Oltre l'assestato dell'anno» e «Senza assestato dell'anno» riguardano l'esercizio in corso.
 
@@ -83,6 +84,15 @@ Le segnalazioni «Oltre l'assestato dell'anno» e «Senza assestato dell'anno» 
 Le righe automatiche consumano gli impegni in ordine di numero: quando un impegno è esaurito la riga successiva passa al seguente. Ogni salvataggio di fattura o di impegno ricalcola le assegnazioni dei contratti coinvolti. Si possono creare impegni anche dal tab **Impegni e capitoli** del contratto di fornitura, dal tab **Impegni** del capitolo e dalla riga della fattura.
 
 Le segnalazioni dell'elenco sono «Sforati» (rimanenza negativa nell'esercizio in corso), «Senza contratto» e «Senza importo» (dall'esercizio in corso in poi).
+
+### Gestire una convenzione CONSIP
+
+1. Apri **Convenzioni CONSIP** e scegli la convenzione. Nel tab **Dati** ci sono nome, CIG master, scadenza, fornitore aggiudicatario, salvaguardia e descrizione; il badge in alto dice se è in corso o scaduta.
+2. Il tab **Contratti** elenca i contratti di fornitura aderenti alla convenzione (numero d'ordine, CIG, periodo, stato). **Collega contratto** propone i contratti dello stesso fornitore senza convenzione; **Nuovo contratto** ne crea uno con fornitore e convenzione già compilati. Collegare e scollegare valgono subito, senza premere Salva.
+3. Il tab **Impegni** mostra gli impegni dei contratti della convenzione con impegnato, speso e rimanenza totali; un clic apre la scheda dell'impegno.
+4. Il tab **Documenti** contiene i file della convenzione (es. guida alla convenzione, listino).
+
+Dalla scheda del contratto di fornitura il pulsante accanto al campo **Convenzione CONSIP** apre la scheda della convenzione.
 
 ### Attivazioni, cessazioni e volture di un'utenza
 
@@ -207,7 +217,7 @@ Un impianto attivo a cui manca una di queste verifiche, registrata con lo stesso
 
 ### Allegare un file a un immobile, impianto o contratto
 
-Nelle schede di **immobili**, **impianti**, **contratti immobiliari** e **contratti di fornitura** il tab **Documenti** raccoglie gli allegati e gli atti collegati. In immobili e impianti si chiama **Documenti e foto** e contiene anche le foto, in fondo.
+Nelle schede di **immobili**, **impianti**, **contratti immobiliari** e **contratti di fornitura** il tab **Documenti** raccoglie gli allegati e gli atti collegati. Anche le schede di **impegni** e **convenzioni CONSIP** hanno il tab **Documenti**, solo con gli allegati. In immobili e impianti si chiama **Documenti e foto** e contiene anche le foto, in fondo.
 
 1. Apri il tab **Documenti** e, nella sezione **Allegati**, trascina i file nel riquadro oppure premi **scegli**. Non serve compilare nulla: la descrizione (es. «Contratto firmato», «Planimetria piano terra») è facoltativa e si scrive direttamente nella riga.
 2. Sono ammessi PDF, PDF firmati (.p7m), documenti e fogli di calcolo (Word, Excel, OpenDocument, CSV, testo), immagini (JPG, PNG, TIFF), disegni AutoCAD (.dwg) ed email (.eml, .msg). La dimensione massima per file è indicata nel riquadro (di norma 50 MB).
