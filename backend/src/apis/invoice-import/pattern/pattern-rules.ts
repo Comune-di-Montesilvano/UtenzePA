@@ -310,7 +310,17 @@ export function textBefore(text: string | null, word: string, nth?: number): str
 // Date lette con «Dopo il testo»/«Prima del testo»: la prima data dopo il testo
 // o l'ultima prima, saltando le parole in mezzo («29/06/2026 99369 mc Stimata
 // 07/08/2026 … Consumo nel periodo»: prima di «Consumo nel periodo» = 07/08/2026).
-const DATE_IN_TEXT = /\d{4}-\d{2}-\d{2}|\d{1,2}[/.-]\d{1,2}[/.-](?:\d{4}|\d{2})(?!\d)/g;
+// Mesi in lettere con l'anno («Luglio-Agosto 2026», «dic. 2025 - gen 2026»,
+// «giugno 2026»): valgono dal primo giorno del primo mese all'ultimo dell'ultimo.
+// Il gruppo 1 (inizio testo o non lettera) evita i mesi dentro le parole («Smart»).
+const MONTH =
+  '(gen(?:naio)?|feb(?:braio)?|mar(?:zo)?|apr(?:ile)?|mag(?:gio)?|giu(?:gno)?|lug(?:lio)?|ago(?:sto)?|set(?:tembre)?|ott(?:obre)?|nov(?:embre)?|dic(?:embre)?)\\.?';
+const MONTH_PERIOD = `(^|[^a-zà-ù])${MONTH}(?:\\s+(\\d{4}))?(?:\\s*[-–/]\\s*${MONTH})?\\s+(\\d{4})(?!\\d)`;
+const MONTH_NAMES = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+const DATE_IN_TEXT = new RegExp(
+  `\\d{4}-\\d{2}-\\d{2}|\\d{1,2}[/.-]\\d{1,2}[/.-](?:\\d{4}|\\d{2})(?!\\d)|${MONTH_PERIOD}`,
+  'gi',
+);
 const DATE_WINDOW = 200;
 
 export function dateAfter(text: string | null, word: string, nth?: number): string | null {
@@ -339,19 +349,36 @@ export function isoDate(value: string | null, last = false): string | null {
   return (last ? dates[dates.length - 1] : dates[0]) ?? null;
 }
 
-// Tutte le date del testo, in AAAA-MM-GG.
+// Tutte le date del testo, in AAAA-MM-GG e nell'ordine in cui compaiono; un
+// periodo in mesi dà due date (primo e ultimo giorno).
 function isoDates(value: string): string[] {
+  const found: { at: number; dates: string[] }[] = [];
   const re = /(\d{4})-(\d{2})-(\d{2})|(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})(?!\d)/g;
-  const dates: string[] = [];
   for (let m = re.exec(value); m; m = re.exec(value)) {
     if (m[1]) {
-      dates.push(`${m[1]}-${m[2]}-${m[3]}`);
+      found.push({ at: m.index, dates: [`${m[1]}-${m[2]}-${m[3]}`] });
     } else {
       const year = m[6].length === 2 ? `20${m[6]}` : m[6];
-      dates.push(`${year}-${m[5].padStart(2, '0')}-${m[4].padStart(2, '0')}`);
+      found.push({ at: m.index, dates: [`${year}-${m[5].padStart(2, '0')}-${m[4].padStart(2, '0')}`] });
     }
   }
-  return dates;
+  const months = new RegExp(MONTH_PERIOD, 'gi');
+  for (let m = months.exec(value); m; m = months.exec(value)) {
+    found.push({ at: m.index + m[1].length, dates: monthPeriod(m[2], m[3], m[4], m[5]) });
+  }
+  return found.sort((a, b) => a.at - b.at).flatMap((f) => f.dates);
+}
+
+// «Dicembre-Gennaio 2026»: il primo mese, se viene dopo il secondo, è dell'anno prima.
+function monthPeriod(first: string, firstYear: string | undefined, last: string | undefined, year: string): string[] {
+  const index = (name: string) => MONTH_NAMES.indexOf(name.slice(0, 3).toLowerCase());
+  const from = index(first);
+  const to = last ? index(last) : from;
+  const endYear = Number(year);
+  const startYear = firstYear ? Number(firstYear) : from > to ? endYear - 1 : endYear;
+  const lastDay = new Date(Date.UTC(endYear, to + 1, 0)).getUTCDate();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return [`${startYear}-${pad(from + 1)}-01`, `${endYear}-${pad(to + 1)}-${pad(lastDay)}`];
 }
 
 // Righe della tabella cercate vicino alla riga delle date (prima o dopo).

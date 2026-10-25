@@ -10,6 +10,7 @@ import {
   PDF_PATH,
   pickPattern,
   isCreditNote,
+  isoDate,
   documentTypeOf,
   rulePaths,
   structureKey,
@@ -709,6 +710,63 @@ describe('extract: dati nel PDF allegato', () => {
     expect(usesPdf(ACA_RULES)).toBe(false);
     expect(patternMatches(aca, r)).toBe(true);
     expect(rulePaths(r)).toEqual(rulePaths(rules({})));
+  });
+});
+
+describe('isoDate: mesi in lettere', () => {
+  const period = (text: string) => [isoDate(text), isoDate(text, true)];
+
+  it('intervallo di mesi con un anno solo (Wind)', () => {
+    expect(period('Corrispettivo canone. Periodo rif. Luglio-Agosto 2026 ')).toEqual([
+      '2026-07-01',
+      '2026-08-31',
+    ]);
+  });
+
+  it("mese singolo: dal primo all'ultimo giorno", () => {
+    expect(period('periodo giugno 2026')).toEqual(['2026-06-01', '2026-06-30']);
+    expect(period('FEBBRAIO 2028')).toEqual(['2028-02-01', '2028-02-29']);
+  });
+
+  it("a cavallo d'anno, con o senza il primo anno", () => {
+    expect(period('Dicembre 2025 - Gennaio 2026')).toEqual(['2025-12-01', '2026-01-31']);
+    expect(period('dicembre/gennaio 2026')).toEqual(['2025-12-01', '2026-01-31']);
+  });
+
+  it('abbreviazioni', () => {
+    expect(period('lug-ago 2026')).toEqual(['2026-07-01', '2026-08-31']);
+    expect(period('Set. 2026')).toEqual(['2026-09-01', '2026-09-30']);
+  });
+
+  it('mesi e date nello stesso testo: in ordine di comparsa', () => {
+    expect(period('emessa il 05/09/2026, periodo luglio 2026')).toEqual(['2026-09-05', '2026-07-31']);
+  });
+
+  it('regola «Dopo il testo» sulla descrizione della riga (Wind)', () => {
+    const xml = Buffer.from(
+      pod
+        .toString('utf8')
+        .replace(
+          '<Descrizione>Spesa per la materia energia</Descrizione>',
+          '<Descrizione><![CDATA[QUO-09349 Corrispettivo canone connettività. Periodo rif. Luglio-Agosto 2026 ]]></Descrizione>',
+        ),
+    );
+    const r: PatternRules = {
+      header: {},
+      line: {
+        ...POD_RULES.line,
+        periodStart: { kind: 'textAfter', path: 'Descrizione', word: 'Periodo rif.' },
+        periodEnd: { kind: 'textAfter', path: 'Descrizione', word: 'Periodo rif.' },
+      },
+    };
+    const line = extract(xml, r).lines[0];
+    expect([line.periodStart, line.periodEnd]).toEqual(['2026-07-01', '2026-08-31']);
+  });
+
+  it('niente falsi positivi dentro le parole o senza anno', () => {
+    expect(isoDate('Marca 2026')).toBeNull();
+    expect(isoDate('Smart 2026')).toBeNull();
+    expect(isoDate('canone di luglio')).toBeNull();
   });
 });
 
