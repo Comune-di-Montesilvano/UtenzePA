@@ -1,6 +1,6 @@
 # Roadmap: estensione del perimetro di UtenzePA al patrimonio
 
-Aggiornata: 2026-10-19
+Aggiornata: 2026-10-25
 
 Obiettivo: portare UtenzePA da gestionale delle utenze a gestionale del **patrimonio** comunale (immobili, contratti, impianti, inventario), sfruttando i dati già presenti in `W:\PATRIMONIO`.
 
@@ -458,6 +458,14 @@ Emerso con la voce 17 (2026-10-23): con gli impegni reali e lo speso per impegno
 ## 25. Nuovo contratto che sostituisce più contratti
 
 Richiesta 2026-10-23: un nuovo contratto di fornitura può sostituirne N (es. accorpamento di più ordini). Oggi **Nuovo contratto con queste utenze** clona un solo contratto. Basta che nel tab **Utenze** della scheda contratto, accanto al collegamento della singola utenza, si possano collegare tutte le utenze di un altro contratto (scelto da select). Fatto in v1.47.1: utenze non attive escluse salvo spunta; i contratti sostituiti si chiudono a mano (chiusura automatica come nel rinnovo, se servirà, in una voce nuova).
+
+## 26. Import giornaliero dalla contabilità (Tinn) e impegni pluriennali
+
+Emerso 2026-10-25 dalla correzione una tantum con le liquidazioni 2025–2026 (`docs/claude/data.md`). Obiettivo di UtenzePA sulla spesa: **programmare a inizio anno** capitoli e impegni e **accorgersi in tempo** quando il preventivato sta per essere superato (voce 24), non replicare la contabilità. Per questo niente nuove funzioni contabili finché non è chiaro come importare il DB Tinn ogni giorno (in studio).
+
+- **Import giornaliero**: capitoli (stanziamento, assestato), impegni e liquidazioni da Tinn. Le liquidazioni dicono da quale impegno è stata pagata ogni fattura (abbinamento per numero + data fattura: ~95% al primo colpo): righe con l'impegno della liquidazione come scelta manuale, l'allocazione automatica resta solo per le fatture non ancora liquidate. Il capitolo dell'utenza e i collegamenti impegno ↔ contratto si correggono in anagrafica quando le liquidazioni dicono altro (non fattura per fattura).
+- **Impegni pluriennali**: in Tinn lo stesso numero d'impegno ha una riga per ogni esercizio di competenza (es. 2026/528: 32.000 € + 536,94 €); da noi numero = un solo esercizio, quindi le liquidazioni di un'altra competenza sforano l'impegno. Serve la chiave numero + esercizio di competenza (migration). Importo degli impegni degli anni passati = importo definitivo, non il residuo.
+- Fatture pagate da più impegni (una manciata l'anno): oggi escluse dalla correzione; con l'import vero, ripartizione per capitolo dell'utenza.
 
 ## Archivio 4_IMMOBILIARE: stato degli import
 
