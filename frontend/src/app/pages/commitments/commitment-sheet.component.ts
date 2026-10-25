@@ -30,16 +30,18 @@ import {ContractsService} from '../contracts/contract.service';
 import type {Contract} from '../contracts/entity/contract.entity';
 import {ThirdPartiesService} from '../third-parties/third-parties.service';
 import {PartyRole} from '../third-parties/third-party.model';
-import {chapterLabel, Commitment, CommitmentLine} from './commitment.model';
+import {chapterLabel, Commitment, CommitmentLine, CommitmentYear, competenceLabel} from './commitment.model';
 import {commitmentLabel} from './commitment-label';
 import {CommitmentService} from './commitment.service';
 
 type ContractRow = {id: number; cig: string; order: string; period: string; closed: boolean};
+type YearBar = {fiscal_year: number; amount: number | null; segments: BarSegment[]};
 
 const toNumber = (v: unknown): number | null => (v === null || v === undefined || `${v}` === '' ? null : Number(v));
 
-// Scheda dell'impegno: numero della ragioneria, capitolo e competenza,
-// importo, contratti collegati (N-N) e righe di fattura che lo consumano.
+// Scheda dell'impegno: numero della ragioneria, capitolo, annualità
+// (esercizio + importo; pluriennale = più annualità), contratti collegati
+// (N-N) e righe di fattura che lo consumano.
 @Component({
   selector: 'app-commitment-sheet',
   standalone: true,
@@ -53,6 +55,11 @@ const toNumber = (v: unknown): number | null => (v === null || v === undefined |
   styles: [`
     app-stacked-bar strong { color: var(--app-text); font-weight: 500; }
     .line-row { cursor: pointer; }
+    .years { display: flex; flex-direction: column; }
+    .year-row { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .year-row mat-form-field { flex: 1 1 180px; }
+    .year-row button { margin-top: 4px; }
+    .year-bar-title { font-size: 0.8125rem; font-weight: 500; margin: 4px 0; }
   `],
 })
 export class CommitmentSheetComponent implements OnInit {
@@ -63,7 +70,7 @@ export class CommitmentSheetComponent implements OnInit {
   private parties = inject(ThirdPartiesService);
   private contracts = inject(ContractsService);
   private navigator = inject(EntityNavigatorService);
-  barSegments: BarSegment[] = [];
+  yearBars: YearBar[] = [];
   protected data = inject<EditDialogData<Commitment>>(MAT_DIALOG_DATA);
 
   readonly isNew = this.data.mode === 'create';
@@ -94,21 +101,55 @@ export class CommitmentSheetComponent implements OnInit {
     commitment_num: [this.data.item.commitment_num as number | null],
     commitment_sub: [this.data.item.commitment_sub as number | null],
     budget_chapter_id_fk: [this.data.item.budget_chapter_id_fk as number | null, Validators.required],
-    fiscal_year: [this.data.item.fiscal_year as number | null, [Validators.required, Validators.min(2000), Validators.max(2100)]],
-    amount: [this.data.item.amount as number | null, Validators.min(0)],
+    years: this.fb.array(
+      (this.data.item.years?.length ? this.data.item.years : [{fiscal_year: new Date().getFullYear(), amount: null}])
+        .map(y => this.yearGroup(y)),
+    ),
     supplier_id_fk: [this.data.item.supplier_id_fk as number | null],
     contract_ids: [[...(this.data.item.contract_ids ?? [])] as number[]],
     notes: [this.data.item.notes ?? ''],
   });
 
+  // Righe del FormArray (riferimento stabile: push/removeAt lo modificano).
+  readonly yearGroups = this.form.controls.years.controls;
+
   constructor() {
     if (!this.canEdit) this.form.disable();
     this.status = this.statusOf(this.data.item);
-    this.barSegments = this.barOf(this.data.item);
+    this.yearBars = (this.data.item.years ?? []).map(y => ({
+      fiscal_year: y.fiscal_year,
+      amount: y.amount,
+      segments: this.barOf(y),
+    }));
+  }
+
+  private yearGroup(y: CommitmentYear) {
+    return this.fb.group({
+      fiscal_year: [y.fiscal_year as number | null, [Validators.required, Validators.min(2000), Validators.max(2100)]],
+      amount: [y.amount as number | null, Validators.min(0)],
+    });
+  }
+
+  // Nuova annualità: l'esercizio dopo l'ultimo indicato.
+  addYear(): void {
+    const years = this.form.getRawValue().years.map(y => Number(y.fiscal_year) || 0);
+    const last = Math.max(...years, new Date().getFullYear() - 1);
+    this.form.controls.years.push(this.yearGroup({fiscal_year: last + 1, amount: null}));
+    this.form.controls.years.markAsDirty();
+  }
+
+  removeYear(i: number): void {
+    this.form.controls.years.removeAt(i);
+    this.form.controls.years.markAsDirty();
+  }
+
+  duplicateYears(): boolean {
+    const years = this.form.getRawValue().years.map(y => toNumber(y.fiscal_year)).filter(y => y !== null);
+    return new Set(years).size !== years.length;
   }
 
   // Speso → rimanenza; oltre l'importo in rosso. Senza importo: solo speso.
-  private barOf(c: Commitment): BarSegment[] {
+  private barOf(c: CommitmentYear): BarSegment[] {
     const spent = Math.max(Number(c.spent ?? 0), 0);
     if (c.amount === null) {
       return [{key: 'spent', label: 'Fatturato', value: spent, tone: 'spent', hint: 'righe di fattura che consumano l’impegno', keepEmpty: true}];
@@ -271,12 +312,14 @@ export class CommitmentSheetComponent implements OnInit {
   subtitleText(): string {
     const v = this.form.getRawValue();
     const chapter = this.chapterOptions.find(o => o.value === v.budget_chapter_id_fk)?.label;
-    return [v.fiscal_year ? `Competenza ${v.fiscal_year}` : null, chapter].filter(Boolean).join(' · ');
+    const years = v.years.map(y => toNumber(y.fiscal_year)).filter((y): y is number => y !== null);
+    const competence = years.length ? `Competenza ${competenceLabel({years: years.map(fiscal_year => ({fiscal_year}))})}` : null;
+    return [competence, chapter].filter(Boolean).join(' · ');
   }
 
   dataInvalid(): boolean {
-    return hasInvalid(this.form, 'budget_chapter_id_fk', 'fiscal_year', 'amount', 'commitment_year', 'commitment_num')
-      || this.numberIncomplete();
+    return hasInvalid(this.form, 'budget_chapter_id_fk', 'years', 'commitment_year', 'commitment_num')
+      || this.numberIncomplete() || this.duplicateYears();
   }
 
   // Anno e numero vanno insieme (il sub senza numero non ha senso).
@@ -286,7 +329,7 @@ export class CommitmentSheetComponent implements OnInit {
   }
 
   save(): void {
-    if (this.form.invalid || this.numberIncomplete()) {
+    if (this.form.invalid || this.numberIncomplete() || this.duplicateYears()) {
       this.form.markAllAsTouched();
       return;
     }
@@ -296,8 +339,7 @@ export class CommitmentSheetComponent implements OnInit {
       commitment_num: toNumber(v.commitment_num),
       commitment_sub: toNumber(v.commitment_sub),
       budget_chapter_id_fk: v.budget_chapter_id_fk!,
-      fiscal_year: Number(v.fiscal_year),
-      amount: toNumber(v.amount),
+      years: v.years.map(y => ({fiscal_year: Number(y.fiscal_year), amount: toNumber(y.amount)})),
       supplier_id_fk: v.supplier_id_fk ?? null,
       contract_ids: v.contract_ids ?? [],
       notes: v.notes,

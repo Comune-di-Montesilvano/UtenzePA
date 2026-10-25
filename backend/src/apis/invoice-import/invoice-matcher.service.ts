@@ -90,11 +90,13 @@ const HEADER_CONTRACT_SQL =
 const CONTRACT_COMMITMENT_SQL =
   '/* m_contract_commitment */ SELECT DISTINCT bc.budget_chapter_id_fk AS chapter FROM budget_commitments bc ' +
   'JOIN budget_commitment_contracts bcc ON bcc.commitment_id = bc.id ' +
-  'WHERE bc.deleted = 0 AND bcc.contract_id = ? AND bc.fiscal_year = ? LIMIT 2';
+  'JOIN budget_commitment_years bcy ON bcy.commitment_id = bc.id ' +
+  'WHERE bc.deleted = 0 AND bcc.contract_id = ? AND bcy.fiscal_year = ? LIMIT 2';
 const COMMITMENT_SQL =
   '/* m_commitment */ SELECT bc.id FROM budget_commitments bc ' +
   'JOIN budget_commitment_contracts bcc ON bcc.commitment_id = bc.id ' +
-  'WHERE bc.deleted = 0 AND bcc.contract_id = ? AND bc.budget_chapter_id_fk = ? AND bc.fiscal_year = ? LIMIT 1';
+  'JOIN budget_commitment_years bcy ON bcy.commitment_id = bc.id ' +
+  'WHERE bc.deleted = 0 AND bcc.contract_id = ? AND bc.budget_chapter_id_fk = ? AND bcy.fiscal_year = ? LIMIT 1';
 const SUPPLIER_SQL =
   '/* m_supplier */ SELECT company_name, last_name, first_name FROM third_parties WHERE id = ?';
 const INVOICE_SQL =

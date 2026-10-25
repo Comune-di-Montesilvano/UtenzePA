@@ -233,7 +233,8 @@ export class InvoiceLinesTabComponent implements OnChanges {
     const c = l.commitment;
     if (!isAutoLine(l) || !c) return null;
     const chapter = c.budgetChapter?.chapter_code ? ` · cap. ${c.budgetChapter.chapter_code}/${c.budgetChapter.article ?? 0}` : '';
-    return `Assegnato ${commitmentRefLabel(c)}${chapter} · comp. ${c.fiscal_year}`;
+    const year = l.commitment_fiscal_year ? ` · comp. ${l.commitment_fiscal_year}` : '';
+    return `Assegnato ${commitmentRefLabel(c)}${chapter}${year}`;
   }
 
   // Riga salvata, automatica, senza impegno: il ricalcolo non ne ha trovati.

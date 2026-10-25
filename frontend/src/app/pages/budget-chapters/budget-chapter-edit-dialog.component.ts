@@ -29,6 +29,7 @@ import {BudgetChapterYearsTabComponent} from './spending/budget-chapter-years-ta
 import {formatEuro} from './spending/budget-chapter-spending.service';
 import {ChapterBudgetService} from './chapter-budget.service';
 import {ChapterCommitment, ChapterInvoiceLine, ChapterYear} from './chapter-budget.model';
+import {yearsLabel} from '../commitments/commitment.model';
 import {UtilityTypesService} from '../utility-types/utility-types.service';
 import {UtilityConsumptionService} from '../utilities/consumptions/utility-consumption.service';
 import {HardTypeDescription} from '../utility-types/enum/hard-type.enum';
@@ -83,7 +84,7 @@ export class BudgetChapterEditDialogComponent implements OnInit {
 
   readonly commitmentColumns: LinkedColumn<ChapterCommitment>[] = [
     {label: 'Numero', value: c => c.label},
-    {label: 'Competenza', value: c => String(c.fiscal_year)},
+    {label: 'Competenza', value: c => yearsLabel(c.fiscal_years?.length ? c.fiscal_years : [c.fiscal_year])},
     {label: 'Fornitore', value: c => c.supplier ?? ''},
     {label: 'Importo', value: c => (c.amount === null ? 'senza importo' : formatEuro(c.amount))},
     {label: 'Speso', value: c => formatEuro(c.spent)},
@@ -138,7 +139,7 @@ export class BudgetChapterEditDialogComponent implements OnInit {
         this.commitments = rows;
         this.commitmentPreview = rows.map(c => ({
           id: c.id,
-          label: `${c.label} · ${c.fiscal_year}`,
+          label: `${c.label} · ${yearsLabel(c.fiscal_years?.length ? c.fiscal_years : [c.fiscal_year])}`,
           sublabel: c.remaining === null ? 'senza importo' : `rimanenza ${formatEuro(c.remaining)}`,
         }));
       },

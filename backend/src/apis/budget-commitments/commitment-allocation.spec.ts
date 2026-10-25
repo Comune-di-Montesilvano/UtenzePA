@@ -1,4 +1,4 @@
-import { allocate, AllocCommitment, AllocLine } from './commitment-allocation';
+import { allocate, AllocCommitment, AllocLine, AllocTarget } from './commitment-allocation';
 
 const c = (
   id: number,
@@ -15,7 +15,7 @@ const line = (
   commitment_id: number | null = null,
 ): AllocLine => ({ id, amount, date, auto, commitment_id });
 
-const ids = (m: Map<number, number | null>, lines: number[]) => lines.map((l) => m.get(l));
+const ids = (m: Map<number, AllocTarget | null>, lines: number[]) => lines.map((l) => m.get(l)?.id ?? m.get(l));
 
 describe('allocate', () => {
   const A = c(10, 521, 100);
@@ -85,5 +85,31 @@ describe('allocate', () => {
   it('scorre le righe per data e poi per id', () => {
     const lines = [line(2, 60, '2026-01-10'), line(1, 60, '2026-01-10'), line(3, 60, '2026-01-05')];
     expect(ids(allocate([A, B], lines), [3, 1, 2])).toEqual([10, 10, 20]);
+  });
+
+  describe('pluriennali', () => {
+    const y = (year: number, amount: number | null): AllocCommitment => ({
+      id: 50, year: 2026, num: 528, sub: 1, amount, contract_ids: [1], chapter: 7, fiscal_year: year,
+    });
+    const at = (id: number, amount: number, year: number, auto = true, fiscal_year: number | null = null): AllocLine => ({
+      id, amount, date: `${year}-01-10`, auto, commitment_id: auto ? null : 50, fiscal_year,
+      contract_id: 1, chapter: 7, year,
+    });
+
+    it("ogni riga consuma l'annualità del suo anno", () => {
+      const m = allocate([y(2026, 100), y(2027, 30)], [at(1, 100, 2026), at(2, 20, 2027)]);
+      expect(m.get(1)).toEqual({ id: 50, fiscal_year: 2026 });
+      expect(m.get(2)).toEqual({ id: 50, fiscal_year: 2027 });
+    });
+
+    it("la rimanenza è per annualità: esaurita la 2027 si passa all'impegno dopo", () => {
+      const other: AllocCommitment = { ...y(2027, 100), id: 60, num: 600 };
+      const m = allocate([y(2026, 1000), y(2027, 30), other], [at(1, 30, 2027, false, 2027), at(2, 10, 2027)]);
+      expect(m.get(2)).toEqual({ id: 60, fiscal_year: 2027 });
+    });
+
+    it('senza annualità nel suo anno la riga automatica resta senza impegno', () => {
+      expect(allocate([y(2026, 100)], [at(1, 10, 2028)]).get(1)).toBeNull();
+    });
   });
 });

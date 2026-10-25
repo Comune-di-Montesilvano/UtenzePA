@@ -6,6 +6,7 @@ import { Contract } from '@apis/contracts/entity/contract.entity';
 import { BudgetChapter } from '@apis/budget-chapters/entity/budgetChapter.entity';
 import { InvoiceLine } from '@apis/invoices/entity/invoice-line.entity';
 import { BudgetCommitment } from './entity/budget-commitment.entity';
+import { BudgetCommitmentYear } from './entity/budget-commitment-year.entity';
 import { BudgetCommitmentsService } from './budget-commitments.service';
 import { BudgetCommitmentsController } from './budget-commitments.controller';
 import { CommitmentReconcileService } from './commitment-reconcile.service';
@@ -15,7 +16,7 @@ import { CommitmentReconcileService } from './commitment-reconcile.service';
 // Il giro notturno copre ciò che non passa da un salvataggio (esiti SDI
 // arrivati senza estrazione, modifiche fatte direttamente sul DB).
 @Module({
-  imports: [TypeOrmModule.forFeature([BudgetCommitment, Contract, BudgetChapter, InvoiceLine])],
+  imports: [TypeOrmModule.forFeature([BudgetCommitment, BudgetCommitmentYear, Contract, BudgetChapter, InvoiceLine])],
   providers: [BudgetCommitmentsService, CommitmentReconcileService],
   exports: [CommitmentReconcileService, BudgetCommitmentsService],
   controllers: [BudgetCommitmentsController],

@@ -4,6 +4,7 @@ import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
 import { lineYearSql } from '@apis/spending/line-year';
 import { dbDay } from '@apis/utility-supply/supply-reconcile.service';
 import { allocate, AllocCommitment, AllocLine } from './commitment-allocation';
+import { annualityFor } from './annuality';
 import { idList } from './id-list';
 
 // Contratti che condividono un impegno con quelli dati: la rimanenza di un
@@ -14,16 +15,23 @@ const CLOSURE_SQL =
   'JOIN budget_commitment_contracts b2 ON b2.commitment_id = b1.commitment_id ' +
   'WHERE b1.contract_id IN (?)';
 
+// Una riga per annualità: un pluriennale compare una volta per esercizio.
 const COMMITMENTS_SQL =
   '/* r_commitments */ SELECT bc.id, bc.commitment_year AS year, bc.commitment_num AS num, ' +
-  'bc.commitment_sub AS sub, bc.amount, bc.budget_chapter_id_fk AS chapter, bc.fiscal_year, ' +
-  'JSON_ARRAYAGG(bcc.contract_id) AS contract_ids ' +
-  'FROM budget_commitments bc JOIN budget_commitment_contracts bcc ON bcc.commitment_id = bc.id ' +
-  'WHERE bc.deleted = 0 AND bcc.contract_id IN (?) GROUP BY bc.id';
+  'bc.commitment_sub AS sub, bcy.amount, bc.budget_chapter_id_fk AS chapter, bcy.fiscal_year, ' +
+  '(SELECT JSON_ARRAYAGG(bcc.contract_id) FROM budget_commitment_contracts bcc WHERE bcc.commitment_id = bc.id) AS contract_ids ' +
+  'FROM budget_commitments bc JOIN budget_commitment_years bcy ON bcy.commitment_id = bc.id ' +
+  'WHERE bc.deleted = 0 AND EXISTS (SELECT 1 FROM budget_commitment_contracts x ' +
+  'WHERE x.commitment_id = bc.id AND x.contract_id IN (?))';
+
+// Annualità degli impegni scelti a mano sulle righe (anche fuori dai contratti).
+const YEARS_SQL =
+  '/* r_years */ SELECT commitment_id, fiscal_year FROM budget_commitment_years WHERE commitment_id IN (?)';
 
 const LINES_SQL =
   '/* r_lines */ SELECT il.id, il.amount, i.invoice_date AS date, il.commitment_auto AS auto, ' +
-  'il.commitment_id_fk AS commitment_id, i.contratto_id_fk AS contract_id, il.utility_id_fk AS utility_id, ' +
+  'il.commitment_id_fk AS commitment_id, il.commitment_fiscal_year AS fiscal_year, ' +
+  'i.contratto_id_fk AS contract_id, il.utility_id_fk AS utility_id, ' +
   `u.budget_chapter_code_fk AS chapter, ${lineYearSql({ line: 'il', invoice: 'i' })} AS year ` +
   'FROM invoice_lines il ' +
   `JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')} ` +
@@ -33,12 +41,16 @@ const LINES_SQL =
   'WHERE i.contratto_id_fk IN (?) OR (il.commitment_auto = 0 AND il.commitment_id_fk IN (?))';
 
 const WRITE_SQL =
-  '/* r_write */ UPDATE invoice_lines SET commitment_id_fk = ? WHERE id IN (?) AND commitment_auto = 1';
+  '/* r_write */ UPDATE invoice_lines SET commitment_id_fk = ?, commitment_fiscal_year = ? ' +
+  'WHERE id IN (?) AND commitment_auto = 1';
+const MANUAL_YEAR_SQL =
+  '/* r_manual_year */ UPDATE invoice_lines SET commitment_fiscal_year = ? WHERE id IN (?) AND commitment_auto = 0';
 
 // Righe automatiche di fatture senza contratto: nessun impegno possibile.
 const ORPHANS_SQL =
   '/* r_orphans */ UPDATE invoice_lines il JOIN invoices i ON i.id = il.invoice_id_fk ' +
-  'SET il.commitment_id_fk = NULL WHERE i.contratto_id_fk IS NULL AND il.commitment_auto = 1 ' +
+  'SET il.commitment_id_fk = NULL, il.commitment_fiscal_year = NULL ' +
+  'WHERE i.contratto_id_fk IS NULL AND il.commitment_auto = 1 ' +
   'AND il.commitment_id_fk IS NOT NULL';
 
 const ALL_CONTRACTS_SQL =
@@ -52,8 +64,9 @@ const UTILITY_CONTRACTS_SQL =
 
 const ids = (rows: Record<string, unknown>[]): number[] => rows.map((r) => Number(r.contract_id));
 
-// Assegna l'impegno alle righe di fattura automatiche (commitment-allocation.ts).
-// Le righe scelte a mano non si toccano; scrittura di sistema: nessun audit e
+// Assegna impegno e annualità alle righe di fattura automatiche
+// (commitment-allocation.ts). Delle righe scelte a mano si aggiorna solo
+// l'annualità (annuality.ts), mai l'impegno; scrittura di sistema: nessun audit e
 // "Ultima modifica" della fattura invariata (si aggiorna solo invoice_lines).
 // Le chiamate si accodano: contratti già in attesa non fanno un secondo giro.
 @Injectable()
@@ -133,28 +146,53 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
       }),
     );
     // [-1]: IN () vuoto non è SQL valido.
-    const commitmentIds = commitments.length ? commitments.map((c) => c.id) : [-1];
+    const commitmentIds = commitments.length ? [...new Set(commitments.map((c) => c.id))] : [-1];
     const rows: Record<string, unknown>[] = await this.dataSource.query(LINES_SQL, [contracts, commitmentIds]);
-    const current = new Map(rows.map((r) => [Number(r.id), r.commitment_id === null ? null : Number(r.commitment_id)]));
+    const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+    const current = new Map(rows.map((r) => [Number(r.id), `${num(r.commitment_id)}:${num(r.fiscal_year)}`]));
     const lines: AllocLine[] = rows.map((r) => ({
       id: Number(r.id),
       amount: Number(r.amount),
       date: dbDay(r.date) ?? '',
       auto: Number(r.auto) === 1,
-      commitment_id: r.commitment_id === null ? null : Number(r.commitment_id),
+      commitment_id: num(r.commitment_id),
+      fiscal_year: num(r.fiscal_year),
       contract_id: Number(r.contract_id),
       // Utenza senza capitolo: 0 = nessun impegno candidato; senza utenza: null.
       chapter: r.utility_id === null ? null : r.chapter === null ? 0 : Number(r.chapter),
       year: Number(r.year),
     }));
 
-    const byTarget = new Map<number | null, number[]>();
-    for (const [lineId, target] of allocate(commitments, lines)) {
-      if (current.get(lineId) === target) continue;
-      byTarget.set(target, [...(byTarget.get(target) ?? []), lineId]);
+    // Righe a mano: annualità dell'anno della riga, altrimenti la più vicina.
+    const manual = lines.filter((l) => !l.auto && l.commitment_id !== null);
+    const manualIds = [...new Set(manual.map((l) => l.commitment_id!))];
+    const years = new Map<number, number[]>();
+    if (manualIds.length) {
+      for (const r of await this.dataSource.query(YEARS_SQL, [manualIds])) {
+        const id = Number(r.commitment_id);
+        years.set(id, [...(years.get(id) ?? []), Number(r.fiscal_year)]);
+      }
     }
-    for (const [target, lineIds] of byTarget) {
-      await this.dataSource.query(WRITE_SQL, [target, lineIds]);
+    const byManualYear = new Map<number | null, number[]>();
+    for (const l of manual) {
+      const year = annualityFor(years.get(l.commitment_id!) ?? [], l.year!);
+      if (year !== l.fiscal_year) byManualYear.set(year, [...(byManualYear.get(year) ?? []), l.id]);
+      l.fiscal_year = year;
+    }
+    for (const [year, lineIds] of byManualYear) {
+      await this.dataSource.query(MANUAL_YEAR_SQL, [year, lineIds]);
+    }
+
+    const byTarget = new Map<string, { id: number | null; year: number | null; lines: number[] }>();
+    for (const [lineId, target] of allocate(commitments, lines)) {
+      const key = `${target?.id ?? null}:${target?.fiscal_year ?? null}`;
+      if (current.get(lineId) === key) continue;
+      const group = byTarget.get(key) ?? { id: target?.id ?? null, year: target?.fiscal_year ?? null, lines: [] };
+      group.lines.push(lineId);
+      byTarget.set(key, group);
+    }
+    for (const { id, year, lines: lineIds } of byTarget.values()) {
+      await this.dataSource.query(WRITE_SQL, [id, year, lineIds]);
     }
   }
 }

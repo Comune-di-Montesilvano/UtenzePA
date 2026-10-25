@@ -7,7 +7,7 @@ import type {StatusInfo} from '../../../core/helpers/entity-status';
 import {EntityNavigatorService} from '../../../core/services/entity-navigator.service';
 import {ToastService} from '../../../core/services/toast.service';
 import type {TOption} from '../../../core/types/option.interface';
-import {chapterLabel, Commitment} from '../../commitments/commitment.model';
+import {chapterLabel, Commitment, competenceLabel} from '../../commitments/commitment.model';
 import {CommitmentService} from '../../commitments/commitment.service';
 import {SpendingService} from '../../spending/spending.service';
 import type {ChapterSummary} from '../../spending/spending.model';
@@ -74,7 +74,7 @@ export class ContractCommitmentsTabComponent implements OnInit, OnChanges {
 
   readonly columns: LinkedColumn<Commitment>[] = [
     {label: 'Numero', value: c => c.label},
-    {label: 'Competenza', value: c => String(c.fiscal_year)},
+    {label: 'Competenza', value: c => competenceLabel(c)},
     {label: 'Capitolo', value: c => c.chapter_label},
     {label: 'Importo', value: c => (c.amount === null ? 'senza importo' : eur(c.amount))},
     {label: 'Rimanenza', value: c => eur(c.remaining)},
@@ -111,7 +111,7 @@ export class ContractCommitmentsTabComponent implements OnInit, OnChanges {
     this.commitmentService.search({supplier_id: this.supplierId, deleted: false} as never).subscribe({
       next: list => this.addOptions = list
         .filter(c => !linked.has(c.id))
-        .map(c => ({label: `${c.label} · competenza ${c.fiscal_year}`, value: c.id, sublabel: c.chapter_label})),
+        .map(c => ({label: `${c.label} · competenza ${competenceLabel(c)}`, value: c.id, sublabel: c.chapter_label})),
       error: err => console.error('Errore nel caricamento degli impegni del fornitore:', err),
     });
   }

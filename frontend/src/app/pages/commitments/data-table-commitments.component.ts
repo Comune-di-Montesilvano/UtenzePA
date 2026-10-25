@@ -12,7 +12,7 @@ import {ListToolbarComponent} from '../../core/components/list/list-toolbar.comp
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 import {formatEuro} from '../budget-chapters/spending/budget-chapter-spending.service';
-import {Commitment} from './commitment.model';
+import {Commitment, competenceLabel} from './commitment.model';
 import {CommitmentSheetComponent} from './commitment-sheet.component';
 
 @Component({
@@ -41,6 +41,7 @@ export class DataTableCommitmentsComponent extends AbstractDataTableComponent<Co
   ];
 
   readonly eur = formatEuro;
+  readonly competence = competenceLabel;
 
   selectedColumns: IColumnDef[] = this.loadColumnSelection(
     DataTableCommitmentsComponent.STORAGE_KEY, this.allColumns,
@@ -82,7 +83,7 @@ export class DataTableCommitmentsComponent extends AbstractDataTableComponent<Co
       width: '350px',
       data: {
         title: 'Elimina impegno',
-        message: `Eliminare l'impegno ${entity.label} (competenza ${entity.fiscal_year})? Le righe di fattura assegnate in automatico passano agli altri impegni.`,
+        message: `Eliminare l'impegno ${entity.label} (competenza ${competenceLabel(entity)})? Le righe di fattura assegnate in automatico passano agli altri impegni.`,
         confirmLabel: 'Elimina',
         danger: true,
       },

@@ -90,6 +90,6 @@ describe('chapter-year', () => {
   });
 
   it('esercizio della riga: impegno, altrimenti competenza del periodo', () => {
-    expect(LINE_YEAR).toMatch(/^COALESCE\(bcm\.fiscal_year, \(CASE\s+WHEN il\.period_start/);
+    expect(LINE_YEAR).toMatch(/^COALESCE\(il\.commitment_fiscal_year, \(CASE\s+WHEN il\.period_start/);
   });
 });

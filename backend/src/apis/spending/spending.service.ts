@@ -20,6 +20,7 @@ import {
 } from './chapter-year';
 import { BudgetCheckDto } from './dto/budget-check.dto';
 import { lineFiscalYear } from './line-year';
+import { annualityFor } from '@apis/budget-commitments/annuality';
 import { commitmentLabel } from '@apis/budget-commitments/commitment-label';
 
 const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
@@ -43,7 +44,9 @@ export interface ChapterSummary {
 export interface ChapterCommitment {
   id: number;
   label: string;
+  // Prima annualità e tutte le annualità (pluriennale); importi sommati.
   fiscal_year: number;
+  fiscal_years: number[];
   amount: number | null;
   spent: number;
   remaining: number | null;
@@ -71,7 +74,7 @@ export interface BudgetWarning {
   adjusted_budget: number;
 }
 
-// Anno di una riga: esercizio dell'impegno, altrimenti competenza del periodo.
+// Anno di una riga: annualità dell'impegno, altrimenti competenza del periodo.
 const YEAR = LINE_YEAR;
 const LINES = `FROM invoice_lines il
   JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
@@ -95,9 +98,9 @@ export class SpendingService {
       [chapterId],
     );
     const commitments = await this.q(
-      `SELECT bcm.fiscal_year AS year, COUNT(*) AS commitments, SUM(bcm.amount) AS total,
-              SUM(bcm.amount IS NULL) AS without_amount, ${COMMITMENTS_REMAINING} AS remaining
-       ${COMMITMENTS} WHERE bcm.budget_chapter_id_fk = ? AND bcm.deleted = 0 GROUP BY bcm.fiscal_year`,
+      `SELECT bcy.fiscal_year AS year, COUNT(*) AS commitments, SUM(bcy.amount) AS total,
+              SUM(bcy.amount IS NULL) AS without_amount, ${COMMITMENTS_REMAINING} AS remaining
+       ${COMMITMENTS} WHERE bcm.budget_chapter_id_fk = ? AND bcm.deleted = 0 GROUP BY bcy.fiscal_year`,
       [chapterId],
     );
     const invoiced = await this.q(
@@ -110,14 +113,17 @@ export class SpendingService {
 
   async chapterCommitments(chapterId: number): Promise<ChapterCommitment[]> {
     const rows = await this.q(
-      `SELECT bcm.id, bcm.commitment_year, bcm.commitment_num, bcm.commitment_sub, bcm.fiscal_year, bcm.amount,
-              ${COMMITMENT_SPENT} AS spent, ${partyNameSql('s')} AS supplier,
+      `SELECT bcm.id, bcm.commitment_year, bcm.commitment_num, bcm.commitment_sub,
+              MIN(bcy.fiscal_year) AS fiscal_year, JSON_ARRAYAGG(bcy.fiscal_year) AS fiscal_years,
+              IF(SUM(bcy.amount IS NULL) > 0, NULL, SUM(bcy.amount)) AS amount,
+              SUM(${COMMITMENT_SPENT}) AS spent, MAX(${partyNameSql('s')}) AS supplier,
               (SELECT JSON_ARRAYAGG(x.contract_id) FROM budget_commitment_contracts x
                 WHERE x.commitment_id = bcm.id) AS contract_ids
-       FROM budget_commitments bcm
+       ${COMMITMENTS}
        LEFT JOIN third_parties s ON s.id = bcm.supplier_id_fk
        WHERE bcm.budget_chapter_id_fk = ? AND bcm.deleted = 0
-       ORDER BY bcm.fiscal_year DESC, bcm.commitment_num IS NULL, bcm.commitment_year, bcm.commitment_num, bcm.commitment_sub`,
+       GROUP BY bcm.id
+       ORDER BY fiscal_year DESC, bcm.commitment_num IS NULL, bcm.commitment_year, bcm.commitment_num, bcm.commitment_sub`,
       [chapterId],
     );
     return rows.map((r) => {
@@ -127,6 +133,7 @@ export class SpendingService {
         id: Number(r.id),
         label: commitmentLabel(num(r.commitment_year), num(r.commitment_num), num(r.commitment_sub)),
         fiscal_year: Number(r.fiscal_year),
+        fiscal_years: idList(r.fiscal_years),
         amount,
         spent,
         remaining: amount === null ? null : Math.round((amount - spent) * 100) / 100,
@@ -169,7 +176,8 @@ export class SpendingService {
     const utilityIds = ids(dto.lines.filter((l) => !l.commitment_id_fk).map((l) => l.utility_id_fk));
     const commitments = commitmentIds.length
       ? await this.q(
-          'SELECT id, budget_chapter_id_fk AS chapter_id, fiscal_year FROM budget_commitments WHERE id IN (?) AND deleted = 0',
+          'SELECT bcm.id, bcm.budget_chapter_id_fk AS chapter_id, JSON_ARRAYAGG(bcy.fiscal_year) AS years ' +
+            `${COMMITMENTS} WHERE bcm.id IN (?) AND bcm.deleted = 0 GROUP BY bcm.id`,
           [commitmentIds],
         )
       : [];
@@ -185,9 +193,8 @@ export class SpendingService {
       const c = line.commitment_id_fk ? byCommitment.get(line.commitment_id_fk) : undefined;
       const chapter = c ? c.chapter_id : line.utility_id_fk ? byUtility.get(line.utility_id_fk)?.chapter_id : null;
       if (chapter === null || chapter === undefined) continue;
-      const year = c
-        ? Number(c.fiscal_year)
-        : lineFiscalYear(line.period_start ?? null, line.period_end ?? null, dto.invoice_date);
+      const own = lineFiscalYear(line.period_start ?? null, line.period_end ?? null, dto.invoice_date);
+      const year = c ? (annualityFor(idList(c.years), own) ?? own) : own;
       const key = `${chapter}-${year}`;
       const g = groups.get(key) ?? { chapter: Number(chapter), year, amount: 0 };
       g.amount += Number(line.amount) || 0;
@@ -278,12 +285,12 @@ export class SpendingService {
       [contractId],
     );
     const commitments: Record<string, unknown>[] = await this.dataSource.query(
-      `SELECT bcm.id, bcm.budget_chapter_id_fk AS budget_chapter_id, bcm.fiscal_year, bcm.amount,
+      `SELECT bcm.id, bcm.budget_chapter_id_fk AS budget_chapter_id, bcy.fiscal_year, bcy.amount,
               b.chapter_code, b.article, b.description
-       FROM budget_commitments bcm JOIN budget_chapters b ON b.id = bcm.budget_chapter_id_fk
+       ${COMMITMENTS} JOIN budget_chapters b ON b.id = bcm.budget_chapter_id_fk
        JOIN budget_commitment_contracts bcc ON bcc.commitment_id = bcm.id AND bcc.contract_id = ?
        WHERE bcm.deleted = 0
-       ORDER BY bcm.fiscal_year DESC`,
+       ORDER BY bcy.fiscal_year DESC`,
       [contractId],
     );
     const spent: Record<string, unknown>[] = await this.dataSource.query(

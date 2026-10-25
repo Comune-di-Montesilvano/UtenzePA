@@ -472,7 +472,7 @@ describe('AnomaliesService', () => {
     query.mockImplementation(async (sql: string) => {
       if (sql.includes('FROM budget_chapter_spending WHERE year = ?'))
         return [{ chapter_id: 7, adjusted_budget: '100' }];
-      if (sql.includes('WHERE bcm.fiscal_year = ?'))
+      if (sql.includes('WHERE bcy.fiscal_year = ?'))
         return [{ chapter_id: 7, commitments: '1', total: '150', without_amount: '0' }];
       if (sql.includes('FROM budget_chapters WHERE deleted = 0 AND id IN'))
         return [{ id: 7, chapter_code: '12332', article: 0, description: 'Gas scuole' }];
@@ -499,7 +499,7 @@ describe('AnomaliesService', () => {
     query.mockImplementation(async (sql: string) => {
       if (sql.includes('FROM budget_chapter_spending WHERE year = ?'))
         return [{ chapter_id: 7, adjusted_budget: '100' }];
-      if (sql.includes('WHERE bcm.fiscal_year = ?'))
+      if (sql.includes('WHERE bcy.fiscal_year = ?'))
         return [{ chapter_id: 7, commitments: '1', total: '150', without_amount: '0' }];
       return [];
     });
@@ -522,7 +522,7 @@ describe('AnomaliesService', () => {
       .find((s) => s.includes('s.adjusted_budget IS NOT NULL'));
     expect(sql).toContain('b.deleted = 0');
     expect(sql).toContain('u.supply_active = 1');
-    expect(sql).toContain('c.fiscal_year = ?');
+    expect(sql).toContain('cy.fiscal_year = ?');
   });
 
   it('righe fattura senza utenza', async () => {

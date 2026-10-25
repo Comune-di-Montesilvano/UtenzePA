@@ -24,7 +24,7 @@ import type {TOption} from '../../core/types/option.interface';
 import {AuthService} from '../../services/auth.service';
 import {AttachmentsComponent} from '../attachments/attachments.component';
 import {formatEuro} from '../budget-chapters/spending/budget-chapter-spending.service';
-import {Commitment} from '../commitments/commitment.model';
+import {Commitment, competenceLabel} from '../commitments/commitment.model';
 import {ContractsService} from '../contracts/contract.service';
 import type {Contract} from '../contracts/entity/contract.entity';
 import {ThirdPartiesService} from '../third-parties/third-parties.service';
@@ -87,7 +87,7 @@ export class ConsipAgreementSheetComponent implements OnInit {
 
   readonly commitmentColumns: LinkedColumn<Commitment>[] = [
     {label: 'Numero', value: c => c.label},
-    {label: 'Competenza', value: c => String(c.fiscal_year)},
+    {label: 'Competenza', value: c => competenceLabel(c)},
     {label: 'Capitolo', value: c => c.chapter_label},
     {label: 'Importo', value: c => (c.amount === null ? 'senza importo' : formatEuro(c.amount))},
     {label: 'Speso', value: c => formatEuro(c.spent)},

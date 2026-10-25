@@ -25,7 +25,9 @@ export interface ChapterYearSummary extends ChapterYear {
 export interface ChapterCommitment {
   id: number;
   label: string;
+  // Prima annualità e tutte le annualità (pluriennale); importi sommati.
   fiscal_year: number;
+  fiscal_years: number[];
   amount: number | null;
   spent: number;
   remaining: number | null;

@@ -3,7 +3,7 @@ import {ActivatedRoute} from '@angular/router';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
 import {ListSignalsComponent} from '../../core/components/list/list-signals.component';
-import {Commitment} from './commitment.model';
+import {Commitment, competenceLabel} from './commitment.model';
 import {CommitmentService} from './commitment.service';
 import {COMMITMENT_SIGNALS, commitmentFilters} from './commitments-filters';
 import {DataTableCommitmentsComponent} from './data-table-commitments.component';
@@ -31,7 +31,7 @@ export class CommitmentsComponent extends AbstractComponent<Commitment> {
   }
 
   protected override getEntityIdentifier(entity: Commitment): string {
-    return entity.label && entity.label !== '—' ? entity.label : `${entity.fiscal_year} (senza numero)`;
+    return entity.label && entity.label !== '—' ? entity.label : `${competenceLabel(entity)} (senza numero)`;
   }
 
   protected override entityToPayload(entity: Commitment): Partial<Commitment> {
