@@ -134,6 +134,17 @@ describe('InvoiceApplier', () => {
     ]);
   });
 
+  it('rielaborazione: le righe nuove tengono l’impegno scelto a mano (liquidazione)', async () => {
+    manager.findOne.mockResolvedValue({ id: 321, contratto_id_fk: 5, import_locked: false });
+    manager.find.mockResolvedValue([
+      { utility_id_fk: 812, commitment_id_fk: 77, commitment_auto: false, consumption_id_fk: null },
+    ]);
+    await applier.apply(message(), extracted, match({ existingInvoiceId: 321 }), 3, 7);
+    expect(manager.save).toHaveBeenCalledWith(InvoiceLine, [
+      expect.objectContaining({ utility_id_fk: 812, commitment_id_fk: 77, commitment_auto: false }),
+    ]);
+  });
+
   it('contratto già valorizzato sulla fattura: non sovrascritto', async () => {
     manager.findOne.mockResolvedValue({ id: 321, contratto_id_fk: 2, import_locked: false });
     await applier.apply(message(), extracted, match({ existingInvoiceId: 321 }), 3, 7);

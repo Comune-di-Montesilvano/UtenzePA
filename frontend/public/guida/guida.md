@@ -308,7 +308,7 @@ Con un pattern, a ogni fattura l'import:
 - le **note di credito** (TD04, TD08) entrano con importi negativi, sia che il fornitore li scriva positivi sia già negativi; l'imponibile somma tutte le aliquote. Le note di credito non registrano consumi, e nemmeno le fatture col totale negativo (rettifiche che il fornitore ha emesso come TD01 invece che TD04): queste entrano con gli importi come sono scritti, e in UtenzePA risultano comunque «Nota di credito»;
 - la spesa conta subito; una fattura **rifiutata** non ha effetti e i suoi consumi vengono tolti.
 
-Una fattura importata che modifichi a mano non viene più aggiornata dall'import. Le fatture già importate con un pattern che correggi vengono rielaborate al salvataggio. I file con più fatture (lotti) non vengono importati: vanno inseriti a mano.
+Una fattura importata che modifichi a mano non viene più aggiornata dall'import. Le fatture già importate con un pattern che correggi vengono rielaborate al salvataggio. La rielaborazione rifà le righe ma tiene l'impegno scelto a mano (per esempio quello della liquidazione): se la fattura aveva un solo impegno scelto, vale per tutte le righe; se erano diversi, ognuno torna sulla sua utenza. I file con più fatture (lotti) non vengono importati: vanno inseriti a mano.
 
 ## Regole e riferimenti
 
