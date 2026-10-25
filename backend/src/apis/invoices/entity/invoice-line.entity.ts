@@ -29,6 +29,11 @@ export class InvoiceLine {
   @Column({ type: 'boolean', default: true })
   commitment_auto: boolean;
 
+  // Annualità dell'impegno su cui pesa la riga: la scrive solo il ricalcolo
+  // (CommitmentReconcileService), mai il form.
+  @Column({ type: 'int', nullable: true })
+  commitment_fiscal_year: number | null;
+
   @Column({ type: 'date', nullable: true })
   period_start: string | null;
 

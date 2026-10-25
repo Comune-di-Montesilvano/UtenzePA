@@ -30,13 +30,6 @@
             <mat-label>Sub</mat-label>
             <input matInput formControlName="commitment_sub" onlyNumbers placeholder="1">
           </mat-form-field>
-          <mat-form-field>
-            <mat-label>Esercizio di competenza</mat-label>
-            <input matInput formControlName="fiscal_year" onlyNumbers>
-            @if (form.controls.fiscal_year.invalid) {
-              <mat-error>Esercizio obbligatorio</mat-error>
-            }
-          </mat-form-field>
           @if (numberIncomplete() && form.touched) {
             <p class="sheet-hint span-all" style="color: var(--tone-danger-fg);">Anno e numero dell'impegno vanno indicati insieme.</p>
           }
@@ -57,10 +50,38 @@
                                    formControlName="supplier_id_fk"
                                    [createLabel]="canEdit ? 'Nuovo soggetto terzo' : null" (create)="newSupplier($event)"></app-filterable-select>
           </div>
-          <mat-form-field>
-            <mat-label>Importo (€)</mat-label>
-            <input matInput type="number" step="0.01" formControlName="amount" placeholder="Senza importo">
-          </mat-form-field>
+          <div class="span-all years" formArrayName="years">
+            @for (g of yearGroups; track g; let i = $index) {
+              <div class="year-row" [formGroupName]="i">
+                <mat-form-field>
+                  <mat-label>Esercizio di competenza</mat-label>
+                  <input matInput formControlName="fiscal_year" onlyNumbers>
+                  @if (g.invalid) {
+                    <mat-error>Esercizio obbligatorio</mat-error>
+                  }
+                </mat-form-field>
+                <mat-form-field>
+                  <mat-label>Importo (€)</mat-label>
+                  <input matInput type="number" step="0.01" formControlName="amount" placeholder="Senza importo">
+                </mat-form-field>
+                @if (canEdit && yearGroups.length > 1) {
+                  <button mat-icon-button type="button" aria-label="Togli esercizio" matTooltip="Togli esercizio" (click)="removeYear(i)">
+                    <mat-icon>remove_circle_outline</mat-icon>
+                  </button>
+                }
+              </div>
+            }
+            @if (duplicateYears()) {
+              <p class="sheet-hint" style="color: var(--tone-danger-fg);">Lo stesso esercizio è indicato due volte.</p>
+            }
+            @if (canEdit) {
+              <div>
+                <button mat-button type="button" (click)="addYear()" matTooltip="Impegno pluriennale: un importo per ogni esercizio di competenza">
+                  <mat-icon>add</mat-icon>Aggiungi esercizio
+                </button>
+              </div>
+            }
+          </div>
           <mat-form-field class="span-all">
             <mat-label>Note</mat-label>
             <textarea matInput formControlName="notes" rows="2"></textarea>
@@ -69,9 +90,14 @@
 
         @if (!isNew) {
           <div class="sheet-section-title"><mat-icon>euro</mat-icon>Consumo</div>
-          <app-stacked-bar [segments]="barSegments">
-            Importo <strong>{{ data.item.amount === null ? 'senza importo: nessun limite' : eur(data.item.amount) }}</strong>
-          </app-stacked-bar>
+          @for (b of yearBars; track b.fiscal_year) {
+            @if (yearBars.length > 1) {
+              <div class="year-bar-title">Competenza {{ b.fiscal_year }}</div>
+            }
+            <app-stacked-bar [segments]="b.segments">
+              Importo <strong>{{ b.amount === null ? 'senza importo: nessun limite' : eur(b.amount) }}</strong>
+            </app-stacked-bar>
+          }
         }
       </mat-tab>
 
@@ -96,13 +122,16 @@
             <p class="sheet-empty">Nessuna riga di fattura su questo impegno.</p>
           } @else {
             <table class="sheet-table">
-              <thead><tr><th>Fattura</th><th>Periodo</th><th>Utenza</th><th>Importo</th><th>Speso progressivo</th><th>Assegnazione</th></tr></thead>
+              <thead><tr><th>Fattura</th><th>Periodo</th><th>Utenza</th>@if (yearBars.length > 1) {<th>Competenza</th>}<th>Importo</th><th>Speso progressivo</th><th>Assegnazione</th></tr></thead>
               <tbody>
                 @for (l of lines; track l.line_id) {
                   <tr class="line-row" (click)="openInvoice(l)">
                     <td>{{ l.invoice_number }} del {{ dateIt(l.invoice_date) }}</td>
                     <td>{{ l.period_start ? dateIt(l.period_start) : '…' }} – {{ l.period_end ? dateIt(l.period_end) : '…' }}</td>
                     <td>{{ l.utility_code ?? '' }}</td>
+                    @if (yearBars.length > 1) {
+                      <td>{{ l.fiscal_year ?? '' }}</td>
+                    }
                     <td style="text-align: right;">{{ eur(l.amount) }}</td>
                     <td style="text-align: right;">{{ eur(l.progressive) }}</td>
                     <td>

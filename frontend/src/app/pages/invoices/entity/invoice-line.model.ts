@@ -8,6 +8,8 @@ export interface InvoiceLine {
   commitment_id_fk: number | null;
   // Impegno assegnato dal ricalcolo (true, default) o scelto a mano (false).
   commitment_auto?: boolean;
+  // Annualità dell'impegno su cui pesa (solo lettura, dal ricalcolo).
+  commitment_fiscal_year?: number | null;
   period_start: string | null;
   period_end: string | null;
   consumption: number | null;

@@ -23,6 +23,7 @@ import {ThirdPartiesService} from '../third-parties/third-parties.service';
 import {PartyRole} from '../third-parties/third-party.model';
 import {UtilityService} from '../utilities/utility.service';
 import {CommitmentService} from '../commitments/commitment.service';
+import {competenceLabel} from '../commitments/commitment.model';
 import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
@@ -256,10 +257,10 @@ export class InvoiceEditDialogComponent implements OnInit {
     this.commitmentService.byContract(contractId).subscribe({
       next: list => {
         this.commitmentOptions = list.filter(c => !c.deleted).map(c => ({
-          label: `${c.label === '—' ? 'Senza numero' : c.label} · competenza ${c.fiscal_year}`,
+          label: `${c.label === '—' ? 'Senza numero' : c.label} · competenza ${competenceLabel(c)}`,
           value: c.id,
           sublabel: `${c.chapter_label}${c.remaining !== null ? ' · rimanenza ' + this.eur(c.remaining) : ''}`,
-          searchText: `${c.label} ${c.fiscal_year} ${c.chapter_label} ${c.chapter_description ?? ''}`,
+          searchText: `${c.label} ${competenceLabel(c)} ${c.chapter_label} ${c.chapter_description ?? ''}`,
         }));
         if (contractChanged) this.dropForeignCommitments(new Set(list.map(c => c.id)));
       },

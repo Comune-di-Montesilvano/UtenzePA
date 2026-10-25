@@ -4,13 +4,14 @@ import { CommitmentReconcileService } from './commitment-reconcile.service';
 type Row = Record<string, unknown>;
 
 // Risponde in base al tag /* r_… */ in testa a ogni query del servizio.
-function fakeDataSource(data: { closure?: Row[]; commitments?: Row[]; lines?: Row[] }) {
+function fakeDataSource(data: { closure?: Row[]; commitments?: Row[]; lines?: Row[]; years?: Row[] }) {
   const calls: { sql: string; params: unknown[] }[] = [];
   const query = jest.fn(async (sql: string, params: unknown[] = []) => {
     calls.push({ sql, params });
     if (sql.includes('/* r_closure */')) return data.closure ?? [];
     if (sql.includes('/* r_commitments */')) return data.commitments ?? [];
     if (sql.includes('/* r_lines */')) return data.lines ?? [];
+    if (sql.includes('/* r_years */')) return data.years ?? [];
     return [];
   });
   return { ds: { query } as unknown as DataSource, calls };
@@ -54,8 +55,8 @@ describe('CommitmentReconcileService', () => {
     expect(w).toHaveLength(2);
     expect(w).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ params: [10, [1, 2]] }),
-        expect.objectContaining({ params: [20, [3]] }),
+        expect.objectContaining({ params: [10, 2026, [1, 2]] }),
+        expect.objectContaining({ params: [20, 2026, [3]] }),
       ]),
     );
     expect(w.every((c) => c.sql.includes('commitment_auto = 1'))).toBe(true);
@@ -65,12 +66,35 @@ describe('CommitmentReconcileService', () => {
     const { ds, calls } = fakeDataSource({
       commitments: [commitment(10, 521, 100)],
       lines: [
-        line(9, 90, '2026-01-01', { auto: 0, commitment_id: 10 }),
-        line(1, 5, '2026-01-10', { commitment_id: 10 }),
+        line(9, 90, '2026-01-01', { auto: 0, commitment_id: 10, fiscal_year: 2026 }),
+        line(1, 5, '2026-01-10', { commitment_id: 10, fiscal_year: 2026 }),
       ],
+      years: [{ commitment_id: 10, fiscal_year: 2026 }],
     });
     await new CommitmentReconcileService(ds).reconcileContracts([1]);
     expect(writes(calls)).toHaveLength(0);
+    expect(calls.filter((c) => c.sql.includes('/* r_manual_year */'))).toHaveLength(0);
+  });
+
+  it("una riga a mano senza annualità nel suo anno va sull'annualità più vicina", async () => {
+    const { ds, calls } = fakeDataSource({
+      commitments: [{ ...commitment(10, 521, 100), fiscal_year: 2027 }],
+      lines: [line(9, 90, '2026-12-01', { auto: 0, commitment_id: 10, fiscal_year: null })],
+      years: [{ commitment_id: 10, fiscal_year: 2027 }],
+    });
+    await new CommitmentReconcileService(ds).reconcileContracts([1]);
+    const manual = calls.filter((c) => c.sql.includes('/* r_manual_year */'));
+    expect(manual).toEqual([expect.objectContaining({ params: [2027, [9]] })]);
+    expect(manual[0].sql).toContain('commitment_auto = 0');
+  });
+
+  it("le righe automatiche consumano l'annualità del loro anno", async () => {
+    const { ds, calls } = fakeDataSource({
+      commitments: [commitment(10, 528, 100), { ...commitment(10, 528, 30), fiscal_year: 2027 }],
+      lines: [line(1, 20, '2027-02-01', { year: 2027 })],
+    });
+    await new CommitmentReconcileService(ds).reconcileContracts([1]);
+    expect(writes(calls)).toEqual([expect.objectContaining({ params: [10, 2027, [1]] })]);
   });
 
   it('legge solo righe di fatture non cancellate e non rifiutate', async () => {
@@ -139,7 +163,7 @@ describe('CommitmentReconcileService', () => {
   it('senza impegni le righe automatiche tornano senza impegno', async () => {
     const { ds, calls } = fakeDataSource({ lines: [line(1, 10, '2026-01-10', { commitment_id: 99 })] });
     await new CommitmentReconcileService(ds).reconcileContracts([1]);
-    expect(writes(calls)).toEqual([expect.objectContaining({ params: [null, [1]] })]);
+    expect(writes(calls)).toEqual([expect.objectContaining({ params: [null, null, [1]] })]);
   });
 
   it('una riga con utenza senza capitolo non prende impegni', async () => {

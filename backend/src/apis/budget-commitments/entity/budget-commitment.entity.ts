@@ -7,6 +7,7 @@ import {
   JoinTable,
   ManyToMany,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -14,11 +15,13 @@ import { Contract } from '@apis/contracts/entity/contract.entity';
 import { BudgetChapter } from '@apis/budget-chapters/entity/budgetChapter.entity';
 import { SystemUser } from '@apis/system-users/entity/system-user.entity';
 import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
+import { BudgetCommitmentYear } from './budget-commitment-year.entity';
 
-// Impegno contabile: capitolo impegnato per un esercizio (competenza), con il
-// numero della ragioneria (anno/num/sub) e zero o più contratti di fornitura
-// (un impegno di una determina copre più ordinativi). Le righe di fattura lo
-// consumano in ordine di numero (commitment-allocation.ts).
+// Impegno contabile: capitolo impegnato, con il numero della ragioneria
+// (anno/num/sub), una o più annualità (esercizio di competenza + importo:
+// pluriennale = più annualità) e zero o più contratti di fornitura (un impegno
+// di una determina copre più ordinativi). Le righe di fattura consumano le
+// annualità in ordine di numero (commitment-allocation.ts).
 @Entity('budget_commitments')
 @Index('IDX_budget_commitments_number', ['commitment_year', 'commitment_num', 'commitment_sub'])
 export class BudgetCommitment {
@@ -27,9 +30,6 @@ export class BudgetCommitment {
 
   @Column({ type: 'int' })
   budget_chapter_id_fk: number;
-
-  @Column({ type: 'int' })
-  fiscal_year: number;
 
   @Column({ type: 'int', nullable: true })
   commitment_year: number | null;
@@ -42,9 +42,6 @@ export class BudgetCommitment {
 
   @Column({ type: 'int', nullable: true })
   supplier_id_fk: number | null;
-
-  @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
-  amount: number | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
@@ -63,6 +60,9 @@ export class BudgetCommitment {
 
   @Column({ type: 'boolean', default: false })
   deleted: boolean;
+
+  @OneToMany(() => BudgetCommitmentYear, (y) => y.commitment, { cascade: true })
+  years: BudgetCommitmentYear[];
 
   @ManyToMany(() => Contract)
   @JoinTable({

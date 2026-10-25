@@ -443,7 +443,8 @@ export class AnomaliesService {
       `SELECT b.id, b.chapter_code, b.article, b.description FROM budget_chapters b
        WHERE b.deleted = 0
          AND (EXISTS (SELECT 1 FROM utilities u WHERE u.budget_chapter_code_fk = b.id AND u.deleted = 0 AND ${inChargeSql('u')})
-              OR EXISTS (SELECT 1 FROM budget_commitments c WHERE c.budget_chapter_id_fk = b.id AND c.deleted = 0 AND c.fiscal_year = ?))
+              OR EXISTS (SELECT 1 FROM budget_commitments c JOIN budget_commitment_years cy ON cy.commitment_id = c.id
+                         WHERE c.budget_chapter_id_fk = b.id AND c.deleted = 0 AND cy.fiscal_year = ?))
          AND NOT EXISTS (SELECT 1 FROM budget_chapter_spending s
                          WHERE s.budget_chapter_id_fk = b.id AND s.deleted = 0 AND s.year = ? AND s.adjusted_budget IS NOT NULL)
        ORDER BY b.chapter_code, b.article`,
@@ -741,18 +742,19 @@ export class AnomaliesService {
                         UPPER(TRIM(LEADING '0' FROM REPLACE(ii.value, ' ', ''))))))
         ORDER BY ii.type, ii.id DESC`,
     );
-    // Impegni dell'esercizio in corso e successivi: speso dalle righe assegnate.
+    // Annualità dell'esercizio in corso e successive: speso dalle righe assegnate.
     const commitmentRows: Record<string, unknown>[] = await this.dataSource.query(
       `/* commitments_check */
-       SELECT bc.id, bc.commitment_year, bc.commitment_num, bc.commitment_sub, bc.fiscal_year, bc.amount,
+       SELECT bc.id, bc.commitment_year, bc.commitment_num, bc.commitment_sub, bcy.fiscal_year, bcy.amount,
               CONCAT(b.chapter_code, '/', b.article) AS chapter,
               (SELECT COUNT(*) FROM budget_commitment_contracts x WHERE x.commitment_id = bc.id) AS contracts,
               (SELECT COALESCE(SUM(il.amount), 0) FROM invoice_lines il
                  JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
-                WHERE il.commitment_id_fk = bc.id) AS spent
-         FROM budget_commitments bc JOIN budget_chapters b ON b.id = bc.budget_chapter_id_fk
-        WHERE bc.deleted = 0 AND bc.fiscal_year >= ?
-        ORDER BY bc.fiscal_year, b.chapter_code, b.article, bc.commitment_year, bc.commitment_num, bc.commitment_sub`,
+                WHERE il.commitment_id_fk = bc.id AND il.commitment_fiscal_year = bcy.fiscal_year) AS spent
+         FROM budget_commitment_years bcy JOIN budget_commitments bc ON bc.id = bcy.commitment_id
+         JOIN budget_chapters b ON b.id = bc.budget_chapter_id_fk
+        WHERE bc.deleted = 0 AND bcy.fiscal_year >= ?
+        ORDER BY bcy.fiscal_year, b.chapter_code, b.article, bc.commitment_year, bc.commitment_num, bc.commitment_sub`,
       [year],
     );
     const commitments = commitmentRows.map((r) => {
@@ -827,7 +829,12 @@ export class AnomaliesService {
           .filter((c) => c.item.fiscal_year === year && c.item.remaining !== null && c.item.remaining < 0)
           .map((c) => c.item),
       ),
-      commitments_without_contract: list(commitments.filter((c) => c.contracts === 0).map((c) => c.item)),
+      // Un pluriennale compare una volta, con la prima annualità (righe in ordine di esercizio).
+      commitments_without_contract: list(
+        commitments
+          .filter((c, i) => c.contracts === 0 && commitments.findIndex((o) => o.item.id === c.item.id) === i)
+          .map((c) => c.item),
+      ),
       commitments_without_amount: list(commitments.filter((c) => c.item.amount === null).map((c) => c.item)),
       utilities_with_meter_mismatch: list([
         ...new Map(

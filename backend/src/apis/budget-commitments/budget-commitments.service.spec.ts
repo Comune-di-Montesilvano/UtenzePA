@@ -43,7 +43,7 @@ describe('BudgetCommitmentsService', () => {
     );
   });
 
-  const dto = { budget_chapter_id_fk: 7, fiscal_year: 2026 };
+  const dto = { budget_chapter_id_fk: 7, years: [{ fiscal_year: 2026, amount: null }] };
 
   it('crea un impegno con i contratti e ricalcola il loro consumo', async () => {
     await service.create(
@@ -107,7 +107,7 @@ describe('BudgetCommitmentsService', () => {
     contractRepo.find.mockResolvedValue([{ id: 1, deleted: false }, { id: 2, deleted: true }]);
     chapterRepo.findOne.mockResolvedValue(null);
     await expect(
-      service.update(9, { amount: 50, budget_chapter_id_fk: 7, contract_ids: [1, 2] }, 3),
+      service.update(9, { years: [{ fiscal_year: 2026, amount: 50 }], budget_chapter_id_fk: 7, contract_ids: [1, 2] }, 3),
     ).resolves.toBeDefined();
   });
 
@@ -131,13 +131,23 @@ describe('BudgetCommitmentsService', () => {
 
   it('elenco: speso, rimanenza ed etichetta calcolati', async () => {
     rows = [
-      { id: 1, commitment_year: 2026, commitment_num: 514, commitment_sub: 1, amount: '100.00', spent: '30.00', contract_ids: '1,2' },
-      { id: 2, commitment_year: null, commitment_num: null, commitment_sub: null, amount: null, spent: '20.00', contract_ids: null },
+      {
+        id: 1, commitment_year: 2026, commitment_num: 514, commitment_sub: 1, spent: '30.00', contract_ids: '1,2',
+        years: JSON.stringify([{ fiscal_year: 2027, amount: 40, spent: 0 }, { fiscal_year: 2026, amount: 60, spent: 30 }]),
+      },
+      {
+        id: 2, commitment_year: null, commitment_num: null, commitment_sub: null, spent: '20.00', contract_ids: null,
+        years: [{ fiscal_year: 2026, amount: null, spent: 20 }],
+      },
     ];
     const list = await service.listRows({});
     expect(list[0]).toEqual(
       expect.objectContaining({ label: '2026/514/1', amount: 100, spent: 30, remaining: 70, contract_ids: [1, 2] }),
     );
+    expect(list[0].years).toEqual([
+      { fiscal_year: 2026, amount: 60, spent: 30, remaining: 30 },
+      { fiscal_year: 2027, amount: 40, spent: 0, remaining: 40 },
+    ]);
     expect(list[1]).toEqual(expect.objectContaining({ label: '—', remaining: null, contract_ids: [] }));
   });
 
@@ -160,5 +170,29 @@ describe('BudgetCommitmentsService', () => {
     const sql = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_rows */'))![0] as string;
     expect(sql).toContain('i.deleted = 0');
     expect(sql).toContain('sdi_status');
+  });
+
+  it('un esercizio ripetuto nelle annualità è rifiutato', async () => {
+    await expect(
+      service.create({ budget_chapter_id_fk: 7, years: [{ fiscal_year: 2026 }, { fiscal_year: 2026 }] }, 3),
+    ).rejects.toThrow('Esercizio ripetuto');
+  });
+
+  it('modifica delle annualità: sostituite in blocco, con audit', async () => {
+    repo.findOne.mockResolvedValue({
+      id: 9, budget_chapter_id_fk: 7, contracts: [{ id: 1 }], years: [{ fiscal_year: 2026, amount: '100.00' }],
+    });
+    await service.update(9, { years: [{ fiscal_year: 2027, amount: 30 }, { fiscal_year: 2026, amount: 100 }] }, 3);
+    const insert = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_years_insert */'))!;
+    expect(insert[1]).toEqual([[[9, 2026, 100], [9, 2027, 30]]]);
+    expect(repo.query.mock.calls.some(([s]) => String(s).includes('/* c_years_delete */'))).toBe(true);
+  });
+
+  it('annualità invariate: nessuna scrittura', async () => {
+    repo.findOne.mockResolvedValue({
+      id: 9, budget_chapter_id_fk: 7, contracts: [{ id: 1 }], years: [{ fiscal_year: 2026, amount: '100.00' }],
+    });
+    await service.update(9, { years: [{ fiscal_year: 2026, amount: 100 }] }, 3);
+    expect(repo.query.mock.calls.some(([s]) => String(s).includes('/* c_years_'))).toBe(false);
   });
 });

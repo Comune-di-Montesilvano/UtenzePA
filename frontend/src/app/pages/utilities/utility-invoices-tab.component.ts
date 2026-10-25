@@ -120,7 +120,7 @@ export class UtilityInvoicesTabComponent implements OnInit {
               consumption: l.consumption !== null && l.consumption !== undefined ? Number(l.consumption) : null,
               amount: Number(l.amount),
               chapter: l.commitment?.budgetChapter
-                ? `${l.commitment.budgetChapter.chapter_code}/${l.commitment.budgetChapter.article ?? 0} (${l.commitment.fiscal_year})`
+                ? `${l.commitment.budgetChapter.chapter_code}/${l.commitment.budgetChapter.article ?? 0}${l.commitment_fiscal_year ? ` (${l.commitment_fiscal_year})` : ''}`
                 : '',
             })));
         const grouped = new Map<string, Row>();
