@@ -742,6 +742,38 @@ describe('isoDate: mesi in lettere', () => {
     expect(period('emessa il 05/09/2026, periodo luglio 2026')).toEqual(['2026-09-05', '2026-07-31']);
   });
 
+  it('intervallo «dal X al Y» dopo il testo: inizio X, fine Y (stessa regola dei mesi)', () => {
+    const withDescription = (text: string) =>
+      Buffer.from(
+        pod
+          .toString('utf8')
+          .replace(
+            '<Descrizione>Spesa per la materia energia</Descrizione>',
+            `<Descrizione>${text}</Descrizione>`,
+          ),
+      );
+    const word = { kind: 'textAfter' as const, path: 'Descrizione', word: 'rif.|dal' };
+    const r: PatternRules = {
+      header: {},
+      line: { ...POD_RULES.line, periodStart: word, periodEnd: word },
+    };
+    const period = (text: string) => {
+      const line = extract(withDescription(text), r).lines[0];
+      return [line.periodStart, line.periodEnd];
+    };
+    expect(period('Canone ADSL Noleggio dal 01/09/2026 al 31/10/2026')).toEqual([
+      '2026-09-01',
+      '2026-10-31',
+    ]);
+    expect(period('Canone dal 01.09.2026 - 30.09.2026')).toEqual(['2026-09-01', '2026-09-30']);
+    expect(period('Canone internet. Periodo rif. Luglio-Agosto 2026')).toEqual([
+      '2026-07-01',
+      '2026-08-31',
+    ]);
+    // Una data sola: inizio e fine coincidono, come prima.
+    expect(period('Una tantum dal 15/09/2026')).toEqual(['2026-09-15', '2026-09-15']);
+  });
+
   it('regola «Dopo il testo» sulla descrizione della riga (Wind)', () => {
     const xml = Buffer.from(
       pod

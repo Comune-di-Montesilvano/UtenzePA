@@ -323,11 +323,21 @@ const DATE_IN_TEXT = new RegExp(
 );
 const DATE_WINDOW = 200;
 
-export function dateAfter(text: string | null, word: string, nth?: number): string | null {
+// «dal 01/09/2026 al 31/10/2026», «01.09.2026 - 30.09.2026»: la data dopo il testo
+// con la seconda dell'intervallo, così l'inizio prende la prima e la fine l'ultima.
+const RANGE_LINK = /^\s*(?:al|a|fino al|[-–/])\s*/i;
+
+function dateRangeAfter(text: string | null, word: string, nth?: number): string | null {
   if (!text || !word) return null;
   const found = nthPosition(text, word, nth);
   if (!found) return null;
-  return text.slice(found.end, found.end + DATE_WINDOW).match(DATE_IN_TEXT)?.[0] ?? null;
+  const window = text.slice(found.end, found.end + DATE_WINDOW);
+  const first = new RegExp(DATE_IN_TEXT.source, 'i').exec(window);
+  if (!first) return null;
+  const rest = window.slice(first.index + first[0].length);
+  const link = RANGE_LINK.exec(rest);
+  const second = link && new RegExp(`^(?:${DATE_IN_TEXT.source})`, 'i').exec(rest.slice(link[0].length));
+  return second ? `${first[0]} ${second[0]}` : first[0];
 }
 
 export function dateBefore(text: string | null, word: string, nth?: number): string | null {
@@ -590,7 +600,7 @@ function wordUnit(rule: WordRule, text: string | null): string | null {
   return /^\D*?-?\d+(?:[.,]\d+)*\s*([A-Za-z³]{1,5})(?![\w³])/.exec(rest)?.[1] ?? null;
 }
 
-// date: il campo è una data (data fattura, periodo), letta con dateAfter/dateBefore.
+// date: il campo è una data (data fattura, periodo), letta con dateRangeAfter/dateBefore.
 function readWord(rule: WordRule, text: string | null, date = false): string | null {
   const scoped = fromAnchor(text, rule.anchor);
   const nth = rule.occurrence;
@@ -599,8 +609,10 @@ function readWord(rule: WordRule, text: string | null, date = false): string | n
     const token = (after ? textAfter : textBefore)(scoped, rule.word, nth);
     // Data: la parola accanto se ne contiene (anche due, «01.09.2026-30.09.2026»),
     // altrimenti la data più vicina saltando le parole in mezzo.
-    if (!date || (token && isoDate(token))) return token;
-    return (after ? dateAfter : dateBefore)(scoped, rule.word, nth);
+    if (!date) return token;
+    if (after) return dateRangeAfter(scoped, rule.word, nth) ?? token;
+    if (token && isoDate(token)) return token;
+    return dateBefore(scoped, rule.word, nth);
   }
   if (rule.kind === 'contains')
     return scoped && positions(scoped, rule.word).length ? rule.word : null;
