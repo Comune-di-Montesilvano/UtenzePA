@@ -11,9 +11,9 @@
 // contratti. Un'annualit√† senza importo non si esaurisce. Le quote fisse
 // (MANUAL/ACCOUNTING) consumano la rimanenza della loro annualit√† e non si
 // spostano; le fatture che le hanno non compaiono nel risultato. Una nota di
-// credito (importo negativo) va sull'ultima annualit‡ candidata gi‡ consumata
+// credito (importo negativo) va sull'ultima annualit√† candidata gi√† consumata
 // (rimanenza sotto l'importo iniziale; senza importo: se una fattura o quota
-// vi Ë gi‡ andata), altrimenti sulla prima, e fa risalire la rimanenza.
+// vi √® gi√† andata), altrimenti sulla prima, e fa risalire la rimanenza.
 
 export interface AllocCommitment {
   id: number;

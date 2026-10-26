@@ -83,13 +83,13 @@ describe('allocate (per fattura)', () => {
     expect(ids(allocate([A], invoices), [1, 2, 3])).toEqual([10, 10, 10]);
   });
 
-  it('nota di credito: ultima annualità già consumata', () => {
+  it('nota di credito: ultima annualitÃ  giÃ  consumata', () => {
     const invoices = [inv(1, 100, '2026-01-10'), inv(2, 60, '2026-02-10'), inv(3, -50, '2026-03-10')];
     expect(ids(allocate([A, B], invoices), [1, 2, 3])).toEqual([10, 20, 20]);
     expect(ids(allocate([A, B], [inv(1, 30, '2026-01-10'), inv(2, -10, '2026-02-10')]), [1, 2])).toEqual([10, 10]);
   });
 
-  it('nota di credito senza annualità consumate: la prima', () => {
+  it('nota di credito senza annualitÃ  consumate: la prima', () => {
     expect(ids(allocate([A, B], [inv(1, -10, '2026-01-10')]), [1])).toEqual([10]);
   });
 
