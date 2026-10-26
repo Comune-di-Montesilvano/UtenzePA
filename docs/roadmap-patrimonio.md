@@ -1,6 +1,6 @@
 # Roadmap: estensione del perimetro di UtenzePA al patrimonio
 
-Aggiornata: 2026-10-25
+Aggiornata: 2026-10-26
 
 Obiettivo: portare UtenzePA da gestionale delle utenze a gestionale del **patrimonio** comunale (immobili, contratti, impianti, inventario), sfruttando i dati già presenti in `W:\PATRIMONIO`.
 
@@ -468,6 +468,7 @@ Emerso 2026-10-25 dalla correzione una tantum con le liquidazioni 2025–2026 (`
 - Fatture pagate da più impegni (una manciata l'anno): oggi escluse dalla correzione; con l'import vero, ripartizione per capitolo dell'utenza.
 - **Opzionale (riuso)**: spenta di default (variabile d'ambiente + stato nel DB, come l'import PEC); formato neutro (capitoli, impegni, liquidazioni) in tabelle di appoggio, Tinn = un adattatore, altri enti un altro adattatore o un CSV con lo stesso tracciato; driver Firebird con import dinamico solo se l'adattatore è attivo, nessun driver Firebird nel backend: l'adattatore Tinn è un container opzionale (profilo compose) che ripristina il backup e produce i CSV del formato neutro; nessun valore dell'ente nel codice; sola lettura sulla contabilità.
 - Tinn (2026-10-25): schema visto su un DB di un altro ente (uguale al 99%): Firebird 3 (ODS 12.0, dialect 1, importi double), backup `gbak` ripristinabile; capitoli `GFBIPRN1`, impegni `GFIMDEN1` (competenza = `ANNO`), liquidazioni `GFLIQUN1` → registro fatture `GFPNCGN1` con IdentificativoSdI (`FE_ID_SDI_S`). Design e fasi: `docs/superpowers/specs/2026-10-25-import-contabilita-design.md`. Da verificare sul DB del Comune: importo definitivo vs residuo, campi di assestato/iniziale, charset, trasporto (SFTP/FTPS).
+- **Stato delle fasi** (spec sopra): fase 1 (annualità dell'impegno, impegni pluriennali) fatta in v1.48.0; fase 2 (quote d'impegno della fattura) fatta in v1.49.0: l'impegno è della fattura e non più della riga (`invoice_commitment_shares`), automatico = una quota per tutto l'importo, «Dividi a mano» per le fatture pagate da più impegni, segnalazione delle quote che non tornano col totale; le fatture con contratto e senza righe (canoni) entrano nella spesa del capitolo. Restano la fase 3 (formato neutro, quote `ACCOUNTING` dalle liquidazioni) e la fase 4 (adattatore Tinn).
 
 ## Archivio 4_IMMOBILIARE: stato degli import
 
