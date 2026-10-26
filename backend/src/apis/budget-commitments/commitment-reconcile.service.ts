@@ -1,10 +1,9 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
-import { lineYearSql } from '@apis/spending/line-year';
+import { lineFiscalYear } from '@apis/spending/line-year';
 import { dbDay } from '@apis/utility-supply/supply-reconcile.service';
-import { allocate, AllocCommitment, AllocLine } from './commitment-allocation';
-import { annualityFor } from './annuality';
+import { allocate, AllocCommitment, AllocInvoice, AllocShare } from './commitment-allocation';
 import { idList } from './id-list';
 
 // Contratti che condividono un impegno con quelli dati: la rimanenza di un
@@ -24,34 +23,36 @@ const COMMITMENTS_SQL =
   'WHERE bc.deleted = 0 AND EXISTS (SELECT 1 FROM budget_commitment_contracts x ' +
   'WHERE x.commitment_id = bc.id AND x.contract_id IN (?))';
 
-// Annualità degli impegni scelti a mano sulle righe (anche fuori dai contratti).
-const YEARS_SQL =
-  '/* r_years */ SELECT commitment_id, fiscal_year FROM budget_commitment_years WHERE commitment_id IN (?)';
-
-const LINES_SQL =
-  '/* r_lines */ SELECT il.id, il.amount, i.invoice_date AS date, il.commitment_auto AS auto, ' +
-  'il.commitment_id_fk AS commitment_id, il.commitment_fiscal_year AS fiscal_year, ' +
-  'i.contratto_id_fk AS contract_id, il.utility_id_fk AS utility_id, ' +
-  `u.budget_chapter_code_fk AS chapter, ${lineYearSql({ line: 'il', invoice: 'i' })} AS year ` +
-  'FROM invoice_lines il ' +
-  `JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')} ` +
-  'LEFT JOIN utilities u ON u.id = il.utility_id_fk ' +
-  // Anche le righe manuali sugli impegni di fatture di contratti scollegati:
+// Una riga per fattura: importo = totale in testata, altrimenti somma delle righe;
+// capitoli (JSON) delle utenze delle righe, 0 = utenza senza capitolo; quote fisse
+// e quota automatica attuale (JSON).
+const INVOICES_SQL =
+  '/* r_invoices */ SELECT i.id, i.invoice_date AS date, i.contratto_id_fk AS contract_id, ' +
+  'COALESCE(i.total_amount, (SELECT SUM(il.amount) FROM invoice_lines il WHERE il.invoice_id_fk = i.id)) AS amount, ' +
+  '(SELECT MIN(il.period_start) FROM invoice_lines il WHERE il.invoice_id_fk = i.id) AS period_start, ' +
+  '(SELECT MAX(il.period_end) FROM invoice_lines il WHERE il.invoice_id_fk = i.id) AS period_end, ' +
+  '(SELECT JSON_ARRAYAGG(COALESCE(u.budget_chapter_code_fk, 0)) FROM invoice_lines il ' +
+  'JOIN utilities u ON u.id = il.utility_id_fk WHERE il.invoice_id_fk = i.id) AS chapters, ' +
+  "(SELECT JSON_ARRAYAGG(JSON_OBJECT('commitment_id', s.commitment_id_fk, 'fiscal_year', s.fiscal_year, 'amount', s.amount)) " +
+  "FROM invoice_commitment_shares s WHERE s.invoice_id_fk = i.id AND s.source IN ('MANUAL', 'ACCOUNTING')) AS fixed, " +
+  "(SELECT JSON_OBJECT('commitment_id', s.commitment_id_fk, 'fiscal_year', s.fiscal_year, 'amount', s.amount) " +
+  "FROM invoice_commitment_shares s WHERE s.invoice_id_fk = i.id AND s.source = 'AUTO' LIMIT 1) AS auto_share " +
+  `FROM invoices i WHERE i.deleted = 0 AND ${NOT_REJECTED_SQL('i')} AND (i.contratto_id_fk IN (?) OR ` +
+  // Anche le quote a mano sugli impegni di fatture di contratti scollegati:
   // consumano la stessa rimanenza mostrata nella scheda.
-  'WHERE i.contratto_id_fk IN (?) OR (il.commitment_auto = 0 AND il.commitment_id_fk IN (?))';
+  "EXISTS (SELECT 1 FROM invoice_commitment_shares m WHERE m.invoice_id_fk = i.id AND m.source = 'MANUAL' " +
+  'AND m.commitment_id_fk IN (?)))';
 
-const WRITE_SQL =
-  '/* r_write */ UPDATE invoice_lines SET commitment_id_fk = ?, commitment_fiscal_year = ? ' +
-  'WHERE id IN (?) AND commitment_auto = 1';
-const MANUAL_YEAR_SQL =
-  '/* r_manual_year */ UPDATE invoice_lines SET commitment_fiscal_year = ? WHERE id IN (?) AND commitment_auto = 0';
+const AUTO_DELETE_SQL =
+  "/* r_auto_delete */ DELETE FROM invoice_commitment_shares WHERE invoice_id_fk = ? AND source = 'AUTO'";
+const AUTO_INSERT_SQL =
+  '/* r_auto_insert */ INSERT INTO invoice_commitment_shares (invoice_id_fk, commitment_id_fk, fiscal_year, amount, source) ' +
+  "VALUES (?, ?, ?, ?, 'AUTO')";
 
-// Righe automatiche di fatture senza contratto: nessun impegno possibile.
+// Quote automatiche di fatture senza contratto: nessun impegno possibile.
 const ORPHANS_SQL =
-  '/* r_orphans */ UPDATE invoice_lines il JOIN invoices i ON i.id = il.invoice_id_fk ' +
-  'SET il.commitment_id_fk = NULL, il.commitment_fiscal_year = NULL ' +
-  'WHERE i.contratto_id_fk IS NULL AND il.commitment_auto = 1 ' +
-  'AND il.commitment_id_fk IS NOT NULL';
+  '/* r_orphans */ DELETE s FROM invoice_commitment_shares s JOIN invoices i ON i.id = s.invoice_id_fk ' +
+  "WHERE i.contratto_id_fk IS NULL AND s.source = 'AUTO'";
 
 const ALL_CONTRACTS_SQL =
   '/* r_all */ SELECT DISTINCT i.contratto_id_fk AS contract_id FROM invoices i WHERE i.contratto_id_fk IS NOT NULL ' +
@@ -62,12 +63,32 @@ const UTILITY_CONTRACTS_SQL =
   '/* r_utility_contracts */ SELECT DISTINCT i.contratto_id_fk AS contract_id FROM invoice_lines il ' +
   'JOIN invoices i ON i.id = il.invoice_id_fk WHERE il.utility_id_fk IN (?) AND i.contratto_id_fk IS NOT NULL';
 
+interface Share {
+  commitment_id: number;
+  fiscal_year: number | null;
+  amount: number;
+}
+
+// JSON da JSON_OBJECT/JSON_ARRAYAGG: mysql2 lo restituisce già decodificato, i mock come stringa.
+const parseJson = <T>(v: unknown): T | null =>
+  v === null || v === undefined || v === '' ? null : typeof v === 'string' ? (JSON.parse(v) as T) : (v as T);
+
+const shareOf = (o: Record<string, unknown> | null): Share | null =>
+  o ? { commitment_id: Number(o.commitment_id), fiscal_year: Number(o.fiscal_year), amount: Number(o.amount) } : null;
+
+const sameShare = (a: Share | null, b: Share | null): boolean =>
+  a === null || b === null
+    ? a === b
+    : a.commitment_id === b.commitment_id &&
+      a.fiscal_year === b.fiscal_year &&
+      Math.round(a.amount * 100) === Math.round(b.amount * 100);
+
 const ids = (rows: Record<string, unknown>[]): number[] => rows.map((r) => Number(r.contract_id));
 
-// Assegna impegno e annualità alle righe di fattura automatiche
-// (commitment-allocation.ts). Delle righe scelte a mano si aggiorna solo
-// l'annualità (annuality.ts), mai l'impegno; scrittura di sistema: nessun audit e
-// "Ultima modifica" della fattura invariata (si aggiorna solo invoice_lines).
+// Assegna impegno e annualità alla quota automatica delle fatture
+// (commitment-allocation.ts). Le quote scelte a mano (MANUAL/ACCOUNTING) non si
+// toccano, consumano solo la rimanenza; scrittura di sistema: nessun audit e
+// "Ultima modifica" della fattura invariata (si scrive solo invoice_commitment_shares).
 // Le chiamate si accodano: contratti già in attesa non fanno un secondo giro.
 @Injectable()
 export class CommitmentReconcileService implements OnApplicationBootstrap {
@@ -147,52 +168,47 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
     );
     // [-1]: IN () vuoto non è SQL valido.
     const commitmentIds = commitments.length ? [...new Set(commitments.map((c) => c.id))] : [-1];
-    const rows: Record<string, unknown>[] = await this.dataSource.query(LINES_SQL, [contracts, commitmentIds]);
-    const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
-    const current = new Map(rows.map((r) => [Number(r.id), `${num(r.commitment_id)}:${num(r.fiscal_year)}`]));
-    const lines: AllocLine[] = rows.map((r) => ({
-      id: Number(r.id),
-      amount: Number(r.amount),
-      date: dbDay(r.date) ?? '',
-      auto: Number(r.auto) === 1,
-      commitment_id: num(r.commitment_id),
-      fiscal_year: num(r.fiscal_year),
-      contract_id: Number(r.contract_id),
-      // Utenza senza capitolo: 0 = nessun impegno candidato; senza utenza: null.
-      chapter: r.utility_id === null ? null : r.chapter === null ? 0 : Number(r.chapter),
-      year: Number(r.year),
-    }));
+    const rows: Record<string, unknown>[] = await this.dataSource.query(INVOICES_SQL, [contracts, commitmentIds]);
 
-    // Righe a mano: annualità dell'anno della riga, altrimenti la più vicina.
-    const manual = lines.filter((l) => !l.auto && l.commitment_id !== null);
-    const manualIds = [...new Set(manual.map((l) => l.commitment_id!))];
-    const years = new Map<number, number[]>();
-    if (manualIds.length) {
-      for (const r of await this.dataSource.query(YEARS_SQL, [manualIds])) {
-        const id = Number(r.commitment_id);
-        years.set(id, [...(years.get(id) ?? []), Number(r.fiscal_year)]);
-      }
-    }
-    const byManualYear = new Map<number | null, number[]>();
-    for (const l of manual) {
-      const year = annualityFor(years.get(l.commitment_id!) ?? [], l.year!);
-      if (year !== l.fiscal_year) byManualYear.set(year, [...(byManualYear.get(year) ?? []), l.id]);
-      l.fiscal_year = year;
-    }
-    for (const [year, lineIds] of byManualYear) {
-      await this.dataSource.query(MANUAL_YEAR_SQL, [year, lineIds]);
+    const invoices: AllocInvoice[] = [];
+    // Quota automatica attuale per fattura (null = nessuna).
+    const current = new Map<number, Share | null>();
+    for (const r of rows) {
+      const id = Number(r.id);
+      const fixed = parseJson<Record<string, unknown>[]>(r.fixed) ?? [];
+      current.set(id, shareOf(parseJson<Record<string, unknown>>(r.auto_share)));
+      // Senza righe e senza totale non c'è un importo da imputare.
+      if (r.amount === null || r.amount === undefined) continue;
+      const date = dbDay(r.date) ?? '';
+      const chapters = [...new Set((parseJson<unknown[]>(r.chapters) ?? []).map(Number))];
+      invoices.push({
+        id,
+        date,
+        amount: Number(r.amount),
+        contract_id: r.contract_id === null ? undefined : Number(r.contract_id),
+        // Utenza senza capitolo: 0 = nessun impegno candidato; nessuna utenza o più capitoli: null.
+        chapter: chapters.length === 1 ? chapters[0] : null,
+        year: lineFiscalYear(dbDay(r.period_start), dbDay(r.period_end), date),
+        fixed: fixed.map((f): AllocShare => ({
+          commitment_id: Number(f.commitment_id),
+          fiscal_year: Number(f.fiscal_year),
+          amount: Number(f.amount),
+        })),
+      });
     }
 
-    const byTarget = new Map<string, { id: number | null; year: number | null; lines: number[] }>();
-    for (const [lineId, target] of allocate(commitments, lines)) {
-      const key = `${target?.id ?? null}:${target?.fiscal_year ?? null}`;
-      if (current.get(lineId) === key) continue;
-      const group = byTarget.get(key) ?? { id: target?.id ?? null, year: target?.fiscal_year ?? null, lines: [] };
-      group.lines.push(lineId);
-      byTarget.set(key, group);
-    }
-    for (const { id, year, lines: lineIds } of byTarget.values()) {
-      await this.dataSource.query(WRITE_SQL, [id, year, lineIds]);
+    const targets = allocate(commitments, invoices);
+    const amounts = new Map(invoices.map((i) => [i.id, i.amount]));
+    const withFixed = new Set(invoices.filter((i) => i.fixed.length).map((i) => i.id));
+    for (const [id, share] of current) {
+      if (withFixed.has(id)) continue;
+      const target = targets.get(id) ?? null;
+      const wanted: Share | null = target
+        ? { commitment_id: target.id, fiscal_year: target.fiscal_year, amount: amounts.get(id)! }
+        : null;
+      if (sameShare(share, wanted)) continue;
+      await this.dataSource.query(AUTO_DELETE_SQL, [id]);
+      if (wanted) await this.dataSource.query(AUTO_INSERT_SQL, [id, wanted.commitment_id, wanted.fiscal_year, wanted.amount]);
     }
   }
 }
