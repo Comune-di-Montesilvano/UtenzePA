@@ -1,13 +1,28 @@
 import { Module } from '@nestjs/common';
+import { AuditLogModule } from '@apis/audit-log/audit-log.module';
 import { BudgetCommitmentsModule } from '@apis/budget-commitments/budget-commitments.module';
 import { AccountingImportController } from './accounting-import.controller';
-import { ACCOUNTING_STEPS, AccountingImportService } from './accounting-import.service';
+import { ACCOUNTING_STEPS, AccountingImportService, type AccountingStep } from './accounting-import.service';
 import { AccountingStateModule } from './accounting-state.module';
 import { AccountingDataService } from './accounting-data.service';
+import { ChapterApplierService } from './chapter-applier.service';
 
+// Ordine dei passi del giro: perimetro e capitoli, poi impegni, fatture,
+// quote, collegamenti. Ognuno legge quello che hanno scritto i precedenti.
 @Module({
-  imports: [AccountingStateModule, BudgetCommitmentsModule],
-  providers: [AccountingImportService, AccountingDataService, { provide: ACCOUNTING_STEPS, useValue: [] }],
+  imports: [AccountingStateModule, BudgetCommitmentsModule, AuditLogModule],
+  providers: [
+    AccountingImportService,
+    AccountingDataService,
+    ChapterApplierService,
+    {
+      provide: ACCOUNTING_STEPS,
+      useFactory: (chapters: ChapterApplierService): AccountingStep[] => [
+        { name: 'chapters', apply: () => chapters.apply() },
+      ],
+      inject: [ChapterApplierService],
+    },
+  ],
   controllers: [AccountingImportController],
 })
 export class AccountingImportModule {}
