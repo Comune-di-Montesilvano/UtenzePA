@@ -1,0 +1,80 @@
+name: Refresh lockfile
+# Dependabot aggiorna solo le dipendenze dirette: le transitive restano ferme alla versione
+# del lockfile anche quando esce una patch (es. CVE in follow-redirects sotto axios). Qui,
+# ogni notte, `pnpm update --lockfile-only` porta backend e frontend all'ultima versione
+# ammessa dai range di package.json e degli overrides; se il lockfile cambia apre (o
+# aggiorna) la PR `deps/lockfile-refresh` in auto-merge squash, con i soliti check
+# (backend, frontend, docker + Trivy) come gate. Le PR behind le aggiorna il job
+# update-behind di dependabot-automerge.yml.
+# Token GitHub App (come dependabot-automerge.yml): push e PR fatti con GITHUB_TOKEN non
+# farebbero partire tests.yml.
+on:
+  schedule:
+    # 02:00 UTC: dopo il giro dependabot (01:00 Europe/Rome), prima del rebuild di latest.
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lockfile-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BRANCH: deps/lockfile-refresh
+    steps:
+      - name: Token GitHub App
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.BOT_CLIENT_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          token: ${{ steps.app.outputs.token }}
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 11.24.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+
+      - name: pnpm update
+        run: |
+          set -euo pipefail
+          for dir in backend frontend; do
+            (cd "$dir" && pnpm update --lockfile-only)
+          done
+
+      - name: PR con auto-merge
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "Lockfile gia' aggiornati."
+            exit 0
+          fi
+          git diff --stat
+          git config user.name 'comune-montesilvano-bot[bot]'
+          git config user.email '346033670+comune-montesilvano-bot[bot]@users.noreply.github.com'
+          git switch -c "$BRANCH"
+          git add backend/package.json backend/pnpm-lock.yaml frontend/package.json frontend/pnpm-lock.yaml
+          git commit -q -m 'chore(deps): refresh lockfiles' \
+            -m 'Transitive dependencies updated to the latest version allowed by the ranges.'
+          # Sempre ripartendo da main: la PR della notte prima viene sostituita.
+          git push --force origin "$BRANCH"
+          pr=$(gh pr list --head "$BRANCH" --state open --json number -q '.[0].number // empty')
+          if [ -z "$pr" ]; then
+            gh pr create --head "$BRANCH" --base main --title 'chore(deps): refresh lockfiles' \
+              --body 'Aggiornamento notturno delle dipendenze transitive (`lockfile-refresh.yml`), mergiato in automatico a CI verde.'
+          fi
+          gh pr merge --auto --squash "$BRANCH"

@@ -57,3 +57,45 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
+
+  # Build delle immagini di produzione come in release.yml (immagini base ripescate), poi
+  # Trivy bloccante su CRITICAL/HIGH con fix disponibile: un'immagine base non piu'
+  # aggiornata o una CVE nuova nelle dipendenze fermano la PR prima del tag, e il
+  # rebuild giornaliero di latest non trova sorprese. Nessun push.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: backend
+            target: production
+          - app: frontend
+            target: prod
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: ${{ matrix.app }}
+          file: ${{ matrix.app }}/Dockerfile
+          target: ${{ matrix.target }}
+          pull: true
+          load: true
+          tags: utenzepa-${{ matrix.app }}:ci
+          # Package ghcr pubblico: la cache si legge senza login, mai scritta dalle PR.
+          cache-from: type=registry,ref=ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:buildcache
+
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: utenzepa-${{ matrix.app }}:ci
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'
+          trivyignores: .trivyignore
+          version: latest

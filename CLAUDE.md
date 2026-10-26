@@ -157,14 +157,14 @@ Nessun ESLint, nessun browser nel container (Karma non eseguibile). Build/guida:
 ## Git, CI e release (dettagli in `docs/claude/release-ci.md`)
 - Repo `Comune-di-Montesilvano/UtenzePA`. `main` protetta: PR obbligatoria, check `backend` + `frontend`, branch aggiornata, nessuna approvazione umana.
 - Mai `git add .`/`-A` (`.playwright-mcp/`, `.serena/`, `docker-compose.proxy.yml`, `proxy/` non tracciati): file sempre elencati.
-- Merge manuale `gh pr merge --squash --delete-branch` dal worktree principale (auto-merge disabilitato); poi `update-branch` sulle altre PR, una alla volta.
+- Merge manuale `gh pr merge --squash --delete-branch` dal worktree principale; poi `update-branch` sulle altre PR, una alla volta. Auto-merge solo per le PR dependabot minor/patch (`dependabot-automerge.yml`, token GitHub App).
 - `gh api` in Git Bash: endpoint senza `/` iniziale.
-- La CI builda ma non fa `docker build`: dopo modifiche ai Dockerfile testare `docker build --target <stage> .` prima del tag.
-- Release: bump `softwareVersion`/`releaseDate` in `publiccode.yml` nella PR, merge, `git tag -a vX.Y.Z` + push → GHCR `vX.Y.Z` e `latest`. Minor per feature con migration.
+- Job `docker` di `tests.yml`: build degli stage di produzione (base ripescate) + Trivy bloccante su CRITICAL/HIGH con fix; eccezioni in `.trivyignore` con motivo e `exp:`. CVE in una transitiva: override in `pnpm-workspace.yaml` solo se `pnpm update` non basta (`lockfile-refresh.yml` lo fa ogni notte, PR in auto-merge).
+- Release: bump `softwareVersion`/`releaseDate` in `publiccode.yml` nella PR, merge, `git tag -a vX.Y.Z` + push → GHCR `vX.Y.Z` e `latest`. Minor per feature con migration. Rebuild giornaliero di `main` (04:30 UTC): `latest-YYYYMMDD`, `latest` ripuntato solo se Trivy passa; i tag `vX.Y.Z` non cambiano.
 
 ## Dipendenze (dettagli in `docs/claude/dependencies.md`)
 - pnpm pinnato (`packageManager`), script nativi solo se in `allowBuilds` di `pnpm-workspace.yaml`; `ERR_PNPM_IGNORED_BUILDS` in CI = pacchetto da aggiungere lì.
-- Dependabot: `@angular/*` e `@sentry/*` raggruppati; CI rossa può richiedere il bump manuale del pacchetto compagno; branch toccato da altri → `@dependabot recreate`.
+- Dependabot giornaliero (01:00): minor/patch in un gruppo per ecosistema, auto-merge a CI verde; major manuali. `@angular/*` e `@sentry/*` raggruppati per ogni tipo di bump; CI rossa può richiedere il bump manuale del pacchetto compagno; branch toccato da altri → `@dependabot recreate`.
 - Pacchetti ESM-only rompono jest: vedi i casi `@nestjs/schedule`, `@nestjs/passport`, `@nestjs/jwt` (due spec esclusi).
 - NestJS 12 bloccato finché `@nestjs/typeorm` non pubblica una 12.x.
 

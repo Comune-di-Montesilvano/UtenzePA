@@ -1,0 +1,6 @@
+# CVE escluse da Trivy (tests.yml e release.yml), sempre con motivo e scadenza:
+# alla scadenza tornano a bloccare e vanno rivalutate.
+
+# zod 3.x (solo via @infisical/sdk 5.0.2, ultima versione, che richiede zod ^3): il fix
+# esiste solo in zod 4. Infisical e' opzionale (secrets) e zod lo usa solo lo SDK.
+CVE-2023-54404 exp:2027-01-31
