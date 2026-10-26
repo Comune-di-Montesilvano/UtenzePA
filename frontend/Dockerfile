@@ -40,7 +40,7 @@ RUN pnpm run build
 # -------------------
 # Stage 4: produzione con nginx
 # -------------------
-FROM nginx:1.30-alpine AS prod
+FROM nginx:1.31-alpine AS prod
 
 # PKG_REFRESH (data del giorno, passata da release.yml) invalida la cache del layer una
 # volta al giorno, cosi' `apk upgrade` prende le patch Alpine anche prima che
