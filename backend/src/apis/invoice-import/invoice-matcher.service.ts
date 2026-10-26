@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import { ImportIssueType } from './enum/import-issue-type.enum';
 import type { ExtractedInvoice, ExtractedReading } from './pattern/pattern-rules';
 import { normalizeUtilityCode } from './pattern/utility-code';
+import { normalizeInvoiceNumber } from '@apis/accounting-import/invoice-number';
 import { invoiceCompetenceYear } from '@apis/spending/line-year';
 
 export interface MatchedLine {
@@ -97,6 +98,11 @@ const SUPPLIER_SQL =
 const INVOICE_SQL =
   '/* m_invoice */ SELECT id FROM invoices WHERE deleted = 0 AND supplier_id_fk = ? ' +
   'AND invoice_id = ? AND invoice_date = ? ORDER BY id LIMIT 1';
+// Stesso fornitore e data con il numero scritto diversamente (fatture create
+// dalla contabilità o a mano): confronto sul numero normalizzato.
+const INVOICE_CANDIDATES_SQL =
+  '/* m_invoice_candidates */ SELECT id, invoice_id FROM invoices WHERE deleted = 0 AND supplier_id_fk = ? ' +
+  'AND invoice_date = ? ORDER BY id';
 
 // Ragione sociale confrontabile: senza maiuscole, punteggiatura, «con socio unico» e forma societaria finale.
 export function comparableName(name: string): string {
@@ -286,11 +292,19 @@ export class InvoiceMatcher {
       }
     }
 
-    const [existing] = await this.dataSource.query(INVOICE_SQL, [
+    let [existing] = await this.dataSource.query(INVOICE_SQL, [
       supplierId,
       extracted.number,
       extracted.date,
     ]);
+    if (!existing) {
+      const candidates: { id: number; invoice_id: string }[] = await this.dataSource.query(
+        INVOICE_CANDIDATES_SQL,
+        [supplierId, extracted.date],
+      );
+      const number = normalizeInvoiceNumber(extracted.number);
+      existing = candidates.find((c) => normalizeInvoiceNumber(c.invoice_id) === number);
+    }
 
     return {
       supplierId,

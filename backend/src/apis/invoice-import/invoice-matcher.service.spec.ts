@@ -180,6 +180,14 @@ describe('InvoiceMatcher', () => {
     expect(result.existingInvoiceId).toBe(321);
   });
 
+  it('fattura creata dalla contabilità viene trovata da fornitore + numero + data e arricchita', async () => {
+    const result = await matcher({
+      ...baseHandlers(),
+      m_invoice_candidates: () => [{ id: 401, invoice_id: 'EP7-26' }, { id: 402, invoice_id: 'EP 8/26' }],
+    }).match(invoice(), 46);
+    expect(result.existingInvoiceId).toBe(401);
+  });
+
   it('utenza dal riferimento contratto se mappa una sola utenza', async () => {
     const result = await matcher({
       ...baseHandlers(),
