@@ -24,7 +24,7 @@ describe('invoiceCompetenceYear', () => {
       { period_start: '2025-11-01', period_end: '2025-12-19' },
       { period_start: null, period_end: null },
     ];
-    // 2025-11-01 – 2026-01-05: più giorni nel 2025
+    // 2025-11-01 â€“ 2026-01-05: piÃ¹ giorni nel 2025
     expect(invoiceCompetenceYear(periods, '2026-02-01')).toBe(2025);
   });
 

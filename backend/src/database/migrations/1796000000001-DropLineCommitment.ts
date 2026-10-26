@@ -13,7 +13,7 @@ export class DropLineCommitment1796000000001 implements MigrationInterface {
     );
   }
 
-  // Ricrea le colonne; impegno e annualità tornano sulle righe solo se la fattura
+  // Ricrea le colonne (quote ACCOUNTING = commitment_auto 1, come le AUTO); impegno e annualità tornano sulle righe solo se la fattura
   // ha una quota sola (automatica = source diverso da MANUAL). Con più quote le
   // righe restano senza impegno e automatiche: il vecchio ricalcolo le riassegna.
   public async down(q: QueryRunner): Promise<void> {
