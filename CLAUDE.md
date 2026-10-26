@@ -165,7 +165,7 @@ pnpm run build    # ng build --configuration production
 
 ## Dipendenze (dettagli in `docs/claude/dependencies.md`)
 - pnpm pinnato (`packageManager`), script nativi solo se in `allowBuilds` di `pnpm-workspace.yaml`; `ERR_PNPM_IGNORED_BUILDS` in CI = pacchetto da aggiungere lì.
-- Dependabot giornaliero (01:00, cooldown 3 giorni, non sulle security update): minor/patch in un gruppo per ecosistema, auto-merge a CI verde; major manuali. `@angular/*` e `@sentry/*` raggruppati per ogni tipo di bump; CI rossa può richiedere il bump manuale del pacchetto compagno; branch toccato da altri → `@dependabot recreate`.
+- Dependabot giornaliero (01:00, cooldown 7 giorni, 14 sulle major, non sulle security update): minor/patch in un gruppo per ecosistema, auto-merge a CI verde; major manuali. `@angular/*` e `@sentry/*` raggruppati per ogni tipo di bump; CI rossa può richiedere il bump manuale del pacchetto compagno; branch toccato da altri → `@dependabot recreate`.
 - Pacchetti ESM-only rompono jest: vedi i casi `@nestjs/schedule`, `@nestjs/passport`, `@nestjs/jwt` (due spec esclusi).
 - NestJS 12 bloccato finché `@nestjs/typeorm` non pubblica una 12.x.
 
