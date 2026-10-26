@@ -1,11 +1,10 @@
 name: Refresh lockfile
 # Dependabot aggiorna solo le dipendenze dirette: le transitive restano ferme alla versione
 # del lockfile anche quando esce una patch (es. CVE in follow-redirects sotto axios). Qui,
-# ogni notte, `pnpm update --lockfile-only` porta backend e frontend all'ultima versione
+# ogni notte, `pnpm update --lockfile-only` porta backend, frontend ed e2e all'ultima versione
 # ammessa dai range di package.json e degli overrides; se il lockfile cambia apre (o
 # aggiorna) la PR `deps/lockfile-refresh` in auto-merge squash, con i soliti check
-# (backend, frontend, docker + Trivy) come gate. Le PR behind le aggiorna il job
-# update-behind di dependabot-automerge.yml.
+# (lint, test, migration, docker + Trivy, e2e) come gate e merge dalla merge queue.
 # Token GitHub App (come dependabot-automerge.yml): push e PR fatti con GITHUB_TOKEN non
 # farebbero partire tests.yml.
 on:
@@ -50,7 +49,7 @@ jobs:
       - name: pnpm update
         run: |
           set -euo pipefail
-          for dir in backend frontend; do
+          for dir in backend frontend e2e; do
             (cd "$dir" && pnpm update --lockfile-only)
           done
 
@@ -67,7 +66,8 @@ jobs:
           git config user.name 'comune-montesilvano-bot[bot]'
           git config user.email '346033670+comune-montesilvano-bot[bot]@users.noreply.github.com'
           git switch -c "$BRANCH"
-          git add backend/package.json backend/pnpm-lock.yaml frontend/package.json frontend/pnpm-lock.yaml
+          git add backend/package.json backend/pnpm-lock.yaml frontend/package.json frontend/pnpm-lock.yaml \
+            e2e/package.json e2e/pnpm-lock.yaml
           git commit -q -m 'chore(deps): refresh lockfiles' \
             -m 'Transitive dependencies updated to the latest version allowed by the ranges.'
           # Sempre ripartendo da main: la PR della notte prima viene sostituita.

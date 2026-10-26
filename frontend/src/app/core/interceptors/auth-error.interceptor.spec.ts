@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -9,14 +10,20 @@ import { AuthService } from '../../services/auth.service';
 describe('authErrorInterceptor', () => {
   let http: HttpClient;
   let httpMock: HttpTestingController;
-  let authSpy: jasmine.SpyObj<AuthService>;
-  let routerSpy: jasmine.SpyObj<Router>;
-  let dialogSpy: jasmine.SpyObj<MatDialog>;
+  let authSpy: { logout: Mock };
+  let routerSpy: { navigate: Mock };
+  let dialogSpy: { closeAll: Mock };
 
   beforeEach(() => {
-    authSpy = jasmine.createSpyObj('AuthService', ['logout']);
-    routerSpy = jasmine.createSpyObj('Router', ['navigate']);
-    dialogSpy = jasmine.createSpyObj('MatDialog', ['closeAll']);
+    authSpy = {
+      logout: vi.fn().mockName('AuthService.logout'),
+    };
+    routerSpy = {
+      navigate: vi.fn().mockName('Router.navigate'),
+    };
+    dialogSpy = {
+      closeAll: vi.fn().mockName('MatDialog.closeAll'),
+    };
 
     TestBed.configureTestingModule({
       providers: [
@@ -41,7 +48,9 @@ describe('authErrorInterceptor', () => {
   it('chiude tutti i dialog aperti oltre a fare logout e redirect su 401', () => {
     http.get('/api/whatever').subscribe({ error: () => {} });
 
-    httpMock.expectOne('/api/whatever').flush('Unauthorized', { status: 401, statusText: 'Unauthorized' });
+    httpMock
+      .expectOne('/api/whatever')
+      .flush('Unauthorized', { status: 401, statusText: 'Unauthorized' });
 
     expect(authSpy.logout).toHaveBeenCalled();
     expect(dialogSpy.closeAll).toHaveBeenCalled();
@@ -51,7 +60,9 @@ describe('authErrorInterceptor', () => {
   it('non tocca dialog/sessione su un errore diverso da 401', () => {
     http.get('/api/whatever').subscribe({ error: () => {} });
 
-    httpMock.expectOne('/api/whatever').flush('Server error', { status: 500, statusText: 'Internal Server Error' });
+    httpMock
+      .expectOne('/api/whatever')
+      .flush('Server error', { status: 500, statusText: 'Internal Server Error' });
 
     expect(authSpy.logout).not.toHaveBeenCalled();
     expect(dialogSpy.closeAll).not.toHaveBeenCalled();

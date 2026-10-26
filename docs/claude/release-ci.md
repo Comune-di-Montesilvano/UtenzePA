@@ -11,9 +11,9 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Git, CI e release").
 
 ## Branch protection e merge
 
-- `main` protetta: PR obbligatoria, check `backend`, `frontend`, `docker (backend, production)` e `docker (frontend, prod)` richiesti (l'auto-merge aspetta solo i check richiesti: un job nuovo che deve fare da gate va aggiunto qui) con branch aggiornata, no force-push/delete, 0 approvazioni umane (CI come unico gate). Push diretti rifiutati.
-- Merge manuale delle PR proprie: `gh pr merge --squash --delete-branch`. `allow_auto_merge` è attivo solo per le PR dependabot (vedi sotto): non usare `--auto` sulle PR di feature.
-- Dopo ogni merge le altre PR tornano `BEHIND`: `gh api repos/OWNER/REPO/pulls/N/update-branch -X PUT`, una PR alla volta.
+- `main` protetta da un ruleset (non più branch protection classica): PR obbligatoria, merge solo squash dalla **merge queue**, check richiesti `dependency-review`, `backend`, `frontend`, `migrations`, `docker (backend, production)`, `docker (frontend, prod)`, `e2e` (la coda e l'auto-merge aspettano solo i check richiesti: un job nuovo che deve fare da gate va aggiunto al ruleset), no force-push/delete, 0 approvazioni umane (CI come unico gate). Push diretti rifiutati.
+- Merge queue: i check girano sull'evento `merge_group` (commit temporaneo = `main` + PR), quindi `tests.yml` deve restare in ascolto di `merge_group`. `dependency-review` lì risulta saltato (conta come superato).
+- Merge delle PR proprie: `gh pr merge N --squash --delete-branch` la mette in coda (con check ancora in corso serve `--auto`); il merge vero lo fa la coda dopo i check sul commit unito.
 - `gh pr merge` fallisce se lanciato da un worktree diverso da quello con `main` ("'main' is already used by worktree at ..."): eseguirlo dal worktree principale.
 - `--delete-branch` con il branch ancora in uso da un altro worktree: errore sul branch locale e il branch remoto **non** viene cancellato. Cancellarlo a mano con `git push origin --delete <branch>`, poi `git checkout --detach origin/main` nel worktree e `git branch -D`.
 - `gh pr checks` subito dopo `gh pr create` risponde «no checks reported» per circa 30 s: aspettare, poi `--watch`.
@@ -21,6 +21,10 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Git, CI e release").
 
 ## CI (`tests.yml`)
 
+- Frontend: `pnpm run lint` (angular-eslint, `eslint.config.js` con le regole spente motivate), `pnpm run test` (Vitest su jsdom con `@angular/build:unit-test`, niente browser), `pnpm run build`.
+- `migrations`: MySQL 8 come service, `backend/scripts/check-migrations.sh N` (N = migration aggiunte rispetto alla base, minimo 1). Su un DB nuovo `schema:log` non è vuoto: le 18 differenze storiche (vecchio SYNCHRONIZE) stanno in `src/database/schema-drift.baseline.txt`; una differenza nuova (colonna o indice dimenticati nella migration) ferma la PR, una tolta richiede di aggiornare la baseline. Prima di questo job un'installazione nuova si fermava a `RealEstateContracts` (FK presente in `InitialSchema`, assente nel DB del Comune).
+- `e2e`: carica le immagini del job `docker`, avvia `docker-compose.yml` con `IMAGE_TAG=ci` e secret usa e getta, aspetta `/health/liveness` (migration all'avvio), crea un Admin via SQL e lancia `e2e/` (Playwright: login dalla UI e ogni pagina principale senza errori JS né 5xx). In caso di errore: log dello stack nel job e artifact `playwright-report`.
+- `dependency-review` (solo PR): dipendenze nuove o aggiornate con advisory high/critical.
 - Esegue `pnpm run build` su backend e frontend oltre a lint e test: un errore di tipo non preso da `ts-jest` (isolatedModules) può comunque rompere `nest build`.
 - Job `docker` (matrice backend/frontend): build di `production`/`prod` con `pull: true` (cache letta dal `buildcache` pubblico, mai scritta), poi Trivy CRITICAL/HIGH con fix, bloccante. Ferma una PR quando esce una CVE nelle dipendenze o l'immagine base non è più aggiornata (nginx 1.28: nessuna immagine da marzo 2026, CVE non chiudibili con `apk upgrade`). Eccezioni in `.trivyignore` alla root, una riga per CVE con commento e `exp:AAAA-MM-GG` (alla scadenza torna a bloccare); lo stesso file vale per `release.yml`.
 - CVE in locale prima della PR (Git Bash, `MSYS_NO_PATHCONV=1` per i volumi): `docker run --rm -v //var/run/docker.sock:/var/run/docker.sock -v "$PWD/.trivyignore:/ig" aquasec/trivy:latest image --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed --ignorefile /ig <immagine>`.

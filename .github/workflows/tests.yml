@@ -15,7 +15,23 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
+  # Dipendenze aggiunte o aggiornate dalla PR con advisory high/critical: PR ferma prima del
+  # merge (Trivy vede solo cio' che finisce nelle immagini, qui anche le devDependencies).
+  # Solo sulle PR: su push e merge queue il job risulta saltato.
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+
   backend:
     runs-on: ubuntu-latest
     defaults:
@@ -58,6 +74,9 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      # Vitest su jsdom (builder @angular/build:unit-test): nessun browser.
+      - run: pnpm run test
       - run: pnpm run build
 
   # Build delle immagini di produzione come in release.yml (immagini base ripescate), poi

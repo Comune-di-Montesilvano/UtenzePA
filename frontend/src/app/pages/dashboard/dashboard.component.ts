@@ -12,7 +12,6 @@ import {ThirdPartiesService} from '../third-parties/third-parties.service';
 import {PartyRole} from '../third-parties/third-party.model';
 import {partyName} from '../../core/helpers/party-name.helper';
 import {InvoicesService} from '../invoices/invoices.service';
-import {plainToInstance} from 'class-transformer';
 import {UtilityType} from '../utility-types/entity/utility-type.entity';
 import {HardType} from '../utility-types/enum/hard-type.enum';
 import {AnomaliesCardComponent} from './anomalies-card.component';

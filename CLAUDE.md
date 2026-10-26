@@ -61,7 +61,7 @@ pnpm run lint | format | type-check
 pnpm run start    # ng serve, porta 4300
 pnpm run build    # ng build --configuration production
 ```
-Nessun ESLint, nessun browser nel container (Karma non eseguibile). Build/guida: `docker exec utenzepa-frontend-1 sh -c "pnpm exec ng build --configuration production"`, `... "node scripts/check-guida.mjs"`. Verifica = `ng build`/log di `ng serve` + E2E Playwright dall'host. `tsc --noEmit` non vede gli errori di template.
+`pnpm run lint` (angular-eslint, errori bloccanti in CI, warning `any`/accessibilità da sistemare col tempo) e `pnpm run test` (Vitest su jsdom, gira anche nel container). Build/guida: `docker exec utenzepa-frontend-1 sh -c "pnpm exec ng build --configuration production"`, `... "node scripts/check-guida.mjs"`. Verifica = `ng build`/log di `ng serve` + E2E Playwright dall'host. `tsc --noEmit` non vede gli errori di template.
 
 ### Docker e Windows (dettagli in `docs/claude/docker-windows.md`)
 - Comandi Docker **uno alla volta**, mai in parallelo (crash di daemon e PC osservati). Dopo un 500 persistente: chiedere riavvio di Docker Desktop.
@@ -155,10 +155,11 @@ Nessun ESLint, nessun browser nel container (Karma non eseguibile). Build/guida:
 - Deploy dove login/wizard non risponde: prima `CORS_ORIGIN`/`API_URL`, poi admin già presente.
 
 ## Git, CI e release (dettagli in `docs/claude/release-ci.md`)
-- Repo `Comune-di-Montesilvano/UtenzePA`. `main` protetta: PR obbligatoria, check `backend` + `frontend` + `docker (backend, production)` + `docker (frontend, prod)` (Trivy), branch aggiornata, nessuna approvazione umana.
+- Repo `Comune-di-Montesilvano/UtenzePA`. `main` protetta da ruleset con **merge queue** (squash): PR obbligatoria, check `dependency-review`, `backend`, `frontend`, `migrations`, `docker (backend, production)`, `docker (frontend, prod)`, `e2e`, nessuna approvazione umana.
 - Mai `git add .`/`-A` (`.playwright-mcp/`, `.serena/`, `docker-compose.proxy.yml`, `proxy/` non tracciati): file sempre elencati.
-- Merge manuale `gh pr merge --squash --delete-branch` dal worktree principale; poi `update-branch` sulle altre PR, una alla volta. Auto-merge solo per le PR dependabot minor/patch (`dependabot-automerge.yml`, token GitHub App).
+- Merge: `gh pr merge N --squash --delete-branch` dal worktree principale mette la PR nella merge queue, che la prova già unita a `main` e la mergia; niente più `update-branch`. Auto-merge automatico solo per le PR dependabot minor/patch e `deps/lockfile-refresh` (token GitHub App).
 - `gh api` in Git Bash: endpoint senza `/` iniziale.
+- `tests.yml`: job `migrations` (tutte le migration su DB vuoto, `schema:log` = `src/database/schema-drift.baseline.txt`, down → up delle nuove; `backend/scripts/check-migrations.sh`) ed `e2e` (stack `docker-compose.yml` con le immagini della PR, smoke Playwright in `e2e/`). CodeQL (default setup), Scorecard (`scorecard.yml`), SBOM e provenance firmata sulle immagini (`gh attestation verify oci://… --owner Comune-di-Montesilvano`).
 - Job `docker` di `tests.yml`: build degli stage di produzione (base ripescate) + Trivy bloccante su CRITICAL/HIGH con fix; eccezioni in `.trivyignore` con motivo e `exp:`. CVE in una transitiva: override in `pnpm-workspace.yaml` solo se `pnpm update` non basta (`lockfile-refresh.yml` lo fa ogni notte, PR in auto-merge).
 - Release: bump `softwareVersion`/`releaseDate` in `publiccode.yml` nella PR, merge, `git tag -a vX.Y.Z` + push → GHCR `vX.Y.Z` e `latest`. Minor per feature con migration. Rebuild giornaliero di `main` (04:30 UTC): `latest-YYYYMMDD`, `latest` ripuntato solo se Trivy passa; i tag `vX.Y.Z` non cambiano.
 

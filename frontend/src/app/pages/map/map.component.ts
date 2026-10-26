@@ -601,7 +601,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       const kind = this.classifyGroup(group);
       let iconHtml: string;
       let color: string;
-      let badgeHtml = '';
+      let badgeHtml: string;
       let pinTitle: string;
       let principal: MapPoint | null = null;
       let members: MapPoint[] = [];

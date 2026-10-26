@@ -56,6 +56,22 @@ updates:
       prefix: chore
       include: scope
 
+  # Smoke E2E (job e2e di tests.yml): solo @playwright/test.
+  - package-ecosystem: npm
+    directory: /e2e
+    schedule:
+      interval: daily
+      time: "01:00"
+      timezone: Europe/Rome
+    groups:
+      e2e-minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore
+      include: scope
+
   # Immagini base dei Dockerfile. Node del backend sta in un ARG (NODE_VERSION = major,
   # tag mobile 24-alpine) che dependabot non segue: le patch arrivano dal rebuild
   # giornaliero con pull, il cambio di major si fa a mano.

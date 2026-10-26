@@ -159,7 +159,11 @@ export class MultiSelectComponent implements ControlValueAccessor {
   }
 
   setDisabledState(isDisabled: boolean): void {
-    isDisabled ? this.selectControl.disable() : this.selectControl.enable();
+    if (isDisabled) {
+      this.selectControl.disable();
+    } else {
+      this.selectControl.enable();
+    }
   }
 
   // Alcune icone in TOption sono classi Font Awesome (es. HardTypeIcon, "fa

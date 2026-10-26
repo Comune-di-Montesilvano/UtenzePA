@@ -28,6 +28,9 @@ permissions:
   packages: write
   security-events: write
   actions: read
+  # Attestazione di provenienza firmata (Sigstore, OIDC del workflow).
+  id-token: write
+  attestations: write
 
 jobs:
   setup:
@@ -151,6 +154,19 @@ jobs:
             PKG_REFRESH=${{ needs.setup.outputs.pkg_refresh }}
           cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
           cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max
+          # SBOM e provenance BuildKit dentro l'indice dell'immagine (docker buildx
+          # imagetools inspect --format '{{json .SBOM}}').
+          sbom: true
+          provenance: mode=max
+
+      # Provenienza firmata, verificabile da chi installa:
+      #   gh attestation verify oci://ghcr.io/comune-di-montesilvano/utenzepa-<app>:<tag> --owner Comune-di-Montesilvano
+      - name: Attestazione di provenienza
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
 
       # Tag git: report-only (exit-code 0), risultati nella tab Security del repo.
       # Rebuild automatico: bloccante su CRITICAL/HIGH con fix disponibile — se fallisce,

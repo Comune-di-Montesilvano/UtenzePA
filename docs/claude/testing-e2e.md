@@ -21,7 +21,7 @@ Nessuna credenziale dev/seed documentata. Per un test one-off creare un utente v
 
 ## Playwright
 
-- Nessun browser nel container `frontend` (Karma/`ng test` non eseguibile, la CI non lo lancia): verifica = compilazione + E2E Playwright MCP dall'host.
+- Nessun browser nel container `frontend`: i test unitari (`pnpm run test`, Vitest su jsdom) girano lo stesso; le verifiche nel browser = smoke `e2e/` in CI + E2E Playwright MCP dall'host.
 - Su macchina carica, al posto di `pnpm run build` a ogni modifica: `docker logs --since 60s utenzepa-frontend-1 2>&1 | grep -E "✘|generation"` (ng serve ricompila da solo).
 - Ogni file salvato fa ricaricare la pagina e chiudere i dialog: aspettare "generation complete" nei log prima di riaprire. Subito dopo `navigate` la pagina può essere bianca: `browser_wait_for` su un testo, mai screenshot immediato.
 - Liste con ricerca libera: dopo un Salva la lista si ricarica senza filtro, ricercare prima di riaprire (successo: salvata la fattura sbagliata).

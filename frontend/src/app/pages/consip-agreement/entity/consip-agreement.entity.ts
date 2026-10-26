@@ -1,5 +1,5 @@
 import {IConsipAgreement} from './consip-agreement.interface';
-import {Exclude, plainToInstance, Transform, Type} from 'class-transformer';
+import {Exclude, plainToInstance, Type} from 'class-transformer';
 import {AbstractEntity} from '../../../core/entities/abstract.entity';
 import {ThirdParty} from '../../third-parties/entity/third-party.entity';
 import {DateOnly} from '../../../core/helpers/date.helper';
@@ -23,7 +23,7 @@ export class ConsipAgreement extends AbstractEntity implements IConsipAgreement 
   expiration_date!: Date;
 
   @DateOnly()
-  expiration_date_range?: String[];
+  expiration_date_range?: string[];
 
   safeguard!: boolean;
 
