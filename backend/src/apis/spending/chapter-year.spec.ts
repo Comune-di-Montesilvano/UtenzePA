@@ -10,13 +10,21 @@ describe('chapter-year', () => {
   it('anno completo: disponibile = assestato − impegnato, numeri convertiti', () => {
     const y = buildChapterYear(
       2026,
-      { id: 7, initial_budget: '30000.00', adjusted_budget: '28000.00', amount: null, notes: null },
+      {
+        id: 7,
+        initial_budget: '30000.00',
+        adjusted_budget: '28000.00',
+        amount: null,
+        notes: null,
+        source: 'ACCOUNTING',
+      },
       { commitments: '2', total: '26076.68', without_amount: '0', remaining: '4955.88' },
       { total: '21120.80', invoices: '12' },
     );
     expect(y).toEqual({
       year: 2026,
       spending_id: 7,
+      spending_source: 'ACCOUNTING',
       initial_budget: 30000,
       adjusted_budget: 28000,
       recorded_spending: null,
@@ -33,7 +41,12 @@ describe('chapter-year', () => {
   });
 
   it('impegni senza importo: impegnato 0 e conteggio di quelli senza importo', () => {
-    const y = buildChapterYear(2026, undefined, { commitments: '2', total: null, without_amount: '2' }, undefined);
+    const y = buildChapterYear(
+      2026,
+      undefined,
+      { commitments: '2', total: null, without_amount: '2' },
+      undefined,
+    );
     expect(y).toEqual(
       expect.objectContaining({
         committed: 0,
@@ -46,11 +59,17 @@ describe('chapter-year', () => {
   });
 
   it('oltre l’assestato se impegnato o fatturato lo superano', () => {
-    expect(buildChapterYear(2026, { adjusted_budget: '100' }, { total: '150' }, undefined).over_budget).toBe(true);
-    expect(buildChapterYear(2026, { adjusted_budget: '100' }, undefined, { total: '100.01' }).over_budget).toBe(true);
-    expect(buildChapterYear(2026, { adjusted_budget: '100' }, { total: '100' }, { total: '100' }).over_budget).toBe(
-      false,
-    );
+    expect(
+      buildChapterYear(2026, { adjusted_budget: '100' }, { total: '150' }, undefined).over_budget,
+    ).toBe(true);
+    expect(
+      buildChapterYear(2026, { adjusted_budget: '100' }, undefined, { total: '100.01' })
+        .over_budget,
+    ).toBe(true);
+    expect(
+      buildChapterYear(2026, { adjusted_budget: '100' }, { total: '100' }, { total: '100' })
+        .over_budget,
+    ).toBe(false);
     expect(buildChapterYear(2026, undefined, { total: '999' }, undefined).over_budget).toBe(false);
   });
 
@@ -69,7 +88,9 @@ describe('chapter-year', () => {
     const query = jest
       .fn()
       .mockResolvedValueOnce([{ chapter_id: 4, id: 9, adjusted_budget: '50' }])
-      .mockResolvedValueOnce([{ chapter_id: 6, commitments: '1', total: '10', without_amount: '0' }])
+      .mockResolvedValueOnce([
+        { chapter_id: 6, commitments: '1', total: '10', without_amount: '0' },
+      ])
       .mockResolvedValueOnce([{ chapter_id: 4, total: '60', invoices: '2' }]);
     const rows = await chaptersYearSummary(query, 2026);
     expect(rows.map((r) => [r.budget_chapter_id, r.over_budget])).toEqual([
@@ -81,17 +102,29 @@ describe('chapter-year', () => {
     expect(query.mock.calls[1][0]).toContain('bcm.deleted = 0');
     expect(query.mock.calls[1][0]).not.toMatch(/JOIN (contracts|budget_commitment_contracts)/);
     expect(query.mock.calls[2][0]).toContain('i.deleted = 0');
-    expect(query.mock.calls[2][0]).toContain("(i.sdi_status IS NULL OR i.sdi_status <> 'REJECTED')");
+    expect(query.mock.calls[2][0]).toContain(
+      "(i.sdi_status IS NULL OR i.sdi_status <> 'REJECTED')",
+    );
   });
 
   it('impegno da 1000 su 3 contratti: impegnato 1000, contato una volta', async () => {
     const query = jest
       .fn()
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ chapter_id: 4, commitments: '1', total: '1000.00', without_amount: '0', remaining: '400' }])
+      .mockResolvedValueOnce([
+        {
+          chapter_id: 4,
+          commitments: '1',
+          total: '1000.00',
+          without_amount: '0',
+          remaining: '400',
+        },
+      ])
       .mockResolvedValueOnce([]);
     const [row] = await chaptersYearSummary(query, 2026);
-    expect(row).toEqual(expect.objectContaining({ committed: 1000, commitments: 1, remaining: 400 }));
+    expect(row).toEqual(
+      expect.objectContaining({ committed: 1000, commitments: 1, remaining: 400 }),
+    );
     expect(query.mock.calls[1][0]).toContain('remaining');
   });
 
@@ -103,7 +136,9 @@ describe('chapter-year', () => {
     expect(CHAPTER_ITEMS).toContain('u.budget_chapter_code_fk');
     expect(CHAPTER_ITEMS).toMatch(/\(CASE\s+WHEN il\.period_start/);
     expect(CHAPTER_ITEMS).not.toMatch(/il\.commitment_(id_fk|fiscal_year|auto)/);
-    expect(CHAPTER_ITEMS).toMatch(/\) ci\s+JOIN invoices i ON i\.id = ci\.invoice_id AND i\.deleted = 0/);
+    expect(CHAPTER_ITEMS).toMatch(
+      /\) ci\s+JOIN invoices i ON i\.id = ci\.invoice_id AND i\.deleted = 0/,
+    );
     expect(CHAPTER_ITEMS).toContain("(i.sdi_status IS NULL OR i.sdi_status <> 'REJECTED')");
   });
 

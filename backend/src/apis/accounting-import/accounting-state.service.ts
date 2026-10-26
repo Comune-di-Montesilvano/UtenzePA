@@ -30,7 +30,14 @@ export class AccountingStateService {
     const row = await this.repo.findOneBy({ id: STATE_ID });
     if (row) return row;
     await this.repo.insert({ id: STATE_ID });
-    return { id: STATE_ID, enabled: false, from_year: null, last_run_at: null, last_summary: null, last_error: null };
+    return {
+      id: STATE_ID,
+      enabled: false,
+      from_year: null,
+      last_run_at: null,
+      last_summary: null,
+      last_error: null,
+    };
   }
 
   async isActive(): Promise<boolean> {

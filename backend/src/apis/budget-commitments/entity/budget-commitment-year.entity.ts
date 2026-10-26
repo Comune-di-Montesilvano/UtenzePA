@@ -24,6 +24,9 @@ export class BudgetCommitmentYear {
   source: RecordSource;
 
   @ManyToOne(() => BudgetCommitment, (c) => c.years, { onDelete: 'CASCADE', nullable: false })
-  @JoinColumn({ name: 'commitment_id', foreignKeyConstraintName: 'FK_budget_commitment_years_commitment' })
+  @JoinColumn({
+    name: 'commitment_id',
+    foreignKeyConstraintName: 'FK_budget_commitment_years_commitment',
+  })
   commitment: BudgetCommitment;
 }

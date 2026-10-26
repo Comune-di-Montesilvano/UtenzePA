@@ -32,4 +32,5 @@ export const GUIDA_PER_PAGINA: Record<string, string> = {
   'system-users': 'ruoli',
   'backup-import': 'fare-un-backup-solo-amministratori',
   'invoice-import': 'importare-le-fatture-dalla-pec-solo-amministratori',
+  'accounting-import': 'collegare-la-contabilità-solo-amministratori',
 };

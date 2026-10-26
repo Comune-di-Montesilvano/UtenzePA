@@ -141,7 +141,9 @@ function convert(raw: string, type: ColumnType): { value: unknown } | { error: s
         : { error: 'non è un importo' };
     }
     case 'date':
-      return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? { value: raw } : { error: 'non è una data AAAA-MM-GG' };
+      return /^\d{4}-\d{2}-\d{2}$/.test(raw)
+        ? { value: raw }
+        : { error: 'non è una data AAAA-MM-GG' };
     case 'bool':
       return raw === '1' || raw === '0' ? { value: raw === '1' } : { error: 'deve essere 1 o 0' };
   }
@@ -149,15 +151,25 @@ function convert(raw: string, type: ColumnType): { value: unknown } | { error: s
 
 export function parseAccountingCsv(kind: 'chapters', text: string): ParsedCsv<AccChapterRow>;
 export function parseAccountingCsv(kind: 'commitments', text: string): ParsedCsv<AccCommitmentRow>;
-export function parseAccountingCsv(kind: 'liquidations', text: string): ParsedCsv<AccLiquidationRow>;
+export function parseAccountingCsv(
+  kind: 'liquidations',
+  text: string,
+): ParsedCsv<AccLiquidationRow>;
 export function parseAccountingCsv(kind: AccKind, text: string): ParsedCsv<unknown>;
 export function parseAccountingCsv(kind: AccKind, text: string): ParsedCsv<unknown> {
-  const lines = text.replace(/^﻿/, '').split(/\r?\n/);
+  // BOM UTF-8 iniziale (Excel) tolto.
+  const body = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  const lines = body.split(/\r?\n/);
   const header = splitLine(lines[0] ?? '');
   const columns = COLUMNS[kind];
-  const missing = columns.filter(([name, , required]) => required && !header.includes(name)).map(([name]) => name);
+  const missing = columns
+    .filter(([name, , required]) => required && !header.includes(name))
+    .map(([name]) => name);
   if (missing.length) {
-    return { rows: [], issues: [{ line: 1, message: `Colonne obbligatorie mancanti: ${missing.join(', ')}` }] };
+    return {
+      rows: [],
+      issues: [{ line: 1, message: `Colonne obbligatorie mancanti: ${missing.join(', ')}` }],
+    };
   }
   const index = new Map(header.map((name, i) => [name, i]));
   const rows: Record<string, unknown>[] = [];

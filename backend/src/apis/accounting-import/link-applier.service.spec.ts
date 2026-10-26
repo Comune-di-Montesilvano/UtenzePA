@@ -23,7 +23,14 @@ function setup() {
   };
   const data = {
     commitments: jest.fn(async () => [
-      { commitment_year: 2026, commitment_num: 1, commitment_sub: 1, fiscal_year: 2026, cig: 'CIG1', cancelled: false },
+      {
+        commitment_year: 2026,
+        commitment_num: 1,
+        commitment_sub: 1,
+        fiscal_year: 2026,
+        cig: 'CIG1',
+        cancelled: false,
+      },
     ]),
   };
   const audit = { record: jest.fn(async () => undefined) };
@@ -47,7 +54,11 @@ describe('LinkApplierService', () => {
       }),
     );
     expect(audit.record).toHaveBeenCalledWith(
-      expect.objectContaining({ entityName: 'budget_commitments', entityId: 1, action: AuditAction.UPDATE }),
+      expect.objectContaining({
+        entityName: 'budget_commitments',
+        entityId: 1,
+        action: AuditAction.UPDATE,
+      }),
     );
   });
 });

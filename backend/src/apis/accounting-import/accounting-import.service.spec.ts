@@ -33,7 +33,12 @@ function setup(state: State, steps: AccountingStep[] = []) {
   };
   const reconcile = { reconcileAll: jest.fn(async () => undefined) };
   const states = stateService(state);
-  const service = new AccountingImportService(dataSource as never, states, reconcile as never, steps);
+  const service = new AccountingImportService(
+    dataSource as never,
+    states,
+    reconcile as never,
+    steps,
+  );
   return { service, queries, inserts, reconcile, state };
 }
 
@@ -47,7 +52,10 @@ describe('AccountingStateService', () => {
     expect(await stateService({ id: 1, enabled: true, from_year: 2023 }).isActive()).toBe(true);
     expect(await stateService({ id: 1, enabled: false, from_year: 2023 }).isActive()).toBe(false);
     expect(
-      await stateService({ id: 1, enabled: true, from_year: 2023 }, { ACCOUNTING_IMPORT_DISABLED: 'true' }).isActive(),
+      await stateService(
+        { id: 1, enabled: true, from_year: 2023 },
+        { ACCOUNTING_IMPORT_DISABLED: 'true' },
+      ).isActive(),
     ).toBe(false);
   });
 });
@@ -85,7 +93,9 @@ describe('AccountingImportService.run', () => {
     ];
     const { service, reconcile, state } = setup(on(), steps);
     reconcile.reconcileAll.mockImplementation(async () => void order.push('reconcile'));
-    const summary = await service.run({ chapters: Buffer.from('year;chapter;article\n2026;1;0\n') });
+    const summary = await service.run({
+      chapters: Buffer.from('year;chapter;article\n2026;1;0\n'),
+    });
     expect(order).toEqual(['chapters', 'commitments', 'reconcile']);
     expect(summary.steps).toEqual({ chapters: { created: 1 }, commitments: { created: 2 } });
     expect(state.last_run_at).toBeInstanceOf(Date);
@@ -101,9 +111,9 @@ describe('AccountingImportService.run', () => {
       },
     ];
     const { service, inserts, state } = setup(on(), steps);
-    await expect(service.run({ chapters: Buffer.from('year;chapter;article\n2026;1;0\n') })).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(
+      service.run({ chapters: Buffer.from('year;chapter;article\n2026;1;0\n') }),
+    ).rejects.toThrow(BadRequestException);
     expect(inserts.map((i) => i.entity)).toEqual([AccChapter]);
     expect(state).toEqual(expect.objectContaining({ last_error: 'boom' }));
   });
@@ -115,7 +125,9 @@ describe('AccountingImportService.run', () => {
 
   it('import spento = 400', async () => {
     const { service } = setup({ id: 1, enabled: false, from_year: 2023 });
-    await expect(service.run({ commitments: Buffer.from(COMMITMENTS) })).rejects.toThrow('Import contabilità spento.');
+    await expect(service.run({ commitments: Buffer.from(COMMITMENTS) })).rejects.toThrow(
+      'Import contabilità spento.',
+    );
   });
 
   it('anno di partenza non impostato = 400', async () => {
@@ -128,7 +140,7 @@ describe('AccountingImportService.run', () => {
   it('giro concorrente = 400', async () => {
     let release: () => void = () => undefined;
     const steps: AccountingStep[] = [
-      { name: 'slow', apply: () => new Promise((resolve) => (release = () => resolve({})))},
+      { name: 'slow', apply: () => new Promise((resolve) => (release = () => resolve({}))) },
     ];
     const { service } = setup(on(), steps);
     const first = service.run({ commitments: Buffer.from(COMMITMENTS) });

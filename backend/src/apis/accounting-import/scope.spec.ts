@@ -35,9 +35,11 @@ describe('computeScope', () => {
   const suppliers = new Set(['00000000001']);
 
   it('capitolo esistente in perimetro anche senza liquidazioni', () => {
-    const scope = computeScope({ commitments: [commitment(1, '100')], liquidations: [] }, suppliers, [
-      { chapter_code: '100', article: 0 },
-    ]);
+    const scope = computeScope(
+      { commitments: [commitment(1, '100')], liquidations: [] },
+      suppliers,
+      [{ chapter_code: '100', article: 0 }],
+    );
     expect([...scope.chapterKeys]).toEqual(['100/0']);
     expect([...scope.commitmentKeys]).toEqual(['2026/1/1']);
   });
@@ -53,7 +55,10 @@ describe('computeScope', () => {
   });
 
   it('liquidazione annullata non porta il capitolo', () => {
-    const acc = { commitments: [commitment(1, '200')], liquidations: [liquidation(1, '00000000001', true)] };
+    const acc = {
+      commitments: [commitment(1, '200')],
+      liquidations: [liquidation(1, '00000000001', true)],
+    };
     expect(computeScope(acc, suppliers, []).chapterKeys.size).toBe(0);
   });
 

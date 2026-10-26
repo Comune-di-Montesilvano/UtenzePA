@@ -2,7 +2,11 @@ import type { AccCommitmentRow } from './accounting-csv';
 import { planCommitments, type CurrentCommitment } from './commitment-plan';
 import { RecordSource } from './record-source.enum';
 
-const row = (num: number, fiscal_year: number, patch: Partial<AccCommitmentRow> = {}): AccCommitmentRow => ({
+const row = (
+  num: number,
+  fiscal_year: number,
+  patch: Partial<AccCommitmentRow> = {},
+): AccCommitmentRow => ({
   commitment_year: 2026,
   commitment_num: num,
   commitment_sub: 1,
@@ -17,7 +21,11 @@ const row = (num: number, fiscal_year: number, patch: Partial<AccCommitmentRow> 
   ...patch,
 });
 
-const current = (id: number, num: number, patch: Partial<CurrentCommitment> = {}): CurrentCommitment => ({
+const current = (
+  id: number,
+  num: number,
+  patch: Partial<CurrentCommitment> = {},
+): CurrentCommitment => ({
   id,
   commitment_year: 2026,
   commitment_num: num,
@@ -74,7 +82,14 @@ describe('planCommitments', () => {
 
   it('impegno fuori perimetro o annullato ignorato', () => {
     expect(
-      planCommitments([row(1, 2026), row(2, 2026, { cancelled: true })], scopeOf(2), new Set([2026]), chapters, [], suppliers),
+      planCommitments(
+        [row(1, 2026), row(2, 2026, { cancelled: true })],
+        scopeOf(2),
+        new Set([2026]),
+        chapters,
+        [],
+        suppliers,
+      ),
     ).toEqual([]);
   });
 
@@ -84,7 +99,12 @@ describe('planCommitments', () => {
       scopeOf(1),
       new Set([2026]),
       chapters,
-      [current(10, 1, { source: RecordSource.MANUAL, years: [{ fiscal_year: 2026, amount: 50000, source: RecordSource.MANUAL }] })],
+      [
+        current(10, 1, {
+          source: RecordSource.MANUAL,
+          years: [{ fiscal_year: 2026, amount: 50000, source: RecordSource.MANUAL }],
+        }),
+      ],
       suppliers,
     );
     expect(changes).toEqual([
@@ -161,10 +181,21 @@ describe('planCommitments', () => {
       ],
       suppliers,
     );
-    expect(changes).toEqual([expect.objectContaining({ kind: 'update', id: 12, years: { upsert: [], delete: [2026] } })]);
+    expect(changes).toEqual([
+      expect.objectContaining({ kind: 'update', id: 12, years: { upsert: [], delete: [2026] } }),
+    ]);
   });
 
   it('ricarico identico = nessuna modifica', () => {
-    expect(planCommitments([row(1, 2026)], scopeOf(1), new Set([2026]), chapters, [current(10, 1)], suppliers)).toEqual([]);
+    expect(
+      planCommitments(
+        [row(1, 2026)],
+        scopeOf(1),
+        new Set([2026]),
+        chapters,
+        [current(10, 1)],
+        suppliers,
+      ),
+    ).toEqual([]);
   });
 });

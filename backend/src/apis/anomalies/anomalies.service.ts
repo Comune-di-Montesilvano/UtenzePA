@@ -99,7 +99,10 @@ export interface Anomalies {
   utilities_to_decide: AnomalyList<PendingUtilityAnomaly>;
   pending_activations: AnomalyList<PendingUtilityAnomaly>;
   pending_cessations: AnomalyList<PendingUtilityAnomaly>;
-  invoice_import_stalled: AnomalyList<{ last_success_at: string | null; last_error: string | null }>;
+  invoice_import_stalled: AnomalyList<{
+    last_success_at: string | null;
+    last_error: string | null;
+  }>;
   invoice_import_pending: AnomalyList<{
     id: number;
     supplier: string | null;
@@ -124,7 +127,12 @@ export interface Anomalies {
   commitments_without_contract: AnomalyList<CommitmentAnomaly>;
   commitments_without_amount: AnomalyList<CommitmentAnomaly>;
   // Fatture divise a mano tra impegni con quote che non sommano al totale.
-  invoices_shares_mismatch: AnomalyList<{ id: number; number: string; total: number; shares: number }>;
+  invoices_shares_mismatch: AnomalyList<{
+    id: number;
+    number: string;
+    total: number;
+    shares: number;
+  }>;
   // Import della contabilità: liquidazioni su impegni di UtenzePA senza fattura
   // abbinata, impegni importati senza contratto, utenze con più capitoli.
   accounting_liquidations_unmatched: AnomalyList<{
@@ -136,7 +144,11 @@ export interface Anomalies {
     commitment: string;
   }>;
   accounting_commitments_without_contract: AnomalyList<{ id: number; label: string }>;
-  accounting_utility_chapter_ambiguous: AnomalyList<{ id: number; utility_id: string; chapters: string }>;
+  accounting_utility_chapter_ambiguous: AnomalyList<{
+    id: number;
+    utility_id: string;
+    chapters: string;
+  }>;
   invoices_without_commitment: AnomalyList<{
     id: number;
     number: string;
@@ -193,8 +205,7 @@ const daysSince = (since: string | null, today: string): number =>
       )
     : 0;
 
-const itDate = (day: string): string =>
-  `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}`;
+const itDate = (day: string): string => `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}`;
 
 // Anomalie dei dati contrattuali mostrate in dashboard. Regola di fondo: un
 // contratto senza CIG (e non esplicitamente escluso) è di fatto inesistente.
@@ -595,10 +606,16 @@ export class AnomaliesService {
           {
             type: p.type,
             status: p.status,
-            electrical: { grounding_class: p.grounding_class, lightning_protection: !!Number(p.lightning_protection) },
+            electrical: {
+              grounding_class: p.grounding_class,
+              lightning_protection: !!Number(p.lightning_protection),
+            },
             thermal: { power_kw: p.power_kw },
           },
-          (p.dated_kinds ?? '').split('\n').filter(Boolean).map((kind) => ({ kind, last_date: 'x' })),
+          (p.dated_kinds ?? '')
+            .split('\n')
+            .filter(Boolean)
+            .map((kind) => ({ kind, last_date: 'x' })),
         ),
       }))
       .filter((x) => x.missing.length > 0);
@@ -874,7 +891,8 @@ export class AnomaliesService {
           chapter: String(r.chapter),
           fiscal_year: Number(r.fiscal_year),
           amount,
-          remaining: amount === null ? null : Math.round((amount - Number(r.spent ?? 0)) * 100) / 100,
+          remaining:
+            amount === null ? null : Math.round((amount - Number(r.spent ?? 0)) * 100) / 100,
         } as CommitmentAnomaly,
         contracts: Number(r.contracts ?? 0),
       };
@@ -914,7 +932,10 @@ export class AnomaliesService {
         })),
       ),
       invoice_sdi_outcome_discarded: list(
-        outcomeDiscarded.map((r) => ({ invoice_id: Number(r.invoice_id), number: String(r.number) })),
+        outcomeDiscarded.map((r) => ({
+          invoice_id: Number(r.invoice_id),
+          number: String(r.number),
+        })),
       ),
       invoice_patterns_unknown: list(patternsUnknown.map(toUnknownStructure)),
       invoice_import_issues: list(
@@ -930,16 +951,23 @@ export class AnomaliesService {
       ),
       commitments_overspent: list(
         commitments
-          .filter((c) => c.item.fiscal_year === year && c.item.remaining !== null && c.item.remaining < 0)
+          .filter(
+            (c) => c.item.fiscal_year === year && c.item.remaining !== null && c.item.remaining < 0,
+          )
           .map((c) => c.item),
       ),
       // Un pluriennale compare una volta, con la prima annualità (righe in ordine di esercizio).
       commitments_without_contract: list(
         commitments
-          .filter((c, i) => c.contracts === 0 && commitments.findIndex((o) => o.item.id === c.item.id) === i)
+          .filter(
+            (c, i) =>
+              c.contracts === 0 && commitments.findIndex((o) => o.item.id === c.item.id) === i,
+          )
           .map((c) => c.item),
       ),
-      commitments_without_amount: list(commitments.filter((c) => c.item.amount === null).map((c) => c.item)),
+      commitments_without_amount: list(
+        commitments.filter((c) => c.item.amount === null).map((c) => c.item),
+      ),
       invoices_shares_mismatch: list(
         sharesMismatch.map((r) => ({
           id: Number(r.id),
@@ -961,27 +989,45 @@ export class AnomaliesService {
       accounting_commitments_without_contract: list(
         accCommitments.map((r) => ({
           id: Number(r.id),
-          label: commitmentLabel(Number(r.commitment_year), Number(r.commitment_num), Number(r.commitment_sub)),
+          label: commitmentLabel(
+            Number(r.commitment_year),
+            Number(r.commitment_num),
+            Number(r.commitment_sub),
+          ),
         })),
       ),
       accounting_utility_chapter_ambiguous: list(
-        accUtilityChapters.map((r) => ({ id: Number(r.id), utility_id: String(r.utility_id), chapters: String(r.chapters) })),
+        accUtilityChapters.map((r) => ({
+          id: Number(r.id),
+          utility_id: String(r.utility_id),
+          chapters: String(r.chapters),
+        })),
       ),
       invoices_without_commitment: list(
         withoutCommitment.map((r) => {
           const date = dbDay(r.date);
           const competence = invoiceCompetenceYear(
-            [{ period_start: r.period_start ? dbDay(r.period_start) : null, period_end: r.period_end ? dbDay(r.period_end) : null }],
+            [
+              {
+                period_start: r.period_start ? dbDay(r.period_start) : null,
+                period_end: r.period_end ? dbDay(r.period_end) : null,
+              },
+            ],
             date,
           );
-          const years = String(r.years ?? '').split(',').filter(Boolean).map(Number);
+          const years = String(r.years ?? '')
+            .split(',')
+            .filter(Boolean)
+            .map(Number);
           return {
             id: Number(r.id),
             number: String(r.number),
             date,
             contract_id: Number(r.contract_id),
             amount: Number(r.amount),
-            reason: years.includes(competence) ? ('AMBIGUOUS' as const) : ('NO_COMMITMENTS' as const),
+            reason: years.includes(competence)
+              ? ('AMBIGUOUS' as const)
+              : ('NO_COMMITMENTS' as const),
           };
         }),
       ),

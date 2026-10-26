@@ -29,12 +29,18 @@ const inv = (id: number, patch: Partial<MatchableInvoice> = {}): MatchableInvoic
 
 describe('matchInvoices', () => {
   it('sdi prima di P.IVA + numero + data', () => {
-    const result = matchInvoices([liq('L1', { sdi_identifier: '999' })], [inv(1), inv(2, { sdi_identifier: '999', invoice_number: 'ALTRO' })]);
+    const result = matchInvoices(
+      [liq('L1', { sdi_identifier: '999' })],
+      [inv(1), inv(2, { sdi_identifier: '999', invoice_number: 'ALTRO' })],
+    );
     expect(result).toEqual(new Map([['L1', 2]]));
   });
 
   it('numero con zeri e separatori diversi abbinato', () => {
-    const result = matchInvoices([liq('L1', { invoice_number: '0012-A' })], [inv(5, { invoice_number: '12/a' })]);
+    const result = matchInvoices(
+      [liq('L1', { invoice_number: '0012-A' })],
+      [inv(5, { invoice_number: '12/a' })],
+    );
     expect(result).toEqual(new Map([['L1', 5]]));
   });
 

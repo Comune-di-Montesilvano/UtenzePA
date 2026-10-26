@@ -11,6 +11,9 @@
     @if (sdiBadge) {
       <app-status-badge [info]="sdiBadge"></app-status-badge>
     }
+    @if (data.item.source === 'ACCOUNTING') {
+      <app-status-badge [info]="accountingBadge"></app-status-badge>
+    }
   </ng-container>
 
   <form [formGroup]="form">

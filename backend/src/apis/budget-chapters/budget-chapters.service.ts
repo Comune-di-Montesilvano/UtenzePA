@@ -1,5 +1,9 @@
 import { Injectable, Optional } from '@nestjs/common';
-import { assertCanChange, assertCanCreate, changedFields } from '@apis/accounting-import/accounting-lock';
+import {
+  assertCanChange,
+  assertCanCreate,
+  changedFields,
+} from '@apis/accounting-import/accounting-lock';
 import { AccountingStateService } from '@apis/accounting-import/accounting-state.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,7 +17,6 @@ import { BaseService } from '@apis/shared/base.service';
 import { Utility } from '@apis/utility/entity/utility.entity';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { CONSUMPTION_UNIT } from '@apis/utility-consumptions/consumption-unit';
-
 
 export interface ChapterConsumptionSummaryRow {
   hard_type: HardTypeEnum;
@@ -96,7 +99,11 @@ export class BudgetChaptersService extends BaseService<
   async update(id: number, dto: UpdateBudgetChapterDto, userId?: number): Promise<BudgetChapter> {
     const current = await this.repo.findOne({ where: { id } });
     if (current) {
-      await assertCanChange(this.accounting, current, changedFields(current, dto, LOCKED_FIELDS).length > 0);
+      await assertCanChange(
+        this.accounting,
+        current,
+        changedFields(current, dto, LOCKED_FIELDS).length > 0,
+      );
     }
     const { utility_type_ids, ...rest } = dto;
     const result = await super.update(id, rest as UpdateBudgetChapterDto, userId);
@@ -122,20 +129,24 @@ export class BudgetChaptersService extends BaseService<
   // tipo (unità diverse non si sommano: un capitolo SPRAR può contenere
   // luce, gas e acqua). SUM sui valori già persistiti dal ricalcolo.
   async getConsumptionSummary(chapterId: number): Promise<ChapterConsumptionSummaryRow[]> {
-    const rows: { hard_type: HardTypeEnum; utilities_count: string; estimated_sum: string | null; actual_sum: string | null }[] =
-      await this.utilityRepo
-        .createQueryBuilder('u')
-        .innerJoin('u.utilityType', 'ut')
-        .select('ut.hard_type', 'hard_type')
-        .addSelect('COUNT(u.id)', 'utilities_count')
-        .addSelect('SUM(u.estimated_annual_consumption)', 'estimated_sum')
-        .addSelect('SUM(u.actual_consumption)', 'actual_sum')
-        .where('u.deleted = 0')
-        .andWhere('u.budget_chapter_code_fk = :chapterId', { chapterId })
-        .andWhere('ut.hard_type <> :internet', { internet: HardTypeEnum.INTERNET })
-        .groupBy('ut.hard_type')
-        .orderBy('ut.hard_type', 'ASC')
-        .getRawMany();
+    const rows: {
+      hard_type: HardTypeEnum;
+      utilities_count: string;
+      estimated_sum: string | null;
+      actual_sum: string | null;
+    }[] = await this.utilityRepo
+      .createQueryBuilder('u')
+      .innerJoin('u.utilityType', 'ut')
+      .select('ut.hard_type', 'hard_type')
+      .addSelect('COUNT(u.id)', 'utilities_count')
+      .addSelect('SUM(u.estimated_annual_consumption)', 'estimated_sum')
+      .addSelect('SUM(u.actual_consumption)', 'actual_sum')
+      .where('u.deleted = 0')
+      .andWhere('u.budget_chapter_code_fk = :chapterId', { chapterId })
+      .andWhere('ut.hard_type <> :internet', { internet: HardTypeEnum.INTERNET })
+      .groupBy('ut.hard_type')
+      .orderBy('ut.hard_type', 'ASC')
+      .getRawMany();
 
     return rows.map((r) => ({
       hard_type: r.hard_type,

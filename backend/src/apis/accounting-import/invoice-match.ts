@@ -15,7 +15,10 @@ export const invoiceKey = (vat: string, number: string, date: string): string =>
 // Liquidazione → fattura: prima per IdentificativoSdI, poi per P.IVA del
 // fornitore + numero normalizzato + data. Le fatture passate sono già solo
 // quelle non cancellate e non rifiutate.
-export function matchInvoices(liquidations: AccLiquidationRow[], invoices: MatchableInvoice[]): Map<string, number> {
+export function matchInvoices(
+  liquidations: AccLiquidationRow[],
+  invoices: MatchableInvoice[],
+): Map<string, number> {
   const bySdi = new Map<string, number>();
   const byNumber = new Map<string, number>();
   for (const i of invoices) {

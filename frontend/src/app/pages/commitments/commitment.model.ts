@@ -31,6 +31,8 @@ export class Commitment extends AbstractEntity {
   @Exclude({toPlainOnly: true}) chapter_label!: string;
   @Exclude({toPlainOnly: true}) chapter_description!: string | null;
   @Exclude({toPlainOnly: true}) supplier_name!: string | null;
+  // MANUAL o ACCOUNTING (dalla contabilità).
+  @Exclude({toPlainOnly: true}) source!: string;
   @Exclude({toPlainOnly: true}) spent!: number;
   @Exclude({toPlainOnly: true}) remaining!: number | null;
   // Prima annualità e somma degli importi (null se un'annualità non ce l'ha).

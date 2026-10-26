@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Patch, Post, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Post,
+  UploadedFiles,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '@core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@core/auth/guards/roles.guard';
@@ -13,7 +22,9 @@ import { AccountingStateService } from './accounting-state.service';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
-type UploadedCsv = Partial<Record<'chapters' | 'commitments' | 'liquidations', Express.Multer.File[]>>;
+type UploadedCsv = Partial<
+  Record<'chapters' | 'commitments' | 'liquidations', Express.Multer.File[]>
+>;
 
 @Controller('accounting-import')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -23,6 +34,14 @@ export class AccountingImportController {
     private readonly service: AccountingImportService,
     private readonly states: AccountingStateService,
   ) {}
+
+  // Solo acceso/spento, per tutti i ruoli: il frontend mette in sola lettura i
+  // dati importati.
+  @Get('active')
+  @Roles('Admin', 'Operatore', 'Lettore')
+  async active(): Promise<{ active: boolean }> {
+    return { active: await this.states.isActive() };
+  }
 
   @Get('status')
   status(): Promise<AccountingImportStatus> {
@@ -40,9 +59,12 @@ export class AccountingImportController {
 
   @Post()
   @UseInterceptors(
-    FileFieldsInterceptor([{ name: 'chapters' }, { name: 'commitments' }, { name: 'liquidations' }], {
-      limits: { fileSize: MAX_FILE_SIZE },
-    }),
+    FileFieldsInterceptor(
+      [{ name: 'chapters' }, { name: 'commitments' }, { name: 'liquidations' }],
+      {
+        limits: { fileSize: MAX_FILE_SIZE },
+      },
+    ),
   )
   run(@UploadedFiles() files: UploadedCsv = {}): Promise<AccountingImportSummary> {
     return this.service.run({

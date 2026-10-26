@@ -9,7 +9,10 @@ export function planCommitmentContracts(
   const result: { commitmentId: number; add: number[] }[] = [];
   for (const c of commitments) {
     const fromCig = c.cig ? (contractsByCig.get(c.cig) ?? []) : [];
-    const wanted = new Set([...(fromCig.length === 1 ? fromCig : []), ...(paidContracts.get(c.id) ?? [])]);
+    const wanted = new Set([
+      ...(fromCig.length === 1 ? fromCig : []),
+      ...(paidContracts.get(c.id) ?? []),
+    ]);
     const add = [...wanted].filter((id) => !c.contractIds.includes(id)).sort((a, b) => a - b);
     if (add.length) result.push({ commitmentId: c.id, add });
   }

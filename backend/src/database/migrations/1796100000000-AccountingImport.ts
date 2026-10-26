@@ -47,7 +47,9 @@ export class AccountingImport1796100000000 implements MigrationInterface {
         '`last_error` varchar(500) NULL, PRIMARY KEY (`id`)) ENGINE=InnoDB',
     );
     for (const table of SOURCE_TABLES) {
-      await q.query(`ALTER TABLE \`${table}\` ADD \`source\` varchar(20) NOT NULL DEFAULT 'MANUAL'`);
+      await q.query(
+        `ALTER TABLE \`${table}\` ADD \`source\` varchar(20) NOT NULL DEFAULT 'MANUAL'`,
+      );
     }
   }
 

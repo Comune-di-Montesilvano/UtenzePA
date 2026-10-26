@@ -7,7 +7,10 @@ import { BudgetChapterSpendingService } from './budget-chapter-spending.service'
 import { BudgetChapterSpendingController } from './budget-chapter-spending.controller';
 
 @Module({
-  imports: [AccountingStateModule, TypeOrmModule.forFeature([BudgetChapterSpending, BudgetChapter])],
+  imports: [
+    AccountingStateModule,
+    TypeOrmModule.forFeature([BudgetChapterSpending, BudgetChapter]),
+  ],
   providers: [BudgetChapterSpendingService],
   controllers: [BudgetChapterSpendingController],
 })

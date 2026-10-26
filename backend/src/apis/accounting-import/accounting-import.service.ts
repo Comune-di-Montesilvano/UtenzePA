@@ -37,7 +37,10 @@ export interface AccountingImportStatus {
   counts: Record<AccKind, number>;
 }
 
-const TABLES: Record<AccKind, { table: string; entity: EntityTarget<ObjectLiteral>; yearField: string }> = {
+const TABLES: Record<
+  AccKind,
+  { table: string; entity: EntityTarget<ObjectLiteral>; yearField: string }
+> = {
   chapters: { table: 'acc_chapters', entity: AccChapter, yearField: 'year' },
   commitments: { table: 'acc_commitments', entity: AccCommitment, yearField: 'fiscal_year' },
   liquidations: { table: 'acc_liquidations', entity: AccLiquidation, yearField: 'fiscal_year' },
@@ -86,7 +89,8 @@ export class AccountingImportService {
     const kinds = KINDS.filter((kind) => files[kind]);
     if (!kinds.length) throw new BadRequestException('Nessun file caricato.');
     const state = await this.states.state();
-    if (this.states.forcedOff || !state.enabled) throw new BadRequestException('Import contabilità spento.');
+    if (this.states.forcedOff || !state.enabled)
+      throw new BadRequestException('Import contabilità spento.');
     if (!state.from_year) throw new BadRequestException("Impostare l'anno di partenza.");
     if (this.running) throw new BadRequestException('Import contabilità già in corso.');
     this.running = true;
@@ -111,11 +115,17 @@ export class AccountingImportService {
         summary.steps[step.name] = await step.apply({ fromYear });
       }
       await this.reconcile.reconcileAll();
-      await this.states.update({ last_run_at: new Date(), last_summary: summary, last_error: null });
+      await this.states.update({
+        last_run_at: new Date(),
+        last_summary: summary,
+        last_error: null,
+      });
       return summary;
     } catch (error) {
       const message = (error as Error).message.slice(0, 500);
-      await this.states.update({ last_run_at: new Date(), last_error: message }).catch(() => undefined);
+      await this.states
+        .update({ last_run_at: new Date(), last_error: message })
+        .catch(() => undefined);
       throw new BadRequestException(`Import contabilità non riuscito: ${message}`);
     } finally {
       this.running = false;

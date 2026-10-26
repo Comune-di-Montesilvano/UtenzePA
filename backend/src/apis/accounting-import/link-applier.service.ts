@@ -11,7 +11,8 @@ import { commitmentKey } from './scope';
 const COMMITMENTS_SQL =
   '/* l_commitments */ SELECT id, commitment_year, commitment_num, commitment_sub FROM budget_commitments ' +
   `WHERE deleted = 0 AND source = '${RecordSource.ACCOUNTING}'`;
-const LINKS_SQL = '/* l_links */ SELECT commitment_id, contract_id FROM budget_commitment_contracts';
+const LINKS_SQL =
+  '/* l_links */ SELECT commitment_id, contract_id FROM budget_commitment_contracts';
 const CONTRACTS_SQL =
   '/* l_contracts */ SELECT id, cig_contract FROM contracts WHERE deleted = 0 AND cig_contract IS NOT NULL';
 // Contratti delle fatture pagate, per impegno.
@@ -26,14 +27,21 @@ const UTILITY_ROWS_SQL =
   'JOIN budget_commitments bc ON bc.id = s.commitment_id_fk JOIN invoices i ON i.id = s.invoice_id_fk ' +
   'JOIN invoice_lines l ON l.invoice_id_fk = i.id ' +
   "WHERE s.source = 'ACCOUNTING' AND i.deleted = 0 AND l.utility_id_fk IS NOT NULL";
-const UTILITIES_SQL = '/* l_utilities */ SELECT id, budget_chapter_code_fk FROM utilities WHERE deleted = 0';
-const LINK_INSERT_SQL = 'INSERT INTO budget_commitment_contracts (commitment_id, contract_id) VALUES ?';
+const UTILITIES_SQL =
+  '/* l_utilities */ SELECT id, budget_chapter_code_fk FROM utilities WHERE deleted = 0';
+const LINK_INSERT_SQL =
+  'INSERT INTO budget_commitment_contracts (commitment_id, contract_id) VALUES ?';
 const UTILITY_CHAPTER_SQL =
   'UPDATE utilities SET budget_chapter_code_fk = ?, updated_by_user_id = ?, update_date = CURRENT_TIMESTAMP(6) WHERE id = ?';
 
-const groupIds = (rows: Record<string, unknown>[], key: string, value: string): Map<number, number[]> => {
+const groupIds = (
+  rows: Record<string, unknown>[],
+  key: string,
+  value: string,
+): Map<number, number[]> => {
   const map = new Map<number, number[]>();
-  for (const r of rows) map.set(Number(r[key]), [...(map.get(Number(r[key])) ?? []), Number(r[value])]);
+  for (const r of rows)
+    map.set(Number(r[key]), [...(map.get(Number(r[key])) ?? []), Number(r[value])]);
   return map;
 };
 
@@ -65,7 +73,10 @@ export class LinkApplierService {
     const linked = groupIds(links, 'commitment_id', 'contract_id');
     const contractsByCig = new Map<string, number[]>();
     for (const c of contracts as { id: number; cig_contract: string }[]) {
-      contractsByCig.set(c.cig_contract, [...(contractsByCig.get(c.cig_contract) ?? []), Number(c.id)]);
+      contractsByCig.set(c.cig_contract, [
+        ...(contractsByCig.get(c.cig_contract) ?? []),
+        Number(c.id),
+      ]);
     }
 
     const contractPlan = planCommitmentContracts(
@@ -111,7 +122,13 @@ export class LinkApplierService {
           entityId: commitmentId,
           action: AuditAction.UPDATE,
           userId: SYSTEM_USER_ID,
-          fields: [{ fieldName: 'contract_ids', oldValue: before.join(', '), newValue: [...before, ...add].join(', ') }],
+          fields: [
+            {
+              fieldName: 'contract_ids',
+              oldValue: before.join(', '),
+              newValue: [...before, ...add].join(', '),
+            },
+          ],
         });
       }
       for (const { utilityId, chapterId } of chapterPlan) {
@@ -122,7 +139,11 @@ export class LinkApplierService {
           action: AuditAction.UPDATE,
           userId: SYSTEM_USER_ID,
           fields: [
-            { fieldName: 'budget_chapter_code_fk', oldValue: current.get(utilityId) ?? null, newValue: chapterId },
+            {
+              fieldName: 'budget_chapter_code_fk',
+              oldValue: current.get(utilityId) ?? null,
+              newValue: chapterId,
+            },
           ],
         });
       }

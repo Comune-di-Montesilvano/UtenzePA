@@ -34,7 +34,19 @@ interface EditableShare extends InvoiceCommitmentShare {
   imports: [FormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatIconModule, MatTooltipModule, FilterableSelectComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    @if (!manual) {
+    @if (accounting) {
+      <p class="share-auto">
+        <mat-icon>account_balance</mat-icon>
+        <span>Ripartizione della ragioneria (liquidazioni)</span>
+      </p>
+      @for (s of autoShares; track $index) {
+        <p class="share-auto">
+          <button type="button" class="share-link" (click)="openCommitment(s.commitment_id_fk)" matTooltip="Clic per aprire l'impegno">
+            {{ refLabel(s.commitment) }} · comp. {{ s.fiscal_year }} · {{ eur(s.amount) }}
+          </button>
+        </p>
+      }
+    } @else if (!manual) {
       @if (!contractId) {
         <p class="sheet-empty">Senza contratto in testata la fattura non pesa su nessun impegno: conta sul capitolo dell'utenza delle righe.</p>
       } @else if (pendingAuto || stale) {
@@ -151,6 +163,8 @@ export class InvoiceCommitmentsTabComponent implements OnChanges {
   private dialog = inject(MatDialog);
 
   manual = false;
+  // Quote della ragioneria (import contabilità): sola lettura.
+  accounting = false;
   // Tornata automatica nel tab ma non ancora salvata.
   pendingAuto = false;
   autoShares: InvoiceCommitmentShare[] = [];
@@ -170,6 +184,7 @@ export class InvoiceCommitmentsTabComponent implements OnChanges {
     if (this.edited !== this.lastEmitted) {
       const list = this.edited ?? this.shares ?? [];
       this.manual = list.some(s => s.source === 'MANUAL' || !s.source);
+      this.accounting = list.some(s => s.source === 'ACCOUNTING');
       this.pendingAuto = this.edited !== undefined && !this.edited.length && !!this.shares?.length;
       this.autoShares = this.manual ? [] : list;
       this.rows = this.manual ? list.map(s => this.editable(s)) : [];

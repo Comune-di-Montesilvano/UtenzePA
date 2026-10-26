@@ -23,7 +23,8 @@ const SHARES_DELETE_SQL =
   "DELETE FROM invoice_commitment_shares WHERE commitment_id_fk = ? AND source IN ('AUTO', 'MANUAL')";
 const YEAR_SHARES_DELETE_SQL =
   "DELETE FROM invoice_commitment_shares WHERE commitment_id_fk = ? AND fiscal_year IN (?) AND source IN ('AUTO', 'MANUAL')";
-const YEARS_DELETE_SQL = 'DELETE FROM budget_commitment_years WHERE commitment_id = ? AND fiscal_year IN (?)';
+const YEARS_DELETE_SQL =
+  'DELETE FROM budget_commitment_years WHERE commitment_id = ? AND fiscal_year IN (?)';
 
 const toCurrent = (r: Record<string, unknown>): CurrentCommitment => {
   const years = typeof r.years === 'string' ? JSON.parse(r.years) : (r.years ?? []);
@@ -33,9 +34,12 @@ const toCurrent = (r: Record<string, unknown>): CurrentCommitment => {
     commitment_num: Number(r.commitment_num),
     commitment_sub: Number(r.commitment_sub),
     budget_chapter_id_fk: Number(r.budget_chapter_id_fk),
-    supplier_id_fk: r.supplier_id_fk === null || r.supplier_id_fk === undefined ? null : Number(r.supplier_id_fk),
+    supplier_id_fk:
+      r.supplier_id_fk === null || r.supplier_id_fk === undefined ? null : Number(r.supplier_id_fk),
     source: r.source as RecordSource,
-    years: (years as { fiscal_year: number; amount: string | number | null; source: RecordSource }[]).map((y) => ({
+    years: (
+      years as { fiscal_year: number; amount: string | number | null; source: RecordSource }[]
+    ).map((y) => ({
       fiscal_year: Number(y.fiscal_year),
       amount: y.amount === null ? null : Number(y.amount),
       source: y.source,
@@ -55,7 +59,9 @@ export class CommitmentApplierService {
     const [acc, scope, chapters, currentRows, suppliers] = await Promise.all([
       this.data.commitments(),
       this.data.scope(),
-      this.dataSource.query('SELECT id, chapter_code, article FROM budget_chapters WHERE deleted = 0'),
+      this.dataSource.query(
+        'SELECT id, chapter_code, article FROM budget_chapters WHERE deleted = 0',
+      ),
       this.dataSource.query(CURRENT_SQL),
       this.data.thirdPartiesByVat(),
     ]);
@@ -76,7 +82,11 @@ export class CommitmentApplierService {
     );
     const result = { created: 0, updated: 0, deleted: 0 };
     const audits: RecordChangeInput[] = [];
-    const entry = (entityId: number, action: AuditAction, fields?: RecordChangeInput['fields']): RecordChangeInput => ({
+    const entry = (
+      entityId: number,
+      action: AuditAction,
+      fields?: RecordChangeInput['fields'],
+    ): RecordChangeInput => ({
       entityName: 'budget_commitments',
       entityId,
       action,
@@ -110,7 +120,12 @@ export class CommitmentApplierService {
           }
           if (change.years.upsert.length) {
             await manager.query(YEARS_UPSERT_SQL, [
-              change.years.upsert.map((y) => [change.id, y.fiscal_year, y.amount, RecordSource.ACCOUNTING]),
+              change.years.upsert.map((y) => [
+                change.id,
+                y.fiscal_year,
+                y.amount,
+                RecordSource.ACCOUNTING,
+              ]),
             ]);
           }
           if (change.years.delete.length) {

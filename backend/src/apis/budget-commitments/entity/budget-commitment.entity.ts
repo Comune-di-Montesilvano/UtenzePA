@@ -92,7 +92,10 @@ export class BudgetCommitment {
   budgetChapter: BudgetChapter;
 
   @ManyToOne(() => ThirdParty)
-  @JoinColumn({ name: 'supplier_id_fk', foreignKeyConstraintName: 'FK_budget_commitments_supplier' })
+  @JoinColumn({
+    name: 'supplier_id_fk',
+    foreignKeyConstraintName: 'FK_budget_commitments_supplier',
+  })
   supplier: ThirdParty | null;
 
   @ManyToOne(() => SystemUser)

@@ -58,7 +58,9 @@ export class ShareApplierService {
           result.cleared++;
           continue;
         }
-        await manager.query('DELETE FROM invoice_commitment_shares WHERE invoice_id_fk = ?', [invoiceId]);
+        await manager.query('DELETE FROM invoice_commitment_shares WHERE invoice_id_fk = ?', [
+          invoiceId,
+        ]);
         await manager.query(SHARES_INSERT_SQL, [
           shares.map((s) => [invoiceId, s.commitment_id_fk, s.fiscal_year, s.amount, 'ACCOUNTING']),
         ]);

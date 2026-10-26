@@ -93,7 +93,7 @@ export class SpendingService {
   // Scheda capitolo: un elemento per esercizio (bilancio, impegni, fatturato).
   async forChapter(chapterId: number): Promise<ChapterYear[]> {
     const budget = await this.q(
-      `SELECT id, year, initial_budget, adjusted_budget, amount, notes
+      `SELECT id, year, initial_budget, adjusted_budget, amount, notes, source
        FROM budget_chapter_spending WHERE budget_chapter_id_fk = ? AND deleted = 0`,
       [chapterId],
     );
@@ -131,7 +131,11 @@ export class SpendingService {
       const spent = Math.round(Number(r.spent ?? 0) * 100) / 100;
       return {
         id: Number(r.id),
-        label: commitmentLabel(num(r.commitment_year), num(r.commitment_num), num(r.commitment_sub)),
+        label: commitmentLabel(
+          num(r.commitment_year),
+          num(r.commitment_num),
+          num(r.commitment_sub),
+        ),
         fiscal_year: Number(r.fiscal_year),
         fiscal_years: idList(r.fiscal_years),
         amount,
@@ -176,7 +180,9 @@ export class SpendingService {
   // competenza della fattura); senza, righe per capitolo dell'utenza e
   // competenza della riga. La fattura stessa (già salvata) non si conta due volte.
   async budgetCheck(dto: BudgetCheckDto): Promise<BudgetWarning[]> {
-    const ids = (values: (number | null | undefined)[]) => [...new Set(values.filter((v): v is number => !!v))];
+    const ids = (values: (number | null | undefined)[]) => [
+      ...new Set(values.filter((v): v is number => !!v)),
+    ];
     const groups = new Map<string, { chapter: number; year: number; amount: number }>();
     const add = (chapter: unknown, year: number, amount: unknown) => {
       if (chapter === null || chapter === undefined) return;
@@ -207,12 +213,19 @@ export class SpendingService {
     } else {
       const utilityIds = ids(dto.lines.map((l) => l.utility_id_fk));
       const utilities = utilityIds.length
-        ? await this.q('SELECT id, budget_chapter_code_fk AS chapter_id FROM utilities WHERE id IN (?)', [utilityIds])
+        ? await this.q(
+            'SELECT id, budget_chapter_code_fk AS chapter_id FROM utilities WHERE id IN (?)',
+            [utilityIds],
+          )
         : [];
       const byUtility = new Map(utilities.map((u) => [Number(u.id), u] as const));
       for (const line of dto.lines) {
         const chapter = line.utility_id_fk ? byUtility.get(line.utility_id_fk)?.chapter_id : null;
-        add(chapter, lineFiscalYear(line.period_start ?? null, line.period_end ?? null, dto.invoice_date), line.amount);
+        add(
+          chapter,
+          lineFiscalYear(line.period_start ?? null, line.period_end ?? null, dto.invoice_date),
+          line.amount,
+        );
       }
     }
 
@@ -250,7 +263,10 @@ export class SpendingService {
   // righe (stessa regola del ricalcolo delle quote).
   private invoiceCompetence(dto: BudgetCheckDto): number {
     return invoiceCompetenceYear(
-      dto.lines.map((l) => ({ period_start: l.period_start ?? null, period_end: l.period_end ?? null })),
+      dto.lines.map((l) => ({
+        period_start: l.period_start ?? null,
+        period_end: l.period_end ?? null,
+      })),
       dto.invoice_date,
     );
   }

@@ -16,8 +16,11 @@ export interface PlannedShare {
 }
 
 const cents = (v: number | string): number => Math.round(Number(v) * 100);
-const shareKey = (s: { commitment_id_fk: number; fiscal_year: number; amount: number | string }): string =>
-  `${s.commitment_id_fk}:${s.fiscal_year}:${cents(s.amount)}`;
+const shareKey = (s: {
+  commitment_id_fk: number;
+  fiscal_year: number;
+  amount: number | string;
+}): string => `${s.commitment_id_fk}:${s.fiscal_year}:${cents(s.amount)}`;
 
 // Quote d'impegno delle fatture pagate: liquidazioni valide sommate per
 // impegno e anno. Una fattura con una liquidazione su un impegno che UtenzePA
@@ -41,19 +44,26 @@ export function planShares(
     }
     const shares = planned.get(invoiceId) ?? new Map<string, PlannedShare>();
     const key = `${commitmentId}:${l.fiscal_year}`;
-    const share = shares.get(key) ?? { commitment_id_fk: commitmentId, fiscal_year: l.fiscal_year, amount: 0 };
+    const share = shares.get(key) ?? {
+      commitment_id_fk: commitmentId,
+      fiscal_year: l.fiscal_year,
+      amount: 0,
+    };
     share.amount = Math.round((share.amount + l.amount) * 100) / 100;
     shares.set(key, share);
     planned.set(invoiceId, shares);
   }
 
   const currentByInvoice = new Map<number, CurrentShare[]>();
-  for (const s of current) currentByInvoice.set(s.invoice_id_fk, [...(currentByInvoice.get(s.invoice_id_fk) ?? []), s]);
+  for (const s of current)
+    currentByInvoice.set(s.invoice_id_fk, [...(currentByInvoice.get(s.invoice_id_fk) ?? []), s]);
 
   const result: { invoiceId: number; shares: PlannedShare[] }[] = [];
   for (const [invoiceId, map] of planned) {
     if (skipped.has(invoiceId)) continue;
-    const shares = [...map.values()].sort((a, b) => a.commitment_id_fk - b.commitment_id_fk || a.fiscal_year - b.fiscal_year);
+    const shares = [...map.values()].sort(
+      (a, b) => a.commitment_id_fk - b.commitment_id_fk || a.fiscal_year - b.fiscal_year,
+    );
     const existing = currentByInvoice.get(invoiceId) ?? [];
     const same =
       existing.every((s) => s.source === 'ACCOUNTING') &&

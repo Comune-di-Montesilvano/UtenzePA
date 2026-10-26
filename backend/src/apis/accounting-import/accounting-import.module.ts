@@ -2,7 +2,11 @@ import { Module } from '@nestjs/common';
 import { AuditLogModule } from '@apis/audit-log/audit-log.module';
 import { BudgetCommitmentsModule } from '@apis/budget-commitments/budget-commitments.module';
 import { AccountingImportController } from './accounting-import.controller';
-import { ACCOUNTING_STEPS, AccountingImportService, type AccountingStep } from './accounting-import.service';
+import {
+  ACCOUNTING_STEPS,
+  AccountingImportService,
+  type AccountingStep,
+} from './accounting-import.service';
 import { AccountingStateModule } from './accounting-state.module';
 import { AccountingDataService } from './accounting-data.service';
 import { ChapterApplierService } from './chapter-applier.service';
@@ -38,7 +42,13 @@ import { LinkApplierService } from './link-applier.service';
         { name: 'shares', apply: () => shares.apply() },
         { name: 'links', apply: () => links.apply() },
       ],
-      inject: [ChapterApplierService, CommitmentApplierService, AccountingInvoiceService, ShareApplierService, LinkApplierService],
+      inject: [
+        ChapterApplierService,
+        CommitmentApplierService,
+        AccountingInvoiceService,
+        ShareApplierService,
+        LinkApplierService,
+      ],
     },
   ],
   controllers: [AccountingImportController],

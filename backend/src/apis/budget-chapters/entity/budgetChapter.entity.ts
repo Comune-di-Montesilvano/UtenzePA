@@ -75,5 +75,4 @@ export class BudgetChapter {
 
   @OneToMany(() => Utility, (utility) => utility.budget_chapter_code_fk)
   utilities: Utility[];
-
 }

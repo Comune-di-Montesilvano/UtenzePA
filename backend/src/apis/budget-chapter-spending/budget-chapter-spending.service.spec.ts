@@ -89,15 +89,25 @@ describe('BudgetChapterSpendingService', () => {
   });
 
   it('rifiuta un anno senza nessun importo', async () => {
-    await expect(service.createForChapter(5, { year: 2026, notes: 'x' } as never, 3)).rejects.toThrow(
+    await expect(
+      service.createForChapter(5, { year: 2026, notes: 'x' } as never, 3),
+    ).rejects.toThrow(
       'Indicare almeno un importo: stanziamento iniziale, assestato o spesa ragioneria.',
     );
     expect(repo.save).not.toHaveBeenCalled();
   });
 
   it('rifiuta una modifica che svuota tutti gli importi', async () => {
-    repo.findOne.mockResolvedValue({ id: 1, budget_chapter_id_fk: 5, year: 2026, amount: null, adjusted_budget: '100.00' });
-    await expect(service.update(1, { adjusted_budget: null } as never, 3)).rejects.toThrow(/almeno un importo/);
+    repo.findOne.mockResolvedValue({
+      id: 1,
+      budget_chapter_id_fk: 5,
+      year: 2026,
+      amount: null,
+      adjusted_budget: '100.00',
+    });
+    await expect(service.update(1, { adjusted_budget: null } as never, 3)).rejects.toThrow(
+      /almeno un importo/,
+    );
   });
 
   it('elenco: importi nulli restano null, gli altri diventano numeri', async () => {
@@ -142,7 +152,9 @@ describe('BudgetChapterSpendingService: import della contabilità attivo', () =>
   });
 
   it('create = 400', async () => {
-    await expect(service.createForChapter(5, { year: 2027, amount: 1 } as never, 3)).rejects.toThrow(LOCKED);
+    await expect(
+      service.createForChapter(5, { year: 2027, amount: 1 } as never, 3),
+    ).rejects.toThrow(LOCKED);
   });
 
   it('importi diversi = 400', async () => {
@@ -152,7 +164,11 @@ describe('BudgetChapterSpendingService: import della contabilità attivo', () =>
 
   it('note modificabili con importi uguali', async () => {
     await expect(
-      service.update(4, { initial_budget: 1000, adjusted_budget: 1200, amount: null, notes: 'x' } as never, 3),
+      service.update(
+        4,
+        { initial_budget: 1000, adjusted_budget: 1200, amount: null, notes: 'x' } as never,
+        3,
+      ),
     ).resolves.not.toThrow();
   });
 

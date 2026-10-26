@@ -67,7 +67,15 @@ describe('AccountingInvoiceService', () => {
     const { service, inserts, audit, updates } = setup({
       liquidations: [liq('L1')],
       contracts: [{ id: 9, supplier_id_fk: 3, cig_contract: 'CIG1' }],
-      messages: [{ kind: 'INVOICE', outcome: null, status: 'DONE', received_at: '2026-03-02', create_date: '2026-03-02' }],
+      messages: [
+        {
+          kind: 'INVOICE',
+          outcome: null,
+          status: 'DONE',
+          received_at: '2026-03-02',
+          create_date: '2026-03-02',
+        },
+      ],
     });
     const result = await service.apply();
     expect(inserts).toEqual([
@@ -84,10 +92,21 @@ describe('AccountingInvoiceService', () => {
       }),
     ]);
     expect(updates).toEqual([
-      { id: 501, values: expect.objectContaining({ sdi_status: SdiStatus.RECEIVED, sdi_outcome_discarded: false }) },
+      {
+        id: 501,
+        values: expect.objectContaining({
+          sdi_status: SdiStatus.RECEIVED,
+          sdi_outcome_discarded: false,
+        }),
+      },
     ]);
     expect(audit.record).toHaveBeenCalledWith(
-      expect.objectContaining({ entityName: 'invoices', entityId: 501, action: AuditAction.CREATE, userId: SYSTEM_USER_ID }),
+      expect.objectContaining({
+        entityName: 'invoices',
+        entityId: 501,
+        action: AuditAction.CREATE,
+        userId: SYSTEM_USER_ID,
+      }),
     );
     expect(result).toEqual({ created: 1, sdiCompleted: 0 });
   });
@@ -105,7 +124,9 @@ describe('AccountingInvoiceService', () => {
   });
 
   it('più liquidazioni della stessa fattura = una sola fattura', async () => {
-    const { service, inserts } = setup({ liquidations: [liq('L1'), liq('L2', { invoice_number: 'ft-12' })] });
+    const { service, inserts } = setup({
+      liquidations: [liq('L1'), liq('L2', { invoice_number: 'ft-12' })],
+    });
     const result = await service.apply();
     expect(inserts).toHaveLength(1);
     expect(result.created).toBe(1);
@@ -126,11 +147,22 @@ describe('AccountingInvoiceService', () => {
   it('fattura esistente senza sdi_identifier lo prende dal file', async () => {
     const { service, updates, inserts, audit } = setup({
       liquidations: [liq('L1')],
-      invoices: [{ id: 40, supplier_vat: '00000000001', invoice_number: 'FT12', invoice_date: '2026-03-01', sdi_identifier: null }],
+      invoices: [
+        {
+          id: 40,
+          supplier_vat: '00000000001',
+          invoice_number: 'FT12',
+          invoice_date: '2026-03-01',
+          sdi_identifier: null,
+        },
+      ],
     });
     const result = await service.apply();
     expect(inserts).toEqual([]);
-    expect(updates[0]).toEqual({ id: 40, values: { sdi_identifier: '777', updated_by_user_id: SYSTEM_USER_ID } });
+    expect(updates[0]).toEqual({
+      id: 40,
+      values: { sdi_identifier: '777', updated_by_user_id: SYSTEM_USER_ID },
+    });
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
         entityName: 'invoices',
@@ -145,7 +177,15 @@ describe('AccountingInvoiceService', () => {
   it('sdi già presente e diverso non toccato', async () => {
     const { service, updates } = setup({
       liquidations: [liq('L1')],
-      invoices: [{ id: 40, supplier_vat: '00000000001', invoice_number: 'FT12', invoice_date: '2026-03-01', sdi_identifier: '555' }],
+      invoices: [
+        {
+          id: 40,
+          supplier_vat: '00000000001',
+          invoice_number: 'FT12',
+          invoice_date: '2026-03-01',
+          sdi_identifier: '555',
+        },
+      ],
     });
     expect(await service.apply()).toEqual({ created: 0, sdiCompleted: 0 });
     expect(updates).toEqual([]);
@@ -154,7 +194,15 @@ describe('AccountingInvoiceService', () => {
   it('ricarico identico = nessuna modifica', async () => {
     const { service, updates, inserts } = setup({
       liquidations: [liq('L1')],
-      invoices: [{ id: 501, supplier_vat: '00000000001', invoice_number: 'FT/12', invoice_date: '2026-03-01', sdi_identifier: '777' }],
+      invoices: [
+        {
+          id: 501,
+          supplier_vat: '00000000001',
+          invoice_number: 'FT/12',
+          invoice_date: '2026-03-01',
+          sdi_identifier: '777',
+        },
+      ],
     });
     expect(await service.apply()).toEqual({ created: 0, sdiCompleted: 0 });
     expect(inserts).toEqual([]);
@@ -164,7 +212,15 @@ describe('AccountingInvoiceService', () => {
   it('matchedByKey abbina le liquidazioni alle fatture presenti', async () => {
     const { service } = setup({
       liquidations: [liq('L1'), liq('L2', { sdi_identifier: null, invoice_number: 'ALTRA' })],
-      invoices: [{ id: 501, supplier_vat: '00000000001', invoice_number: 'FT/12', invoice_date: '2026-03-01', sdi_identifier: '777' }],
+      invoices: [
+        {
+          id: 501,
+          supplier_vat: '00000000001',
+          invoice_number: 'FT/12',
+          invoice_date: '2026-03-01',
+          sdi_identifier: '777',
+        },
+      ],
     });
     expect(await service.matchedByKey()).toEqual(new Map([['L1', 501]]));
   });

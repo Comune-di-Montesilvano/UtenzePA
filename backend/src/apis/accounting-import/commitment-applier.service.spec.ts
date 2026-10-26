@@ -8,7 +8,9 @@ function setup(commitments: unknown[]) {
   const calls: string[] = [];
   const manager = {
     insert: jest.fn(async (entity: unknown, values: Record<string, unknown>) => {
-      calls.push(`insert ${entity === BudgetCommitment ? 'commitment' : 'other'} ${JSON.stringify(values)}`);
+      calls.push(
+        `insert ${entity === BudgetCommitment ? 'commitment' : 'other'} ${JSON.stringify(values)}`,
+      );
       return { identifiers: [{ id: 50 }] };
     }),
     update: jest.fn(async (_entity: unknown, id: number, values: Record<string, unknown>) => {
@@ -42,7 +44,10 @@ function setup(commitments: unknown[]) {
         description: null,
       },
     ]),
-    scope: jest.fn(async () => ({ chapterKeys: new Set(['100/0']), commitmentKeys: new Set(['2026/1/1']) })),
+    scope: jest.fn(async () => ({
+      chapterKeys: new Set(['100/0']),
+      commitmentKeys: new Set(['2026/1/1']),
+    })),
     thirdPartiesByVat: jest.fn(async () => new Map()),
   };
   const audit = { record: jest.fn(async () => undefined) };
@@ -59,7 +64,11 @@ describe('CommitmentApplierService', () => {
     expect(calls[0]).toContain(`"created_by_user_id":${SYSTEM_USER_ID}`);
     expect(calls[1]).toContain('[50,2026,18500,"ACCOUNTING"]');
     expect(audit.record).toHaveBeenCalledWith(
-      expect.objectContaining({ entityName: 'budget_commitments', entityId: 50, action: AuditAction.CREATE }),
+      expect.objectContaining({
+        entityName: 'budget_commitments',
+        entityId: 50,
+        action: AuditAction.CREATE,
+      }),
     );
     expect(result).toEqual({ created: 1, updated: 0, deleted: 0 });
   });
@@ -93,7 +102,11 @@ describe('CommitmentApplierService', () => {
       `update 9 {"deleted":true,"updated_by_user_id":${SYSTEM_USER_ID}}`,
     ]);
     expect(audit.record).toHaveBeenCalledWith(
-      expect.objectContaining({ entityName: 'budget_commitments', entityId: 9, action: AuditAction.DELETE }),
+      expect.objectContaining({
+        entityName: 'budget_commitments',
+        entityId: 9,
+        action: AuditAction.DELETE,
+      }),
     );
     expect(result).toEqual({ created: 0, updated: 0, deleted: 1 });
   });

@@ -8,6 +8,9 @@
     @if (!isNew) {
       <app-status-badge [info]="status" size="sm"></app-status-badge>
     }
+    @if (fromAccounting) {
+      <app-status-badge [info]="accountingBadge" size="sm"></app-status-badge>
+    }
   </ng-container>
 
   <form [formGroup]="form">
@@ -90,6 +93,7 @@
             <app-tab-label icon="euro" label="Esercizi" [dot]="!!current?.over_budget" tone="danger"></app-tab-label>
           </ng-template>
           <app-budget-chapter-years-tab [chapterId]="data.item.id" [years]="years" [canEdit]="canEdit"
+                                        [accountingActive]="accountingActive"
                                         (changed)="onYearsChanged()"></app-budget-chapter-years-tab>
         </mat-tab>
 

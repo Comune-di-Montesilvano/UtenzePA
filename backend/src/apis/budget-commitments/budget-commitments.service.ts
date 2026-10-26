@@ -1,5 +1,9 @@
 import { BadRequestException, Injectable, Optional } from '@nestjs/common';
-import { assertCanChange, assertCanCreate, changedFields } from '@apis/accounting-import/accounting-lock';
+import {
+  assertCanChange,
+  assertCanCreate,
+  changedFields,
+} from '@apis/accounting-import/accounting-lock';
 import { AccountingStateService } from '@apis/accounting-import/accounting-state.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -28,7 +32,13 @@ const yearsLabel = (years: { fiscal_year: number; amount: number | string | null
     .map((y) => `${y.fiscal_year}: ${y.amount === null ? '—' : Number(y.amount).toFixed(2)}`)
     .join('; ');
 
-const LOCKED_FIELDS = ['commitment_year', 'commitment_num', 'commitment_sub', 'budget_chapter_id_fk', 'supplier_id_fk'];
+const LOCKED_FIELDS = [
+  'commitment_year',
+  'commitment_num',
+  'commitment_sub',
+  'budget_chapter_id_fk',
+  'supplier_id_fk',
+];
 
 export interface CommitmentYearRow {
   fiscal_year: number;
@@ -57,6 +67,8 @@ export interface CommitmentRow {
   supplier_name: string | null;
   contract_ids: number[];
   notes: string | null;
+  // MANUAL o ACCOUNTING (dalla contabilità: in sola lettura con l'import attivo).
+  source: string;
   deleted: boolean;
 }
 
@@ -77,7 +89,9 @@ export interface CommitmentInvoice {
 // quelle con il suo esercizio.
 const VALID_SHARES = `FROM invoice_commitment_shares s
       JOIN invoices i ON i.id = s.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}`;
-const ROWS_SQL = (where: string) => `/* c_rows */ SELECT bc.id, bc.commitment_year, bc.commitment_num,
+const ROWS_SQL = (
+  where: string,
+) => `/* c_rows */ SELECT bc.id, bc.commitment_year, bc.commitment_num,
     bc.commitment_sub, bc.budget_chapter_id_fk, CONCAT(ch.chapter_code, '/', ch.article) AS chapter_label,
     ch.description AS chapter_description, bc.supplier_id_fk,
     (SELECT MIN(y.fiscal_year) FROM budget_commitment_years y WHERE y.commitment_id = bc.id) AS fiscal_year,
@@ -86,7 +100,7 @@ const ROWS_SQL = (where: string) => `/* c_rows */ SELECT bc.id, bc.commitment_ye
                  WHERE s.commitment_id_fk = bc.id AND s.fiscal_year = y.fiscal_year)))
       FROM budget_commitment_years y WHERE y.commitment_id = bc.id) AS years,
     COALESCE(tp.company_name, TRIM(CONCAT(COALESCE(tp.last_name, ''), ' ', COALESCE(tp.first_name, '')))) AS supplier_name,
-    bc.notes, bc.deleted,
+    bc.notes, bc.source, bc.deleted,
     (SELECT JSON_ARRAYAGG(bcc.contract_id) FROM budget_commitment_contracts bcc
       WHERE bcc.commitment_id = bc.id) AS contract_ids,
     (SELECT COALESCE(SUM(s.amount), 0) ${VALID_SHARES} WHERE s.commitment_id_fk = bc.id) AS spent
@@ -96,7 +110,8 @@ const ROWS_SQL = (where: string) => `/* c_rows */ SELECT bc.id, bc.commitment_ye
   WHERE ${where}
   ORDER BY fiscal_year DESC, bc.commitment_num IS NULL, bc.commitment_year, bc.commitment_num, bc.commitment_sub, bc.id`;
 
-const YEARS_DELETE_SQL = '/* c_years_delete */ DELETE FROM budget_commitment_years WHERE commitment_id = ?';
+const YEARS_DELETE_SQL =
+  '/* c_years_delete */ DELETE FROM budget_commitment_years WHERE commitment_id = ?';
 const YEARS_INSERT_SQL =
   '/* c_years_insert */ INSERT INTO budget_commitment_years (commitment_id, fiscal_year, amount) VALUES ?';
 
@@ -123,7 +138,12 @@ function toYears(v: unknown): CommitmentYearRow[] {
     .map((y) => {
       const amount = toNumber(y.amount);
       const spent = round2(Number(y.spent ?? 0));
-      return { fiscal_year: Number(y.fiscal_year), amount, spent, remaining: amount === null ? null : round2(amount - spent) };
+      return {
+        fiscal_year: Number(y.fiscal_year),
+        amount,
+        spent,
+        remaining: amount === null ? null : round2(amount - spent),
+      };
     })
     .sort((a, b) => a.fiscal_year - b.fiscal_year);
 }
@@ -140,7 +160,11 @@ function toRow(r: Record<string, unknown>): CommitmentRow {
     commitment_year: toNumber(r.commitment_year),
     commitment_num: toNumber(r.commitment_num),
     commitment_sub: toNumber(r.commitment_sub),
-    label: commitmentLabel(toNumber(r.commitment_year), toNumber(r.commitment_num), toNumber(r.commitment_sub)),
+    label: commitmentLabel(
+      toNumber(r.commitment_year),
+      toNumber(r.commitment_num),
+      toNumber(r.commitment_sub),
+    ),
     budget_chapter_id_fk: Number(r.budget_chapter_id_fk),
     chapter_label: String(r.chapter_label ?? ''),
     chapter_description: (r.chapter_description as string | null) ?? null,
@@ -153,6 +177,7 @@ function toRow(r: Record<string, unknown>): CommitmentRow {
     supplier_name: (r.supplier_name as string | null) || null,
     contract_ids: idList(r.contract_ids),
     notes: (r.notes as string | null) ?? null,
+    source: (r.source as string | undefined) ?? 'MANUAL',
     deleted: Boolean(Number(r.deleted ?? 0)),
   };
 }
@@ -164,7 +189,13 @@ export class BudgetCommitmentsService extends BaseService<
   UpdateBudgetCommitmentDto
 > {
   protected readonly entityName = 'budget_commitments';
-  protected readonly relations = ['budgetChapter', 'contracts', 'supplier', 'created_by', 'updated_by'];
+  protected readonly relations = [
+    'budgetChapter',
+    'contracts',
+    'supplier',
+    'created_by',
+    'updated_by',
+  ];
 
   constructor(
     @InjectRepository(BudgetCommitment)
@@ -207,7 +238,10 @@ export class BudgetCommitmentsService extends BaseService<
         search.consip_agreement_id,
       );
     }
-    const rows: Record<string, unknown>[] = await this.repo.query(ROWS_SQL(where.join(' AND ')), params);
+    const rows: Record<string, unknown>[] = await this.repo.query(
+      ROWS_SQL(where.join(' AND ')),
+      params,
+    );
     return rows.map(toRow);
   }
 
@@ -235,8 +269,15 @@ export class BudgetCommitmentsService extends BaseService<
     });
   }
 
-  async createForContract(contractId: number, dto: CreateBudgetCommitmentDto, userId: number): Promise<CommitmentRow> {
-    const saved = await this.create({ ...dto, contract_ids: [...new Set([contractId, ...(dto.contract_ids ?? [])])] }, userId);
+  async createForContract(
+    contractId: number,
+    dto: CreateBudgetCommitmentDto,
+    userId: number,
+  ): Promise<CommitmentRow> {
+    const saved = await this.create(
+      { ...dto, contract_ids: [...new Set([contractId, ...(dto.contract_ids ?? [])])] },
+      userId,
+    );
     return this.getRow(saved.id);
   }
 
@@ -264,7 +305,11 @@ export class BudgetCommitmentsService extends BaseService<
     return saved;
   }
 
-  async update(id: number, dto: UpdateBudgetCommitmentDto, userId?: number): Promise<BudgetCommitment> {
+  async update(
+    id: number,
+    dto: UpdateBudgetCommitmentDto,
+    userId?: number,
+  ): Promise<BudgetCommitment> {
     if (dto.deleted === false) return this.restore(id, userId);
     delete dto.deleted;
     delete dto.updated_by_user_id;
@@ -284,7 +329,10 @@ export class BudgetCommitmentsService extends BaseService<
     const merged = { ...current, ...dto };
     const number = this.number(merged);
     // Capitolo controllato solo se cambia: uno cancellato dopo resta valido.
-    if (dto.budget_chapter_id_fk !== undefined && dto.budget_chapter_id_fk !== current.budget_chapter_id_fk) {
+    if (
+      dto.budget_chapter_id_fk !== undefined &&
+      dto.budget_chapter_id_fk !== current.budget_chapter_id_fk
+    ) {
       await this.ensureChapter(merged.budget_chapter_id_fk);
     }
     await this.ensureFreeNumber(number, id);
@@ -299,7 +347,11 @@ export class BudgetCommitmentsService extends BaseService<
       const contracts = await this.contracts(contract_ids, before);
       const after = contracts.map((c) => c.id);
       if (before.join(',') !== [...after].sort((a, b) => a - b).join(',')) {
-        changes.push({ fieldName: 'contract_ids', oldValue: before.join(', '), newValue: after.join(', ') });
+        changes.push({
+          fieldName: 'contract_ids',
+          oldValue: before.join(', '),
+          newValue: after.join(', '),
+        });
       }
       current.contracts = contracts;
       await this.repo.save(current);
@@ -308,7 +360,11 @@ export class BudgetCommitmentsService extends BaseService<
       changes.push({ fieldName: 'years', oldValue: yearsBefore, newValue: yearsLabel(years) });
       changes.push(...(await this.replaceYears(id, years)));
     }
-    const result = await super.update(id, { ...fields, ...number } as UpdateBudgetCommitmentDto, userId);
+    const result = await super.update(
+      id,
+      { ...fields, ...number } as UpdateBudgetCommitmentDto,
+      userId,
+    );
     if (changes.length) await this.recordAudit(AuditAction.UPDATE, id, userId, changes);
     await this.reconcile.reconcileSafe([...new Set([...before, ...(contract_ids ?? before)])]);
     return result;
@@ -324,13 +380,20 @@ export class BudgetCommitmentsService extends BaseService<
     return this.repo.manager.transaction(async (m) => {
       await m.query(YEARS_DELETE_SQL, [id]);
       await m.query(YEARS_INSERT_SQL, [years.map((y) => [id, y.fiscal_year, y.amount])]);
-      const orphans: { fiscal_year: number; n: number }[] = await m.query(MANUAL_ORPHANS_SQL, [id, list]);
+      const orphans: { fiscal_year: number; n: number }[] = await m.query(MANUAL_ORPHANS_SQL, [
+        id,
+        list,
+      ]);
       const moved: { fieldName: string; oldValue: unknown; newValue: unknown }[] = [];
       for (const o of orphans) {
         const from = Number(o.fiscal_year);
         const to = annualityFor(list, from)!;
         await m.query(MANUAL_MOVE_SQL, [to, id, from]);
-        moved.push({ fieldName: 'shares_moved', oldValue: `${from} (${Number(o.n)} quote)`, newValue: `${to}` });
+        moved.push({
+          fieldName: 'shares_moved',
+          oldValue: `${from} (${Number(o.n)} quote)`,
+          newValue: `${to}`,
+        });
       }
       return moved;
     });
@@ -355,11 +418,15 @@ export class BudgetCommitmentsService extends BaseService<
   // Le quote automatiche si riassegnano; quelle scelte a mano bloccano
   // (sparirebbe la scelta dell'utente).
   async remove(id: number, userId: number): Promise<void> {
-    const current = await this.repo.findOne({ where: { id, deleted: false }, relations: { contracts: true } });
+    const current = await this.repo.findOne({
+      where: { id, deleted: false },
+      relations: { contracts: true },
+    });
     if (!current) throw new BadRequestException('Impegno non trovato');
     await assertCanChange(this.accounting, current, true);
     const [{ n }] = await this.repo.query(MANUAL_SHARES_SQL, [id]);
-    if (Number(n) > 0) throw new BadRequestException(`Impegno scelto a mano su ${Number(n)} fatture`);
+    if (Number(n) > 0)
+      throw new BadRequestException(`Impegno scelto a mano su ${Number(n)} fatture`);
     current.deleted = true;
     current.updated_by_user_id = userId;
     await this.repo.save(current);
@@ -385,13 +452,21 @@ export class BudgetCommitmentsService extends BaseService<
     commitment_year?: number | null;
     commitment_num?: number | null;
     commitment_sub?: number | null;
-  }): { commitment_year: number | null; commitment_num: number | null; commitment_sub: number | null } {
+  }): {
+    commitment_year: number | null;
+    commitment_num: number | null;
+    commitment_sub: number | null;
+  } {
     const year = dto.commitment_year ?? null;
     const num = dto.commitment_num ?? null;
     if ((year === null) !== (num === null)) {
       throw new BadRequestException('Anno e numero dell’impegno vanno indicati insieme');
     }
-    return { commitment_year: year, commitment_num: num, commitment_sub: num === null ? null : (dto.commitment_sub ?? 1) };
+    return {
+      commitment_year: year,
+      commitment_num: num,
+      commitment_sub: num === null ? null : (dto.commitment_sub ?? 1),
+    };
   }
 
   private async ensureChapter(chapterId: number): Promise<void> {
@@ -401,7 +476,11 @@ export class BudgetCommitmentsService extends BaseService<
 
   // Unico tra i non cancellati (nel service, non UNIQUE: le cancellate restano).
   private async ensureFreeNumber(
-    n: { commitment_year: number | null; commitment_num: number | null; commitment_sub: number | null },
+    n: {
+      commitment_year: number | null;
+      commitment_num: number | null;
+      commitment_sub: number | null;
+    },
     exceptId?: number,
   ): Promise<void> {
     if (n.commitment_num === null || n.commitment_year === null) return;

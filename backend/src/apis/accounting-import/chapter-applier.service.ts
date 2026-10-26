@@ -31,7 +31,9 @@ export class ChapterApplierService {
     const [acc, scope, chapters, spending, liquidatedRows] = await Promise.all([
       this.data.chapters(),
       this.data.scope(),
-      this.dataSource.query('SELECT id, chapter_code, article FROM budget_chapters WHERE deleted = 0'),
+      this.dataSource.query(
+        'SELECT id, chapter_code, article FROM budget_chapters WHERE deleted = 0',
+      ),
       this.dataSource.query(
         'SELECT id, budget_chapter_id_fk, year, initial_budget, adjusted_budget, amount, source ' +
           'FROM budget_chapter_spending WHERE deleted = 0',
@@ -39,20 +41,33 @@ export class ChapterApplierService {
       this.dataSource.query(LIQUIDATED_SQL),
     ]);
     const liquidated = new Map<string, number>(
-      liquidatedRows.map((r: { chapter: string; article: number; fiscal_year: number; total: string }) => [
-        `${chapterKey(String(r.chapter), Number(r.article))}:${r.fiscal_year}`,
-        Math.round(Number(r.total) * 100) / 100,
-      ]),
+      liquidatedRows.map(
+        (r: { chapter: string; article: number; fiscal_year: number; total: string }) => [
+          `${chapterKey(String(r.chapter), Number(r.article))}:${r.fiscal_year}`,
+          Math.round(Number(r.total) * 100) / 100,
+        ],
+      ),
     );
     const current = chapters.map((c: { id: number; chapter_code: string; article: number }) => ({
       id: Number(c.id),
       chapter_code: c.chapter_code,
       article: Number(c.article),
     }));
-    const changes = planChapters(acc, scope.chapterKeys, current, spending as CurrentSpending[], liquidated);
+    const changes = planChapters(
+      acc,
+      scope.chapterKeys,
+      current,
+      spending as CurrentSpending[],
+      liquidated,
+    );
     const result = { chaptersCreated: 0, created: 0, updated: 0, deleted: 0 };
     const audits: RecordChangeInput[] = [];
-    const chapterIds = new Map<string, number>(current.map((c: { id: number; chapter_code: string; article: number }) => [chapterKey(c.chapter_code, c.article), c.id]));
+    const chapterIds = new Map<string, number>(
+      current.map((c: { id: number; chapter_code: string; article: number }) => [
+        chapterKey(c.chapter_code, c.article),
+        c.id,
+      ]),
+    );
     const who = { created_by_user_id: SYSTEM_USER_ID, updated_by_user_id: SYSTEM_USER_ID };
 
     await this.dataSource.transaction(async (manager) => {
@@ -68,7 +83,12 @@ export class ChapterApplierService {
             } as never);
             const id = Number(identifiers[0].id);
             chapterIds.set(chapterKey(change.chapter, change.article), id);
-            audits.push({ entityName: 'budget_chapters', entityId: id, action: AuditAction.CREATE, userId: SYSTEM_USER_ID });
+            audits.push({
+              entityName: 'budget_chapters',
+              entityId: id,
+              action: AuditAction.CREATE,
+              userId: SYSTEM_USER_ID,
+            });
             result.chaptersCreated++;
             break;
           }

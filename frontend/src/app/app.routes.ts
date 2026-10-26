@@ -31,6 +31,7 @@ import {GuidaComponent} from "./pages/guida/guida.component";
 import {ManutenzioneComponent} from "./pages/manutenzione/manutenzione.component";
 import {InvoiceImportPageComponent} from "./pages/invoice-import/invoice-import-page.component";
 import {PatternEditorComponent} from "./pages/invoice-import/pattern-editor.component";
+import {AccountingImportPageComponent} from "./pages/accounting-import/accounting-import-page.component";
 
 export const routes: Routes = [
   {
@@ -44,6 +45,7 @@ export const routes: Routes = [
       {path: 'backup-import', component: BackupImportComponent},
       {path: 'invoice-import', component: InvoiceImportPageComponent},
       {path: 'invoice-import/editor/:messageId', component: PatternEditorComponent},
+      {path: 'accounting-import', component: AccountingImportPageComponent},
       {path: 'branding', component: BrandingSettingsComponent},
       {path: 'utility-types', component: UtilityTypesComponent},
       {path: 'act-types', component: ActTypesComponent},

@@ -2,7 +2,11 @@ import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BaseService } from '@apis/shared/base.service';
-import { assertCanChange, assertCanCreate, changedFields } from '@apis/accounting-import/accounting-lock';
+import {
+  assertCanChange,
+  assertCanCreate,
+  changedFields,
+} from '@apis/accounting-import/accounting-lock';
 import { AccountingStateService } from '@apis/accounting-import/accounting-state.service';
 import { BudgetChapter } from '@apis/budget-chapters/entity/budgetChapter.entity';
 import { BudgetChapterSpending } from './entity/budget-chapter-spending.entity';
@@ -73,7 +77,11 @@ export class BudgetChapterSpendingService extends BaseService<
   ): Promise<BudgetChapterSpending> {
     const current = await this.repo.findOne({ where: { id, deleted: false } });
     if (!current) throw new BadRequestException('Spesa non trovata');
-    await assertCanChange(this.accounting, current, changedFields(current, dto, ['year', ...AMOUNTS]).length > 0);
+    await assertCanChange(
+      this.accounting,
+      current,
+      changedFields(current, dto, ['year', ...AMOUNTS]).length > 0,
+    );
     this.assertSomeAmount({ ...current, ...dto });
     if (dto.year !== undefined && dto.year !== current.year) {
       await this.ensureYearFree(current.budget_chapter_id_fk, dto.year, id);

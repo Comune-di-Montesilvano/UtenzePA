@@ -27,6 +27,12 @@ export const CREDIT_NOTE_BADGE: StatusInfo = {
   tone: 'info', label: 'Nota di credito', icon: 'undo', tooltip: 'Totale documento negativo',
 };
 
+// Dato importato dalla contabilità (source = ACCOUNTING).
+export const ACCOUNTING_BADGE: StatusInfo = {
+  tone: 'info', label: 'Da contabilità', icon: 'account_balance',
+  tooltip: "Arriva dall'import della contabilità: con l'import acceso si modifica in ragioneria",
+};
+
 export function isCreditNote(total: number | string | null | undefined): boolean {
   return total !== null && total !== undefined && `${total}` !== '' && Number(total) < 0;
 }

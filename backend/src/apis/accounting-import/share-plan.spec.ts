@@ -34,7 +34,9 @@ describe('planShares', () => {
       commitments,
       [],
     );
-    expect(plan).toEqual([{ invoiceId: 40, shares: [{ commitment_id_fk: 10, fiscal_year: 2026, amount: 3214.28 }] }]);
+    expect(plan).toEqual([
+      { invoiceId: 40, shares: [{ commitment_id_fk: 10, fiscal_year: 2026, amount: 3214.28 }] },
+    ]);
   });
 
   it('più impegni = più quote', () => {
@@ -72,22 +74,47 @@ describe('planShares', () => {
   });
 
   it('liquidazione annullata o senza fattura ignorata', () => {
-    const plan = planShares([liq('L1', { cancelled: true }), liq('L2')], new Map([['L1', 40]]), commitments, []);
+    const plan = planShares(
+      [liq('L1', { cancelled: true }), liq('L2')],
+      new Map([['L1', 40]]),
+      commitments,
+      [],
+    );
     expect(plan).toEqual([]);
   });
 
   it('fattura con ACCOUNTING e nessuna liquidazione valida = shares []', () => {
-    const current: CurrentShare[] = [{ invoice_id_fk: 41, commitment_id_fk: 10, fiscal_year: 2026, amount: 5, source: 'ACCOUNTING' }];
-    expect(planShares([], new Map(), commitments, current)).toEqual([{ invoiceId: 41, shares: [] }]);
+    const current: CurrentShare[] = [
+      {
+        invoice_id_fk: 41,
+        commitment_id_fk: 10,
+        fiscal_year: 2026,
+        amount: 5,
+        source: 'ACCOUNTING',
+      },
+    ];
+    expect(planShares([], new Map(), commitments, current)).toEqual([
+      { invoiceId: 41, shares: [] },
+    ]);
   });
 
   it('quote già uguali = nessuna modifica', () => {
-    const current: CurrentShare[] = [{ invoice_id_fk: 40, commitment_id_fk: 10, fiscal_year: 2026, amount: '100.00', source: 'ACCOUNTING' }];
+    const current: CurrentShare[] = [
+      {
+        invoice_id_fk: 40,
+        commitment_id_fk: 10,
+        fiscal_year: 2026,
+        amount: '100.00',
+        source: 'ACCOUNTING',
+      },
+    ];
     expect(planShares([liq('L1')], new Map([['L1', 40]]), commitments, current)).toEqual([]);
   });
 
   it('fattura con quote AUTO o MANUAL e liquidazioni = sostituite dalle ACCOUNTING', () => {
-    const current: CurrentShare[] = [{ invoice_id_fk: 40, commitment_id_fk: 10, fiscal_year: 2026, amount: 100, source: 'MANUAL' }];
+    const current: CurrentShare[] = [
+      { invoice_id_fk: 40, commitment_id_fk: 10, fiscal_year: 2026, amount: 100, source: 'MANUAL' },
+    ];
     expect(planShares([liq('L1')], new Map([['L1', 40]]), commitments, current)).toEqual([
       { invoiceId: 40, shares: [{ commitment_id_fk: 10, fiscal_year: 2026, amount: 100 }] },
     ]);

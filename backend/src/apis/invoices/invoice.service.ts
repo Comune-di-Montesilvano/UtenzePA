@@ -106,7 +106,9 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
   override async remove(id: number, updatedByUserId: number): Promise<void> {
     const before = await this.repo.findOne({ where: { id } as never });
     await super.remove(id, updatedByUserId);
-    const utilityIds = await this.dataSource.transaction((manager) => this.linker.unlink(manager, id));
+    const utilityIds = await this.dataSource.transaction((manager) =>
+      this.linker.unlink(manager, id),
+    );
     await this.recalcUtilities(utilityIds);
     await this.reconcileContracts(before?.contratto_id_fk);
   }
@@ -122,7 +124,10 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       try {
         await this.recalc.recalcUtility(utilityId);
       } catch (error) {
-        console.error(`[InvoicesService] Ricalcolo consumi dell'utenza ${utilityId} non riuscito`, error);
+        console.error(
+          `[InvoicesService] Ricalcolo consumi dell'utenza ${utilityId} non riuscito`,
+          error,
+        );
       }
     }
   }
@@ -234,7 +239,9 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     if (!before) throw new BadRequestException('Fattura non trovata');
     checkCreditNote(
       rest.total_amount !== undefined ? rest.total_amount : before.total_amount,
-      rest.net_amount_excl_vat !== undefined ? rest.net_amount_excl_vat : before.net_amount_excl_vat,
+      rest.net_amount_excl_vat !== undefined
+        ? rest.net_amount_excl_vat
+        : before.net_amount_excl_vat,
     );
     const beforeSnapshot: Record<string, unknown> = { ...before };
     const contractId =
@@ -317,7 +324,11 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       );
       // Righe reinviate identiche (Salva senza modifiche) non sono un cambiamento.
       if (lines !== undefined && !sameLines(previousLines, this.toRows(id, lines))) {
-        changes.push({ fieldName: 'lines', oldValue: previousLines.length, newValue: lines.length });
+        changes.push({
+          fieldName: 'lines',
+          oldValue: previousLines.length,
+          newValue: lines.length,
+        });
       }
       if (shares !== undefined && sharesKey(previousShares) !== sharesKey(shareRows)) {
         changes.push({
@@ -356,7 +367,9 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
   >(header: T): Promise<T> {
     if (header.supplier_id_fk || !header.contratto_id_fk) return header;
     const contract = await this.contractRepo.findOne({ where: { id: header.contratto_id_fk } });
-    return contract?.supplier_id_fk ? { ...header, supplier_id_fk: contract.supplier_id_fk } : header;
+    return contract?.supplier_id_fk
+      ? { ...header, supplier_id_fk: contract.supplier_id_fk }
+      : header;
   }
 
   private checkLines(lines: InvoiceLineDto[]): void {

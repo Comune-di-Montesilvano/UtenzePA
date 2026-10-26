@@ -54,7 +54,8 @@ export class AccountingInvoiceService {
     for (const l of valid) {
       const id = matched.get(l.liquidation_key);
       if (id !== undefined) {
-        if (l.sdi_identifier && !byId.get(id)?.sdi_identifier && !sdiFor.has(id)) sdiFor.set(id, l.sdi_identifier);
+        if (l.sdi_identifier && !byId.get(id)?.sdi_identifier && !sdiFor.has(id))
+          sdiFor.set(id, l.sdi_identifier);
         continue;
       }
       if (!l.supplier_vat || !suppliers.has(l.supplier_vat)) continue;
@@ -81,11 +82,19 @@ export class AccountingInvoiceService {
         } as never);
         const id = Number(identifiers[0].id);
         if (l.sdi_identifier) await this.refreshSdiStatus(manager, id, l.sdi_identifier);
-        audits.push({ entityName: 'invoices', entityId: id, action: AuditAction.CREATE, userId: SYSTEM_USER_ID });
+        audits.push({
+          entityName: 'invoices',
+          entityId: id,
+          action: AuditAction.CREATE,
+          userId: SYSTEM_USER_ID,
+        });
         result.created++;
       }
       for (const [id, sdi] of sdiFor) {
-        await manager.update(Invoice, id, { sdi_identifier: sdi, updated_by_user_id: SYSTEM_USER_ID } as never);
+        await manager.update(Invoice, id, {
+          sdi_identifier: sdi,
+          updated_by_user_id: SYSTEM_USER_ID,
+        } as never);
         await this.refreshSdiStatus(manager, id, sdi);
         audits.push({
           entityName: 'invoices',
@@ -140,6 +149,8 @@ function contractByCig(
   cig: string | null,
 ): number | null {
   if (!cig) return null;
-  const found = contracts.filter((c) => Number(c.supplier_id_fk) === supplierId && c.cig_contract === cig);
+  const found = contracts.filter(
+    (c) => Number(c.supplier_id_fk) === supplierId && c.cig_contract === cig,
+  );
   return found.length === 1 ? Number(found[0].id) : null;
 }

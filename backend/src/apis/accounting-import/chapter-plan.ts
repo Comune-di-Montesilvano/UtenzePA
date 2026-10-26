@@ -56,7 +56,12 @@ export function planChapters(
     const key = chapterKey(row.chapter, row.article);
     if (byKey.has(key) || created.has(key)) continue;
     created.add(key);
-    changes.push({ kind: 'createChapter', chapter: row.chapter, article: row.article, description: row.description });
+    changes.push({
+      kind: 'createChapter',
+      chapter: row.chapter,
+      article: row.article,
+      description: row.description,
+    });
   }
 
   const wanted = new Set<string>();
@@ -70,7 +75,8 @@ export function planChapters(
       source: RecordSource.ACCOUNTING,
     };
     const chapter = byKey.get(key);
-    const current = chapter && spending.find((s) => s.budget_chapter_id_fk === chapter.id && s.year === row.year);
+    const current =
+      chapter && spending.find((s) => s.budget_chapter_id_fk === chapter.id && s.year === row.year);
     if (!current) {
       changes.push({ kind: 'createSpending', chapterKey: key, year: row.year, values });
       continue;
@@ -94,7 +100,8 @@ export function planChapters(
 
 // Importi confrontati al centesimo (MySQL restituisce i decimal come stringhe).
 function same(a: unknown, b: unknown): boolean {
-  if (a === null || a === undefined || b === null || b === undefined) return (a ?? null) === (b ?? null);
+  if (a === null || a === undefined || b === null || b === undefined)
+    return (a ?? null) === (b ?? null);
   if (typeof b === 'number') return Math.round(Number(a) * 100) === Math.round(b * 100);
   return a === b;
 }

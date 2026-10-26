@@ -183,7 +183,10 @@ describe('InvoiceMatcher', () => {
   it('fattura creata dalla contabilità viene trovata da fornitore + numero + data e arricchita', async () => {
     const result = await matcher({
       ...baseHandlers(),
-      m_invoice_candidates: () => [{ id: 401, invoice_id: 'EP7-26' }, { id: 402, invoice_id: 'EP 8/26' }],
+      m_invoice_candidates: () => [
+        { id: 401, invoice_id: 'EP7-26' },
+        { id: 402, invoice_id: 'EP 8/26' },
+      ],
     }).match(invoice(), 46);
     expect(result.existingInvoiceId).toBe(401);
   });
@@ -232,7 +235,9 @@ describe('InvoiceMatcher: righe senza utenza', () => {
         m_header_contract: () => [{ id: 10, cig_contract: '7334657E6B' }],
         m_contract_commitment: () => [...rows],
       }).match(canone(), 46);
-      expect(result.issues.filter((i) => i.type === ImportIssueType.MISSING_COMMITMENT)).toHaveLength(issues);
+      expect(
+        result.issues.filter((i) => i.type === ImportIssueType.MISSING_COMMITMENT),
+      ).toHaveLength(issues);
     }
   });
 

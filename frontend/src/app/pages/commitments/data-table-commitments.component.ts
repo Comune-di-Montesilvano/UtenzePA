@@ -1,4 +1,5 @@
-import {ChangeDetectionStrategy, Component, Type} from '@angular/core';
+import {ChangeDetectionStrategy, Component, inject, Type} from '@angular/core';
+import {ACCOUNTING_SOURCE, AccountingStateService} from '../../core/services/accounting-state.service';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
 import {MatPaginatorModule} from '@angular/material/paginator';
@@ -42,6 +43,9 @@ export class DataTableCommitmentsComponent extends AbstractDataTableComponent<Co
 
   readonly eur = formatEuro;
   readonly competence = competenceLabel;
+  readonly accountingSource = ACCOUNTING_SOURCE;
+  // Import della contabilità acceso: niente impegni nuovi né cancellazioni di quelli importati.
+  accountingActive = false;
 
   selectedColumns: IColumnDef[] = this.loadColumnSelection(
     DataTableCommitmentsComponent.STORAGE_KEY, this.allColumns,
@@ -56,6 +60,7 @@ export class DataTableCommitmentsComponent extends AbstractDataTableComponent<Co
 
   constructor(screen: ScreenSizeService) {
     super(screen);
+    inject(AccountingStateService).active$.subscribe(active => this.accountingActive = active);
   }
 
   onColumnsChange(): void {

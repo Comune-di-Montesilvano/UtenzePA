@@ -39,6 +39,8 @@ export const COMMITMENTS_REMAINING = `SUM(CASE WHEN bcy.amount IS NULL THEN NULL
 export interface ChapterYear {
   year: number;
   spending_id: number | null;
+  // MANUAL o ACCOUNTING: dalla contabilità in sola lettura con l'import attivo.
+  spending_source: string | null;
   initial_budget: number | null;
   adjusted_budget: number | null;
   recorded_spending: number | null;
@@ -75,6 +77,7 @@ export function buildChapterYear(
   return {
     year,
     spending_id: num(budget?.id),
+    spending_source: (budget?.source as string | undefined) ?? null,
     initial_budget: num(budget?.initial_budget),
     adjusted_budget: adjusted,
     recorded_spending: num(budget?.amount),
@@ -103,13 +106,18 @@ export function mergeChapterYears(
   const c = byKey(commitments, 'year');
   const i = byKey(invoiced, 'year');
   const years = new Set([...b.keys(), ...c.keys(), ...i.keys(), current]);
-  return [...years].sort((x, y) => y - x).map((y) => buildChapterYear(y, b.get(y), c.get(y), i.get(y)));
+  return [...years]
+    .sort((x, y) => y - x)
+    .map((y) => buildChapterYear(y, b.get(y), c.get(y), i.get(y)));
 }
 
 // Tutti i capitoli con dati nell'esercizio (elenco capitoli, anomalie).
-export async function chaptersYearSummary(query: Query, year: number): Promise<ChapterYearSummary[]> {
+export async function chaptersYearSummary(
+  query: Query,
+  year: number,
+): Promise<ChapterYearSummary[]> {
   const budget = await query(
-    `SELECT budget_chapter_id_fk AS chapter_id, id, initial_budget, adjusted_budget, amount, notes
+    `SELECT budget_chapter_id_fk AS chapter_id, id, initial_budget, adjusted_budget, amount, notes, source
      FROM budget_chapter_spending WHERE year = ? AND deleted = 0`,
     [year],
   );
@@ -132,5 +140,8 @@ export async function chaptersYearSummary(query: Query, year: number): Promise<C
   const c = byKey(commitments, 'chapter_id');
   const i = byKey(invoiced, 'chapter_id');
   const ids = [...new Set([...b.keys(), ...c.keys(), ...i.keys()])].sort((x, y) => x - y);
-  return ids.map((id) => ({ budget_chapter_id: id, ...buildChapterYear(year, b.get(id), c.get(id), i.get(id)) }));
+  return ids.map((id) => ({
+    budget_chapter_id: id,
+    ...buildChapterYear(year, b.get(id), c.get(id), i.get(id)),
+  }));
 }
