@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditLogModule } from '@apis/audit-log/audit-log.module';
 import { BudgetCommitmentsModule } from '@apis/budget-commitments/budget-commitments.module';
 import { AccountingImportController } from './accounting-import.controller';
@@ -14,11 +15,20 @@ import { CommitmentApplierService } from './commitment-applier.service';
 import { AccountingInvoiceService } from './accounting-invoice.service';
 import { ShareApplierService } from './share-applier.service';
 import { LinkApplierService } from './link-applier.service';
+import { AccChapter } from './entity/acc-chapter.entity';
+import { AccCommitment } from './entity/acc-commitment.entity';
+import { AccLiquidation } from './entity/acc-liquidation.entity';
 
 // Ordine dei passi del giro: perimetro e capitoli, poi impegni, fatture,
 // quote, collegamenti. Ognuno legge quello che hanno scritto i precedenti.
 @Module({
-  imports: [AccountingStateModule, BudgetCommitmentsModule, AuditLogModule],
+  imports: [
+    // Tabelle di appoggio: con autoLoadEntities entrano nel DataSource solo da qui.
+    TypeOrmModule.forFeature([AccChapter, AccCommitment, AccLiquidation]),
+    AccountingStateModule,
+    BudgetCommitmentsModule,
+    AuditLogModule,
+  ],
   providers: [
     AccountingImportService,
     AccountingDataService,
