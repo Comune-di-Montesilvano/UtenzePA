@@ -2,8 +2,9 @@ version: 2
 # Ogni ecosistema: minor+patch raggruppate in una sola PR, mergiata in automatico
 # (vedi dependabot-automerge.yml); le major restano PR aperte come promemoria per
 # l'upgrade manuale.
-# Controllo giornaliero e nessun cooldown: le correzioni arrivano il giorno stesso.
-# Gli advisory di sicurezza passano comunque dai Dependabot security updates,
+# Controllo giornaliero con cooldown di 3 giorni: una versione viene proposta solo dopo
+# 3 giorni dall'uscita (release ritirate o compromesse restano fuori). Gli advisory di
+# sicurezza passano comunque dai Dependabot security updates, senza cooldown e
 # indipendenti da questo schedule. Giro alle 01:00 cosi' l'auto-merge finisce prima
 # del rebuild giornaliero di latest (release.yml, 04:30 UTC).
 # Le famiglie (@sentry/*, @angular/*) hanno un gruppo proprio per tutti i tipi di
@@ -16,6 +17,8 @@ updates:
       interval: daily
       time: "01:00"
       timezone: Europe/Rome
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 10
     groups:
       # @sentry/nestjs e @sentry/node vanno tenuti allineati - un bump isolato
@@ -39,6 +42,8 @@ updates:
       interval: daily
       time: "01:00"
       timezone: Europe/Rome
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 10
     groups:
       # I pacchetti @angular/* vanno aggiornati insieme come famiglia (peer
@@ -63,6 +68,8 @@ updates:
       interval: daily
       time: "01:00"
       timezone: Europe/Rome
+    cooldown:
+      default-days: 3
     groups:
       e2e-minor-patch:
         update-types:
@@ -83,6 +90,8 @@ updates:
       interval: daily
       time: "01:00"
       timezone: Europe/Rome
+    cooldown:
+      default-days: 3
     groups:
       docker-minor-patch:
         update-types:
@@ -98,6 +107,8 @@ updates:
       interval: daily
       time: "01:00"
       timezone: Europe/Rome
+    cooldown:
+      default-days: 3
     groups:
       actions-minor-patch:
         update-types:

@@ -13,9 +13,9 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Git, CI e release").
 
 - `main` protetta da un ruleset (non più branch protection classica): PR obbligatoria, merge solo squash dalla **merge queue**, check richiesti `dependency-review`, `backend`, `frontend`, `migrations`, `docker (backend, production)`, `docker (frontend, prod)`, `e2e` (la coda e l'auto-merge aspettano solo i check richiesti: un job nuovo che deve fare da gate va aggiunto al ruleset), no force-push/delete, 0 approvazioni umane (CI come unico gate). Push diretti rifiutati.
 - Merge queue: i check girano sull'evento `merge_group` (commit temporaneo = `main` + PR), quindi `tests.yml` deve restare in ascolto di `merge_group`. `dependency-review` lì risulta saltato (conta come superato).
-- Merge delle PR proprie: `gh pr merge N --squash --delete-branch` la mette in coda (con check ancora in corso serve `--auto`); il merge vero lo fa la coda dopo i check sul commit unito.
+- Merge delle PR proprie: `gh pr merge N` la mette in coda (il metodo, squash, lo decide la coda: `--squash` dà solo un avviso; `--delete-branch` è rifiutato, il branch lo cancella GitHub dopo il merge con `delete_branch_on_merge`) (con check ancora in corso serve `--auto`); il merge vero lo fa la coda dopo i check sul commit unito.
 - `gh pr merge` fallisce se lanciato da un worktree diverso da quello con `main` ("'main' is already used by worktree at ..."): eseguirlo dal worktree principale.
-- `--delete-branch` con il branch ancora in uso da un altro worktree: errore sul branch locale e il branch remoto **non** viene cancellato. Cancellarlo a mano con `git push origin --delete <branch>`, poi `git checkout --detach origin/main` nel worktree e `git branch -D`.
+- Branch locale dopo il merge: `git checkout --detach origin/main` nel worktree che lo usa, poi `git branch -D`.
 - `gh pr checks` subito dopo `gh pr create` risponde «no checks reported» per circa 30 s: aspettare, poi `--watch`.
 - Mai `git add .`/`git add -A`: `.playwright-mcp/`, `.serena/`, `docker-compose.proxy.yml`, `proxy/` sono scratch locale non tracciato (finiti nei commit più volte, PR #78).
 
