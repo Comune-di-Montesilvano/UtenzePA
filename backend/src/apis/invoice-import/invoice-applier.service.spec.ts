@@ -136,7 +136,7 @@ describe('InvoiceApplier', () => {
   it('rielaborazione: righe sostituite senza impegno, quote d’impegno intatte', async () => {
     manager.findOne.mockResolvedValue({ id: 321, contratto_id_fk: 5, import_locked: false });
     manager.find.mockResolvedValue([
-      { utility_id_fk: 812, commitment_id_fk: 77, commitment_auto: false, consumption_id_fk: null },
+      { utility_id_fk: 812, consumption_id_fk: null },
     ]);
     await applier.apply(message(), extracted, match({ existingInvoiceId: 321 }), 3, 7);
     expect(manager.delete).toHaveBeenCalledWith(InvoiceLine, { invoice_id_fk: 321 });
