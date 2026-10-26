@@ -11,7 +11,9 @@
 // contratti. Un'annualit√† senza importo non si esaurisce. Le quote fisse
 // (MANUAL/ACCOUNTING) consumano la rimanenza della loro annualit√† e non si
 // spostano; le fatture che le hanno non compaiono nel risultato. Una nota di
-// credito (importo negativo) fa risalire la rimanenza.
+// credito (importo negativo) va sull'ultima annualit‡ candidata gi‡ consumata
+// (rimanenza sotto l'importo iniziale; senza importo: se una fattura o quota
+// vi Ë gi‡ andata), altrimenti sulla prima, e fa risalire la rimanenza.
 
 export interface AllocCommitment {
   id: number;
@@ -78,10 +80,15 @@ export function allocate(commitments: AllocCommitment[], invoices: AllocInvoice[
   const remaining = new Map<string, number>(
     ordered.map((c) => [unitKey(c.id, c.fiscal_year), c.amount === null ? Infinity : Number(c.amount)]),
   );
+  const initial = new Map(remaining);
+  const touched = new Set<string>();
   for (const i of invoices) {
     for (const s of i.fixed) {
       const key = unitKey(s.commitment_id, s.fiscal_year);
-      if (remaining.has(key)) remaining.set(key, remaining.get(key)! - Number(s.amount));
+      if (remaining.has(key)) {
+        remaining.set(key, remaining.get(key)! - Number(s.amount));
+        touched.add(key);
+      }
     }
   }
 
@@ -96,8 +103,14 @@ export function allocate(commitments: AllocCommitment[], invoices: AllocInvoice[
       continue;
     }
     const key = (c: AllocCommitment) => unitKey(c.id, c.fiscal_year);
-    const target = pool.find((c) => remaining.get(key(c))! > 0) ?? pool[pool.length - 1];
+    const consumed = (c: AllocCommitment) =>
+      initial.get(key(c)) === Infinity ? touched.has(key(c)) : remaining.get(key(c))! < initial.get(key(c))!;
+    const target =
+      Number(i.amount) < 0
+        ? ([...pool].reverse().find(consumed) ?? pool[0])
+        : (pool.find((c) => remaining.get(key(c))! > 0) ?? pool[pool.length - 1]);
     remaining.set(key(target), remaining.get(key(target))! - Number(i.amount));
+    touched.add(key(target));
     result.set(i.id, { id: target.id, fiscal_year: target.fiscal_year ?? null });
   }
   return result;

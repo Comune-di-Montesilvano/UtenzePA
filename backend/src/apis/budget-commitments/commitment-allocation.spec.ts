@@ -82,4 +82,35 @@ describe('allocate (per fattura)', () => {
     const invoices = [inv(1, 100, '2026-01-10'), inv(2, -50, '2026-02-10'), inv(3, 40, '2026-03-10')];
     expect(ids(allocate([A], invoices), [1, 2, 3])).toEqual([10, 10, 10]);
   });
+
+  it('nota di credito: ultima annualità già consumata', () => {
+    const invoices = [inv(1, 100, '2026-01-10'), inv(2, 60, '2026-02-10'), inv(3, -50, '2026-03-10')];
+    expect(ids(allocate([A, B], invoices), [1, 2, 3])).toEqual([10, 20, 20]);
+    expect(ids(allocate([A, B], [inv(1, 30, '2026-01-10'), inv(2, -10, '2026-02-10')]), [1, 2])).toEqual([10, 10]);
+  });
+
+  it('nota di credito senza annualità consumate: la prima', () => {
+    expect(ids(allocate([A, B], [inv(1, -10, '2026-01-10')]), [1])).toEqual([10]);
+  });
+
+  it('ordina per anno, numero, sub; senza numero dopo', () => {
+    const cs = [c(1, null, 1000), c(2, 5, 10, 2026), c(3, 9, 10, 2025), { ...c(4, 5, 10, 2026), sub: 0 }];
+    const invoices = [1, 2, 3, 4, 5].map((n) => inv(n, 10, `2026-01-0${n}`));
+    expect(ids(allocate(cs, invoices), [1, 2, 3, 4, 5])).toEqual([3, 4, 2, 1, 1]);
+  });
+
+  it('senza impegni: null', () => {
+    expect(allocate([], [inv(1, 10, '2026-01-10')]).get(1)).toBeNull();
+  });
+
+  it('impegno condiviso da due contratti: una sola rimanenza', () => {
+    const cs = [{ ...A, contract_ids: [1, 2] }, B];
+    const invoices = [inv(1, 100, '2026-01-10', { contract_id: 1 }), inv(2, 10, '2026-01-11', { contract_id: 2 })];
+    expect(ids(allocate(cs, invoices), [1, 2])).toEqual([10, 20]);
+  });
+
+  it('filtro anno isolato: stesso contratto, altro anno escluso', () => {
+    const cs = [{ ...A, fiscal_year: 2025, contract_ids: [7] }];
+    expect(allocate(cs, [inv(1, 10, '2026-01-10', { year: 2026, contract_id: 7 })]).get(1)).toBeNull();
+  });
 });
