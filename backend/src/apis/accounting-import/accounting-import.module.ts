@@ -9,6 +9,7 @@ import { ChapterApplierService } from './chapter-applier.service';
 import { CommitmentApplierService } from './commitment-applier.service';
 import { AccountingInvoiceService } from './accounting-invoice.service';
 import { ShareApplierService } from './share-applier.service';
+import { LinkApplierService } from './link-applier.service';
 
 // Ordine dei passi del giro: perimetro e capitoli, poi impegni, fatture,
 // quote, collegamenti. Ognuno legge quello che hanno scritto i precedenti.
@@ -21,6 +22,7 @@ import { ShareApplierService } from './share-applier.service';
     CommitmentApplierService,
     AccountingInvoiceService,
     ShareApplierService,
+    LinkApplierService,
     {
       provide: ACCOUNTING_STEPS,
       useFactory: (
@@ -28,13 +30,15 @@ import { ShareApplierService } from './share-applier.service';
         commitments: CommitmentApplierService,
         invoices: AccountingInvoiceService,
         shares: ShareApplierService,
+        links: LinkApplierService,
       ): AccountingStep[] => [
         { name: 'chapters', apply: () => chapters.apply() },
         { name: 'commitments', apply: () => commitments.apply() },
         { name: 'invoices', apply: () => invoices.apply() },
         { name: 'shares', apply: () => shares.apply() },
+        { name: 'links', apply: () => links.apply() },
       ],
-      inject: [ChapterApplierService, CommitmentApplierService, AccountingInvoiceService, ShareApplierService],
+      inject: [ChapterApplierService, CommitmentApplierService, AccountingInvoiceService, ShareApplierService, LinkApplierService],
     },
   ],
   controllers: [AccountingImportController],
