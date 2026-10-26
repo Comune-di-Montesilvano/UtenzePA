@@ -17,7 +17,7 @@ import {
   Query,
 } from './chapter-year';
 import { BudgetCheckDto } from './dto/budget-check.dto';
-import { lineFiscalYear, lineYearSql } from './line-year';
+import { invoiceCompetenceYear, lineFiscalYear, lineYearSql } from './line-year';
 import { annualityFor } from '@apis/budget-commitments/annuality';
 import { commitmentLabel } from '@apis/budget-commitments/commitment-label';
 
@@ -249,11 +249,10 @@ export class SpendingService {
   // Competenza della fattura: periodo dal primo inizio all'ultima fine delle
   // righe (stessa regola del ricalcolo delle quote).
   private invoiceCompetence(dto: BudgetCheckDto): number {
-    const days = (values: (string | null | undefined)[]) =>
-      values.filter((v): v is string => !!v).map((v) => String(v).slice(0, 10)).sort();
-    const starts = days(dto.lines.map((l) => l.period_start));
-    const ends = days(dto.lines.map((l) => l.period_end));
-    return lineFiscalYear(starts[0] ?? null, ends[ends.length - 1] ?? null, dto.invoice_date);
+    return invoiceCompetenceYear(
+      dto.lines.map((l) => ({ period_start: l.period_start ?? null, period_end: l.period_end ?? null })),
+      dto.invoice_date,
+    );
   }
 
   // Elenco capitoli: riepilogo di un esercizio per tutti i capitoli.

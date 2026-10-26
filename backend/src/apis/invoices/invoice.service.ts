@@ -18,7 +18,7 @@ import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption
 import { CommitmentReconcileService } from '@apis/budget-commitments/commitment-reconcile.service';
 import { annualityFor } from '@apis/budget-commitments/annuality';
 import { commitmentLabel } from '@apis/budget-commitments/commitment-label';
-import { lineFiscalYear } from '@apis/spending/line-year';
+import { invoiceCompetenceYear } from '@apis/spending/line-year';
 import { dbDay } from '@apis/utility-supply/supply-reconcile.service';
 import { InvoiceCommitmentShare } from './entity/invoice-commitment-share.entity';
 import { CommitmentShareSource } from './entity/commitment-share-source.enum';
@@ -55,15 +55,10 @@ function invoiceFiscalYear(
   lines: { period_start?: unknown; period_end?: unknown }[],
   invoiceDate: unknown,
 ): number {
-  const starts = lines
-    .map((l) => dbDay(l.period_start))
-    .filter((d): d is string => !!d)
-    .sort();
-  const ends = lines
-    .map((l) => dbDay(l.period_end))
-    .filter((d): d is string => !!d)
-    .sort();
-  return lineFiscalYear(starts[0] ?? null, ends[ends.length - 1] ?? null, dbDay(invoiceDate) ?? '');
+  return invoiceCompetenceYear(
+    lines.map((l) => ({ period_start: dbDay(l.period_start), period_end: dbDay(l.period_end) })),
+    dbDay(invoiceDate) ?? '',
+  );
 }
 
 // Nota di credito = totale documento negativo: solo lì l'imponibile può
@@ -374,7 +369,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
   ): Promise<ShareRow[]> {
     // Senza contratto l'impegno non ha un contratto con cui essere coerente.
     if (!contractId) {
-      throw new BadRequestException('La quota 1 ha un impegno ma la fattura non ha un contratto');
+      throw new BadRequestException("Le quote d'impegno richiedono un contratto sulla fattura");
     }
     const ids = [...new Set(shares.map((s) => s.commitment_id_fk))];
     const found = await manager.find(BudgetCommitment, {

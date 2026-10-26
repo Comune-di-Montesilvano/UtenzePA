@@ -29,6 +29,19 @@ export function lineFiscalYear(
   return yearOf(only ?? invoiceDate);
 }
 
+// Competenza di una fattura: periodo complessivo delle righe (primo inizio,
+// ultima fine), altrimenti data fattura.
+export function invoiceCompetenceYear(
+  periods: { period_start: string | null; period_end: string | null }[],
+  invoiceDate: string,
+): number {
+  const days = (values: (string | null)[]) =>
+    values.filter((v): v is string => !!v).map(day).sort();
+  const starts = days(periods.map((p) => p.period_start));
+  const ends = days(periods.map((p) => p.period_end));
+  return lineFiscalYear(starts[0] ?? null, ends[ends.length - 1] ?? null, invoiceDate);
+}
+
 export function lineYearSql(alias: { line: string; invoice: string }): string {
   const s = `${alias.line}.period_start`;
   const e = `${alias.line}.period_end`;

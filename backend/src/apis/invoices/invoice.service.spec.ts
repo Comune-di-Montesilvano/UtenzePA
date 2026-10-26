@@ -353,7 +353,7 @@ describe('InvoicesService', () => {
           } as never,
           3,
         ),
-      ).rejects.toThrow('La quota 1 ha un impegno ma la fattura non ha un contratto');
+      ).rejects.toThrow("Le quote d'impegno richiedono un contratto sulla fattura");
       expect(manager.save).not.toHaveBeenCalled();
     });
 
