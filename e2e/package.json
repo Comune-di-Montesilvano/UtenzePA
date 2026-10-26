@@ -1,0 +1,12 @@
+{
+  "name": "utenzepa-e2e",
+  "private": true,
+  "description": "Smoke E2E sulle immagini di produzione (job e2e di tests.yml)",
+  "packageManager": "pnpm@11.24.0",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

@@ -1,0 +1,21 @@
+-- Differenze entity <-> schema di un'installazione nuova (tutte le migration su DB vuoto),
+-- ereditate dal vecchio SYNCHRONIZE. Il job migrations di tests.yml fallisce se schema:log
+-- ne trova altre: una PR che ne toglie aggiorna anche questo file (righe ordinate).
+ALTER TABLE `audit_logs` ADD CONSTRAINT `FK_bd2726fd31b35443f2245b93ba0` FOREIGN KEY (`user_id`) REFERENCES `system_users`(`id`) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE `audit_logs` DROP FOREIGN KEY `FK_audit_logs_user_id`;
+ALTER TABLE `contract_utilities` ADD CONSTRAINT `FK_4e326a469113167f19437d5c5c3` FOREIGN KEY (`utility_id`) REFERENCES `utilities`(`id`) ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE `contract_utilities` ADD CONSTRAINT `FK_85d2825e71c7e216147a0dd73af` FOREIGN KEY (`contract_id`) REFERENCES `contracts`(`id`) ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE `contract_utilities` DROP FOREIGN KEY `FK_4e326a469113167f19437d5c5c3`;
+ALTER TABLE `contract_utilities` DROP FOREIGN KEY `FK_85d2825e71c7e216147a0dd73af`;
+ALTER TABLE `utilities` ADD CONSTRAINT `FK_89015a22b217ff8c7ac2283ca18` FOREIGN KEY (`budget_chapter_code_fk`) REFERENCES `budget_chapters`(`id`) ON DELETE NO ACTION ON UPDATE NO ACTION;
+ALTER TABLE `utilities` CHANGE `budget_chapter_code_fk` `budget_chapter_code_fk` int NULL;
+ALTER TABLE `utilities` DROP FOREIGN KEY `FK_89015a22b217ff8c7ac2283ca18`;
+CREATE INDEX `IDX_1a76b123ceb7736d157d7a6e5b` ON `audit_logs` (`entity_name`, `user_id`);
+CREATE INDEX `IDX_4e326a469113167f19437d5c5c` ON `contract_utilities` (`utility_id`);
+CREATE INDEX `IDX_85d2825e71c7e216147a0dd73a` ON `contract_utilities` (`contract_id`);
+CREATE INDEX `IDX_9ac4b82f0b0f68801024154d19` ON `audit_logs` (`entity_name`, `entity_id`);
+DROP INDEX `IDX_4a9b1d7a38f0ff6ce4eb247824` ON `contracts`;
+DROP INDEX `IDX_4e326a469113167f19437d5c5c` ON `contract_utilities`;
+DROP INDEX `IDX_85d2825e71c7e216147a0dd73a` ON `contract_utilities`;
+DROP INDEX `IDX_entity_name_entity_id` ON `audit_logs`;
+DROP INDEX `IDX_entity_name_user_id` ON `audit_logs`;

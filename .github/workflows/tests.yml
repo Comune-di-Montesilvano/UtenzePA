@@ -6,6 +6,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Merge queue di main: i check girano sulla PR gia' unita a main prima del merge.
+  merge_group:
 
 # Cancella run precedenti sullo stesso branch/PR quando arriva un nuovo push -
 # evita di sprecare minuti CI su commit gia' superati (push rapidi, force-push).
@@ -85,17 +87,158 @@ jobs:
           target: ${{ matrix.target }}
           pull: true
           load: true
-          tags: utenzepa-${{ matrix.app }}:ci
+          # Stesso nome di docker-compose.yml con IMAGE_TAG=ci: il job e2e avvia lo stack di
+          # produzione con queste immagini.
+          tags: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:ci
           # Package ghcr pubblico: la cache si legge senza login, mai scritta dalle PR.
           cache-from: type=registry,ref=ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:buildcache
 
       - name: Trivy vulnerability scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: utenzepa-${{ matrix.app }}:ci
+          image-ref: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:ci
           format: table
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: '1'
           trivyignores: .trivyignore
           version: latest
+
+      - name: Salva l'immagine per il job e2e
+        run: docker save ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:ci | gzip -1 > image-${{ matrix.app }}.tar.gz
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: image-${{ matrix.app }}
+          path: image-${{ matrix.app }}.tar.gz
+          retention-days: 1
+
+  # Migration su un database vuoto (installazione nuova), entity allineate alle migration
+  # (schema:log = solo la baseline nota) e giro down -> up di quelle aggiunte dalla PR.
+  # Vedi backend/scripts/check-migrations.sh.
+  migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: ci
+          MYSQL_DATABASE: mydatabase
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -pci"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # Storia completa: serve il confronto con la base per contare le migration nuove.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 11.24.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: 'pnpm'
+          cache-dependency-path: backend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Migration da zero, schema:log e down -> up
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: '3306'
+          MYSQL_USER: root
+          MYSQL_PASSWORD: ci
+          MYSQL_DB: mydatabase
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: |
+          set -eu
+          # Migration aggiunte rispetto alla base (minimo 1: si prova sempre l'ultima).
+          added=$(git diff --name-only --diff-filter=A "$BASE_SHA" HEAD -- src/database/migrations 2>/dev/null | grep -c '\.ts$' || true)
+          echo "Migration nuove: ${added:-0}"
+          sh scripts/check-migrations.sh "${added:-1}"
+
+  # Stack di produzione (docker-compose.yml) con le immagini del job docker su un DB nuovo:
+  # avvio, migration all'avvio, Admin creato via SQL, poi smoke Playwright (e2e/).
+  e2e:
+    needs: docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # Valori usa e getta del solo CI, nessun segreto reale.
+      IMAGE_TAG: ci
+      MYSQL_PASSWORD: ci-mysql-password-not-secret
+      JWT_ACCESS_SECRET: ci-jwt-secret-not-secret-0123456789abcdef0123456789abcdef
+      COOKIE_SECRET: ci-cookie-secret-not-secret-0123456789abcdef0123456789abcdef
+      SETUP_BOOTSTRAP_TOKEN: ci-setup-token-not-secret
+      CORS_ORIGIN: http://localhost:4300
+      API_URL: http://localhost:3000/api/v1
+      INVOICE_IMPORT_DISABLED: 'true'
+      E2E_USERNAME: e2e.admin
+      E2E_PASSWORD: ci-e2e-password-not-secret
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: image-*
+          merge-multiple: true
+
+      - name: Carica le immagini
+        run: for f in image-*.tar.gz; do gunzip -c "$f" | docker load; done
+
+      - name: Avvia lo stack di produzione
+        run: |
+          set -eu
+          docker compose -f docker-compose.yml up -d --pull never
+          # Migration all'avvio su DB vuoto: l'API risponde solo a migration finite.
+          for i in $(seq 1 90); do
+            if curl -fsS http://localhost:3000/api/v1/health/liveness >/dev/null; then
+              echo "API pronta dopo $((i * 2)) s"; exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::API non pronta in 180 s"; exit 1
+
+      - name: Crea l'Admin di prova
+        run: |
+          set -eu
+          hash=$(docker compose -f docker-compose.yml exec -T -e P="$E2E_PASSWORD" api \
+            node -e "require('bcrypt').hash(process.env.P, 10).then(console.log)")
+          docker compose -f docker-compose.yml exec -T mysql mysql -uroot -p"$MYSQL_PASSWORD" mydatabase -e \
+            "INSERT INTO system_users (first_name, last_name, username, password_hash, auth_provider, role, status, created_by_user_id, updated_by_user_id) VALUES ('E2E', 'Admin', '$E2E_USERNAME', '$hash', 'local', 'Admin', 'Attivo', -1, -1)"
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 11.24.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: 'pnpm'
+          cache-dependency-path: e2e/pnpm-lock.yaml
+
+      - name: Playwright
+        working-directory: e2e
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+          pnpm test
+
+      - name: Log dello stack
+        if: failure()
+        run: docker compose -f docker-compose.yml logs --no-color --tail 300
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7
