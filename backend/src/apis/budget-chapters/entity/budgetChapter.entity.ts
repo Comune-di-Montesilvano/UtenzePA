@@ -13,6 +13,7 @@ import {
 } from 'typeorm';
 import { Utility } from '../../utility/entity/utility.entity';
 import { SystemUser } from '../../system-users/entity/system-user.entity';
+import { RecordSource } from '@apis/accounting-import/record-source.enum';
 import { UtilityType } from '../../utility-types/entity/utility_type.entity';
 
 @Entity('budget_chapters')
@@ -60,6 +61,9 @@ export class BudgetChapter {
 
   @Column({ type: 'boolean', default: false })
   deleted: boolean;
+
+  @Column({ type: 'varchar', length: 20, default: RecordSource.MANUAL })
+  source: RecordSource;
 
   @ManyToOne(() => SystemUser)
   @JoinColumn({ name: 'created_by_user_id' })

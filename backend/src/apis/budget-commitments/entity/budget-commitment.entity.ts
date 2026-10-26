@@ -16,6 +16,7 @@ import { BudgetChapter } from '@apis/budget-chapters/entity/budgetChapter.entity
 import { SystemUser } from '@apis/system-users/entity/system-user.entity';
 import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
 import { BudgetCommitmentYear } from './budget-commitment-year.entity';
+import { RecordSource } from '@apis/accounting-import/record-source.enum';
 
 // Impegno contabile: capitolo impegnato, con il numero della ragioneria
 // (anno/num/sub), una o più annualità (esercizio di competenza + importo:
@@ -60,6 +61,9 @@ export class BudgetCommitment {
 
   @Column({ type: 'boolean', default: false })
   deleted: boolean;
+
+  @Column({ type: 'varchar', length: 20, default: RecordSource.MANUAL })
+  source: RecordSource;
 
   @OneToMany(() => BudgetCommitmentYear, (y) => y.commitment, { cascade: true })
   years: BudgetCommitmentYear[];

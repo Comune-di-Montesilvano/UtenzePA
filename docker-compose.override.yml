@@ -61,6 +61,7 @@ services:
       - INVOICE_IMPORT_CRON=${INVOICE_IMPORT_CRON:-*/15 * * * *}
       # In dev spento: il DB locale non deve leggere la casella di produzione per sbaglio
       - INVOICE_IMPORT_DISABLED=${INVOICE_IMPORT_DISABLED:-true}
+      - ACCOUNTING_IMPORT_DISABLED=${ACCOUNTING_IMPORT_DISABLED:-false}
       # HOME di default nell'immagine punta a /root (build-time, utente root) —
       # con user:"1000:1000" a runtime pnpm risolve lo store in $HOME/.local/share/pnpm,
       # cioè dentro /root, non scrivibile da uid 1000 (permessi 700 di default):
