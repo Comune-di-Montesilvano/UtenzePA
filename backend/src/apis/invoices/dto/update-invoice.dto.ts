@@ -1,4 +1,5 @@
 import {
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsInt,
@@ -13,6 +14,7 @@ import {
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { InvoiceLineDto } from './invoice-line.dto';
+import { InvoiceCommitmentShareDto } from './invoice-commitment-share.dto';
 import { DateOnly } from '@/common/decorators/date-only.decorator';
 
 export class UpdateInvoiceDto {
@@ -93,4 +95,13 @@ export class UpdateInvoiceDto {
   @ValidateNested({ each: true })
   @Type(() => InvoiceLineDto)
   lines?: InvoiceLineDto[];
+
+  // Quote d'impegno a mano. Assente = invariate, [] = torna automatica,
+  // lista = sostituisce le quote con quelle scelte a mano.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => InvoiceCommitmentShareDto)
+  commitment_shares?: InvoiceCommitmentShareDto[];
 }

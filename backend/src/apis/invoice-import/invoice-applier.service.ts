@@ -8,7 +8,6 @@ import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
 import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
 import { ConsumptionLinker, type ConsumptionBands } from './consumption-linker.service';
 import { InvoiceImportIssue } from './entity/invoice-import-issue.entity';
-import { keptCommitment } from './kept-commitment';
 import { SdiMessage } from './entity/sdi-message.entity';
 import { SdiMessageStatus } from './enum/sdi-message-status.enum';
 import type { MatchIssue, MatchResult } from './invoice-matcher.service';
@@ -68,7 +67,6 @@ export class InvoiceApplier {
         const previous = previousLines
           .map((l) => l.consumption_id_fk)
           .filter((id): id is number => !!id);
-        const kept = keptCommitment(previousLines);
         invoiceId = existing
           ? await this.enrich(manager, existing, message, extracted, match)
           : await this.create(manager, message, extracted, match, authorId);
@@ -80,8 +78,6 @@ export class InvoiceApplier {
               invoice_id_fk: invoiceId,
               amount: l.amount,
               utility_id_fk: l.utility_id_fk,
-              commitment_id_fk: kept(l.utility_id_fk),
-              commitment_auto: kept(l.utility_id_fk) === null,
               period_start: l.period_start,
               period_end: l.period_end,
               consumption: l.consumption,
