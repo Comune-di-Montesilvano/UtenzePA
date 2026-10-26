@@ -13,7 +13,8 @@ function fakeDataSource(data: { closure?: Row[]; commitments?: Row[]; invoices?:
     if (sql.includes('/* r_invoices */')) return data.invoices ?? [];
     return [];
   });
-  return { ds: { query } as unknown as DataSource, calls };
+  const transaction = async (cb: (m: { query: typeof query }) => Promise<void>) => cb({ query });
+  return { ds: { query, transaction } as unknown as DataSource, calls };
 }
 
 const tagged = (calls: { sql: string; params: unknown[] }[], tag: string) =>
@@ -55,9 +56,9 @@ describe('CommitmentReconcileService', () => {
     });
     await new CommitmentReconcileService(ds).reconcileContracts([1]);
     expect(inserts(calls).map((c) => c.params)).toEqual([
-      [1, 10, 2026, 60],
-      [2, 10, 2026, 60],
-      [3, 20, 2026, 60],
+      [1, 10, 2026, 60, 1],
+      [2, 10, 2026, 60, 2],
+      [3, 20, 2026, 60, 3],
     ]);
     expect(deletes(calls).map((c) => c.params)).toEqual([[1], [2], [3]]);
     expect(inserts(calls)[0].sql).toContain("'AUTO'");
@@ -91,7 +92,7 @@ describe('CommitmentReconcileService', () => {
     });
     await new CommitmentReconcileService(ds).reconcileContracts([1]);
     expect(deletes(calls).map((c) => c.params)).toEqual([[2]]);
-    expect(inserts(calls).map((c) => c.params)).toEqual([[2, 10, 2026, 7]]);
+    expect(inserts(calls).map((c) => c.params)).toEqual([[2, 10, 2026, 7, 2]]);
   });
 
   it('una fattura con quote fisse non viene scritta ma consuma la rimanenza', async () => {
@@ -103,9 +104,54 @@ describe('CommitmentReconcileService', () => {
       ],
     });
     await new CommitmentReconcileService(ds).reconcileContracts([1]);
-    expect(inserts(calls).map((c) => c.params)).toEqual([[2, 10, 2026, 20]]);
+    expect(inserts(calls).map((c) => c.params)).toEqual([[2, 10, 2026, 20, 2]]);
     expect(inserts(calls).every((c) => c.params[0] !== 1)).toBe(true);
     expect(deletes(calls).every((c) => c.params[0] !== 1)).toBe(true);
+  });
+
+  it("l'insert della quota automatica non scrive se esistono quote fisse", async () => {
+    const { ds, calls } = fakeDataSource({ commitments: [commitment(10, 521, 100)], invoices: [invoice(1, 5, '2026-01-10')] });
+    await new CommitmentReconcileService(ds).reconcileContracts([1]);
+    expect(inserts(calls)[0].sql).toContain("NOT EXISTS (SELECT 1 FROM invoice_commitment_shares WHERE invoice_id_fk = ? AND source <> 'AUTO')");
+  });
+
+  it('una fattura con quote fisse e una quota automatica residua: la automatica si toglie', async () => {
+    const { ds, calls } = fakeDataSource({
+      commitments: [commitment(10, 521, 100)],
+      invoices: [
+        invoice(1, 5, '2026-01-10', {
+          fixed: [{ commitment_id: 10, fiscal_year: 2026, amount: 5 }],
+          auto_share: { commitment_id: 10, fiscal_year: 2026, amount: 5 },
+        }),
+      ],
+    });
+    await new CommitmentReconcileService(ds).reconcileContracts([1]);
+    expect(deletes(calls).map((c) => c.params)).toEqual([[1]]);
+    expect(inserts(calls)).toHaveLength(0);
+  });
+
+  it('senza righe e senza totale ma con quote fisse: consumano comunque la rimanenza', async () => {
+    const { ds, calls } = fakeDataSource({
+      commitments: [commitment(10, 521, 100), commitment(20, 600, 100)],
+      invoices: [
+        invoice(1, null, '2026-01-10', { chapters: null, fixed: [{ commitment_id: 10, fiscal_year: 2026, amount: 95 }] }),
+        invoice(2, 20, '2026-01-11'),
+      ],
+    });
+    await new CommitmentReconcileService(ds).reconcileContracts([1]);
+    expect(inserts(calls).map((c) => c.params)).toEqual([[2, 10, 2026, 20, 2]]);
+  });
+
+  it("la quota a mano di una fattura di un altro contratto abbassa la rimanenza dell'impegno", async () => {
+    const { ds, calls } = fakeDataSource({
+      commitments: [commitment(10, 521, 100), commitment(20, 600, 100)],
+      invoices: [
+        invoice(5, 100, '2026-01-01', { contract_id: 2, fixed: [{ commitment_id: 10, fiscal_year: 2026, amount: 100 }] }),
+        invoice(1, 30, '2026-01-10'),
+      ],
+    });
+    await new CommitmentReconcileService(ds).reconcileContracts([1]);
+    expect(inserts(calls).map((c) => c.params)).toEqual([[1, 20, 2026, 30, 1]]);
   });
 
   it('la competenza viene dal periodo delle righe', async () => {
@@ -114,7 +160,7 @@ describe('CommitmentReconcileService', () => {
       invoices: [invoice(1, 20, '2026-12-20', { period_start: '2027-01-01', period_end: '2027-02-28' })],
     });
     await new CommitmentReconcileService(ds).reconcileContracts([1]);
-    expect(inserts(calls).map((c) => c.params)).toEqual([[1, 10, 2027, 20]]);
+    expect(inserts(calls).map((c) => c.params)).toEqual([[1, 10, 2027, 20, 1]]);
   });
 
   it('una fattura senza righe e senza totale non ha quota', async () => {
@@ -165,7 +211,7 @@ describe('CommitmentReconcileService', () => {
       invoices: [invoice(1, 10, '2026-01-10', { chapters: null })],
     });
     await new CommitmentReconcileService(ds).reconcileContracts([1]);
-    expect(inserts(calls).map((c) => c.params)).toEqual([[1, 10, 2026, 10]]);
+    expect(inserts(calls).map((c) => c.params)).toEqual([[1, 10, 2026, 10, 1]]);
   });
 
   it('legge solo fatture non cancellate e non rifiutate, con il contratto in testata', async () => {
@@ -184,7 +230,7 @@ describe('CommitmentReconcileService', () => {
     const { ds, calls } = fakeDataSource({ commitments: [commitment(10, 1, 100)] });
     await new CommitmentReconcileService(ds).reconcileContracts([1]);
     const q = tagged(calls, 'r_invoices')[0];
-    expect(q.sql).toContain("'MANUAL'");
+    expect(q.sql).toContain("m.source <> 'AUTO'");
     expect(q.params).toEqual([[1], [10]]);
     expect(tagged(calls, 'r_commitments')[0].sql).not.toContain('GROUP_CONCAT');
   });

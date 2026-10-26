@@ -40,14 +40,16 @@ const INVOICES_SQL =
   `FROM invoices i WHERE i.deleted = 0 AND ${NOT_REJECTED_SQL('i')} AND (i.contratto_id_fk IN (?) OR ` +
   // Anche le quote a mano sugli impegni di fatture di contratti scollegati:
   // consumano la stessa rimanenza mostrata nella scheda.
-  "EXISTS (SELECT 1 FROM invoice_commitment_shares m WHERE m.invoice_id_fk = i.id AND m.source = 'MANUAL' " +
+  "EXISTS (SELECT 1 FROM invoice_commitment_shares m WHERE m.invoice_id_fk = i.id AND m.source <> 'AUTO' " +
   'AND m.commitment_id_fk IN (?)))';
 
 const AUTO_DELETE_SQL =
   "/* r_auto_delete */ DELETE FROM invoice_commitment_shares WHERE invoice_id_fk = ? AND source = 'AUTO'";
 const AUTO_INSERT_SQL =
   '/* r_auto_insert */ INSERT INTO invoice_commitment_shares (invoice_id_fk, commitment_id_fk, fiscal_year, amount, source) ' +
-  "VALUES (?, ?, ?, ?, 'AUTO')";
+  "SELECT ?, ?, ?, ?, 'AUTO' FROM DUAL WHERE NOT EXISTS " +
+  // Mai quote miste: con quote fisse la quota automatica non si scrive.
+  "(SELECT 1 FROM invoice_commitment_shares WHERE invoice_id_fk = ? AND source <> 'AUTO')";
 
 // Quote automatiche di fatture senza contratto: nessun impegno possibile.
 const ORPHANS_SQL =
@@ -177,14 +179,15 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
       const id = Number(r.id);
       const fixed = parseJson<Record<string, unknown>[]>(r.fixed) ?? [];
       current.set(id, shareOf(parseJson<Record<string, unknown>>(r.auto_share)));
-      // Senza righe e senza totale non c'è un importo da imputare.
-      if (r.amount === null || r.amount === undefined) continue;
+      const noAmount = r.amount === null || r.amount === undefined;
+      // Senza righe e senza totale non c'è un importo da imputare (le quote fisse contano comunque).
+      if (noAmount && !fixed.length) continue;
       const date = dbDay(r.date) ?? '';
       const chapters = [...new Set((parseJson<unknown[]>(r.chapters) ?? []).map(Number))];
       invoices.push({
         id,
         date,
-        amount: Number(r.amount),
+        amount: noAmount ? 0 : Number(r.amount),
         contract_id: r.contract_id === null ? undefined : Number(r.contract_id),
         // Utenza senza capitolo: 0 = nessun impegno candidato; nessuna utenza o più capitoli: null.
         chapter: chapters.length === 1 ? chapters[0] : null,
@@ -201,14 +204,20 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
     const amounts = new Map(invoices.map((i) => [i.id, i.amount]));
     const withFixed = new Set(invoices.filter((i) => i.fixed.length).map((i) => i.id));
     for (const [id, share] of current) {
-      if (withFixed.has(id)) continue;
+      if (withFixed.has(id)) {
+        // Quote miste: la quota automatica residua si toglie.
+        if (share) await this.dataSource.query(AUTO_DELETE_SQL, [id]);
+        continue;
+      }
       const target = targets.get(id) ?? null;
       const wanted: Share | null = target
         ? { commitment_id: target.id, fiscal_year: target.fiscal_year, amount: amounts.get(id)! }
         : null;
       if (sameShare(share, wanted)) continue;
-      await this.dataSource.query(AUTO_DELETE_SQL, [id]);
-      if (wanted) await this.dataSource.query(AUTO_INSERT_SQL, [id, wanted.commitment_id, wanted.fiscal_year, wanted.amount]);
+      await this.dataSource.transaction(async (m) => {
+        await m.query(AUTO_DELETE_SQL, [id]);
+        if (wanted) await m.query(AUTO_INSERT_SQL, [id, wanted.commitment_id, wanted.fiscal_year, wanted.amount, id]);
+      });
     }
   }
 }
