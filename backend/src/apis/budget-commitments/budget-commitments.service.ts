@@ -14,6 +14,8 @@ import { SearchBudgetCommitmentDto } from './dto/search-budget-commitment.dto';
 import { CommitmentReconcileService } from './commitment-reconcile.service';
 import { commitmentLabel } from './commitment-label';
 import { idList } from './id-list';
+import { annualityFor } from './annuality';
+import { dbDay } from '@/helpers/date.helpers';
 
 const toNumber = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 const round2 = (n: number): number => Math.round(n * 100) / 100;
@@ -94,6 +96,13 @@ const YEARS_DELETE_SQL = '/* c_years_delete */ DELETE FROM budget_commitment_yea
 const YEARS_INSERT_SQL =
   '/* c_years_insert */ INSERT INTO budget_commitment_years (commitment_id, fiscal_year, amount) VALUES ?';
 
+// Quote a mano su annualità tolte dall'impegno, per esercizio.
+const MANUAL_ORPHANS_SQL = `/* c_manual_orphans */ SELECT fiscal_year, COUNT(*) AS n FROM invoice_commitment_shares
+  WHERE commitment_id_fk = ? AND source = '${CommitmentShareSource.MANUAL}' AND fiscal_year NOT IN (?)
+  GROUP BY fiscal_year`;
+const MANUAL_MOVE_SQL = `/* c_manual_move */ UPDATE invoice_commitment_shares SET fiscal_year = ?
+  WHERE commitment_id_fk = ? AND source = '${CommitmentShareSource.MANUAL}' AND fiscal_year = ?`;
+
 // Fatture valide con quote a mano sull'impegno.
 const MANUAL_SHARES_SQL = `/* c_manual */ SELECT COUNT(DISTINCT s.invoice_id_fk) AS n ${VALID_SHARES}
   WHERE s.commitment_id_fk = ? AND s.source = '${CommitmentShareSource.MANUAL}'`;
@@ -103,15 +112,6 @@ const INVOICES_SQL = `/* c_invoices */ SELECT s.id AS share_id, i.id AS invoice_
   ${VALID_SHARES}
   WHERE s.commitment_id_fk = ?
   ORDER BY i.invoice_date, i.id, s.id`;
-
-const day = (v: unknown): string | null => {
-  if (v === null || v === undefined) return null;
-  if (v instanceof Date) {
-    const p = (n: number) => String(n).padStart(2, '0');
-    return `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`;
-  }
-  return String(v).slice(0, 10);
-};
 
 function toYears(v: unknown): CommitmentYearRow[] {
   const list = (typeof v === 'string' ? JSON.parse(v) : (v ?? [])) as Record<string, unknown>[];
@@ -221,7 +221,7 @@ export class BudgetCommitmentsService extends BaseService<
         share_id: Number(r.share_id),
         invoice_id: Number(r.invoice_id),
         invoice_number: String(r.invoice_number ?? ''),
-        invoice_date: day(r.invoice_date) ?? '',
+        invoice_date: dbDay(r.invoice_date) ?? '',
         amount: Number(r.amount),
         fiscal_year: Number(r.fiscal_year),
         source: r.source as CommitmentShareSource,
@@ -292,14 +292,35 @@ export class BudgetCommitmentsService extends BaseService<
       await this.repo.save(current);
     }
     if (years !== undefined && yearsLabel(years) !== yearsBefore) {
-      await this.repo.query(YEARS_DELETE_SQL, [id]);
-      await this.repo.query(YEARS_INSERT_SQL, [years.map((y) => [id, y.fiscal_year, y.amount])]);
       changes.push({ fieldName: 'years', oldValue: yearsBefore, newValue: yearsLabel(years) });
+      changes.push(...(await this.replaceYears(id, years)));
     }
     const result = await super.update(id, { ...fields, ...number } as UpdateBudgetCommitmentDto, userId);
     if (changes.length) await this.recordAudit(AuditAction.UPDATE, id, userId, changes);
     await this.reconcile.reconcileSafe([...new Set([...before, ...(contract_ids ?? before)])]);
     return result;
+  }
+
+  // Annualità sostituite in blocco; le quote a mano su un esercizio tolto
+  // passano all'annualità più vicina (annualityFor), quelle da contabilità no.
+  private async replaceYears(
+    id: number,
+    years: { fiscal_year: number; amount: number | null }[],
+  ): Promise<{ fieldName: string; oldValue: unknown; newValue: unknown }[]> {
+    const list = years.map((y) => y.fiscal_year);
+    return this.repo.manager.transaction(async (m) => {
+      await m.query(YEARS_DELETE_SQL, [id]);
+      await m.query(YEARS_INSERT_SQL, [years.map((y) => [id, y.fiscal_year, y.amount])]);
+      const orphans: { fiscal_year: number; n: number }[] = await m.query(MANUAL_ORPHANS_SQL, [id, list]);
+      const moved: { fieldName: string; oldValue: unknown; newValue: unknown }[] = [];
+      for (const o of orphans) {
+        const from = Number(o.fiscal_year);
+        const to = annualityFor(list, from)!;
+        await m.query(MANUAL_MOVE_SQL, [to, id, from]);
+        moved.push({ fieldName: 'shares_moved', oldValue: `${from} (${Number(o.n)} quote)`, newValue: `${to}` });
+      }
+      return moved;
+    });
   }
 
   // Il numero deve essere ancora libero: nel frattempo può essere stato riusato.

@@ -12,7 +12,8 @@ import {
 } from '@apis/invoice-import/pattern/unknown-structures';
 import { CostStatus, costStatusSql, inChargeSql } from '@apis/utility/cost-status';
 import { chaptersYearSummary, currentYear } from '@apis/spending/chapter-year';
-import { dbDay, romeDay } from '@apis/utility-supply/supply-reconcile.service';
+import { romeDay } from '@apis/utility-supply/supply-reconcile.service';
+import { dbDay } from '@/helpers/date.helpers';
 import { SupplyEventLike } from '@apis/utility-supply/supply-state';
 import { outOfPeriod } from '@apis/utility-supply/out-of-period';
 import { SupplyEventType } from '@apis/utility-supply/enum/supply-event-type.enum';

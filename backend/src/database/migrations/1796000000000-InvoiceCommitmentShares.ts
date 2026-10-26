@@ -8,16 +8,21 @@ export class InvoiceCommitmentShares1796000000000 implements MigrationInterface 
   name = 'InvoiceCommitmentShares1796000000000';
 
   public async up(q: QueryRunner): Promise<void> {
-    // Controllo prima di ogni DDL: una quota sola per fattura, quindi righe su
-    // una sola coppia impegno + annualità e tutte automatiche o tutte a mano.
+    // Controllo prima di ogni DDL: una quota sola per fattura. Si ferma solo
+    // per le fatture con righe scelte a mano su più impegni o annualità (anche
+    // miste con righe automatiche su un altro impegno) o senza annualità: la
+    // scelta dell'utente non si può indovinare. Le fatture solo automatiche in
+    // conflitto o senza annualità restano senza quota: la crea il ricalcolo
+    // all'avvio (CommitmentReconcileService).
     const conflicts: Array<{ invoice_id_fk: number }> = await q.query(
       'SELECT `invoice_id_fk` FROM `invoice_lines` WHERE `commitment_id_fk` IS NOT NULL ' +
-        'GROUP BY `invoice_id_fk` HAVING COUNT(DISTINCT `commitment_id_fk`, IFNULL(`commitment_fiscal_year`, 0)) > 1 ' +
-        'OR MIN(`commitment_auto`) <> MAX(`commitment_auto`) OR SUM(`commitment_fiscal_year` IS NULL) > 0',
+        'GROUP BY `invoice_id_fk` HAVING MIN(`commitment_auto`) = 0 AND ' +
+        '(COUNT(DISTINCT `commitment_id_fk`, IFNULL(`commitment_fiscal_year`, 0)) > 1 ' +
+        'OR SUM(`commitment_auto` = 0 AND `commitment_fiscal_year` IS NULL) > 0)',
     );
     if (conflicts.length > 0) {
       throw new Error(
-        'Fatture con righe su più impegni o annualità, miste automatiche/manuali o senza annualità: ' +
+        'Fatture con righe scelte a mano su più impegni o annualità, o senza annualità: ' +
           conflicts.map((c) => c.invoice_id_fk).join(', ') +
           '. Sistemarle prima di aggiornare.',
       );
@@ -37,11 +42,15 @@ export class InvoiceCommitmentShares1796000000000 implements MigrationInterface 
       'ALTER TABLE `invoice_commitment_shares` ADD CONSTRAINT `FK_invoice_commitment_shares_commitment` ' +
         'FOREIGN KEY (`commitment_id_fk`) REFERENCES `budget_commitments`(`id`) ON DELETE RESTRICT ON UPDATE NO ACTION',
     );
+    // Una quota per fattura, solo con righe su un'unica coppia impegno +
+    // annualità; a mano se almeno una riga lo era.
     await q.query(
       'INSERT INTO `invoice_commitment_shares` (`invoice_id_fk`, `commitment_id_fk`, `fiscal_year`, `source`, `amount`) ' +
-        "SELECT `invoice_id_fk`, `commitment_id_fk`, `commitment_fiscal_year`, IF(MIN(`commitment_auto`) = 0, 'MANUAL', 'AUTO'), SUM(`amount`) " +
-        'FROM `invoice_lines` WHERE `commitment_id_fk` IS NOT NULL ' +
-        'GROUP BY `invoice_id_fk`, `commitment_id_fk`, `commitment_fiscal_year`',
+        'SELECT `invoice_id_fk`, MIN(`commitment_id_fk`), MIN(`commitment_fiscal_year`), ' +
+        "IF(MIN(`commitment_auto`) = 0, 'MANUAL', 'AUTO'), SUM(`amount`) " +
+        'FROM `invoice_lines` WHERE `commitment_id_fk` IS NOT NULL GROUP BY `invoice_id_fk` ' +
+        'HAVING COUNT(DISTINCT `commitment_id_fk`, IFNULL(`commitment_fiscal_year`, 0)) = 1 ' +
+        'AND SUM(`commitment_fiscal_year` IS NULL) = 0',
     );
   }
 

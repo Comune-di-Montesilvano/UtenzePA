@@ -24,13 +24,25 @@ describe('InvoiceCommitmentShares migration', () => {
     expect(check).toBe(0);
     expect(create).toBeGreaterThan(check);
     expect(copy).toBeGreaterThan(create);
-    expect(sql[copy]).toMatch(/GROUP BY `invoice_id_fk`, `commitment_id_fk`, `commitment_fiscal_year`/);
+    expect(sql[copy]).toMatch(/GROUP BY `invoice_id_fk` HAVING/);
+    // Solo fatture con un'unica coppia impegno + annualità: le automatiche in
+    // conflitto restano senza quota (la crea il ricalcolo all'avvio).
+    expect(sql[copy]).toMatch(/COUNT\(DISTINCT `commitment_id_fk`, IFNULL\(`commitment_fiscal_year`, 0\)\) = 1/);
+    expect(sql[copy]).toMatch(/SUM\(`commitment_fiscal_year` IS NULL\) = 0/);
     expect(sql[copy]).toMatch(/IF\(MIN\(`commitment_auto`\) = 0, 'MANUAL', 'AUTO'\)/);
     expect(sql[copy]).toMatch(/SUM\(`amount`\)/);
     expect(sql[copy]).toMatch(/WHERE `commitment_id_fk` IS NOT NULL/);
   });
 
-  it('up si ferma elencando le fatture con righe su più impegni o miste auto/manuali', async () => {
+  it('il controllo blocca solo le fatture con righe a mano in conflitto o senza annualità', async () => {
+    const { runner, sql } = fakeRunner();
+    await new InvoiceCommitmentShares1796000000000().up(runner);
+    expect(sql[0]).toMatch(/HAVING MIN\(`commitment_auto`\) = 0 AND/);
+    expect(sql[0]).toMatch(/SUM\(`commitment_auto` = 0 AND `commitment_fiscal_year` IS NULL\) > 0/);
+    expect(sql[0]).not.toMatch(/MIN\(`commitment_auto`\) <> MAX\(`commitment_auto`\)/);
+  });
+
+  it('up si ferma elencando le fatture con righe a mano su più impegni o annualità', async () => {
     const { runner, sql } = fakeRunner([{ invoice_id_fk: 7 }, { invoice_id_fk: 9 }]);
     await expect(new InvoiceCommitmentShares1796000000000().up(runner)).rejects.toThrow(/7, 9/);
     expect(indexOf(sql, /CREATE TABLE/)).toBe(-1);

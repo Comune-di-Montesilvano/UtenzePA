@@ -11,16 +11,25 @@ describe('commitmentLabel', () => {
 
 describe('BudgetCommitmentsService', () => {
   let service: BudgetCommitmentsService;
-  let repo: { find: jest.Mock; findOne: jest.Mock; create: jest.Mock; save: jest.Mock; query: jest.Mock };
+  let repo: {
+    find: jest.Mock;
+    findOne: jest.Mock;
+    create: jest.Mock;
+    save: jest.Mock;
+    query: jest.Mock;
+    manager: { transaction: jest.Mock };
+  };
   let contractRepo: { find: jest.Mock };
   let chapterRepo: { findOne: jest.Mock };
   let reconcile: { reconcileSafe: jest.Mock };
   let manualLines = 0;
   let rows: Record<string, unknown>[] = [];
+  let manualOrphans: { fiscal_year: number; n: number }[] = [];
 
   beforeEach(() => {
     manualLines = 0;
     rows = [];
+    manualOrphans = [];
     repo = {
       find: jest.fn().mockResolvedValue([]),
       findOne: jest.fn(),
@@ -29,9 +38,15 @@ describe('BudgetCommitmentsService', () => {
       query: jest.fn(async (sql: string) => {
         if (sql.includes('/* c_manual */')) return [{ n: manualLines }];
         if (sql.includes('/* c_rows */')) return rows;
+        if (sql.includes('/* c_manual_orphans */')) return manualOrphans;
         return [];
       }),
+      manager: { transaction: jest.fn() },
     };
+    // Transazione: stesse query del repository.
+    repo.manager.transaction.mockImplementation(async (cb: (m: { query: jest.Mock }) => unknown) =>
+      cb({ query: repo.query }),
+    );
     contractRepo = { find: jest.fn(async () => [{ id: 1 }, { id: 2 }]) };
     chapterRepo = { findOne: jest.fn().mockResolvedValue({ id: 7, deleted: false }) };
     reconcile = { reconcileSafe: jest.fn().mockResolvedValue(undefined) };
@@ -224,5 +239,36 @@ describe('BudgetCommitmentsService', () => {
     });
     await service.update(9, { years: [{ fiscal_year: 2026, amount: 100 }] }, 3);
     expect(repo.query.mock.calls.some(([s]) => String(s).includes('/* c_years_'))).toBe(false);
+  });
+  it('annualità tolta: le quote a mano passano alla più vicina, con audit; le altre non si toccano', async () => {
+    repo.findOne.mockResolvedValue({
+      id: 9, budget_chapter_id_fk: 7, contracts: [{ id: 1 }],
+      years: [{ fiscal_year: 2025, amount: '50.00' }, { fiscal_year: 2026, amount: '100.00' }],
+    });
+    manualOrphans = [{ fiscal_year: 2025, n: 2 }];
+    const audit = jest.spyOn(service as never, 'recordAudit').mockResolvedValue(undefined as never);
+    await service.update(9, { years: [{ fiscal_year: 2026, amount: 100 }, { fiscal_year: 2028, amount: 10 }] }, 3);
+    const orphans = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_manual_orphans */'))!;
+    expect(orphans[0]).toContain("source = 'MANUAL'");
+    expect(orphans[1]).toEqual([9, [2026, 2028]]);
+    const move = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_manual_move */'))!;
+    expect(move[0]).toContain("source = 'MANUAL'");
+    expect(move[1]).toEqual([2026, 9, 2025]);
+    expect(repo.manager.transaction).toHaveBeenCalledTimes(1);
+    expect(audit).toHaveBeenCalledWith(
+      expect.anything(),
+      9,
+      3,
+      expect.arrayContaining([{ fieldName: 'shares_moved', oldValue: '2025 (2 quote)', newValue: '2026' }]),
+    );
+    expect(reconcile.reconcileSafe).toHaveBeenCalledWith([1]);
+  });
+
+  it('annualità tolta senza quote a mano: nessuno spostamento', async () => {
+    repo.findOne.mockResolvedValue({
+      id: 9, budget_chapter_id_fk: 7, contracts: [{ id: 1 }], years: [{ fiscal_year: 2025, amount: '50.00' }],
+    });
+    await service.update(9, { years: [{ fiscal_year: 2026, amount: 50 }] }, 3);
+    expect(repo.query.mock.calls.some(([s]) => String(s).includes('/* c_manual_move */'))).toBe(false);
   });
 });

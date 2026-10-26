@@ -2,7 +2,7 @@ import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
 import { lineFiscalYear } from '@apis/spending/line-year';
-import { dbDay } from '@apis/utility-supply/supply-reconcile.service';
+import { dbDay } from '@/helpers/date.helpers';
 import { allocate, AllocCommitment, AllocInvoice, AllocShare } from './commitment-allocation';
 import { idList } from './id-list';
 
@@ -155,6 +155,9 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
   }
 
   private async run(start: number[]): Promise<void> {
+    // Contratto tolto dalla fattura: la sua quota automatica sparisce subito
+    // (la fattura non rientra più tra quelle dei contratti ricalcolati).
+    await this.dataSource.query(ORPHANS_SQL);
     const contracts = await this.closure(start);
     const commitments: AllocCommitment[] = (await this.dataSource.query(COMMITMENTS_SQL, [contracts])).map(
       (r: Record<string, unknown>) => ({

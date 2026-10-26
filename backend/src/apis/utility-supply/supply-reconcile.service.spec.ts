@@ -6,7 +6,7 @@ import { GrantUtilityDecision } from './entity/grant-utility-decision.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
 import { GrantUtilityDecisionValue, SupplyEventType } from './enum/supply-event-type.enum';
 import { CANCEL_GRANT_ENDED } from './supply-reconcile';
-import { dbDay } from './supply-reconcile.service';
+import { dbDay } from '@/helpers/date.helpers';
 
 const NOW = new Date('2026-10-19T10:00:00Z');
 const TODAY = '2026-10-19';

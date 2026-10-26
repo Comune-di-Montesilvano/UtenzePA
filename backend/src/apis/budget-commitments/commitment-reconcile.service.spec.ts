@@ -251,6 +251,13 @@ describe('CommitmentReconcileService', () => {
     expect(orphans[0].sql).toContain('DELETE');
   });
 
+  it('ogni giro toglie le quote automatiche delle fatture rimaste senza contratto', async () => {
+    const { ds, calls } = fakeDataSource({});
+    await new CommitmentReconcileService(ds).reconcileContracts([4]);
+    expect(tagged(calls, 'r_orphans')).toHaveLength(1);
+    expect(calls[0].sql).toContain('/* r_orphans */');
+  });
+
   it('dopo un giro fallito le chiamate successive lavorano lo stesso', async () => {
     const { ds, calls } = fakeDataSource({
       commitments: [commitment(10, 1, 100)],
