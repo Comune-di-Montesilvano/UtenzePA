@@ -251,6 +251,14 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
         this.checkLines(lines);
         previousLines = await manager.find(InvoiceLine, { where: { invoice_id_fk: id } });
       }
+      if (
+        shares !== undefined &&
+        (await manager.count(InvoiceCommitmentShare, {
+          where: { invoice_id_fk: id, source: CommitmentShareSource.ACCOUNTING },
+        }))
+      ) {
+        throw new BadRequestException('Le quote della ragioneria non si modificano.');
+      }
       if (shares !== undefined || contractChanged) {
         previousShares = await manager.find(InvoiceCommitmentShare, {
           where: { invoice_id_fk: id, source: CommitmentShareSource.MANUAL },

@@ -382,6 +382,14 @@ describe('InvoicesService', () => {
       expect(reconcile.reconcileSafe).toHaveBeenCalledWith([1]);
     });
 
+    it('PATCH commitment_shares su fattura con quote ACCOUNTING = 400', async () => {
+      manager.count.mockImplementation(async (entity: unknown) => (entity === InvoiceCommitmentShare ? 1 : 0));
+      await expect(service.update(20, { commitment_shares: [] } as never, 7)).rejects.toThrow(
+        'Le quote della ragioneria non si modificano.',
+      );
+      expect(manager.delete).not.toHaveBeenCalledWith(InvoiceCommitmentShare, expect.anything());
+    });
+
     it('quote assenti nel payload: invariate', async () => {
       await service.update(20, { notes_on_invoices: 'nota' } as never, 7);
       expect(manager.delete).not.toHaveBeenCalledWith(InvoiceCommitmentShare, expect.anything());
