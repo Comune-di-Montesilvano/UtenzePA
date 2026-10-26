@@ -1,0 +1,57 @@
+name: Dependabot auto-merge
+# Minor/patch di dependabot: auto-merge appena i check richiesti sono verdi; la PR entra
+# nella merge queue di main, che la prova gia' unita a main e la mergia (squash). Major
+# (anche di gruppo, es. Angular o Sentry): nessuna azione, la PR resta aperta come
+# promemoria per l'upgrade manuale.
+#
+# Token GitHub App (comune-montesilvano-bot, secret BOT_CLIENT_ID / BOT_PRIVATE_KEY) invece
+# di GITHUB_TOKEN: un merge fatto con GITHUB_TOKEN non fa partire altri workflow (rebuild,
+# scorecard sul push in main). Sul trigger pull_request di dependabot sono visibili solo i
+# secret Dependabot: i due secret vanno salvati sia come Actions che come Dependabot secret.
+# Permessi App (repo): Contents RW, Pull requests RW, Workflows RW (le PR github-actions
+# toccano .github/workflows/), Metadata R.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  enable-automerge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Token GitHub App
+        id: app
+        if: steps.meta.outputs.update-type != 'version-update:semver-major'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.BOT_CLIENT_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
+      - name: Abilita auto-merge
+        if: steps.app.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"
+
+      - name: Major lasciata manuale
+        if: steps.app.outcome == 'skipped'
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+          DEPS: ${{ steps.meta.outputs.dependency-names }}
+        run: |
+          echo "::notice::Nessun auto-merge (${UPDATE_TYPE}, ${DEPS}) - PR lasciata aperta per revisione manuale."

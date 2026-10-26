@@ -40,7 +40,13 @@ RUN pnpm run build
 # -------------------
 # Stage 4: produzione con nginx
 # -------------------
-FROM nginx:1.28-alpine AS prod
+FROM nginx:1.30-alpine AS prod
+
+# PKG_REFRESH (data del giorno, passata da release.yml) invalida la cache del layer una
+# volta al giorno, cosi' `apk upgrade` prende le patch Alpine anche prima che
+# l'immagine base nginx venga ripubblicata.
+ARG PKG_REFRESH=none
+RUN apk upgrade --no-cache
 
 # APP_VERSION: tag git (release.yml, build da tag) o hash commit per build non
 # taggate — baked a build time, letto a runtime da 20-runtime-config.sh e

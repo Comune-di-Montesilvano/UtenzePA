@@ -11,9 +11,9 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Git, CI e release").
 
 ## Branch protection e merge
 
-- `main` protetta: PR obbligatoria, check `backend` + `frontend` richiesti con branch aggiornata, no force-push/delete, 0 approvazioni umane (CI come unico gate). Push diretti rifiutati.
-- `gh pr merge --auto` fallisce sempre ("Auto merge is not allowed"). Merge manuale: `gh pr merge --squash --delete-branch`.
-- Dopo ogni merge le altre PR tornano `BEHIND`: `gh api repos/OWNER/REPO/pulls/N/update-branch -X PUT`, una PR alla volta.
+- `main` protetta da un ruleset (non più branch protection classica): PR obbligatoria, merge solo squash dalla **merge queue**, check richiesti `dependency-review`, `backend`, `frontend`, `migrations`, `docker (backend, production)`, `docker (frontend, prod)`, `e2e` (la coda e l'auto-merge aspettano solo i check richiesti: un job nuovo che deve fare da gate va aggiunto al ruleset), no force-push/delete, 0 approvazioni umane (CI come unico gate). Push diretti rifiutati.
+- Merge queue: i check girano sull'evento `merge_group` (commit temporaneo = `main` + PR), quindi `tests.yml` deve restare in ascolto di `merge_group`. `dependency-review` lì risulta saltato (conta come superato).
+- Merge delle PR proprie: `gh pr merge N --squash --delete-branch` la mette in coda (con check ancora in corso serve `--auto`); il merge vero lo fa la coda dopo i check sul commit unito.
 - `gh pr merge` fallisce se lanciato da un worktree diverso da quello con `main` ("'main' is already used by worktree at ..."): eseguirlo dal worktree principale.
 - `--delete-branch` con il branch ancora in uso da un altro worktree: errore sul branch locale e il branch remoto **non** viene cancellato. Cancellarlo a mano con `git push origin --delete <branch>`, poi `git checkout --detach origin/main` nel worktree e `git branch -D`.
 - `gh pr checks` subito dopo `gh pr create` risponde «no checks reported» per circa 30 s: aspettare, poi `--watch`.
@@ -21,8 +21,13 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Git, CI e release").
 
 ## CI (`tests.yml`)
 
+- Frontend: `pnpm run lint` (angular-eslint, `eslint.config.js` con le regole spente motivate), `pnpm run test` (Vitest su jsdom con `@angular/build:unit-test`, niente browser), `pnpm run build`.
+- `migrations`: MySQL 8 come service, `backend/scripts/check-migrations.sh N` (N = migration aggiunte rispetto alla base, minimo 1). Su un DB nuovo `schema:log` non è vuoto: le 18 differenze storiche (vecchio SYNCHRONIZE) stanno in `src/database/schema-drift.baseline.txt`; una differenza nuova (colonna o indice dimenticati nella migration) ferma la PR, una tolta richiede di aggiornare la baseline. Prima di questo job un'installazione nuova si fermava a `RealEstateContracts` (FK presente in `InitialSchema`, assente nel DB del Comune).
+- `e2e`: carica le immagini del job `docker`, avvia `docker-compose.yml` con `IMAGE_TAG=ci` e secret usa e getta, aspetta `/health/liveness` (migration all'avvio), crea un Admin via SQL e lancia `e2e/` (Playwright: login dalla UI e ogni pagina principale senza errori JS né 5xx). In caso di errore: log dello stack nel job e artifact `playwright-report`.
+- `dependency-review` (solo PR): dipendenze nuove o aggiornate con advisory high/critical.
 - Esegue `pnpm run build` su backend e frontend oltre a lint e test: un errore di tipo non preso da `ts-jest` (isolatedModules) può comunque rompere `nest build`.
-- Non builda mai immagini Docker: un `docker build --target production`/`--target prod` rotto si scopre solo al primo tag (`release.yml`). Dopo modifiche ai Dockerfile testare `docker build --target <stage> .` prima di taggare.
+- Job `docker` (matrice backend/frontend): build di `production`/`prod` con `pull: true` (cache letta dal `buildcache` pubblico, mai scritta), poi Trivy CRITICAL/HIGH con fix, bloccante. Ferma una PR quando esce una CVE nelle dipendenze o l'immagine base non è più aggiornata (nginx 1.28: nessuna immagine da marzo 2026, CVE non chiudibili con `apk upgrade`). Eccezioni in `.trivyignore` alla root, una riga per CVE con commento e `exp:AAAA-MM-GG` (alla scadenza torna a bloccare); lo stesso file vale per `release.yml`.
+- CVE in locale prima della PR (Git Bash, `MSYS_NO_PATHCONV=1` per i volumi): `docker run --rm -v //var/run/docker.sock:/var/run/docker.sock -v "$PWD/.trivyignore:/ig" aquasec/trivy:latest image --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed --ignorefile /ig <immagine>`.
 
 ## Dockerfile: bug già incontrati (tag v1.0.1 rotto)
 
@@ -33,6 +38,9 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Git, CI e release").
 ## Release
 
 - Bump `softwareVersion`/`releaseDate` in `publiccode.yml` dentro la PR (v1.3.0 era stata taggata senza). Minor per feature con migration additiva.
-- Dopo il merge: `git tag -a vX.Y.Z -m "..."` + `git push origin vX.Y.Z` → `release.yml` pubblica `vX.Y.Z` e `latest` su GHCR.
+- Dopo il merge: `git tag -a vX.Y.Z -m "..."` + `git push origin vX.Y.Z` → `release.yml` pubblica `vX.Y.Z` e `latest` su GHCR (Trivy solo report).
+- Rebuild giornaliero di `main` (`release.yml`, cron 04:30 UTC, dopo il giro dependabot delle 01:00 Europe/Rome, o `workflow_dispatch`): push `latest-YYYYMMDD`, `APP_VERSION` = ultimo tag `v*` (`VCS_REF` = commit), Trivy **bloccante** su CRITICAL/HIGH con fix, e solo se passa `latest` viene ripuntato al nuovo digest (`imagetools create`). Saltato se un tag è uscito nelle ultime 24 ore. I tag `vX.Y.Z` non cambiano mai. `PKG_REFRESH` = data del giorno invalida il layer `apk upgrade` dei Dockerfile (altrimenti congelato dalla cache registry). Nell'immagine backend npm/npx/corepack sono rimossi (CVE delle dipendenze bundled).
+- Rebuild fermato da Trivy = di solito CVE reali, `latest` resta sulla build precedente. Il SARIF non le stampa nel log: `docker run --rm aquasec/trivy image --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed ghcr.io/comune-di-montesilvano/utenzepa-<app>:latest-YYYYMMDD`.
+- Pulizia GHCR (`ghcr-cleanup.yml`, domenica 03:00 UTC): tiene `vX.Y.Z`/`latest`/`buildcache`, gli ultimi 30 `latest-YYYYMMDD`, i figli degli indici tenuti e le versioni con meno di 6 ore; il resto è cancellato. `workflow_dispatch` parte in dry-run.
 - Spostare un tag dopo un fix: `git tag -d vX`, `git push origin :refs/tags/vX`, ricreare e ripushare (rifà partire `release.yml`). Sicuro solo senza consumer esterni noti.
 - Migration che si fermano su dati da sistemare: i dati si sistemano solo in locale, quindi in produzione va importato il DB locale *prima* di aggiornare le immagini, altrimenti l'API resta giù al primo avvio (v1.9.0: `InvoiceBudgetChapterFk` fermata da 20 righe orfane; risolto con la stessa DELETE dalla shell del container MySQL, password in `$MYSQL_ROOT_PASSWORD`). Scriverlo nelle note di rilascio.

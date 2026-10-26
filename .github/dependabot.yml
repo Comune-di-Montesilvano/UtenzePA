@@ -1,9 +1,22 @@
 version: 2
+# Ogni ecosistema: minor+patch raggruppate in una sola PR, mergiata in automatico
+# (vedi dependabot-automerge.yml); le major restano PR aperte come promemoria per
+# l'upgrade manuale.
+# Controllo giornaliero e nessun cooldown: le correzioni arrivano il giorno stesso.
+# Gli advisory di sicurezza passano comunque dai Dependabot security updates,
+# indipendenti da questo schedule. Giro alle 01:00 cosi' l'auto-merge finisce prima
+# del rebuild giornaliero di latest (release.yml, 04:30 UTC).
+# Le famiglie (@sentry/*, @angular/*) hanno un gruppo proprio per tutti i tipi di
+# aggiornamento, prima del gruppo minor-patch: un pacchetto finisce nel primo gruppo
+# che lo comprende. Un loro bump major esce quindi come PR di gruppo, manuale.
 updates:
   - package-ecosystem: npm
     directory: /backend
     schedule:
-      interval: weekly
+      interval: daily
+      time: "01:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 10
     groups:
       # @sentry/nestjs e @sentry/node vanno tenuti allineati - un bump isolato
       # di uno solo rompe il build (@sentry/core annidato diverge tra i
@@ -12,11 +25,21 @@ updates:
       sentry:
         patterns:
           - "@sentry/*"
+      backend-minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore
+      include: scope
 
   - package-ecosystem: npm
     directory: /frontend
     schedule:
-      interval: weekly
+      interval: daily
+      time: "01:00"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 10
     groups:
       # I pacchetti @angular/* vanno aggiornati insieme come famiglia (peer
       # dependency incrociate) - un bump isolato rompe la build (vedi PR
@@ -25,8 +48,61 @@ updates:
         patterns:
           - "@angular/*"
           - "@angular-devkit/*"
+      frontend-minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore
+      include: scope
+
+  # Smoke E2E (job e2e di tests.yml): solo @playwright/test.
+  - package-ecosystem: npm
+    directory: /e2e
+    schedule:
+      interval: daily
+      time: "01:00"
+      timezone: Europe/Rome
+    groups:
+      e2e-minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore
+      include: scope
+
+  # Immagini base dei Dockerfile. Node del backend sta in un ARG (NODE_VERSION = major,
+  # tag mobile 24-alpine) che dependabot non segue: le patch arrivano dal rebuild
+  # giornaliero con pull, il cambio di major si fa a mano.
+  - package-ecosystem: docker
+    directories:
+      - /backend
+      - /frontend
+    schedule:
+      interval: daily
+      time: "01:00"
+      timezone: Europe/Rome
+    groups:
+      docker-minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore
+      include: scope
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: daily
+      time: "01:00"
+      timezone: Europe/Rome
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore
+      include: scope

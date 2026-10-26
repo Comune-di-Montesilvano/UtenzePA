@@ -1,4 +1,3 @@
-import {IUtilizerGrant} from '../../utilizer-grant/entity/utilizer-grant.interface';
 
 export interface IAsset {
   id: number;

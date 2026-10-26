@@ -46,7 +46,7 @@ describe('BrandingService', () => {
 
   it('update() chiama PATCH /settings/branding con header Authorization', () => {
     const auth = TestBed.inject(AuthService);
-    spyOn(auth, 'getToken').and.returnValue('test-token');
+    vi.spyOn(auth, 'getToken').mockReturnValue('test-token');
 
     service.update({ entity_name: 'Nuovo nome' }).subscribe();
 

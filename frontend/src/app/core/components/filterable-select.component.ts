@@ -224,7 +224,11 @@ export class FilterableSelectComponent implements ControlValueAccessor {
   }
 
   setDisabledState(isDisabled: boolean): void {
-    isDisabled ? this.searchControl.disable() : this.searchControl.enable();
+    if (isDisabled) {
+      this.searchControl.disable();
+    } else {
+      this.searchControl.enable();
+    }
   }
 
   private syncDisplayFromValue(): void {

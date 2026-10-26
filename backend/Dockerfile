@@ -9,7 +9,7 @@
 #   - production: Final production image (minimal size)
 #   - development: Development image with hot-reload support
 
-ARG NODE_VERSION=24.20.0
+ARG NODE_VERSION=24
 
 # Limite memoria per Node.js (utile per macchine con poca RAM)
 
@@ -111,8 +111,16 @@ ENV NODE_ENV=production \
 # Create a non-root user
 RUN addgroup -g 1001 -S nodejs && adduser -S nestjs -u 1001 -G nodejs
 
-# Install mysql-client (mysqldump/mysql CLI, usati dal modulo backup)
-RUN apk add --no-cache mysql-client
+# PKG_REFRESH (data del giorno, passata da release.yml) invalida la cache del layer una
+# volta al giorno: senza, la cache registry congela `apk upgrade` e le patch di
+# sicurezza Alpine non entrano mai finche' l'immagine base non viene ripubblicata.
+# mysql-client: mysqldump/mysql CLI, usati dal modulo backup.
+# npm/npx/corepack non servono a runtime (CMD = node): rimossi per non portarsi dietro
+# le CVE delle loro dipendenze bundled (Trivy bloccante nel rebuild giornaliero).
+ARG PKG_REFRESH=none
+RUN apk upgrade --no-cache && apk add --no-cache mysql-client \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
+       /usr/local/lib/node_modules/corepack /usr/local/bin/corepack
 
 # Set working directory
 WORKDIR /usr/src/app

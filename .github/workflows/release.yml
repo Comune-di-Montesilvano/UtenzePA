@@ -4,14 +4,99 @@ name: Build & Push immagini
 on:
   push:
     tags: ['v*']
+  # Rebuild giornaliero di main (04:30 UTC, dopo il giro dependabot delle 01:00): aggiorna SOLO
+  # `latest` (+ `latest-YYYYMMDD`) con immagini base e dipendenze minor/patch fresche, senza
+  # toccare i tag vX.Y.Z (quelli li crea solo il maintainer). Saltato se nelle ultime
+  # 24 ore e' gia' stato pubblicato un tag (latest e' gia' fresco).
+  schedule:
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+    inputs:
+      rebuild_latest:
+        description: "Rebuild di latest da main (come lo schedule giornaliero, senza skip)"
+        type: boolean
+        default: true
+
+# Mai cancel-in-progress: un push a ghcr interrotto a meta' puo' lasciare un manifest
+# incompleto — run concorrenti si accodano invece di accavallarsi.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
   packages: write
   security-events: write
+  actions: read
+  # Attestazione di provenienza firmata (Sigstore, OIDC del workflow).
+  id-token: write
+  attestations: write
 
 jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      auto: ${{ steps.mode.outputs.auto }}
+      skip: ${{ steps.mode.outputs.skip }}
+      version: ${{ steps.mode.outputs.version }}
+      auto_tag: ${{ steps.mode.outputs.auto_tag }}
+      pkg_refresh: ${{ steps.mode.outputs.pkg_refresh }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # Storia + tag completi: il rebuild automatico ricava l'ultimo tag vX.Y.Z.
+          fetch-depth: 0
+
+      - name: Resolve build mode
+        id: mode
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          REBUILD_LATEST: ${{ inputs.rebuild_latest }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          auto=false
+          skip=false
+          if [[ "$EVENT_NAME" == "push" && "$REF_TYPE" == "tag" ]]; then
+            version="$REF_NAME"
+          elif [[ "$EVENT_NAME" == "schedule" || "$REBUILD_LATEST" == "true" ]]; then
+            auto=true
+            # APP_VERSION = ultimo tag rilasciato (versione mostrata in UI e in /health);
+            # il tag immagine latest-YYYYMMDD e VCS_REF distinguono il rebuild.
+            version=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || echo dev)
+          else
+            echo "::notice::Dispatch senza rebuild_latest: niente da buildare."
+            skip=true
+            version=dev
+          fi
+          # Solo lo schedule salta: un tag pubblicato nelle ultime 24 ore ha gia' rinfrescato
+          # latest. Le run "push" di questo workflow sono solo tag.
+          if [[ "$EVENT_NAME" == "schedule" ]]; then
+            since=$(date -u -d '24 hours ago' +%FT%TZ)
+            recent=$(gh run list -R "$REPO" --workflow release.yml --event push \
+              --status success --created ">=$since" --json headBranch -q 'length')
+            if [[ "$recent" -gt 0 ]]; then
+              echo "::notice::Tag pubblicato nelle ultime 24 ore: rebuild giornaliero saltato."
+              skip=true
+            fi
+          fi
+          {
+            echo "auto=$auto"
+            echo "skip=$skip"
+            echo "version=$version"
+            echo "auto_tag=latest-$(date -u +%Y%m%d)"
+            # Data del giorno: invalida una volta al giorno il layer `apk upgrade` dei
+            # Dockerfile, altrimenti la cache registry lo congela e le patch OS non entrano.
+            echo "pkg_refresh=$(date -u +%F)"
+          } >> "$GITHUB_OUTPUT"
+
   build-push:
+    needs: setup
+    if: needs.setup.outputs.skip != 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -25,6 +110,8 @@ jobs:
             context: frontend
             dockerfile: frontend/Dockerfile
             target: prod
+    env:
+      IMAGE: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -39,46 +126,79 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Tag git: vX.Y.Z + latest. Rebuild automatico: solo latest-YYYYMMDD, latest viene
+      # promosso piu' sotto solo dopo che Trivy ha passato l'immagine.
       - id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
-          images: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}
+          images: ${{ env.IMAGE }}
           tags: |
             type=ref,event=tag
             type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
-            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ needs.setup.outputs.auto_tag }},enable=${{ needs.setup.outputs.auto == 'true' }}
 
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           target: ${{ matrix.target }}
           push: true
+          # Ripesca sempre le immagini base (node/nginx) per prendere le patch del tag.
+          pull: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            APP_VERSION=${{ github.ref_name }}
+            APP_VERSION=${{ needs.setup.outputs.version }}
             VCS_REF=${{ steps.vars.outputs.sha_short }}
-          cache-from: type=registry,ref=ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:buildcache
-          cache-to: type=registry,ref=ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:buildcache,mode=max
+            PKG_REFRESH=${{ needs.setup.outputs.pkg_refresh }}
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max
+          # SBOM e provenance BuildKit dentro l'indice dell'immagine (docker buildx
+          # imagetools inspect --format '{{json .SBOM}}').
+          sbom: true
+          provenance: mode=max
 
-      # Report-only: non blocca la release (exit-code 0), risultati visibili
-      # nella tab Security del repo. Scansiona l'immagine appena pushata,
-      # taggata con il tag git corrente (sempre presente, trigger solo su tag).
+      # Provenienza firmata, verificabile da chi installa:
+      #   gh attestation verify oci://ghcr.io/comune-di-montesilvano/utenzepa-<app>:<tag> --owner Comune-di-Montesilvano
+      - name: Attestazione di provenienza
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      # Tag git: report-only (exit-code 0), risultati nella tab Security del repo.
+      # Rebuild automatico: bloccante su CRITICAL/HIGH con fix disponibile — se fallisce,
+      # latest resta sulla build precedente.
       - name: Trivy vulnerability scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:${{ github.ref_name }}
+          image-ref: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
-          exit-code: '0'
+          exit-code: ${{ needs.setup.outputs.auto == 'true' && '1' || '0' }}
+          ignore-unfixed: ${{ needs.setup.outputs.auto == 'true' }}
+          # Con format sarif l'action ignora `severity` e riporta tutte le severita' se questo
+          # flag e' spento: nel rebuild exit-code 1 scatterebbe anche su LOW/MEDIUM. Sui tag
+          # resta spento (report completo nella tab Security, comunque non bloccante).
+          limit-severities-for-sarif: ${{ needs.setup.outputs.auto == 'true' }}
+          # CVE escluse con motivo e scadenza (stesso file del job docker di tests.yml).
+          trivyignores: .trivyignore
           # Scanner Trivy (non l'Action stessa, quella resta pinnata per SHA
           # sopra) — 'latest' qui è il pattern raccomandato dall'action per
           # avere sempre il rilevamento CVE più aggiornato senza bump manuali.
           version: latest
 
+      - name: Promuovi latest
+        if: needs.setup.outputs.auto == 'true'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: docker buildx imagetools create -t "$IMAGE:latest" "$IMAGE@$DIGEST"
+
       - name: Upload Trivy scan results
+        if: always()
         uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4
         with:
           sarif_file: trivy-results.sarif

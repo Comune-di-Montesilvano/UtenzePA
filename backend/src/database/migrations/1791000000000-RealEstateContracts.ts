@@ -31,8 +31,14 @@ export class RealEstateContracts1791000000000 implements MigrationInterface {
     await q.query(
       `UPDATE \`utilizer_grant\` SET \`end_date\` = DATE(\`expire_date\`), \`update_date\` = \`update_date\` WHERE \`expire_date\` IS NOT NULL AND \`expire_date\` <> \`create_date\``,
     );
-    // utilizer_grant non ha FK né indici su asset_id_fk (verificato con
-    // SHOW CREATE TABLE): basta il DROP COLUMN.
+    // Nel DB del Comune utilizer_grant non ha FK su asset_id_fk (drift da
+    // SYNCHRONIZE), in un'installazione nuova sì (InitialSchema): si toglie se c'è.
+    const fks: { name: string }[] = await q.query(
+      `SELECT CONSTRAINT_NAME AS name FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'utilizer_grant' AND COLUMN_NAME = 'asset_id_fk' AND REFERENCED_TABLE_NAME IS NOT NULL`,
+    );
+    for (const fk of fks) {
+      await q.query(`ALTER TABLE \`utilizer_grant\` DROP FOREIGN KEY \`${fk.name}\``);
+    }
     await q.query(
       `ALTER TABLE \`utilizer_grant\` DROP COLUMN \`asset_id_fk\`, DROP COLUMN \`grant_date\`, DROP COLUMN \`expire_date\``,
     );
