@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm';
 import { ImportIssueType } from './enum/import-issue-type.enum';
 import type { ExtractedInvoice, ExtractedReading } from './pattern/pattern-rules';
 import { normalizeUtilityCode } from './pattern/utility-code';
-import { lineFiscalYear } from '@apis/spending/line-year';
+import { invoiceCompetenceYear } from '@apis/spending/line-year';
 
 export interface MatchedLine {
   utility_id_fk: number | null;
@@ -85,18 +85,13 @@ const CONTRACT_SQL =
 const HEADER_CONTRACT_SQL =
   '/* m_header_contract */ SELECT id, cig_contract FROM contracts WHERE deleted = 0 AND supplier_id_fk = ? ' +
   'AND (TRIM(cig_contract) IN (?, ?) OR TRIM(consip_order) = ?) LIMIT 2';
-// Esiste almeno un impegno per la riga? L'impegno lo sceglie poi il ricalcolo
-// (CommitmentReconcileService); qui solo la segnalazione se manca.
+// Esiste almeno un'annualità d'impegno del contratto nell'esercizio? L'impegno
+// lo assegna poi il ricalcolo (CommitmentReconcileService); qui solo la segnalazione.
 const CONTRACT_COMMITMENT_SQL =
-  '/* m_contract_commitment */ SELECT DISTINCT bc.budget_chapter_id_fk AS chapter FROM budget_commitments bc ' +
+  '/* m_contract_commitment */ SELECT bc.id FROM budget_commitments bc ' +
   'JOIN budget_commitment_contracts bcc ON bcc.commitment_id = bc.id ' +
   'JOIN budget_commitment_years bcy ON bcy.commitment_id = bc.id ' +
-  'WHERE bc.deleted = 0 AND bcc.contract_id = ? AND bcy.fiscal_year = ? LIMIT 2';
-const COMMITMENT_SQL =
-  '/* m_commitment */ SELECT bc.id FROM budget_commitments bc ' +
-  'JOIN budget_commitment_contracts bcc ON bcc.commitment_id = bc.id ' +
-  'JOIN budget_commitment_years bcy ON bcy.commitment_id = bc.id ' +
-  'WHERE bc.deleted = 0 AND bcc.contract_id = ? AND bc.budget_chapter_id_fk = ? AND bcy.fiscal_year = ? LIMIT 1';
+  'WHERE bc.deleted = 0 AND bcc.contract_id = ? AND bcy.fiscal_year = ? LIMIT 1';
 const SUPPLIER_SQL =
   '/* m_supplier */ SELECT company_name, last_name, first_name FROM third_parties WHERE id = ?';
 const INVOICE_SQL =
@@ -192,7 +187,6 @@ export class InvoiceMatcher {
     }
 
     const contracts = new Map<string, { id: number; cig_contract: string | null } | null>();
-    const commitments = new Set<string>();
     const cigChecked = new Set<number>();
     const lines: MatchedLine[] = [];
     let headerContract: { id: number; cig_contract: string | null } | null | undefined;
@@ -236,42 +230,6 @@ export class InvoiceMatcher {
           });
         }
       }
-      const year = lineFiscalYear(line.periodStart, line.periodEnd, extracted.date);
-      if (contract && utility?.budget_chapter_code_fk) {
-        const key = `${contract.id}|${utility.budget_chapter_code_fk}|${year}`;
-        if (!commitments.has(key)) {
-          commitments.add(key);
-          const rows = await this.dataSource.query(COMMITMENT_SQL, [
-            contract.id,
-            utility.budget_chapter_code_fk,
-            year,
-          ]);
-          if (!rows[0]) {
-            issues.push({
-              type: ImportIssueType.MISSING_COMMITMENT,
-              lineIndex: index,
-              detail: `Nessun impegno per il contratto ${contract.id}, capitolo ${utility.budget_chapter_code_fk}, esercizio ${year}`,
-            });
-          }
-        }
-      } else if (contract && !utility) {
-        const key = `${contract.id}|*|${year}`;
-        if (!commitments.has(key)) {
-          commitments.add(key);
-          // Riga senza utenza = nessun capitolo proprio: con impegni su più
-          // capitoli la riconciliazione non sceglie, serve la scelta a mano.
-          const rows = await this.dataSource.query(CONTRACT_COMMITMENT_SQL, [contract.id, year]);
-          if (rows.length !== 1) {
-            issues.push({
-              type: ImportIssueType.MISSING_COMMITMENT,
-              lineIndex: index,
-              detail: rows.length
-                ? `Impegni su più capitoli per il contratto ${contract.id}, esercizio ${year}: scegliere quello della riga`
-                : `Nessun impegno per il contratto ${contract.id}, esercizio ${year}`,
-            });
-          }
-        }
-      }
       lines.push({
         utility_id_fk: utility?.id ?? null,
         contract_id: contract?.id ?? null,
@@ -296,6 +254,22 @@ export class InvoiceMatcher {
         lineIndex: null,
         detail: `Righe su contratti diversi (${headerContracts.join(', ')}): contratto di testata non impostato`,
       });
+    }
+    // Impegno per fattura: basta un'annualità del contratto nell'esercizio di
+    // competenza; quale e per quanto lo decide il ricalcolo (o il tab Impegni).
+    if (headerContracts.length === 1) {
+      const year = invoiceCompetenceYear(
+        extracted.lines.map((l) => ({ period_start: l.periodStart, period_end: l.periodEnd })),
+        extracted.date,
+      );
+      const rows = await this.dataSource.query(CONTRACT_COMMITMENT_SQL, [headerContracts[0], year]);
+      if (!rows.length) {
+        issues.push({
+          type: ImportIssueType.MISSING_COMMITMENT,
+          lineIndex: null,
+          detail: `Nessun impegno per il contratto ${headerContracts[0]}, esercizio ${year}: l'impegno si assegna alla fattura (tab Impegni)`,
+        });
+      }
     }
 
     if (extracted.supplierName) {

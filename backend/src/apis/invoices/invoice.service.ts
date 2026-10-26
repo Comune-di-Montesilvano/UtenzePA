@@ -16,24 +16,50 @@ import { SdiMessage } from '@apis/invoice-import/entity/sdi-message.entity';
 import { ConsumptionLinker } from '@apis/invoice-import/consumption-linker.service';
 import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
 import { CommitmentReconcileService } from '@apis/budget-commitments/commitment-reconcile.service';
+import { annualityFor } from '@apis/budget-commitments/annuality';
+import { commitmentLabel } from '@apis/budget-commitments/commitment-label';
+import { invoiceCompetenceYear } from '@apis/spending/line-year';
+import { dbDay } from '@/helpers/date.helpers';
+import { InvoiceCommitmentShare } from './entity/invoice-commitment-share.entity';
+import { CommitmentShareSource } from './entity/commitment-share-source.enum';
+import { InvoiceCommitmentShareDto } from './dto/invoice-commitment-share.dto';
 
 // Confronto righe per l'audit: stessi valori normalizzati, stesso ordine.
 const lineKey = (l: Partial<InvoiceLine>): string =>
   JSON.stringify([
     Number(l.amount).toFixed(2),
     l.utility_id_fk ?? null,
-    l.commitment_auto === false ? (l.commitment_id_fk ?? null) : 'auto',
     l.period_start ? String(l.period_start).slice(0, 10) : null,
     l.period_end ? String(l.period_end).slice(0, 10) : null,
     l.consumption === null || l.consumption === undefined ? null : Number(l.consumption).toFixed(3),
     l.supply_code ?? null,
     l.description ?? null,
   ]);
-// Impegno automatico se dichiarato, altrimenti se la riga non ne indica uno.
-const isAuto = (l: { commitment_auto?: boolean | null; commitment_id_fk?: number | null }): boolean =>
-  l.commitment_auto ?? !l.commitment_id_fk;
 const sameLines = (a: Partial<InvoiceLine>[], b: Partial<InvoiceLine>[]): boolean =>
   a.length === b.length && a.every((l, i) => lineKey(l) === lineKey(b[i]));
+
+// Confronto quote per l'audit: l'ordine non conta.
+type ShareRow = Pick<InvoiceCommitmentShare, 'commitment_id_fk' | 'fiscal_year' | 'amount'>;
+const sharesKey = (shares: ShareRow[]): string =>
+  JSON.stringify(
+    shares
+      .map((s) => [Number(s.commitment_id_fk), Number(s.fiscal_year), Number(s.amount).toFixed(2)])
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+  );
+
+const OTHER_CONTRACT_SHARES =
+  "Le quote d'impegno sono di un altro contratto: aggiornale nel tab Impegni";
+
+// Competenza della fattura: periodo complessivo delle righe, altrimenti data fattura.
+function invoiceFiscalYear(
+  lines: { period_start?: unknown; period_end?: unknown }[],
+  invoiceDate: unknown,
+): number {
+  return invoiceCompetenceYear(
+    lines.map((l) => ({ period_start: dbDay(l.period_start), period_end: dbDay(l.period_end) })),
+    dbDay(invoiceDate) ?? '',
+  );
+}
 
 // Nota di credito = totale documento negativo: solo lì l'imponibile può
 // essere negativo. Le decimal arrivano da mysql2 come stringa.
@@ -56,8 +82,9 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     'lines',
     'lines.utility',
     'lines.utility.utilityType',
-    'lines.commitment',
-    'lines.commitment.budgetChapter',
+    'commitmentShares',
+    'commitmentShares.commitment',
+    'commitmentShares.commitment.budgetChapter',
     'created_by',
     'updated_by',
   ];
@@ -106,8 +133,9 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     qb.leftJoinAndSelect('contratto.supplier', 'supplier', 'supplier.deleted = 0');
     qb.leftJoinAndSelect('Invoice.supplier', 'invoiceSupplier');
     qb.leftJoinAndSelect('Invoice.lines', 'lines');
-    qb.leftJoinAndSelect('lines.commitment', 'commitment');
-    qb.leftJoinAndSelect('commitment.budgetChapter', 'commitmentChapter');
+    qb.leftJoinAndSelect('Invoice.commitmentShares', 'commitmentShares');
+    qb.leftJoinAndSelect('commitmentShares.commitment', 'shareCommitment');
+    qb.leftJoinAndSelect('shareCommitment.budgetChapter', 'commitmentChapter');
 
     if (filters?.deleted !== undefined && filters.deleted !== null) {
       const deletedValue = filters.deleted.toString();
@@ -129,7 +157,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       }
       if (filters.budget_chapter_ids && filters.budget_chapter_ids.length > 0) {
         qb.andWhere(
-          'EXISTS (SELECT 1 FROM invoice_lines fl JOIN budget_commitments fc ON fc.id = fl.commitment_id_fk WHERE fl.invoice_id_fk = Invoice.id AND fc.budget_chapter_id_fk IN (:...chapterIds))',
+          'EXISTS (SELECT 1 FROM invoice_commitment_shares fs JOIN budget_commitments fc ON fc.id = fs.commitment_id_fk WHERE fs.invoice_id_fk = Invoice.id AND fc.budget_chapter_id_fk IN (:...chapterIds))',
           { chapterIds: filters.budget_chapter_ids },
         );
       }
@@ -173,17 +201,23 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
   }
 
   async create(dto: CreateInvoiceDto, userId?: number): Promise<Invoice> {
-    const { lines, ...rest } = dto;
+    const { lines, commitment_shares: shares, ...rest } = dto;
     checkCreditNote(rest.total_amount, rest.net_amount_excl_vat);
     const header = await this.withSupplier(rest);
     const saved = await this.dataSource.transaction(async (manager) => {
-      if (lines?.length) await this.checkLines(manager, lines, header.contratto_id_fk ?? null);
+      if (lines?.length) this.checkLines(lines);
+      const shareRows = shares?.length
+        ? await this.checkShares(manager, shares, header.contratto_id_fk ?? null, () =>
+            invoiceFiscalYear(lines ?? [], rest.invoice_date),
+          )
+        : [];
       const entity = manager.create(Invoice, {
         ...header,
         ...(userId !== undefined && { created_by_user_id: userId, updated_by_user_id: userId }),
       } as never);
       const savedEntity = await manager.save(Invoice, entity);
       if (lines?.length) await manager.save(InvoiceLine, this.toRows(savedEntity.id, lines));
+      if (shareRows.length) await this.saveShares(manager, savedEntity.id, shareRows);
       return manager.findOne(Invoice, {
         where: { id: savedEntity.id },
         relations: toFindOptionsRelations<Invoice>(this.relations),
@@ -195,7 +229,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
   }
 
   async update(id: number, updateDto: UpdateInvoiceDto, userId?: number): Promise<Invoice> {
-    const { lines, ...rest } = updateDto;
+    const { lines, commitment_shares: shares, ...rest } = updateDto;
     const before = await this.repo.findOne({ where: { id } as never });
     if (!before) throw new BadRequestException('Fattura non trovata');
     checkCreditNote(
@@ -205,19 +239,34 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     const beforeSnapshot: Record<string, unknown> = { ...before };
     const contractId =
       rest.contratto_id_fk !== undefined ? rest.contratto_id_fk : before.contratto_id_fk;
+    const contractChanged = (contractId ?? null) !== (before.contratto_id_fk ?? null);
     const header = await this.withSupplier({ ...rest, contratto_id_fk: contractId });
     let previousLines: InvoiceLine[] = [];
+    let previousShares: InvoiceCommitmentShare[] = [];
+    let shareRows: ShareRow[] = [];
     let utilityIds: number[] = [];
 
     const result = await this.dataSource.transaction(async (manager) => {
       if (lines !== undefined) {
-        await this.checkLines(manager, lines, contractId ?? null);
+        this.checkLines(lines);
         previousLines = await manager.find(InvoiceLine, { where: { invoice_id_fk: id } });
-      } else if ((contractId ?? null) !== (before.contratto_id_fk ?? null)) {
-        // Contratto cambiato senza reinviare le righe: gli impegni esistenti
-        // devono restare coerenti col nuovo contratto.
-        const existing = await manager.find(InvoiceLine, { where: { invoice_id_fk: id } });
-        await this.checkLines(manager, existing as unknown as InvoiceLineDto[], contractId ?? null);
+      }
+      if (shares !== undefined || contractChanged) {
+        previousShares = await manager.find(InvoiceCommitmentShare, {
+          where: { invoice_id_fk: id, source: CommitmentShareSource.MANUAL },
+        });
+      }
+      if (shares?.length) {
+        shareRows = await this.checkShares(manager, shares, contractId ?? null, async () =>
+          invoiceFiscalYear(
+            lines ?? (await manager.find(InvoiceLine, { where: { invoice_id_fk: id } })),
+            rest.invoice_date ?? before.invoice_date,
+          ),
+        );
+      } else if (shares === undefined && contractChanged && previousShares.length) {
+        // Contratto cambiato senza reinviare le quote: quelle a mano devono
+        // restare coerenti col nuovo contratto.
+        await this.checkKeptShares(manager, previousShares, contractId ?? null);
       }
       const entity = await manager.findOne(Invoice, { where: { id } });
       Object.assign(entity, header);
@@ -231,6 +280,20 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
         await manager.delete(InvoiceLine, { invoice_id_fk: id });
         if (lines.length) await manager.save(InvoiceLine, this.toRows(id, lines));
         utilityIds = await this.linker.follow(manager, id, previousLines);
+      }
+      if (shares !== undefined) {
+        // Mai quote miste: le quote a mano sostituiscono anche l'automatica;
+        // [] toglie quelle a mano e l'automatica la rimette il ricalcolo.
+        await manager.delete(
+          InvoiceCommitmentShare,
+          shareRows.length
+            ? {
+                invoice_id_fk: id,
+                source: In([CommitmentShareSource.AUTO, CommitmentShareSource.MANUAL]),
+              }
+            : { invoice_id_fk: id, source: CommitmentShareSource.MANUAL },
+        );
+        if (shareRows.length) await this.saveShares(manager, id, shareRows);
       }
       return manager.findOne(Invoice, {
         where: { id },
@@ -247,6 +310,13 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       // Righe reinviate identiche (Salva senza modifiche) non sono un cambiamento.
       if (lines !== undefined && !sameLines(previousLines, this.toRows(id, lines))) {
         changes.push({ fieldName: 'lines', oldValue: previousLines.length, newValue: lines.length });
+      }
+      if (shares !== undefined && sharesKey(previousShares) !== sharesKey(shareRows)) {
+        changes.push({
+          fieldName: 'commitment_shares',
+          oldValue: previousShares.length,
+          newValue: shareRows.length,
+        });
       }
       await this.recordAudit(AuditAction.UPDATE, id, userId ?? result.updated_by_user_id, changes);
     } catch (error) {
@@ -281,41 +351,82 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     return contract?.supplier_id_fk ? { ...header, supplier_id_fk: contract.supplier_id_fk } : header;
   }
 
-  private async checkLines(
-    manager: EntityManager,
-    lines: InvoiceLineDto[],
-    contractId: number | null,
-  ): Promise<void> {
+  private checkLines(lines: InvoiceLineDto[]): void {
     lines.forEach((l, i) => {
       if (l.period_start && l.period_end && l.period_end < l.period_start) {
         throw new BadRequestException(`Riga ${i + 1}: la fine del periodo è prima dell’inizio`);
       }
     });
-    // Solo le righe con impegno scelto a mano: le automatiche le assegna il ricalcolo.
-    const manual = (l: InvoiceLineDto) => !isAuto(l) && !!l.commitment_id_fk;
-    const ids = [...new Set(lines.filter(manual).map((l) => l.commitment_id_fk!))];
-    if (!ids.length) return;
+  }
+
+  // Quote a mano: impegno del contratto della fattura, esercizio tra le sue
+  // annualità (assente = annualità per la competenza della fattura).
+  private async checkShares(
+    manager: EntityManager,
+    shares: InvoiceCommitmentShareDto[],
+    contractId: number | null,
+    competence: () => number | Promise<number>,
+  ): Promise<ShareRow[]> {
     // Senza contratto l'impegno non ha un contratto con cui essere coerente.
     if (!contractId) {
-      const i = lines.findIndex(manual);
-      throw new BadRequestException(
-        `La riga ${i + 1} ha un impegno ma la fattura non ha un contratto`,
-      );
+      throw new BadRequestException("Le quote d'impegno richiedono un contratto sulla fattura");
     }
+    const ids = [...new Set(shares.map((s) => s.commitment_id_fk))];
     const found = await manager.find(BudgetCommitment, {
       where: { id: In(ids), deleted: false },
-      relations: { contracts: true },
+      relations: { contracts: true, years: true },
     });
-    lines.forEach((l, i) => {
-      if (!manual(l)) return;
-      const c = found.find((f) => f.id === l.commitment_id_fk);
-      if (!c) throw new BadRequestException(`L'impegno della riga ${i + 1} non esiste`);
+    const year = shares.some((s) => s.fiscal_year === null || s.fiscal_year === undefined)
+      ? await competence()
+      : null;
+    return shares.map((s, i) => {
+      const c = found.find((f) => f.id === s.commitment_id_fk);
+      if (!c) throw new BadRequestException(`L'impegno della quota ${i + 1} non esiste`);
       if (!(c.contracts ?? []).some((k) => k.id === contractId)) {
         throw new BadRequestException(
-          `L'impegno della riga ${i + 1} non è del contratto della fattura`,
+          `L'impegno della quota ${i + 1} non è del contratto della fattura`,
         );
       }
+      const years = (c.years ?? []).map((y) => Number(y.fiscal_year));
+      const label = commitmentLabel(c.commitment_year, c.commitment_num, c.commitment_sub);
+      const name = label === '—' ? `della quota ${i + 1}` : label;
+      const fiscalYear = s.fiscal_year ?? annualityFor(years, year!);
+      if (fiscalYear === null) throw new BadRequestException(`L'impegno ${name} non ha annualità`);
+      if (!years.includes(fiscalYear)) {
+        throw new BadRequestException(`L'impegno ${name} non ha l'esercizio ${fiscalYear}`);
+      }
+      return { commitment_id_fk: c.id, fiscal_year: fiscalYear, amount: Number(s.amount) };
     });
+  }
+
+  // Quote a mano rimaste: tutte su impegni del (nuovo) contratto della fattura.
+  private async checkKeptShares(
+    manager: EntityManager,
+    shares: InvoiceCommitmentShare[],
+    contractId: number | null,
+  ): Promise<void> {
+    const ids = [...new Set(shares.map((s) => s.commitment_id_fk))];
+    const found = contractId
+      ? await manager.find(BudgetCommitment, {
+          where: { id: In(ids) },
+          relations: { contracts: true },
+        })
+      : [];
+    const ok = ids.every((id) =>
+      (found.find((c) => c.id === id)?.contracts ?? []).some((k) => k.id === contractId),
+    );
+    if (!ok) throw new BadRequestException(OTHER_CONTRACT_SHARES);
+  }
+
+  private async saveShares(
+    manager: EntityManager,
+    invoiceId: number,
+    rows: ShareRow[],
+  ): Promise<void> {
+    await manager.save(
+      InvoiceCommitmentShare,
+      rows.map((r) => ({ invoice_id_fk: invoiceId, ...r, source: CommitmentShareSource.MANUAL })),
+    );
   }
 
   private toRows(invoiceId: number, lines: InvoiceLineDto[]): Partial<InvoiceLine>[] {
@@ -323,8 +434,6 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       invoice_id_fk: invoiceId,
       amount: l.amount,
       utility_id_fk: l.utility_id_fk ?? null,
-      commitment_id_fk: isAuto(l) ? null : (l.commitment_id_fk ?? null),
-      commitment_auto: isAuto(l),
       period_start: l.period_start ?? null,
       period_end: l.period_end ?? null,
       consumption: l.consumption ?? null,

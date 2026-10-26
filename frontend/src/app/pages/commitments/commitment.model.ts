@@ -2,6 +2,7 @@ import {Exclude, plainToInstance} from 'class-transformer';
 import {AbstractEntity} from '../../core/entities/abstract.entity';
 import type {BudgetChapter} from '../budget-chapters/entity/budget-chapter.entity';
 import {commitmentLabel} from './commitment-label';
+import type {CommitmentShareSource} from '../invoices/entity/invoice-commitment-share.model';
 
 // Annualità: esercizio di competenza + importo; speso e rimanenza calcolati.
 export interface CommitmentYear {
@@ -13,8 +14,8 @@ export interface CommitmentYear {
 
 // Impegno di spesa (GET /commitments): numero della ragioneria, capitolo,
 // annualità (esercizio + importo, più d'una se pluriennale) e contratti
-// collegati (N-N). Speso e rimanenza calcolati dalle righe di fattura
-// assegnate, mai salvati.
+// collegati (N-N). Speso e rimanenza calcolati dalle quote di fattura,
+// mai salvati.
 export class Commitment extends AbstractEntity {
   commitment_year!: number | null;
   commitment_num!: number | null;
@@ -73,23 +74,20 @@ export class Commitment extends AbstractEntity {
   }
 }
 
-// Riga di fattura assegnata all'impegno, in ordine di consumo.
-export interface CommitmentLine {
-  line_id: number;
+// Quota di fattura sull'impegno (GET /commitments/:id/invoices), in ordine
+// di consumo con speso progressivo. Gemella di CommitmentInvoice del backend.
+export interface CommitmentInvoice {
+  share_id: number;
   invoice_id: number;
   invoice_number: string;
   invoice_date: string;
-  period_start: string | null;
-  period_end: string | null;
-  utility_id: number | null;
-  utility_code: string | null;
   amount: number;
-  auto: boolean;
-  fiscal_year: number | null;
+  fiscal_year: number;
+  source: CommitmentShareSource;
   progressive: number;
 }
 
-// Impegno come arriva annidato nella riga di fattura (entity, senza calcolati).
+// Impegno come arriva annidato nella quota di fattura (entity, senza calcolati).
 export interface CommitmentRef {
   id: number;
   commitment_year: number | null;

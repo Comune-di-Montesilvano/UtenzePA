@@ -1,6 +1,7 @@
 import { AuditAction, AuditLog } from '@apis/audit-log/entity/audit-log.entity';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
 import { InvoiceLine } from '@apis/invoices/entity/invoice-line.entity';
+import { InvoiceCommitmentShare } from '@apis/invoices/entity/invoice-commitment-share.entity';
 import { InvoiceImportIssue } from './entity/invoice-import-issue.entity';
 import { SdiMessage } from './entity/sdi-message.entity';
 import { ImportIssueType } from './enum/import-issue-type.enum';
@@ -99,8 +100,6 @@ describe('InvoiceApplier', () => {
       expect.objectContaining({
         invoice_id_fk: 500,
         utility_id_fk: 812,
-        commitment_id_fk: null,
-        commitment_auto: true,
         amount: 122,
       }),
     ]);
@@ -134,15 +133,22 @@ describe('InvoiceApplier', () => {
     ]);
   });
 
-  it('rielaborazione: le righe nuove tengono l’impegno scelto a mano (liquidazione)', async () => {
+  it('rielaborazione: righe sostituite senza impegno, quote d’impegno intatte', async () => {
     manager.findOne.mockResolvedValue({ id: 321, contratto_id_fk: 5, import_locked: false });
     manager.find.mockResolvedValue([
-      { utility_id_fk: 812, commitment_id_fk: 77, commitment_auto: false, consumption_id_fk: null },
+      { utility_id_fk: 812, consumption_id_fk: null },
     ]);
     await applier.apply(message(), extracted, match({ existingInvoiceId: 321 }), 3, 7);
-    expect(manager.save).toHaveBeenCalledWith(InvoiceLine, [
-      expect.objectContaining({ utility_id_fk: 812, commitment_id_fk: 77, commitment_auto: false }),
-    ]);
+    expect(manager.delete).toHaveBeenCalledWith(InvoiceLine, { invoice_id_fk: 321 });
+    const rows = manager.save.mock.calls.find(([e]) => e === InvoiceLine)[1];
+    expect(rows).toEqual([expect.objectContaining({ invoice_id_fk: 321, utility_id_fk: 812 })]);
+    expect(rows[0]).not.toHaveProperty('commitment_id_fk');
+    expect(rows[0]).not.toHaveProperty('commitment_auto');
+    // Le quote (anche a mano) restano: l'import non le scrive.
+    for (const fn of [manager.save, manager.delete, manager.update]) {
+      expect(fn).not.toHaveBeenCalledWith(InvoiceCommitmentShare, expect.anything());
+      expect(fn).not.toHaveBeenCalledWith(InvoiceCommitmentShare, expect.anything(), expect.anything());
+    }
   });
 
   it('contratto già valorizzato sulla fattura: non sovrascritto', async () => {

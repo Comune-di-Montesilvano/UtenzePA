@@ -1,4 +1,4 @@
-import { lineFiscalYear, lineYearSql } from './line-year';
+import { invoiceCompetenceYear, lineFiscalYear, lineYearSql } from './line-year';
 
 describe('lineFiscalYear', () => {
   it.each([
@@ -14,6 +14,23 @@ describe('lineFiscalYear', () => {
 
   it('accetta date con orario (valori Date serializzati dal driver)', () => {
     expect(lineFiscalYear('2025-12-15T00:00:00.000Z', null, '2026-01-02')).toBe(2025);
+  });
+});
+
+describe('invoiceCompetenceYear', () => {
+  it("usa il primo inizio e l'ultima fine delle righe", () => {
+    const periods = [
+      { period_start: '2025-12-20', period_end: '2026-01-05' },
+      { period_start: '2025-11-01', period_end: '2025-12-19' },
+      { period_start: null, period_end: null },
+    ];
+    // 2025-11-01 – 2026-01-05: più giorni nel 2025
+    expect(invoiceCompetenceYear(periods, '2026-02-01')).toBe(2025);
+  });
+
+  it('senza periodi usa la data fattura', () => {
+    expect(invoiceCompetenceYear([], '2026-02-01')).toBe(2026);
+    expect(invoiceCompetenceYear([{ period_start: null, period_end: null }], '2027-03-01')).toBe(2027);
   });
 });
 

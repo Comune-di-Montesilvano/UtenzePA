@@ -20,6 +20,9 @@ interface Row {
   chapter: string;
 }
 
+type ChapterRef = {chapter_code?: string | null; article?: number | string | null} | null | undefined;
+const chapterCode = (c: ChapterRef): string => (c?.chapter_code ? `${c.chapter_code}/${c.article ?? 0}` : '');
+
 const dateIt = (iso: string | null | undefined): string => (iso ? iso.slice(0, 10).split('-').reverse().join('/') : '');
 const eur = (n: number): string => n.toLocaleString('it-IT', {style: 'currency', currency: 'EUR'});
 
@@ -28,7 +31,7 @@ const eur = (n: number): string => n.toLocaleString('it-IT', {style: 'currency',
 const isoOf = (v: Date | string | null | undefined): string =>
   !v ? '' : typeof v === 'string' ? v.slice(0, 10) : (DateHelper.toLocalIsoString(v) ?? '');
 
-// Tab "Fatture" della scheda utenza: una riga per fattura, periodo e impegno (le righe
+// Tab "Fatture" della scheda utenza: una riga per fattura, periodo e capitolo (le righe
 // della stessa bolletta, es. energia, trasporto, oneri e imposte, sommate) e totale per anno.
 // Nessuna riga sull'utenza: le fatture dei suoi contratti (es. canoni di contratto).
 @Component({
@@ -60,7 +63,7 @@ const isoOf = (v: Date | string | null | undefined): string =>
       }
     } @else {
       <table class="sheet-table">
-        <thead><tr><th>Data</th><th>Numero</th><th>Periodo</th><th>Consumo</th><th>Importo</th><th>Impegno</th></tr></thead>
+        <thead><tr><th>Data</th><th>Numero</th><th>Periodo</th><th>Consumo</th><th>Importo</th><th>Capitolo</th></tr></thead>
         <tbody>
           @for (r of rows; track $index) {
             <tr class="row-clickable" (click)="open(r.invoiceId)">
@@ -88,6 +91,8 @@ export class UtilityInvoicesTabComponent implements OnInit {
   @Input() contractId: number | null = null;
   // Tutti i contratti dell'utenza: le loro fatture se l'utenza non ne ha di proprie.
   @Input() contractIds: number[] = [];
+  // Capitolo dell'utenza: per le fatture senza un'unica quota d'impegno.
+  @Input() utilityChapter: ChapterRef = null;
   // Numero di fatture dell'utenza, per il conteggio sull'etichetta del tab.
   @Output() countChange = new EventEmitter<number>();
 
@@ -110,19 +115,25 @@ export class UtilityInvoicesTabComponent implements OnInit {
       .subscribe(([list, years]) => {
         this.years = years;
         const rows = (list as Invoice[])
-          .flatMap(inv => (inv.lines ?? [])
-            .filter(l => l.utility_id_fk === this.utilityId)
-            .map(l => ({
-              invoiceId: inv.id,
-              number: inv.invoice_id,
-              iso: isoOf(inv.invoice_date),
-              period: l.period_start || l.period_end ? `${dateIt(l.period_start)} – ${dateIt(l.period_end)}` : '',
-              consumption: l.consumption !== null && l.consumption !== undefined ? Number(l.consumption) : null,
-              amount: Number(l.amount),
-              chapter: l.commitment?.budgetChapter
-                ? `${l.commitment.budgetChapter.chapter_code}/${l.commitment.budgetChapter.article ?? 0}${l.commitment_fiscal_year ? ` (${l.commitment_fiscal_year})` : ''}`
-                : '',
-            })));
+          .flatMap(inv => {
+            // Capitolo dalla quota d'impegno della fattura se unica, altrimenti dall'utenza.
+            const shares = inv.commitmentShares ?? [];
+            const share = shares.length === 1 ? shares[0] : null;
+            const chapter = share?.commitment?.budgetChapter
+              ? `${chapterCode(share.commitment.budgetChapter)} (${share.fiscal_year})`
+              : chapterCode(this.utilityChapter);
+            return (inv.lines ?? [])
+              .filter(l => l.utility_id_fk === this.utilityId)
+              .map(l => ({
+                invoiceId: inv.id,
+                number: inv.invoice_id,
+                iso: isoOf(inv.invoice_date),
+                period: l.period_start || l.period_end ? `${dateIt(l.period_start)} – ${dateIt(l.period_end)}` : '',
+                consumption: l.consumption !== null && l.consumption !== undefined ? Number(l.consumption) : null,
+                amount: Number(l.amount),
+                chapter,
+              }));
+          });
         const grouped = new Map<string, Row>();
         for (const r of rows) {
           const key = `${r.invoiceId}|${r.period}|${r.chapter}`;
@@ -146,7 +157,7 @@ export class UtilityInvoicesTabComponent implements OnInit {
   newInvoice(): void {
     this.navigator.createInvoice({
       contratto_id_fk: this.contractId,
-      lines: [{amount: 0, utility_id_fk: this.utilityId, commitment_id_fk: null, period_start: null, period_end: null,
+      lines: [{amount: 0, utility_id_fk: this.utilityId, period_start: null, period_end: null,
         consumption: null, supply_code: null, description: null}],
     }).subscribe(inv => {
       if (inv) this.load();

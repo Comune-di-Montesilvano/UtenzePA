@@ -5,6 +5,7 @@ import {
   ContractDirection,
   ContractStatus,
 } from '@apis/utilizer-grant/enum/real-estate-contract.enum';
+import { dbDay } from '@/helpers/date.helpers';
 import { UtilitySupplyEvent } from './entity/utility-supply-event.entity';
 import { GrantUtilityDecision } from './entity/grant-utility-decision.entity';
 import { GrantUtilityDecisionValue, SupplyEventType } from './enum/supply-event-type.enum';
@@ -27,17 +28,6 @@ const ROME_DATE = new Intl.DateTimeFormat('en-CA', {
 
 export function romeDay(value: Date | string): string {
   return typeof value === 'string' ? value.slice(0, 10) : ROME_DATE.format(value);
-}
-
-// Colonna DATE da una query grezza: mysql2 la restituisce come Date a
-// mezzanotte locale, l'entity come stringa.
-export function dbDay(value: unknown): string | null {
-  if (value === null || value === undefined || value === '') return null;
-  if (value instanceof Date) {
-    const p = (n: number) => String(n).padStart(2, '0');
-    return `${value.getFullYear()}-${p(value.getMonth() + 1)}-${p(value.getDate())}`;
-  }
-  return String(value).slice(0, 10);
 }
 
 export function toEventLike(e: UtilitySupplyEvent): SupplyEventLike {

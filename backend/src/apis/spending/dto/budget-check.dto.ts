@@ -7,11 +7,8 @@ export class BudgetCheckLineDto {
   @IsInt()
   utility_id_fk?: number | null;
 
-  @IsOptional()
-  @IsInt()
-  commitment_id_fk?: number | null;
-
-  // Periodo della riga: esercizio per competenza se la riga non ha impegno.
+  // Periodo della riga: esercizio per competenza (fattura senza quote) e
+  // competenza della fattura (annualità delle quote che non la indicano).
   @IsOptional()
   @DateOnly()
   period_start?: string | null;
@@ -25,8 +22,24 @@ export class BudgetCheckLineDto {
   amount: number;
 }
 
-// Righe della fattura in modifica (anche non salvate): l'avviso confronta
-// fatturato delle altre fatture + queste righe con l'assestato.
+// Quota d'impegno della fattura in modifica; annualità omessa = la più
+// vicina alla competenza della fattura.
+export class BudgetCheckShareDto {
+  @IsInt()
+  commitment_id_fk: number;
+
+  @IsOptional()
+  @IsInt()
+  fiscal_year?: number | null;
+
+  @Type(() => Number)
+  @IsNumber()
+  amount: number;
+}
+
+// Fattura in modifica (anche non salvata): l'avviso confronta fatturato delle
+// altre fatture + questa con l'assestato. Con quote conta il capitolo
+// dell'impegno, senza le righe con il capitolo dell'utenza.
 export class BudgetCheckDto {
   @IsOptional()
   @IsInt()
@@ -40,4 +53,11 @@ export class BudgetCheckDto {
   @ValidateNested({ each: true })
   @Type(() => BudgetCheckLineDto)
   lines: BudgetCheckLineDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50, { message: 'Al massimo 50 quote per fattura.' })
+  @ValidateNested({ each: true })
+  @Type(() => BudgetCheckShareDto)
+  commitment_shares?: BudgetCheckShareDto[] | null;
 }

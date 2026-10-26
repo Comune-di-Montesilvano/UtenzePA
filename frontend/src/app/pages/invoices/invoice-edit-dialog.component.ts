@@ -1,4 +1,5 @@
 import {ChangeDetectionStrategy, Component, inject, OnInit} from '@angular/core';
+import {NgTemplateOutlet} from '@angular/common';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -11,7 +12,8 @@ import {catchError, debounceTime, of, Subject, switchMap} from 'rxjs';
 import {plainToInstance} from 'class-transformer';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {Invoice} from './entity/invoice.entity';
-import {InvoiceLine, isAutoLine} from './entity/invoice-line.model';
+import {InvoiceLine} from './entity/invoice-line.model';
+import {InvoiceCommitmentShare, invoiceCompetenceYear, toSharePayload} from './entity/invoice-commitment-share.model';
 import {AuthService} from '../../services/auth.service';
 import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
@@ -23,7 +25,7 @@ import {ThirdPartiesService} from '../third-parties/third-parties.service';
 import {PartyRole} from '../third-parties/third-party.model';
 import {UtilityService} from '../utilities/utility.service';
 import {CommitmentService} from '../commitments/commitment.service';
-import {competenceLabel} from '../commitments/commitment.model';
+import {Commitment, competenceLabel} from '../commitments/commitment.model';
 import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
@@ -31,6 +33,7 @@ import {CREDIT_NOTE_BADGE, isCreditNote} from '../../core/helpers/entity-status'
 import {hasInvalid, isEditorRole, lastModifiedLabel} from '../../core/components/entity-sheet/sheet-utils';
 import {ToastService} from '../../core/services/toast.service';
 import {InvoiceLinesTabComponent} from './invoice-lines-tab.component';
+import {InvoiceCommitmentsTabComponent} from './invoice-commitments-tab.component';
 import {ChapterBudgetService} from '../budget-chapters/chapter-budget.service';
 import {BudgetWarning} from '../budget-chapters/chapter-budget.model';
 import {toIsoDate} from '../../core/helpers/date.helper';
@@ -54,7 +57,7 @@ const toNumberOrNull = (v: unknown): number | null => (v === null || v === undef
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatDatepickerModule, MatButtonModule,
     MatTabsModule, MatIconModule, FilterableSelectComponent, EntitySheetComponent, TabLabelComponent, InvoiceLinesTabComponent,
-    StatusBadgeComponent,
+    InvoiceCommitmentsTabComponent, StatusBadgeComponent, NgTemplateOutlet,
   ],
   styles: [`
     .budget-warning { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 6px; margin-top: 12px; }
@@ -94,8 +97,15 @@ export class InvoiceEditDialogComponent implements OnInit {
   supplierOptions: TOption[] = [];
   utilityOptions: TOption[] = [];
   commitmentOptions: TOption[] = [];
+  // Impegni del contratto (annualità per le quote a mano).
+  commitments: Commitment[] = [];
   supplierLabel: string | null = partyName(this.data.item.supplier ?? this.data.item.contratto?.supplier) || null;
   lines: InvoiceLine[] = [...(this.data.item.lines ?? [])];
+  // Quote d'impegno salvate e quelle modificate nel tab Impegni
+  // (undefined = invariate e omesse nel payload, [] = torna automatico).
+  readonly savedShares: InvoiceCommitmentShare[] = this.data.item.commitmentShares ?? [];
+  editedShares: InvoiceCommitmentShare[] | undefined;
+  sharesTouched = false;
 
   // Protocollo, imponibile, morosità e contratto facoltativi: le fatture
   // importate (es. ACA) hanno solo numero, data e totale documento.
@@ -119,26 +129,67 @@ export class InvoiceEditDialogComponent implements OnInit {
       debounceTime(400),
       switchMap(() => {
         const date = this.form.controls.invoice_date.value as Date | null;
-        if (!date || !this.lines.length) return of([] as BudgetWarning[]);
+        // Senza righe conta solo una fattura con quote a mano (es. canoni).
+        if (!date || (!this.lines.length && !this.manualShares().length)) return of([] as BudgetWarning[]);
         return this.budget.budgetCheck({
           invoice_id: this.isNew ? null : this.data.item.id,
           invoice_date: toIsoDate(date),
           lines: this.lines.map(l => ({
             utility_id_fk: l.utility_id_fk ?? null,
-            commitment_id_fk: isAutoLine(l) ? null : (l.commitment_id_fk ?? null),
             amount: Number(l.amount) || 0,
             period_start: l.period_start ?? null,
             period_end: l.period_end ?? null,
           })),
+          // Quote a mano (anche incomplete escluse); null = automatiche.
+          commitment_shares: this.manualShares().length
+            ? this.manualShares().filter(sh => !!sh.commitment_id_fk).map(sh => {
+              const p = toSharePayload(sh);
+              return {...p, amount: p.amount || 0};
+            })
+            : null,
         }).pipe(catchError(() => of([] as BudgetWarning[])));
       }),
     ).subscribe(w => this.budgetWarnings = w);
     this.form.controls.invoice_date.valueChanges.subscribe(() => this.checkBudget());
   }
 
-  // Righe, importi, impegni o data cambiati: si ricontrolla l'assestato.
+  // Righe, importi, quote o data cambiati: si ricontrolla l'assestato.
   checkBudget(): void {
     this.budgetCheck$.next();
+  }
+
+  // Quote a mano in vigore: quelle del tab se modificate, altrimenti le salvate.
+  private manualShares(): InvoiceCommitmentShare[] {
+    if (this.editedShares !== undefined) return this.editedShares;
+    return this.savedShares.filter(s => s.source === 'MANUAL');
+  }
+
+  // Prima quota a mano incompleta (senza impegno o importo), -1 se nessuna.
+  sharesInvalid(): number {
+    return (this.editedShares ?? []).findIndex(sh => !sh.commitment_id_fk || toNumberOrNull(sh.amount) === null || isNaN(Number(sh.amount)));
+  }
+
+  onSharesChange(shares: InvoiceCommitmentShare[] | undefined): void {
+    this.editedShares = shares;
+    this.checkBudget();
+  }
+
+  // Totale da ripartire tra le quote: totale documento, altrimenti somma delle righe.
+  get sharesTotal(): number {
+    const total = toNumberOrNull(this.form.controls.total_amount.value);
+    if (total !== null && !isNaN(total)) return total;
+    return Math.round(this.lines.reduce((t, l) => t + (Number(l.amount) || 0), 0) * 100) / 100;
+  }
+
+  // Competenza della fattura (gemella del backend): periodo delle righe, altrimenti data.
+  get competence(): number | null {
+    const date = this.form.controls.invoice_date.value as Date | null;
+    return invoiceCompetenceYear(this.lines, date instanceof Date && !isNaN(date.getTime()) ? toIsoDate(date) : null);
+  }
+
+  // Quota automatica da ricalcolare al Salva: fattura nuova o contratto cambiato.
+  get sharesStale(): boolean {
+    return this.isNew || (this.form.controls.contratto_id_fk.value ?? null) !== (this.data.item.contratto_id_fk ?? null);
   }
 
   openSdiDocument(type: 'xml' | 'pdf'): void {
@@ -245,43 +296,42 @@ export class InvoiceEditDialogComponent implements OnInit {
     return hasInvalid(this.form, ...names);
   }
 
-  // Impegni selezionabili sulle righe: solo quelli del contratto della fattura.
-  // contractChanged: le righe con impegni di un altro contratto li perdono
-  // (altrimenti il select li mostrerebbe vuoti e il Salva darebbe 400).
+  // Impegni selezionabili nelle quote: solo quelli del contratto della fattura.
+  // contractChanged: quote a mano su impegni di un altro contratto svuotate
+  // (altrimenti il Salva darebbe 400).
   private loadCommitments(contractId: number | null, contractChanged = false): void {
     if (!contractId) {
       this.commitmentOptions = [];
-      if (contractChanged) this.dropForeignCommitments(new Set());
+      this.commitments = [];
+      if (contractChanged) this.dropForeignShares(new Set());
       return;
     }
     this.commitmentService.byContract(contractId).subscribe({
       next: list => {
+        this.commitments = list.filter(c => !c.deleted);
         this.commitmentOptions = list.filter(c => !c.deleted).map(c => ({
           label: `${c.label === '—' ? 'Senza numero' : c.label} · competenza ${competenceLabel(c)}`,
           value: c.id,
           sublabel: `${c.chapter_label}${c.remaining !== null ? ' · rimanenza ' + this.eur(c.remaining) : ''}`,
           searchText: `${c.label} ${competenceLabel(c)} ${c.chapter_label} ${c.chapter_description ?? ''}`,
         }));
-        if (contractChanged) this.dropForeignCommitments(new Set(list.map(c => c.id)));
+        if (contractChanged) this.dropForeignShares(new Set(list.map(c => c.id)));
       },
       error: err => console.error('Errore nel caricamento degli impegni:', err)
     });
   }
 
-  // Le righe automatiche si riassegnano da sole al Salva; quelle scelte a mano
-  // su un impegno di un altro contratto tornano automatiche.
-  private dropForeignCommitments(allowed: Set<number>): void {
-    const foreign = (l: InvoiceLine) => !!l.commitment_id_fk && !allowed.has(l.commitment_id_fk);
-    const manual = this.lines.filter(l => foreign(l) && !isAutoLine(l)).length;
-    if (!this.lines.some(foreign)) return;
-    this.lines = this.lines.map(l =>
-      foreign(l) ? {...l, commitment_id_fk: null, commitment_auto: true, commitment: null} : l);
+  // Quote a mano con un impegno di un altro contratto: tutte svuotate, al
+  // Salva la fattura torna automatica.
+  private dropForeignShares(allowed: Set<number>): void {
+    const manual = this.manualShares();
+    if (!manual.some(sh => !!sh.commitment_id_fk && !allowed.has(sh.commitment_id_fk))) return;
+    this.editedShares = [];
     this.checkBudget();
-    if (!manual) return;
     this.toast.add({
       severity: 'warn',
       summary: 'Impegni tornati automatici',
-      detail: `${manual} righe avevano un impegno del contratto precedente: al Salva si assegnano in ordine di numero.`,
+      detail: "Le quote a mano erano su impegni del contratto precedente: al Salva l'impegno si assegna in automatico.",
     });
   }
 
@@ -295,6 +345,13 @@ export class InvoiceEditDialogComponent implements OnInit {
       this.toast.add({severity: 'error', summary: `Riga ${bad + 1}: importo obbligatorio`});
       return;
     }
+    const shares = this.editedShares;
+    const badShare = this.sharesInvalid();
+    if (badShare >= 0) {
+      this.sharesTouched = true;
+      this.toast.add({severity: 'error', summary: `Quota ${badShare + 1}: impegno e importo obbligatori`, detail: 'Completa il tab Impegni.'});
+      return;
+    }
     const v = this.form.getRawValue();
     this.dialogRef.close(plainToInstance(Invoice, {
       id: this.data.item.id,
@@ -304,6 +361,8 @@ export class InvoiceEditDialogComponent implements OnInit {
       net_amount_excl_vat: toNumberOrNull(v.net_amount_excl_vat),
       last_invoice_arrears: toNumberOrNull(v.last_invoice_arrears) ?? 0,
       lines: this.lines,
+      // Solo se modificate nel tab Impegni (assenti = invariate).
+      ...(shares !== undefined ? {commitment_shares: shares} : {}),
     }));
   }
 

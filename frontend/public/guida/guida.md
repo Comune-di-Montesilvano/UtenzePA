@@ -1,6 +1,6 @@
 # UtenzePA – Guida per gli operatori
 
-_Ultimo aggiornamento: 2026-10-25_
+_Ultimo aggiornamento: 2026-10-26_
 
 ## Cos'è e chi lo usa
 
@@ -51,10 +51,12 @@ Eliminare un elemento non lo cancella davvero: sparisce dagli elenchi ma resta r
 1. Apri **Fatture** (l'elenco parte dalle fatture più recenti) e crea una nuova fattura.
 2. Nel **Riepilogo** inserisci fornitore, contratto di fornitura, numero e data della fattura, numero di protocollo, totale documento IVA inclusa. Imponibile, morosità e note sono facoltativi. Per una **nota di credito** inserisci il totale, l'imponibile e gli importi delle righe con il segno meno: la fattura è segnata «Nota di credito» e riduce la spesa. L'imponibile può essere negativo solo se lo è anche il totale.
 3. Nel tab **Righe** premi **Aggiungi riga** per ogni utenza fatturata. Cerca l'utenza per POD/PDR o codice cliente, indica l'importo IVA inclusa e, se serve, consumo e descrizione. Con il pulsante accanto all'utenza ne apri la scheda; nella scheda dell'utenza il tab **Fatture** mostra quante fatture ha, una riga per fattura e periodo (le righe della stessa bolletta, es. energia, trasporto, oneri e imposte, sono sommate). Se l'utenza non ha fatture proprie, il tab mostra quelle dei suoi contratti di fornitura (es. un canone unico per tutte le utenze del contratto). Il consumo della riga resta sulla fattura: lo storico consumi dell'utenza si registra nel suo tab **Consumi**.
-4. Per ogni riga lascia l'**Impegno** su **Automatico**: al salvataggio la riga consuma il primo impegno del contratto, in ordine di numero, che ha ancora rimanenza sul capitolo e sull'esercizio di competenza della riga (preso dal periodo della riga, altrimenti dalla data della fattura). Sotto il campo, dopo il salvataggio, compare l'impegno assegnato («Assegnato 2026/514/1 · cap. 11426/0 · comp. 2026»): con un clic ne apri la scheda. «Automatico: nessun impegno disponibile» indica che il contratto non ha impegni per il capitolo e l'esercizio della riga. Se serve un impegno preciso sceglilo dall'elenco: la riga resta su quello anche quando gli altri cambiano. Senza impegni sul contratto vale il capitolo dell'utenza.
+4. Nel tab **Impegni** trovi su quali impegni pesa la fattura: l'impegno è della fattura, non delle righe. Di norma resta in **automatico**: al salvataggio la fattura intera (totale documento, altrimenti somma delle righe) va sul primo impegno del contratto, in ordine di numero, che ha ancora rimanenza sul capitolo e sull'esercizio di competenza della fattura (preso dal periodo delle righe, dal primo inizio all'ultima fine, altrimenti dalla data della fattura). Dopo il salvataggio il tab mostra l'impegno assegnato («Assegnata a 2026/514/1 · comp. 2026 · 1.234,56 €»): con un clic ne apri la scheda. «Nessun impegno del contratto per l'esercizio …» indica che il contratto non ha impegni utilizzabili: la fattura conta sul capitolo dell'utenza delle righe, se ha righe. Una fattura con contratto e senza righe con utenza (canoni) riceve l'impegno automatico solo se gli impegni del contratto per quell'esercizio sono tutti sullo stesso capitolo; altrimenti non entra nella spesa di nessun capitolo finché non la dividi a mano nel tab **Impegni**. Senza contratto in testata la fattura non pesa su nessun impegno.
+   Per scegliere un impegno preciso o dividere la fattura tra più impegni (es. un impegno esaurito a metà fattura, quote decise dalla ragioneria) premi **Dividi a mano**: per ogni quota indica impegno, annualità e importo. La prima quota parte dall'impegno automatico con il totale; **Aggiungi quota** propone la differenza ancora da ripartire; sotto la tabella compaiono somma delle quote, totale fattura e differenza (in rosso se non è zero). L'annualità proposta è quella dell'esercizio di competenza o, se l'impegno non lo ha, la più vicina. Le quote a mano non le tocca il ricalcolo: anche l'annualità scelta resta quella, pure se poi cambi la data o i periodi della fattura. Se la somma delle quote non torna col totale la fattura si salva comunque, ma compare la segnalazione «Quote d'impegno che non tornano col totale». Una fattura con contratto che resta senza impegno è segnalata come «Fatture con contratto senza impegno»: o il contratto non ha impegni nell'esercizio di competenza (inseriscilo nel contratto di fornitura) o ne ha su più capitoli (scegli l'impegno con **Dividi a mano**). **Torna automatico** (con conferma) elimina le quote a mano. Se cambi il contratto in testata e le quote a mano erano su impegni dell'altro contratto, le quote tornano automatiche (con un avviso).
+   Le righe non hanno un impegno: servono per utenze, consumi e spesa per utenza e immobile.
 5. Premi **Salva**.
 
-Una fattura non deve per forza indicare le utenze: per i canoni e i servizi di un contratto (es. Servizio Luce, connettività) basta il contratto di fornitura nel Riepilogo e righe senza utenza, ognuna con il suo impegno. Il tab **Fatture** della scheda del contratto di fornitura elenca tutte le fatture del contratto, quello della scheda del soggetto terzo tutte le fatture del fornitore (con il CIG del contratto): una riga per fattura con data, numero, periodo, totale e stato SDI, e sopra il totale per anno della fattura (escluse le rifiutate, barrate nell'elenco).
+Una fattura non deve per forza indicare le utenze: per i canoni e i servizi di un contratto (es. Servizio Luce, connettività) basta il contratto di fornitura nel Riepilogo, con righe senza utenza o anche senza righe: la fattura pesa sull'impegno del contratto per il suo totale se gli impegni del contratto per l'esercizio sono tutti sullo stesso capitolo, altrimenti va divisa a mano nel tab **Impegni**. Il tab **Fatture** della scheda del contratto di fornitura elenca tutte le fatture del contratto, quello della scheda del soggetto terzo tutte le fatture del fornitore (con il CIG del contratto): una riga per fattura con data, numero, periodo, totale e stato SDI, e sopra il totale per anno della fattura (escluse le rifiutate, barrate nell'elenco).
 
 Se con la fattura il fatturato dell'anno supera l'assestato del capitolo, compare un avviso giallo (vedi «Il fatturato supera l'assestato del capitolo»). L'avviso non blocca il salvataggio.
 
@@ -69,7 +71,7 @@ Le fatture elettroniche arrivano dallo SDI sulla casella PEC del Comune. UtenzeP
 
 1. Apri **Capitoli di spesa** e scegli il capitolo. Il riepilogo mostra l'esercizio in corso in una barra: **fatturato sugli impegni**, **rimanenza impegni** (impegnato non ancora fatturato), **da impegnare** (assestato meno impegnato). In rosso l'impegnato oltre l'assestato e il fatturato senza impegno; passa sopra la barra per i dettagli. Il badge in testa dice quanto resta da impegnare: a zero non vuol dire che non si possa più fatturare, conta la rimanenza degli impegni. Anche la scheda di un impegno ha la sua barra: fatturato, rimanenza e, in rosso, il fatturato oltre l'importo. Il pulsante accanto al capitolo apre la scheda del capitolo.
 2. Nel tab **Esercizi** trovi, anno per anno, stanziamento iniziale, assestato e spesa della ragioneria. Impegnato, fatturato, disponibile ed eventuale sforamento sono calcolati.
-3. I tab **Impegni**, **Fatture** e **Utenze** mostrano cosa pesa sul capitolo. Nel tab **Impegni** ogni impegno ha importo, speso e rimanenza, e **Nuovo impegno** ne crea uno già sul capitolo.
+3. I tab **Impegni**, **Fatture** e **Utenze** mostrano cosa pesa sul capitolo. Nel tab **Impegni** ogni impegno ha importo, speso e rimanenza, e **Nuovo impegno** ne crea uno già sul capitolo. Nel tab **Fatture** la colonna **Da** dice se l'importo arriva da una quota d'impegno o, per le fatture senza impegno, dal capitolo dell'utenza della riga.
 4. Nel tab **Dati** il campo **Note** raccoglie le informazioni utili sul capitolo (es. cosa paga, accordi con la ragioneria).
 
 Le segnalazioni «Oltre l'assestato dell'anno» e «Senza assestato dell'anno» riguardano l'esercizio in corso.
@@ -78,11 +80,11 @@ Le segnalazioni «Oltre l'assestato dell'anno» e «Senza assestato dell'anno» 
 
 1. Apri **Impegni** (sotto Capitoli di spesa). L'elenco mostra numero (anno/numero/sub della ragioneria), capitolo, esercizi di competenza (es. «2026–2028» per un pluriennale), fornitore, numero di contratti, importo, speso e rimanenza. I filtri principali sono competenza, capitolo e fornitore; in **Filtri avanzati** ci sono convenzione e contratto.
 2. Premi **Nuovo impegno** e compila nel tab **Dati** anno, numero e sub dell'impegno (anno e numero vanno insieme; il sub vale 1 se lo lasci vuoto), il **Capitolo**, il **Fornitore**, l'**Esercizio di competenza** e l'**Importo**. Un preimpegno senza numero si può inserire lasciando vuoti anno e numero.
-   Per un impegno **pluriennale** premi **Aggiungi esercizio** e indica l'importo di ogni anno di competenza: è sempre lo stesso impegno (stesso numero, contratti e documenti), con una rimanenza per anno. Le righe di fattura consumano l'importo dell'anno della riga; la scheda mostra una barra per esercizio e, nel tab **Fatture**, la competenza di ogni riga.
+   Per un impegno **pluriennale** premi **Aggiungi esercizio** e indica l'importo di ogni anno di competenza: è sempre lo stesso impegno (stesso numero, contratti e documenti), con una rimanenza per anno. Le fatture consumano l'importo dell'anno di competenza della fattura; la scheda mostra una barra per esercizio e, nel tab **Fatture**, la competenza di ogni fattura.
 3. Nel tab **Contratti** collega i contratti di fornitura che possono consumare l'impegno: un impegno può servire più contratti e lo stesso contratto può avere più impegni sullo stesso capitolo ed esercizio. Senza contratti l'impegno non viene consumato dalle fatture.
-4. Il tab **Fatture** elenca le righe di fattura che consumano l'impegno nell'ordine in cui lo consumano, con lo **speso progressivo** e l'assegnazione (**Automatico** o **Manuale**). Il tab **Documenti** contiene la determina o gli altri file dell'impegno.
+4. Il tab **Fatture** elenca le quote di fattura che consumano l'impegno nell'ordine in cui lo consumano: fattura, data, competenza, importo della quota, **speso progressivo** e **Origine** (**Automatica** o **A mano**). Il tab **Documenti** contiene la determina o gli altri file dell'impegno.
 
-Le righe automatiche consumano gli impegni in ordine di numero: quando un impegno è esaurito la riga successiva passa al seguente. Ogni salvataggio di fattura o di impegno, e il cambio di capitolo di un'utenza, ricalcola le assegnazioni dei contratti coinvolti; ogni notte il ricalcolo passa su tutti i contratti. Un impegno senza importo non si esaurisce mai: le righe successive restano su di lui finché esiste, quindi inserisci l'importo appena lo conosci. Una riga scelta a mano su un impegno che non ha l'anno della riga pesa sull'esercizio più vicino dell'impegno. Si possono creare impegni anche dal tab **Impegni e capitoli** del contratto di fornitura, dal tab **Impegni** del capitolo e dalla riga della fattura.
+Le fatture automatiche consumano gli impegni in ordine di numero, per intero: quando un impegno è esaurito la fattura successiva passa al seguente. Il ricalcolo non divide mai una fattura: per dividerla usa **Dividi a mano** nel tab **Impegni** della fattura. Ogni salvataggio di fattura o di impegno, e il cambio di capitolo di un'utenza, ricalcola le assegnazioni dei contratti coinvolti; ogni notte il ricalcolo passa su tutti i contratti. Un impegno senza importo non si esaurisce mai: le fatture successive restano su di lui finché esiste, quindi inserisci l'importo appena lo conosci. Una quota a mano senza annualità pesa sull'annualità dell'esercizio di competenza della fattura o, se l'impegno non la ha, sulla più vicina. Si possono creare impegni anche dal tab **Impegni e capitoli** del contratto di fornitura, dal tab **Impegni** del capitolo e dal tab **Impegni** della fattura.
 
 Le segnalazioni dell'elenco sono «Sforati» (rimanenza negativa nell'esercizio in corso), «Senza contratto» e «Senza importo» (dall'esercizio in corso in poi).
 
@@ -302,14 +304,14 @@ Se una struttura non va importata (es. documenti che non sono fatture di utenze)
 Con un pattern, a ogni fattura l'import:
 
 - **crea** la fattura se non c'è, oppure **arricchisce** quella già inserita a mano (stesso fornitore, numero e data), che mantiene il suo numero interno;
-- sostituisce le righe con quelle dell'XML (utenza, periodo, importo IVA inclusa, descrizione, consumo), con il capitolo dall'impegno o, se manca, dall'utenza;
-- trova il **contratto** dall'utenza della riga; per le righe senza utenza (canoni di contratto, sedi senza codice) dal CIG o dal riferimento contratto della fattura, se indica un solo contratto del fornitore, con l'unico impegno del contratto nell'esercizio (se ce ne sono zero o più di uno compare «Impegno mancante»);
+- sostituisce le righe con quelle dell'XML (utenza, periodo, importo IVA inclusa, descrizione, consumo); l'impegno della fattura lo assegna poi il ricalcolo automatico;
+- trova il **contratto** dall'utenza della riga; per le righe senza utenza (canoni di contratto, sedi senza codice) dal CIG o dal riferimento contratto della fattura, se indica un solo contratto del fornitore (se il contratto non ha impegni nell'esercizio di competenza della fattura compare «Impegno mancante», una volta per fattura: l'impegno si assegna alla fattura nel tab **Impegni**);
 - registra i **consumi** delle righe nello storico dell'utenza, salvo i periodi già coperti da una rilevazione, con la matricola letta in fattura;
 - aggiorna la **matricola** del contatore dell'utenza con quella della fattura, se manca o è diversa (con una riga nel log attività, dove resta il valore precedente). Serve l'utenza della riga: se il POD non è mappato o non è in anagrafica, l'editor avvisa che la matricola letta non ha dove essere scritta;
 - le **note di credito** (TD04, TD08) entrano con importi negativi, sia che il fornitore li scriva positivi sia già negativi; l'imponibile somma tutte le aliquote. Le note di credito non registrano consumi, e nemmeno le fatture col totale negativo (rettifiche che il fornitore ha emesso come TD01 invece che TD04): queste entrano con gli importi come sono scritti, e in UtenzePA risultano comunque «Nota di credito»;
 - la spesa conta subito; una fattura **rifiutata** non ha effetti e i suoi consumi vengono tolti.
 
-Una fattura importata che modifichi a mano non viene più aggiornata dall'import. Le fatture già importate con un pattern che correggi vengono rielaborate al salvataggio. La rielaborazione rifà le righe ma tiene l'impegno scelto a mano (per esempio quello della liquidazione): se la fattura aveva un solo impegno scelto, vale per tutte le righe; se erano diversi, ognuno torna sulla sua utenza. I file con più fatture (lotti) non vengono importati: vanno inseriti a mano.
+Una fattura importata che modifichi a mano non viene più aggiornata dall'import. Le fatture già importate con un pattern che correggi vengono rielaborate al salvataggio. La rielaborazione rifà le righe ma tiene le quote d'impegno scelte a mano (per esempio quelle della liquidazione): le quote sono della fattura, non delle righe. I file con più fatture (lotti) non vengono importati: vanno inseriti a mano.
 
 ## Regole e riferimenti
 
@@ -390,7 +392,7 @@ Se lo SDI scarta un esito inviato dal Comune, la fattura torna allo stato preced
 | Utenze | Attive senza contratto di fornitura valido · Attive coperte solo da contratti senza CIG · Con contratti di fornitura sovrapposti · Attive senza tipologia ARERA · Da volturare · Da reintestare · Da decidere · Attivazioni in sospeso · Cessazioni in sospeso · Capitolo non impegnato sul contratto di fornitura · Senza capitolo di spesa · Attive senza posizione · Penali per energia reattiva (penale in un periodo terminato negli ultimi 12 mesi) |
 | Immobili | Da classificare (tipologia o funzione mancanti) · Non di proprietà senza contratto passivo attivo · Di proprietà senza catasto · Fabbricati di proprietà senza Id MEF · Subalterno da assegnare (stessi via, civico, foglio e particella) |
 | Impianti | Senza posizione · Senza immobile · Presidi scaduti (almeno un estintore con una scadenza superata) · Verifiche obbligatorie mancanti (vedi [Verifiche obbligatorie per legge](#verifiche-obbligatorie-per-legge)) |
-| Fatture | Fuori dai periodi di attività · Con righe senza utenza (né contratto in testata) · Esito scartato dallo SDI · Differenze trovate dall'import (vedi sotto) |
+| Fatture | Fuori dai periodi di attività · Con righe senza utenza (né contratto in testata) · Esito scartato dallo SDI · Quote d'impegno che non tornano col totale · Differenze trovate dall'import (vedi sotto) |
 | Contratti di fornitura | Senza CIG (non esclusi) · CIG duplicati |
 | Contratti immobiliari | Senza immobile · Senza parti |
 | Capitoli di spesa | Oltre l'assestato dell'anno · Senza assestato dell'anno |
@@ -407,7 +409,7 @@ L'import non corregge mai le anagrafiche: segnala le differenze, che trovi in da
 | Utenza sconosciuta | Il codice letto (POD, PDR, codice cliente) non è di nessuna utenza: la riga resta senza utenza. | Aggiungi il codice all'utenza giusta (o crea l'utenza), poi salva di nuovo il pattern per rielaborare. |
 | CIG diverso dal contratto | Il CIG della fattura non è quello del contratto di fornitura dell'utenza. | Verifica la fattura o il contratto. |
 | Ragione sociale diversa | Il nome del fornitore in fattura è diverso da quello in anagrafica (stessa partita IVA). | Aggiorna l'anagrafica se il fornitore ha cambiato nome. |
-| Impegno mancante | Non c'è un impegno per contratto, capitolo ed esercizio: la riga usa il capitolo dell'utenza. Per le righe senza utenza: il contratto non ha un solo impegno nell'esercizio. | Inserisci l'impegno nel contratto di fornitura (con più impegni, scegli quello della riga nella fattura). |
+| Impegno mancante | Non c'è un impegno per contratto, capitolo ed esercizio: la riga usa il capitolo dell'utenza. Per le righe senza utenza: il contratto non ha impegni nell'esercizio o li ha su più capitoli. | Inserisci l'impegno nel contratto di fornitura (con impegni su più capitoli, scegli quello giusto con **Dividi a mano** nel tab **Impegni** della fattura). |
 | Periodo di consumo già coperto | Il periodo della riga è già coperto da una rilevazione: il consumo della fattura non è stato registrato. | Controlla lo storico consumi dell'utenza. |
 | Contratti diversi sulle righe | Le righe sono su utenze di contratti di fornitura diversi. | Verifica che utenze e contratti siano giusti. |
 | File con più fatture (lotto) | Il file contiene più fatture: non è stato importato. | Inserisci le fatture a mano. |
@@ -512,17 +514,17 @@ L'import non corregge mai le anagrafiche: segnala le differenze, che trovi in da
 
 **Causa:** con la fattura in corso il fatturato dell'anno sul capitolo supera l'assestato. L'avviso è del tipo «Capitolo …: con questa fattura il fatturato … supera l'assestato».
 
-**Soluzione:** è un avviso, non un errore: la fattura si salva comunque. Verifica con la ragioneria l'assestato del capitolo e aggiornalo nel tab **Esercizi**, oppure controlla che la riga sia sull'impegno giusto.
+**Soluzione:** è un avviso, non un errore: la fattura si salva comunque. Verifica con la ragioneria l'assestato del capitolo e aggiornalo nel tab **Esercizi**, oppure controlla nel tab **Impegni** che la fattura sia sull'impegno giusto.
 
 **Apri un ticket se:** l'assestato è aggiornato ma l'avviso indica cifre diverse.
 
 ### Non riesco a eliminare un impegno
 
-**Causa:** l'impegno è stato scelto a mano su una o più righe di fattura («Impegno scelto a mano su … righe fattura»). Le righe automatiche invece non bloccano: passano da sole agli altri impegni del contratto. Il ripristino di un impegno eliminato non riesce se nel frattempo il suo numero è stato usato da un altro impegno («Impegno … già presente»).
+**Causa:** l'impegno è stato scelto a mano su una o più fatture («Impegno scelto a mano su … fatture»). Le fatture automatiche invece non bloccano: passano da sole agli altri impegni del contratto. Il ripristino di un impegno eliminato non riesce se nel frattempo il suo numero è stato usato da un altro impegno («Impegno … già presente»).
 
-**Soluzione:** apri le fatture dal tab **Fatture** dell'impegno e rimetti quelle righe su **Automatico** o su un altro impegno, poi elimina. Per il ripristino correggi prima il numero dell'impegno che lo usa.
+**Soluzione:** apri le fatture con origine **A mano** dal tab **Fatture** dell'impegno e, nel loro tab **Impegni**, premi **Torna automatico** o sposta la quota su un altro impegno, poi elimina. Per il ripristino correggi prima il numero dell'impegno che lo usa.
 
-**Apri un ticket se:** l'impegno non ha righe manuali ma non si elimina.
+**Apri un ticket se:** l'impegno non ha quote a mano ma non si elimina.
 
 ### Un'utenza o un impianto risulta «senza posizione»
 

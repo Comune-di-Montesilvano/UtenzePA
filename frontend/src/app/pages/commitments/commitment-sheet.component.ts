@@ -30,7 +30,8 @@ import {ContractsService} from '../contracts/contract.service';
 import type {Contract} from '../contracts/entity/contract.entity';
 import {ThirdPartiesService} from '../third-parties/third-parties.service';
 import {PartyRole} from '../third-parties/third-party.model';
-import {chapterLabel, Commitment, CommitmentLine, CommitmentYear, competenceLabel} from './commitment.model';
+import {chapterLabel, Commitment, CommitmentInvoice, CommitmentYear, competenceLabel} from './commitment.model';
+import {SHARE_SOURCE_LABELS} from '../invoices/entity/invoice-commitment-share.model';
 import {commitmentLabel} from './commitment-label';
 import {CommitmentService} from './commitment.service';
 
@@ -41,7 +42,7 @@ const toNumber = (v: unknown): number | null => (v === null || v === undefined |
 
 // Scheda dell'impegno: numero della ragioneria, capitolo, annualità
 // (esercizio + importo; pluriennale = più annualità), contratti collegati
-// (N-N) e righe di fattura che lo consumano.
+// (N-N) e quote di fattura che lo consumano.
 @Component({
   selector: 'app-commitment-sheet',
   standalone: true,
@@ -85,7 +86,8 @@ export class CommitmentSheetComponent implements OnInit {
   supplierOptions: TOption[] = [];
   contractRows: ContractRow[] = [];
   contractOptions: TOption[] = [];
-  lines: CommitmentLine[] = [];
+  invoices: CommitmentInvoice[] = [];
+  readonly sourceLabels = SHARE_SOURCE_LABELS;
   status: StatusInfo | null = null;
   private allContracts: Contract[] = [];
 
@@ -152,11 +154,11 @@ export class CommitmentSheetComponent implements OnInit {
   private barOf(c: CommitmentYear): BarSegment[] {
     const spent = Math.max(Number(c.spent ?? 0), 0);
     if (c.amount === null) {
-      return [{key: 'spent', label: 'Fatturato', value: spent, tone: 'spent', hint: 'righe di fattura che consumano l’impegno', keepEmpty: true}];
+      return [{key: 'spent', label: 'Fatturato', value: spent, tone: 'spent', hint: 'quote di fattura che consumano l’impegno', keepEmpty: true}];
     }
     const amount = Math.max(Number(c.amount), 0);
     return [
-      {key: 'spent', label: 'Fatturato', value: Math.min(spent, amount), tone: 'spent', hint: 'righe di fattura che consumano l’impegno', keepEmpty: true},
+      {key: 'spent', label: 'Fatturato', value: Math.min(spent, amount), tone: 'spent', hint: 'quote di fattura che consumano l’impegno', keepEmpty: true},
       {key: 'left', label: 'Rimanenza', value: Math.max(amount - spent, 0), tone: 'left', hint: 'importo non ancora fatturato', keepEmpty: true},
       {key: 'over', label: 'Oltre l’importo', value: Math.max(spent - amount, 0), tone: 'over', hint: 'fatturato oltre l’importo dell’impegno'},
     ];
@@ -166,7 +168,7 @@ export class CommitmentSheetComponent implements OnInit {
     this.loadChapters();
     this.loadSuppliers();
     this.loadContracts();
-    if (!this.isNew) this.loadLines();
+    if (!this.isNew) this.loadInvoices();
     this.form.controls.supplier_id_fk.valueChanges.subscribe(() => this.buildContracts());
   }
 
@@ -235,10 +237,10 @@ export class CommitmentSheetComponent implements OnInit {
       .sort((a, b) => a.label.localeCompare(b.label, 'it'));
   }
 
-  private loadLines(): void {
-    this.service.lines(this.data.item.id).subscribe({
-      next: rows => this.lines = rows,
-      error: err => console.error("Errore nel caricamento delle righe dell'impegno:", err),
+  private loadInvoices(): void {
+    this.service.invoices(this.data.item.id).subscribe({
+      next: rows => this.invoices = rows,
+      error: err => console.error("Errore nel caricamento delle fatture dell'impegno:", err),
     });
   }
 
@@ -270,9 +272,9 @@ export class CommitmentSheetComponent implements OnInit {
     });
   }
 
-  openInvoice(line: CommitmentLine): void {
-    this.navigator.openInvoice(line.invoice_id).subscribe(saved => {
-      if (saved) this.loadLines();
+  openInvoice(row: CommitmentInvoice): void {
+    this.navigator.openInvoice(row.invoice_id).subscribe(saved => {
+      if (saved) this.loadInvoices();
     });
   }
 

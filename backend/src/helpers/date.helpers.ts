@@ -1,3 +1,14 @@
+// Colonna DATE da una query grezza: mysql2 la restituisce come Date a
+// mezzanotte locale, l'entity come stringa.
+export function dbDay(value: unknown): string | null {
+  if (value === null || value === undefined || value === '') return null;
+  if (value instanceof Date) {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${value.getFullYear()}-${p(value.getMonth() + 1)}-${p(value.getDate())}`;
+  }
+  return String(value).slice(0, 10);
+}
+
 export class DateHelper {
   static mysqlDate(value: Date): string {
     const d = new Date(value);

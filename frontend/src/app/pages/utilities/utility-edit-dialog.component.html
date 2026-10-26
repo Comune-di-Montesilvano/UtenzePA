@@ -440,7 +440,8 @@
             <app-tab-label icon="receipt_long" label="Fatture" [count]="invoiceCount"></app-tab-label>
           </ng-template>
           <app-utility-invoices-tab [utilityId]="data.item.id" [canEdit]="canEdit" [contractId]="currentContractId()"
-                                    [contractIds]="contractIds" (countChange)="invoiceCount = $event"></app-utility-invoices-tab>
+                                    [contractIds]="contractIds" [utilityChapter]="data.item.budgetChapter"
+                                    (countChange)="invoiceCount = $event"></app-utility-invoices-tab>
         </mat-tab>
       }
 

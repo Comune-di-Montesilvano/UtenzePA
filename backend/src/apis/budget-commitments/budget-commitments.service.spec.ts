@@ -11,16 +11,25 @@ describe('commitmentLabel', () => {
 
 describe('BudgetCommitmentsService', () => {
   let service: BudgetCommitmentsService;
-  let repo: { find: jest.Mock; findOne: jest.Mock; create: jest.Mock; save: jest.Mock; query: jest.Mock };
+  let repo: {
+    find: jest.Mock;
+    findOne: jest.Mock;
+    create: jest.Mock;
+    save: jest.Mock;
+    query: jest.Mock;
+    manager: { transaction: jest.Mock };
+  };
   let contractRepo: { find: jest.Mock };
   let chapterRepo: { findOne: jest.Mock };
   let reconcile: { reconcileSafe: jest.Mock };
   let manualLines = 0;
   let rows: Record<string, unknown>[] = [];
+  let manualOrphans: { fiscal_year: number; n: number }[] = [];
 
   beforeEach(() => {
     manualLines = 0;
     rows = [];
+    manualOrphans = [];
     repo = {
       find: jest.fn().mockResolvedValue([]),
       findOne: jest.fn(),
@@ -29,9 +38,15 @@ describe('BudgetCommitmentsService', () => {
       query: jest.fn(async (sql: string) => {
         if (sql.includes('/* c_manual */')) return [{ n: manualLines }];
         if (sql.includes('/* c_rows */')) return rows;
+        if (sql.includes('/* c_manual_orphans */')) return manualOrphans;
         return [];
       }),
+      manager: { transaction: jest.fn() },
     };
+    // Transazione: stesse query del repository.
+    repo.manager.transaction.mockImplementation(async (cb: (m: { query: jest.Mock }) => unknown) =>
+      cb({ query: repo.query }),
+    );
     contractRepo = { find: jest.fn(async () => [{ id: 1 }, { id: 2 }]) };
     chapterRepo = { findOne: jest.fn().mockResolvedValue({ id: 7, deleted: false }) };
     reconcile = { reconcileSafe: jest.fn().mockResolvedValue(undefined) };
@@ -89,13 +104,14 @@ describe('BudgetCommitmentsService', () => {
     expect(reconcile.reconcileSafe).toHaveBeenCalledWith([5, 1]);
   });
 
-  it('non elimina un impegno scelto a mano su righe di fattura', async () => {
+  it('non elimina un impegno scelto a mano su fatture (quote MANUAL)', async () => {
     repo.findOne.mockResolvedValue({ id: 9, ...dto, deleted: false, contracts: [{ id: 1 }] });
     manualLines = 2;
-    await expect(service.remove(9, 3)).rejects.toThrow('Impegno scelto a mano su 2 righe fattura');
+    await expect(service.remove(9, 3)).rejects.toThrow('Impegno scelto a mano su 2 fatture');
+    expect(repo.save).not.toHaveBeenCalled();
   });
 
-  it('elimina un impegno con sole righe automatiche e le riassegna', async () => {
+  it('elimina un impegno con sole quote automatiche e le riassegna', async () => {
     repo.findOne.mockResolvedValue({ id: 9, ...dto, deleted: false, contracts: [{ id: 1 }] });
     await service.remove(9, 3);
     expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ deleted: true }));
@@ -151,12 +167,38 @@ describe('BudgetCommitmentsService', () => {
     expect(list[1]).toEqual(expect.objectContaining({ label: '—', remaining: null, contract_ids: [] }));
   });
 
-  it('righe manuali che bloccano l’eliminazione: solo fatture non cancellate e non rifiutate', async () => {
+  it('quote a mano che bloccano l’eliminazione: fatture distinte, non cancellate e non rifiutate', async () => {
     repo.findOne.mockResolvedValue({ id: 9, ...dto, deleted: false, contracts: [{ id: 1 }] });
     await service.remove(9, 3).catch(() => undefined);
-    const sql = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_manual */'))![0] as string;
+    const [sql, params] = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_manual */'))!;
+    expect(sql).toContain('FROM invoice_commitment_shares');
+    expect(sql).toContain("source = 'MANUAL'");
+    expect(sql).toContain('COUNT(DISTINCT');
     expect(sql).toContain('i.deleted = 0');
     expect(sql).toContain('sdi_status');
+    expect(sql).not.toContain('invoice_lines');
+    expect(params).toEqual([9]);
+  });
+
+  it('fatture dell’impegno: quote in ordine di consumo con progressivo', async () => {
+    repo.query.mockImplementation(async (sql: string) =>
+      sql.includes('/* c_invoices */')
+        ? [
+            { share_id: 5, invoice_id: 10, invoice_number: 'F-1', invoice_date: '2026-01-31', amount: '60.00', fiscal_year: 2026, source: 'AUTO' },
+            { share_id: 6, invoice_id: 11, invoice_number: 'NC-1', invoice_date: new Date(2026, 1, 28), amount: '-10.50', fiscal_year: '2026', source: 'MANUAL' },
+          ]
+        : [],
+    );
+    expect(await service.invoices(9)).toEqual([
+      { share_id: 5, invoice_id: 10, invoice_number: 'F-1', invoice_date: '2026-01-31', amount: 60, fiscal_year: 2026, source: 'AUTO', progressive: 60 },
+      { share_id: 6, invoice_id: 11, invoice_number: 'NC-1', invoice_date: '2026-02-28', amount: -10.5, fiscal_year: 2026, source: 'MANUAL', progressive: 49.5 },
+    ]);
+    const [sql, params] = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_invoices */'))!;
+    expect(sql).toContain('FROM invoice_commitment_shares');
+    expect(sql).toContain('i.deleted = 0');
+    expect(sql).toContain('sdi_status');
+    expect(sql).toMatch(/ORDER BY i\.invoice_date, i\.id/);
+    expect(params).toEqual([9]);
   });
 
   it('elenco e speso senza GROUP_CONCAT (troncato oltre 1024 caratteri)', async () => {
@@ -165,11 +207,14 @@ describe('BudgetCommitmentsService', () => {
     expect(sql).not.toContain('GROUP_CONCAT');
   });
 
-  it('elenco: lo speso conta solo fatture non cancellate e non rifiutate', async () => {
+  it('elenco: lo speso = quote di fatture non cancellate e non rifiutate', async () => {
     await service.listRows({});
     const sql = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_rows */'))![0] as string;
     expect(sql).toContain('i.deleted = 0');
     expect(sql).toContain('sdi_status');
+    expect(sql).toContain('FROM invoice_commitment_shares');
+    expect(sql).toContain('s.fiscal_year = y.fiscal_year');
+    expect(sql).not.toContain('invoice_lines');
   });
 
   it('un esercizio ripetuto nelle annualità è rifiutato', async () => {
@@ -194,5 +239,36 @@ describe('BudgetCommitmentsService', () => {
     });
     await service.update(9, { years: [{ fiscal_year: 2026, amount: 100 }] }, 3);
     expect(repo.query.mock.calls.some(([s]) => String(s).includes('/* c_years_'))).toBe(false);
+  });
+  it('annualità tolta: le quote a mano passano alla più vicina, con audit; le altre non si toccano', async () => {
+    repo.findOne.mockResolvedValue({
+      id: 9, budget_chapter_id_fk: 7, contracts: [{ id: 1 }],
+      years: [{ fiscal_year: 2025, amount: '50.00' }, { fiscal_year: 2026, amount: '100.00' }],
+    });
+    manualOrphans = [{ fiscal_year: 2025, n: 2 }];
+    const audit = jest.spyOn(service as never, 'recordAudit').mockResolvedValue(undefined as never);
+    await service.update(9, { years: [{ fiscal_year: 2026, amount: 100 }, { fiscal_year: 2028, amount: 10 }] }, 3);
+    const orphans = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_manual_orphans */'))!;
+    expect(orphans[0]).toContain("source = 'MANUAL'");
+    expect(orphans[1]).toEqual([9, [2026, 2028]]);
+    const move = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_manual_move */'))!;
+    expect(move[0]).toContain("source = 'MANUAL'");
+    expect(move[1]).toEqual([2026, 9, 2025]);
+    expect(repo.manager.transaction).toHaveBeenCalledTimes(1);
+    expect(audit).toHaveBeenCalledWith(
+      expect.anything(),
+      9,
+      3,
+      expect.arrayContaining([{ fieldName: 'shares_moved', oldValue: '2025 (2 quote)', newValue: '2026' }]),
+    );
+    expect(reconcile.reconcileSafe).toHaveBeenCalledWith([1]);
+  });
+
+  it('annualità tolta senza quote a mano: nessuno spostamento', async () => {
+    repo.findOne.mockResolvedValue({
+      id: 9, budget_chapter_id_fk: 7, contracts: [{ id: 1 }], years: [{ fiscal_year: 2025, amount: '50.00' }],
+    });
+    await service.update(9, { years: [{ fiscal_year: 2026, amount: 50 }] }, 3);
+    expect(repo.query.mock.calls.some(([s]) => String(s).includes('/* c_manual_move */'))).toBe(false);
   });
 });

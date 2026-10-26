@@ -5,25 +5,34 @@ import { lineYearSql } from './line-year';
 // impegni + fatturato, sempre calcolati. Condiviso da spesa e anomalie.
 export type Query = (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
 
-// Riga fattura: esercizio dall'annualità dell'impegno su cui pesa e capitolo
-// dall'impegno, altrimenti competenza del periodo della riga (line-year.ts) e
-// capitolo dell'utenza.
-export const LINE_YEAR = `COALESCE(il.commitment_fiscal_year, ${lineYearSql({ line: 'il', invoice: 'i' })})`;
-export const LINE_CHAPTER = 'COALESCE(bcm.budget_chapter_id_fk, u.budget_chapter_code_fk)';
-export const CHAPTER_LINES = `FROM invoice_lines il
-  JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
-  LEFT JOIN budget_commitments bcm ON bcm.id = il.commitment_id_fk
-  LEFT JOIN utilities u ON u.id = il.utility_id_fk`;
+// Voci di spesa per capitolo (ci): quote d'impegno della fattura (capitolo
+// dell'impegno, esercizio = annualità della quota) e, per le fatture senza
+// quote, le righe (capitolo dell'utenza, competenza del periodo della riga,
+// line-year.ts). Solo fatture valide (join con invoices i in coda).
+export const CHAPTER_ITEMS = `FROM (
+    SELECT s.id AS share_id, NULL AS line_id, s.invoice_id_fk AS invoice_id, NULL AS utility_id,
+           bcm.budget_chapter_id_fk AS chapter_id, s.fiscal_year AS year, s.amount
+      FROM invoice_commitment_shares s
+      JOIN budget_commitments bcm ON bcm.id = s.commitment_id_fk
+    UNION ALL
+    SELECT NULL, il.id, il.invoice_id_fk, il.utility_id_fk, u.budget_chapter_code_fk,
+           ${lineYearSql({ line: 'il', invoice: 'li' })}, il.amount
+      FROM invoice_lines il
+      JOIN invoices li ON li.id = il.invoice_id_fk
+      LEFT JOIN utilities u ON u.id = il.utility_id_fk
+     WHERE NOT EXISTS (SELECT 1 FROM invoice_commitment_shares x WHERE x.invoice_id_fk = il.invoice_id_fk)
+  ) ci
+  JOIN invoices i ON i.id = ci.invoice_id AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}`;
 
 // Annualità degli impegni (bcy), contate una volta qualunque sia il numero
 // dei contratti collegati: un pluriennale conta in ogni suo esercizio.
 export const COMMITMENTS =
   'FROM budget_commitment_years bcy JOIN budget_commitments bcm ON bcm.id = bcy.commitment_id';
 
-// Speso di un'annualità: righe assegnate di fatture valide con il suo esercizio.
-export const COMMITMENT_SPENT = `(SELECT COALESCE(SUM(sl.amount), 0) FROM invoice_lines sl
-  JOIN invoices si ON si.id = sl.invoice_id_fk AND si.deleted = 0 AND ${NOT_REJECTED_SQL('si')}
-  WHERE sl.commitment_id_fk = bcm.id AND sl.commitment_fiscal_year = bcy.fiscal_year)`;
+// Speso di un'annualità: quote di fatture valide con il suo esercizio.
+export const COMMITMENT_SPENT = `(SELECT COALESCE(SUM(ss.amount), 0) FROM invoice_commitment_shares ss
+  JOIN invoices si ON si.id = ss.invoice_id_fk AND si.deleted = 0 AND ${NOT_REJECTED_SQL('si')}
+  WHERE ss.commitment_id_fk = bcm.id AND ss.fiscal_year = bcy.fiscal_year)`;
 // Rimanenza delle annualità con importo (null se nessuna ne ha).
 export const COMMITMENTS_REMAINING = `SUM(CASE WHEN bcy.amount IS NULL THEN NULL ELSE bcy.amount - ${COMMITMENT_SPENT} END)`;
 
@@ -113,10 +122,10 @@ export async function chaptersYearSummary(query: Query, year: number): Promise<C
     [year],
   );
   const invoiced = await query(
-    `SELECT ${LINE_CHAPTER} AS chapter_id, SUM(il.amount) AS total, COUNT(DISTINCT i.id) AS invoices
-     ${CHAPTER_LINES}
-     WHERE ${LINE_YEAR} = ? AND ${LINE_CHAPTER} IS NOT NULL
-     GROUP BY chapter_id`,
+    `SELECT ci.chapter_id, SUM(ci.amount) AS total, COUNT(DISTINCT ci.invoice_id) AS invoices
+     ${CHAPTER_ITEMS}
+     WHERE ci.year = ? AND ci.chapter_id IS NOT NULL
+     GROUP BY ci.chapter_id`,
     [year],
   );
   const b = byKey(budget, 'chapter_id');

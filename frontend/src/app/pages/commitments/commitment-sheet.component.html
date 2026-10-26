@@ -110,35 +110,38 @@
                           [unlinkable]="canEdit" itemLabel="il contratto"
                           [createLabel]="canEdit ? 'Nuovo contratto' : null" (create)="newContract()"
                           (add)="linkContract($event)" (unlink)="unlinkContract($event)" (open)="openContract($event)"
-                          emptyText="Nessun contratto collegato: le righe di fattura non possono consumare questo impegno."></app-linked-table>
+                          emptyText="Nessun contratto collegato: le fatture non possono consumare questo impegno."></app-linked-table>
       </mat-tab>
 
       @if (!isNew) {
         <mat-tab aria-label="Fatture">
           <ng-template mat-tab-label>
-            <app-tab-label icon="receipt_long" label="Fatture" [count]="lines.length"></app-tab-label>
+            <app-tab-label icon="receipt_long" label="Fatture" [count]="invoices.length"></app-tab-label>
           </ng-template>
-          @if (!lines.length) {
-            <p class="sheet-empty">Nessuna riga di fattura su questo impegno.</p>
+          @if (!invoices.length) {
+            <p class="sheet-empty">Nessuna fattura su questo impegno.</p>
           } @else {
             <table class="sheet-table">
-              <thead><tr><th>Fattura</th><th>Periodo</th><th>Utenza</th>@if (yearBars.length > 1) {<th>Competenza</th>}<th>Importo</th><th>Speso progressivo</th><th>Assegnazione</th></tr></thead>
+              <thead><tr><th>Fattura</th><th>Data</th><th>Competenza</th><th>Importo</th><th>Speso progressivo</th><th>Origine</th></tr></thead>
               <tbody>
-                @for (l of lines; track l.line_id) {
-                  <tr class="line-row" (click)="openInvoice(l)">
-                    <td>{{ l.invoice_number }} del {{ dateIt(l.invoice_date) }}</td>
-                    <td>{{ l.period_start ? dateIt(l.period_start) : '…' }} – {{ l.period_end ? dateIt(l.period_end) : '…' }}</td>
-                    <td>{{ l.utility_code ?? '' }}</td>
-                    @if (yearBars.length > 1) {
-                      <td>{{ l.fiscal_year ?? '' }}</td>
-                    }
-                    <td style="text-align: right;">{{ eur(l.amount) }}</td>
-                    <td style="text-align: right;">{{ eur(l.progressive) }}</td>
+                @for (r of invoices; track r.share_id) {
+                  <tr class="line-row" (click)="openInvoice(r)">
+                    <td>{{ r.invoice_number }}</td>
+                    <td>{{ dateIt(r.invoice_date) }}</td>
+                    <td>{{ r.fiscal_year }}</td>
+                    <td style="text-align: right;">{{ eur(r.amount) }}</td>
+                    <td style="text-align: right;">{{ eur(r.progressive) }}</td>
                     <td>
-                      @if (l.auto) {
-                        <span class="tone-info" style="border-radius: 10px; padding: 1px 8px;" matTooltip="Assegnato automaticamente in ordine di numero">Automatico</span>
-                      } @else {
-                        <span class="tone-warn" style="border-radius: 10px; padding: 1px 8px;" matTooltip="Scelto a mano nella fattura">Manuale</span>
+                      @switch (r.source) {
+                        @case ('AUTO') {
+                          <span class="tone-info" style="border-radius: 10px; padding: 1px 8px;" matTooltip="Assegnata automaticamente in ordine di numero">{{ sourceLabels.AUTO }}</span>
+                        }
+                        @case ('MANUAL') {
+                          <span class="tone-warn" style="border-radius: 10px; padding: 1px 8px;" matTooltip="Divisa a mano nel tab Impegni della fattura">{{ sourceLabels.MANUAL }}</span>
+                        }
+                        @default {
+                          <span class="tone-ok" style="border-radius: 10px; padding: 1px 8px;" matTooltip="Dalla contabilità della ragioneria">{{ sourceLabels.ACCOUNTING }}</span>
+                        }
                       }
                     </td>
                   </tr>

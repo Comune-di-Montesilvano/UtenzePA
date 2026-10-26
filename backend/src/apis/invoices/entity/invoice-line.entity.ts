@@ -1,7 +1,6 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Invoice } from './invoice.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
-import { BudgetCommitment } from '@apis/budget-commitments/entity/budget-commitment.entity';
 import { UtilityConsumption } from '@apis/utility-consumptions/entity/utility-consumption.entity';
 
 // Riga di fattura: tutto facoltativo tranne l'importo (IVA inclusa), perché
@@ -21,18 +20,6 @@ export class InvoiceLine {
 
   @Column({ type: 'int', nullable: true })
   utility_id_fk: number | null;
-
-  @Column({ type: 'int', nullable: true })
-  commitment_id_fk: number | null;
-
-  // true = impegno assegnato dal consumo automatico (ricalcolabile), false = scelto a mano.
-  @Column({ type: 'boolean', default: true })
-  commitment_auto: boolean;
-
-  // Annualità dell'impegno su cui pesa la riga: la scrive solo il ricalcolo
-  // (CommitmentReconcileService), mai il form.
-  @Column({ type: 'int', nullable: true })
-  commitment_fiscal_year: number | null;
 
   @Column({ type: 'date', nullable: true })
   period_start: string | null;
@@ -60,13 +47,6 @@ export class InvoiceLine {
   @ManyToOne(() => Utility)
   @JoinColumn({ name: 'utility_id_fk', foreignKeyConstraintName: 'FK_invoice_lines_utility' })
   utility: Utility | null;
-
-  @ManyToOne(() => BudgetCommitment)
-  @JoinColumn({
-    name: 'commitment_id_fk',
-    foreignKeyConstraintName: 'FK_invoice_lines_commitment',
-  })
-  commitment: BudgetCommitment | null;
 
   @ManyToOne(() => UtilityConsumption, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'consumption_id_fk', foreignKeyConstraintName: 'FK_invoice_lines_consumption' })

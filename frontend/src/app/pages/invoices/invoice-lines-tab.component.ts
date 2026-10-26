@@ -8,8 +8,7 @@ import {MatDatepickerModule} from '@angular/material/datepicker';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import type {TOption} from '../../core/types/option.interface';
-import {AUTO_COMMITMENT, InvoiceLine, isAutoLine} from './entity/invoice-line.model';
-import {commitmentRefLabel} from '../commitments/commitment.model';
+import {InvoiceLine} from './entity/invoice-line.model';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {Utility} from '../utilities/entity/utility.entity';
 import {toIsoDate} from '../utilities/consumptions/consumption.model';
@@ -57,23 +56,6 @@ const eur = (n: number | null | undefined): string =>
                     matTooltip="Apri scheda utenza" (click)="openUtility(l.utility_id_fk)">
               <mat-icon>open_in_new</mat-icon>
             </button>
-          }
-        </div>
-        <div class="f-commitment">
-          <app-filterable-select label="Impegno" placeholder="Numero, esercizio o capitolo..." [options]="selectOptions"
-            [ngModel]="commitmentValue(l)" [ngModelOptions]="{standalone: true}" (ngModelChange)="setCommitment(l, $event)" [disabled]="readOnly"
-            [createLabel]="readOnly || !contractId ? null : 'Nuovo impegno'" (create)="newCommitment(l)"></app-filterable-select>
-          @if (!readOnly && !contractId) {
-            <span class="line-hint">Impegni disponibili scegliendo il contratto.</span>
-          } @else if (autoHint(l)) {
-            <button type="button" class="line-hint line-hint--link" (click)="openCommitment(l)"
-                    matTooltip="Assegnato automaticamente in ordine di numero (cambia salvando la fattura). Clic per aprire l'impegno.">
-              <mat-icon>auto_mode</mat-icon> {{ autoHint(l) }}
-            </button>
-          } @else if (autoMissing(l)) {
-            <span class="line-hint line-hint--warn" matTooltip="Nessun impegno del contratto per il capitolo e l'esercizio della riga">
-              <mat-icon>warning</mat-icon> Automatico: nessun impegno disponibile
-            </span>
           }
         </div>
         <mat-form-field class="f-date">
@@ -131,36 +113,20 @@ const eur = (n: number | null | undefined): string =>
     .f-utility { width: 300px; display: flex; align-items: flex-start; gap: 4px; }
     .f-utility > app-filterable-select { flex: 1 1 auto; min-width: 0; }
     .open-utility { margin-top: 4px; }
-    .f-commitment { width: 240px; }
     .f-date { width: 150px; }
     .f-num { width: 120px; }
     .f-code { width: 160px; }
     .f-desc { flex: 1 1 220px; }
-    .line-hint { display: block; font-size: 0.75rem; color: var(--sheet-muted); margin-top: -12px; }
-    .line-hint--link, .line-hint--warn { display: flex; align-items: flex-start; gap: 4px; font: inherit; font-size: 0.8125rem; line-height: 1.35; margin-top: -10px; }
-    .line-hint--link { background: none; border: 0; padding: 0; cursor: pointer; color: var(--app-link); font-weight: 500; text-align: left; }
-    .line-hint--link:hover { text-decoration: underline; }
-    .line-hint--warn { color: var(--tone-warn-fg); }
-    .line-hint mat-icon { font-size: 16px; width: 16px; height: 16px; }
   `],
 })
 export class InvoiceLinesTabComponent implements OnChanges {
   @Input() lines: InvoiceLine[] = [];
   @Input() total: number | null | undefined = null;
   @Input() utilityOptions: TOption[] = [];
-  // «Automatico» in testa alle opzioni: campo cache, ricalcolato col setter.
-  selectOptions: TOption[] = [{label: 'Automatico', value: AUTO_COMMITMENT, sublabel: 'in ordine di numero'}];
-  @Input() set commitmentOptions(list: TOption[]) {
-    this.selectOptions = [{label: 'Automatico', value: AUTO_COMMITMENT, sublabel: 'in ordine di numero'}, ...(list ?? [])];
-  }
   @Input() readOnly = false;
-  // Contratto della fattura: serve a creare un impegno dalla riga.
-  @Input() contractId: number | null = null;
-  // Fornitore della fattura: precompilato sugli impegni creati da una riga.
-  @Input() supplierId: number | null = null;
   @Output() linesChange = new EventEmitter<InvoiceLine[]>();
   // Elemento creato da una riga: il padre ricarica quelle opzioni.
-  @Output() optionsStale = new EventEmitter<'utilities' | 'commitments'>();
+  @Output() optionsStale = new EventEmitter<'utilities'>();
 
   private navigator = inject(EntityNavigatorService);
 
@@ -215,49 +181,9 @@ export class InvoiceLinesTabComponent implements OnChanges {
     });
   }
 
-  // «Automatico» in testa: l'impegno lo sceglie il ricalcolo dopo il Salva.
-  commitmentValue(l: EditableLine): number | null {
-    return isAutoLine(l) ? AUTO_COMMITMENT : l.commitment_id_fk;
-  }
-
-  setCommitment(l: EditableLine, value: number | null): void {
-    const auto = value === AUTO_COMMITMENT || value === null;
-    l.commitment_auto = auto;
-    l.commitment_id_fk = auto ? null : value;
-    if (auto) l.commitment = null;
-    this.emit();
-  }
-
-  // Riga automatica già assegnata dal server: quale impegno sta consumando.
-  autoHint(l: EditableLine): string | null {
-    const c = l.commitment;
-    if (!isAutoLine(l) || !c) return null;
-    const chapter = c.budgetChapter?.chapter_code ? ` · cap. ${c.budgetChapter.chapter_code}/${c.budgetChapter.article ?? 0}` : '';
-    const year = l.commitment_fiscal_year ? ` · comp. ${l.commitment_fiscal_year}` : '';
-    return `Assegnato ${commitmentRefLabel(c)}${chapter}${year}`;
-  }
-
-  // Riga salvata, automatica, senza impegno: il ricalcolo non ne ha trovati.
-  autoMissing(l: EditableLine): boolean {
-    return !!l.id && isAutoLine(l) && !l.commitment && !!this.contractId;
-  }
-
-  openCommitment(l: EditableLine): void {
-    if (l.commitment) this.navigator.openCommitment(l.commitment.id).subscribe();
-  }
-
-  newCommitment(l: EditableLine): void {
-    if (!this.contractId) return;
-    this.navigator.createCommitment({contract_ids: [this.contractId], supplier_id_fk: this.supplierId}).subscribe(c => {
-      if (!c) return;
-      this.optionsStale.emit('commitments');
-      this.setCommitment(l, c.id);
-    });
-  }
-
   add(): void {
     this.rows = [...this.rows, {
-      amount: 0, utility_id_fk: null, commitment_id_fk: null, commitment_auto: true, period_start: null, period_end: null,
+      amount: 0, utility_id_fk: null, period_start: null, period_end: null,
       consumption: null, supply_code: null, description: null, start: null, end: null,
     }];
     this.emit();

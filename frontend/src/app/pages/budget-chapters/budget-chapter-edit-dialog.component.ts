@@ -93,7 +93,8 @@ export class BudgetChapterEditDialogComponent implements OnInit {
   readonly lineColumns: LinkedColumn<ChapterInvoiceLine>[] = [
     {label: 'Fattura', value: l => `${l.number} del ${dateIt(l.invoice_date)}`},
     {label: 'Fornitore', value: l => l.supplier ?? ''},
-    {label: 'Utenza', value: l => l.utility_code ?? ''},
+    {label: 'Da', value: l => (l.kind === 'share' ? "Quota d'impegno" : 'Capitolo utenza')},
+    {label: 'Utenza', value: l => (l.kind === 'share' ? '' : (l.utility_code ?? ''))},
     {label: 'Esercizio', value: l => String(l.year)},
     {label: 'Importo', value: l => formatEuro(l.amount)},
   ];
@@ -147,8 +148,9 @@ export class BudgetChapterEditDialogComponent implements OnInit {
     });
     this.budget.invoiceLines(id).subscribe({
       next: rows => {
-        this.lines = rows;
-        this.linePreview = rows.map(l => ({id: l.id, label: `${l.number} del ${dateIt(l.invoice_date)}`, sublabel: formatEuro(l.amount)}));
+        // Id di quote e righe da tabelle diverse: chiave unica per il track.
+        this.lines = rows.map(l => ({...l, id: l.kind === 'share' ? -l.id : l.id}));
+        this.linePreview = this.lines.map(l => ({id: l.id, label: `${l.number} del ${dateIt(l.invoice_date)}`, sublabel: formatEuro(l.amount)}));
       },
       error: err => console.error('Errore caricamento fatture del capitolo:', err),
     });
