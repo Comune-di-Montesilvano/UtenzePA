@@ -1,4 +1,5 @@
 import {ChangeDetectionStrategy, Component, inject, OnInit} from '@angular/core';
+import {NgTemplateOutlet} from '@angular/common';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef} from '@angular/material/dialog';
 import {MatFormFieldModule} from '@angular/material/form-field';
@@ -56,7 +57,7 @@ const toNumberOrNull = (v: unknown): number | null => (v === null || v === undef
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatDatepickerModule, MatButtonModule,
     MatTabsModule, MatIconModule, FilterableSelectComponent, EntitySheetComponent, TabLabelComponent, InvoiceLinesTabComponent,
-    InvoiceCommitmentsTabComponent, StatusBadgeComponent,
+    InvoiceCommitmentsTabComponent, StatusBadgeComponent, NgTemplateOutlet,
   ],
   styles: [`
     .budget-warning { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 6px; margin-top: 12px; }
@@ -128,7 +129,8 @@ export class InvoiceEditDialogComponent implements OnInit {
       debounceTime(400),
       switchMap(() => {
         const date = this.form.controls.invoice_date.value as Date | null;
-        if (!date || !this.lines.length) return of([] as BudgetWarning[]);
+        // Senza righe conta solo una fattura con quote a mano (es. canoni).
+        if (!date || (!this.lines.length && !this.manualShares().length)) return of([] as BudgetWarning[]);
         return this.budget.budgetCheck({
           invoice_id: this.isNew ? null : this.data.item.id,
           invoice_date: toIsoDate(date),
@@ -140,7 +142,10 @@ export class InvoiceEditDialogComponent implements OnInit {
           })),
           // Quote a mano (anche incomplete escluse); null = automatiche.
           commitment_shares: this.manualShares().length
-            ? this.manualShares().filter(sh => !!sh.commitment_id_fk).map(sh => ({...toSharePayload(sh), amount: Number(sh.amount) || 0}))
+            ? this.manualShares().filter(sh => !!sh.commitment_id_fk).map(sh => {
+              const p = toSharePayload(sh);
+              return {...p, amount: p.amount || 0};
+            })
             : null,
         }).pipe(catchError(() => of([] as BudgetWarning[])));
       }),

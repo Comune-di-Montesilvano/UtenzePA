@@ -20,10 +20,11 @@ export interface InvoiceCommitmentShare {
 }
 
 // Solo i campi che il backend accetta (whitelist + forbidNonWhitelisted).
+// Importo arrotondato al centesimo: il backend confronta la somma col totale.
 export const toSharePayload = (s: InvoiceCommitmentShare): Pick<InvoiceCommitmentShare, 'commitment_id_fk' | 'fiscal_year' | 'amount'> => ({
   commitment_id_fk: Number(s.commitment_id_fk),
   fiscal_year: s.fiscal_year ?? null,
-  amount: Number(s.amount),
+  amount: Math.round(Number(s.amount) * 100) / 100,
 });
 
 // Gemella di backend budget-commitments/annuality.ts: annualità dell'anno di
