@@ -577,6 +577,21 @@ const formatDate = (iso: string | null): string => {
               </ul>
             </mat-expansion-panel>
             }
+            @if (data.invoices_without_commitment.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.invoices_without_commitment.count }}</span>
+                  Fatture con contratto senza impegno
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (d of data.invoices_without_commitment.items; track d.id) {
+                  <li (click)="openInvoice(d.id)">{{ d.number }} · {{ eur(d.amount) }} · {{ d.reason === 'NO_COMMITMENTS' ? 'il contratto non ha impegni nell'esercizio' : 'impegni su più capitoli: da scegliere a mano' }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
             @if (data.invoice_patterns_unknown.count > 0) {
             <mat-expansion-panel>
               <mat-expansion-panel-header>

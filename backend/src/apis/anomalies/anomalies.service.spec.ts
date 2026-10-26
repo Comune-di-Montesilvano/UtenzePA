@@ -111,7 +111,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(41);
+    expect(query).toHaveBeenCalledTimes(42);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -438,7 +438,7 @@ describe('AnomaliesService', () => {
       { id: 4, label: '—', chapter: '11428/0', fiscal_year: year, amount: null, remaining: null },
     ]);
     const sqls = query.mock.calls.map(([s]) => String(s));
-    const check = sqls[sqls.length - 2];
+    const check = sqls.find((q) => q.includes('/* commitments_check */')) as string;
     expect(check).toContain('/* commitments_check */');
     expect(check).toContain('i.deleted = 0');
     // Speso dalle quote dell'annualità, non più dalle righe.
@@ -461,6 +461,35 @@ describe('AnomaliesService', () => {
     expect(sql).toContain('i.deleted = 0');
     expect(sql).toContain("(i.sdi_status IS NULL OR i.sdi_status <> 'REJECTED')");
     expect(sql).toContain('> 0.01');
+  });
+
+  it('fatture con contratto senza quota: motivo NO_COMMITMENTS o AMBIGUOUS (query in fondo)', async () => {
+    for (let i = 0; i < 41; i++) query.mockResolvedValueOnce([]);
+    const row = (over: Record<string, unknown>) => ({
+      id: '1', number: 'F-1', date: '2026-03-10', contract_id: '7', amount: '50.00',
+      period_start: null, period_end: null, years: null, ...over,
+    });
+    query.mockResolvedValueOnce([
+      row({ id: '1' }), // nessuna annualità
+      row({ id: '2', years: '2025,2026' }), // anno fattura coperto: da scegliere a mano
+      row({ id: '3', years: '2026', period_start: '2025-11-01', period_end: '2025-12-31' }), // competenza 2025 senza annualità
+      row({ id: '4', years: '2025', period_start: new Date('2025-01-01'), period_end: new Date('2025-02-28') }),
+    ]);
+    const result = await service.getAnomalies();
+    expect(result.invoices_without_commitment.count).toBe(4);
+    expect(result.invoices_without_commitment.items.map((i) => [i.id, i.reason])).toEqual([
+      [1, 'NO_COMMITMENTS'], [2, 'AMBIGUOUS'], [3, 'NO_COMMITMENTS'], [4, 'AMBIGUOUS'],
+    ]);
+    expect(result.invoices_without_commitment.items[0]).toEqual({
+      id: 1, number: 'F-1', date: '2026-03-10', contract_id: 7, amount: 50, reason: 'NO_COMMITMENTS',
+    });
+    const sql = String(query.mock.calls[41][0]);
+    expect(sql).toContain('/* invoices_without_commitment */');
+    expect(sql).toContain('NOT EXISTS (SELECT 1 FROM invoice_commitment_shares s WHERE s.invoice_id_fk = i.id)');
+    expect(sql).toContain('i.deleted = 0');
+    expect(sql).toContain("(i.sdi_status IS NULL OR i.sdi_status <> 'REJECTED')");
+    expect(sql).toContain('i.contratto_id_fk IS NOT NULL');
+    expect(sql).toContain(', 0) <> 0');
   });
 
   it('CIG: richiesto solo ai contratti ordinari (non esclusi né gratuiti)', async () => {

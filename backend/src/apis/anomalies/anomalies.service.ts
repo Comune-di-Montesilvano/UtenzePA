@@ -19,6 +19,7 @@ import { outOfPeriod } from '@apis/utility-supply/out-of-period';
 import { SupplyEventType } from '@apis/utility-supply/enum/supply-event-type.enum';
 import { imapConfigFromEnv, importForcedOff } from '@apis/invoice-import/pec-imap.client';
 import { commitmentLabel } from '@apis/budget-commitments/commitment-label';
+import { invoiceCompetenceYear } from '@apis/spending/line-year';
 import { CommitmentShareSource } from '@apis/invoices/entity/commitment-share-source.enum';
 
 // Contratto valido oggi: stessa definizione di "contratto corrente" usata in
@@ -124,6 +125,14 @@ export interface Anomalies {
   commitments_without_amount: AnomalyList<CommitmentAnomaly>;
   // Fatture divise a mano tra impegni con quote che non sommano al totale.
   invoices_shares_mismatch: AnomalyList<{ id: number; number: string; total: number; shares: number }>;
+  invoices_without_commitment: AnomalyList<{
+    id: number;
+    number: string;
+    date: string;
+    contract_id: number;
+    amount: number;
+    reason: 'NO_COMMITMENTS' | 'AMBIGUOUS';
+  }>;
 }
 
 // Import fatture fermo: nessun giro riuscito da più di 2 ore (giro ogni 15 minuti).
@@ -774,6 +783,26 @@ export class AnomaliesService {
         WHERE ABS(t.shares - t.total) > 0.01
         ORDER BY i.invoice_date DESC, i.id DESC`,
     );
+    // Fatture con contratto che il ricalcolo lascia senza quota (importo diverso da 0).
+    // Porta periodo complessivo delle righe e gli esercizi con annualità del contratto:
+    // la competenza si calcola in TS con la stessa regola del ricalcolo.
+    const withoutCommitment: Record<string, unknown>[] = await this.dataSource.query(
+      `/* invoices_without_commitment */
+       SELECT i.id, i.invoice_id AS number, i.invoice_date AS date, i.contratto_id_fk AS contract_id,
+              COALESCE(i.total_amount, (SELECT SUM(l.amount) FROM invoice_lines l WHERE l.invoice_id_fk = i.id), 0) AS amount,
+              (SELECT MIN(l.period_start) FROM invoice_lines l WHERE l.invoice_id_fk = i.id) AS period_start,
+              (SELECT MAX(l.period_end) FROM invoice_lines l WHERE l.invoice_id_fk = i.id) AS period_end,
+              (SELECT GROUP_CONCAT(DISTINCT bcy.fiscal_year)
+                 FROM budget_commitment_contracts x
+                 JOIN budget_commitments bc ON bc.id = x.commitment_id AND bc.deleted = 0
+                 JOIN budget_commitment_years bcy ON bcy.commitment_id = bc.id
+                WHERE x.contract_id = i.contratto_id_fk) AS years
+         FROM invoices i
+        WHERE i.deleted = 0 AND ${NOT_REJECTED_SQL('i')} AND i.contratto_id_fk IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM invoice_commitment_shares s WHERE s.invoice_id_fk = i.id)
+          AND COALESCE(i.total_amount, (SELECT SUM(l.amount) FROM invoice_lines l WHERE l.invoice_id_fk = i.id), 0) <> 0
+        ORDER BY i.invoice_date DESC, i.id DESC`,
+    );
     const commitments = commitmentRows.map((r) => {
       const amount = r.amount == null ? null : Number(r.amount);
       return {
@@ -860,6 +889,24 @@ export class AnomaliesService {
           total: Number(r.total),
           shares: Number(r.shares),
         })),
+      ),
+      invoices_without_commitment: list(
+        withoutCommitment.map((r) => {
+          const date = dbDay(r.date);
+          const competence = invoiceCompetenceYear(
+            [{ period_start: r.period_start ? dbDay(r.period_start) : null, period_end: r.period_end ? dbDay(r.period_end) : null }],
+            date,
+          );
+          const years = String(r.years ?? '').split(',').filter(Boolean).map(Number);
+          return {
+            id: Number(r.id),
+            number: String(r.number),
+            date,
+            contract_id: Number(r.contract_id),
+            amount: Number(r.amount),
+            reason: years.includes(competence) ? ('AMBIGUOUS' as const) : ('NO_COMMITMENTS' as const),
+          };
+        }),
       ),
       utilities_with_meter_mismatch: list([
         ...new Map(

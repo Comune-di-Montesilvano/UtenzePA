@@ -89,6 +89,8 @@ export interface Anomalies {
   commitments_without_amount: AnomalyList<CommitmentAnomaly>;
   // Fatture divise a mano con quote che non sommano al totale.
   invoices_shares_mismatch: AnomalyList<{id: number; number: string; total: number; shares: number}>;
+  // Fatture con contratto che il ricalcolo lascia senza impegno (nessun impegno nell'esercizio o da scegliere a mano).
+  invoices_without_commitment: AnomalyList<{id: number; number: string; date: string; contract_id: number; amount: number; reason: 'NO_COMMITMENTS' | 'AMBIGUOUS'}>;
 }
 
 // Non estende AbstractService: header Authorization messo a mano (nessun
