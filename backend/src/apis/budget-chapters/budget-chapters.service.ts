@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { assertCanChange, assertCanCreate, changedFields } from '@apis/accounting-import/accounting-lock';
+import { AccountingStateService } from '@apis/accounting-import/accounting-state.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BudgetChapter } from './entity/budgetChapter.entity';
@@ -23,6 +25,8 @@ export interface ChapterConsumptionSummaryRow {
 
 const LIKE_FIELDS = ['chapter_code', 'description', 'pdc'];
 
+const LOCKED_FIELDS = ['chapter_code', 'article', 'description'];
+
 @Injectable()
 export class BudgetChaptersService extends BaseService<
   BudgetChapter,
@@ -37,6 +41,7 @@ export class BudgetChaptersService extends BaseService<
     protected readonly repo: Repository<BudgetChapter>,
     @InjectRepository(Utility)
     private readonly utilityRepo: Repository<Utility>,
+    @Optional() private readonly accounting?: AccountingStateService,
   ) {
     super();
   }
@@ -71,6 +76,7 @@ export class BudgetChaptersService extends BaseService<
   }
 
   async create(dto: CreateBudgetChapterDto, userId?: number): Promise<BudgetChapter> {
+    await assertCanCreate(this.accounting);
     const { utility_type_ids, ...rest } = dto;
     const entity = this.repo.create({
       ...rest,
@@ -88,6 +94,10 @@ export class BudgetChaptersService extends BaseService<
   }
 
   async update(id: number, dto: UpdateBudgetChapterDto, userId?: number): Promise<BudgetChapter> {
+    const current = await this.repo.findOne({ where: { id } });
+    if (current) {
+      await assertCanChange(this.accounting, current, changedFields(current, dto, LOCKED_FIELDS).length > 0);
+    }
     const { utility_type_ids, ...rest } = dto;
     const result = await super.update(id, rest as UpdateBudgetChapterDto, userId);
     if (utility_type_ids === undefined) return result;
@@ -96,6 +106,12 @@ export class BudgetChaptersService extends BaseService<
     entity.utilityTypes = this.toTypeRefs(utility_type_ids);
     await this.repo.save(entity);
     return this.findOne(id);
+  }
+
+  async remove(id: number, updatedByUserId: number): Promise<void> {
+    const current = await this.repo.findOne({ where: { id } });
+    if (current) await assertCanChange(this.accounting, current, true);
+    return super.remove(id, updatedByUserId);
   }
 
   private toTypeRefs(ids: number[]): UtilityType[] {

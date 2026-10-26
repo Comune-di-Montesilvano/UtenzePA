@@ -1,7 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BaseService } from '@apis/shared/base.service';
+import { assertCanChange, assertCanCreate, changedFields } from '@apis/accounting-import/accounting-lock';
+import { AccountingStateService } from '@apis/accounting-import/accounting-state.service';
 import { BudgetChapter } from '@apis/budget-chapters/entity/budgetChapter.entity';
 import { BudgetChapterSpending } from './entity/budget-chapter-spending.entity';
 import { CreateBudgetChapterSpendingDto } from './dto/create-budget-chapter-spending.dto';
@@ -24,6 +26,7 @@ export class BudgetChapterSpendingService extends BaseService<
     protected readonly repo: Repository<BudgetChapterSpending>,
     @InjectRepository(BudgetChapter)
     private readonly chapterRepo: Repository<BudgetChapter>,
+    @Optional() private readonly accounting?: AccountingStateService,
   ) {
     super();
   }
@@ -55,6 +58,7 @@ export class BudgetChapterSpendingService extends BaseService<
     dto: CreateBudgetChapterSpendingDto,
     userId: number,
   ): Promise<BudgetChapterSpending> {
+    await assertCanCreate(this.accounting);
     const chapter = await this.chapterRepo.findOne({ where: { id: chapterId, deleted: false } });
     if (!chapter) throw new BadRequestException('Capitolo non trovato');
     this.assertSomeAmount(dto);
@@ -69,11 +73,18 @@ export class BudgetChapterSpendingService extends BaseService<
   ): Promise<BudgetChapterSpending> {
     const current = await this.repo.findOne({ where: { id, deleted: false } });
     if (!current) throw new BadRequestException('Spesa non trovata');
+    await assertCanChange(this.accounting, current, changedFields(current, dto, ['year', ...AMOUNTS]).length > 0);
     this.assertSomeAmount({ ...current, ...dto });
     if (dto.year !== undefined && dto.year !== current.year) {
       await this.ensureYearFree(current.budget_chapter_id_fk, dto.year, id);
     }
     return super.update(id, dto, userId);
+  }
+
+  async remove(id: number, updatedByUserId: number): Promise<void> {
+    const current = await this.repo.findOne({ where: { id, deleted: false } });
+    if (current) await assertCanChange(this.accounting, current, true);
+    return super.remove(id, updatedByUserId);
   }
 
   private async ensureYearFree(chapterId: number, year: number, exceptId?: number): Promise<void> {

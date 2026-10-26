@@ -251,3 +251,57 @@ describe('BudgetChaptersService', () => {
     });
   });
 });
+
+describe('BudgetChaptersService: import della contabilità attivo', () => {
+  const LOCKED = "Con l'import della contabilità attivo questo dato arriva dalla contabilità.";
+  const imported = () => ({
+    id: 7,
+    source: 'ACCOUNTING',
+    chapter_code: '100',
+    article: '0',
+    description: 'ENERGIA',
+    notes: null,
+    deleted: false,
+    utilityTypes: [],
+  });
+  let service: BudgetChaptersService;
+  let repo: { findOne: jest.Mock; create: jest.Mock; save: jest.Mock; createQueryBuilder: jest.Mock };
+
+  beforeEach(() => {
+    repo = {
+      findOne: jest.fn(async () => imported()),
+      create: jest.fn((d) => d),
+      save: jest.fn(async (d) => d),
+      createQueryBuilder: jest.fn(),
+    };
+    service = new BudgetChaptersService(
+      repo as never,
+      { createQueryBuilder: jest.fn() } as never,
+      { isActive: jest.fn(async () => true) } as never,
+    );
+  });
+
+  it('create = 400', async () => {
+    await expect(service.create({ chapter_code: '200', article: '0' } as never, 3)).rejects.toThrow(LOCKED);
+  });
+
+  it('codice, articolo o descrizione diversi = 400', async () => {
+    await expect(service.update(7, { chapter_code: '101' } as never, 3)).rejects.toThrow(LOCKED);
+    await expect(service.update(7, { article: '1' } as never, 3)).rejects.toThrow(LOCKED);
+    await expect(service.update(7, { description: 'GAS' } as never, 3)).rejects.toThrow(LOCKED);
+  });
+
+  it('tipi utenza ammessi e note modificabili', async () => {
+    await expect(
+      service.update(
+        7,
+        { chapter_code: '100', article: '0', description: 'ENERGIA', notes: 'x', utility_type_ids: [1] } as never,
+        3,
+      ),
+    ).resolves.not.toThrow();
+  });
+
+  it('delete = 400', async () => {
+    await expect(service.remove(7, 3)).rejects.toThrow(LOCKED);
+  });
+});

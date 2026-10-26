@@ -272,3 +272,93 @@ describe('BudgetCommitmentsService', () => {
     expect(repo.query.mock.calls.some(([s]) => String(s).includes('/* c_manual_move */'))).toBe(false);
   });
 });
+
+describe('BudgetCommitmentsService: import della contabilità attivo', () => {
+  const LOCKED = "Con l'import della contabilità attivo questo dato arriva dalla contabilità.";
+  const imported = () => ({
+    id: 9,
+    source: 'ACCOUNTING',
+    commitment_year: 2026,
+    commitment_num: 514,
+    commitment_sub: 1,
+    budget_chapter_id_fk: 7,
+    supplier_id_fk: 3,
+    notes: null,
+    deleted: false,
+    contracts: [{ id: 1 }],
+    years: [{ fiscal_year: 2026, amount: '18500.00' }],
+  });
+  let repo: {
+    findOne: jest.Mock;
+    find: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+    query: jest.Mock;
+    manager: { transaction: jest.Mock };
+  };
+  let service: BudgetCommitmentsService;
+
+  beforeEach(() => {
+    repo = {
+      findOne: jest.fn(async () => imported()),
+      find: jest.fn().mockResolvedValue([]),
+      save: jest.fn(async (d) => d),
+      create: jest.fn((d) => d),
+      query: jest.fn(async (sql: string) => (sql.includes('/* c_manual */') ? [{ n: 0 }] : [])),
+      manager: { transaction: jest.fn(async (cb: (m: unknown) => unknown) => cb({ query: jest.fn(async () => []) })) },
+    };
+    service = new BudgetCommitmentsService(
+      repo as never,
+      { find: jest.fn(async () => [{ id: 1 }, { id: 2 }]) } as never,
+      { findOne: jest.fn().mockResolvedValue({ id: 8, deleted: false }) } as never,
+      { reconcileSafe: jest.fn() } as never,
+      { isActive: jest.fn(async () => true) } as never,
+    );
+  });
+
+  it('create = 400', async () => {
+    await expect(
+      service.create({ budget_chapter_id_fk: 7, years: [{ fiscal_year: 2026, amount: 1 }] } as never, 3),
+    ).rejects.toThrow(LOCKED);
+  });
+
+  it('capitolo, numero o fornitore diversi = 400', async () => {
+    await expect(service.update(9, { budget_chapter_id_fk: 8 } as never, 3)).rejects.toThrow(LOCKED);
+    await expect(service.update(9, { commitment_num: 515 } as never, 3)).rejects.toThrow(LOCKED);
+    await expect(service.update(9, { supplier_id_fk: 4 } as never, 3)).rejects.toThrow(LOCKED);
+  });
+
+  it('importi delle annualità diversi = 400', async () => {
+    await expect(
+      service.update(9, { years: [{ fiscal_year: 2026, amount: 18000 }] } as never, 3),
+    ).rejects.toThrow(LOCKED);
+  });
+
+  it('form rimandato uguale con contratti e note cambiati = ammesso', async () => {
+    await expect(
+      service.update(
+        9,
+        {
+          commitment_year: 2026,
+          commitment_num: 514,
+          commitment_sub: 1,
+          budget_chapter_id_fk: 7,
+          supplier_id_fk: 3,
+          years: [{ fiscal_year: 2026, amount: 18500 }],
+          contract_ids: [1, 2],
+          notes: 'nota',
+        } as never,
+        3,
+      ),
+    ).resolves.not.toThrow();
+  });
+
+  it('delete = 400', async () => {
+    await expect(service.remove(9, 3)).rejects.toThrow(LOCKED);
+  });
+
+  it('impegno a mano modificabile', async () => {
+    repo.findOne.mockResolvedValue({ ...imported(), source: 'MANUAL' });
+    await expect(service.update(9, { budget_chapter_id_fk: 8 } as never, 3)).resolves.not.toThrow();
+  });
+});

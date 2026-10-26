@@ -1,4 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
+import { assertCanChange, assertCanCreate, changedFields } from '@apis/accounting-import/accounting-lock';
+import { AccountingStateService } from '@apis/accounting-import/accounting-state.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { BaseService } from '@apis/shared/base.service';
@@ -25,6 +27,8 @@ const yearsLabel = (years: { fiscal_year: number; amount: number | string | null
     .sort((a, b) => a.fiscal_year - b.fiscal_year)
     .map((y) => `${y.fiscal_year}: ${y.amount === null ? '—' : Number(y.amount).toFixed(2)}`)
     .join('; ');
+
+const LOCKED_FIELDS = ['commitment_year', 'commitment_num', 'commitment_sub', 'budget_chapter_id_fk', 'supplier_id_fk'];
 
 export interface CommitmentYearRow {
   fiscal_year: number;
@@ -170,6 +174,7 @@ export class BudgetCommitmentsService extends BaseService<
     @InjectRepository(BudgetChapter)
     private readonly chapterRepo: Repository<BudgetChapter>,
     private readonly reconcile: CommitmentReconcileService,
+    @Optional() private readonly accounting?: AccountingStateService,
   ) {
     super();
   }
@@ -236,6 +241,7 @@ export class BudgetCommitmentsService extends BaseService<
   }
 
   async create(dto: CreateBudgetCommitmentDto, userId?: number): Promise<BudgetCommitment> {
+    await assertCanCreate(this.accounting);
     const number = this.number(dto);
     const years = this.years(dto.years);
     await this.ensureChapter(dto.budget_chapter_id_fk);
@@ -268,6 +274,13 @@ export class BudgetCommitmentsService extends BaseService<
     });
     if (!current) throw new BadRequestException('Impegno non trovato');
     const years = dto.years === undefined ? undefined : this.years(dto.years);
+    // Con l'import attivo numero, capitolo, fornitore e importi arrivano dalla contabilità.
+    await assertCanChange(
+      this.accounting,
+      current,
+      changedFields(current, dto, LOCKED_FIELDS).length > 0 ||
+        (years !== undefined && yearsLabel(years) !== yearsLabel(current.years ?? [])),
+    );
     const merged = { ...current, ...dto };
     const number = this.number(merged);
     // Capitolo controllato solo se cambia: uno cancellato dopo resta valido.
@@ -344,6 +357,7 @@ export class BudgetCommitmentsService extends BaseService<
   async remove(id: number, userId: number): Promise<void> {
     const current = await this.repo.findOne({ where: { id, deleted: false }, relations: { contracts: true } });
     if (!current) throw new BadRequestException('Impegno non trovato');
+    await assertCanChange(this.accounting, current, true);
     const [{ n }] = await this.repo.query(MANUAL_SHARES_SQL, [id]);
     if (Number(n) > 0) throw new BadRequestException(`Impegno scelto a mano su ${Number(n)} fatture`);
     current.deleted = true;

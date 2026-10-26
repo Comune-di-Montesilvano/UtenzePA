@@ -1,3 +1,4 @@
+import { AccountingStateModule } from '@apis/accounting-import/accounting-state.module';
 import { Logger, Module, OnModuleInit } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CronJob } from 'cron';
@@ -16,7 +17,7 @@ import { CommitmentReconcileService } from './commitment-reconcile.service';
 // Il giro notturno copre ciò che non passa da un salvataggio (esiti SDI
 // arrivati senza estrazione, modifiche fatte direttamente sul DB).
 @Module({
-  imports: [TypeOrmModule.forFeature([BudgetCommitment, BudgetCommitmentYear, Contract, BudgetChapter, InvoiceLine])],
+  imports: [AccountingStateModule, TypeOrmModule.forFeature([BudgetCommitment, BudgetCommitmentYear, Contract, BudgetChapter, InvoiceLine])],
   providers: [BudgetCommitmentsService, CommitmentReconcileService],
   exports: [CommitmentReconcileService, BudgetCommitmentsService],
   controllers: [BudgetCommitmentsController],

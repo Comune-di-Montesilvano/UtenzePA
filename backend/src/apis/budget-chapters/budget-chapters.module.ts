@@ -1,3 +1,4 @@
+import { AccountingStateModule } from '@apis/accounting-import/accounting-state.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BudgetChapter } from './entity/budgetChapter.entity';
@@ -6,7 +7,7 @@ import { BudgetChaptersService } from './budget-chapters.service';
 import { BudgetChaptersController } from './budget-chapters.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([BudgetChapter, Utility])],
+  imports: [AccountingStateModule, TypeOrmModule.forFeature([BudgetChapter, Utility])],
   providers: [BudgetChaptersService],
   controllers: [BudgetChaptersController],
   exports: [BudgetChaptersService],
