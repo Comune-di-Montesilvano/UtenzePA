@@ -22,7 +22,7 @@ Oggi un impegno = numero + **un** esercizio + importo. Nella contabilità invece
 Proposta: **l'impegno resta uno**, con numero, capitolo, fornitore, contratti, note e documenti, e ha **una o più annualità** (`budget_commitment_years`: `commitment_id`, `fiscal_year`, `amount`, unica per impegno + anno).
 
 - **Ente senza import.** Nel form ci sono «Esercizio» e «Importo» come oggi; «+ Aggiungi anno» aggiunge le annualità successive. Nell'impegno annuale (quasi tutti) non cambia niente.
-- **Allocazione** (`commitment-allocation.ts`): l'unità che si consuma è l'annualità, non l'impegno. Una riga con competenza 2027 consuma l'annualità 2027. `invoice_lines.commitment_id_fk` resta sull'impegno e l'anno è già quello della riga (`lineYearSql`): niente FK nuova sulla riga.
+- **Allocazione** (`commitment-allocation.ts`): l'unità che si consuma è l'annualità, non l'impegno. Una riga con competenza 2027 consuma l'annualità 2027. (v1.48.0 sulle righe; dalla fase 2 sulle quote della fattura, sezione 3.)
 - **Rimanenza, barre, spesa per capitolo e anomalie** si calcolano per annualità. La scheda impegno mostra una riga per anno.
 - **Unicità**: il numero resta unico tra gli impegni non cancellati, come oggi. Le annualità stanno dentro.
 - **Migration**: `fiscal_year` e `amount` di `budget_commitments` diventano la prima annualità, poi si rimuovono le colonne. Il ciclo up → down → up va verificato sui dati locali.
@@ -36,18 +36,34 @@ Colonna `source` (`MANUAL` | `ACCOUNTING`, default `MANUAL`) su `budget_chapters
 - Con `source = ACCOUNTING` i campi che arrivano dalla contabilità sono in sola lettura nella UI (badge «Da contabilità»). Restano modificabili quelli che la contabilità non ha: contratti collegati, note, tipi utenza ammessi e documenti.
 - Per l'ente senza import è tutto `MANUAL`: non vede niente di nuovo.
 
-### 3. Assegnazione della riga di fattura
+### 3. Quote d'impegno della fattura (al posto dell'impegno sulla riga)
 
-`invoice_lines.commitment_auto` (booleano) diventa `commitment_source`: `AUTO` | `MANUAL` | `ACCOUNTING`.
+Rivisto il 2026-10-26. Una fattura si paga **a importo**, eventualmente da più impegni, e la ripartizione **non segue le righe**: spesso le righe non ci sono e la ragioneria divide a occhio. Casi trovati nelle liquidazioni 2025–2026 (408 fatture pagate da più impegni su 9.721; delle 12 presenti in UtenzePA nessuna ha quote che coincidono con gruppi di righe):
 
-- `AUTO`: allocazione automatica (oggi `commitment_auto = 1`).
-- `MANUAL`: scelta a mano, mai toccata (oggi `commitment_auto = 0`).
-- `ACCOUNTING`: impegno dato dalla liquidazione. Lo scrive solo l'import, che lo riscrive se la liquidazione cambia; l'allocazione automatica non lo tocca. Nella riga si legge «Liquidata su <impegno>».
-- Ente senza import: solo `AUTO` e `MANUAL`, cioè esattamente come oggi.
+| Caso | Esempio |
+|---|---|
+| Impegno esaurito: il resto va sul successivo | A2A 825500337328: 13,36 € su 2024/522, 206,37 € su 2024/561, stesso capitolo |
+| Quote fisse per capitolo | Engie canone servizio energia: 57.990,32 + 57.990,34 + 2.236,74 € su 3 capitoli; in UtenzePA 3 righe senza utenza di altri importi |
+| Importi tondi | Engie 2200002322: 13 impegni da 500, 2.000, 10.000 € più il resto |
+| Imponibile e IVA su impegni diversi | Hera 2017–2018: ~82% su un impegno, ~18% su un altro |
+
+Quindi l'associazione **riga → impegno si elimina del tutto**. Escono da `invoice_lines` `commitment_id_fk`, `commitment_auto` e `commitment_fiscal_year`. Le righe restano per utenza, consumi e spesa per utenza/immobile.
+
+Nuova tabella **`invoice_commitment_shares`** (quote): fattura, impegno, annualità (`fiscal_year`), importo, `source` (`AUTO` | `MANUAL` | `ACCOUNTING`).
+
+Tre modi, uno esclude gli altri (mai quote miste sulla stessa fattura):
+
+- **Automatico** (`AUTO`, default): **una sola quota per tutto il totale** (IVA inclusa; senza totale = somma delle righe). Effetto: le fatture con contratto e senza righe (canoni, 306 nel DB locale per 18.647,79 €) entrano nella spesa del capitolo dell'impegno. Più impegni candidati (stesso contratto, capitolo ed esercizio: integrazioni, sub-impegni; 46 gruppi su 256 nel DB locale) = il primo per numero finché ha rimanenza, la fattura intera. Il ricalcolo (`commitment-allocation.ts` sulla fattura invece che sulla riga) sceglie l'annualità come oggi per la riga: competenza = anno del periodo della fattura (inizio più vecchio e fine più recente delle righe, regole di `lineFiscalYear`), senza periodo = anno della data fattura; candidati = annualità degli impegni del contratto in testata in quell'esercizio, sul capitolo delle utenze delle righe (senza utenze o con capitoli diversi: solo se i candidati sono tutti dello stesso capitolo); prima annualità in ordine di numero con rimanenza, se esaurite l'ultima. Fatture in ordine di data e id. Nessuna divisione automatica.
+- **A mano** (`MANUAL`): l'operatore divide la fattura in più quote (tab «Impegni»: impegno, annualità, importo) o sceglie a mano l'impegno della quota unica. Il ricalcolo non le tocca. Quote che non sommano al totale = anomalia. Impegno non eliminabile se ha quote a mano.
+- **Dalla ragioneria** (`ACCOUNTING`): fattura liquidata = quote delle liquidazioni (una per liquidazione), che sostituiscono quelle automatiche o a mano. Le scrive solo l'import, che le riscrive se la liquidazione cambia.
+- **Spesa per capitolo e rimanenza** dalle quote (capitolo dell'impegno, anno dell'annualità). Fattura senza quote (nessun contratto o nessun candidato): spesa per capitolo dalle righe, capitolo dell'utenza e anno della riga, come oggi.
+- **Import PEC**: le quote sono della fattura, non delle righe, quindi sopravvivono alla sostituzione delle righe (`kept-commitment.ts` non serve più).
+- **Migration**: dati locali 2026-10-26: 4.422 fatture con impegno, nessuna con righe su più impegni, capitoli o annualità, 0 miste auto/manuali → una quota per fattura (impegno + annualità delle righe, importo = somma delle righe, `MANUAL` se `commitment_auto = 0`). Down = impegno della quota su tutte le righe.
+- Ente senza import: solo `AUTO` e `MANUAL`.
 
 ### 4. Cosa NON entra nell'applicazione
 
-- **Liquidazioni e mandati non diventano entità.** L'ente senza import non li inserirebbe mai. Con l'import restano nelle tabelle di appoggio e servono solo a scrivere `commitment_source = ACCOUNTING` sulle righe e a segnalare le anomalie.
+- **Liquidazioni e mandati non diventano entità.** L'ente senza import non li inserirebbe mai. Con l'import restano nelle tabelle di appoggio e servono solo a scrivere le quote `ACCOUNTING` e a segnalare le anomalie.
 - Niente residui, variazioni, riaccertamenti, economie, SIOPE o piano dei conti.
 - Niente disponibilità del capitolo copiata dalla contabilità: la rimanenza resta quella calcolata da UtenzePA, che conta anche le fatture arrivate e non ancora liquidate.
 - I collegamenti impegno ↔ contratto restano di UtenzePA. L'import li **suggerisce** dal CIG dell'impegno (CIG = CIG del contratto, un solo contratto), mai li impone.
@@ -68,7 +84,7 @@ Ogni giro sostituisce in blocco il contenuto delle tabelle di appoggio, poi un *
 
 - **capitoli**: aggiorna assestato e iniziale su `budget_chapter_spending` dei capitoli già presenti in UtenzePA (perimetro = i capitoli che l'ente gestisce). I capitoli nuovi non si creano da soli: compaiono in un elenco «da aggiungere».
 - **impegni**: crea o aggiorna gli impegni sui capitoli del perimetro, una annualità per anno di competenza, abbinando il fornitore per P.IVA/CF. Un impegno sparito o annullato in contabilità resta da noi, con una segnalazione.
-- **liquidazioni**: abbinate alla fattura per **IdentificativoSdI** (esatto), altrimenti per fornitore + numero + data. Le righe ricevono l'impegno della liquidazione (`ACCOUNTING`). Con più liquidazioni su impegni diversi la ripartizione segue il capitolo dell'utenza della riga; se non è univoca le righe restano `AUTO` e parte un'anomalia.
+- **liquidazioni**: abbinate alla fattura per **IdentificativoSdI** (esatto), altrimenti per fornitore + numero + data. Ogni liquidazione diventa una quota `ACCOUNTING` della fattura (impegno + competenza + importo), anche con più impegni: nessuna ripartizione sulle righe.
 - **anomalie nuove**:
   - liquidazione senza fattura in UtenzePA (es. fatture Wind mancanti);
   - capitolo dell'utenza diverso da quello delle sue liquidazioni (si corregge l'anagrafica, non la fattura);
@@ -90,8 +106,8 @@ Accensione come l'import PEC: variabile `ACCOUNTING_IMPORT_DISABLED` (default `t
 ## Fasi (PR separate)
 
 1. **Annualità dell'impegno** (migration, allocazione, scheda, form, guida). Serve a tutti, anche senza import: è il primo passo.
-2. **`commitment_source` sulle righe + `source`/`external_key`** (migration, sola lettura nella UI). Senza import nessun cambiamento visibile.
-3. **Formato neutro + applicatore + caricamento CSV** (tabelle `acc_*`, pagina Impostazioni → Contabilità, anomalie, guida con il tracciato).
+2. **Quote d'impegno della fattura** (sezione 3: migration, ricalcolo sulla fattura, tab «Impegni» della fattura, tab «Fatture» dell'impegno con le quote, spesa e anomalie, guida). Serve a tutti: copre gli impegni esauriti a metà fattura e le ripartizioni a mano.
+3. **`source`/`external_key` + formato neutro + applicatore + caricamento CSV** (sezione 2, tabelle `acc_*`, pagina Impostazioni → Contabilità, anomalie, guida con il tracciato).
 4. **Adattatore Tinn** (container, query, profilo compose, documentazione per l'installazione). Si fa quando arriva il DB del Comune.
 
 ## Da verificare sul DB del Comune
@@ -105,3 +121,4 @@ Accensione come l'import PEC: variabile `ACCOUNTING_IMPORT_DISABLED` (default `t
 
 - Perimetro degli impegni: **solo i capitoli già presenti in UtenzePA**.
 - «Spesa ragioneria» del capitolo (`budget_chapter_spending.amount`): **importata come liquidato** (somma delle liquidazioni non annullate sugli impegni del capitolo × anno di competenza), in sola lettura se importata.
+- (2026-10-26) **Nessun impegno sulle righe**: l'impegno è della fattura. In automatico una sola quota per tutto l'importo; più quote solo con la divisione a mano o con l'import della ragioneria (sezione 3).
