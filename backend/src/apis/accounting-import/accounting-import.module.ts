@@ -6,6 +6,7 @@ import { ACCOUNTING_STEPS, AccountingImportService, type AccountingStep } from '
 import { AccountingStateModule } from './accounting-state.module';
 import { AccountingDataService } from './accounting-data.service';
 import { ChapterApplierService } from './chapter-applier.service';
+import { CommitmentApplierService } from './commitment-applier.service';
 
 // Ordine dei passi del giro: perimetro e capitoli, poi impegni, fatture,
 // quote, collegamenti. Ognuno legge quello che hanno scritto i precedenti.
@@ -15,12 +16,14 @@ import { ChapterApplierService } from './chapter-applier.service';
     AccountingImportService,
     AccountingDataService,
     ChapterApplierService,
+    CommitmentApplierService,
     {
       provide: ACCOUNTING_STEPS,
-      useFactory: (chapters: ChapterApplierService): AccountingStep[] => [
+      useFactory: (chapters: ChapterApplierService, commitments: CommitmentApplierService): AccountingStep[] => [
         { name: 'chapters', apply: () => chapters.apply() },
+        { name: 'commitments', apply: () => commitments.apply() },
       ],
-      inject: [ChapterApplierService],
+      inject: [ChapterApplierService, CommitmentApplierService],
     },
   ],
   controllers: [AccountingImportController],

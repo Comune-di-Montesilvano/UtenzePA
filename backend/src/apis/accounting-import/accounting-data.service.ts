@@ -83,6 +83,16 @@ export class AccountingDataService {
     return new Map(rows.map((r) => [r.vat, Number(r.id)]));
   }
 
+  // P.IVA (o CF) → id di qualsiasi soggetto terzo non cancellato: fornitore
+  // dell'impegno anche fuori dal perimetro.
+  async thirdPartiesByVat(): Promise<Map<string, number>> {
+    const rows: { id: number; vat: string }[] = await this.dataSource.query(
+      'SELECT id, COALESCE(NULLIF(vat_number, ""), tax_code) AS vat FROM third_parties ' +
+        'WHERE deleted = 0 AND COALESCE(NULLIF(vat_number, ""), tax_code) IS NOT NULL',
+    );
+    return new Map(rows.map((r) => [r.vat, Number(r.id)]));
+  }
+
   async scope(): Promise<AccountingScope> {
     const [commitments, liquidations, suppliers, chapters] = await Promise.all([
       this.commitments(),
