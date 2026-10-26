@@ -13,6 +13,7 @@ import {
 import { SystemUser } from '../../system-users/entity/system-user.entity';
 import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
 import { InvoiceLine } from './invoice-line.entity';
+import { InvoiceCommitmentShare } from './invoice-commitment-share.entity';
 import { Contract } from '@apis/contracts/entity/contract.entity';
 import { SdiStatus } from '../enum/sdi-status.enum';
 
@@ -103,4 +104,7 @@ export class Invoice {
 
   @OneToMany(() => InvoiceLine, (l) => l.invoice)
   lines: InvoiceLine[];
+
+  @OneToMany(() => InvoiceCommitmentShare, (s) => s.invoice)
+  commitmentShares: InvoiceCommitmentShare[];
 }

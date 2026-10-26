@@ -4,6 +4,7 @@ import { InvoicesService } from './invoice.service';
 import { InvoicesController } from './invoice.controller';
 import { Invoice } from './entity/invoice.entity';
 import { InvoiceLine } from './entity/invoice-line.entity';
+import { InvoiceCommitmentShare } from './entity/invoice-commitment-share.entity';
 import { BudgetCommitment } from '@apis/budget-commitments/entity/budget-commitment.entity';
 import { Contract } from '@apis/contracts/entity/contract.entity';
 import { InvoiceImportModule } from '@apis/invoice-import/invoice-import.module';
@@ -12,7 +13,7 @@ import { BudgetCommitmentsModule } from '@apis/budget-commitments/budget-commitm
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Invoice, InvoiceLine, BudgetCommitment, Contract]),
+    TypeOrmModule.forFeature([Invoice, InvoiceLine, InvoiceCommitmentShare, BudgetCommitment, Contract]),
     InvoiceImportModule,
     UtilityConsumptionsModule,
     BudgetCommitmentsModule,
