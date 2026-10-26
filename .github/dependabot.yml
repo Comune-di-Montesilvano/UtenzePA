@@ -2,8 +2,8 @@ version: 2
 # Ogni ecosistema: minor+patch raggruppate in una sola PR, mergiata in automatico
 # (vedi dependabot-automerge.yml); le major restano PR aperte come promemoria per
 # l'upgrade manuale.
-# Controllo giornaliero con cooldown di 3 giorni: una versione viene proposta solo dopo
-# 3 giorni dall'uscita (release ritirate o compromesse restano fuori). Gli advisory di
+# Controllo giornaliero con cooldown: una versione viene proposta solo 7 giorni dopo
+# l'uscita, 14 per le major (release ritirate o compromesse restano fuori). Gli advisory di
 # sicurezza passano comunque dai Dependabot security updates, senza cooldown e
 # indipendenti da questo schedule. Giro alle 01:00 cosi' l'auto-merge finisce prima
 # del rebuild giornaliero di latest (release.yml, 04:30 UTC).
@@ -18,7 +18,8 @@ updates:
       time: "01:00"
       timezone: Europe/Rome
     cooldown:
-      default-days: 3
+      default-days: 7
+      semver-major-days: 14
     open-pull-requests-limit: 10
     groups:
       # @sentry/nestjs e @sentry/node vanno tenuti allineati - un bump isolato
@@ -43,7 +44,8 @@ updates:
       time: "01:00"
       timezone: Europe/Rome
     cooldown:
-      default-days: 3
+      default-days: 7
+      semver-major-days: 14
     open-pull-requests-limit: 10
     groups:
       # I pacchetti @angular/* vanno aggiornati insieme come famiglia (peer
@@ -69,7 +71,8 @@ updates:
       time: "01:00"
       timezone: Europe/Rome
     cooldown:
-      default-days: 3
+      default-days: 7
+      semver-major-days: 14
     groups:
       e2e-minor-patch:
         update-types:
@@ -91,7 +94,8 @@ updates:
       time: "01:00"
       timezone: Europe/Rome
     cooldown:
-      default-days: 3
+      default-days: 7
+      semver-major-days: 14
     groups:
       docker-minor-patch:
         update-types:
@@ -108,7 +112,8 @@ updates:
       time: "01:00"
       timezone: Europe/Rome
     cooldown:
-      default-days: 3
+      default-days: 7
+      semver-major-days: 14
     groups:
       actions-minor-patch:
         update-types:
