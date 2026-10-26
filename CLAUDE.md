@@ -155,7 +155,7 @@ Nessun ESLint, nessun browser nel container (Karma non eseguibile). Build/guida:
 - Deploy dove login/wizard non risponde: prima `CORS_ORIGIN`/`API_URL`, poi admin già presente.
 
 ## Git, CI e release (dettagli in `docs/claude/release-ci.md`)
-- Repo `Comune-di-Montesilvano/UtenzePA`. `main` protetta: PR obbligatoria, check `backend` + `frontend`, branch aggiornata, nessuna approvazione umana.
+- Repo `Comune-di-Montesilvano/UtenzePA`. `main` protetta: PR obbligatoria, check `backend` + `frontend` + `docker (backend, production)` + `docker (frontend, prod)` (Trivy), branch aggiornata, nessuna approvazione umana.
 - Mai `git add .`/`-A` (`.playwright-mcp/`, `.serena/`, `docker-compose.proxy.yml`, `proxy/` non tracciati): file sempre elencati.
 - Merge manuale `gh pr merge --squash --delete-branch` dal worktree principale; poi `update-branch` sulle altre PR, una alla volta. Auto-merge solo per le PR dependabot minor/patch (`dependabot-automerge.yml`, token GitHub App).
 - `gh api` in Git Bash: endpoint senza `/` iniziale.

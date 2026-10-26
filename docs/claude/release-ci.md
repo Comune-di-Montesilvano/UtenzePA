@@ -11,7 +11,7 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Git, CI e release").
 
 ## Branch protection e merge
 
-- `main` protetta: PR obbligatoria, check `backend` + `frontend` richiesti con branch aggiornata, no force-push/delete, 0 approvazioni umane (CI come unico gate). Push diretti rifiutati.
+- `main` protetta: PR obbligatoria, check `backend`, `frontend`, `docker (backend, production)` e `docker (frontend, prod)` richiesti (l'auto-merge aspetta solo i check richiesti: un job nuovo che deve fare da gate va aggiunto qui) con branch aggiornata, no force-push/delete, 0 approvazioni umane (CI come unico gate). Push diretti rifiutati.
 - Merge manuale delle PR proprie: `gh pr merge --squash --delete-branch`. `allow_auto_merge` è attivo solo per le PR dependabot (vedi sotto): non usare `--auto` sulle PR di feature.
 - Dopo ogni merge le altre PR tornano `BEHIND`: `gh api repos/OWNER/REPO/pulls/N/update-branch -X PUT`, una PR alla volta.
 - `gh pr merge` fallisce se lanciato da un worktree diverso da quello con `main` ("'main' is already used by worktree at ..."): eseguirlo dal worktree principale.
