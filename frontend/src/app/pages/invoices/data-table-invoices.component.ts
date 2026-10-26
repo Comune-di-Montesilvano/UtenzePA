@@ -172,10 +172,10 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
     return partyName(item.supplier ?? item.contratto?.supplier);
   }
 
-  // Capitoli degli impegni delle righe (distinti).
+  // Capitoli degli impegni delle quote della fattura (distinti).
   chaptersOf(item: Invoice): string {
-    const labels = new Set((item.lines ?? [])
-      .map(l => l.commitment?.budgetChapter)
+    const labels = new Set((item.commitmentShares ?? [])
+      .map(s => s.commitment?.budgetChapter)
       .filter(c => !!c)
       .map(c => `${c!.chapter_code}/${c!.article ?? 0}`));
     return [...labels].join(', ');

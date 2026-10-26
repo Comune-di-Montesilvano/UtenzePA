@@ -36,7 +36,7 @@ export function invoiceFilters(): FilterDef[] {
       options: () => utilities.search({deleted: false}).pipe(map(list => list
         .map(u => ({label: u.utility_id, value: u.id, sublabel: u.utilityType?.name, searchText: `${u.utility_id} ${u.utility_code ?? ''}`}))
         .sort(byLabel)))},
-    {key: 'budget_chapter_ids', label: 'Capitoli (da impegni delle righe)', type: 'multi', group: 'Righe',
+    {key: 'budget_chapter_ids', label: 'Capitoli (dagli impegni della fattura)', type: 'multi', group: 'Righe',
       options: () => chapters.search({deleted: false}).pipe(map(list => list
         .map(b => ({label: `${b.chapter_code} - ${b.description}`, value: b.id}))
         .sort(byLabel)))},
@@ -52,6 +52,7 @@ export const INVOICE_SIGNALS: SignalDef[] = [
   {key: 'invoices_outside_supply_periods', label: 'Fuori dai periodi di attività', ids: items => items.map(i => i.invoice_id)},
   {key: 'invoice_lines_without_utility', label: 'Con righe senza utenza', ids: items => items.map(i => i.invoice_id)},
   {key: 'invoice_sdi_outcome_discarded', label: 'Esito scartato dallo SDI', ids: items => items.map(i => i.invoice_id)},
+  {key: 'invoices_shares_mismatch', label: "Quote d'impegno che non tornano col totale", ids: items => items.map(i => i.id)},
   // Differenze trovate dall'import fatture dalla PEC: una voce per tipo.
   ...INVOICE_ISSUE_SIGNAL_TYPES.map((type): SignalDef => ({
     key: 'invoice_import_issues',

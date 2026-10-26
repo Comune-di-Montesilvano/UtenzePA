@@ -35,8 +35,11 @@ export interface ChapterCommitment {
   contract_ids: number[];
 }
 
+// Fatturato del capitolo: quota d'impegno della fattura (kind 'share', senza
+// utenza) o riga senza quote sul capitolo della sua utenza (kind 'line').
 export interface ChapterInvoiceLine {
   id: number;
+  kind: 'share' | 'line';
   invoice_id: number;
   number: string;
   invoice_date: string;
@@ -60,9 +63,10 @@ export interface BudgetCheckPayload {
   invoice_date: string;
   lines: {
     utility_id_fk: number | null;
-    commitment_id_fk: number | null;
     amount: number;
     period_start?: string | null;
     period_end?: string | null;
   }[];
+  // Quote a mano della fattura in modifica; null = automatiche.
+  commitment_shares?: {commitment_id_fk: number; fiscal_year: number | null; amount: number}[] | null;
 }

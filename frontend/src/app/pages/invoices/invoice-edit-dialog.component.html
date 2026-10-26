@@ -78,13 +78,37 @@
           [lines]="lines"
           [total]="form.controls.total_amount.value"
           [utilityOptions]="utilityOptions"
-          [commitmentOptions]="commitmentOptions"
           [readOnly]="!canEdit"
-          [contractId]="form.controls.contratto_id_fk.value"
-          [supplierId]="form.controls.supplier_id_fk.value"
           (optionsStale)="onOptionsStale($event)"
           (linesChange)="lines = $event; checkBudget()">
         </app-invoice-lines-tab>
+        @for (w of budgetWarnings; track w.budget_chapter_id + '-' + w.year) {
+          <div class="budget-warning tone-warn">
+            <mat-icon>warning</mat-icon>
+            Capitolo {{ w.chapter }}: con questa fattura il fatturato {{ w.year }} supera l'assestato ({{ eur(w.invoiced) }} su {{ eur(w.adjusted_budget) }}).
+          </div>
+        }
+      </mat-tab>
+
+      <mat-tab aria-label="Impegni">
+        <ng-template mat-tab-label>
+          <app-tab-label icon="request_quote" label="Impegni" [count]="(editedShares ?? savedShares).length" [error]="sharesTouched && sharesInvalid() >= 0"></app-tab-label>
+        </ng-template>
+        <app-invoice-commitments-tab
+          [shares]="savedShares"
+          [edited]="editedShares"
+          [commitments]="commitments"
+          [commitmentOptions]="commitmentOptions"
+          [total]="sharesTotal"
+          [competence]="competence"
+          [readOnly]="!canEdit"
+          [contractId]="form.controls.contratto_id_fk.value"
+          [supplierId]="form.controls.supplier_id_fk.value"
+          [stale]="sharesStale"
+          [touched]="sharesTouched"
+          (optionsStale)="onOptionsStale($event)"
+          (editedChange)="onSharesChange($event)">
+        </app-invoice-commitments-tab>
         @for (w of budgetWarnings; track w.budget_chapter_id + '-' + w.year) {
           <div class="budget-warning tone-warn">
             <mat-icon>warning</mat-icon>

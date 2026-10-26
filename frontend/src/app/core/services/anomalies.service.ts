@@ -87,6 +87,8 @@ export interface Anomalies {
   commitments_overspent: AnomalyList<CommitmentAnomaly>;
   commitments_without_contract: AnomalyList<CommitmentAnomaly>;
   commitments_without_amount: AnomalyList<CommitmentAnomaly>;
+  // Fatture divise a mano con quote che non sommano al totale.
+  invoices_shares_mismatch: AnomalyList<{id: number; number: string; total: number; shares: number}>;
 }
 
 // Non estende AbstractService: header Authorization messo a mano (nessun

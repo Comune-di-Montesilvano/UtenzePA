@@ -3,6 +3,7 @@ import {AbstractEntity} from '../../../core/entities/abstract.entity';
 import {IInvoice} from './invoice.interface';
 import {ThirdParty} from '../../third-parties/entity/third-party.entity';
 import {InvoiceLine, toLinePayload} from './invoice-line.model';
+import {InvoiceCommitmentShare, toSharePayload} from './invoice-commitment-share.model';
 import {Contract} from '../../contracts/entity/contract.entity';
 import {DateOnly} from '../../../core/helpers/date.helper';
 import {SystemUser} from '../../system-users/entity/system-user.entity';
@@ -46,6 +47,14 @@ export class Invoice extends AbstractEntity implements IInvoice {
   // In invio solo i campi della riga (toLinePayload), mai le relazioni.
   @Transform(({value}) => (Array.isArray(value) ? value.map(toLinePayload) : value), {toPlainOnly: true})
   lines?: InvoiceLine[];
+
+  // Quote d'impegno salvate (GET), mai inviate così.
+  @Exclude({toPlainOnly: true})
+  commitmentShares?: InvoiceCommitmentShare[];
+
+  // Quote a mano da inviare: assente = invariate, [] = torna automatico.
+  @Transform(({value}) => (Array.isArray(value) ? value.map(toSharePayload) : value), {toPlainOnly: true})
+  commitment_shares?: InvoiceCommitmentShare[];
 
   @Exclude({toPlainOnly: true})
   is_paid?: boolean;

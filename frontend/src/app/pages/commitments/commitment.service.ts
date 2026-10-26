@@ -3,16 +3,16 @@ import {map, Observable} from 'rxjs';
 import {plainToInstance} from 'class-transformer';
 import {environment} from '../../../environments/environment';
 import {AbstractService} from '../../core/services/abstract.service';
-import {Commitment, CommitmentLine} from './commitment.model';
+import {Commitment, CommitmentInvoice} from './commitment.model';
 
 @Injectable({providedIn: 'root'})
 export class CommitmentService extends AbstractService<Commitment> {
   protected override readonly BASE_URL = environment.apiUrl + '/commitments';
   protected override readonly entityClass = Commitment;
 
-  // Righe di fattura assegnate, in ordine di consumo con speso progressivo.
-  lines(id: number): Observable<CommitmentLine[]> {
-    return this.http.get<CommitmentLine[]>(`${this.BASE_URL}/${id}/lines`, {headers: this.getAuthHeaders()});
+  // Quote di fattura sull'impegno, in ordine di consumo con speso progressivo.
+  invoices(id: number): Observable<CommitmentInvoice[]> {
+    return this.http.get<CommitmentInvoice[]>(`${this.BASE_URL}/${id}/invoices`, {headers: this.getAuthHeaders()});
   }
 
   byContract(contractId: number): Observable<Commitment[]> {
