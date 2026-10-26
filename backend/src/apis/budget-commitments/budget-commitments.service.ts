@@ -6,6 +6,7 @@ import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { Contract } from '@apis/contracts/entity/contract.entity';
 import { BudgetChapter } from '@apis/budget-chapters/entity/budgetChapter.entity';
 import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
+import { CommitmentShareSource } from '@apis/invoices/entity/commitment-share-source.enum';
 import { BudgetCommitment } from './entity/budget-commitment.entity';
 import { CreateBudgetCommitmentDto } from './dto/create-budget-commitment.dto';
 import { UpdateBudgetCommitmentDto } from './dto/update-budget-commitment.dto';
@@ -53,38 +54,36 @@ export interface CommitmentRow {
   deleted: boolean;
 }
 
-export interface CommitmentLine {
-  line_id: number;
+// Quota dell'impegno su una fattura; progressive = speso cumulato in ordine
+// di consumo (data fattura, fattura).
+export interface CommitmentInvoice {
+  share_id: number;
   invoice_id: number;
   invoice_number: string;
   invoice_date: string;
-  period_start: string | null;
-  period_end: string | null;
-  utility_id: number | null;
-  utility_code: string | null;
   amount: number;
-  auto: boolean;
-  fiscal_year: number | null;
+  fiscal_year: number;
+  source: CommitmentShareSource;
   progressive: number;
 }
 
-// Speso = righe di fattura assegnate, fatture non cancellate e non rifiutate;
-// per annualità quelle con il suo esercizio (commitment_fiscal_year).
-const VALID_LINES = `FROM invoice_lines il
-      JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}`;
+// Speso = quote di fatture non cancellate e non rifiutate; per annualità
+// quelle con il suo esercizio.
+const VALID_SHARES = `FROM invoice_commitment_shares s
+      JOIN invoices i ON i.id = s.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}`;
 const ROWS_SQL = (where: string) => `/* c_rows */ SELECT bc.id, bc.commitment_year, bc.commitment_num,
     bc.commitment_sub, bc.budget_chapter_id_fk, CONCAT(ch.chapter_code, '/', ch.article) AS chapter_label,
     ch.description AS chapter_description, bc.supplier_id_fk,
     (SELECT MIN(y.fiscal_year) FROM budget_commitment_years y WHERE y.commitment_id = bc.id) AS fiscal_year,
     (SELECT JSON_ARRAYAGG(JSON_OBJECT('fiscal_year', y.fiscal_year, 'amount', y.amount,
-       'spent', (SELECT COALESCE(SUM(il.amount), 0) ${VALID_LINES}
-                 WHERE il.commitment_id_fk = bc.id AND il.commitment_fiscal_year = y.fiscal_year)))
+       'spent', (SELECT COALESCE(SUM(s.amount), 0) ${VALID_SHARES}
+                 WHERE s.commitment_id_fk = bc.id AND s.fiscal_year = y.fiscal_year)))
       FROM budget_commitment_years y WHERE y.commitment_id = bc.id) AS years,
     COALESCE(tp.company_name, TRIM(CONCAT(COALESCE(tp.last_name, ''), ' ', COALESCE(tp.first_name, '')))) AS supplier_name,
     bc.notes, bc.deleted,
     (SELECT JSON_ARRAYAGG(bcc.contract_id) FROM budget_commitment_contracts bcc
       WHERE bcc.commitment_id = bc.id) AS contract_ids,
-    (SELECT COALESCE(SUM(il.amount), 0) ${VALID_LINES} WHERE il.commitment_id_fk = bc.id) AS spent
+    (SELECT COALESCE(SUM(s.amount), 0) ${VALID_SHARES} WHERE s.commitment_id_fk = bc.id) AS spent
   FROM budget_commitments bc
   JOIN budget_chapters ch ON ch.id = bc.budget_chapter_id_fk
   LEFT JOIN third_parties tp ON tp.id = bc.supplier_id_fk
@@ -95,18 +94,15 @@ const YEARS_DELETE_SQL = '/* c_years_delete */ DELETE FROM budget_commitment_yea
 const YEARS_INSERT_SQL =
   '/* c_years_insert */ INSERT INTO budget_commitment_years (commitment_id, fiscal_year, amount) VALUES ?';
 
-const MANUAL_LINES_SQL =
-  '/* c_manual */ SELECT COUNT(*) AS n FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 ' +
-  `AND ${NOT_REJECTED_SQL('i')} WHERE il.commitment_id_fk = ? AND il.commitment_auto = 0`;
+// Fatture valide con quote a mano sull'impegno.
+const MANUAL_SHARES_SQL = `/* c_manual */ SELECT COUNT(DISTINCT s.invoice_id_fk) AS n ${VALID_SHARES}
+  WHERE s.commitment_id_fk = ? AND s.source = '${CommitmentShareSource.MANUAL}'`;
 
-const LINES_SQL = `/* c_lines */ SELECT il.id AS line_id, i.id AS invoice_id, i.invoice_id AS invoice_number,
-    i.invoice_date, il.period_start, il.period_end, il.utility_id_fk AS utility_id, u.utility_id AS utility_code,
-    il.amount, il.commitment_auto AS auto, il.commitment_fiscal_year AS fiscal_year
-  FROM invoice_lines il
-  JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
-  LEFT JOIN utilities u ON u.id = il.utility_id_fk
-  WHERE il.commitment_id_fk = ?
-  ORDER BY i.invoice_date, i.id, il.id`;
+const INVOICES_SQL = `/* c_invoices */ SELECT s.id AS share_id, i.id AS invoice_id, i.invoice_id AS invoice_number,
+    i.invoice_date, s.amount, s.fiscal_year, s.source
+  ${VALID_SHARES}
+  WHERE s.commitment_id_fk = ?
+  ORDER BY i.invoice_date, i.id, s.id`;
 
 const day = (v: unknown): string | null => {
   if (v === null || v === undefined) return null;
@@ -216,23 +212,19 @@ export class BudgetCommitmentsService extends BaseService<
     return toRow(rows[0]);
   }
 
-  async lines(id: number): Promise<CommitmentLine[]> {
-    const rows: Record<string, unknown>[] = await this.repo.query(LINES_SQL, [id]);
+  async invoices(id: number): Promise<CommitmentInvoice[]> {
+    const rows: Record<string, unknown>[] = await this.repo.query(INVOICES_SQL, [id]);
     let progressive = 0;
     return rows.map((r) => {
       progressive = round2(progressive + Number(r.amount));
       return {
-        line_id: Number(r.line_id),
+        share_id: Number(r.share_id),
         invoice_id: Number(r.invoice_id),
         invoice_number: String(r.invoice_number ?? ''),
         invoice_date: day(r.invoice_date) ?? '',
-        period_start: day(r.period_start),
-        period_end: day(r.period_end),
-        utility_id: toNumber(r.utility_id),
-        utility_code: (r.utility_code as string | null) ?? null,
         amount: Number(r.amount),
-        auto: Number(r.auto) === 1,
-        fiscal_year: toNumber(r.fiscal_year),
+        fiscal_year: Number(r.fiscal_year),
+        source: r.source as CommitmentShareSource,
         progressive,
       };
     });
@@ -326,13 +318,13 @@ export class BudgetCommitmentsService extends BaseService<
     return saved;
   }
 
-  // Le righe assegnate in automatico si riassegnano; quelle scelte a mano
-  // bloccano (sparirebbe la scelta dell'utente).
+  // Le quote automatiche si riassegnano; quelle scelte a mano bloccano
+  // (sparirebbe la scelta dell'utente).
   async remove(id: number, userId: number): Promise<void> {
     const current = await this.repo.findOne({ where: { id, deleted: false }, relations: { contracts: true } });
     if (!current) throw new BadRequestException('Impegno non trovato');
-    const [{ n }] = await this.repo.query(MANUAL_LINES_SQL, [id]);
-    if (Number(n) > 0) throw new BadRequestException(`Impegno scelto a mano su ${Number(n)} righe fattura`);
+    const [{ n }] = await this.repo.query(MANUAL_SHARES_SQL, [id]);
+    if (Number(n) > 0) throw new BadRequestException(`Impegno scelto a mano su ${Number(n)} fatture`);
     current.deleted = true;
     current.updated_by_user_id = userId;
     await this.repo.save(current);

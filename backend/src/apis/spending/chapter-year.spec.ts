@@ -1,4 +1,10 @@
-import { buildChapterYear, chaptersYearSummary, LINE_YEAR, mergeChapterYears } from './chapter-year';
+import {
+  buildChapterYear,
+  CHAPTER_ITEMS,
+  chaptersYearSummary,
+  COMMITMENT_SPENT,
+  mergeChapterYears,
+} from './chapter-year';
 
 describe('chapter-year', () => {
   it('anno completo: disponibile = assestato − impegnato, numeri convertiti', () => {
@@ -89,7 +95,23 @@ describe('chapter-year', () => {
     expect(query.mock.calls[1][0]).toContain('remaining');
   });
 
-  it('esercizio della riga: impegno, altrimenti competenza del periodo', () => {
-    expect(LINE_YEAR).toMatch(/^COALESCE\(il\.commitment_fiscal_year, \(CASE\s+WHEN il\.period_start/);
+  it('voci di capitolo: quote (capitolo dell’impegno, annualità) più righe delle fatture senza quote', () => {
+    expect(CHAPTER_ITEMS).toContain('FROM invoice_commitment_shares');
+    expect(CHAPTER_ITEMS).toContain('UNION ALL');
+    expect(CHAPTER_ITEMS).toMatch(/NOT EXISTS \(SELECT 1 FROM invoice_commitment_shares/);
+    expect(CHAPTER_ITEMS).toContain('bcm.budget_chapter_id_fk AS chapter_id');
+    expect(CHAPTER_ITEMS).toContain('u.budget_chapter_code_fk');
+    expect(CHAPTER_ITEMS).toMatch(/\(CASE\s+WHEN il\.period_start/);
+    expect(CHAPTER_ITEMS).not.toMatch(/il\.commitment_(id_fk|fiscal_year|auto)/);
+    expect(CHAPTER_ITEMS).toMatch(/\) ci\s+JOIN invoices i ON i\.id = ci\.invoice_id AND i\.deleted = 0/);
+    expect(CHAPTER_ITEMS).toContain("(i.sdi_status IS NULL OR i.sdi_status <> 'REJECTED')");
+  });
+
+  it('speso di un’annualità: quote dell’impegno con quell’esercizio, fatture valide', () => {
+    expect(COMMITMENT_SPENT).toContain('FROM invoice_commitment_shares');
+    expect(COMMITMENT_SPENT).toContain('commitment_id_fk = bcm.id');
+    expect(COMMITMENT_SPENT).toContain('fiscal_year = bcy.fiscal_year');
+    expect(COMMITMENT_SPENT).toContain('si.deleted = 0');
+    expect(COMMITMENT_SPENT).not.toContain('invoice_lines');
   });
 });

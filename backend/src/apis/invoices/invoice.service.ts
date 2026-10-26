@@ -129,7 +129,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       }
       if (filters.budget_chapter_ids && filters.budget_chapter_ids.length > 0) {
         qb.andWhere(
-          'EXISTS (SELECT 1 FROM invoice_lines fl JOIN budget_commitments fc ON fc.id = fl.commitment_id_fk WHERE fl.invoice_id_fk = Invoice.id AND fc.budget_chapter_id_fk IN (:...chapterIds))',
+          'EXISTS (SELECT 1 FROM invoice_commitment_shares fs JOIN budget_commitments fc ON fc.id = fs.commitment_id_fk WHERE fs.invoice_id_fk = Invoice.id AND fc.budget_chapter_id_fk IN (:...chapterIds))',
           { chapterIds: filters.budget_chapter_ids },
         );
       }

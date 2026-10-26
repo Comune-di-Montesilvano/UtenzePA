@@ -21,7 +21,9 @@ describe('SpendingService', () => {
     const [sql, params] = query.mock.calls[0];
     expect(sql).toContain('i.deleted = 0');
     expect(sql).toContain("(i.sdi_status IS NULL OR i.sdi_status <> 'REJECTED')");
-    expect(sql).toMatch(/COALESCE\(il\.commitment_fiscal_year, \(CASE\s+WHEN il\.period_start/);
+    // Anno = competenza della riga; gli impegni non c'entrano.
+    expect(sql).toMatch(/SELECT \(CASE\s+WHEN il\.period_start/);
+    expect(sql).not.toContain('commitment');
     expect(params).toEqual([3]);
   });
 
@@ -100,7 +102,9 @@ describe('SpendingService', () => {
     expect(rows).toEqual([
       expect.objectContaining({ budget_chapter_id: 9, chapter_code: '12193', description: 'Gas', spent: [{ year: 2026, total: 5 }] }),
     ]);
-    expect(query.mock.calls[2][0]).toContain('LEFT JOIN budget_chapters');
+    expect(query.mock.calls[2][0]).toContain('LEFT JOIN budget_chapters b ON b.id = ci.chapter_id');
+    expect(query.mock.calls[2][0]).toContain('FROM invoice_commitment_shares');
+    expect(query.mock.calls[2][0]).toContain('i.contratto_id_fk = ?');
   });
 
   it('scheda capitolo: anni da bilancio, impegni e fatture del capitolo (capitolo dall’impegno o dall’utenza)', async () => {
@@ -117,8 +121,9 @@ describe('SpendingService', () => {
     expect(commitmentsSql).not.toMatch(/JOIN (contracts|budget_commitment_contracts)/);
     expect(commitmentsSql).toContain('remaining');
     const linesSql = String(query.mock.calls[2][0]);
-    expect(linesSql).toContain('COALESCE(bcm.budget_chapter_id_fk, u.budget_chapter_code_fk) = ?');
-    expect(linesSql).toMatch(/COALESCE\(il\.commitment_fiscal_year, \(CASE\s+WHEN il\.period_start/);
+    expect(linesSql).toContain('ci.chapter_id = ?');
+    expect(linesSql).toContain('FROM invoice_commitment_shares');
+    expect(linesSql).toContain('SUM(ci.amount)');
     expect(query.mock.calls.every(([, p]) => (p as unknown[])[0] === 5)).toBe(true);
   });
 
@@ -157,74 +162,132 @@ describe('SpendingService', () => {
     expect(sql).toContain('i.deleted = 0');
   });
 
-  it('righe fattura del capitolo, importi numerici', async () => {
+  it('voci fattura del capitolo: quote e righe, importi numerici', async () => {
     query.mockResolvedValue([
       {
-        id: 1,
+        share_id: 8,
+        line_id: null,
         invoice_id: 2,
         number: 'F-1',
         invoice_date: '2026-03-01',
         supplier: null,
-        utility_id: 4,
-        utility_code: 'U4',
+        utility_id: null,
+        utility_code: null,
         year: '2026',
         amount: '12.50',
       },
+      {
+        share_id: null,
+        line_id: 1,
+        invoice_id: 3,
+        number: 'F-2',
+        invoice_date: '2026-02-01',
+        supplier: 'Fornitore prova',
+        utility_id: 4,
+        utility_code: 'U4',
+        year: 2026,
+        amount: '7',
+      },
     ]);
-    const [line] = await service.chapterInvoiceLines(5);
-    expect(line).toEqual(expect.objectContaining({ year: 2026, amount: 12.5, invoice_id: 2 }));
+    const [share, line] = await service.chapterInvoiceLines(5);
+    expect(share).toEqual({
+      id: 8,
+      kind: 'share',
+      invoice_id: 2,
+      number: 'F-1',
+      invoice_date: '2026-03-01',
+      supplier: null,
+      utility_id: null,
+      utility_code: null,
+      year: 2026,
+      amount: 12.5,
+    });
+    expect(line).toEqual(expect.objectContaining({ id: 1, kind: 'line', utility_id: 4, amount: 7 }));
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toContain('FROM invoice_commitment_shares');
+    expect(sql).toContain('ci.chapter_id = ?');
+    expect(params).toEqual([5]);
   });
 
   describe('budgetCheck', () => {
-    it('riga con impegno: capitolo ed esercizio dell’impegno; avviso oltre l’assestato, fattura stessa esclusa', async () => {
+    const chapterOk = (sql: string) =>
+      sql.includes('FROM budget_chapters b') ? [{ chapter_code: '12332', article: 0, adjusted_budget: '100.00' }] : null;
+
+    it('quote: capitolo dell’impegno, annualità della quota o la più vicina alla competenza; righe ignorate', async () => {
       query.mockImplementation(async (sql: string) => {
-        if (sql.includes('WHERE bcm.id IN')) return [{ id: 3, chapter_id: 7, years: [2026] }];
-        if (sql.includes('FROM budget_chapters b')) return [{ chapter_code: '12332', article: 0, adjusted_budget: '100.00' }];
-        if (sql.includes('SUM(il.amount)')) return [{ total: '90.00' }];
-        return [];
+        if (sql.includes('WHERE bcm.id IN')) return [{ id: 3, chapter_id: 7, years: [2026, 2027] }];
+        if (sql.includes('SUM(ci.amount)')) return [{ total: '90.00' }];
+        return chapterOk(sql) ?? [];
       });
       const warnings = await service.budgetCheck({
         invoice_id: 44,
         invoice_date: '2025-12-31',
-        lines: [{ utility_id_fk: null, commitment_id_fk: 3, amount: 20 }],
+        lines: [{ utility_id_fk: 9, amount: 1000 }],
+        commitment_shares: [
+          { commitment_id_fk: 3, amount: 20 },
+          { commitment_id_fk: 3, fiscal_year: 2027, amount: 5 },
+        ],
       } as never);
       expect(warnings).toEqual([
         { budget_chapter_id: 7, chapter: '12332/0', year: 2026, invoiced: 110, adjusted_budget: 100 },
       ]);
-      const sumCall = query.mock.calls.find(([s]) => String(s).includes('SUM(il.amount)'));
-      expect(sumCall[0]).toContain('i.id <> ?');
-      expect(sumCall[1]).toEqual([7, 2026, 44]);
+      const sumCalls = query.mock.calls.filter(([s]) => String(s).includes('SUM(ci.amount)'));
+      expect(sumCalls[0][0]).toContain('i.id <> ?');
+      expect(sumCalls[0][0]).toContain('ci.chapter_id = ? AND ci.year = ?');
+      expect(sumCalls.map(([, p]) => p)).toEqual([
+        [7, 2026, 44],
+        [7, 2027, 44],
+      ]);
+      expect(query.mock.calls.some(([s]) => String(s).includes('FROM utilities WHERE id IN'))).toBe(false);
     });
 
-    it('riga senza impegno: capitolo dell’utenza, esercizio = anno della fattura; sotto l’assestato nessun avviso', async () => {
+    it('quote senza annualità indicata: competenza della fattura dalle righe', async () => {
+      query.mockImplementation(async (sql: string) => {
+        if (sql.includes('WHERE bcm.id IN')) return [{ id: 3, chapter_id: 7, years: [2025, 2026] }];
+        if (sql.includes('SUM(ci.amount)')) return [{ total: '0' }];
+        return chapterOk(sql) ?? [];
+      });
+      await service.budgetCheck({
+        invoice_date: '2026-02-01',
+        lines: [
+          { utility_id_fk: 9, amount: 5, period_start: '2025-11-01', period_end: '2025-12-31' },
+          { utility_id_fk: 9, amount: 5, period_start: '2025-12-01', period_end: '2026-01-10' },
+        ],
+        commitment_shares: [{ commitment_id_fk: 3, fiscal_year: null, amount: 10 }],
+      } as never);
+      const sumCall = query.mock.calls.find(([s]) => String(s).includes('SUM(ci.amount)'));
+      expect(sumCall[1]).toEqual([7, 2025, 0]);
+    });
+
+    it('senza quote: capitolo dell’utenza, esercizio = anno della fattura; sotto l’assestato nessun avviso', async () => {
       query.mockImplementation(async (sql: string) => {
         if (sql.includes('FROM utilities WHERE id IN')) return [{ id: 9, chapter_id: 7 }];
-        if (sql.includes('FROM budget_chapters b')) return [{ chapter_code: '12332', article: 0, adjusted_budget: '100.00' }];
-        if (sql.includes('SUM(il.amount)')) return [{ total: '10.00' }];
-        return [];
+        if (sql.includes('SUM(ci.amount)')) return [{ total: '10.00' }];
+        return chapterOk(sql) ?? [];
       });
       expect(
         await service.budgetCheck({
           invoice_date: '2026-03-01',
-          lines: [{ utility_id_fk: 9, commitment_id_fk: null, amount: 20 }],
+          lines: [{ utility_id_fk: 9, amount: 20 }],
+          commitment_shares: [],
         } as never),
       ).toEqual([]);
-      const sumCall = query.mock.calls.find(([s]) => String(s).includes('SUM(il.amount)'));
+      const sumCall = query.mock.calls.find(([s]) => String(s).includes('SUM(ci.amount)'));
       expect(sumCall[1]).toEqual([7, 2026, 0]);
+      expect(query.mock.calls.some(([s]) => String(s).includes('WHERE bcm.id IN'))).toBe(false);
     });
 
-    it('riga senza impegno: esercizio = competenza del periodo della riga', async () => {
+    it('senza quote: esercizio = competenza del periodo della riga', async () => {
       query.mockImplementation(async (sql: string) => {
         if (sql.includes('FROM utilities WHERE id IN')) return [{ id: 9, chapter_id: 7 }];
-        if (sql.includes('FROM budget_chapters b')) return [{ chapter_code: '1', article: 0, adjusted_budget: '100.00' }];
-        if (sql.includes('SUM(il.amount)')) return [{ total: '0' }];
-        return [];
+        if (sql.includes('SUM(ci.amount)')) return [{ total: '0' }];
+        return chapterOk(sql) ?? [];
       });
       await service.budgetCheck({
         invoice_date: '2026-02-01',
-        lines: [{ utility_id_fk: 9, commitment_id_fk: null, amount: 5, period_start: '2025-12-15', period_end: '2026-01-15' }],
+        lines: [{ utility_id_fk: 9, amount: 5, period_start: '2025-12-15', period_end: '2026-01-15' }],
       } as never);
-      const sumCall = query.mock.calls.find(([s]) => String(s).includes('SUM(il.amount)'));
+      const sumCall = query.mock.calls.find(([s]) => String(s).includes('SUM(ci.amount)'));
       expect(sumCall[1]).toEqual([7, 2025, 0]);
     });
 
@@ -232,7 +295,8 @@ describe('SpendingService', () => {
       query.mockResolvedValue([]);
       await service.budgetCheck({
         invoice_date: '2026-03-01',
-        lines: [{ utility_id_fk: null, commitment_id_fk: 3, amount: 5 }],
+        lines: [],
+        commitment_shares: [{ commitment_id_fk: 3, amount: 5 }],
       } as never);
       const commitmentSql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('WHERE bcm.id IN'));
       expect(commitmentSql).toContain('deleted = 0');
@@ -241,13 +305,13 @@ describe('SpendingService', () => {
       );
       await service.budgetCheck({
         invoice_date: '2026-03-01',
-        lines: [{ utility_id_fk: 9, commitment_id_fk: null, amount: 5 }],
+        lines: [{ utility_id_fk: 9, amount: 5 }],
       } as never);
       const chapterSql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('FROM budget_chapters b'));
       expect(chapterSql).toContain('b.deleted = 0');
     });
 
-    it('nessun avviso senza assestato, senza capitolo o senza utenza né impegno', async () => {
+    it('nessun avviso senza assestato, senza capitolo o senza utenza', async () => {
       query.mockImplementation(async (sql: string) => {
         if (sql.includes('FROM utilities WHERE id IN')) return [{ id: 9, chapter_id: null }, { id: 8, chapter_id: 7 }];
         if (sql.includes('FROM budget_chapters b')) return [{ chapter_code: '1', article: 0, adjusted_budget: null }];
@@ -257,9 +321,9 @@ describe('SpendingService', () => {
         await service.budgetCheck({
           invoice_date: '2026-03-01',
           lines: [
-            { utility_id_fk: null, commitment_id_fk: null, amount: 5 },
-            { utility_id_fk: 9, commitment_id_fk: null, amount: 5 },
-            { utility_id_fk: 8, commitment_id_fk: null, amount: 5 },
+            { utility_id_fk: null, amount: 5 },
+            { utility_id_fk: 9, amount: 5 },
+            { utility_id_fk: 8, amount: 5 },
           ],
         } as never),
       ).toEqual([]);

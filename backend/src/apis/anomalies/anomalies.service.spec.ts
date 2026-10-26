@@ -111,7 +111,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(40);
+    expect(query).toHaveBeenCalledTimes(41);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -438,8 +438,29 @@ describe('AnomaliesService', () => {
       { id: 4, label: '—', chapter: '11428/0', fiscal_year: year, amount: null, remaining: null },
     ]);
     const sqls = query.mock.calls.map(([s]) => String(s));
-    expect(sqls[sqls.length - 1]).toContain('/* commitments_check */');
-    expect(sqls[sqls.length - 1]).toContain('i.deleted = 0');
+    const check = sqls[sqls.length - 2];
+    expect(check).toContain('/* commitments_check */');
+    expect(check).toContain('i.deleted = 0');
+    // Speso dalle quote dell'annualità, non più dalle righe.
+    expect(check).toContain('FROM invoice_commitment_shares');
+    expect(check).toContain('s.fiscal_year = bcy.fiscal_year');
+    expect(check).not.toContain('invoice_lines');
+  });
+
+  it('fatture con quote a mano che non sommano al totale (query in fondo)', async () => {
+    for (let i = 0; i < 40; i++) query.mockResolvedValueOnce([]);
+    query.mockResolvedValueOnce([{ id: '70', number: 'F-70', total: '100.00', shares: '90.00' }]);
+    const result = await service.getAnomalies();
+    expect(result.invoices_shares_mismatch).toEqual({
+      count: 1,
+      items: [{ id: 70, number: 'F-70', total: 100, shares: 90 }],
+    });
+    const sql = String(query.mock.calls[40][0]);
+    expect(sql).toContain('/* invoices_shares_mismatch */');
+    expect(sql).toContain("s.source = 'MANUAL'");
+    expect(sql).toContain('i.deleted = 0');
+    expect(sql).toContain("(i.sdi_status IS NULL OR i.sdi_status <> 'REJECTED')");
+    expect(sql).toContain('> 0.01');
   });
 
   it('CIG: richiesto solo ai contratti ordinari (non esclusi né gratuiti)', async () => {
@@ -795,9 +816,10 @@ describe('AnomaliesService', () => {
       const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('/* invoice_import_issues */'));
       // Fattura corretta a mano: segnalazioni considerate viste.
       expect(sql).toContain('i.import_locked = 0');
-      // Utenza sconosciuta finché resta una riga senza utenza; impegno mancante finché manca su una riga.
+      // Utenza sconosciuta finché resta una riga senza utenza; impegno mancante finché la fattura è senza quote.
       expect(sql).toMatch(/UNKNOWN_UTILITY'[\s\S]*l\.utility_id_fk IS NULL/);
-      expect(sql).toMatch(/MISSING_COMMITMENT'[\s\S]*l\.commitment_id_fk IS NULL/);
+      expect(sql).toMatch(/MISSING_COMMITMENT'[\s\S]*NOT EXISTS \(SELECT 1 FROM invoice_commitment_shares/);
+      expect(sql).not.toContain('commitment_id_fk IS NULL');
       // Ragione sociale: sparisce se l'anagrafica è stata aggiornata dopo; lotto: finché il file è in attesa.
       expect(sql).toMatch(/SUPPLIER_NAME_MISMATCH'[\s\S]*tp\.update_date <= ii\.create_date/);
       expect(sql).toMatch(/BATCH_NOT_SUPPORTED'[\s\S]*m\.status = 'PENDING'/);

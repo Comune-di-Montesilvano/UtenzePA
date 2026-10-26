@@ -89,13 +89,14 @@ describe('BudgetCommitmentsService', () => {
     expect(reconcile.reconcileSafe).toHaveBeenCalledWith([5, 1]);
   });
 
-  it('non elimina un impegno scelto a mano su righe di fattura', async () => {
+  it('non elimina un impegno scelto a mano su fatture (quote MANUAL)', async () => {
     repo.findOne.mockResolvedValue({ id: 9, ...dto, deleted: false, contracts: [{ id: 1 }] });
     manualLines = 2;
-    await expect(service.remove(9, 3)).rejects.toThrow('Impegno scelto a mano su 2 righe fattura');
+    await expect(service.remove(9, 3)).rejects.toThrow('Impegno scelto a mano su 2 fatture');
+    expect(repo.save).not.toHaveBeenCalled();
   });
 
-  it('elimina un impegno con sole righe automatiche e le riassegna', async () => {
+  it('elimina un impegno con sole quote automatiche e le riassegna', async () => {
     repo.findOne.mockResolvedValue({ id: 9, ...dto, deleted: false, contracts: [{ id: 1 }] });
     await service.remove(9, 3);
     expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ deleted: true }));
@@ -151,12 +152,38 @@ describe('BudgetCommitmentsService', () => {
     expect(list[1]).toEqual(expect.objectContaining({ label: '—', remaining: null, contract_ids: [] }));
   });
 
-  it('righe manuali che bloccano l’eliminazione: solo fatture non cancellate e non rifiutate', async () => {
+  it('quote a mano che bloccano l’eliminazione: fatture distinte, non cancellate e non rifiutate', async () => {
     repo.findOne.mockResolvedValue({ id: 9, ...dto, deleted: false, contracts: [{ id: 1 }] });
     await service.remove(9, 3).catch(() => undefined);
-    const sql = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_manual */'))![0] as string;
+    const [sql, params] = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_manual */'))!;
+    expect(sql).toContain('FROM invoice_commitment_shares');
+    expect(sql).toContain("source = 'MANUAL'");
+    expect(sql).toContain('COUNT(DISTINCT');
     expect(sql).toContain('i.deleted = 0');
     expect(sql).toContain('sdi_status');
+    expect(sql).not.toContain('invoice_lines');
+    expect(params).toEqual([9]);
+  });
+
+  it('fatture dell’impegno: quote in ordine di consumo con progressivo', async () => {
+    repo.query.mockImplementation(async (sql: string) =>
+      sql.includes('/* c_invoices */')
+        ? [
+            { share_id: 5, invoice_id: 10, invoice_number: 'F-1', invoice_date: '2026-01-31', amount: '60.00', fiscal_year: 2026, source: 'AUTO' },
+            { share_id: 6, invoice_id: 11, invoice_number: 'NC-1', invoice_date: new Date(2026, 1, 28), amount: '-10.50', fiscal_year: '2026', source: 'MANUAL' },
+          ]
+        : [],
+    );
+    expect(await service.invoices(9)).toEqual([
+      { share_id: 5, invoice_id: 10, invoice_number: 'F-1', invoice_date: '2026-01-31', amount: 60, fiscal_year: 2026, source: 'AUTO', progressive: 60 },
+      { share_id: 6, invoice_id: 11, invoice_number: 'NC-1', invoice_date: '2026-02-28', amount: -10.5, fiscal_year: 2026, source: 'MANUAL', progressive: 49.5 },
+    ]);
+    const [sql, params] = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_invoices */'))!;
+    expect(sql).toContain('FROM invoice_commitment_shares');
+    expect(sql).toContain('i.deleted = 0');
+    expect(sql).toContain('sdi_status');
+    expect(sql).toMatch(/ORDER BY i\.invoice_date, i\.id/);
+    expect(params).toEqual([9]);
   });
 
   it('elenco e speso senza GROUP_CONCAT (troncato oltre 1024 caratteri)', async () => {
@@ -165,11 +192,14 @@ describe('BudgetCommitmentsService', () => {
     expect(sql).not.toContain('GROUP_CONCAT');
   });
 
-  it('elenco: lo speso conta solo fatture non cancellate e non rifiutate', async () => {
+  it('elenco: lo speso = quote di fatture non cancellate e non rifiutate', async () => {
     await service.listRows({});
     const sql = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_rows */'))![0] as string;
     expect(sql).toContain('i.deleted = 0');
     expect(sql).toContain('sdi_status');
+    expect(sql).toContain('FROM invoice_commitment_shares');
+    expect(sql).toContain('s.fiscal_year = y.fiscal_year');
+    expect(sql).not.toContain('invoice_lines');
   });
 
   it('un esercizio ripetuto nelle annualità è rifiutato', async () => {
