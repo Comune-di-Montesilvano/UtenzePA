@@ -44,4 +44,5 @@ export const COMMITMENT_SIGNALS: SignalDef[] = [
   {key: 'commitments_overspent', label: 'Sforati'},
   {key: 'commitments_without_contract', label: 'Senza contratto'},
   {key: 'commitments_without_amount', label: 'Senza importo'},
+  {key: 'accounting_commitments_without_contract', label: 'Dalla contabilità senza contratto'},
 ];

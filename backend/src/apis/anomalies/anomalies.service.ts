@@ -125,6 +125,18 @@ export interface Anomalies {
   commitments_without_amount: AnomalyList<CommitmentAnomaly>;
   // Fatture divise a mano tra impegni con quote che non sommano al totale.
   invoices_shares_mismatch: AnomalyList<{ id: number; number: string; total: number; shares: number }>;
+  // Import della contabilità: liquidazioni su impegni di UtenzePA senza fattura
+  // abbinata, impegni importati senza contratto, utenze con più capitoli.
+  accounting_liquidations_unmatched: AnomalyList<{
+    id: string;
+    number: string;
+    date: string | null;
+    amount: number;
+    supplier_vat: string | null;
+    commitment: string;
+  }>;
+  accounting_commitments_without_contract: AnomalyList<{ id: number; label: string }>;
+  accounting_utility_chapter_ambiguous: AnomalyList<{ id: number; utility_id: string; chapters: string }>;
   invoices_without_commitment: AnomalyList<{
     id: number;
     number: string;
@@ -803,6 +815,52 @@ export class AnomaliesService {
           AND COALESCE(i.total_amount, (SELECT SUM(l.amount) FROM invoice_lines l WHERE l.invoice_id_fk = i.id), 0) <> 0
         ORDER BY i.invoice_date DESC, i.id DESC`,
     );
+    // Liquidazioni con riferimento a fattura, su impegni di UtenzePA, che non
+    // trovano fattura né per IdentificativoSdI né per fornitore + numero + data.
+    const accLiquidations: Record<string, unknown>[] = await this.dataSource.query(
+      `/* accounting_liquidations_unmatched */
+       SELECT l.liquidation_key AS id, l.invoice_number AS number, l.invoice_date AS date, l.amount, l.supplier_vat,
+              CONCAT(l.commitment_year, '/', l.commitment_num, '/', l.commitment_sub) AS commitment
+         FROM acc_liquidations l
+         JOIN budget_commitments bc ON bc.deleted = 0 AND bc.commitment_year = l.commitment_year
+              AND bc.commitment_num = l.commitment_num AND bc.commitment_sub = l.commitment_sub
+        WHERE l.cancelled = 0 AND l.invoice_number IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
+                AND l.sdi_identifier IS NOT NULL AND i.sdi_identifier = l.sdi_identifier)
+          AND NOT EXISTS (SELECT 1 FROM invoices i JOIN third_parties t ON t.id = i.supplier_id_fk
+                WHERE i.deleted = 0 AND ${NOT_REJECTED_SQL('i')} AND i.invoice_date = l.invoice_date
+                  AND COALESCE(NULLIF(t.vat_number, ''), t.tax_code) = l.supplier_vat
+                  AND TRIM(LEADING '0' FROM REGEXP_REPLACE(UPPER(i.invoice_id), '[^A-Z0-9]', '')) = TRIM(LEADING '0' FROM REGEXP_REPLACE(UPPER(l.invoice_number), '[^A-Z0-9]', '')))
+        ORDER BY l.invoice_date DESC, l.liquidation_key`,
+    );
+    const accCommitments: Record<string, unknown>[] = await this.dataSource.query(
+      `/* accounting_commitments_without_contract */
+       SELECT bc.id, bc.commitment_year, bc.commitment_num, bc.commitment_sub
+         FROM budget_commitments bc
+        WHERE bc.deleted = 0 AND bc.source = 'ACCOUNTING'
+          AND NOT EXISTS (SELECT 1 FROM budget_commitment_contracts x WHERE x.commitment_id = bc.id)
+        ORDER BY bc.commitment_year DESC, bc.commitment_num, bc.commitment_sub`,
+    );
+    // Utenze delle fatture pagate con quote su più capitoli nell'ultimo esercizio.
+    const accUtilityChapters: Record<string, unknown>[] = await this.dataSource.query(
+      `/* accounting_utility_chapter_ambiguous */
+       WITH r AS (
+         SELECT DISTINCT l.utility_id_fk AS utility_id, s.fiscal_year, bc.budget_chapter_id_fk AS chapter_id
+           FROM invoice_commitment_shares s
+           JOIN budget_commitments bc ON bc.id = s.commitment_id_fk
+           JOIN invoices i ON i.id = s.invoice_id_fk AND i.deleted = 0
+           JOIN invoice_lines l ON l.invoice_id_fk = i.id AND l.utility_id_fk IS NOT NULL
+          WHERE s.source = 'ACCOUNTING'),
+       m AS (SELECT utility_id, MAX(fiscal_year) AS fiscal_year FROM r GROUP BY utility_id)
+       SELECT u.id, u.utility_id,
+              GROUP_CONCAT(DISTINCT CONCAT(ch.chapter_code, '/', ch.article) ORDER BY ch.chapter_code SEPARATOR ', ') AS chapters
+         FROM r JOIN m ON m.utility_id = r.utility_id AND m.fiscal_year = r.fiscal_year
+         JOIN utilities u ON u.id = r.utility_id AND u.deleted = 0
+         JOIN budget_chapters ch ON ch.id = r.chapter_id
+        GROUP BY u.id, u.utility_id
+       HAVING COUNT(DISTINCT r.chapter_id) > 1
+        ORDER BY u.utility_id`,
+    );
     const commitments = commitmentRows.map((r) => {
       const amount = r.amount == null ? null : Number(r.amount);
       return {
@@ -889,6 +947,25 @@ export class AnomaliesService {
           total: Number(r.total),
           shares: Number(r.shares),
         })),
+      ),
+      accounting_liquidations_unmatched: list(
+        accLiquidations.map((r) => ({
+          id: String(r.id),
+          number: String(r.number),
+          date: r.date ? dbDay(r.date) : null,
+          amount: Number(r.amount),
+          supplier_vat: (r.supplier_vat as string) ?? null,
+          commitment: String(r.commitment),
+        })),
+      ),
+      accounting_commitments_without_contract: list(
+        accCommitments.map((r) => ({
+          id: Number(r.id),
+          label: commitmentLabel(Number(r.commitment_year), Number(r.commitment_num), Number(r.commitment_sub)),
+        })),
+      ),
+      accounting_utility_chapter_ambiguous: list(
+        accUtilityChapters.map((r) => ({ id: Number(r.id), utility_id: String(r.utility_id), chapters: String(r.chapters) })),
       ),
       invoices_without_commitment: list(
         withoutCommitment.map((r) => {

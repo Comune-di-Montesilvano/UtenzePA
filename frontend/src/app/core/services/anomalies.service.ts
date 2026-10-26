@@ -89,6 +89,11 @@ export interface Anomalies {
   commitments_without_amount: AnomalyList<CommitmentAnomaly>;
   // Fatture divise a mano con quote che non sommano al totale.
   invoices_shares_mismatch: AnomalyList<{id: number; number: string; total: number; shares: number}>;
+  // Import della contabilità: liquidazioni senza fattura, impegni importati senza contratto,
+  // utenze con più capitoli nell'ultimo esercizio pagato.
+  accounting_liquidations_unmatched: AnomalyList<{id: string; number: string; date: string | null; amount: number; supplier_vat: string | null; commitment: string}>;
+  accounting_commitments_without_contract: AnomalyList<{id: number; label: string}>;
+  accounting_utility_chapter_ambiguous: AnomalyList<{id: number; utility_id: string; chapters: string}>;
   // Fatture con contratto che il ricalcolo lascia senza impegno (nessun impegno nell'esercizio o da scegliere a mano).
   invoices_without_commitment: AnomalyList<{id: number; number: string; date: string; contract_id: number; amount: number; reason: 'NO_COMMITMENTS' | 'AMBIGUOUS'}>;
 }

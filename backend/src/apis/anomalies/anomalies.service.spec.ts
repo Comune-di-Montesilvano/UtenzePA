@@ -111,7 +111,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(42);
+    expect(query).toHaveBeenCalledTimes(45);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -461,6 +461,51 @@ describe('AnomaliesService', () => {
     expect(sql).toContain('i.deleted = 0');
     expect(sql).toContain("(i.sdi_status IS NULL OR i.sdi_status <> 'REJECTED')");
     expect(sql).toContain('> 0.01');
+  });
+
+  it('liquidazioni della contabilità senza fattura (query in fondo)', async () => {
+    for (let i = 0; i < 42; i++) query.mockResolvedValueOnce([]);
+    query.mockResolvedValueOnce([
+      { id: 'L-9', number: 'FT/12', date: '2026-03-01', amount: '61.00', supplier_vat: '00000000001', commitment: '2026/514/1' },
+    ]);
+    const result = await service.getAnomalies();
+    expect(result.accounting_liquidations_unmatched).toEqual({
+      count: 1,
+      items: [
+        { id: 'L-9', number: 'FT/12', date: '2026-03-01', amount: 61, supplier_vat: '00000000001', commitment: '2026/514/1' },
+      ],
+    });
+    const sql = String(query.mock.calls[42][0]);
+    expect(sql).toContain('/* accounting_liquidations_unmatched */');
+    expect(sql).toContain('l.cancelled = 0');
+    expect(sql).toContain('l.invoice_number IS NOT NULL');
+    expect(sql).toContain('JOIN budget_commitments bc');
+    expect(sql).toContain("(i.sdi_status IS NULL OR i.sdi_status <> 'REJECTED')");
+  });
+
+  it('impegni della contabilità senza contratto (query in fondo)', async () => {
+    for (let i = 0; i < 43; i++) query.mockResolvedValueOnce([]);
+    query.mockResolvedValueOnce([{ id: '4', commitment_year: '2026', commitment_num: '514', commitment_sub: '1' }]);
+    const result = await service.getAnomalies();
+    expect(result.accounting_commitments_without_contract).toEqual({ count: 1, items: [{ id: 4, label: '2026/514/1' }] });
+    const sql = String(query.mock.calls[43][0]);
+    expect(sql).toContain('/* accounting_commitments_without_contract */');
+    expect(sql).toContain("bc.source = 'ACCOUNTING'");
+    expect(sql).toContain('budget_commitment_contracts');
+  });
+
+  it('utenze con più capitoli nell ultimo esercizio pagato (query in fondo)', async () => {
+    for (let i = 0; i < 44; i++) query.mockResolvedValueOnce([]);
+    query.mockResolvedValueOnce([{ id: '30', utility_id: 'IT001E1', chapters: '100/0, 200/0' }]);
+    const result = await service.getAnomalies();
+    expect(result.accounting_utility_chapter_ambiguous).toEqual({
+      count: 1,
+      items: [{ id: 30, utility_id: 'IT001E1', chapters: '100/0, 200/0' }],
+    });
+    const sql = String(query.mock.calls[44][0]);
+    expect(sql).toContain('/* accounting_utility_chapter_ambiguous */');
+    expect(sql).toContain("s.source = 'ACCOUNTING'");
+    expect(sql).toContain('COUNT(DISTINCT r.chapter_id) > 1');
   });
 
   it('fatture con contratto senza quota: motivo NO_COMMITMENTS o AMBIGUOUS (query in fondo)', async () => {
