@@ -27,6 +27,7 @@ import { InvoiceImportModule } from '@apis/invoice-import/invoice-import.module'
 import { UtilitySupplyModule } from '@apis/utility-supply/utility-supply.module';
 import { BudgetChapterSpendingModule } from '@apis/budget-chapter-spending/budget-chapter-spending.module';
 import { BudgetCommitmentsModule } from '@apis/budget-commitments/budget-commitments.module';
+import { AccountingImportModule } from '@apis/accounting-import/accounting-import.module';
 import { SpendingModule } from '@apis/spending/spending.module';
 import { PlantsModule } from '@apis/plants/plants.module';
 import { ComplexesModule } from '@apis/complexes/complexes.module';
@@ -71,6 +72,7 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     UtilitySupplyModule,
     BudgetChapterSpendingModule,
     BudgetCommitmentsModule,
+    AccountingImportModule,
     SpendingModule,
     PlantsModule,
     ComplexesModule,
