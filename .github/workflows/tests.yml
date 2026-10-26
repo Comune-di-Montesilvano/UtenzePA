@@ -197,7 +197,7 @@ jobs:
       - name: Avvia lo stack di produzione
         run: |
           set -eu
-          docker compose -f docker-compose.yml up -d --pull never
+          docker compose -f docker-compose.yml up -d --pull missing
           # Migration all'avvio su DB vuoto: l'API risponde solo a migration finite.
           for i in $(seq 1 90); do
             if curl -fsS http://localhost:3000/api/v1/health/liveness >/dev/null; then
