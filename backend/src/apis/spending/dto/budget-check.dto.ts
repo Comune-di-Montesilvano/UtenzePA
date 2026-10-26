@@ -56,7 +56,7 @@ export class BudgetCheckDto {
 
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(100, { message: 'Al massimo 100 quote per fattura.' })
+  @ArrayMaxSize(50, { message: 'Al massimo 50 quote per fattura.' })
   @ValidateNested({ each: true })
   @Type(() => BudgetCheckShareDto)
   commitment_shares?: BudgetCheckShareDto[] | null;

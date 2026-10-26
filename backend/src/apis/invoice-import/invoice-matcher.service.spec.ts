@@ -58,7 +58,7 @@ const baseHandlers = (): Record<string, Handler> => ({
     utilityId === 813
       ? [{ id: 6, cig_contract: 'ZZ00000000' }]
       : [{ id: 5, cig_contract: 'AB12345678' }],
-  m_commitment: () => [{ id: 70 }],
+  m_contract_commitment: () => [{ id: 70 }],
   m_supplier: () => [{ company_name: 'ENERGIA PROVA SPA', last_name: null, first_name: null }],
   m_invoice: () => [],
 });
@@ -138,17 +138,20 @@ describe('InvoiceMatcher', () => {
     expect(result.issues.map((i) => i.type)).toEqual([ImportIssueType.MIXED_CONTRACTS]);
   });
 
-  it('impegno mancante con contratto e capitolo noti: segnalazione', async () => {
-    const result = await matcher({ ...baseHandlers(), m_commitment: () => [] }).match(
+  it('contratto senza impegni nell’esercizio: una segnalazione per fattura, non per riga', async () => {
+    const result = await matcher({ ...baseHandlers(), m_contract_commitment: () => [] }).match(
       invoice(),
       46,
     );
     expect(result.issues).toEqual([
       expect.objectContaining({
         type: ImportIssueType.MISSING_COMMITMENT,
-        detail: expect.stringContaining('2026'),
+        lineIndex: null,
+        detail: expect.stringContaining('esercizio 2026'),
       }),
     ]);
+    expect(result.issues[0].detail).toContain('tab Impegni');
+    expect(result.issues[0].detail).not.toContain('della riga');
   });
 
   it('ragione sociale con forma societaria scritta diversamente: nessuna segnalazione', async () => {
@@ -198,7 +201,6 @@ describe('InvoiceMatcher: righe senza utenza', () => {
     const db = fakeDb({
       ...baseHandlers(),
       m_header_contract: () => [{ id: 10, cig_contract: '7334657E6B' }],
-      m_contract_commitment: () => [{ id: 71 }],
     });
     const result = await new InvoiceMatcher(db as never).match(canone(), 46);
     expect(result.contratto_id_fk).toBe(10);
@@ -212,11 +214,10 @@ describe('InvoiceMatcher: righe senza utenza', () => {
     expect(headerCalls[0][1]).toEqual([46, '7334657E6B', null, null]);
   });
 
-  it('riga senza utenza: nessun impegno o impegni su più capitoli = segnalazione; un capitolo = nessuna', async () => {
+  it('righe senza utenza: segnalazione solo se il contratto non ha impegni nell’esercizio', async () => {
     for (const [rows, issues] of [
       [[], 1],
-      [[{ chapter: 7 }], 0],
-      [[{ chapter: 7 }, { chapter: 8 }], 1],
+      [[{ id: 71 }], 0],
     ] as const) {
       const result = await matcher({
         ...baseHandlers(),
@@ -227,15 +228,21 @@ describe('InvoiceMatcher: righe senza utenza', () => {
     }
   });
 
-  it('esercizio dell’impegno = competenza del periodo della riga, non anno di fine', async () => {
+  it('esercizio dell’impegno = competenza della fattura (periodo complessivo delle righe)', async () => {
     const db = fakeDb(baseHandlers());
     await new InvoiceMatcher(db as never).match(
-      invoice({ lines: [line({ periodStart: '2025-12-15', periodEnd: '2026-01-15' })] }),
+      invoice({
+        lines: [
+          line({ periodStart: '2025-12-15', periodEnd: '2025-12-31' }),
+          line({ periodStart: '2026-01-01', periodEnd: '2026-01-15' }),
+        ],
+      }),
       46,
     );
-    const calls = db.query.mock.calls.filter(([sql]) => sql.includes('m_commitment'));
-    expect(calls[0][1]).toEqual([5, 30, 2025]);
-    expect(calls[0][0]).toContain('budget_commitment_contracts');
+    const calls = db.query.mock.calls.filter(([sql]) => sql.includes('m_contract_commitment'));
+    expect(calls).toHaveLength(1);
+    expect(calls[0][1]).toEqual([5, 2025]);
+    expect(calls[0][0]).toContain('budget_commitment_years');
   });
 
   it('CIG di più contratti o di nessuno: fattura senza contratto', async () => {
