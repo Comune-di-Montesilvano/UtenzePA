@@ -1,3 +1,4 @@
+import {AccountingStateService} from '../../core/services/accounting-state.service';
 import {ContractKind, noCigLabel} from '../contracts/contract-kind';
 import {ChangeDetectionStrategy, Component, inject, OnInit, QueryList, ViewChild, ViewChildren} from '@angular/core';
 import {AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators} from '@angular/forms';
@@ -88,6 +89,9 @@ interface PlantRow {
   templateUrl: './utility-edit-dialog.component.html'
 })
 export class UtilityEditDialogComponent implements OnInit {
+  // Import della contabilità acceso: impegni e capitoli solo dalla contabilità.
+  accountingActive = false;
+  private accountingSub = inject(AccountingStateService).active$.subscribe(a => (this.accountingActive = a));
   private fb = inject(FormBuilder);
   private dialogRef = inject(MatDialogRef<UtilityEditDialogComponent, Utility | SheetRefresh | undefined>);
   private authService = inject(AuthService);

@@ -8,6 +8,9 @@
     @if (status) {
       <app-status-badge [info]="status" size="sm"></app-status-badge>
     }
+    @if (fromAccounting) {
+      <app-status-badge [info]="accountingBadge" size="sm"></app-status-badge>
+    }
   </ng-container>
 
   <form [formGroup]="form">
@@ -37,7 +40,7 @@
             <app-filterable-select style="flex: 1;" label="Capitolo *" placeholder="Cerca capitolo..." [options]="chapterOptions"
                                    formControlName="budget_chapter_id_fk"
                                    [errorMessage]="form.controls.budget_chapter_id_fk.invalid && form.controls.budget_chapter_id_fk.touched ? 'Capitolo obbligatorio' : null"
-                                   [createLabel]="canEdit ? 'Nuovo capitolo' : null" (create)="newChapter()"></app-filterable-select>
+                                   [createLabel]="canEdit && !accountingActive ? 'Nuovo capitolo' : null" (create)="newChapter()"></app-filterable-select>
             @if (form.controls.budget_chapter_id_fk.value) {
               <button mat-icon-button type="button" aria-label="Apri scheda capitolo" matTooltip="Apri scheda capitolo"
                       style="margin-top: 4px;" (click)="openChapter()">
@@ -48,7 +51,7 @@
           <div class="span-2">
             <app-filterable-select label="Fornitore" placeholder="Cerca fornitore..." [options]="supplierOptions"
                                    formControlName="supplier_id_fk"
-                                   [createLabel]="canEdit ? 'Nuovo soggetto terzo' : null" (create)="newSupplier($event)"></app-filterable-select>
+                                   [createLabel]="canEdit && !locked ? 'Nuovo soggetto terzo' : null" (create)="newSupplier($event)"></app-filterable-select>
           </div>
           <div class="span-all years" formArrayName="years">
             @for (g of yearGroups; track g; let i = $index) {
@@ -64,7 +67,7 @@
                   <mat-label>Importo (€)</mat-label>
                   <input matInput type="number" step="0.01" formControlName="amount" placeholder="Senza importo">
                 </mat-form-field>
-                @if (canEdit && yearGroups.length > 1) {
+                @if (canEdit && !locked && yearGroups.length > 1) {
                   <button mat-icon-button type="button" aria-label="Togli esercizio" matTooltip="Togli esercizio" (click)="removeYear(i)">
                     <mat-icon>remove_circle_outline</mat-icon>
                   </button>
@@ -74,7 +77,7 @@
             @if (duplicateYears()) {
               <p class="sheet-hint" style="color: var(--tone-danger-fg);">Lo stesso esercizio è indicato due volte.</p>
             }
-            @if (canEdit) {
+            @if (canEdit && !locked) {
               <div>
                 <button mat-button type="button" (click)="addYear()" matTooltip="Impegno pluriennale: un importo per ogni esercizio di competenza">
                   <mat-icon>add</mat-icon>Aggiungi esercizio

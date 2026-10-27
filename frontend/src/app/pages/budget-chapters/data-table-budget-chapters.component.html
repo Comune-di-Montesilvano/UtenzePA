@@ -1,5 +1,5 @@
 <app-list-toolbar [count]="data.length"
-                  createLabel="Nuovo capitolo"
+                  [createLabel]="accountingActive ? null : 'Nuovo capitolo'"
                   [columns]="allColumns"
                   [selectedColumns]="selectedColumns"
                   [compareColumns]="compareColumns"
@@ -21,6 +21,7 @@
           <mat-icon>edit</mat-icon>
         </button>
       }
+      @if (!(accountingActive && item.source === accountingSource)) {
       <button mat-icon-button
               [class.mat-action-success]="item.deleted"
               [class.mat-action-danger]="!item.deleted"
@@ -30,6 +31,7 @@
               [attr.aria-label]="item.deleted ? 'Ripristina' : 'Elimina'">
         <mat-icon>{{ item.deleted ? 'restore' : 'delete' }}</mat-icon>
       </button>
+      }
     </td>
   </ng-container>
 

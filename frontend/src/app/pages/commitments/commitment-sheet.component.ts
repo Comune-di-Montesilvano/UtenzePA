@@ -18,7 +18,8 @@ import {EntityHistoryComponent} from '../../core/components/entity-history.compo
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {BarSegment, StackedBarComponent} from '../../core/components/stacked-bar.component';
 import {OnlyNumbersDirective} from '../../core/directives/only-numbers.directive';
-import type {StatusInfo} from '../../core/helpers/entity-status';
+import {ACCOUNTING_BADGE, type StatusInfo} from '../../core/helpers/entity-status';
+import {ACCOUNTING_SOURCE, AccountingStateService} from '../../core/services/accounting-state.service';
 import {partyName} from '../../core/helpers/party-name.helper';
 import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import type {TOption} from '../../core/types/option.interface';
@@ -89,6 +90,12 @@ export class CommitmentSheetComponent implements OnInit {
   invoices: CommitmentInvoice[] = [];
   readonly sourceLabels = SHARE_SOURCE_LABELS;
   status: StatusInfo | null = null;
+  readonly accountingBadge = ACCOUNTING_BADGE;
+  readonly fromAccounting = this.data.item.source === ACCOUNTING_SOURCE;
+  // Import della contabilità acceso: numero, capitolo, fornitore e annualità in sola lettura.
+  locked = false;
+  accountingActive = false;
+  private accounting = inject(AccountingStateService);
   private allContracts: Contract[] = [];
 
   readonly contractColumns: LinkedColumn<ContractRow>[] = [
@@ -169,6 +176,14 @@ export class CommitmentSheetComponent implements OnInit {
     this.loadSuppliers();
     this.loadContracts();
     if (!this.isNew) this.loadInvoices();
+    this.accounting.active$.subscribe(active => {
+      this.accountingActive = active;
+      if (!active || !this.fromAccounting || !this.canEdit) return;
+      this.locked = true;
+      for (const c of ['commitment_year', 'commitment_num', 'commitment_sub', 'budget_chapter_id_fk', 'supplier_id_fk', 'years'] as const) {
+        this.form.controls[c].disable();
+      }
+    });
     this.form.controls.supplier_id_fk.valueChanges.subscribe(() => this.buildContracts());
   }
 

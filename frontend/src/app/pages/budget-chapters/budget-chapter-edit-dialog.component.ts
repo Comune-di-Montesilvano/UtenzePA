@@ -19,7 +19,8 @@ import {dateIt, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '..
 import {EntityHistoryComponent} from '../../core/components/entity-history.component';
 import {MultiSelectComponent} from '../../core/components/multi-select.component';
 import {OnlyNumbersDirective} from '../../core/directives/only-numbers.directive';
-import {chapterBudgetStatus, StatusInfo} from '../../core/helpers/entity-status';
+import {ACCOUNTING_BADGE, chapterBudgetStatus, StatusInfo} from '../../core/helpers/entity-status';
+import {ACCOUNTING_SOURCE, AccountingStateService} from '../../core/services/accounting-state.service';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import type {TOption} from '../../core/types/option.interface';
 import {AuthService} from '../../services/auth.service';
@@ -68,6 +69,11 @@ export class BudgetChapterEditDialogComponent implements OnInit {
   readonly eur = formatEuro;
 
   utilityTypeOptions: TOption[] = [];
+  readonly accountingBadge = ACCOUNTING_BADGE;
+  readonly fromAccounting = this.data.item.source === ACCOUNTING_SOURCE;
+  // Import della contabilità acceso: esercizi solo dalla contabilità.
+  accountingActive = false;
+  private accounting = inject(AccountingStateService);
   // Esercizi salvati dal tab (subito, non col Salva della scheda): "Annulla"
   // diventa "Chiudi" se il resto della scheda non è stato toccato.
   yearsChanged = false;
@@ -117,6 +123,12 @@ export class BudgetChapterEditDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.accounting.active$.subscribe(active => {
+      this.accountingActive = active;
+      if (active && this.fromAccounting && this.canEdit) {
+        for (const c of ['chapter_code', 'article', 'description'] as const) this.form.controls[c].disable();
+      }
+    });
     if (this.isNew) return;
     this.loadYears();
     this.loadLinks();

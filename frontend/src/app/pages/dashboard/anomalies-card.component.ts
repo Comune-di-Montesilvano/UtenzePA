@@ -577,6 +577,21 @@ const formatDate = (iso: string | null): string => {
               </ul>
             </mat-expansion-panel>
             }
+            @if (data.accounting_liquidations_unmatched.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.accounting_liquidations_unmatched.count }}</span>
+                  Fatture pagate dalla ragioneria non trovate
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list plain">
+                @for (d of data.accounting_liquidations_unmatched.items; track d.id) {
+                  <li>{{ d.number }}{{ d.date ? ' del ' + dateIt(d.date) : '' }} · {{ eur(d.amount) }} · impegno {{ d.commitment }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
             @if (data.invoices_without_commitment.count > 0) {
             <mat-expansion-panel>
               <mat-expansion-panel-header>

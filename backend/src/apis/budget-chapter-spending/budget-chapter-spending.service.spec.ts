@@ -89,15 +89,25 @@ describe('BudgetChapterSpendingService', () => {
   });
 
   it('rifiuta un anno senza nessun importo', async () => {
-    await expect(service.createForChapter(5, { year: 2026, notes: 'x' } as never, 3)).rejects.toThrow(
+    await expect(
+      service.createForChapter(5, { year: 2026, notes: 'x' } as never, 3),
+    ).rejects.toThrow(
       'Indicare almeno un importo: stanziamento iniziale, assestato o spesa ragioneria.',
     );
     expect(repo.save).not.toHaveBeenCalled();
   });
 
   it('rifiuta una modifica che svuota tutti gli importi', async () => {
-    repo.findOne.mockResolvedValue({ id: 1, budget_chapter_id_fk: 5, year: 2026, amount: null, adjusted_budget: '100.00' });
-    await expect(service.update(1, { adjusted_budget: null } as never, 3)).rejects.toThrow(/almeno un importo/);
+    repo.findOne.mockResolvedValue({
+      id: 1,
+      budget_chapter_id_fk: 5,
+      year: 2026,
+      amount: null,
+      adjusted_budget: '100.00',
+    });
+    await expect(service.update(1, { adjusted_budget: null } as never, 3)).rejects.toThrow(
+      /almeno un importo/,
+    );
   });
 
   it('elenco: importi nulli restano null, gli altri diventano numeri', async () => {
@@ -108,5 +118,61 @@ describe('BudgetChapterSpendingService', () => {
     expect(row.amount).toBeNull();
     expect(row.initial_budget).toBe(30000);
     expect(row.adjusted_budget).toBe(28000);
+  });
+});
+
+describe('BudgetChapterSpendingService: import della contabilità attivo', () => {
+  const LOCKED = "Con l'import della contabilità attivo questo dato arriva dalla contabilità.";
+  const imported = () => ({
+    id: 4,
+    source: 'ACCOUNTING',
+    budget_chapter_id_fk: 5,
+    year: 2026,
+    initial_budget: '1000.00',
+    adjusted_budget: '1200.00',
+    amount: null,
+    notes: null,
+    deleted: false,
+  });
+  let service: BudgetChapterSpendingService;
+  let repo: { find: jest.Mock; findOne: jest.Mock; create: jest.Mock; save: jest.Mock };
+
+  beforeEach(() => {
+    repo = {
+      find: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn(async () => imported()),
+      create: jest.fn((d) => d),
+      save: jest.fn(async (d) => d),
+    };
+    service = new BudgetChapterSpendingService(
+      repo as never,
+      { findOne: jest.fn().mockResolvedValue({ id: 5, deleted: false }) } as never,
+      { isActive: jest.fn(async () => true) } as never,
+    );
+  });
+
+  it('create = 400', async () => {
+    await expect(
+      service.createForChapter(5, { year: 2027, amount: 1 } as never, 3),
+    ).rejects.toThrow(LOCKED);
+  });
+
+  it('importi diversi = 400', async () => {
+    await expect(service.update(4, { adjusted_budget: 1300 } as never, 3)).rejects.toThrow(LOCKED);
+    await expect(service.update(4, { amount: 5 } as never, 3)).rejects.toThrow(LOCKED);
+  });
+
+  it('note modificabili con importi uguali', async () => {
+    await expect(
+      service.update(
+        4,
+        { initial_budget: 1000, adjusted_budget: 1200, amount: null, notes: 'x' } as never,
+        3,
+      ),
+    ).resolves.not.toThrow();
+  });
+
+  it('delete = 400', async () => {
+    await expect(service.remove(4, 3)).rejects.toThrow(LOCKED);
   });
 });

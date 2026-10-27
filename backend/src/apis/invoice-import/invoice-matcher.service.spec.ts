@@ -180,6 +180,32 @@ describe('InvoiceMatcher', () => {
     expect(result.existingInvoiceId).toBe(321);
   });
 
+  it('fattura creata dalla contabilità viene trovata da fornitore + numero + data e arricchita', async () => {
+    const result = await matcher({
+      ...baseHandlers(),
+      m_invoice_candidates: () => [
+        { id: 401, invoice_id: 'EP7-26' },
+        { id: 402, invoice_id: 'EP 8/26' },
+      ],
+    }).match(invoice(), 46);
+    expect(result.existingInvoiceId).toBe(401);
+  });
+
+  it('fattura della contabilità con data diversa: trovata da IdentificativoSdI + numero', async () => {
+    const result = await matcher({
+      ...baseHandlers(),
+      m_invoice_by_sdi: (params) =>
+        params[1] === '99000000001'
+          ? [
+              { id: 501, invoice_id: 'EP 6/26' },
+              { id: 502, invoice_id: 'EP7-26' },
+            ]
+          : [],
+    }).match(invoice(), 46, '99000000001');
+    // Lotto SDI: più fatture con lo stesso identificativo, vale il numero.
+    expect(result.existingInvoiceId).toBe(502);
+  });
+
   it('utenza dal riferimento contratto se mappa una sola utenza', async () => {
     const result = await matcher({
       ...baseHandlers(),
@@ -224,7 +250,9 @@ describe('InvoiceMatcher: righe senza utenza', () => {
         m_header_contract: () => [{ id: 10, cig_contract: '7334657E6B' }],
         m_contract_commitment: () => [...rows],
       }).match(canone(), 46);
-      expect(result.issues.filter((i) => i.type === ImportIssueType.MISSING_COMMITMENT)).toHaveLength(issues);
+      expect(
+        result.issues.filter((i) => i.type === ImportIssueType.MISSING_COMMITMENT),
+      ).toHaveLength(issues);
     }
   });
 

@@ -14,6 +14,8 @@ export class BudgetChapter extends AbstractEntity implements IBudgetChapter {
   description?: string;
   // Note libere (es. cosa paga il capitolo, accordi con la ragioneria).
   notes?: string | null;
+  // MANUAL o ACCOUNTING (dalla contabilità), mai inviato.
+  source?: string;
   // Tipi utenza del capitolo; nessuno = tutti (es. SPRAR).
   @Type(() => UtilityType)
   utilityTypes?: UtilityType[];

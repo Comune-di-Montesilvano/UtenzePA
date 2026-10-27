@@ -29,7 +29,7 @@ import {Commitment, competenceLabel} from '../commitments/commitment.model';
 import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
-import {CREDIT_NOTE_BADGE, isCreditNote} from '../../core/helpers/entity-status';
+import {ACCOUNTING_BADGE, CREDIT_NOTE_BADGE, isCreditNote} from '../../core/helpers/entity-status';
 import {hasInvalid, isEditorRole, lastModifiedLabel} from '../../core/components/entity-sheet/sheet-utils';
 import {ToastService} from '../../core/services/toast.service';
 import {InvoiceLinesTabComponent} from './invoice-lines-tab.component';
@@ -86,6 +86,7 @@ export class InvoiceEditDialogComponent implements OnInit {
   isNew = this.data.mode === 'create';
   readonly canEdit = isEditorRole(this.authService.getCurrentUser()?.role);
   readonly creditNoteBadge = CREDIT_NOTE_BADGE;
+  readonly accountingBadge = ACCOUNTING_BADGE;
   readonly isCreditNote = isCreditNote;
   // Stato SDI e documenti dalla PEC: solo lettura, mai nel form.
   readonly sdiBadge = sdiStatusBadge(this.data.item.sdi_status, this.data.item.sdi_outcome_discarded);

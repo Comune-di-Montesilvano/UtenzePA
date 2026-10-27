@@ -32,6 +32,8 @@ interface MenuItem {
            })
 export class SidebarComponent implements OnInit {
   appVersion = '';
+  // Voci solo per gli amministratori (le API rispondono 403 agli altri).
+  private readonly isAdmin = inject(AuthService).getCurrentUser()?.role === 'Admin';
 
   readonly theme = inject(ThemeService);
 
@@ -86,6 +88,7 @@ export class SidebarComponent implements OnInit {
         {label: 'Log attività', icon: 'history', route: '/audit-log'},
         {label: 'Backup e manutenzione', icon: 'storage', route: '/backup-import'},
         {label: 'Import fatture', icon: 'mark_email_read', route: '/invoice-import'},
+        ...(this.isAdmin ? [{label: 'Contabilità', icon: 'account_balance', route: '/accounting-import'}] : []),
         {label: 'Branding', icon: 'palette', route: '/branding'},
       ]},
     {label: 'Guida', icon: 'help_outline', route: '/guida'},

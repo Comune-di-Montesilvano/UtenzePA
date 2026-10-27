@@ -8,6 +8,9 @@
     @if (!isNew) {
       <app-status-badge [info]="status" size="sm"></app-status-badge>
     }
+    @if (fromAccounting) {
+      <app-status-badge [info]="accountingBadge" size="sm"></app-status-badge>
+    }
   </ng-container>
 
   <form [formGroup]="form">
@@ -73,7 +76,7 @@
             <app-tab-label icon="description" label="Impegni" [count]="commitments.length"></app-tab-label>
           </ng-template>
           <app-linked-table [columns]="commitmentColumns" [rows]="commitments"
-                            [createLabel]="canEdit ? 'Nuovo impegno' : null" (create)="newCommitment()"
+                            [createLabel]="canEdit && !accountingActive ? 'Nuovo impegno' : null" (create)="newCommitment()"
                             emptyText="Nessun impegno su questo capitolo." (open)="openCommitment($event)"></app-linked-table>
         </mat-tab>
 
@@ -90,6 +93,7 @@
             <app-tab-label icon="euro" label="Esercizi" [dot]="!!current?.over_budget" tone="danger"></app-tab-label>
           </ng-template>
           <app-budget-chapter-years-tab [chapterId]="data.item.id" [years]="years" [canEdit]="canEdit"
+                                        [accountingActive]="accountingActive"
                                         (changed)="onYearsChanged()"></app-budget-chapter-years-tab>
         </mat-tab>
 

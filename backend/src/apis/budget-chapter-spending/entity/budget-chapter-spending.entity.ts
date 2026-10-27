@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { BudgetChapter } from '@apis/budget-chapters/entity/budgetChapter.entity';
 import { SystemUser } from '@apis/system-users/entity/system-user.entity';
+import { RecordSource } from '@apis/accounting-import/record-source.enum';
 
 // Dati della ragioneria per capitolo/anno: stanziamento iniziale, assestato,
 // spesa consuntiva (almeno uno, verificato nel service). Un solo record per
@@ -55,6 +56,9 @@ export class BudgetChapterSpending {
 
   @Column({ type: 'boolean', default: false })
   deleted: boolean;
+
+  @Column({ type: 'varchar', length: 20, default: RecordSource.MANUAL })
+  source: RecordSource;
 
   @ManyToOne(() => BudgetChapter, { nullable: false })
   @JoinColumn({ name: 'budget_chapter_id_fk' })

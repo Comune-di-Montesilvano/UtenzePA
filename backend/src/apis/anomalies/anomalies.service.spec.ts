@@ -111,7 +111,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(42);
+    expect(query).toHaveBeenCalledTimes(45);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -230,7 +230,13 @@ describe('AnomaliesService', () => {
     for (let i = 0; i < 12; i++) query.mockResolvedValueOnce([]);
     query
       .mockResolvedValueOnce([
-        { id: 31, utility_id: 'IT005', type: 'luce', contracts: 'Alfa Srl', pending_since: '2026-10-09' },
+        {
+          id: 31,
+          utility_id: 'IT005',
+          type: 'luce',
+          contracts: 'Alfa Srl',
+          pending_since: '2026-10-09',
+        },
       ])
       .mockResolvedValueOnce([
         { id: 32, utility_id: 'IT006', type: 'luce', contracts: 'Beta Spa', pending_since: null },
@@ -240,7 +246,9 @@ describe('AnomaliesService', () => {
 
     expect(a.utilities_to_transfer).toEqual({
       count: 1,
-      items: [{ id: 31, utility_id: 'IT005', type: 'luce', contracts: 'Alfa Srl', pending_days: 10 }],
+      items: [
+        { id: 31, utility_id: 'IT005', type: 'luce', contracts: 'Alfa Srl', pending_days: 10 },
+      ],
     });
     expect(a.utilities_to_recover.items).toEqual([
       { id: 32, utility_id: 'IT006', type: 'luce', contracts: 'Beta Spa', pending_days: 0 },
@@ -263,7 +271,9 @@ describe('AnomaliesService', () => {
     const sqls = query.mock.calls.map(([s]) => String(s));
     const inCharge = inChargeSql('u');
     // attive senza contratto, senza CIG, sovrapposti, ARERA, gas, senza capitolo, senza posizione
-    expect(sqls.filter((s) => s.includes(`WHERE u.deleted = 0 AND ${inCharge}`)).length).toBeGreaterThanOrEqual(7);
+    expect(
+      sqls.filter((s) => s.includes(`WHERE u.deleted = 0 AND ${inCharge}`)).length,
+    ).toBeGreaterThanOrEqual(7);
     expect(sqls.find((s) => s.includes('budget_commitments any_c'))).toContain(inCharge);
     expect(sqls.find((s) => s.includes('s.adjusted_budget IS NOT NULL'))).toContain(inCharge);
     // Le pratiche di voltura restano sul dato fisico (le volturate sono proprio quelle).
@@ -294,7 +304,15 @@ describe('AnomaliesService', () => {
     it('utenze da decidere: colonna di stato e giorni di attesa', async () => {
       query.mockImplementation(async (sql: string) =>
         sql.includes(costStatusSql(CostStatus.TO_DECIDE, 'u'))
-          ? [{ id: '40', utility_id: 'IT040', type: 'gas', contracts: null, pending_since: '2026-10-01' }]
+          ? [
+              {
+                id: '40',
+                utility_id: 'IT040',
+                type: 'gas',
+                contracts: null,
+                pending_since: '2026-10-01',
+              },
+            ]
           : [],
       );
       const a = await service.getAnomalies();
@@ -313,11 +331,32 @@ describe('AnomaliesService', () => {
       query.mockImplementation(async (sql: string) =>
         sql.includes('FROM utility_supply_events e')
           ? [
-              { utility_pk: '50', utility_id: 'IT050', type: 'luce', event_type: 'ACTIVATION', requested_on: '2026-10-14', create_date: new Date('2026-10-14T10:00:00Z') },
-              { utility_pk: '50', utility_id: 'IT050', type: 'luce', event_type: 'ACTIVATION', requested_on: '2026-10-04', create_date: new Date('2026-10-10T10:00:00Z') },
+              {
+                utility_pk: '50',
+                utility_id: 'IT050',
+                type: 'luce',
+                event_type: 'ACTIVATION',
+                requested_on: '2026-10-14',
+                create_date: new Date('2026-10-14T10:00:00Z'),
+              },
+              {
+                utility_pk: '50',
+                utility_id: 'IT050',
+                type: 'luce',
+                event_type: 'ACTIVATION',
+                requested_on: '2026-10-04',
+                create_date: new Date('2026-10-10T10:00:00Z'),
+              },
               // Senza data richiesta: conta il giorno di inserimento a Roma
               // (23:30 UTC del 16 = 17 ottobre a Roma).
-              { utility_pk: '51', utility_id: 'IT051', type: 'acqua', event_type: 'CESSATION', requested_on: null, create_date: new Date('2026-10-16T23:30:00Z') },
+              {
+                utility_pk: '51',
+                utility_id: 'IT051',
+                type: 'acqua',
+                event_type: 'CESSATION',
+                requested_on: null,
+                create_date: new Date('2026-10-16T23:30:00Z'),
+              },
             ]
           : [],
       );
@@ -350,19 +389,87 @@ describe('AnomaliesService', () => {
         if (sql.includes('FROM invoice_lines il') && sql.includes('INTERVAL 12 MONTH'))
           return [
             // Cessata il 2025-07-07: periodo oltre la tolleranza.
-            { invoice_id: '741', number: 'F-1', invoice_date: '2025-10-05', utility_id: '3', utility_code: 'ACQ1', period_start: '2025-09-01', period_end: '2025-09-16' },
+            {
+              invoice_id: '741',
+              number: 'F-1',
+              invoice_date: '2025-10-05',
+              utility_id: '3',
+              utility_code: 'ACQ1',
+              period_start: '2025-09-01',
+              period_end: '2025-09-16',
+            },
             // Stessa utenza, entro 30 giorni: non anomala.
-            { invoice_id: '742', number: 'F-2', invoice_date: '2025-08-10', utility_id: '3', utility_code: 'ACQ1', period_start: '2025-07-20', period_end: '2025-08-05' },
+            {
+              invoice_id: '742',
+              number: 'F-2',
+              invoice_date: '2025-08-10',
+              utility_id: '3',
+              utility_code: 'ACQ1',
+              period_start: '2025-07-20',
+              period_end: '2025-08-05',
+            },
             // Senza periodo: data della fattura.
-            { invoice_id: '743', number: 'F-3', invoice_date: new Date(2025, 11, 1), utility_id: '3', utility_code: 'ACQ1', period_start: null, period_end: null },
+            {
+              invoice_id: '743',
+              number: 'F-3',
+              invoice_date: new Date(2025, 11, 1),
+              utility_id: '3',
+              utility_code: 'ACQ1',
+              period_start: null,
+              period_end: null,
+            },
             // Utenza attiva: mai anomala.
-            { invoice_id: '744', number: 'F-4', invoice_date: '2026-01-10', utility_id: '4', utility_code: 'ACQ2', period_start: '2025-12-01', period_end: '2025-12-31' },
+            {
+              invoice_id: '744',
+              number: 'F-4',
+              invoice_date: '2026-01-10',
+              utility_id: '4',
+              utility_code: 'ACQ2',
+              period_start: '2025-12-01',
+              period_end: '2025-12-31',
+            },
           ];
         if (sql.includes('FROM utility_supply_events') && sql.includes('utility_id_fk IN (?)'))
           return [
-            { id: 1, utility_id_fk: 3, type: 'ACTIVATION', third_party_id_fk: null, requested_on: null, effective_on: null, date_unknown: 1, cancelled_on: null, deleted: 0, utilizer_grant_id_fk: null, create_date: new Date() },
-            { id: 2, utility_id_fk: 3, type: 'CESSATION', third_party_id_fk: null, requested_on: null, effective_on: new Date(2025, 6, 7), date_unknown: 0, cancelled_on: null, deleted: 0, utilizer_grant_id_fk: null, create_date: new Date() },
-            { id: 3, utility_id_fk: 4, type: 'ACTIVATION', third_party_id_fk: null, requested_on: null, effective_on: null, date_unknown: 1, cancelled_on: null, deleted: 0, utilizer_grant_id_fk: null, create_date: new Date() },
+            {
+              id: 1,
+              utility_id_fk: 3,
+              type: 'ACTIVATION',
+              third_party_id_fk: null,
+              requested_on: null,
+              effective_on: null,
+              date_unknown: 1,
+              cancelled_on: null,
+              deleted: 0,
+              utilizer_grant_id_fk: null,
+              create_date: new Date(),
+            },
+            {
+              id: 2,
+              utility_id_fk: 3,
+              type: 'CESSATION',
+              third_party_id_fk: null,
+              requested_on: null,
+              effective_on: new Date(2025, 6, 7),
+              date_unknown: 0,
+              cancelled_on: null,
+              deleted: 0,
+              utilizer_grant_id_fk: null,
+              create_date: new Date(),
+            },
+            {
+              id: 3,
+              utility_id_fk: 4,
+              type: 'ACTIVATION',
+              third_party_id_fk: null,
+              requested_on: null,
+              effective_on: null,
+              date_unknown: 1,
+              cancelled_on: null,
+              deleted: 0,
+              utilizer_grant_id_fk: null,
+              create_date: new Date(),
+            },
           ];
         return [];
       });
@@ -370,13 +477,31 @@ describe('AnomaliesService', () => {
       expect(a.invoices_outside_supply_periods).toEqual({
         count: 2,
         items: [
-          { invoice_id: 743, number: 'F-3', invoice_date: '2025-12-01', utility_id: 3, utility_code: 'ACQ1', period: null },
-          { invoice_id: 741, number: 'F-1', invoice_date: '2025-10-05', utility_id: 3, utility_code: 'ACQ1', period: '01/09/2025–16/09/2025' },
+          {
+            invoice_id: 743,
+            number: 'F-3',
+            invoice_date: '2025-12-01',
+            utility_id: 3,
+            utility_code: 'ACQ1',
+            period: null,
+          },
+          {
+            invoice_id: 741,
+            number: 'F-1',
+            invoice_date: '2025-10-05',
+            utility_id: 3,
+            utility_code: 'ACQ1',
+            period: '01/09/2025–16/09/2025',
+          },
         ],
       });
-      expect((a as unknown as Record<string, unknown>).invoices_on_ceased_utilities).toBeUndefined();
+      expect(
+        (a as unknown as Record<string, unknown>).invoices_on_ceased_utilities,
+      ).toBeUndefined();
       const calls = query.mock.calls.map(([s, p]) => [String(s), p] as const);
-      const lines = calls.find(([s]) => s.includes('FROM invoice_lines il') && s.includes('INTERVAL 12 MONTH'));
+      const lines = calls.find(
+        ([s]) => s.includes('FROM invoice_lines il') && s.includes('INTERVAL 12 MONTH'),
+      );
       expect(lines?.[0]).toContain('i.deleted = 0');
       expect(lines?.[0]).toContain('u.deleted = 0');
       expect(lines?.[0]).toContain('COALESCE(il.period_end, i.invoice_date)');
@@ -390,7 +515,9 @@ describe('AnomaliesService', () => {
 
     it('nessuna riga fattura: nessuna query sugli eventi', async () => {
       await service.getAnomalies();
-      expect(query.mock.calls.some(([s]) => String(s).includes('utility_id_fk IN (?)'))).toBe(false);
+      expect(query.mock.calls.some(([s]) => String(s).includes('utility_id_fk IN (?)'))).toBe(
+        false,
+      );
     });
   });
 
@@ -416,8 +543,16 @@ describe('AnomaliesService', () => {
   it('impegni: sforati nell’esercizio in corso, senza contratto e senza importo (query in fondo)', async () => {
     const year = new Date().getFullYear();
     const row = (over: Record<string, unknown>) => ({
-      id: '1', commitment_year: year, commitment_num: 514, commitment_sub: 1, chapter: '11428/0',
-      fiscal_year: year, amount: '100.00', spent: '0', contracts: '1', ...over,
+      id: '1',
+      commitment_year: year,
+      commitment_num: 514,
+      commitment_sub: 1,
+      chapter: '11428/0',
+      fiscal_year: year,
+      amount: '100.00',
+      spent: '0',
+      contracts: '1',
+      ...over,
     });
     query.mockImplementation(async (sql: string) =>
       sql.includes('/* commitments_check */')
@@ -431,7 +566,14 @@ describe('AnomaliesService', () => {
     );
     const result = await service.getAnomalies();
     expect(result.commitments_overspent.items).toEqual([
-      { id: 1, label: `${year}/514/1`, chapter: '11428/0', fiscal_year: year, amount: 100, remaining: -20.5 },
+      {
+        id: 1,
+        label: `${year}/514/1`,
+        chapter: '11428/0',
+        fiscal_year: year,
+        amount: 100,
+        remaining: -20.5,
+      },
     ]);
     expect(result.commitments_without_contract.items.map((i) => i.id)).toEqual([3]);
     expect(result.commitments_without_amount.items).toEqual([
@@ -463,29 +605,115 @@ describe('AnomaliesService', () => {
     expect(sql).toContain('> 0.01');
   });
 
+  it('liquidazioni della contabilità senza fattura (query in fondo)', async () => {
+    for (let i = 0; i < 42; i++) query.mockResolvedValueOnce([]);
+    query.mockResolvedValueOnce([
+      {
+        id: 'L-9',
+        number: 'FT/12',
+        date: '2026-03-01',
+        amount: '61.00',
+        supplier_vat: '00000000001',
+        commitment: '2026/514/1',
+      },
+    ]);
+    const result = await service.getAnomalies();
+    expect(result.accounting_liquidations_unmatched).toEqual({
+      count: 1,
+      items: [
+        {
+          id: 'L-9',
+          number: 'FT/12',
+          date: '2026-03-01',
+          amount: 61,
+          supplier_vat: '00000000001',
+          commitment: '2026/514/1',
+        },
+      ],
+    });
+    const sql = String(query.mock.calls[42][0]);
+    expect(sql).toContain('/* accounting_liquidations_unmatched */');
+    expect(sql).toContain('l.cancelled = 0');
+    expect(sql).toContain('l.invoice_number IS NOT NULL');
+    expect(sql).toContain('JOIN budget_commitments bc');
+    expect(sql).toContain("(i.sdi_status IS NULL OR i.sdi_status <> 'REJECTED')");
+  });
+
+  it('impegni della contabilità senza contratto (query in fondo)', async () => {
+    for (let i = 0; i < 43; i++) query.mockResolvedValueOnce([]);
+    query.mockResolvedValueOnce([
+      { id: '4', commitment_year: '2026', commitment_num: '514', commitment_sub: '1' },
+    ]);
+    const result = await service.getAnomalies();
+    expect(result.accounting_commitments_without_contract).toEqual({
+      count: 1,
+      items: [{ id: 4, label: '2026/514/1' }],
+    });
+    const sql = String(query.mock.calls[43][0]);
+    expect(sql).toContain('/* accounting_commitments_without_contract */');
+    expect(sql).toContain("bc.source = 'ACCOUNTING'");
+    expect(sql).toContain('budget_commitment_contracts');
+  });
+
+  it('utenze con più capitoli nell ultimo esercizio pagato (query in fondo)', async () => {
+    for (let i = 0; i < 44; i++) query.mockResolvedValueOnce([]);
+    query.mockResolvedValueOnce([{ id: '30', utility_id: 'IT001E1', chapters: '100/0, 200/0' }]);
+    const result = await service.getAnomalies();
+    expect(result.accounting_utility_chapter_ambiguous).toEqual({
+      count: 1,
+      items: [{ id: 30, utility_id: 'IT001E1', chapters: '100/0, 200/0' }],
+    });
+    const sql = String(query.mock.calls[44][0]);
+    expect(sql).toContain('/* accounting_utility_chapter_ambiguous */');
+    expect(sql).toContain("s.source = 'ACCOUNTING'");
+    expect(sql).toContain('COUNT(DISTINCT r.chapter_id) > 1');
+  });
+
   it('fatture con contratto senza quota: motivo NO_COMMITMENTS o AMBIGUOUS (query in fondo)', async () => {
     for (let i = 0; i < 41; i++) query.mockResolvedValueOnce([]);
     const row = (over: Record<string, unknown>) => ({
-      id: '1', number: 'F-1', date: '2026-03-10', contract_id: '7', amount: '50.00',
-      period_start: null, period_end: null, years: null, ...over,
+      id: '1',
+      number: 'F-1',
+      date: '2026-03-10',
+      contract_id: '7',
+      amount: '50.00',
+      period_start: null,
+      period_end: null,
+      years: null,
+      ...over,
     });
     query.mockResolvedValueOnce([
       row({ id: '1' }), // nessuna annualità
       row({ id: '2', years: '2025,2026' }), // anno fattura coperto: da scegliere a mano
       row({ id: '3', years: '2026', period_start: '2025-11-01', period_end: '2025-12-31' }), // competenza 2025 senza annualità
-      row({ id: '4', years: '2025', period_start: new Date('2025-01-01'), period_end: new Date('2025-02-28') }),
+      row({
+        id: '4',
+        years: '2025',
+        period_start: new Date('2025-01-01'),
+        period_end: new Date('2025-02-28'),
+      }),
     ]);
     const result = await service.getAnomalies();
     expect(result.invoices_without_commitment.count).toBe(4);
     expect(result.invoices_without_commitment.items.map((i) => [i.id, i.reason])).toEqual([
-      [1, 'NO_COMMITMENTS'], [2, 'AMBIGUOUS'], [3, 'NO_COMMITMENTS'], [4, 'AMBIGUOUS'],
+      [1, 'NO_COMMITMENTS'],
+      [2, 'AMBIGUOUS'],
+      [3, 'NO_COMMITMENTS'],
+      [4, 'AMBIGUOUS'],
     ]);
     expect(result.invoices_without_commitment.items[0]).toEqual({
-      id: 1, number: 'F-1', date: '2026-03-10', contract_id: 7, amount: 50, reason: 'NO_COMMITMENTS',
+      id: 1,
+      number: 'F-1',
+      date: '2026-03-10',
+      contract_id: 7,
+      amount: 50,
+      reason: 'NO_COMMITMENTS',
     });
     const sql = String(query.mock.calls[41][0]);
     expect(sql).toContain('/* invoices_without_commitment */');
-    expect(sql).toContain('NOT EXISTS (SELECT 1 FROM invoice_commitment_shares s WHERE s.invoice_id_fk = i.id)');
+    expect(sql).toContain(
+      'NOT EXISTS (SELECT 1 FROM invoice_commitment_shares s WHERE s.invoice_id_fk = i.id)',
+    );
     expect(sql).toContain('i.deleted = 0');
     expect(sql).toContain("(i.sdi_status IS NULL OR i.sdi_status <> 'REJECTED')");
     expect(sql).toContain('i.contratto_id_fk IS NOT NULL');
@@ -667,31 +895,77 @@ describe('AnomaliesService', () => {
       expect(sql).toContain("p.type = 'FIRE_PROTECTION'");
       // Stessa data di oggi del calcolo in Node (plant.calc), non CURDATE() di MySQL.
       expect(sql).not.toContain('CURDATE()');
-      const call = query.mock.calls.find(([s]) => String(s).includes('/* plants_fire_equipment_overdue */'));
+      const call = query.mock.calls.find(([s]) =>
+        String(s).includes('/* plants_fire_equipment_overdue */'),
+      );
       expect(call?.[1]).toEqual([expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)]);
     });
 
     it('impianti senza le verifiche obbligatorie per legge (registrate con data)', async () => {
       only('/* plants_missing_inspections */', [
-        { id: '1', code: 'MSV 001', name: 'Ascensore', type: 'ELEVATOR', status: 'ACTIVE',
-          grounding_class: null, lightning_protection: null, power_kw: null, dated_kinds: null },
-        { id: '2', code: 'ELE-1', name: 'Scuola', type: 'ELECTRICAL_SYSTEM', status: 'ACTIVE',
-          grounding_class: 'HIGH_RISK', lightning_protection: 1, power_kw: null,
-          dated_kinds: 'Messa a terra (DPR 462/01)' },
-        { id: '3', code: 'TERM-1', name: 'Caldaia piccola', type: 'THERMAL', status: 'ACTIVE',
-          grounding_class: null, lightning_protection: null, power_kw: '8.00', dated_kinds: null },
-        { id: '4', code: 'ELE-2', name: 'In regola', type: 'ELECTRICAL_SYSTEM', status: 'ACTIVE',
-          grounding_class: 'ORDINARY', lightning_protection: 0, power_kw: null,
-          dated_kinds: 'Manutenzione\nMessa a terra (DPR 462/01)' },
+        {
+          id: '1',
+          code: 'MSV 001',
+          name: 'Ascensore',
+          type: 'ELEVATOR',
+          status: 'ACTIVE',
+          grounding_class: null,
+          lightning_protection: null,
+          power_kw: null,
+          dated_kinds: null,
+        },
+        {
+          id: '2',
+          code: 'ELE-1',
+          name: 'Scuola',
+          type: 'ELECTRICAL_SYSTEM',
+          status: 'ACTIVE',
+          grounding_class: 'HIGH_RISK',
+          lightning_protection: 1,
+          power_kw: null,
+          dated_kinds: 'Messa a terra (DPR 462/01)',
+        },
+        {
+          id: '3',
+          code: 'TERM-1',
+          name: 'Caldaia piccola',
+          type: 'THERMAL',
+          status: 'ACTIVE',
+          grounding_class: null,
+          lightning_protection: null,
+          power_kw: '8.00',
+          dated_kinds: null,
+        },
+        {
+          id: '4',
+          code: 'ELE-2',
+          name: 'In regola',
+          type: 'ELECTRICAL_SYSTEM',
+          status: 'ACTIVE',
+          grounding_class: 'ORDINARY',
+          lightning_protection: 0,
+          power_kw: null,
+          dated_kinds: 'Manutenzione\nMessa a terra (DPR 462/01)',
+        },
       ]);
       const r = await service.getAnomalies();
       expect(r.plants_missing_inspections).toEqual({
         count: 2,
         items: [
-          { id: 1, code: 'MSV 001', name: 'Ascensore', type: 'ELEVATOR',
-            missing: 'Verifica periodica (ente notificato)' },
-          { id: 2, code: 'ELE-1', name: 'Scuola', type: 'ELECTRICAL_SYSTEM',
-            missing: 'Scariche atmosferiche (DPR 462/01)' },
+          {
+            id: 1,
+            code: 'MSV 001',
+            name: 'Ascensore',
+            type: 'ELEVATOR',
+            missing: 'Verifica periodica (ente notificato)',
+          },
+          {
+            id: 2,
+            code: 'ELE-1',
+            name: 'Scuola',
+            type: 'ELECTRICAL_SYSTEM',
+            missing: 'Scariche atmosferiche (DPR 462/01)',
+          },
         ],
       });
       const sql = sqlOf('/* plants_missing_inspections */');
@@ -701,7 +975,9 @@ describe('AnomaliesService', () => {
     });
 
     it('utenze con penali per energia reattiva negli ultimi 12 mesi', async () => {
-      only('/* utilities_with_reactive_penalty */', [{ id: '31', utility_id: 'IT001E00000001', type: 'energia elettrica' }]);
+      only('/* utilities_with_reactive_penalty */', [
+        { id: '31', utility_id: 'IT001E00000001', type: 'energia elettrica' },
+      ]);
       const r = await service.getAnomalies();
       expect(r.utilities_with_reactive_penalty).toEqual({
         count: 1,
@@ -714,7 +990,9 @@ describe('AnomaliesService', () => {
       expect(sql).toContain('u.deleted = 0');
       expect(sql).toContain('INTERVAL 365 DAY');
       expect(sql).not.toContain('CURDATE()');
-      const call = query.mock.calls.find(([s]) => String(s).includes('/* utilities_with_reactive_penalty */'));
+      const call = query.mock.calls.find(([s]) =>
+        String(s).includes('/* utilities_with_reactive_penalty */'),
+      );
       expect(call?.[1]).toEqual([expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)]);
     });
   });
@@ -784,44 +1062,103 @@ describe('AnomaliesService', () => {
 
     it('fatture PEC in attesa di import', async () => {
       only('/* invoice_import_pending */', [
-        { id: '4', supplier: 'Fornitore Prova S.p.A.', document_number: 'FPR 1/26', document_date: '2026-07-10' },
+        {
+          id: '4',
+          supplier: 'Fornitore Prova S.p.A.',
+          document_number: 'FPR 1/26',
+          document_date: '2026-07-10',
+        },
       ]);
       const r = await service.getAnomalies();
       expect(r.invoice_import_pending).toEqual({
         count: 1,
-        items: [{ id: 4, supplier: 'Fornitore Prova S.p.A.', number: 'FPR 1/26', date: '2026-07-10' }],
+        items: [
+          { id: 4, supplier: 'Fornitore Prova S.p.A.', number: 'FPR 1/26', date: '2026-07-10' },
+        ],
       });
-      const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('/* invoice_import_pending */'));
+      const sql = query.mock.calls
+        .map(([s]) => String(s))
+        .find((s) => s.includes('/* invoice_import_pending */'));
       expect(sql).toContain("m.status = 'PENDING'");
     });
 
     it('strutture di fattura da mappare, per fornitore', async () => {
       only('/* invoice_patterns_unknown */', [
-        { supplier_id: '46', supplier: 'Energia Prova S.p.A.', document_type: 'TD01', structure_key: 'abc', count: '3', structures: '2', message_id: '12' },
+        {
+          supplier_id: '46',
+          supplier: 'Energia Prova S.p.A.',
+          document_type: 'TD01',
+          structure_key: 'abc',
+          count: '3',
+          structures: '2',
+          message_id: '12',
+        },
       ]);
       const r = await service.getAnomalies();
       expect(r.invoice_patterns_unknown).toEqual({
         count: 1,
         items: [
-          { supplier_id: 46, supplier: 'Energia Prova S.p.A.', document_type: 'TD01', structure_key: 'abc', count: 3, structures: 2, message_id: 12 },
+          {
+            supplier_id: 46,
+            supplier: 'Energia Prova S.p.A.',
+            document_type: 'TD01',
+            structure_key: 'abc',
+            count: 3,
+            structures: 2,
+            message_id: 12,
+          },
         ],
       });
     });
 
     it('differenze trovate dall’import, escluse fatture rifiutate e strutture ignorate', async () => {
       only('/* invoice_import_issues */', [
-        { id: '1', message_id: '10', invoice_id: '77', number: 'EP 7/26', type: 'CIG_MISMATCH', detail: 'CIG fattura A, contratto B', utility_id: null },
-        { id: '2', message_id: '11', invoice_id: null, number: null, type: 'BATCH_NOT_SUPPORTED', detail: 'Lotto', utility_id: null },
+        {
+          id: '1',
+          message_id: '10',
+          invoice_id: '77',
+          number: 'EP 7/26',
+          type: 'CIG_MISMATCH',
+          detail: 'CIG fattura A, contratto B',
+          utility_id: null,
+        },
+        {
+          id: '2',
+          message_id: '11',
+          invoice_id: null,
+          number: null,
+          type: 'BATCH_NOT_SUPPORTED',
+          detail: 'Lotto',
+          utility_id: null,
+        },
       ]);
       const r = await service.getAnomalies();
       expect(r.invoice_import_issues).toEqual({
         count: 2,
         items: [
-          { id: 1, message_id: 10, invoice_id: 77, number: 'EP 7/26', type: 'CIG_MISMATCH', detail: 'CIG fattura A, contratto B', utility_id: null },
-          { id: 2, message_id: 11, invoice_id: null, number: null, type: 'BATCH_NOT_SUPPORTED', detail: 'Lotto', utility_id: null },
+          {
+            id: 1,
+            message_id: 10,
+            invoice_id: 77,
+            number: 'EP 7/26',
+            type: 'CIG_MISMATCH',
+            detail: 'CIG fattura A, contratto B',
+            utility_id: null,
+          },
+          {
+            id: 2,
+            message_id: 11,
+            invoice_id: null,
+            number: null,
+            type: 'BATCH_NOT_SUPPORTED',
+            detail: 'Lotto',
+            utility_id: null,
+          },
         ],
       });
-      const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('/* invoice_import_issues */'));
+      const sql = query.mock.calls
+        .map(([s]) => String(s))
+        .find((s) => s.includes('/* invoice_import_issues */'));
       expect(sql).toContain("<> 'REJECTED'");
       expect(sql).toContain("<> 'IGNORED'");
       expect(sql).toContain('ii.muted = 0');
@@ -829,25 +1166,49 @@ describe('AnomaliesService', () => {
 
     it('matricola diversa: utenze da sistemare, una volta sola anche con più fatture ferme', async () => {
       only('/* invoice_import_issues */', [
-        { invoice_id: null, number: null, type: 'METER_MISMATCH', detail: 'IT001E1: matricola in fattura 9, in anagrafica 8', utility_id: '812', utility_code: 'IT001E1' },
-        { invoice_id: null, number: null, type: 'METER_MISMATCH', detail: 'IT001E1: matricola in fattura 9, in anagrafica 8', utility_id: '812', utility_code: 'IT001E1' },
+        {
+          invoice_id: null,
+          number: null,
+          type: 'METER_MISMATCH',
+          detail: 'IT001E1: matricola in fattura 9, in anagrafica 8',
+          utility_id: '812',
+          utility_code: 'IT001E1',
+        },
+        {
+          invoice_id: null,
+          number: null,
+          type: 'METER_MISMATCH',
+          detail: 'IT001E1: matricola in fattura 9, in anagrafica 8',
+          utility_id: '812',
+          utility_code: 'IT001E1',
+        },
       ]);
       const r = await service.getAnomalies();
       expect(r.utilities_with_meter_mismatch).toEqual({
         count: 1,
-        items: [{ id: 812, utility_id: 'IT001E1', detail: 'IT001E1: matricola in fattura 9, in anagrafica 8' }],
+        items: [
+          {
+            id: 812,
+            utility_id: 'IT001E1',
+            detail: 'IT001E1: matricola in fattura 9, in anagrafica 8',
+          },
+        ],
       });
       expect(r.invoice_import_issues.items[0].utility_id).toBe(812);
     });
 
     it('differenze ricontrollate al momento: spariscono quando la causa è sistemata', async () => {
       await service.getAnomalies();
-      const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('/* invoice_import_issues */'));
+      const sql = query.mock.calls
+        .map(([s]) => String(s))
+        .find((s) => s.includes('/* invoice_import_issues */'));
       // Fattura corretta a mano: segnalazioni considerate viste.
       expect(sql).toContain('i.import_locked = 0');
       // Utenza sconosciuta finché resta una riga senza utenza; impegno mancante finché la fattura è senza quote.
       expect(sql).toMatch(/UNKNOWN_UTILITY'[\s\S]*l\.utility_id_fk IS NULL/);
-      expect(sql).toMatch(/MISSING_COMMITMENT'[\s\S]*NOT EXISTS \(SELECT 1 FROM invoice_commitment_shares/);
+      expect(sql).toMatch(
+        /MISSING_COMMITMENT'[\s\S]*NOT EXISTS \(SELECT 1 FROM invoice_commitment_shares/,
+      );
       expect(sql).not.toContain('commitment_id_fk IS NULL');
       // Ragione sociale: sparisce se l'anagrafica è stata aggiornata dopo; lotto: finché il file è in attesa.
       expect(sql).toMatch(/SUPPLIER_NAME_MISMATCH'[\s\S]*tp\.update_date <= ii\.create_date/);

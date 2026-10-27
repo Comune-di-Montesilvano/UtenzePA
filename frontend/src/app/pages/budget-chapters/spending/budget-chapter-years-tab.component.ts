@@ -17,7 +17,7 @@ import {ChapterYear} from '../chapter-budget.model';
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div class="yt">
-      @if (canEdit) {
+      @if (canEdit && !accountingActive) {
         <button mat-stroked-button type="button" (click)="edit()"><mat-icon>add</mat-icon> Nuovo esercizio</button>
       }
       <table class="yt-table">
@@ -37,7 +37,12 @@ import {ChapterYear} from '../chapter-budget.model';
         <tbody>
           @for (y of years; track y.year) {
             <tr [class.over]="y.over_budget">
-              <td>{{ y.year }}</td>
+              <td>
+                {{ y.year }}
+                @if (y.spending_source === 'ACCOUNTING') {
+                  <mat-icon class="acc" matTooltip="Dati della ragioneria dalla contabilità">account_balance</mat-icon>
+                }
+              </td>
               <td class="n">{{ eur(y.initial_budget) }}</td>
               <td class="n">{{ eur(y.adjusted_budget) }}</td>
               <td class="n">
@@ -63,7 +68,7 @@ import {ChapterYear} from '../chapter-budget.model';
               <td class="actions">
                 @if (canEdit) {
                   <button mat-icon-button type="button" (click)="edit(y)" matTooltip="Modifica"><mat-icon>edit</mat-icon></button>
-                  @if (y.spending_id) {
+                  @if (y.spending_id && !(accountingActive && y.spending_source === 'ACCOUNTING')) {
                     <button mat-icon-button type="button" (click)="remove(y)" matTooltip="Elimina dati della ragioneria">
                       <mat-icon>delete</mat-icon>
                     </button>
@@ -84,6 +89,7 @@ import {ChapterYear} from '../chapter-budget.model';
     .yt-table tr.over td { background: var(--tone-danger-bg); }
     .sub { font-size: 0.75rem; color: var(--sheet-muted); }
     .actions { white-space: nowrap; text-align: right; }
+    .acc { font-size: 16px; width: 16px; height: 16px; vertical-align: middle; color: var(--sheet-muted); }
   `],
 })
 export class BudgetChapterYearsTabComponent {
@@ -93,6 +99,9 @@ export class BudgetChapterYearsTabComponent {
   @Input({required: true}) chapterId!: number;
   @Input() years: ChapterYear[] = [];
   @Input() canEdit = false;
+  // Import della contabilità acceso: nessun esercizio nuovo; quelli importati
+  // hanno importi in sola lettura e non si eliminano.
+  @Input() accountingActive = false;
   @Output() changed = new EventEmitter<void>();
 
   readonly eur = formatEuro;
@@ -112,7 +121,10 @@ export class BudgetChapterYearsTabComponent {
       : undefined;
     this.dialog.open<SpendingEditDialogComponent, SpendingEditDialogData, boolean>(SpendingEditDialogComponent, {
       width: '520px',
-      data: {chapterId: this.chapterId, item, year: y?.year},
+      data: {
+        chapterId: this.chapterId, item, year: y?.year,
+        locked: this.accountingActive && y?.spending_source === 'ACCOUNTING',
+      },
     }).afterClosed().subscribe(saved => {
       if (saved) this.changed.emit();
     });

@@ -74,6 +74,7 @@ services:
       - PEC_IMAP_PASSWORD=${PEC_IMAP_PASSWORD:-}
       - INVOICE_IMPORT_CRON=${INVOICE_IMPORT_CRON:-*/15 * * * *}
       - INVOICE_IMPORT_DISABLED=${INVOICE_IMPORT_DISABLED:-false}
+      - ACCOUNTING_IMPORT_DISABLED=${ACCOUNTING_IMPORT_DISABLED:-false}
       # Allegati — dimensione massima per file (MB)
       - ATTACHMENT_MAX_SIZE_MB=${ATTACHMENT_MAX_SIZE_MB:-50}
     volumes:

@@ -95,14 +95,24 @@ describe('InvoicesService', () => {
     it('nota di credito: imponibile negativo ammesso solo con totale negativo', async () => {
       await expect(
         service.create(
-          { invoice_id: 'NC-1', invoice_date: '2026-06-29', total_amount: -23.52, net_amount_excl_vat: -19.28 } as never,
+          {
+            invoice_id: 'NC-1',
+            invoice_date: '2026-06-29',
+            total_amount: -23.52,
+            net_amount_excl_vat: -19.28,
+          } as never,
           3,
         ),
       ).resolves.toBeDefined();
       for (const total_amount of [10, null]) {
         await expect(
           service.create(
-            { invoice_id: 'F-2', invoice_date: '2026-06-29', total_amount, net_amount_excl_vat: -5 } as never,
+            {
+              invoice_id: 'F-2',
+              invoice_date: '2026-06-29',
+              total_amount,
+              net_amount_excl_vat: -5,
+            } as never,
             3,
           ),
         ).rejects.toThrow('nota di credito');
@@ -114,7 +124,12 @@ describe('InvoicesService', () => {
       (service as any).auditLogService = auditLogService;
       await service.create({ invoice_id: 'F-4', invoice_date: '2026-01-18' } as never, 5);
       expect(auditLogService.record).toHaveBeenCalledWith(
-        expect.objectContaining({ entityName: 'Invoice', entityId: 10, action: 'CREATE', userId: 5 }),
+        expect.objectContaining({
+          entityName: 'Invoice',
+          entityId: 10,
+          action: 'CREATE',
+          userId: 5,
+        }),
       );
     });
   });
@@ -131,10 +146,24 @@ describe('InvoicesService', () => {
     });
 
     it('PATCH del solo imponibile negativo: vale il totale già salvato', async () => {
-      repo.findOne.mockResolvedValue({ id: 20, invoice_id: 'NC', total_amount: '-90.79', deleted: false });
-      await expect(service.update(20, { net_amount_excl_vat: -74.42 } as never, 7)).resolves.toBeDefined();
-      repo.findOne.mockResolvedValue({ id: 20, invoice_id: 'F', total_amount: '90.79', deleted: false });
-      await expect(service.update(20, { net_amount_excl_vat: -74.42 } as never, 7)).rejects.toThrow('nota di credito');
+      repo.findOne.mockResolvedValue({
+        id: 20,
+        invoice_id: 'NC',
+        total_amount: '-90.79',
+        deleted: false,
+      });
+      await expect(
+        service.update(20, { net_amount_excl_vat: -74.42 } as never, 7),
+      ).resolves.toBeDefined();
+      repo.findOne.mockResolvedValue({
+        id: 20,
+        invoice_id: 'F',
+        total_amount: '90.79',
+        deleted: false,
+      });
+      await expect(service.update(20, { net_amount_excl_vat: -74.42 } as never, 7)).rejects.toThrow(
+        'nota di credito',
+      );
     });
 
     it('senza lines non tocca le righe (Review Focus 2)', async () => {
@@ -175,7 +204,10 @@ describe('InvoicesService', () => {
       manager.count.mockResolvedValue(1);
       await service.update(20, { notes_on_invoices: 'nota' } as never, 7);
       expect(manager.count).toHaveBeenCalledWith(SdiMessage, { where: { invoice_id_fk: 20 } });
-      expect(manager.save).toHaveBeenCalledWith(Invoice, expect.objectContaining({ import_locked: true }));
+      expect(manager.save).toHaveBeenCalledWith(
+        Invoice,
+        expect.objectContaining({ import_locked: true }),
+      );
     });
 
     it('fattura non importata: import_locked non toccato', async () => {
@@ -228,7 +260,8 @@ describe('InvoicesService', () => {
         if (entity === InvoiceCommitmentShare) return data.shares ?? [];
         return [];
       });
-    const savedShares = () => manager.save.mock.calls.find(([e]) => e === InvoiceCommitmentShare)?.[1];
+    const savedShares = () =>
+      manager.save.mock.calls.find(([e]) => e === InvoiceCommitmentShare)?.[1];
 
     beforeEach(() => {
       repo.findOne.mockResolvedValue({
@@ -286,9 +319,17 @@ describe('InvoicesService', () => {
         commitments: [commitment({ years: [{ fiscal_year: 2024 }, { fiscal_year: 2025 }] })],
         lines: [{ amount: '10.00', period_start: '2025-01-01', period_end: '2025-03-31' }],
       });
-      await service.update(20, { commitment_shares: [{ commitment_id_fk: 5, amount: 10 }] } as never, 7);
+      await service.update(
+        20,
+        { commitment_shares: [{ commitment_id_fk: 5, amount: 10 }] } as never,
+        7,
+      );
       expect(savedShares()).toEqual([
-        expect.objectContaining({ invoice_id_fk: 20, fiscal_year: 2025, source: CommitmentShareSource.MANUAL }),
+        expect.objectContaining({
+          invoice_id_fk: 20,
+          fiscal_year: 2025,
+          source: CommitmentShareSource.MANUAL,
+        }),
       ]);
     });
 
@@ -382,6 +423,16 @@ describe('InvoicesService', () => {
       expect(reconcile.reconcileSafe).toHaveBeenCalledWith([1]);
     });
 
+    it('PATCH commitment_shares su fattura con quote ACCOUNTING = 400', async () => {
+      manager.count.mockImplementation(async (entity: unknown) =>
+        entity === InvoiceCommitmentShare ? 1 : 0,
+      );
+      await expect(service.update(20, { commitment_shares: [] } as never, 7)).rejects.toThrow(
+        'Le quote della ragioneria non si modificano.',
+      );
+      expect(manager.delete).not.toHaveBeenCalledWith(InvoiceCommitmentShare, expect.anything());
+    });
+
     it('quote assenti nel payload: invariate', async () => {
       await service.update(20, { notes_on_invoices: 'nota' } as never, 7);
       expect(manager.delete).not.toHaveBeenCalledWith(InvoiceCommitmentShare, expect.anything());
@@ -414,7 +465,9 @@ describe('InvoicesService', () => {
       );
       expect(auditLogService.record).toHaveBeenCalledWith(
         expect.objectContaining({
-          fields: [expect.objectContaining({ fieldName: 'commitment_shares', oldValue: 1, newValue: 2 })],
+          fields: [
+            expect.objectContaining({ fieldName: 'commitment_shares', oldValue: 1, newValue: 2 }),
+          ],
         }),
       );
     });
@@ -458,19 +511,34 @@ describe('InvoicesService', () => {
 
   describe('audit delle righe', () => {
     beforeEach(() => {
-      repo.findOne.mockResolvedValue({ id: 20, invoice_id: 'F', contratto_id_fk: null, deleted: false });
+      repo.findOne.mockResolvedValue({
+        id: 20,
+        invoice_id: 'F',
+        contratto_id_fk: null,
+        deleted: false,
+      });
       manager.findOne.mockResolvedValue({ id: 20, invoice_id: 'F', contratto_id_fk: null });
     });
 
     it('righe reinviate identiche: nessuna voce lines in audit', async () => {
       manager.find.mockResolvedValue([
-        { amount: '100.00', utility_id_fk: 3, period_start: '2026-01-01', period_end: null, consumption: '12.500', supply_code: null, description: null },
+        {
+          amount: '100.00',
+          utility_id_fk: 3,
+          period_start: '2026-01-01',
+          period_end: null,
+          consumption: '12.500',
+          supply_code: null,
+          description: null,
+        },
       ]);
       const auditLogService = { record: jest.fn() };
       (service as any).auditLogService = auditLogService;
       await service.update(
         20,
-        { lines: [{ amount: 100, utility_id_fk: 3, period_start: '2026-01-01', consumption: 12.5 }] } as never,
+        {
+          lines: [{ amount: 100, utility_id_fk: 3, period_start: '2026-01-01', consumption: 12.5 }],
+        } as never,
         7,
       );
       expect(auditLogService.record).not.toHaveBeenCalled();

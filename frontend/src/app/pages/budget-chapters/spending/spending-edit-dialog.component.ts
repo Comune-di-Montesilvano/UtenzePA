@@ -12,6 +12,8 @@ export interface SpendingEditDialogData {
   item?: BudgetChapterSpending;
   // Anno proposto per una riga nuova (es. esercizio con soli impegni/fatture).
   year?: number;
+  // Riga dalla contabilità con l'import acceso: si modificano solo le note.
+  locked?: boolean;
 }
 
 const AMOUNTS = ['initial_budget', 'adjusted_budget', 'amount'] as const;
@@ -84,6 +86,12 @@ export class SpendingEditDialogComponent {
     amount: [this.data.item?.amount ?? null as number | null, Validators.min(0)],
     notes: [this.data.item?.notes ?? ''],
   }, {validators: someAmount});
+
+  constructor() {
+    if (this.data.locked) {
+      for (const c of ['year', ...AMOUNTS] as const) this.form.controls[c].disable();
+    }
+  }
 
   save(): void {
     if (this.form.invalid) {

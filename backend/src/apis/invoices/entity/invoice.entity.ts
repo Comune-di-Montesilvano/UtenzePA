@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 
 import { SystemUser } from '../../system-users/entity/system-user.entity';
+import { RecordSource } from '@apis/accounting-import/record-source.enum';
 import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
 import { InvoiceLine } from './invoice-line.entity';
 import { InvoiceCommitmentShare } from './invoice-commitment-share.entity';
@@ -64,6 +65,9 @@ export class Invoice {
 
   @Column({ type: 'boolean', default: false })
   deleted: boolean;
+
+  @Column({ type: 'varchar', length: 20, default: RecordSource.MANUAL })
+  source: RecordSource;
 
   // Identificativo SDI del file da cui viene la fattura (un file può
   // contenerne più d'una): collega fattura e notifiche del registro PEC.

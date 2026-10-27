@@ -1,6 +1,6 @@
 # UtenzePA – Guida per gli operatori
 
-_Ultimo aggiornamento: 2026-10-26_
+_Ultimo aggiornamento: 2026-10-27_
 
 ## Cos'è e chi lo usa
 
@@ -73,20 +73,23 @@ Le fatture elettroniche arrivano dallo SDI sulla casella PEC del Comune. UtenzeP
 2. Nel tab **Esercizi** trovi, anno per anno, stanziamento iniziale, assestato e spesa della ragioneria. Impegnato, fatturato, disponibile ed eventuale sforamento sono calcolati.
 3. I tab **Impegni**, **Fatture** e **Utenze** mostrano cosa pesa sul capitolo. Nel tab **Impegni** ogni impegno ha importo, speso e rimanenza, e **Nuovo impegno** ne crea uno già sul capitolo. Nel tab **Fatture** la colonna **Da** dice se l'importo arriva da una quota d'impegno o, per le fatture senza impegno, dal capitolo dell'utenza della riga.
 4. Nel tab **Dati** il campo **Note** raccoglie le informazioni utili sul capitolo (es. cosa paga, accordi con la ragioneria).
+5. Con l'import della contabilità acceso (vedi [Collegare la contabilità](#collegare-la-contabilità-solo-amministratori)) il capitolo e i suoi esercizi importati hanno il badge **Da contabilità** o l'icona della banca: codice, articolo, descrizione e importi arrivano dalla ragioneria e non si modificano, e non si aggiungono esercizi a mano. Le note restano modificabili.
 
 Le segnalazioni «Oltre l'assestato dell'anno» e «Senza assestato dell'anno» riguardano l'esercizio in corso.
 
 ### Gestire gli impegni di spesa
 
 1. Apri **Impegni** (sotto Capitoli di spesa). L'elenco mostra numero (anno/numero/sub della ragioneria), capitolo, esercizi di competenza (es. «2026–2028» per un pluriennale), fornitore, numero di contratti, importo, speso e rimanenza. I filtri principali sono competenza, capitolo e fornitore; in **Filtri avanzati** ci sono convenzione e contratto.
-2. Premi **Nuovo impegno** e compila nel tab **Dati** anno, numero e sub dell'impegno (anno e numero vanno insieme; il sub vale 1 se lo lasci vuoto), il **Capitolo**, il **Fornitore**, l'**Esercizio di competenza** e l'**Importo**. Un preimpegno senza numero si può inserire lasciando vuoti anno e numero.
+2. Premi **Nuovo impegno** e compila nel tab **Dati** anno, numero e sub dell'impegno (anno e numero vanno insieme; il sub vale 1 se lo lasci vuoto), il **Capitolo**, il **Fornitore**, l'**Esercizio di competenza** e l'**Importo**. Un preimpegno senza numero si può inserire lasciando vuoti anno e numero. Con l'import della contabilità acceso non si inseriscono impegni a mano e i preimpegni degli anni presenti nei file della ragioneria vengono tolti.
    Per un impegno **pluriennale** premi **Aggiungi esercizio** e indica l'importo di ogni anno di competenza: è sempre lo stesso impegno (stesso numero, contratti e documenti), con una rimanenza per anno. Le fatture consumano l'importo dell'anno di competenza della fattura; la scheda mostra una barra per esercizio e, nel tab **Fatture**, la competenza di ogni fattura.
 3. Nel tab **Contratti** collega i contratti di fornitura che possono consumare l'impegno: un impegno può servire più contratti e lo stesso contratto può avere più impegni sullo stesso capitolo ed esercizio. Senza contratti l'impegno non viene consumato dalle fatture.
-4. Il tab **Fatture** elenca le quote di fattura che consumano l'impegno nell'ordine in cui lo consumano: fattura, data, competenza, importo della quota, **speso progressivo** e **Origine** (**Automatica** o **A mano**). Il tab **Documenti** contiene la determina o gli altri file dell'impegno.
+4. Il tab **Fatture** elenca le quote di fattura che consumano l'impegno nell'ordine in cui lo consumano: fattura, data, competenza, importo della quota, **speso progressivo** e **Origine** (**Automatica**, **A mano** o **Ragioneria**). Il tab **Documenti** contiene la determina o gli altri file dell'impegno.
 
 Le fatture automatiche consumano gli impegni in ordine di numero, per intero: quando un impegno è esaurito la fattura successiva passa al seguente. Il ricalcolo non divide mai una fattura: per dividerla usa **Dividi a mano** nel tab **Impegni** della fattura. Ogni salvataggio di fattura o di impegno, e il cambio di capitolo di un'utenza, ricalcola le assegnazioni dei contratti coinvolti; ogni notte il ricalcolo passa su tutti i contratti. Un impegno senza importo non si esaurisce mai: le fatture successive restano su di lui finché esiste, quindi inserisci l'importo appena lo conosci. Una quota a mano senza annualità pesa sull'annualità dell'esercizio di competenza della fattura o, se l'impegno non la ha, sulla più vicina. Si possono creare impegni anche dal tab **Impegni e capitoli** del contratto di fornitura, dal tab **Impegni** del capitolo e dal tab **Impegni** della fattura.
 
-Le segnalazioni dell'elenco sono «Sforati» (rimanenza negativa nell'esercizio in corso), «Senza contratto» e «Senza importo» (dall'esercizio in corso in poi).
+Le segnalazioni dell'elenco sono «Sforati» (rimanenza negativa nell'esercizio in corso), «Senza contratto» e «Senza importo» (dall'esercizio in corso in poi) e, con l'import della contabilità, «Dalla contabilità senza contratto».
+
+Con l'import della contabilità acceso (vedi [Collegare la contabilità](#collegare-la-contabilità-solo-amministratori)) gli impegni arrivano dalla ragioneria con il badge **Da contabilità**: numero, capitolo, fornitore ed esercizi non si modificano, **Nuovo impegno** non compare e gli impegni importati non si eliminano. Contratti collegati, note e documenti restano modificabili. Nel tab **Impegni** di una fattura pagata compare «Ripartizione della ragioneria (liquidazioni)» al posto di **Dividi a mano**.
 
 ### Gestire una convenzione CONSIP
 
@@ -276,6 +279,34 @@ Sono considerate solo le fatture dei fornitori in anagrafica con partita IVA e a
 
 **Spegni il motore prima di esportare o importare il database** e riaccendilo dopo: l'interruttore è salvato nel database, quindi un database importato porta con sé il suo stato.
 
+### Collegare la contabilità (solo amministratori)
+
+In **Impostazioni → Contabilità** (visibile solo agli amministratori) UtenzePA prende dalla contabilità del Comune capitoli, impegni e fatture pagate. Con l'import acceso la contabilità è la fonte dei dati: quello che arriva dai file prevale su quanto inserito a mano.
+
+1. Accendi l'interruttore e indica **Importa dall'anno** (es. 2023): le righe degli anni precedenti vengono scartate.
+2. Scegli i file **Capitoli**, **Impegni** e **Liquidazioni** estratti dalla contabilità (se ne può caricare anche uno solo: sostituisce quello caricato prima) e premi **Carica**.
+3. Il caricamento continua in background (il primo può durare qualche minuto, puoi lasciare la pagina); a fine caricamento la pagina mostra le righe caricate per file, le righe scartate con riga e motivo, e cosa è cambiato: capitoli ed esercizi, impegni, fatture create, identificativi SDI completati, fatture con le quote della ragioneria, impegni collegati a contratti e capitoli delle utenze aggiornati.
+
+Cosa fa il caricamento:
+
+- **Capitoli**: entrano i capitoli già presenti e quelli su cui la ragioneria ha pagato fatture di un fornitore con contratto di fornitura. Per ogni anno presente nel file stanziamento iniziale, assestato e spesa della ragioneria (se manca, il liquidato del capitolo nell'anno) arrivano dalla contabilità.
+- **Impegni**: tutti quelli non annullati dei capitoli importati, con un'annualità per anno di competenza. Negli anni presenti nel file gli impegni e le annualità che la contabilità non ha (inseriti a mano o annullati in ragioneria) si tolgono, con le loro quote: le fatture tornano al calcolo automatico.
+- **Fatture**: una fattura pagata che UtenzePA non ha viene creata (fornitore, numero, data, totale, identificativo SDI e contratto dal CIG); a una fattura presente senza identificativo SDI si aggiunge quello della contabilità. Le righe arrivano poi dall'import PEC o si inseriscono a mano. Una fattura non ancora liquidata non è un errore: semplicemente non è ancora stata pagata.
+- **Quote d'impegno**: le fatture pagate pesano sugli impegni come le ha liquidate la ragioneria (origine **Ragioneria**), al posto delle quote automatiche o a mano.
+- **Collegamenti**: l'impegno si collega al contratto indicato dal suo CIG e ai contratti delle fatture pagate (i collegamenti esistenti restano); il capitolo di un'utenza diventa quello su cui sono state pagate le sue fatture nell'ultimo esercizio, se è uno solo.
+
+I dati importati hanno il badge **Da contabilità** e, con l'import acceso, numero, capitolo, fornitore e importi non si modificano (si correggono in ragioneria e si ricaricano); non si possono creare capitoli, esercizi o impegni a mano né eliminare quelli importati. Restano modificabili note, documenti, contratti collegati e tipi utenza ammessi.
+
+Tracciato dei file (CSV, separatore punto e virgola, prima riga con i nomi delle colonne in qualsiasi ordine, importi con virgola o punto decimale, date AAAA-MM-GG, `cancelled` = 1 per le righe annullate):
+
+| File | Colonne |
+| --- | --- |
+| Capitoli | year, chapter, article, description, initial_budget, adjusted_budget, spent |
+| Impegni (una riga per anno di competenza) | commitment_year, commitment_num, commitment_sub, fiscal_year, chapter, article, supplier_vat, amount, cig, cancelled, description |
+| Liquidazioni | liquidation_key, commitment_year, commitment_num, commitment_sub, fiscal_year, sdi_identifier, invoice_number, invoice_date, invoice_total, invoice_cig, supplier_vat, amount, cancelled |
+
+Come per l'import fatture, **spegni l'import prima di esportare o importare il database**: l'interruttore è salvato nel database.
+
 ### Mappare una struttura di fattura
 
 Ogni fornitore manda le fatture con una sua struttura di XML: il pattern dice da quale campo leggere ciascun dato di UtenzePA. Di norma basta un pattern per fornitore: vale per tutte le sue fatture che hanno i campi usati, anche se differiscono per dati facoltativi (aliquote esenti, convenzione, quantità). Amministratori e operatori possono salvare, i lettori solo consultare.
@@ -389,7 +420,7 @@ Se lo SDI scarta un esito inviato dal Comune, la fattura torna allo stato preced
 
 | Elenco | Segnalazioni |
 | --- | --- |
-| Utenze | Attive senza contratto di fornitura valido · Attive coperte solo da contratti senza CIG · Con contratti di fornitura sovrapposti · Attive senza tipologia ARERA · Da volturare · Da reintestare · Da decidere · Attivazioni in sospeso · Cessazioni in sospeso · Capitolo non impegnato sul contratto di fornitura · Senza capitolo di spesa · Attive senza posizione · Penali per energia reattiva (penale in un periodo terminato negli ultimi 12 mesi) |
+| Utenze | Attive senza contratto di fornitura valido · Attive coperte solo da contratti senza CIG · Con contratti di fornitura sovrapposti · Attive senza tipologia ARERA · Da volturare · Da reintestare · Da decidere · Attivazioni in sospeso · Cessazioni in sospeso · Capitolo non impegnato sul contratto di fornitura · Senza capitolo di spesa · Pagate su più capitoli nell'ultimo esercizio (import contabilità) · Attive senza posizione · Penali per energia reattiva (penale in un periodo terminato negli ultimi 12 mesi) |
 | Immobili | Da classificare (tipologia o funzione mancanti) · Non di proprietà senza contratto passivo attivo · Di proprietà senza catasto · Fabbricati di proprietà senza Id MEF · Subalterno da assegnare (stessi via, civico, foglio e particella) |
 | Impianti | Senza posizione · Senza immobile · Presidi scaduti (almeno un estintore con una scadenza superata) · Verifiche obbligatorie mancanti (vedi [Verifiche obbligatorie per legge](#verifiche-obbligatorie-per-legge)) |
 | Fatture | Fuori dai periodi di attività · Con righe senza utenza (né contratto in testata) · Esito scartato dallo SDI · Quote d'impegno che non tornano col totale · Differenze trovate dall'import (vedi sotto) |
@@ -398,7 +429,7 @@ Se lo SDI scarta un esito inviato dal Comune, la fattura torna allo stato preced
 | Capitoli di spesa | Oltre l'assestato dell'anno · Senza assestato dell'anno |
 | Soggetti terzi | Senza P.IVA o codice fiscale |
 
-In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni usate da immobili di proprietà a cui manca la tipologia del censimento MEF. Per l'import dalla PEC compaiono **Import fatture fermo** (nessun giro riuscito da più di 2 ore), **Fatture PEC in attesa di import** (fatture di fornitori in perimetro non ancora inserite), **Fornitori con fatture senza pattern** (un clic apre l'editor) e **Differenze trovate dall'import fatture**.
+In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni usate da immobili di proprietà a cui manca la tipologia del censimento MEF. Per l'import dalla PEC compaiono **Import fatture fermo** (nessun giro riuscito da più di 2 ore), **Fatture PEC in attesa di import** (fatture di fornitori in perimetro non ancora inserite), **Fornitori con fatture senza pattern** (un clic apre l'editor) e **Differenze trovate dall'import fatture**. Per l'import della contabilità compare **Fatture pagate dalla ragioneria non trovate**: liquidazioni su impegni di UtenzePA la cui fattura non c'è e non si può creare (manca il totale o il fornitore non ha un contratto di fornitura).
 
 ### Differenze trovate dall'import
 
@@ -517,6 +548,14 @@ L'import non corregge mai le anagrafiche: segnala le differenze, che trovi in da
 **Soluzione:** è un avviso, non un errore: la fattura si salva comunque. Verifica con la ragioneria l'assestato del capitolo e aggiornalo nel tab **Esercizi**, oppure controlla nel tab **Impegni** che la fattura sia sull'impegno giusto.
 
 **Apri un ticket se:** l'assestato è aggiornato ma l'avviso indica cifre diverse.
+
+### «Con l'import della contabilità attivo questo dato arriva dalla contabilità.»
+
+**Causa:** l'import della contabilità è acceso e il dato (capitolo, esercizio del capitolo o impegno con il badge **Da contabilità**) arriva dalla ragioneria: numero, capitolo, fornitore e importi non si modificano e non si possono creare o eliminare a mano capitoli, esercizi e impegni. Lo stesso vale per le quote d'impegno di origine **Ragioneria** di una fattura.
+
+**Soluzione:** chiedi la correzione alla ragioneria e fai ricaricare i file in **Impostazioni → Contabilità**. Note, documenti, contratti collegati e tipi utenza ammessi restano modificabili.
+
+**Apri un ticket se:** il messaggio compare su un dato senza badge **Da contabilità**.
 
 ### Non riesco a eliminare un impegno
 

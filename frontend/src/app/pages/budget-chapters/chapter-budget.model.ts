@@ -3,6 +3,8 @@
 export interface ChapterYear {
   year: number;
   spending_id: number | null;
+  // MANUAL o ACCOUNTING (dalla contabilità).
+  spending_source: string | null;
   initial_budget: number | null;
   adjusted_budget: number | null;
   recorded_spending: number | null;

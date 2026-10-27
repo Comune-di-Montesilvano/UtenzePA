@@ -69,6 +69,10 @@ export class Invoice extends AbstractEntity implements IInvoice {
   @Exclude({toPlainOnly: true})
   sdi_outcome_discarded?: boolean;
 
+  // MANUAL o ACCOUNTING (creata dal registro della contabilità), mai inviato.
+  @Exclude({toPlainOnly: true})
+  source?: string;
+
   static create(data?: Partial<Invoice>): Invoice {
     return plainToInstance(Invoice, {
       invoice_id: '',

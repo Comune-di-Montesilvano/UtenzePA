@@ -16,6 +16,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
 import {ChapterBudgetService} from './chapter-budget.service';
 import {ChapterYearSummary} from './chapter-budget.model';
 import {formatEuro} from './spending/budget-chapter-spending.service';
+import {ACCOUNTING_SOURCE, AccountingStateService} from '../../core/services/accounting-state.service';
 
 @Component({
   selector: 'app-data-table-budget-chapters',
@@ -49,6 +50,9 @@ export class DataTableBudgetChaptersComponent extends AbstractDataTableComponent
   ];
 
   private budget = inject(ChapterBudgetService);
+  readonly accountingSource = ACCOUNTING_SOURCE;
+  // Import della contabilità acceso: niente capitoli nuovi né cancellazioni di quelli importati.
+  accountingActive = false;
   readonly eur = formatEuro;
   readonly year = new Date().getFullYear();
   // Esercizio in corso per capitolo: una chiamata per l'elenco, ricaricata
@@ -75,6 +79,7 @@ export class DataTableBudgetChaptersComponent extends AbstractDataTableComponent
 
   constructor(screen: ScreenSizeService) {
     super(screen);
+    inject(AccountingStateService).active$.subscribe(active => this.accountingActive = active);
     this.dialog.afterAllClosed.subscribe(() => {
       this.loadYearSummary();
       this.budgetChanged.emit();

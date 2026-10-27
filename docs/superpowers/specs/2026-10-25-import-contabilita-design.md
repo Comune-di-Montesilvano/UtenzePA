@@ -110,15 +110,27 @@ Accensione come l'import PEC: variabile `ACCOUNTING_IMPORT_DISABLED` (default `t
 3. **`source`/`external_key` + formato neutro + applicatore + caricamento CSV** (sezione 2, tabelle `acc_*`, pagina Impostazioni → Contabilità, anomalie, guida con il tracciato).
 4. **Adattatore Tinn** (container, query, profilo compose, documentazione per l'installazione). Si fa quando arriva il DB del Comune.
 
-## Da verificare sul DB del Comune
+## Verificato sul DB del Comune (2026-10-26)
 
-- Importo delle annualità passate: in `GFIMDEN1` lo stesso impegno si ripete negli esercizi successivi (riaccertamento). Bisogna capire se l'importo dell'ultimo esercizio è il definitivo o il residuo; la roadmap vuole il definitivo.
-- Quale campo di `GFBIPRN1` è l'assestato (`PREV_AGG_ANNO` o `PREV_COMP_RES`) e quale l'iniziale (`PREV_COMP_RES_INI`): confronto con la schermata «Competenza».
-- Charset (WIN1252?), dialect 1 (importi double, si arrotondano al centesimo).
-- Trasporto: SFTP/FTPS, orario e dimensione del `.fbk`.
+Backup `gbak` del Comune aggiornato al 22/10/2026, ripristinato in un Firebird 3 locale. Confronti fatti con i dati già in UtenzePA e con le schermate di Tinn.
+
+- **Charset**: il DB dichiara `NONE`, ma i testi sono in byte WIN1252 (€ = 0x80, ’ = 0x92): l'adattatore li converte in UTF-8. Dialect 1, ODS 12.0.
+- **Capitoli** (`GFBIPRN1`, `TIPO = 'S'`, riga con `ESERCIZIO = ANNO`): stanziamento iniziale = `PREV_COMP_RES` (`PREV_COMP_RES_INI` è sempre 0). Assestato = iniziale + somma di `GFVASTN1.IMPORTO` (variazioni di bilancio, stessi esercizio, anno, `TIPO = 'S'`, capitolo e articolo; quelle di sola cassa hanno importo 0). Coincide con i valori inseriti a mano su 70 capitoli su 70; le differenze sono variazioni registrate dopo l'inserimento.
+- **Impegni** (`GFIMDEN1`, `SIGLA = 1`; le sigle 501 e 555, stipendi e opere, non toccano i capitoli delle utenze): l'annualità di competenza `ANNO` si legge dalla riga con `ESERCIZIO = ANNO`, oppure dall'esercizio più recente minore di `ANNO` per le annualità future non ancora aperte. Negli esercizi successivi `IMPORTO` è il residuo (importo − liquidato prima), quindi non si usa. Importo valido = `IMPORTO + V_VAR_P − V_VAR_N`: confermato dalla disponibilità di Tinn sull'impegno 2026/514/1 (50.000 − 31.500).
+- **Liquidazioni** (`GFLIQUN1`, `IM_SIGLA = 1`, `ANNULLATO <> 'A'`): impegno = `IM_ANNO_CREA/IM_NUMERAZIONE/IM_PROGRESSIVO`, competenza = `IM_ESERCIZIO`; fattura = `GFPNCGN1` per `FA_ESERCIZIO`/`FA_NUMERO`. Del registro servono `NUMERO_DOCUMENTO` (`DOC_NUMERO` è troncato), `DOC_DATA`, `FE_ID_SDI_S` e la P.IVA del **fornitore della fattura** (`ANAGRAFICA` → `GFANCON1`), non del `CREDITORE` della liquidazione: per ACA sono diversi.
+- **Abbinamento**: su 5.381 fatture in UtenzePA dal 2025 ne abbiniamo 5.046 (514 per IdentificativoSdI, le altre per P.IVA + numero + data); in 4.999 le liquidazioni sommano al totale della fattura e 12 sono pagate da più impegni. Fattura senza liquidazione = non ancora pagata, non un'anomalia (184 A2A di ottobre 2026, 99 ACA).
+- **Trasporto**: zip con dentro il `.fbk` (~1,7 GB) su SFTP `sftp.tinnvision.cloud`, restore con `gbak -c -p 16384`. Dalla rete di sviluppo il server SFTP non è raggiungibile: chi lo scarica ogni notte e dove è da concordare con il CED (fase 4).
 
 ## Decisioni (utente, 2026-10-25)
 
 - Perimetro degli impegni: **solo i capitoli già presenti in UtenzePA**.
 - «Spesa ragioneria» del capitolo (`budget_chapter_spending.amount`): **importata come liquidato** (somma delle liquidazioni non annullate sugli impegni del capitolo × anno di competenza), in sola lettura se importata.
 - (2026-10-26) **Nessun impegno sulle righe**: l'impegno è della fattura. In automatico una sola quota per tutto l'importo; più quote solo con la divisione a mano o con l'import della ragioneria (sezione 3).
+- (2026-10-26, dopo le verifiche sul DB del Comune) **Con l'import attivo la contabilità è la fonte di verità e tutto è automatico**:
+  - **Perimetro automatico**: fornitori = soggetti terzi con un contratto di fornitura (come l'import PEC); capitoli = quelli già presenti più quelli degli impegni che hanno liquidazioni verso quei fornitori, **creati dall'import**; impegni = tutti quelli sui capitoli del perimetro.
+  - **Contabilità vince sempre**: negli esercizi coperti dal file, impegni, annualità e righe di spesa del capitolo a mano che la contabilità non ha si cancellano, e così gli impegni spariti o annullati in contabilità. Con l'import attivo non si creano impegni né importi a mano: restano modificabili note, documenti e tipi utenza ammessi.
+  - **Contratti dell'impegno**: collegati in automatico dal CIG (un solo contratto con quel CIG) e dai contratti delle fatture che l'impegno ha pagato. L'import aggiunge collegamenti e non toglie quelli a mano.
+  - **Fatture**: le fatture liquidate in contabilità e assenti in UtenzePA si creano dal registro (testata senza righe: fornitore, numero, data, totale, IdentificativoSdI, contratto dal CIG); l'import PEC poi le trova e le arricchisce. Quelle presenti senza IdentificativoSdI lo prendono dal registro.
+  - **Capitolo dell'utenza**: aggiornato in automatico dal capitolo delle liquidazioni delle sue fatture nell'ultimo esercizio liquidato, se è uno solo.
+  - Serve quindi un **interruttore** già in fase 3 (stato nel DB + `ACCOUNTING_IMPORT_DISABLED` che lo forza spento): acceso = regole sopra e caricamento abilitato; spento = l'ente lavora a mano come prima.
+  - **Anno di partenza** impostato dall'Admin (Montesilvano: 2023): righe precedenti ignorate e anni prima mai toccati. Il DB Tinn va dal 2002 al 2027; IdentificativoSdI presente dal 2018.

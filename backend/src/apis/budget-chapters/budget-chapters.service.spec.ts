@@ -43,8 +43,13 @@ describe('BudgetChaptersService', () => {
   describe('findAll', () => {
     it('con deleted=true elenca gli eliminati, senza ripetere deleted tra i filtri generici', async () => {
       await service.findAll({ deleted: true } as never);
-      expect(qb.where).toHaveBeenCalledWith('budget_chapters.deleted = :deleted', { deleted: true });
-      expect(qb.andWhere).not.toHaveBeenCalledWith(expect.stringContaining('.deleted'), expect.anything());
+      expect(qb.where).toHaveBeenCalledWith('budget_chapters.deleted = :deleted', {
+        deleted: true,
+      });
+      expect(qb.andWhere).not.toHaveBeenCalledWith(
+        expect.stringContaining('.deleted'),
+        expect.anything(),
+      );
     });
 
     it('filtra i soli capitoli non cancellati', async () => {
@@ -92,7 +97,10 @@ describe('BudgetChaptersService', () => {
         expect.stringContaining('EXISTS (SELECT 1 FROM budget_chapter_utility_types'),
         { utility_type_id: 36 },
       );
-      expect(qb.andWhere).not.toHaveBeenCalledWith('budget_chapters.utility_type_id = :utility_type_id', expect.anything());
+      expect(qb.andWhere).not.toHaveBeenCalledWith(
+        'budget_chapters.utility_type_id = :utility_type_id',
+        expect.anything(),
+      );
     });
 
     it('ignora i filtri undefined/null/stringa vuota', async () => {
@@ -140,19 +148,27 @@ describe('BudgetChaptersService', () => {
       expect(repo.save).toHaveBeenCalledWith(
         expect.objectContaining({ utilityTypes: [{ id: 36 }, { id: 35 }] }),
       );
-      expect(repo.save).not.toHaveBeenCalledWith(expect.objectContaining({ utility_type_ids: expect.anything() }));
+      expect(repo.save).not.toHaveBeenCalledWith(
+        expect.objectContaining({ utility_type_ids: expect.anything() }),
+      );
     });
 
     it('note del capitolo: testo validato, salvato come arriva', async () => {
-      const bad = await validate(plainToInstance(CreateBudgetChapterDto, { chapter_code: '1', notes: 5 }), {
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      });
+      const bad = await validate(
+        plainToInstance(CreateBudgetChapterDto, { chapter_code: '1', notes: 5 }),
+        {
+          whitelist: true,
+          forbidNonWhitelisted: true,
+        },
+      );
       expect(bad.map((e) => e.property)).toEqual(['notes']);
-      const ok = await validate(plainToInstance(CreateBudgetChapterDto, { chapter_code: '1', notes: 'Da rinumerare' }), {
-        whitelist: true,
-        forbidNonWhitelisted: true,
-      });
+      const ok = await validate(
+        plainToInstance(CreateBudgetChapterDto, { chapter_code: '1', notes: 'Da rinumerare' }),
+        {
+          whitelist: true,
+          forbidNonWhitelisted: true,
+        },
+      );
       expect(ok).toEqual([]);
       await service.create({ chapter_code: 'CAP-1', notes: 'Da rinumerare' } as never, 1);
       expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ notes: 'Da rinumerare' }));
@@ -185,7 +201,9 @@ describe('BudgetChaptersService', () => {
 
       await service.update(1, { utility_type_ids: [36] } as never, 2);
 
-      expect(repo.save).toHaveBeenLastCalledWith(expect.objectContaining({ utilityTypes: [{ id: 36 }] }));
+      expect(repo.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({ utilityTypes: [{ id: 36 }] }),
+      );
     });
 
     it('lascia i tipi utenza invariati se non indicati', async () => {
@@ -194,7 +212,9 @@ describe('BudgetChaptersService', () => {
       await service.update(1, { chapter_code: 'CAP-2' } as never, 2);
 
       expect(repo.save).toHaveBeenCalledTimes(1);
-      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ utilityTypes: [{ id: 35 }] }));
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ utilityTypes: [{ id: 35 }] }),
+      );
     });
 
     it('lancia BadRequestException se il capitolo non esiste', async () => {
@@ -236,18 +256,100 @@ describe('BudgetChaptersService', () => {
         groupBy: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         getRawMany: jest.fn().mockResolvedValue([
-          { hard_type: 'LIGHT', utilities_count: '3', estimated_sum: '1200.50', actual_sum: '900.00' },
+          {
+            hard_type: 'LIGHT',
+            utilities_count: '3',
+            estimated_sum: '1200.50',
+            actual_sum: '900.00',
+          },
           { hard_type: 'GAS', utilities_count: '1', estimated_sum: null, actual_sum: '0.00' },
         ]),
       };
       utilityRepo.createQueryBuilder.mockReturnValue(summaryQb);
 
       await expect(service.getConsumptionSummary(4)).resolves.toEqual([
-        { hard_type: 'LIGHT', unit: 'kWh', utilities_count: 3, estimated_sum: 1200.5, actual_sum: 900 },
+        {
+          hard_type: 'LIGHT',
+          unit: 'kWh',
+          utilities_count: 3,
+          estimated_sum: 1200.5,
+          actual_sum: 900,
+        },
         { hard_type: 'GAS', unit: 'Smc', utilities_count: 1, estimated_sum: 0, actual_sum: 0 },
       ]);
-      expect(summaryQb.andWhere).toHaveBeenCalledWith('u.budget_chapter_code_fk = :chapterId', { chapterId: 4 });
-      expect(summaryQb.andWhere).toHaveBeenCalledWith('ut.hard_type <> :internet', { internet: 'INTERNET' });
+      expect(summaryQb.andWhere).toHaveBeenCalledWith('u.budget_chapter_code_fk = :chapterId', {
+        chapterId: 4,
+      });
+      expect(summaryQb.andWhere).toHaveBeenCalledWith('ut.hard_type <> :internet', {
+        internet: 'INTERNET',
+      });
     });
+  });
+});
+
+describe('BudgetChaptersService: import della contabilità attivo', () => {
+  const LOCKED = "Con l'import della contabilità attivo questo dato arriva dalla contabilità.";
+  const imported = () => ({
+    id: 7,
+    source: 'ACCOUNTING',
+    chapter_code: '100',
+    article: '0',
+    description: 'ENERGIA',
+    notes: null,
+    deleted: false,
+    utilityTypes: [],
+  });
+  let service: BudgetChaptersService;
+  let repo: {
+    findOne: jest.Mock;
+    create: jest.Mock;
+    save: jest.Mock;
+    createQueryBuilder: jest.Mock;
+  };
+
+  beforeEach(() => {
+    repo = {
+      findOne: jest.fn(async () => imported()),
+      create: jest.fn((d) => d),
+      save: jest.fn(async (d) => d),
+      createQueryBuilder: jest.fn(),
+    };
+    service = new BudgetChaptersService(
+      repo as never,
+      { createQueryBuilder: jest.fn() } as never,
+      { isActive: jest.fn(async () => true) } as never,
+    );
+  });
+
+  it('create = 400', async () => {
+    await expect(service.create({ chapter_code: '200', article: '0' } as never, 3)).rejects.toThrow(
+      LOCKED,
+    );
+  });
+
+  it('codice, articolo o descrizione diversi = 400', async () => {
+    await expect(service.update(7, { chapter_code: '101' } as never, 3)).rejects.toThrow(LOCKED);
+    await expect(service.update(7, { article: '1' } as never, 3)).rejects.toThrow(LOCKED);
+    await expect(service.update(7, { description: 'GAS' } as never, 3)).rejects.toThrow(LOCKED);
+  });
+
+  it('tipi utenza ammessi e note modificabili', async () => {
+    await expect(
+      service.update(
+        7,
+        {
+          chapter_code: '100',
+          article: '0',
+          description: 'ENERGIA',
+          notes: 'x',
+          utility_type_ids: [1],
+        } as never,
+        3,
+      ),
+    ).resolves.not.toThrow();
+  });
+
+  it('delete = 400', async () => {
+    await expect(service.remove(7, 3)).rejects.toThrow(LOCKED);
   });
 });

@@ -1,3 +1,4 @@
+import {AccountingStateService} from '../../../core/services/accounting-state.service';
 import {ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, OnInit, Output, SimpleChanges} from '@angular/core';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
@@ -51,12 +52,15 @@ const eur = (n: number | null | undefined): string =>
     <app-linked-table [columns]="columns" [rows]="commitments" [rowStatus]="status"
                       [addOptions]="canEdit ? addOptions : null" addLabel="Collega impegno"
                       [unlinkable]="canEdit" itemLabel="l'impegno"
-                      [createLabel]="canEdit ? 'Nuovo impegno' : null" (create)="create()"
+                      [createLabel]="canEdit && !accountingActive ? 'Nuovo impegno' : null" (create)="create()"
                       (add)="link($event)" (unlink)="unlink($event)" (open)="open($event)"
                       emptyText="Nessun impegno collegato."></app-linked-table>
   `,
 })
 export class ContractCommitmentsTabComponent implements OnInit, OnChanges {
+  // Import della contabilità acceso: impegni e capitoli solo dalla contabilità.
+  accountingActive = false;
+  private accountingSub = inject(AccountingStateService).active$.subscribe(a => (this.accountingActive = a));
   @Input({required: true}) contractId!: number;
   @Input() supplierId: number | null = null;
   @Input() canEdit = false;
