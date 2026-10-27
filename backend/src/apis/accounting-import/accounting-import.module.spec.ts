@@ -1,6 +1,6 @@
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { DynamicModule, Provider } from '@nestjs/common';
-import { AccountingImportModule } from './accounting-import.module';
+import { AccountingImportModule, inboxCronTime } from './accounting-import.module';
 import { AccChapter } from './entity/acc-chapter.entity';
 import { AccCommitment } from './entity/acc-commitment.entity';
 import { AccLiquidation } from './entity/acc-liquidation.entity';
@@ -22,5 +22,12 @@ describe('AccountingImportModule', () => {
     for (const entity of [AccChapter, AccCommitment, AccLiquidation]) {
       expect(tokens).toContain(getRepositoryToken(entity));
     }
+  });
+
+  it('cron della casella: vuoto o non valido = ogni 5 minuti', () => {
+    expect(inboxCronTime(undefined)).toBe('*/5 * * * *');
+    expect(inboxCronTime('')).toBe('*/5 * * * *');
+    expect(inboxCronTime('ogni tanto')).toBe('*/5 * * * *');
+    expect(inboxCronTime('*/10 * * * *')).toBe('*/10 * * * *');
   });
 });

@@ -21,6 +21,7 @@ import { imapConfigFromEnv, importForcedOff } from '@apis/invoice-import/pec-ima
 import { commitmentLabel } from '@apis/budget-commitments/commitment-label';
 import { invoiceCompetenceYear } from '@apis/spending/line-year';
 import { CommitmentShareSource } from '@apis/invoices/entity/commitment-share-source.enum';
+import { inboxDir, inboxPresent } from '@apis/accounting-import/accounting-inbox.files';
 
 // Contratto valido oggi: stessa definizione di "contratto corrente" usata in
 // UtilitiesService (scadenza assente o non ancora passata).
@@ -149,6 +150,8 @@ export interface Anomalies {
     utility_id: string;
     chapters: string;
   }>;
+  // Container Tinn installato e acceso, ma nessun caricamento riuscito da più di 2 giorni.
+  accounting_import_stale: AnomalyList<{ id: number; label: string }>;
   invoices_without_commitment: AnomalyList<{
     id: number;
     number: string;
@@ -161,6 +164,10 @@ export interface Anomalies {
 
 // Import fatture fermo: nessun giro riuscito da più di 2 ore (giro ogni 15 minuti).
 const IMPORT_STALLED_MS = 2 * 60 * 60 * 1000;
+
+// Contabilità dal container Tinn: giro ogni notte, segnalata dopo 2 giorni senza caricamento.
+const DAY_MS = 24 * 60 * 60 * 1000;
+const ACCOUNTING_STALE_MS = 2 * DAY_MS;
 
 // Pratica in sospeso: giorni dalla data evento (giorno di Roma).
 export type PendingUtilityAnomaly = UtilityAnomaly & { pending_days: number };
@@ -215,6 +222,19 @@ export class AnomaliesService {
 
   // Sostituibile nei test.
   now: () => Date = () => new Date();
+  inboxPresent: () => boolean = () => inboxPresent(inboxDir());
+
+  private accountingStale(
+    row: Record<string, unknown> | undefined,
+  ): { id: number; label: string }[] {
+    if (!row || !Number(row.enabled) || process.env.ACCOUNTING_IMPORT_DISABLED === 'true')
+      return [];
+    if (!this.inboxPresent()) return [];
+    if (!row.last_success_at) return [{ id: 1, label: 'Contabilità mai caricata' }];
+    const age = this.now().getTime() - new Date(row.last_success_at as string | Date).getTime();
+    if (age <= ACCOUNTING_STALE_MS) return [];
+    return [{ id: 1, label: `Contabilità non aggiornata da ${Math.floor(age / DAY_MS)} giorni` }];
+  }
 
   async getAnomalies(): Promise<Anomalies> {
     const today = romeDay(this.now());
@@ -878,6 +898,10 @@ export class AnomaliesService {
        HAVING COUNT(DISTINCT r.chapter_id) > 1
         ORDER BY u.utility_id`,
     );
+    const accState: Record<string, unknown>[] = await this.dataSource.query(
+      `/* accounting_import_stale */
+       SELECT enabled, last_success_at FROM accounting_import_state WHERE id = 1`,
+    );
     const commitments = commitmentRows.map((r) => {
       const amount = r.amount == null ? null : Number(r.amount);
       return {
@@ -1003,6 +1027,7 @@ export class AnomaliesService {
           chapters: String(r.chapters),
         })),
       ),
+      accounting_import_stale: list(this.accountingStale(accState[0])),
       invoices_without_commitment: list(
         withoutCommitment.map((r) => {
           const date = dbDay(r.date);

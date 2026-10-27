@@ -22,4 +22,14 @@ export class AccountingImportState {
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   last_error: string | null;
+
+  // Ultimo caricamento riuscito (anche manuale), o conferma che il backup del
+  // container è quello già caricato: lo legge la segnalazione accounting_import_stale.
+  @Column({ type: 'datetime', nullable: true })
+  last_success_at: Date | null;
+
+  // SHA-256 dell'ultimo backup Tinn caricato: il container salta il ripristino se
+  // è uguale (settings.loaded_sha256). Nel DB perché sopravviva a un ripristino.
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  last_loaded_sha256: string | null;
 }

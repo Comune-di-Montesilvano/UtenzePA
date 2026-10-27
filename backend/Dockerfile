@@ -137,7 +137,10 @@ COPY --chown=nestjs:nodejs --from=build /usr/src/app/dist ./dist
 # Create writable dirs for backups, photos and attachments and ensure ownership
 # (also propagates correct ownership onto the empty named volumes mounted here
 # at container start: backups_data, photos_data, attachments_data)
-RUN mkdir -p /usr/src/app/backups /usr/src/app/photos /usr/src/app/attachments && chown -R nestjs:nodejs /usr/src/app
+RUN mkdir -p /usr/src/app/backups /usr/src/app/photos /usr/src/app/attachments /usr/src/app/accounting-inbox && chown -R nestjs:nodejs /usr/src/app
+# Casella condivisa con il container Tinn: scrivibile dal gruppo nodejs (1001),
+# in cui gira anche quel container.
+RUN chmod 2775 /usr/src/app/accounting-inbox
 
 # Switch to non-root user
 USER nestjs

@@ -10,6 +10,7 @@ import {MatSlideToggleModule} from '@angular/material/slide-toggle';
 import {AccountingStateService} from '../../core/services/accounting-state.service';
 import {ToastService} from '../../core/services/toast.service';
 import {AccKind, AccountingImportService, AccountingImportStatus, CsvIssue} from './accounting-import.service';
+import {containerWait, tinnStatusLabel} from './tinn-status';
 
 const FILES: {kind: AccKind; label: string; columns: string}[] = [
   {
@@ -91,6 +92,32 @@ const STEP_LABELS: Record<string, Record<string, string>> = {
           </mat-form-field>
         </div>
 
+        @if (s.container; as c) {
+          <div>
+            <h3>Scaricamento automatico</h3>
+            <p class="muted">Il servizio Tinn scarica ogni notte il backup della contabilità e consegna qui i tre
+              file, che si caricano da soli entro pochi minuti.</p>
+            <p>Ultimo scaricamento: {{ c.finishedAt ? dateTimeIt(c.finishedAt) : (c.state === 'running' ? 'in corso' : 'mai') }}</p>
+            <p [class.error]="c.state === 'error'">Esito: {{ tinnLabel(c) }}</p>
+            @if (c.backupDate) {
+              <p>Backup del {{ dateTimeIt(c.backupDate) }}</p>
+            }
+            @if (c.nextRunAt) {
+              <p>Prossimo giro: {{ dateTimeIt(c.nextRunAt) }}</p>
+            }
+            <div class="row">
+              <button mat-stroked-button type="button" [color]="c.state === 'error' ? 'primary' : undefined"
+                      [disabled]="c.state === 'running' || containerWaiting" (click)="runContainer()">
+                @if (c.state === 'running' || containerWaiting) {
+                  <mat-spinner diameter="18" style="display: inline-block; margin-right: 0.5rem;"></mat-spinner>
+                }
+                Esegui ora
+              </button>
+              <span class="muted">Serve solo dopo un errore: il giro notturno parte da solo.</span>
+            </div>
+          </div>
+        }
+
         <div>
           <h3>File da caricare</h3>
           <p class="muted">CSV con separatore punto e virgola, prima riga con i nomi delle colonne. Ogni file
@@ -169,7 +196,10 @@ export class AccountingImportPageComponent implements OnInit, OnDestroy {
   stepRows: {label: string; count: number}[] = [];
   saving = false;
   running = false;
+  containerWaiting = false;
+  readonly tinnLabel = tinnStatusLabel;
   private poll: ReturnType<typeof setTimeout> | null = null;
+  private containerPoll: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
     this.load();
@@ -177,6 +207,56 @@ export class AccountingImportPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this.poll) clearTimeout(this.poll);
+    if (this.containerPoll) clearTimeout(this.containerPoll);
+  }
+
+  dateTimeIt(value: string): string {
+    return new Date(value).toLocaleString('it-IT', {dateStyle: 'short', timeStyle: 'short'});
+  }
+
+  runContainer(): void {
+    const previousStart = this.status?.container?.startedAt ?? null;
+    this.containerWaiting = true;
+    this.service.runContainer().subscribe({
+      next: s => {
+        this.apply(s);
+        this.toast.add({severity: 'info', summary: 'Scaricamento richiesto', detail: 'Parte entro un minuto.'});
+        this.waitForContainer(previousStart, Date.now());
+      },
+      error: err => {
+        this.containerWaiting = false;
+        this.error('Scaricamento non avviato', err);
+      },
+    });
+  }
+
+  // Il container legge la richiesta entro un minuto: si rilegge lo stato finché
+  // non è partito un giro nuovo e non è finito.
+  private waitForContainer(previousStart: string | null, since: number): void {
+    this.containerPoll = setTimeout(() => {
+      this.service.status().subscribe({
+        next: s => {
+          this.apply(s);
+          const c = s.container;
+          const outcome = containerWait(c, previousStart, Date.now() - since);
+          if (outcome === 'wait') return this.waitForContainer(previousStart, since);
+          this.containerWaiting = false;
+          if (outcome === 'timeout' || !c) {
+            this.toast.add({
+              severity: 'error', summary: 'Il servizio non risponde',
+              detail: 'Lo scaricamento automatico non è partito: verificare che il container tinn sia avviato.',
+            });
+            return;
+          }
+          if (c.state === 'error') {
+            this.toast.add({severity: 'error', summary: 'Scaricamento non riuscito', detail: c.message ?? ''});
+          } else {
+            this.toast.add({severity: 'success', summary: 'Scaricamento completato', detail: tinnStatusLabel(c)});
+          }
+        },
+        error: () => this.waitForContainer(previousStart, since),
+      });
+    }, 3000);
   }
 
   private load(): void {

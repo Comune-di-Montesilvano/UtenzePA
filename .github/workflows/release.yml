@@ -110,6 +110,10 @@ jobs:
             context: frontend
             dockerfile: frontend/Dockerfile
             target: prod
+          - app: tinn
+            context: tinn
+            dockerfile: tinn/Dockerfile
+            target: production
     env:
       IMAGE: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}
     steps:

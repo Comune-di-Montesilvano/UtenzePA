@@ -1,0 +1,4 @@
+commitment_year;commitment_num;commitment_sub;fiscal_year;chapter;article;supplier_vat;amount;cig;cancelled;description
+2024;10;1;2024;11407;0;01234567890;115.00;Z0A1B2C3D4;0;FORNITURA €
+2024;10;1;2025;11407;0;01234567890;60.00;Z0A1B2C3D4;0;APERTO
+2024;11;1;2024;11407;0;RSSMRA80A01H501U;30.00;;1;ANNULLATO

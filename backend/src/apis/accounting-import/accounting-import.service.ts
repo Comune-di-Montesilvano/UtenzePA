@@ -3,6 +3,7 @@ import { DataSource, EntityTarget, ObjectLiteral } from 'typeorm';
 import { CommitmentReconcileService } from '@apis/budget-commitments/commitment-reconcile.service';
 import { parseAccountingCsv, type AccKind, type CsvIssue } from './accounting-csv';
 import { AccountingStateService } from './accounting-state.service';
+import { inboxDir, inboxPresent, readStatus, type TinnStatus } from './accounting-inbox.files';
 import { AccChapter } from './entity/acc-chapter.entity';
 import { AccCommitment } from './entity/acc-commitment.entity';
 import { AccLiquidation } from './entity/acc-liquidation.entity';
@@ -32,9 +33,12 @@ export interface AccountingImportStatus {
   running: boolean;
   fromYear: number | null;
   lastRunAt: Date | null;
+  lastSuccessAt: Date | null;
   lastError: string | null;
   lastSummary: AccountingImportSummary | null;
   counts: Record<AccKind, number>;
+  // Stato del container Tinn; null se non installato (profilo spento).
+  container: TinnStatus | null;
 }
 
 const TABLES: Record<
@@ -75,6 +79,7 @@ export class AccountingImportService {
       running: this.running,
       fromYear: state.from_year,
       lastRunAt: state.last_run_at,
+      lastSuccessAt: state.last_success_at,
       lastError: state.last_error,
       lastSummary: (state.last_summary as AccountingImportSummary | null) ?? null,
       counts: {
@@ -82,6 +87,7 @@ export class AccountingImportService {
         commitments: Number(counts?.commitments ?? 0),
         liquidations: Number(counts?.liquidations ?? 0),
       },
+      container: inboxPresent(inboxDir()) ? readStatus(inboxDir()) : null,
     };
   }
 
@@ -94,20 +100,44 @@ export class AccountingImportService {
     return this.getStatus();
   }
 
+  isRunning(): boolean {
+    return this.running;
+  }
+
   async run(files: Partial<Record<AccKind, Buffer>>): Promise<AccountingImportSummary> {
     return this.execute(files, await this.begin(files));
   }
 
-  // Controlli prima del giro (400 subito) e prenotazione del giro.
+  // Come run, ma null invece del 400 quando il giro non può partire adesso
+  // (spento, senza anno, altro giro in corso): la casella del container Tinn
+  // lascia i file e riprova. Gli errori del giro restano eccezioni.
+  async tryRun(files: Partial<Record<AccKind, Buffer>>): Promise<AccountingImportSummary | null> {
+    let fromYear: number;
+    try {
+      fromYear = await this.begin(files);
+    } catch (error) {
+      if (error instanceof BadRequestException) return null;
+      throw error;
+    }
+    return this.execute(files, fromYear);
+  }
+
+  // Controlli prima del giro (400 subito) e prenotazione del giro, presa prima
+  // di ogni attesa: due giri partiti insieme non passano entrambi.
   private async begin(files: Partial<Record<AccKind, Buffer>>): Promise<number> {
     if (!KINDS.some((kind) => files[kind])) throw new BadRequestException('Nessun file caricato.');
-    const state = await this.states.state();
-    if (this.states.forcedOff || !state.enabled)
-      throw new BadRequestException('Import contabilità spento.');
-    if (!state.from_year) throw new BadRequestException("Impostare l'anno di partenza.");
     if (this.running) throw new BadRequestException('Import contabilità già in corso.');
     this.running = true;
-    return state.from_year;
+    try {
+      const state = await this.states.state();
+      if (this.states.forcedOff || !state.enabled)
+        throw new BadRequestException('Import contabilità spento.');
+      if (!state.from_year) throw new BadRequestException("Impostare l'anno di partenza.");
+      return state.from_year;
+    } catch (error) {
+      this.running = false;
+      throw error;
+    }
   }
 
   private async execute(
@@ -135,8 +165,10 @@ export class AccountingImportService {
         summary.steps[step.name] = await step.apply({ fromYear });
       }
       await this.reconcile.reconcileAll();
+      const now = new Date();
       await this.states.update({
-        last_run_at: new Date(),
+        last_run_at: now,
+        last_success_at: now,
         last_summary: summary,
         last_error: null,
       });

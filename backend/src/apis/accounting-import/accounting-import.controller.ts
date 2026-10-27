@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -15,6 +16,7 @@ import { Roles } from '@core/auth/decorators/roles.decorator';
 import { UpdateAccountingImportDto } from './dto/update-accounting-import.dto';
 import { AccountingImportService, type AccountingImportStatus } from './accounting-import.service';
 import { AccountingStateService } from './accounting-state.service';
+import { AccountingInboxService } from './accounting-inbox.service';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
@@ -29,6 +31,7 @@ export class AccountingImportController {
   constructor(
     private readonly service: AccountingImportService,
     private readonly states: AccountingStateService,
+    private readonly inbox: AccountingInboxService,
   ) {}
 
   // Solo acceso/spento, per tutti i ruoli: il frontend mette in sola lettura i
@@ -44,12 +47,32 @@ export class AccountingImportController {
     return this.service.getStatus();
   }
 
+  // «Esegui ora» del container Tinn: lo legge al giro successivo (entro un minuto).
+  @Post('container/run')
+  async runContainer(): Promise<AccountingImportStatus> {
+    if (!this.inbox.present())
+      throw new BadRequestException('Scaricamento automatico non installato.');
+    if (this.inbox.readStatus()?.state === 'running')
+      throw new BadRequestException('Scaricamento già in corso.');
+    // Una consegna nuova durante il caricamento verrebbe caricata solo al giro dopo.
+    if (this.service.isRunning())
+      throw new BadRequestException('Caricamento della contabilità in corso.');
+    this.inbox.requestRun();
+    return this.service.getStatus();
+  }
+
   @Patch()
   async update(@Body() dto: UpdateAccountingImportDto): Promise<AccountingImportStatus> {
+    // Anno cambiato: il container deve riestrarre anche se il backup è lo stesso.
+    const yearChanged =
+      dto.from_year !== undefined && dto.from_year !== (await this.states.state()).from_year;
     await this.states.update({
       ...(dto.enabled !== undefined ? { enabled: dto.enabled } : {}),
       ...(dto.from_year !== undefined ? { from_year: dto.from_year } : {}),
+      ...(yearChanged ? { last_loaded_sha256: null } : {}),
     });
+    // Anno di partenza nuovo: lo legge subito anche il container Tinn.
+    await this.inbox.writeSettings();
     return this.service.getStatus();
   }
 

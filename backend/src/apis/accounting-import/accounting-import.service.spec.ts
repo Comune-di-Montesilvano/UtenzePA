@@ -189,3 +189,17 @@ describe('AccountingImportService.run', () => {
     await first;
   });
 });
+
+describe('AccountingImportService concorrenza', () => {
+  it('due giri contemporanei: il secondo è rifiutato', async () => {
+    const { service } = setup({ id: 1, enabled: true, from_year: 2023 });
+    const files = { commitments: Buffer.from(COMMITMENTS) };
+    const results = await Promise.allSettled([service.run(files), service.run(files)]);
+    expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+  });
+
+  it('tryRun restituisce null se il giro non può partire', async () => {
+    const { service } = setup({ id: 1, enabled: false, from_year: 2023 });
+    expect(await service.tryRun({ commitments: Buffer.from(COMMITMENTS) })).toBeNull();
+  });
+});

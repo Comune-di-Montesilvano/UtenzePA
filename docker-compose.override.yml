@@ -79,6 +79,20 @@ services:
     ports:
       - '9229:9229'
 
+  # Container Tinn costruito dal sorgente (solo con COMPOSE_PROFILES=tinn). Per
+  # provarlo senza SFTP: TINN_LOCAL_ZIP=/backup/<file>.zip e TINN_LOCAL_ZIP_DIR
+  # sulla cartella che contiene lo zip (montata in sola lettura); le variabili
+  # SFTP si possono lasciare con valori fittizi.
+  tinn:
+    image: utenzepa/tinn:dev
+    build:
+      context: ./tinn
+      target: production
+    environment:
+      - TINN_LOCAL_ZIP=${TINN_LOCAL_ZIP:-}
+    volumes:
+      - ${TINN_LOCAL_ZIP_DIR:-./tinn/testdata}:/backup:ro
+
   frontend:
     image: utenzepa/frontend:dev
     build:

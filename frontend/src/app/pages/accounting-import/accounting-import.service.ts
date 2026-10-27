@@ -18,6 +18,18 @@ export interface AccountingImportSummary {
   steps: Record<string, Record<string, number>>;
 }
 
+// Stato del container Tinn che scarica la contabilità ogni notte (backend TinnStatus).
+export interface TinnStatus {
+  state: 'running' | 'ok' | 'unchanged' | 'error';
+  step: string | null;
+  message: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  backupSha256: string | null;
+  backupDate: string | null;
+  nextRunAt: string | null;
+}
+
 // Stato dell'import della contabilità (backend AccountingImportStatus, solo Admin).
 export interface AccountingImportStatus {
   enabled: boolean;
@@ -25,9 +37,12 @@ export interface AccountingImportStatus {
   running: boolean;
   fromYear: number | null;
   lastRunAt: string | null;
+  lastSuccessAt: string | null;
   lastError: string | null;
   lastSummary: AccountingImportSummary | null;
   counts: Record<AccKind, number>;
+  // null = scaricamento automatico non installato (profilo tinn spento).
+  container: TinnStatus | null;
 }
 
 @Injectable({providedIn: 'root'})
@@ -46,6 +61,11 @@ export class AccountingImportService {
 
   update(patch: {enabled?: boolean; from_year?: number}): Observable<AccountingImportStatus> {
     return this.http.patch<AccountingImportStatus>(this.BASE_URL, patch, {headers: this.headers()});
+  }
+
+  // «Esegui ora» del container Tinn: parte entro un minuto.
+  runContainer(): Observable<AccountingImportStatus> {
+    return this.http.post<AccountingImportStatus>(`${this.BASE_URL}/container/run`, {}, {headers: this.headers()});
   }
 
   // Carica i file scelti e avvia il giro in background: risponde subito con lo
