@@ -41,6 +41,7 @@ jobs:
       skip: ${{ steps.mode.outputs.skip }}
       version: ${{ steps.mode.outputs.version }}
       auto_tag: ${{ steps.mode.outputs.auto_tag }}
+      tag_latest: ${{ steps.mode.outputs.tag_latest }}
       pkg_refresh: ${{ steps.mode.outputs.pkg_refresh }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -61,8 +62,17 @@ jobs:
           set -euo pipefail
           auto=false
           skip=false
+          tag_latest=false
           if [[ "$EVENT_NAME" == "push" && "$REF_TYPE" == "tag" ]]; then
             version="$REF_NAME"
+            # latest solo al tag di versione piu' alto: due tag pushati insieme girano in
+            # parallelo (concurrency per ref) e senza questo vince chi pubblica per ultimo.
+            highest=$(git tag -l 'v[0-9]*' --sort=-v:refname | head -n 1)
+            if [[ "$REF_NAME" == "$highest" ]]; then
+              tag_latest=true
+            else
+              echo "::notice::$REF_NAME non e' l'ultima versione ($highest): latest non cambia."
+            fi
           elif [[ "$EVENT_NAME" == "schedule" || "$REBUILD_LATEST" == "true" ]]; then
             auto=true
             # APP_VERSION = ultimo tag rilasciato (versione mostrata in UI e in /health);
@@ -88,6 +98,7 @@ jobs:
             echo "auto=$auto"
             echo "skip=$skip"
             echo "version=$version"
+            echo "tag_latest=$tag_latest"
             echo "auto_tag=latest-$(date -u +%Y%m%d)"
             # Data del giorno: invalida una volta al giorno il layer `apk upgrade` dei
             # Dockerfile, altrimenti la cache registry lo congela e le patch OS non entrano.
@@ -130,7 +141,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Tag git: vX.Y.Z + latest. Rebuild automatico: solo latest-YYYYMMDD, latest viene
+      # Tag git: vX.Y.Z, + latest se e' la versione piu' alta. Rebuild automatico: solo latest-YYYYMMDD, latest viene
       # promosso piu' sotto solo dopo che Trivy ha passato l'immagine.
       - id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
@@ -138,7 +149,7 @@ jobs:
           images: ${{ env.IMAGE }}
           tags: |
             type=ref,event=tag
-            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=latest,enable=${{ needs.setup.outputs.tag_latest == 'true' }}
             type=raw,value=${{ needs.setup.outputs.auto_tag }},enable=${{ needs.setup.outputs.auto == 'true' }}
 
       - id: build
