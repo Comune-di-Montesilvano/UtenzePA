@@ -80,6 +80,18 @@ describe('planCommitments', () => {
     expect(changes[0]).toEqual(expect.objectContaining({ supplierId: null }));
   });
 
+  it('P.IVA assente o non in anagrafica: resta il fornitore già scelto', () => {
+    const changes = planCommitments(
+      [row(1, 2026, { supplier_vat: '99999999999' }), row(2, 2026, { supplier_vat: null })],
+      scopeOf(1, 2),
+      new Set([2026]),
+      chapters,
+      [current(10, 1, { supplier_id_fk: 5 }), current(11, 2, { supplier_id_fk: 6 })],
+      suppliers,
+    );
+    expect(changes).toEqual([]);
+  });
+
   it('impegno fuori perimetro o annullato ignorato', () => {
     expect(
       planCommitments(

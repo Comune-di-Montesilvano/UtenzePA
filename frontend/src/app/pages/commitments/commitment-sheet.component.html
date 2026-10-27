@@ -51,7 +51,7 @@
           <div class="span-2">
             <app-filterable-select label="Fornitore" placeholder="Cerca fornitore..." [options]="supplierOptions"
                                    formControlName="supplier_id_fk"
-                                   [createLabel]="canEdit ? 'Nuovo soggetto terzo' : null" (create)="newSupplier($event)"></app-filterable-select>
+                                   [createLabel]="canEdit && !locked ? 'Nuovo soggetto terzo' : null" (create)="newSupplier($event)"></app-filterable-select>
           </div>
           <div class="span-all years" formArrayName="years">
             @for (g of yearGroups; track g; let i = $index) {

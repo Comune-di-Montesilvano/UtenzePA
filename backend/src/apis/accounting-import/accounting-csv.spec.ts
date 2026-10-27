@@ -80,6 +80,18 @@ describe('parseAccountingCsv', () => {
     expect(issues).toEqual([{ line: 2, message: expect.stringContaining('invoice_date') }]);
   });
 
+  it('riga ripetuta (stessa chiave) = issue, vale la prima', () => {
+    const { rows, issues } = parseAccountingCsv(
+      'liquidations',
+      'liquidation_key;commitment_year;commitment_num;commitment_sub;fiscal_year;amount\n' +
+        'L1;2026;1;1;2026;10\n' +
+        'L2;2026;1;1;2026;20\n' +
+        'L1;2026;1;1;2026;10\n',
+    );
+    expect(rows.map((r) => r.liquidation_key)).toEqual(['L1', 'L2']);
+    expect(issues).toEqual([{ line: 4, message: 'riga ripetuta: stessa chiave della riga 2' }]);
+  });
+
   it('descrizione lunga troncata, altri testi troppo lunghi = issue', () => {
     const long = 'x'.repeat(300);
     const { rows, issues } = parseAccountingCsv(

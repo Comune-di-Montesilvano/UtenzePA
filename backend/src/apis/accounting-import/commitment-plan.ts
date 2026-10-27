@@ -99,7 +99,8 @@ export function planCommitments(
     }
     const values = {
       budget_chapter_id_fk: chapterId,
-      supplier_id_fk: supplierId,
+      // Creditore senza P.IVA o non in anagrafica: resta il fornitore già scelto.
+      supplier_id_fk: supplierId ?? existing.supplier_id_fk,
       source: RecordSource.ACCOUNTING,
     };
     const fields: AuditFieldChange[] = (Object.keys(values) as (keyof typeof values)[])

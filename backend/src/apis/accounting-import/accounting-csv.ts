@@ -128,6 +128,14 @@ function splitLine(line: string): string[] {
   return fields.map((f) => f.trim());
 }
 
+// Chiave di una riga: una ripetuta (CSV fatti a mano) raddoppierebbe importi e
+// quote, quindi si scarta e vale la prima.
+const KEYS: Record<AccKind, string[]> = {
+  chapters: ['year', 'chapter', 'article'],
+  commitments: ['commitment_year', 'commitment_num', 'commitment_sub', 'fiscal_year'],
+  liquidations: ['liquidation_key'],
+};
+
 // Lunghezze delle colonne delle tabelle acc_*: la descrizione si tronca, gli
 // altri testi troppo lunghi scartano la riga (un valore fuori misura farebbe
 // fallire tutto il caricamento).
@@ -195,6 +203,7 @@ export function parseAccountingCsv(kind: AccKind, text: string): ParsedCsv<unkno
   const index = new Map(header.map((name, i) => [name, i]));
   const rows: Record<string, unknown>[] = [];
   const issues: CsvIssue[] = [];
+  const seen = new Map<string, number>();
   lines.slice(1).forEach((line, i) => {
     if (!line.trim()) return;
     const fields = splitLine(line);
@@ -215,8 +224,16 @@ export function parseAccountingCsv(kind: AccKind, text: string): ParsedCsv<unkno
         );
       else row[name] = result.value;
     }
-    if (errors.length) issues.push({ line: i + 2, message: errors.join('; ') });
-    else rows.push(row);
+    if (errors.length) return issues.push({ line: i + 2, message: errors.join('; ') });
+    const key = KEYS[kind].map((k) => String(row[k])).join('|');
+    const first = seen.get(key);
+    if (first !== undefined)
+      return issues.push({
+        line: i + 2,
+        message: `riga ripetuta: stessa chiave della riga ${first}`,
+      });
+    seen.set(key, i + 2);
+    rows.push(row);
   });
   return { rows, issues };
 }
