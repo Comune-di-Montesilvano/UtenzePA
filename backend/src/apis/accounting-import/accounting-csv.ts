@@ -128,10 +128,31 @@ function splitLine(line: string): string[] {
   return fields.map((f) => f.trim());
 }
 
-function convert(raw: string, type: ColumnType): { value: unknown } | { error: string } {
+// Lunghezze delle colonne delle tabelle acc_*: la descrizione si tronca, gli
+// altri testi troppo lunghi scartano la riga (un valore fuori misura farebbe
+// fallire tutto il caricamento).
+const TEXT_MAX: Record<string, number> = {
+  chapter: 50,
+  supplier_vat: 16,
+  cig: 20,
+  invoice_cig: 20,
+  sdi_identifier: 20,
+  invoice_number: 50,
+  liquidation_key: 50,
+};
+const DESCRIPTION_MAX = 255;
+
+function convert(
+  name: string,
+  raw: string,
+  type: ColumnType,
+): { value: unknown } | { error: string } {
   switch (type) {
     case 'text':
-      return { value: raw };
+      if (name === 'description') return { value: raw.slice(0, DESCRIPTION_MAX) };
+      return raw.length > (TEXT_MAX[name] ?? Infinity)
+        ? { error: `più lungo di ${TEXT_MAX[name]} caratteri` }
+        : { value: raw };
     case 'int':
       return /^-?\d+$/.test(raw) ? { value: Number(raw) } : { error: 'non è un numero intero' };
     case 'money': {
@@ -187,8 +208,11 @@ export function parseAccountingCsv(kind: AccKind, text: string): ParsedCsv<unkno
         row[name] = type === 'bool' ? false : null;
         continue;
       }
-      const result = convert(raw, type);
-      if ('error' in result) errors.push(`${name} ${result.error} (${raw})`);
+      const result = convert(name, raw, type);
+      if ('error' in result)
+        errors.push(
+          type === 'text' ? `${name} ${result.error}` : `${name} ${result.error} (${raw})`,
+        );
       else row[name] = result.value;
     }
     if (errors.length) issues.push({ line: i + 2, message: errors.join('; ') });

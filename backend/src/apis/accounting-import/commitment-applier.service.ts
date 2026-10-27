@@ -19,6 +19,18 @@ const YEARS_UPSERT_SQL =
   'ON DUPLICATE KEY UPDATE amount = VALUES(amount), source = VALUES(source)';
 // Quote automatiche e a mano dell'impegno (o di una sua annualità) tolte prima
 // della cancellazione: le fatture tornano all'automatico col ricalcolo.
+// Fatture divise a mano su un impegno (o annualità) che sparisce: via tutte le
+// loro quote a mano, anche sugli altri impegni, così tornano all'automatico.
+// DISTINCT tiene materializzata la tabella derivata (MySQL non permette di
+// leggere nella subquery la tabella da cui cancella).
+const MANUAL_INVOICES_SQL =
+  "SELECT DISTINCT invoice_id_fk FROM invoice_commitment_shares WHERE commitment_id_fk = ? AND source = 'MANUAL'";
+const INVOICES_MANUAL_DELETE_SQL =
+  `DELETE s FROM invoice_commitment_shares s JOIN (${MANUAL_INVOICES_SQL}) x ` +
+  "ON x.invoice_id_fk = s.invoice_id_fk WHERE s.source = 'MANUAL'";
+const YEAR_INVOICES_MANUAL_DELETE_SQL =
+  `DELETE s FROM invoice_commitment_shares s JOIN (${MANUAL_INVOICES_SQL} AND fiscal_year IN (?)) x ` +
+  "ON x.invoice_id_fk = s.invoice_id_fk WHERE s.source = 'MANUAL'";
 const SHARES_DELETE_SQL =
   "DELETE FROM invoice_commitment_shares WHERE commitment_id_fk = ? AND source IN ('AUTO', 'MANUAL')";
 const YEAR_SHARES_DELETE_SQL =
@@ -129,12 +141,14 @@ export class CommitmentApplierService {
             ]);
           }
           if (change.years.delete.length) {
+            await manager.query(YEAR_INVOICES_MANUAL_DELETE_SQL, [change.id, change.years.delete]);
             await manager.query(YEAR_SHARES_DELETE_SQL, [change.id, change.years.delete]);
             await manager.query(YEARS_DELETE_SQL, [change.id, change.years.delete]);
           }
           audits.push(entry(change.id, AuditAction.UPDATE, change.fields));
           result.updated++;
         } else {
+          await manager.query(INVOICES_MANUAL_DELETE_SQL, [change.id]);
           await manager.query(SHARES_DELETE_SQL, [change.id]);
           await manager.update(BudgetCommitment, change.id, {
             deleted: true,

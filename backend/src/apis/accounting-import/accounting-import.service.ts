@@ -85,16 +85,36 @@ export class AccountingImportService {
     };
   }
 
+  // Avvia il giro in background e risponde subito con lo stato (il primo giro
+  // dura minuti: dietro il proxy la richiesta andrebbe in timeout). Esito ed
+  // errore restano nello stato, letto dalla pagina con GET /status.
+  async start(files: Partial<Record<AccKind, Buffer>>): Promise<AccountingImportStatus> {
+    const fromYear = await this.begin(files);
+    void this.execute(files, fromYear).catch(() => undefined);
+    return this.getStatus();
+  }
+
   async run(files: Partial<Record<AccKind, Buffer>>): Promise<AccountingImportSummary> {
-    const kinds = KINDS.filter((kind) => files[kind]);
-    if (!kinds.length) throw new BadRequestException('Nessun file caricato.');
+    return this.execute(files, await this.begin(files));
+  }
+
+  // Controlli prima del giro (400 subito) e prenotazione del giro.
+  private async begin(files: Partial<Record<AccKind, Buffer>>): Promise<number> {
+    if (!KINDS.some((kind) => files[kind])) throw new BadRequestException('Nessun file caricato.');
     const state = await this.states.state();
     if (this.states.forcedOff || !state.enabled)
       throw new BadRequestException('Import contabilità spento.');
     if (!state.from_year) throw new BadRequestException("Impostare l'anno di partenza.");
     if (this.running) throw new BadRequestException('Import contabilità già in corso.');
     this.running = true;
-    const fromYear = state.from_year;
+    return state.from_year;
+  }
+
+  private async execute(
+    files: Partial<Record<AccKind, Buffer>>,
+    fromYear: number,
+  ): Promise<AccountingImportSummary> {
+    const kinds = KINDS.filter((kind) => files[kind]);
     const summary: AccountingImportSummary = { loaded: {}, issues: {}, steps: {} };
     try {
       for (const kind of kinds) {
@@ -123,6 +143,9 @@ export class AccountingImportService {
       return summary;
     } catch (error) {
       const message = (error as Error).message.slice(0, 500);
+      // I passi già fatti possono aver tolto quote automatiche o a mano: il
+      // ricalcolo le rimette subito invece di aspettare la notte.
+      await this.reconcile.reconcileAll().catch(() => undefined);
       await this.states
         .update({ last_run_at: new Date(), last_error: message })
         .catch(() => undefined);

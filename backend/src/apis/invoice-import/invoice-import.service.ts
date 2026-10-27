@@ -89,7 +89,7 @@ const UNBLOCKED_SQL =
 // con un contratto dopo l'arrivo): tornano in attesa e si rielaborano. Senza
 // identificativo SDI (copie delle fatture emesse dal Comune) restano fuori.
 const RESCOPE_SQL =
-  "SELECT m.id, tp.id AS supplier_id FROM sdi_messages m JOIN third_parties tp ON tp.vat_number = m.supplier_vat AND tp.deleted = 0 " +
+  'SELECT m.id, tp.id AS supplier_id FROM sdi_messages m JOIN third_parties tp ON tp.vat_number = m.supplier_vat AND tp.deleted = 0 ' +
   "WHERE m.kind = 'INVOICE' AND m.status = 'OUT_OF_SCOPE' AND m.sdi_identifier IS NOT NULL " +
   'AND EXISTS (SELECT 1 FROM contracts c WHERE c.supplier_id_fk = tp.id AND c.deleted = 0) ' +
   'ORDER BY m.id LIMIT 200';
@@ -492,7 +492,7 @@ export class InvoiceImportService {
     try {
       const pdf = usesPdf(pattern.rules) ? await pdfText(xml) : null;
       const extracted = extract(xml, pattern.rules, pdf);
-      const match = await this.matcher.match(extracted, row.supplier_id_fk!);
+      const match = await this.matcher.match(extracted, row.supplier_id_fk!, row.sdi_identifier);
       const pdfMissing = missingPdfData(pattern.rules, extracted, pdf);
       if (pdfMissing) {
         match.issues.push({

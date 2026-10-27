@@ -94,6 +94,7 @@ export class CommitmentSheetComponent implements OnInit {
   readonly fromAccounting = this.data.item.source === ACCOUNTING_SOURCE;
   // Import della contabilità acceso: numero, capitolo, fornitore e annualità in sola lettura.
   locked = false;
+  accountingActive = false;
   private accounting = inject(AccountingStateService);
   private allContracts: Contract[] = [];
 
@@ -175,15 +176,14 @@ export class CommitmentSheetComponent implements OnInit {
     this.loadSuppliers();
     this.loadContracts();
     if (!this.isNew) this.loadInvoices();
-    if (this.fromAccounting && this.canEdit) {
-      this.accounting.active$.subscribe(active => {
-        if (!active) return;
-        this.locked = true;
-        for (const c of ['commitment_year', 'commitment_num', 'commitment_sub', 'budget_chapter_id_fk', 'supplier_id_fk', 'years'] as const) {
-          this.form.controls[c].disable();
-        }
-      });
-    }
+    this.accounting.active$.subscribe(active => {
+      this.accountingActive = active;
+      if (!active || !this.fromAccounting || !this.canEdit) return;
+      this.locked = true;
+      for (const c of ['commitment_year', 'commitment_num', 'commitment_sub', 'budget_chapter_id_fk', 'supplier_id_fk', 'years'] as const) {
+        this.form.controls[c].disable();
+      }
+    });
     this.form.controls.supplier_id_fk.valueChanges.subscribe(() => this.buildContracts());
   }
 

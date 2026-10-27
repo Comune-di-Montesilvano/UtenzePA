@@ -1,3 +1,4 @@
+import {AccountingStateService} from '../../core/services/accounting-state.service';
 import {ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, Output} from '@angular/core';
 import {FormsModule} from '@angular/forms';
 import {MatDialog} from '@angular/material/dialog';
@@ -81,7 +82,7 @@ interface EditableShare extends InvoiceCommitmentShare {
             <app-filterable-select label="Impegno *" placeholder="Numero, esercizio o capitolo..." [options]="commitmentOptions"
               [ngModel]="s.commitment_id_fk || null" [ngModelOptions]="{standalone: true}" (ngModelChange)="setCommitment(s, $event)" [disabled]="readOnly"
               [errorMessage]="!s.commitment_id_fk && touched ? 'Obbligatorio' : null"
-              [createLabel]="readOnly || !contractId ? null : 'Nuovo impegno'" (create)="newCommitment(s)"></app-filterable-select>
+              [createLabel]="readOnly || !contractId || accountingActive ? null : 'Nuovo impegno'" (create)="newCommitment(s)"></app-filterable-select>
           </div>
           <mat-form-field class="f-year">
             <mat-label>Annualità</mat-label>
@@ -138,6 +139,9 @@ interface EditableShare extends InvoiceCommitmentShare {
   `],
 })
 export class InvoiceCommitmentsTabComponent implements OnChanges {
+  // Import della contabilità acceso: impegni e capitoli solo dalla contabilità.
+  accountingActive = false;
+  private accountingSub = inject(AccountingStateService).active$.subscribe(a => (this.accountingActive = a));
   // Quote salvate (GET della fattura).
   @Input() shares: InvoiceCommitmentShare[] = [];
   // Quote modificate nel tab: undefined = invariate.

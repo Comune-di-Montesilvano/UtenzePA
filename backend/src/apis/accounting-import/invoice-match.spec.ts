@@ -36,6 +36,17 @@ describe('matchInvoices', () => {
     expect(result).toEqual(new Map([['L1', 2]]));
   });
 
+  it('lotto SDI: stesso identificativo su più fatture, vale il numero', () => {
+    const result = matchInvoices(
+      [liq('L1', { sdi_identifier: '777', invoice_number: 'A2', invoice_date: '2026-04-01' })],
+      [
+        inv(1, { sdi_identifier: '777', invoice_number: 'A/1' }),
+        inv(2, { sdi_identifier: '777', invoice_number: 'A/2' }),
+      ],
+    );
+    expect(result).toEqual(new Map([['L1', 2]]));
+  });
+
   it('numero con zeri e separatori diversi abbinato', () => {
     const result = matchInvoices(
       [liq('L1', { invoice_number: '0012-A' })],

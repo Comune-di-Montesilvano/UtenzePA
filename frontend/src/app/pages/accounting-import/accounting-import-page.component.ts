@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, OnInit, inject} from '@angular/core';
+import {ChangeDetectionStrategy, Component, OnDestroy, OnInit, inject} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {FormsModule} from '@angular/forms';
 import {MatButtonModule} from '@angular/material/button';
@@ -157,7 +157,7 @@ const STEP_LABELS: Record<string, Record<string, string>> = {
     </div>
   `,
 })
-export class AccountingImportPageComponent implements OnInit {
+export class AccountingImportPageComponent implements OnInit, OnDestroy {
   private service = inject(AccountingImportService);
   private state = inject(AccountingStateService);
   private toast = inject(ToastService);
@@ -169,8 +169,17 @@ export class AccountingImportPageComponent implements OnInit {
   stepRows: {label: string; count: number}[] = [];
   saving = false;
   running = false;
+  private poll: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
+    this.load();
+  }
+
+  ngOnDestroy(): void {
+    if (this.poll) clearTimeout(this.poll);
+  }
+
+  private load(): void {
     this.service.status().subscribe({
       next: s => this.apply(s),
       error: err => this.error('Stato non disponibile', err),
@@ -203,18 +212,36 @@ export class AccountingImportPageComponent implements OnInit {
   upload(): void {
     this.running = true;
     this.service.run(this.chosen).subscribe({
-      next: () => {
-        this.running = false;
+      next: s => {
         this.chosen = {};
-        this.toast.add({severity: 'success', summary: 'Contabilità caricata'});
-        this.ngOnInit();
+        this.apply(s);
+        this.waitForRun(s.lastRunAt);
       },
       error: err => {
         this.running = false;
         this.error('Caricamento non riuscito', err);
-        this.ngOnInit();
+        this.load();
       },
     });
+  }
+
+  // Il giro gira in background: lo stato si rilegge finché non finisce.
+  private waitForRun(previousRunAt: string | null): void {
+    this.poll = setTimeout(() => {
+      this.service.status().subscribe({
+        next: s => {
+          this.apply(s);
+          if (s.running) return this.waitForRun(previousRunAt);
+          this.running = false;
+          if (s.lastError && s.lastRunAt !== previousRunAt) {
+            this.toast.add({severity: 'error', summary: 'Caricamento non riuscito', detail: s.lastError});
+          } else {
+            this.toast.add({severity: 'success', summary: 'Contabilità caricata'});
+          }
+        },
+        error: () => this.waitForRun(previousRunAt),
+      });
+    }, 3000);
   }
 
   private patch(body: {enabled?: boolean; from_year?: number}): void {
@@ -236,7 +263,7 @@ export class AccountingImportPageComponent implements OnInit {
   private apply(s: AccountingImportStatus): void {
     this.status = s;
     this.fromYear = s.fromYear;
-    this.running = this.running || s.running;
+    this.running = s.running;
     this.stepRows = Object.entries(s.lastSummary?.steps ?? {}).flatMap(([step, counts]) =>
       Object.entries(counts).map(([key, count]) => ({label: STEP_LABELS[step]?.[key] ?? `${step} ${key}`, count})),
     );

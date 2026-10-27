@@ -98,6 +98,9 @@ describe('CommitmentApplierService', () => {
     ]);
     const result = await service.apply();
     expect(calls).toEqual([
+      // Fatture divise a mano anche su altri impegni: via tutte le loro quote a
+      // mano, così tornano all'automatico (non restano quote che non tornano).
+      expect.stringMatching(/^query DELETE s FROM \[9\]/),
       expect.stringMatching(/^query DELETE FROM invoice_commitment_shares \[9\]/),
       `update 9 {"deleted":true,"updated_by_user_id":${SYSTEM_USER_ID}}`,
     ]);

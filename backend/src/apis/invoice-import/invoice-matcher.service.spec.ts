@@ -191,6 +191,21 @@ describe('InvoiceMatcher', () => {
     expect(result.existingInvoiceId).toBe(401);
   });
 
+  it('fattura della contabilità con data diversa: trovata da IdentificativoSdI + numero', async () => {
+    const result = await matcher({
+      ...baseHandlers(),
+      m_invoice_by_sdi: (params) =>
+        params[1] === '99000000001'
+          ? [
+              { id: 501, invoice_id: 'EP 6/26' },
+              { id: 502, invoice_id: 'EP7-26' },
+            ]
+          : [],
+    }).match(invoice(), 46, '99000000001');
+    // Lotto SDI: più fatture con lo stesso identificativo, vale il numero.
+    expect(result.existingInvoiceId).toBe(502);
+  });
+
   it('utenza dal riferimento contratto se mappa una sola utenza', async () => {
     const result = await matcher({
       ...baseHandlers(),

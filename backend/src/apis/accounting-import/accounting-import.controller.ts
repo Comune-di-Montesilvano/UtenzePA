@@ -13,11 +13,7 @@ import { JwtAuthGuard } from '@core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@core/auth/guards/roles.guard';
 import { Roles } from '@core/auth/decorators/roles.decorator';
 import { UpdateAccountingImportDto } from './dto/update-accounting-import.dto';
-import {
-  AccountingImportService,
-  type AccountingImportStatus,
-  type AccountingImportSummary,
-} from './accounting-import.service';
+import { AccountingImportService, type AccountingImportStatus } from './accounting-import.service';
 import { AccountingStateService } from './accounting-state.service';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -66,8 +62,8 @@ export class AccountingImportController {
       },
     ),
   )
-  run(@UploadedFiles() files: UploadedCsv = {}): Promise<AccountingImportSummary> {
-    return this.service.run({
+  run(@UploadedFiles() files: UploadedCsv = {}): Promise<AccountingImportStatus> {
+    return this.service.start({
       chapters: files.chapters?.[0]?.buffer,
       commitments: files.commitments?.[0]?.buffer,
       liquidations: files.liquidations?.[0]?.buffer,

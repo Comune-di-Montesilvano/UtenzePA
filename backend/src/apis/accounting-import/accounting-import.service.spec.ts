@@ -118,6 +118,43 @@ describe('AccountingImportService.run', () => {
     expect(state).toEqual(expect.objectContaining({ last_error: 'boom' }));
   });
 
+  it('errore in un passo: il ricalcolo degli impegni parte lo stesso', async () => {
+    const steps: AccountingStep[] = [
+      {
+        name: 'chapters',
+        apply: async () => {
+          throw new Error('boom');
+        },
+      },
+    ];
+    const { service, reconcile } = setup(on(), steps);
+    await expect(
+      service.run({ chapters: Buffer.from('year;chapter;article\n2026;1;0\n') }),
+    ).rejects.toThrow(BadRequestException);
+    expect(reconcile.reconcileAll).toHaveBeenCalled();
+  });
+
+  it('start: risponde subito con running, il giro finisce in background', async () => {
+    let release: () => void = () => undefined;
+    const steps: AccountingStep[] = [
+      { name: 'slow', apply: () => new Promise((resolve) => (release = () => resolve({ n: 1 }))) },
+    ];
+    const { service, state } = setup(on(), steps);
+    const status = await service.start({ commitments: Buffer.from(COMMITMENTS) });
+    expect(status.running).toBe(true);
+    await new Promise((r) => setImmediate(r));
+    release();
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    expect((await service.getStatus()).running).toBe(false);
+    expect(state).toEqual(expect.objectContaining({ last_error: null }));
+  });
+
+  it('start: controlli prima di partire (400 sincrono)', async () => {
+    const { service } = setup(on());
+    await expect(service.start({})).rejects.toThrow('Nessun file caricato.');
+  });
+
   it('nessun file = 400', async () => {
     const { service } = setup(on());
     await expect(service.run({})).rejects.toThrow('Nessun file caricato.');

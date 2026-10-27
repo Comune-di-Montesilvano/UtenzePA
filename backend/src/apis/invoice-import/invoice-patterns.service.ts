@@ -525,7 +525,7 @@ export class InvoicePatternsService {
     } catch {
       return { matches: false, extracted: null, match: null, checks: [], occurrences: {} };
     }
-    const match = await this.matcher.match(extracted, row.supplier_id_fk!);
+    const match = await this.matcher.match(extracted, row.supplier_id_fk!, row.sdi_identifier);
     return {
       matches: patternMatches(xml, rules),
       extracted,

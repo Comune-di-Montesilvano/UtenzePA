@@ -5,8 +5,8 @@ import {environment} from '../../../environments/environment';
 import {AuthService} from '../../services/auth.service';
 
 // Import della contabilità acceso (GET /accounting-import/active, ogni ruolo):
-// letto una volta e tenuto in cache; con l'import acceso i dati importati
-// sono in sola lettura. Non estende AbstractService: header a mano.
+// tenuto in cache un minuto (un altro Admin può cambiare l'interruttore); con
+// l'import acceso i dati importati sono in sola lettura. Non estende AbstractService: header a mano.
 @Injectable({providedIn: 'root'})
 export class AccountingStateService {
   private http = inject(HttpClient);
@@ -27,8 +27,12 @@ export class AccountingStateService {
       }),
     ).pipe(
       map(r => r.active),
-      catchError(() => of(false)),
-      shareReplay(1),
+      // Errore = non in cache: il prossimo uso riprova (il backend blocca comunque).
+      catchError(() => {
+        this.active$ = this.load();
+        return of(false);
+      }),
+      shareReplay({bufferSize: 1, refCount: false, windowTime: 60_000}),
     );
   }
 }

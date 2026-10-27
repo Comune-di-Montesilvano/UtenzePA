@@ -48,10 +48,11 @@ export class AccountingImportService {
     return this.http.patch<AccountingImportStatus>(this.BASE_URL, patch, {headers: this.headers()});
   }
 
-  // Carica i file scelti e fa il giro completo: risponde a giro finito.
-  run(files: Partial<Record<AccKind, File>>): Observable<AccountingImportSummary> {
+  // Carica i file scelti e avvia il giro in background: risponde subito con lo
+  // stato (running), l'esito arriva da status().
+  run(files: Partial<Record<AccKind, File>>): Observable<AccountingImportStatus> {
     const body = new FormData();
     for (const [kind, file] of Object.entries(files)) if (file) body.append(kind, file, file.name);
-    return this.http.post<AccountingImportSummary>(this.BASE_URL, body, {headers: this.headers()});
+    return this.http.post<AccountingImportStatus>(this.BASE_URL, body, {headers: this.headers()});
   }
 }

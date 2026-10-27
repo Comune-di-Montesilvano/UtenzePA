@@ -103,6 +103,12 @@ const INVOICE_SQL =
 const INVOICE_CANDIDATES_SQL =
   '/* m_invoice_candidates */ SELECT id, invoice_id FROM invoices WHERE deleted = 0 AND supplier_id_fk = ? ' +
   'AND invoice_date = ? ORDER BY id';
+// Ultimo tentativo: IdentificativoSdI del messaggio (la data del registro della
+// contabilità può differire dall'XML). Con un lotto SDI più fatture hanno lo
+// stesso identificativo: vale il numero normalizzato.
+const INVOICE_BY_SDI_SQL =
+  '/* m_invoice_by_sdi */ SELECT id, invoice_id FROM invoices WHERE deleted = 0 AND supplier_id_fk = ? ' +
+  'AND sdi_identifier = ? ORDER BY id';
 
 // Ragione sociale confrontabile: senza maiuscole, punteggiatura, «con socio unico» e forma societaria finale.
 export function comparableName(name: string): string {
@@ -122,7 +128,11 @@ export function comparableName(name: string): string {
 export class InvoiceMatcher {
   constructor(private readonly dataSource: DataSource) {}
 
-  async match(extracted: ExtractedInvoice, supplierId: number): Promise<MatchResult> {
+  async match(
+    extracted: ExtractedInvoice,
+    supplierId: number,
+    sdiIdentifier: string | null = null,
+  ): Promise<MatchResult> {
     const issues: MatchIssue[] = [];
     const utilities = new Map<string, UtilityRow | null>();
     const findUtility = async (code: string): Promise<UtilityRow | null> => {
@@ -304,6 +314,13 @@ export class InvoiceMatcher {
       );
       const number = normalizeInvoiceNumber(extracted.number);
       existing = candidates.find((c) => normalizeInvoiceNumber(c.invoice_id) === number);
+      if (!existing && sdiIdentifier) {
+        const bySdi: { id: number; invoice_id: string }[] = await this.dataSource.query(
+          INVOICE_BY_SDI_SQL,
+          [supplierId, sdiIdentifier],
+        );
+        existing = bySdi.find((c) => normalizeInvoiceNumber(c.invoice_id) === number);
+      }
     }
 
     return {

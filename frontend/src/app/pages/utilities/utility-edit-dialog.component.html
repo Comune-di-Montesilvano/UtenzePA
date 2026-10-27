@@ -75,7 +75,7 @@
               placeholder="Cerca per codice, descrizione o PDC..."
               [options]="budgetChapterOptions"
               formControlName="budget_chapter_code_fk"
-              [createLabel]="canEdit ? 'Nuovo capitolo' : null"
+              [createLabel]="canEdit && !accountingActive ? 'Nuovo capitolo' : null"
               (create)="newChapter()"
               [errorMessage]="null">
             </app-filterable-select>

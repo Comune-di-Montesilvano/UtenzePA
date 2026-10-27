@@ -40,7 +40,7 @@
             <app-filterable-select style="flex: 1;" label="Capitolo *" placeholder="Cerca capitolo..." [options]="chapterOptions"
                                    formControlName="budget_chapter_id_fk"
                                    [errorMessage]="form.controls.budget_chapter_id_fk.invalid && form.controls.budget_chapter_id_fk.touched ? 'Capitolo obbligatorio' : null"
-                                   [createLabel]="canEdit ? 'Nuovo capitolo' : null" (create)="newChapter()"></app-filterable-select>
+                                   [createLabel]="canEdit && !accountingActive ? 'Nuovo capitolo' : null" (create)="newChapter()"></app-filterable-select>
             @if (form.controls.budget_chapter_id_fk.value) {
               <button mat-icon-button type="button" aria-label="Apri scheda capitolo" matTooltip="Apri scheda capitolo"
                       style="margin-top: 4px;" (click)="openChapter()">

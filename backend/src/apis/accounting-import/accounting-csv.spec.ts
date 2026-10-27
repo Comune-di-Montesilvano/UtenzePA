@@ -80,6 +80,19 @@ describe('parseAccountingCsv', () => {
     expect(issues).toEqual([{ line: 2, message: expect.stringContaining('invoice_date') }]);
   });
 
+  it('descrizione lunga troncata, altri testi troppo lunghi = issue', () => {
+    const long = 'x'.repeat(300);
+    const { rows, issues } = parseAccountingCsv(
+      'commitments',
+      'commitment_year;commitment_num;commitment_sub;fiscal_year;chapter;article;amount;description;cig\n' +
+        `2026;1;1;2026;100;0;10;${long};\n` +
+        `2026;2;1;2026;100;0;10;;${'C'.repeat(21)}\n`,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].description).toHaveLength(255);
+    expect(issues).toEqual([{ line: 3, message: 'cig più lungo di 20 caratteri' }]);
+  });
+
   it('righe vuote ignorate', () => {
     const { rows, issues } = parseAccountingCsv('chapters', 'year;chapter;article\n\n2026;1;0\n\n');
     expect(issues).toEqual([]);

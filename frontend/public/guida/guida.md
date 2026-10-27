@@ -285,7 +285,7 @@ In **Impostazioni → Contabilità** (visibile solo agli amministratori) UtenzeP
 
 1. Accendi l'interruttore e indica **Importa dall'anno** (es. 2023): le righe degli anni precedenti vengono scartate.
 2. Scegli i file **Capitoli**, **Impegni** e **Liquidazioni** estratti dalla contabilità (se ne può caricare anche uno solo: sostituisce quello caricato prima) e premi **Carica**.
-3. A fine caricamento la pagina mostra le righe caricate per file, le righe scartate con riga e motivo, e cosa è cambiato: capitoli ed esercizi, impegni, fatture create, identificativi SDI completati, fatture con le quote della ragioneria, impegni collegati a contratti e capitoli delle utenze aggiornati.
+3. Il caricamento continua in background (il primo può durare qualche minuto, puoi lasciare la pagina); a fine caricamento la pagina mostra le righe caricate per file, le righe scartate con riga e motivo, e cosa è cambiato: capitoli ed esercizi, impegni, fatture create, identificativi SDI completati, fatture con le quote della ragioneria, impegni collegati a contratti e capitoli delle utenze aggiornati.
 
 Cosa fa il caricamento:
 
