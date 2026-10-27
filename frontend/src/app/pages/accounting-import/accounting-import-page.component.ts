@@ -29,7 +29,8 @@ const FILES: {kind: AccKind; label: string; columns: string}[] = [
     label: 'Liquidazioni',
     columns:
       'liquidation_key;commitment_year;commitment_num;commitment_sub;fiscal_year;sdi_identifier;invoice_number;' +
-      'invoice_date;invoice_total;invoice_cig;supplier_vat;amount;cancelled',
+      'invoice_date;invoice_total;invoice_cig;supplier_vat;amount;cancelled' +
+      ' (facoltative: liquidation_number;mandate_number;mandate_date;paid_date;paid_amount)',
   },
   {
     kind: 'credit_notes',

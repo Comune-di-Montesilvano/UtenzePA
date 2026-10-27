@@ -103,14 +103,15 @@ Il Comune di Montesilvano non ha sezioni catastali: il campo è superfluo.
 - Spento: nasconde la colonna «Sezione» nei dati catastali della scheda immobile e negli export; la colonna del DB resta e i valori non si toccano.
 - Letto all'avvio come il branding (`provideAppInitializer` con fallback).
 
-## Da verificare
+## Note di credito (risolto in v1.53.0)
 
 - **Note di credito nel capitolo** (segnalato dall'utente il 27/10, verificato sul DB Tinn lo stesso giorno):
   - In Tinn una nota di credito non ha mai liquidazioni, reversali o accertamenti: non tocca il capitolo. Si abbina a una o più fatture (`GFRIPNC`, nota → fattura con importo). La fattura stornata per intero non si liquida mai (192 dal 2024), quella stornata in parte si liquida al netto (31). Spesa del capitolo = liquidazioni = netto.
   - UtenzePA oggi: le fatture stornate in parte che ha (6) hanno quote ACCOUNTING al netto, giuste, e le loro note non ci sono; nessuna delle 192 stornate per intero è in UtenzePA.
   - **Gap 1**: 12 note di credito (−709 €, quasi tutte A2A come TD01 negative) hanno una quota AUTO negativa e riducono la spesa del capitolo, mentre in Tinn non sono abbinate a nulla e non pesano sul capitolo.
   - **Gap 2 (futuro)**: con l'import PEC arriveranno insieme fattura e nota. Stornata in parte: fattura con quote ACCOUNTING al netto + nota con quota AUTO negativa = riduzione contata due volte. Stornata per intero: fattura con quota AUTO al lordo e stato «Da liquidare» per sempre.
-  - Proposta: esportare gli abbinamenti di `GFRIPNC` nel formato neutro; negli anni della contabilità nessuna quota AUTO sui documenti con totale negativo; nota abbinata e fattura stornata per intero senza quote; stati del pagamento «Compensata» (nota) e «Stornata» (fattura).
+  - Soluzione (v1.53.0, PR #344): `note_credito.csv` facoltativo dal container `tinn` (abbinamenti di `GFRIPNC`) in `acc_credit_notes`. Stati del pagamento `CANCELLED` (Stornata: nessuna liquidazione e note abbinate che ne annullano il totale), `COMPENSATED` (nota abbinata) e `TO_COMPENSATE` (nota non abbinata). Su questi stati nessuna quota AUTO e niente spesa del capitolo (`NOT_OFFSET_SQL` in `CHAPTER_ITEMS`); spesa di utenze e immobili invariata (dalle righe).
+  - Esito sul DB locale: 50 note «Da compensare», 0 quote AUTO negative (prima 12, −708,70 €). Nessuna «Stornata» o «Compensata»: le note in UtenzePA non sono abbinate in Tinn. Gap 2 coperto quando l'import PEC porterà fattura e nota insieme.
 
 ## Per ogni PR
 
