@@ -16,7 +16,7 @@ import type { Response } from 'express';
 import { contentDisposition } from '@apis/attachments/attachment-file-policy';
 import { InvoiceImportService } from '@apis/invoice-import/invoice-import.service';
 import { SdiDocumentQueryDto } from './dto/sdi-document-query.dto';
-import { InvoicesService } from './invoice.service';
+import { InvoiceListRow, InvoicesService } from './invoice.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { SearchInvoiceDto } from './dto/search-invoice.dto';
@@ -51,6 +51,13 @@ export class InvoicesController {
     @CurrentUser() user: ICurrentUser,
   ): Promise<Invoice[]> {
     return (await this.service.findAll(filters)).map((i) => maskInvoice(i, user?.role));
+  }
+
+  // Elenco leggero (senza righe né quote): pagina Fatture e tab Fatture delle
+  // schede. Del fornitore solo il nome, nulla da oscurare.
+  @Get('/list')
+  list(@Query() filters: SearchInvoiceDto): Promise<InvoiceListRow[]> {
+    return this.service.findList(filters);
   }
 
   @Get('/monthly-costs')

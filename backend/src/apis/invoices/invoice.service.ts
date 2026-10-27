@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository, SelectQueryBuilder } from 'typeorm';
 import { Invoice } from './entity/invoice.entity';
 import { NOT_REJECTED_SQL, SDI_STATUS_NONE } from './sdi-status';
 import { InvoiceLine } from './entity/invoice-line.entity';
@@ -46,6 +46,34 @@ const sharesKey = (shares: ShareRow[]): string =>
       .map((s) => [Number(s.commitment_id_fk), Number(s.fiscal_year), Number(s.amount).toFixed(2)])
       .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
   );
+
+// Colonne della testata nell'elenco fatture (findList).
+const LIST_FIELDS = [
+  'id',
+  'invoice_id',
+  'invoice_date',
+  'protocol_number',
+  'net_amount_excl_vat',
+  'total_amount',
+  'supplier_id_fk',
+  'last_invoice_arrears',
+  'notes_on_invoices',
+  'update_date',
+  'source',
+  'sdi_identifier',
+  'sdi_status',
+  'sdi_outcome_discarded',
+  'contratto_id_fk',
+] as const;
+
+export type InvoiceListRow = Invoice & {
+  utilities_count: number;
+  lines_total: number | null;
+  period_start: string | null;
+  period_end: string | null;
+  chapters: string;
+  supply_codes: string;
+};
 
 const OTHER_CONTRACT_SHARES =
   "Le quote d'impegno sono di un altro contratto: aggiornale nel tab Impegni";
@@ -141,7 +169,67 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     qb.leftJoinAndSelect('Invoice.commitmentShares', 'commitmentShares');
     qb.leftJoinAndSelect('commitmentShares.commitment', 'shareCommitment');
     qb.leftJoinAndSelect('shareCommitment.budgetChapter', 'commitmentChapter');
+    this.applySearch(qb, filters);
+    return qb.getMany();
+  }
 
+  // Elenco fatture: testata, contratto e nome del fornitore, senza righe né
+  // quote (con migliaia di fatture la risposta completa pesava decine di MB).
+  // Capitoli, utenze, totale e periodo delle righe li calcola il server; la
+  // scheda ricarica la fattura completa con findOne.
+  async findList(filters?: Partial<SearchInvoiceDto>): Promise<InvoiceListRow[]> {
+    const party = (alias: string) =>
+      ['id', 'type', 'company_name', 'last_name', 'first_name'].map((f) => `${alias}.${f}`);
+    const qb = this.repo.createQueryBuilder('Invoice');
+    qb.leftJoin('Invoice.contratto', 'contratto', 'contratto.deleted = 0');
+    qb.leftJoin('contratto.supplier', 'supplier', 'supplier.deleted = 0');
+    qb.leftJoin('Invoice.supplier', 'invoiceSupplier');
+    qb.select([
+      ...LIST_FIELDS.map((f) => `Invoice.${f}`),
+      'contratto.id',
+      'contratto.cig_contract',
+      ...party('supplier'),
+      ...party('invoiceSupplier'),
+    ]);
+    this.applySearch(qb, filters);
+    const invoices = await qb.getMany();
+    if (!invoices.length) return [];
+    const ids = invoices.map((i) => i.id);
+    const lines: Record<string, unknown>[] = await this.dataSource.query(
+      `SELECT invoice_id_fk AS id, COUNT(DISTINCT utility_id_fk) AS utilities, SUM(amount) AS total,
+              MIN(period_start) AS period_start, MAX(period_end) AS period_end,
+              GROUP_CONCAT(DISTINCT supply_code SEPARATOR ' ') AS supply_codes
+       FROM invoice_lines WHERE invoice_id_fk IN (?) GROUP BY invoice_id_fk`,
+      [ids],
+    );
+    const chapters: Record<string, unknown>[] = await this.dataSource.query(
+      `SELECT s.invoice_id_fk AS id,
+              GROUP_CONCAT(DISTINCT CONCAT(c.chapter_code, '/', COALESCE(c.article, 0))
+                           ORDER BY c.chapter_code, c.article SEPARATOR ', ') AS chapters
+       FROM invoice_commitment_shares s
+       JOIN budget_commitments b ON b.id = s.commitment_id_fk
+       JOIN budget_chapters c ON c.id = b.budget_chapter_id_fk
+       WHERE s.invoice_id_fk IN (?) GROUP BY s.invoice_id_fk`,
+      [ids],
+    );
+    const lineById = new Map(lines.map((r) => [Number(r.id), r]));
+    const chaptersById = new Map(chapters.map((r) => [Number(r.id), String(r.chapters ?? '')]));
+    return invoices.map((inv) => {
+      const l = lineById.get(inv.id);
+      return {
+        ...inv,
+        utilities_count: Number(l?.utilities ?? 0),
+        lines_total: l?.total == null ? null : Number(l.total),
+        period_start: l?.period_start == null ? null : dbDay(l.period_start),
+        period_end: l?.period_end == null ? null : dbDay(l.period_end),
+        chapters: chaptersById.get(inv.id) ?? '',
+        // Per la ricerca libera dell'elenco (un POD trova le sue fatture).
+        supply_codes: String(l?.supply_codes ?? ''),
+      };
+    });
+  }
+
+  private applySearch(qb: SelectQueryBuilder<Invoice>, filters?: Partial<SearchInvoiceDto>): void {
     if (filters?.deleted !== undefined && filters.deleted !== null) {
       const deletedValue = filters.deleted.toString();
       qb.where('Invoice.deleted = :deleted_filter', {
@@ -202,7 +290,6 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     const orderByField = filters?.orderBy || 'id';
     const orderDirection = filters?.orderDirection || 'ASC';
     qb.orderBy(`Invoice.${orderByField}`, orderDirection.toUpperCase() as 'ASC' | 'DESC');
-    return qb.getMany();
   }
 
   async create(dto: CreateInvoiceDto, userId?: number): Promise<Invoice> {

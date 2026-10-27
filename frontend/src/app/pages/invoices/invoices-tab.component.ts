@@ -34,14 +34,11 @@ const isoOf = (v: Date | string | null | undefined): string =>
 const totalOf = (inv: Invoice): number =>
   inv.total_amount !== null && inv.total_amount !== undefined
     ? Number(inv.total_amount)
-    : Math.round((inv.lines ?? []).reduce((s, l) => s + Number(l.amount), 0) * 100) / 100;
+    : Math.round(Number(inv.lines_total ?? 0) * 100) / 100;
 
-// Periodo della fattura: dal primo inizio all'ultima fine delle righe.
-const periodOf = (inv: Invoice): string => {
-  const starts = (inv.lines ?? []).map(l => l.period_start).filter((d): d is string => !!d).sort();
-  const ends = (inv.lines ?? []).map(l => l.period_end).filter((d): d is string => !!d).sort();
-  return starts.length || ends.length ? `${dateIt(starts[0])} – ${dateIt(ends[ends.length - 1])}` : '';
-};
+// Periodo della fattura: dal primo inizio all'ultima fine delle righe (dall'elenco leggero).
+const periodOf = (inv: Invoice): string =>
+  inv.period_start || inv.period_end ? `${dateIt(inv.period_start)} – ${dateIt(inv.period_end)}` : '';
 
 // Tab "Fatture" per contratto di fornitura, fornitore o contratti di un'utenza: una riga
 // per fattura (anche senza righe sulle utenze, es. canoni) e totale per anno della fattura.
@@ -125,8 +122,8 @@ export class InvoicesTabComponent implements OnChanges {
 
   load(): void {
     const requests: Observable<Invoice[]>[] = this.supplierId
-      ? [this.invoices.search({supplier_id_fk: this.supplierId} as never) as Observable<Invoice[]>]
-      : this.contractIds.map(id => this.invoices.search({contratto_id_fk: id} as never) as Observable<Invoice[]>);
+      ? [this.invoices.list({supplier_id_fk: this.supplierId})]
+      : this.contractIds.map(id => this.invoices.list({contratto_id_fk: id}));
     (requests.length ? forkJoin(requests) : of([] as Invoice[][])).subscribe(lists => {
       const byId = new Map<number, Invoice>();
       lists.flat().forEach(inv => byId.set(inv.id, inv));

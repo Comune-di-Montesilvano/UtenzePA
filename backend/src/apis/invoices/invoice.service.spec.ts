@@ -12,7 +12,7 @@ describe('InvoicesService', () => {
   let service: InvoicesService;
   let repo: { createQueryBuilder: jest.Mock; findOne: jest.Mock };
   let contractRepo: { findOne: jest.Mock };
-  let dataSource: { transaction: jest.Mock };
+  let dataSource: { transaction: jest.Mock; query?: jest.Mock };
   let linker: { follow: jest.Mock; unlink: jest.Mock };
   let recalc: { recalcUtility: jest.Mock };
   let reconcile: { reconcileSafe: jest.Mock };
@@ -634,6 +634,90 @@ describe('InvoicesService', () => {
         expect.stringContaining('sdi_status'),
         expect.objectContaining({ sdi_status: 'NONE' }),
       );
+    });
+  });
+
+  describe('findList: elenco leggero', () => {
+    const qbFor = (rows: Partial<Invoice>[]) => {
+      const qb = {
+        leftJoin: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue(rows),
+      };
+      repo.createQueryBuilder.mockReturnValue(qb);
+      return qb;
+    };
+
+    it('niente righe né quote nella risposta: solo testata, contratto e fornitore', async () => {
+      const qb = qbFor([]);
+      await service.findList({});
+      expect(qb.leftJoinAndSelect).not.toHaveBeenCalled();
+      const joins = qb.leftJoin.mock.calls.map(([path]) => path);
+      expect(joins).toEqual(['Invoice.contratto', 'contratto.supplier', 'Invoice.supplier']);
+      const fields = qb.select.mock.calls[0][0] as string[];
+      expect(fields).toEqual(expect.arrayContaining(['Invoice.id', 'contratto.cig_contract', 'supplier.company_name']));
+      // Del fornitore solo il nome: niente CF, P.IVA o telefono (oscurati ai Lettori).
+      const partyFields = fields.filter((f) => /^(supplier|invoiceSupplier)\./.test(f));
+      expect(partyFields.map((f) => f.split('.')[1]).sort()).toEqual(
+        ['company_name', 'first_name', 'id', 'last_name', 'type', 'company_name', 'first_name', 'id', 'last_name', 'type'].sort(),
+      );
+    });
+
+    it('stessi filtri di findAll', async () => {
+      const qb = qbFor([]);
+      await service.findList({ sdi_status: SdiStatus.REJECTED, supplier_id_fk: 7 });
+      expect(qb.andWhere).toHaveBeenCalledWith('Invoice.sdi_status = :sdiStatus', { sdiStatus: 'REJECTED' });
+      expect(qb.andWhere).toHaveBeenCalledWith('Invoice.supplier_id_fk = :supplierId', { supplierId: 7 });
+    });
+
+    it('capitoli, utenze, totale e periodo delle righe calcolati dal server', async () => {
+      qbFor([{ id: 1 }, { id: 2 }] as never);
+      dataSource.query = jest
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            id: 1,
+            utilities: '2',
+            total: '30.50',
+            period_start: '2025-01-01',
+            period_end: '2025-02-28',
+            supply_codes: 'IT001E1 IT001E2',
+          },
+        ])
+        .mockResolvedValueOnce([{ id: 1, chapters: '13506/0, 13506/2' }]);
+      const rows = await service.findList({});
+      expect(rows).toEqual([
+        expect.objectContaining({
+          id: 1,
+          utilities_count: 2,
+          lines_total: 30.5,
+          period_start: '2025-01-01',
+          period_end: '2025-02-28',
+          chapters: '13506/0, 13506/2',
+          supply_codes: 'IT001E1 IT001E2',
+        }),
+        expect.objectContaining({
+          id: 2,
+          utilities_count: 0,
+          lines_total: null,
+          period_start: null,
+          period_end: null,
+          chapters: '',
+          supply_codes: '',
+        }),
+      ]);
+      expect(dataSource.query.mock.calls[0][1]).toEqual([[1, 2]]);
+    });
+
+    it('nessuna fattura: nessuna query sulle righe', async () => {
+      qbFor([]);
+      dataSource.query = jest.fn();
+      expect(await service.findList({})).toEqual([]);
+      expect(dataSource.query).not.toHaveBeenCalled();
     });
   });
 });
