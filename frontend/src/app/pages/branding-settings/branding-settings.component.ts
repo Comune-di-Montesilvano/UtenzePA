@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { LocationMapComponent } from '../../core/components/location-map.component';
 import { BrandingService } from '../../services/branding.service';
 import { AuthService } from '../../services/auth.service';
@@ -18,6 +19,7 @@ import { ToastService } from '../../core/services/toast.service';
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
+    MatCheckboxModule,
     LocationMapComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -39,6 +41,7 @@ export class BrandingSettingsComponent {
     entity_type: [this.current.entity_type, Validators.required],
     default_latitude: [this.current.default_latitude],
     default_longitude: [this.current.default_longitude],
+    cadastral_sections: [this.current.cadastral_sections !== false],
   });
 
   constructor() {
@@ -86,6 +89,7 @@ export class BrandingSettingsComponent {
         entity_type: raw.entity_type ?? undefined,
         default_latitude: raw.default_latitude ?? undefined,
         default_longitude: raw.default_longitude ?? undefined,
+        cadastral_sections: raw.cadastral_sections ?? undefined,
         logo: this.logoPreview !== this.current.logo ? (this.logoPreview ?? undefined) : undefined,
         removeLogo: this.logoPreview === null && this.current.logo !== null,
         favicon:

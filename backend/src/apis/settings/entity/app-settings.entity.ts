@@ -31,6 +31,11 @@ export class AppSettings {
   @Column({ length: 50, nullable: true })
   favicon_mime: string | null;
 
+  // false = il catasto dell'ente non ha sezioni: campo nascosto in scheda
+  // immobile, elenco ed export (la colonna delle unità resta).
+  @Column({ type: 'boolean', default: true })
+  cadastral_sections: boolean;
+
   @UpdateDateColumn({ type: 'timestamp' })
   update_date: Date;
 

@@ -60,6 +60,7 @@ export class SettingsService {
     if (dto.entity_type !== undefined) existing.entity_type = dto.entity_type;
     if (dto.default_latitude !== undefined) existing.default_latitude = dto.default_latitude;
     if (dto.default_longitude !== undefined) existing.default_longitude = dto.default_longitude;
+    if (dto.cadastral_sections !== undefined) existing.cadastral_sections = dto.cadastral_sections;
 
     if (dto.removeLogo) {
       existing.logo = null;

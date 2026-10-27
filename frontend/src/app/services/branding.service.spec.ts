@@ -14,6 +14,7 @@ const SAMPLE: Branding = {
   logo_mime: null,
   favicon: null,
   favicon_mime: null,
+  cadastral_sections: true,
 };
 
 describe('BrandingService', () => {

@@ -18,6 +18,10 @@
     (positionSelected)="onPositionSelected($event)">
   </app-location-map>
 
+  <h3>Catasto</h3>
+  <mat-checkbox formControlName="cadastral_sections">Il catasto dell'ente ha le sezioni</mat-checkbox>
+  <p class="sheet-hint">Se non le ha, il campo «Sezione» delle unità catastali non compare nella scheda immobile, nell'elenco e nell'export.</p>
+
   <h3>Logo</h3>
   @if (logoPreview) {
     <img [src]="logoPreview" alt="Logo ente" style="max-height:80px; display:block; margin-bottom:8px;">

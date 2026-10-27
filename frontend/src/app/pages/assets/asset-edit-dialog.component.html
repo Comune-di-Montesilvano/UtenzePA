@@ -176,7 +176,9 @@
               <table class="units-table">
                 <thead>
                   <tr>
-                    <th class="col-short">Sezione</th>
+                    @if (withSection) {
+                      <th class="col-short">Sezione</th>
+                    }
                     <th class="col-short">Foglio *</th>
                     <th class="col-short">Particella *</th>
                     <th class="col-short">Sub.</th>
@@ -188,11 +190,13 @@
                 <tbody>
                   @for (u of units.controls; track u; let i = $index) {
                     <tr [formGroupName]="i">
-                      <td class="col-short">
-                        <mat-form-field subscriptSizing="dynamic">
-                          <input matInput formControlName="section" aria-label="Sezione">
-                        </mat-form-field>
-                      </td>
+                      @if (withSection) {
+                        <td class="col-short">
+                          <mat-form-field subscriptSizing="dynamic">
+                            <input matInput formControlName="section" aria-label="Sezione">
+                          </mat-form-field>
+                        </td>
+                      }
                       <td class="col-short">
                         <mat-form-field subscriptSizing="dynamic">
                           <input matInput formControlName="sheet" aria-label="Foglio">

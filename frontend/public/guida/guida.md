@@ -254,7 +254,7 @@ I tipi di atto si modificano da **Impostazioni → Tipi di atto** (solo amminist
 
 Il tab **Catasto e patrimonio** della scheda immobile raccoglie i dati catastali e quelli chiesti dal censimento MEF «Patrimonio della PA».
 
-1. **Unità catastali**: un immobile può avere più unità (piani, subalterni). Premi **Aggiungi unità** e compila almeno **Foglio** e **Particella**; sezione, subalterno, categoria e rendita sono facoltativi. Le categorie sono quelle del quadro dell'Agenzia delle Entrate (da A/1 a F/7, comprese D/8 e E/7). Il cestino rimuove un'unità dopo la conferma. Le modifiche valgono al **Salva**.
+1. **Unità catastali**: un immobile può avere più unità (piani, subalterni). Premi **Aggiungi unità** e compila almeno **Foglio** e **Particella**; sezione, subalterno, categoria e rendita sono facoltativi. Se il catasto dell'ente non ha sezioni, un amministratore può nascondere il campo **Sezione** in **Impostazioni → Branding** togliendo la spunta «Il catasto dell'ente ha le sezioni»: la colonna sparisce dalla scheda, dall'elenco e dall'export (i dati già salvati restano). Le categorie sono quelle del quadro dell'Agenzia delle Entrate (da A/1 a F/7, comprese D/8 e E/7). Il cestino rimuove un'unità dopo la conferma. Le modifiche valgono al **Salva**.
 2. **Consistenza**: superficie, superficie di riferimento, aree pertinenziali, cubatura ed epoca di costruzione.
 3. **Patrimonio**: natura giuridica, vincolo culturale o paesaggistico, federalismo demaniale e bene confiscato (Sì, No o Non noto).
 4. **Per il MEF** (si apre con un clic) mostra i dati calcolati dall'applicazione, aggiornati a ogni salvataggio:
