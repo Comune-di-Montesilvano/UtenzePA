@@ -1,7 +1,7 @@
 # -------------------
 # Stage 1: install & build
 # -------------------
-FROM node:24 AS base
+FROM node:25 AS base
 
 WORKDIR /app
 
