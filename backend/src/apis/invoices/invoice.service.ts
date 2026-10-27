@@ -68,6 +68,19 @@ const LIST_FIELDS = [
   'paid_on',
 ] as const;
 
+const PARTY_FIELDS = ['id', 'type', 'company_name', 'last_name', 'first_name'] as const;
+
+// Aggregati delle righe e capitoli dalle quote, per fattura (elenco leggero).
+const LINES_AGG_SQL =
+  'SELECT invoice_id_fk AS id, COUNT(DISTINCT utility_id_fk) AS utilities, SUM(amount) AS total, ' +
+  'MIN(period_start) AS period_start, MAX(period_end) AS period_end, ' +
+  "GROUP_CONCAT(DISTINCT supply_code SEPARATOR ' ') AS supply_codes FROM invoice_lines GROUP BY invoice_id_fk";
+const CHAPTERS_AGG_SQL =
+  "SELECT s.invoice_id_fk AS id, GROUP_CONCAT(DISTINCT CONCAT(c.chapter_code, '/', COALESCE(c.article, 0)) " +
+  "ORDER BY c.chapter_code, c.article SEPARATOR ', ') AS chapters FROM invoice_commitment_shares s " +
+  'JOIN budget_commitments b ON b.id = s.commitment_id_fk ' +
+  'JOIN budget_chapters c ON c.id = b.budget_chapter_id_fk GROUP BY s.invoice_id_fk';
+
 export interface InvoicePayment {
   liquidation_number: string | null;
   commitment: string;
@@ -214,54 +227,61 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
   // Capitoli, utenze, totale e periodo delle righe li calcola il server; la
   // scheda ricarica la fattura completa con findOne.
   async findList(filters?: Partial<SearchInvoiceDto>): Promise<InvoiceListRow[]> {
-    const party = (alias: string) =>
-      ['id', 'type', 'company_name', 'last_name', 'first_name'].map((f) => `${alias}.${f}`);
+    const party = (alias: string) => PARTY_FIELDS.map((f) => `${alias}.${f} AS ${alias}_${f}`);
+    // Una sola query con righe grezze: le entità TypeORM di migliaia di fatture
+    // costavano più della query stessa.
     const qb = this.repo.createQueryBuilder('Invoice');
     qb.leftJoin('Invoice.contratto', 'contratto', 'contratto.deleted = 0');
     qb.leftJoin('contratto.supplier', 'supplier', 'supplier.deleted = 0');
     qb.leftJoin('Invoice.supplier', 'invoiceSupplier');
+    qb.leftJoin(`(${LINES_AGG_SQL})`, 'agg', 'agg.id = Invoice.id');
+    qb.leftJoin(`(${CHAPTERS_AGG_SQL})`, 'chap', 'chap.id = Invoice.id');
     qb.select([
-      ...LIST_FIELDS.map((f) => `Invoice.${f}`),
-      'contratto.id',
-      'contratto.cig_contract',
+      ...LIST_FIELDS.map((f) => `Invoice.${f} AS ${f}`),
+      'contratto.id AS contratto_id',
+      'contratto.cig_contract AS contratto_cig_contract',
       ...party('supplier'),
       ...party('invoiceSupplier'),
+      'agg.utilities AS agg_utilities',
+      'agg.total AS agg_total',
+      'agg.period_start AS agg_period_start',
+      'agg.period_end AS agg_period_end',
+      'agg.supply_codes AS agg_supply_codes',
+      'chap.chapters AS chap_chapters',
     ]);
     this.applySearch(qb, filters);
-    const invoices = await qb.getMany();
-    if (!invoices.length) return [];
-    const ids = invoices.map((i) => i.id);
-    const lines: Record<string, unknown>[] = await this.dataSource.query(
-      `SELECT invoice_id_fk AS id, COUNT(DISTINCT utility_id_fk) AS utilities, SUM(amount) AS total,
-              MIN(period_start) AS period_start, MAX(period_end) AS period_end,
-              GROUP_CONCAT(DISTINCT supply_code SEPARATOR ' ') AS supply_codes
-       FROM invoice_lines WHERE invoice_id_fk IN (?) GROUP BY invoice_id_fk`,
-      [ids],
-    );
-    const chapters: Record<string, unknown>[] = await this.dataSource.query(
-      `SELECT s.invoice_id_fk AS id,
-              GROUP_CONCAT(DISTINCT CONCAT(c.chapter_code, '/', COALESCE(c.article, 0))
-                           ORDER BY c.chapter_code, c.article SEPARATOR ', ') AS chapters
-       FROM invoice_commitment_shares s
-       JOIN budget_commitments b ON b.id = s.commitment_id_fk
-       JOIN budget_chapters c ON c.id = b.budget_chapter_id_fk
-       WHERE s.invoice_id_fk IN (?) GROUP BY s.invoice_id_fk`,
-      [ids],
-    );
-    const lineById = new Map(lines.map((r) => [Number(r.id), r]));
-    const chaptersById = new Map(chapters.map((r) => [Number(r.id), String(r.chapters ?? '')]));
-    return invoices.map((inv) => {
-      const l = lineById.get(inv.id);
+    const rows: Record<string, unknown>[] = await qb.getRawMany();
+    return rows.map((r) => {
+      const pick = (alias: string) =>
+        r[`${alias}_id`] == null
+          ? null
+          : Object.fromEntries(PARTY_FIELDS.map((f) => [f, r[`${alias}_${f}`]]));
+      const invoice = Object.fromEntries(LIST_FIELDS.map((f) => [f, r[f]])) as Record<
+        string,
+        unknown
+      >;
       return {
-        ...inv,
-        utilities_count: Number(l?.utilities ?? 0),
-        lines_total: l?.total == null ? null : Number(l.total),
-        period_start: l?.period_start == null ? null : dbDay(l.period_start),
-        period_end: l?.period_end == null ? null : dbDay(l.period_end),
-        chapters: chaptersById.get(inv.id) ?? '',
+        ...invoice,
+        invoice_date: dbDay(r.invoice_date),
+        paid_on: dbDay(r.paid_on),
+        sdi_outcome_discarded: !!Number(r.sdi_outcome_discarded),
+        contratto:
+          r.contratto_id == null
+            ? null
+            : {
+                id: Number(r.contratto_id),
+                cig_contract: r.contratto_cig_contract,
+                supplier: pick('supplier'),
+              },
+        supplier: pick('invoiceSupplier'),
+        utilities_count: Number(r.agg_utilities ?? 0),
+        lines_total: r.agg_total == null ? null : Number(r.agg_total),
+        period_start: dbDay(r.agg_period_start),
+        period_end: dbDay(r.agg_period_end),
+        chapters: String(r.chap_chapters ?? ''),
         // Per la ricerca libera dell'elenco (un POD trova le sue fatture).
-        supply_codes: String(l?.supply_codes ?? ''),
-      };
+        supply_codes: String(r.agg_supply_codes ?? ''),
+      } as unknown as InvoiceListRow;
     });
   }
 

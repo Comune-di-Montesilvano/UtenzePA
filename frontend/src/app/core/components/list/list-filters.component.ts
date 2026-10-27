@@ -7,7 +7,7 @@ import {MatSelectModule} from '@angular/material/select';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatChipsModule} from '@angular/material/chips';
-import {Observable, Subject, catchError, debounceTime, of} from 'rxjs';
+import {Observable, Subject, catchError, debounceTime, forkJoin, map, of, shareReplay, tap} from 'rxjs';
 import {FilterableSelectComponent} from '../filterable-select.component';
 import type {TOption} from '../../types/option.interface';
 import {BOOL_OPTIONS} from './filter-def';
@@ -45,7 +45,7 @@ const LONG_LIST = 12;
           </mat-form-field>
         }
       }
-      <button mat-stroked-button type="button" class="lf-adv" (click)="openAdvanced()">
+      <button mat-stroked-button type="button" class="lf-adv" (click)="openAdvanced()" (mouseenter)="prefetchAdvanced()" (focus)="prefetchAdvanced()">
         <mat-icon>filter_list</mat-icon> Filtri avanzati{{ advancedCount ? ' (' + advancedCount + ')' : '' }}
       </button>
     </div>
@@ -97,6 +97,8 @@ export class ListFiltersComponent implements OnInit, OnChanges {
   chips: FilterChip[] = [];
   advancedCount = 0;
   inlineDefs: FilterDef[] = [];
+  // Opzioni caricate o in caricamento, per chiave del filtro.
+  private loading = new Map<string, Observable<void>>();
 
   ngOnInit(): void {
     this.text$.pipe(debounceTime(200)).subscribe(t => this.quickSearch.emit(t));
@@ -105,24 +107,50 @@ export class ListFiltersComponent implements OnInit, OnChanges {
       if (d.type === 'bool') this.options[d.key] = BOOL_OPTIONS;
       else if (Array.isArray(d.options)) this.options[d.key] = d.options;
     }
-    // Ogni elenco di opzioni arriva per conto suo: uno lento o in errore non blocca gli altri.
-    for (const d of this.defs.filter(x => typeof x.options === 'function')) {
-      (d.options as () => Observable<TOption[]>)().pipe(
-        catchError(err => {
-          console.error(`Errore nel caricamento delle opzioni del filtro "${d.label}":`, err);
-          return of([] as TOption[]);
-        }),
-      ).subscribe(opts => {
-        this.options = {...this.options, [d.key]: opts};
-        this.refresh();
-      });
-    }
+    // Subito solo le opzioni dei filtri in linea e di quelli valorizzati (chip):
+    // le altre (es. tutte le utenze) all'apertura dei filtri avanzati, per non
+    // rallentare il caricamento dell'elenco.
+    this.loadNeeded();
     this.refresh();
   }
 
   ngOnChanges(): void {
     this.inlineDefs = this.defs.filter(d => d.inline);
+    if (this.loading.size) this.loadNeeded();
     this.refresh();
+  }
+
+  prefetchAdvanced(): void {
+    this.load(this.defs).subscribe();
+  }
+
+  private loadNeeded(): void {
+    const has = (v: unknown) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && !v.length);
+    for (const d of this.defs) if (d.inline || has(this.values?.[d.key])) this.load([d]).subscribe();
+  }
+
+  // Ogni elenco di opzioni arriva per conto suo: uno lento o in errore non blocca gli altri.
+  private load(defs: FilterDef[]): Observable<void> {
+    const pending = defs.filter(d => typeof d.options === 'function').map(d => {
+      let req = this.loading.get(d.key);
+      if (!req) {
+        req = (d.options as () => Observable<TOption[]>)().pipe(
+          catchError(err => {
+            console.error(`Errore nel caricamento delle opzioni del filtro "${d.label}":`, err);
+            return of([] as TOption[]);
+          }),
+          tap(opts => {
+            this.options = {...this.options, [d.key]: opts};
+            this.refresh();
+          }),
+          map(() => undefined),
+          shareReplay(1),
+        );
+        this.loading.set(d.key, req);
+      }
+      return req;
+    });
+    return pending.length ? forkJoin(pending).pipe(map(() => undefined)) : of(undefined);
   }
 
   opts(d: FilterDef): TOption[] {
@@ -143,6 +171,10 @@ export class ListFiltersComponent implements OnInit, OnChanges {
   }
 
   openAdvanced(): void {
+    this.load(this.defs).subscribe(() => this.openAdvancedDialog());
+  }
+
+  private openAdvancedDialog(): void {
     this.dialog.open<AdvancedFiltersDialogComponent, AdvancedFiltersData, FilterValues | 'clear'>(
       AdvancedFiltersDialogComponent,
       {width: '900px', maxWidth: '95vw', data: {defs: this.defs, values: this.values, options: this.options}},
