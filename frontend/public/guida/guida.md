@@ -287,6 +287,8 @@ In **Impostazioni → Contabilità** (visibile solo agli amministratori) UtenzeP
 2. Scegli i file **Capitoli**, **Impegni** e **Liquidazioni** estratti dalla contabilità (se ne può caricare anche uno solo: sostituisce quello caricato prima) e premi **Carica**.
 3. Il caricamento continua in background (il primo può durare qualche minuto, puoi lasciare la pagina); a fine caricamento la pagina mostra le righe caricate per file, le righe scartate con riga e motivo, e cosa è cambiato: capitoli ed esercizi, impegni, fatture create, identificativi SDI completati, fatture con le quote della ragioneria, impegni collegati a contratti e capitoli delle utenze aggiornati.
 
+**Scaricamento automatico.** Se il Comune ha installato il servizio Tinn, la pagina mostra anche la sezione **Scaricamento automatico**: ogni notte (alle 4) il servizio scarica il backup della contabilità, ne estrae i tre file e li consegna a UtenzePA, che li carica da solo entro pochi minuti come se li avessi scelti tu. La mattina trovi la contabilità aggiornata, senza fare nulla. Nella sezione vedi quando è avvenuto l'ultimo scaricamento, l'esito, la data del backup e il prossimo giro. Se il backup della notte è uguale a quello già caricato (ad esempio nel fine settimana) l'esito è «Backup invariato, nessuna modifica». Il servizio usa l'anno di **Importa dall'anno** e carica solo con l'interruttore acceso. **Esegui ora** serve solo dopo un errore: il giro parte entro un minuto e il caricamento ne segue qualche minuto dopo.
+
 Cosa fa il caricamento:
 
 - **Capitoli**: entrano i capitoli già presenti e quelli su cui la ragioneria ha pagato fatture di un fornitore con contratto di fornitura. Per ogni anno presente nel file stanziamento iniziale, assestato e spesa della ragioneria (se manca, il liquidato del capitolo nell'anno) arrivano dalla contabilità.
@@ -556,6 +558,14 @@ L'import non corregge mai le anagrafiche: segnala le differenze, che trovi in da
 **Soluzione:** chiedi la correzione alla ragioneria e fai ricaricare i file in **Impostazioni → Contabilità**. Note, documenti, contratti collegati e tipi utenza ammessi restano modificabili.
 
 **Apri un ticket se:** il messaggio compare su un dato senza badge **Da contabilità**.
+
+### Contabilità non aggiornata
+
+**Causa:** in dashboard compare «Contabilità non aggiornata da N giorni» (o «Contabilità mai caricata») quando lo scaricamento automatico è installato e acceso ma da più di due giorni nessun caricamento è riuscito. Di solito il server della contabilità non era raggiungibile, il backup non c'era o il caricamento dei file è andato in errore.
+
+**Soluzione:** apri **Impostazioni → Contabilità** e leggi l'esito nella sezione **Scaricamento automatico** e in **Ultimo giro**. Se l'errore era passeggero premi **Esegui ora** e controlla l'esito dopo qualche minuto. Se l'import era spento o mancava l'anno di partenza, accendilo e indica l'anno: i file già consegnati si caricano al controllo successivo.
+
+**Apri un ticket se:** dopo **Esegui ora** l'esito resta un errore, oppure lo scaricamento è completato ma l'ultimo giro non si aggiorna.
 
 ### Non riesco a eliminare un impegno
 

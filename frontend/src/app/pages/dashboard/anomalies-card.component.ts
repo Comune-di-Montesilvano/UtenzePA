@@ -577,6 +577,21 @@ const formatDate = (iso: string | null): string => {
               </ul>
             </mat-expansion-panel>
             }
+            @if (data.accounting_import_stale.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.accounting_import_stale.count }}</span>
+                  Contabilità non aggiornata
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (s of data.accounting_import_stale.items; track s.id) {
+                  <li (click)="openAccountingImport()">{{ s.label }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
             @if (data.accounting_liquidations_unmatched.count > 0) {
             <mat-expansion-panel>
               <mat-expansion-panel-header>
@@ -815,6 +830,10 @@ export class AnomaliesCardComponent implements OnInit {
 
   openInvoiceImport(): void {
     this.router.navigate(['/invoice-import']);
+  }
+
+  openAccountingImport(): void {
+    this.router.navigate(['/accounting-import']);
   }
 
   openUtility(id: number): void {

@@ -94,6 +94,8 @@ export interface Anomalies {
   accounting_liquidations_unmatched: AnomalyList<{id: string; number: string; date: string | null; amount: number; supplier_vat: string | null; commitment: string}>;
   accounting_commitments_without_contract: AnomalyList<{id: number; label: string}>;
   accounting_utility_chapter_ambiguous: AnomalyList<{id: number; utility_id: string; chapters: string}>;
+  // Scaricamento automatico installato ma nessun caricamento riuscito da più di 2 giorni.
+  accounting_import_stale: AnomalyList<{id: number; label: string}>;
   // Fatture con contratto che il ricalcolo lascia senza impegno (nessun impegno nell'esercizio o da scegliere a mano).
   invoices_without_commitment: AnomalyList<{id: number; number: string; date: string; contract_id: number; amount: number; reason: 'NO_COMMITMENTS' | 'AMBIGUOUS'}>;
 }
