@@ -20,6 +20,18 @@ import { BudgetCheckDto } from './dto/budget-check.dto';
 import { invoiceCompetenceYear, lineFiscalYear, lineYearSql } from './line-year';
 import { annualityFor } from '@apis/budget-commitments/annuality';
 import { commitmentLabel } from '@apis/budget-commitments/commitment-label';
+import {
+  type ConsumptionRecord,
+  fromDay,
+  todayDay,
+} from '@apis/utility-consumptions/consumption-calculator';
+import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
+import {
+  type ChapterUtilityStats,
+  chapterUtilityStats,
+  periodWindows,
+  type StatsPeriod,
+} from './chapter-utility-stats';
 
 const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 
@@ -172,6 +184,81 @@ export class SpendingService {
       year: Number(r.year),
       amount: Number(r.amount),
     }));
+  }
+
+  // Scheda capitolo → Utenze: statistiche delle utenze oggi sul capitolo nel
+  // periodo, con gli anni che hanno fatture per il selettore.
+  async chapterUtilityStats(
+    chapterId: number,
+    period: StatsPeriod,
+  ): Promise<ChapterUtilityStats & { years: number[] }> {
+    const utilities = await this.q(
+      `SELECT u.id, u.utility_id AS utility_code, t.name AS type_name, t.hard_type, u.supply_active
+       FROM utilities u LEFT JOIN utility_types t ON t.id = u.utility_type_id_fk
+       WHERE u.budget_chapter_code_fk = ? AND u.deleted = 0`,
+      [chapterId],
+    );
+    const ids = utilities.map((u) => Number(u.id));
+    const today = todayDay();
+    const { current, previous } = periodWindows(period, today);
+    const day = (col: string) => `DATE_FORMAT(${col}, '%Y-%m-%d')`;
+    const lines = ids.length
+      ? await this.q(
+          `SELECT il.utility_id_fk AS utility_id, il.amount, ${day('il.period_start')} AS period_start,
+                  ${day('il.period_end')} AS period_end, ${day('i.invoice_date')} AS invoice_date
+           ${LINES}
+           WHERE il.utility_id_fk IN (?)
+             AND COALESCE(il.period_end, il.period_start, i.invoice_date) >= ?
+             AND COALESCE(il.period_start, il.period_end, i.invoice_date) <= ?`,
+          [ids, fromDay(previous.start), fromDay(current.end)],
+        )
+      : [];
+    // Tutte le rilevazioni: le coppie di letture servono anche prima del periodo.
+    const consumptions = ids.length
+      ? await this.q(
+          `SELECT id, utility_id_fk AS utility_id, kind, ${day('reading_date')} AS reading_date, reading_value,
+                  meter_number, ${day('period_start')} AS period_start, ${day('period_end')} AS period_end,
+                  consumption, is_estimated
+           FROM utility_consumptions WHERE utility_id_fk IN (?) AND deleted = 0`,
+          [ids],
+        )
+      : [];
+    const years = ids.length
+      ? await this.q(`SELECT DISTINCT ${YEAR} AS year ${LINES} WHERE il.utility_id_fk IN (?)`, [ids])
+      : [];
+
+    const byUtility = <T extends Record<string, unknown>>(rows: T[]) => {
+      const map = new Map<number, T[]>();
+      rows.forEach((r) => map.set(Number(r.utility_id), [...(map.get(Number(r.utility_id)) ?? []), r]));
+      return map;
+    };
+    const linesOf = byUtility(lines);
+    const consumptionsOf = byUtility(consumptions);
+    const stats = chapterUtilityStats(
+      utilities.map((u) => ({
+        id: Number(u.id),
+        utility_code: (u.utility_code as string) ?? null,
+        type_name: (u.type_name as string) ?? null,
+        hard_type: (u.hard_type as HardTypeEnum) ?? null,
+        active: u.supply_active === null || Number(u.supply_active) !== 0,
+        lines: (linesOf.get(Number(u.id)) ?? []).map((l) => ({
+          amount: Number(l.amount),
+          period_start: (l.period_start as string) ?? null,
+          period_end: (l.period_end as string) ?? null,
+          invoice_date: String(l.invoice_date),
+        })),
+        consumptions: (consumptionsOf.get(Number(u.id)) ?? []).map((c) => ({
+          ...c,
+          id: Number(c.id),
+          is_estimated: Number(c.is_estimated) === 1,
+        })) as ConsumptionRecord[],
+      })),
+      period,
+      today,
+    );
+    const yearList = new Set(years.map((y) => Number(y.year)));
+    yearList.add(currentYear());
+    return { ...stats, years: [...yearList].sort((a, b) => b - a) };
   }
 
   // Scheda fattura: capitoli che con questa fattura superano l'assestato

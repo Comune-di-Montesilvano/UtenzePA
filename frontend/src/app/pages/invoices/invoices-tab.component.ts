@@ -7,6 +7,7 @@ import {Invoice} from './entity/invoice.entity';
 import {SDI_STATUS_LABELS, SdiStatus} from './sdi-status';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {DateHelper} from '../../core/helpers/date.helper';
+import {groupByYear, keepOpen, SheetGroup, SheetGroupsComponent} from '../../core/components/entity-sheet/sheet-groups.component';
 
 interface Row {
   id: number;
@@ -19,11 +20,9 @@ interface Row {
   status: string;
 }
 
-interface YearTotal {
-  year: string;
-  total: number;
-  invoices: number;
-}
+// Totale dell'anno: le rifiutate non contano.
+const yearSummary = (rows: Row[]): string =>
+  eur(Math.round(rows.filter(r => !r.rejected).reduce((sum, r) => sum + r.total, 0) * 100) / 100);
 
 const dateIt = (iso: string | null | undefined): string => (iso ? iso.slice(0, 10).split('-').reverse().join('/') : '');
 const eur = (n: number): string => n.toLocaleString('it-IT', {style: 'currency', currency: 'EUR'});
@@ -45,7 +44,7 @@ const periodOf = (inv: Invoice): string =>
 @Component({
   selector: 'app-invoices-tab',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule],
+  imports: [MatButtonModule, MatIconModule, SheetGroupsComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (canEdit && newInvoice) {
@@ -56,41 +55,37 @@ const periodOf = (inv: Invoice): string =>
     @if (intro && rows.length) {
       <p class="invoices-intro">{{ intro }}</p>
     }
-    @if (years.length) {
-      <p class="spending-years">
-        @for (y of years; track y.year) {
-          <span><strong>{{ y.year }}</strong>: {{ eur(y.total) }} ({{ y.invoices }} {{ y.invoices === 1 ? 'fattura' : 'fatture' }})</span>
-        }
-      </p>
-    }
     @if (!rows.length) {
       <p class="sheet-empty">{{ emptyText }}</p>
     } @else {
-      <table class="sheet-table">
-        <thead>
-          <tr>
-            <th>Data</th><th>Numero</th>
-            @if (showContract) { <th>Contratto</th> }
-            <th>Periodo</th><th>Totale</th><th>Stato SDI</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (r of rows; track r.id) {
-            <tr class="row-clickable" [class.invoice-rejected]="r.rejected" (click)="open(r.id)">
-              <td>{{ dateIt(r.iso) }}</td>
-              <td>{{ r.number }}</td>
-              @if (showContract) { <td>{{ r.contract }}</td> }
-              <td>{{ r.period }}</td>
-              <td>{{ eur(r.total) }}</td>
-              <td>{{ r.status }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+      <app-sheet-groups [groups]="groups">
+        <ng-template let-rows>
+          <table class="sheet-table">
+            <thead>
+              <tr>
+                <th>Data</th><th>Numero</th>
+                @if (showContract) { <th>Contratto</th> }
+                <th>Periodo</th><th>Totale</th><th>Stato SDI</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of rows; track r.id) {
+                <tr class="row-clickable" [class.invoice-rejected]="r.rejected" (click)="open(r.id)">
+                  <td>{{ dateIt(r.iso) }}</td>
+                  <td>{{ r.number }}</td>
+                  @if (showContract) { <td>{{ r.contract }}</td> }
+                  <td>{{ r.period }}</td>
+                  <td>{{ eur(r.total) }}</td>
+                  <td>{{ r.status }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </ng-template>
+      </app-sheet-groups>
     }
   `,
   styles: [`
-    .spending-years { display: flex; gap: 24px; flex-wrap: wrap; margin: 0 0 12px; }
     .invoices-actions { display: flex; justify-content: flex-end; margin-bottom: 8px; }
     .invoices-intro { margin: 0 0 12px; color: var(--app-muted); }
     .invoice-rejected td { text-decoration: line-through; color: var(--app-muted); }
@@ -112,7 +107,8 @@ export class InvoicesTabComponent implements OnChanges {
   private navigator = inject(EntityNavigatorService);
 
   rows: Row[] = [];
-  years: YearTotal[] = [];
+  // Fatture per anno della fattura; in intestazione il totale (rifiutate escluse).
+  groups: SheetGroup<Row>[] = [];
   readonly eur = eur;
   readonly dateIt = dateIt;
 
@@ -139,15 +135,7 @@ export class InvoicesTabComponent implements OnChanges {
           status: inv.sdi_status ? SDI_STATUS_LABELS[inv.sdi_status] : '',
         }))
         .sort((a, b) => b.iso.localeCompare(a.iso));
-      const years = new Map<string, YearTotal>();
-      for (const r of this.rows) {
-        if (r.rejected || !r.iso) continue;
-        const y = years.get(r.iso.slice(0, 4)) ?? {year: r.iso.slice(0, 4), total: 0, invoices: 0};
-        y.total = Math.round((y.total + r.total) * 100) / 100;
-        y.invoices++;
-        years.set(y.year, y);
-      }
-      this.years = [...years.values()].sort((a, b) => b.year.localeCompare(a.year));
+      this.groups = keepOpen(groupByYear(this.rows, r => (r.iso ? Number(r.iso.slice(0, 4)) : null), yearSummary), this.groups);
       this.countChange.emit(this.rows.length);
     });
   }

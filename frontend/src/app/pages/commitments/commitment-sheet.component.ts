@@ -13,6 +13,7 @@ import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sh
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
 import {LinkedColumn, LinkedTableComponent} from '../../core/components/entity-sheet/linked-table.component';
+import {groupByYear, keepOpen, SheetGroup, SheetGroupsComponent} from '../../core/components/entity-sheet/sheet-groups.component';
 import {dateIt, hasInvalid, isEditorRole} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityHistoryComponent} from '../../core/components/entity-history.component';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
@@ -51,6 +52,7 @@ const toNumber = (v: unknown): number | null => (v === null || v === undefined |
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatTabsModule,
     MatIconModule, MatTooltipModule, StackedBarComponent, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent,
     LinkedTableComponent, EntityHistoryComponent, FilterableSelectComponent, OnlyNumbersDirective, AttachmentsComponent,
+    SheetGroupsComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './commitment-sheet.component.html',
@@ -88,6 +90,8 @@ export class CommitmentSheetComponent implements OnInit {
   contractRows: ContractRow[] = [];
   contractOptions: TOption[] = [];
   invoices: CommitmentInvoice[] = [];
+  // Fatture per esercizio (annualità dell'impegno), aperto quello in corso.
+  invoiceGroups: SheetGroup<CommitmentInvoice>[] = [];
   readonly sourceLabels = SHARE_SOURCE_LABELS;
   status: StatusInfo | null = null;
   readonly accountingBadge = ACCOUNTING_BADGE;
@@ -254,7 +258,12 @@ export class CommitmentSheetComponent implements OnInit {
 
   private loadInvoices(): void {
     this.service.invoices(this.data.item.id).subscribe({
-      next: rows => this.invoices = rows,
+      next: rows => {
+        this.invoices = rows;
+        // Il server le dà in ordine di consumo (per il progressivo): nei gruppi la più recente in alto.
+        this.invoiceGroups = keepOpen(groupByYear([...rows].reverse(), r => r.fiscal_year,
+          group => formatEuro(Math.round(group.reduce((sum, r) => sum + Number(r.amount), 0) * 100) / 100)), this.invoiceGroups);
+      },
       error: err => console.error("Errore nel caricamento delle fatture dell'impegno:", err),
     });
   }

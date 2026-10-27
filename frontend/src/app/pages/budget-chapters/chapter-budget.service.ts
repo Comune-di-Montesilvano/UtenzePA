@@ -8,6 +8,7 @@ import {
   BudgetWarning,
   ChapterCommitment,
   ChapterInvoiceLine,
+  ChapterUtilityStats,
   ChapterYear,
   ChapterYearSummary,
 } from './chapter-budget.model';
@@ -34,6 +35,11 @@ export class ChapterBudgetService {
 
   invoiceLines(chapterId: number): Observable<ChapterInvoiceLine[]> {
     return this.http.get<ChapterInvoiceLine[]>(`${this.api}/budget-chapters/${chapterId}/invoice-lines`, {headers: this.headers()});
+  }
+
+  // period = 'last12' o un anno.
+  utilityStats(chapterId: number, period: string): Observable<ChapterUtilityStats> {
+    return this.http.get<ChapterUtilityStats>(`${this.api}/budget-chapters/${chapterId}/utility-stats`, {headers: this.headers(), params: {period}});
   }
 
   yearSummary(year: number): Observable<ChapterYearSummary[]> {

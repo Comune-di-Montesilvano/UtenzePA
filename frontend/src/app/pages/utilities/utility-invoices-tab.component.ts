@@ -1,14 +1,12 @@
 import {ChangeDetectionStrategy, Component, inject, Input, OnInit, EventEmitter, Output} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
-import {forkJoin} from 'rxjs';
 import {InvoicesService} from '../invoices/invoices.service';
 import {Invoice} from '../invoices/entity/invoice.entity';
-import {SpendingService} from '../spending/spending.service';
-import type {YearSpending} from '../spending/spending.model';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {DateHelper} from '../../core/helpers/date.helper';
 import {InvoicesTabComponent} from '../invoices/invoices-tab.component';
+import {groupByYear, keepOpen, SheetGroup, SheetGroupsComponent} from '../../core/components/entity-sheet/sheet-groups.component';
 
 interface Row {
   invoiceId: number;
@@ -37,20 +35,13 @@ const isoOf = (v: Date | string | null | undefined): string =>
 @Component({
   selector: 'app-utility-invoices-tab',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, InvoicesTabComponent],
+  imports: [MatButtonModule, MatIconModule, InvoicesTabComponent, SheetGroupsComponent],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @if (canEdit) {
       <div class="invoices-actions">
         <button mat-stroked-button type="button" (click)="newInvoice()"><mat-icon>add</mat-icon> Nuova fattura</button>
       </div>
-    }
-    @if (years.length && rows.length) {
-      <p class="spending-years">
-        @for (y of years; track y.year) {
-          <span><strong>{{ y.year }}</strong>: {{ eur(y.total) }} ({{ y.invoices }} {{ y.invoices === 1 ? 'fattura' : 'fatture' }})</span>
-        }
-      </p>
     }
     @if (!rows.length) {
       @if (loaded && contractIds.length) {
@@ -62,25 +53,28 @@ const isoOf = (v: Date | string | null | undefined): string =>
         <p class="sheet-empty">Nessuna fattura su questa utenza.</p>
       }
     } @else {
-      <table class="sheet-table">
-        <thead><tr><th>Data</th><th>Numero</th><th>Periodo</th><th>Consumo</th><th>Importo</th><th>Capitolo</th></tr></thead>
-        <tbody>
-          @for (r of rows; track $index) {
-            <tr class="row-clickable" (click)="open(r.invoiceId)">
-              <td>{{ dateIt(r.iso) }}</td>
-              <td>{{ r.number }}</td>
-              <td>{{ r.period }}</td>
-              <td>{{ r.consumption === null ? '' : r.consumption.toLocaleString('it-IT') }}</td>
-              <td>{{ eur(r.amount) }}</td>
-              <td>{{ r.chapter }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+      <app-sheet-groups [groups]="groups">
+        <ng-template let-rows>
+          <table class="sheet-table">
+            <thead><tr><th>Data</th><th>Numero</th><th>Periodo</th><th>Consumo</th><th>Importo</th><th>Capitolo</th></tr></thead>
+            <tbody>
+              @for (r of rows; track $index) {
+                <tr class="row-clickable" (click)="open(r.invoiceId)">
+                  <td>{{ dateIt(r.iso) }}</td>
+                  <td>{{ r.number }}</td>
+                  <td>{{ r.period }}</td>
+                  <td>{{ r.consumption === null ? '' : r.consumption.toLocaleString('it-IT') }}</td>
+                  <td>{{ eur(r.amount) }}</td>
+                  <td>{{ r.chapter }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </ng-template>
+      </app-sheet-groups>
     }
   `,
   styles: [`
-    .spending-years { display: flex; gap: 24px; flex-wrap: wrap; margin: 0 0 12px; }
     .invoices-actions { display: flex; justify-content: flex-end; margin-bottom: 8px; }
   `],
 })
@@ -97,12 +91,12 @@ export class UtilityInvoicesTabComponent implements OnInit {
   @Output() countChange = new EventEmitter<number>();
 
   private invoices = inject(InvoicesService);
-  private spending = inject(SpendingService);
   private navigator = inject(EntityNavigatorService);
 
   rows: Row[] = [];
   loaded = false;
-  years: YearSpending[] = [];
+  // Fatture per anno della fattura, con il totale dell'utenza in intestazione.
+  groups: SheetGroup<Row>[] = [];
   readonly eur = eur;
   readonly dateIt = dateIt;
 
@@ -111,9 +105,8 @@ export class UtilityInvoicesTabComponent implements OnInit {
   }
 
   load(): void {
-    forkJoin([this.invoices.search({utility_id: this.utilityId} as never), this.spending.utility(this.utilityId)])
-      .subscribe(([list, years]) => {
-        this.years = years;
+    this.invoices.search({utility_id: this.utilityId} as never)
+      .subscribe(list => {
         const rows = (list as Invoice[])
           .flatMap(inv => {
             // Capitolo dalla quota d'impegno della fattura se unica, altrimenti dall'utenza.
@@ -146,6 +139,8 @@ export class UtilityInvoicesTabComponent implements OnInit {
           if (r.consumption !== null) same.consumption = (same.consumption ?? 0) + r.consumption;
         }
         this.rows = [...grouped.values()].sort((a, b) => b.iso.localeCompare(a.iso));
+        this.groups = keepOpen(groupByYear(this.rows, r => (r.iso ? Number(r.iso.slice(0, 4)) : null),
+          rows => eur(Math.round(rows.reduce((sum, r) => sum + r.amount, 0) * 100) / 100)), this.groups);
         this.loaded = true;
         // Senza righe proprie il conteggio arriva dal tab delle fatture del contratto.
         if (this.rows.length || !this.contractIds.length) {

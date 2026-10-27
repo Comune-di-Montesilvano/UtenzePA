@@ -84,8 +84,15 @@
           <ng-template mat-tab-label>
             <app-tab-label icon="receipt_long" label="Fatture" [count]="lines.length"></app-tab-label>
           </ng-template>
-          <app-linked-table [columns]="lineColumns" [rows]="lines"
-                            emptyText="Nessuna fattura su questo capitolo." (open)="openInvoice($event)"></app-linked-table>
+          @if (!lines.length) {
+            <p class="sheet-empty">Nessuna fattura su questo capitolo.</p>
+          } @else {
+            <app-sheet-groups [groups]="lineGroups">
+              <ng-template let-rows>
+                <app-linked-table [columns]="lineColumns" [rows]="rows" (open)="openInvoice($event)"></app-linked-table>
+              </ng-template>
+            </app-sheet-groups>
+          }
         </mat-tab>
 
         <mat-tab aria-label="Esercizi">
