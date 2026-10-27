@@ -6,7 +6,7 @@ Design: `docs/superpowers/specs/2026-10-27-adattatore-tinn-design.md`.
 
 ## Accensione
 
-Il servizio `tinn` di `docker-compose.yml` ha il profilo `tinn`: senza `COMPOSE_PROFILES=tinn` nel `.env` non viene creato. Con il profilo servono le variabili:
+Il servizio `tinn` di `docker-compose.yml` ha il profilo `tinn`: senza `COMPOSE_PROFILES=tinn` nel `.env` non viene creato. Con il profilo servono le variabili (se ne manca una il container lo scrive nella pagina Contabilità e resta fermo):
 
 | Variabile | Default | |
 |---|---|---|

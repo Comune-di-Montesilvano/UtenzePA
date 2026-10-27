@@ -75,12 +75,16 @@ services:
       - INVOICE_IMPORT_CRON=${INVOICE_IMPORT_CRON:-*/15 * * * *}
       - INVOICE_IMPORT_DISABLED=${INVOICE_IMPORT_DISABLED:-false}
       - ACCOUNTING_IMPORT_DISABLED=${ACCOUNTING_IMPORT_DISABLED:-false}
+      # Casella condivisa con il container tinn (profilo "tinn"), controllata ogni 5 minuti
+      - ACCOUNTING_INBOX_DIR=/usr/src/app/accounting-inbox
+      - ACCOUNTING_INBOX_CRON=${ACCOUNTING_INBOX_CRON:-*/5 * * * *}
       # Allegati — dimensione massima per file (MB)
       - ATTACHMENT_MAX_SIZE_MB=${ATTACHMENT_MAX_SIZE_MB:-50}
     volumes:
       - backups_data:/usr/src/app/backups
       - photos_data:/usr/src/app/photos
       - attachments_data:/usr/src/app/attachments
+      - accounting_inbox:/usr/src/app/accounting-inbox
     ports:
       - '${DOCKER_API_PORT:-3000}:3000'
     depends_on:
@@ -106,11 +110,35 @@ services:
     networks:
       - utenzepa-network
 
+  # Scaricamento automatico della contabilità Tinn (facoltativo). Esiste solo con
+  # COMPOSE_PROFILES=tinn nel .env: senza, docker compose non lo crea né lo scarica
+  # e le variabili TINN_* non servono. Parla con l'API solo tramite il volume
+  # accounting_inbox (nessuna porta esposta); in rete esce solo verso l'SFTP.
+  tinn:
+    image: ghcr.io/comune-di-montesilvano/utenzepa-tinn:${IMAGE_TAG:-latest}
+    profiles: ["tinn"]
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Rome
+      - TINN_SFTP_HOST=${TINN_SFTP_HOST:-}
+      - TINN_SFTP_PORT=${TINN_SFTP_PORT:-22}
+      - TINN_SFTP_USER=${TINN_SFTP_USER:-}
+      - TINN_SFTP_PASSWORD=${TINN_SFTP_PASSWORD:-}
+      - TINN_SFTP_PATH=${TINN_SFTP_PATH:-}
+      - TINN_SFTP_HOST_KEY=${TINN_SFTP_HOST_KEY:-}
+      - TINN_DB_FILE=${TINN_DB_FILE:-}
+      - TINN_CRON=${TINN_CRON:-0 4 * * *}
+    volumes:
+      - accounting_inbox:/inbox
+      - tinn_work:/work
+
 volumes:
   mysql_data:
   backups_data:
   photos_data:
   attachments_data:
+  accounting_inbox:
+  tinn_work:
 
 networks:
   utenzepa-network:

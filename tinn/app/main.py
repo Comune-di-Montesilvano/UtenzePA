@@ -53,13 +53,23 @@ def tick(cfg, now, nxt, run):
     return nxt
 
 
+def report_config_error(box, message):
+    write_status(box, {'state': 'error', 'step': 'config', 'message': 'Configurazione incompleta: ' + message,
+                       'started_at': now_iso(), 'finished_at': now_iso(), 'backup_sha256': None,
+                       'backup_date': None, 'next_run_at': None})
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     try:
         cfg = Config.from_env(os.environ)
     except ConfigError as error:
+        # Niente uscita: con restart unless-stopped ripartirebbe di continuo. L'errore
+        # resta nello stato, che la pagina Contabilità mostra, finché non si corregge il .env.
         log.error('%s', error)
-        return 1
+        report_config_error(os.environ.get('TINN_INBOX') or '/inbox', str(error))
+        while True:
+            time.sleep(3600)
 
     def run(force, nxt):
         run_job(cfg, force, next_run_at=nxt)

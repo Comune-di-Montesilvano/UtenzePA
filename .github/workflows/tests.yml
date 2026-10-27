@@ -94,6 +94,8 @@ jobs:
             target: production
           - app: frontend
             target: prod
+          - app: tinn
+            target: production
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -123,14 +125,34 @@ jobs:
           trivyignores: .trivyignore
           version: latest
 
+      # Il container tinn non fa parte dello stack provato da e2e (profilo facoltativo).
       - name: Salva l'immagine per il job e2e
+        if: matrix.app != 'tinn'
         run: docker save ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:ci | gzip -1 > image-${{ matrix.app }}.tar.gz
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: matrix.app != 'tinn'
         with:
           name: image-${{ matrix.app }}
           path: image-${{ matrix.app }}.tar.gz
           retention-days: 1
+
+  # Container Tinn: test Python e selftest dell'estrazione su un DB Firebird finto
+  # (tinn/testdata, nessun dato reale). Nessun collegamento SFTP in CI.
+  tinn:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Build dello stage di test
+        run: docker build --pull --target test -t utenzepa-tinn:test tinn
+
+      - name: Test
+        run: docker run --rm utenzepa-tinn:test python3 -m pytest -q
+
+      - name: Selftest dell'estrazione
+        run: docker run --rm utenzepa-tinn:test python3 -m app.selftest
 
   # Migration su un database vuoto (installazione nuova), entity allineate alle migration
   # (schema:log = solo la baseline nota) e giro down -> up di quelle aggiunte dalla PR.

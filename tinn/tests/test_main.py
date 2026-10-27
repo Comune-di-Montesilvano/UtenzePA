@@ -68,3 +68,13 @@ def test_startup_recovers_interrupted_run(tmp_path):
     assert s['message'].startswith('Giro interrotto')
     assert sorted(os.listdir(box)) == ['status']
     assert os.listdir(tmp_path / 'work') == []
+
+
+def test_config_error_written_to_status(tmp_path):
+    from app.main import report_config_error
+    (tmp_path / 'inbox').mkdir()
+    report_config_error(str(tmp_path / 'inbox'), 'Variabili mancanti: TINN_SFTP_HOST')
+    s = json.loads((tmp_path / 'inbox' / 'status').read_text())
+    assert s['state'] == 'error'
+    assert s['step'] == 'config'
+    assert s['message'] == 'Configurazione incompleta: Variabili mancanti: TINN_SFTP_HOST'
