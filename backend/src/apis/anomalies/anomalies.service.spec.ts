@@ -111,7 +111,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(45);
+    expect(query).toHaveBeenCalledTimes(46);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -1229,6 +1229,55 @@ describe('AnomaliesService', () => {
         .find((s) => s.includes('/* invoice_sdi_outcome_discarded */'));
       expect(sql).toContain('i.deleted = 0');
       expect(sql).toContain('i.sdi_outcome_discarded = 1');
+    });
+  });
+
+  describe('contabilità non aggiornata (query in fondo)', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const run = async (row: Record<string, unknown> | null, present = true) => {
+      for (let i = 0; i < 45; i++) query.mockResolvedValueOnce([]);
+      query.mockResolvedValueOnce(row ? [row] : []);
+      service.now = () => new Date('2026-10-28T09:00:00Z');
+      service.inboxPresent = () => present;
+      const result = await service.getAnomalies();
+      return { result, sql: String(query.mock.calls[45][0]) };
+    };
+
+    it('3 giorni senza caricamento: una riga', async () => {
+      const { result, sql } = await run({
+        enabled: 1,
+        last_success_at: new Date(Date.parse('2026-10-28T09:00:00Z') - 3 * DAY),
+      });
+      expect(result.accounting_import_stale).toEqual({
+        count: 1,
+        items: [{ id: 1, label: 'Contabilità non aggiornata da 3 giorni' }],
+      });
+      expect(sql).toContain('/* accounting_import_stale */');
+    });
+
+    it('mai caricata', async () => {
+      const { result } = await run({ enabled: 1, last_success_at: null });
+      expect(result.accounting_import_stale.items).toEqual([
+        { id: 1, label: 'Contabilità mai caricata' },
+      ]);
+    });
+
+    it('1 giorno: niente', async () => {
+      const { result } = await run({
+        enabled: 1,
+        last_success_at: new Date(Date.parse('2026-10-28T09:00:00Z') - DAY),
+      });
+      expect(result.accounting_import_stale.count).toBe(0);
+    });
+
+    it('import spento: niente', async () => {
+      const { result } = await run({ enabled: 0, last_success_at: null });
+      expect(result.accounting_import_stale.count).toBe(0);
+    });
+
+    it('container assente: niente', async () => {
+      const { result } = await run({ enabled: 1, last_success_at: null }, false);
+      expect(result.accounting_import_stale.count).toBe(0);
     });
   });
 });

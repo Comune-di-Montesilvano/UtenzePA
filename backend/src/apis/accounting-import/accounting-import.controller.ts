@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -43,6 +44,17 @@ export class AccountingImportController {
 
   @Get('status')
   status(): Promise<AccountingImportStatus> {
+    return this.service.getStatus();
+  }
+
+  // «Esegui ora» del container Tinn: lo legge al giro successivo (entro un minuto).
+  @Post('container/run')
+  async runContainer(): Promise<AccountingImportStatus> {
+    if (!this.inbox.present())
+      throw new BadRequestException('Scaricamento automatico non installato.');
+    if (this.inbox.readStatus()?.state === 'running')
+      throw new BadRequestException('Scaricamento già in corso.');
+    this.inbox.requestRun();
     return this.service.getStatus();
   }
 

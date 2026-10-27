@@ -3,6 +3,7 @@ import { DataSource, EntityTarget, ObjectLiteral } from 'typeorm';
 import { CommitmentReconcileService } from '@apis/budget-commitments/commitment-reconcile.service';
 import { parseAccountingCsv, type AccKind, type CsvIssue } from './accounting-csv';
 import { AccountingStateService } from './accounting-state.service';
+import { inboxDir, inboxPresent, readStatus, type TinnStatus } from './accounting-inbox.files';
 import { AccChapter } from './entity/acc-chapter.entity';
 import { AccCommitment } from './entity/acc-commitment.entity';
 import { AccLiquidation } from './entity/acc-liquidation.entity';
@@ -32,9 +33,12 @@ export interface AccountingImportStatus {
   running: boolean;
   fromYear: number | null;
   lastRunAt: Date | null;
+  lastSuccessAt: Date | null;
   lastError: string | null;
   lastSummary: AccountingImportSummary | null;
   counts: Record<AccKind, number>;
+  // Stato del container Tinn; null se non installato (profilo spento).
+  container: TinnStatus | null;
 }
 
 const TABLES: Record<
@@ -75,6 +79,7 @@ export class AccountingImportService {
       running: this.running,
       fromYear: state.from_year,
       lastRunAt: state.last_run_at,
+      lastSuccessAt: state.last_success_at,
       lastError: state.last_error,
       lastSummary: (state.last_summary as AccountingImportSummary | null) ?? null,
       counts: {
@@ -82,6 +87,7 @@ export class AccountingImportService {
         commitments: Number(counts?.commitments ?? 0),
         liquidations: Number(counts?.liquidations ?? 0),
       },
+      container: inboxPresent(inboxDir()) ? readStatus(inboxDir()) : null,
     };
   }
 

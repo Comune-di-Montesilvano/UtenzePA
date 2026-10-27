@@ -12,4 +12,42 @@ describe('AccountingImportController', () => {
       'Lettore',
     ]);
   });
+
+  describe('container/run', () => {
+    const make = (present: boolean, state?: string) => {
+      const inbox = {
+        present: jest.fn(() => present),
+        readStatus: jest.fn(() => (state ? { state } : null)),
+        requestRun: jest.fn(),
+      };
+      const service = { getStatus: jest.fn(async () => ({ enabled: true })) };
+      const controller = new AccountingImportController(
+        service as never,
+        {} as never,
+        inbox as never,
+      );
+      return { controller, inbox };
+    };
+
+    it('400 senza container', async () => {
+      const { controller, inbox } = make(false);
+      await expect(controller.runContainer()).rejects.toThrow(
+        'Scaricamento automatico non installato.',
+      );
+      expect(inbox.requestRun).not.toHaveBeenCalled();
+    });
+
+    it('400 se già in corso', async () => {
+      const { controller, inbox } = make(true, 'running');
+      await expect(controller.runContainer()).rejects.toThrow('Scaricamento già in corso.');
+      expect(inbox.requestRun).not.toHaveBeenCalled();
+    });
+
+    it('chiede il giro e risponde con lo stato', async () => {
+      const { controller, inbox } = make(true, 'error');
+      expect(await controller.runContainer()).toEqual({ enabled: true });
+      expect(inbox.requestRun).toHaveBeenCalled();
+      expect(Reflect.getMetadata(ROLES_KEY, AccountingImportController)).toEqual(['Admin']);
+    });
+  });
 });
