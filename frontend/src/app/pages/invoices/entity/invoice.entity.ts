@@ -59,6 +59,20 @@ export class Invoice extends AbstractEntity implements IInvoice {
   @Exclude({toPlainOnly: true})
   is_paid?: boolean;
 
+  // Solo dall'elenco leggero (GET /invoices/list), mai inviati.
+  @Exclude({toPlainOnly: true})
+  utilities_count?: number;
+  @Exclude({toPlainOnly: true})
+  lines_total?: number | null;
+  @Exclude({toPlainOnly: true})
+  period_start?: string | null;
+  @Exclude({toPlainOnly: true})
+  period_end?: string | null;
+  @Exclude({toPlainOnly: true})
+  chapters?: string;
+  @Exclude({toPlainOnly: true})
+  supply_codes?: string;
+
   // Dalla PEC dello SDI (import fatture), mai inviati.
   @Exclude({toPlainOnly: true})
   sdi_identifier?: string | null;

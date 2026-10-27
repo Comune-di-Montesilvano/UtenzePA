@@ -4,7 +4,7 @@ import {AuthService} from '../../services/auth.service';
 import {AbstractService} from '../services/abstract.service';
 import {AbstractEntity} from '../entities/abstract.entity';
 import {ActivatedRoute} from '@angular/router';
-import {Subscription} from 'rxjs';
+import {Observable, Subscription} from 'rxjs';
 import {FilterChip, FilterDef, FilterValues} from './list/filter-def';
 import type {ActiveSignal} from './list/list-signals.component';
 import {fromQueryParams, initialValues, toSearchParams} from './list/filter-values';
@@ -53,7 +53,7 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
   loadAll(after?: (list: T[]) => void) {
     this.pendingSearch?.unsubscribe();
     this.loading = true;
-    this.pendingSearch = this.service.search(this.lastFilters).subscribe({
+    this.pendingSearch = this.fetch(this.lastFilters).subscribe({
       next: (result: T[]) => {
         this.allItems = this.service.fromPlain(result);
         this.applyQuick();
@@ -65,6 +65,11 @@ export abstract class AbstractComponent<T extends AbstractEntity> implements OnI
         this.handleError(err, 'Ricerca non riuscita: controllare i filtri');
       },
     });
+  }
+
+  // Hook: le pagine con un elenco leggero dedicato (es. Fatture) lo caricano da lì.
+  protected fetch(filters: any): Observable<T[]> {
+    return this.service.search(filters);
   }
 
   // Hook: le pagine possono tradurre filtri di sola UI in parametri dell'API (es. Anno delle fatture).

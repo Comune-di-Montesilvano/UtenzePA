@@ -1,4 +1,4 @@
-import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy, inject} from '@angular/core';
 import {MatTableModule} from '@angular/material/table';
 import {MatSort, MatSortModule} from '@angular/material/sort';
 import {MatPaginatorModule} from '@angular/material/paginator';
@@ -12,6 +12,7 @@ import {FormsModule} from '@angular/forms';
 import {DatePipe} from '@angular/common';
 import {HasRoleDirective} from '../../core/directives/has-role.directive';
 import {ScreenSizeService} from '../../services/screen-size.service';
+import {InvoicesService} from './invoices.service';
 import {Invoice} from './entity/invoice.entity';
 import {ListToolbarComponent} from '../../core/components/list/list-toolbar.component';
 import {AbstractDataTableComponent} from '../../core/components/abstract-data-table.component';
@@ -65,6 +66,7 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
   ]);
 
   private static readonly STORAGE_KEY = 'columns:invoices';
+  private readonly invoices = inject(InvoicesService);
 
   selectedColumns: IColumnDef[] = this.loadColumnSelection(
     DataTableInvoicesComponent.STORAGE_KEY, this.allColumns, this.defaultVisibleFields
@@ -172,8 +174,10 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
     return partyName(item.supplier ?? item.contratto?.supplier);
   }
 
-  // Capitoli degli impegni delle quote della fattura (distinti).
+  // Capitoli degli impegni delle quote della fattura (distinti); dall'elenco
+  // leggero arrivano già calcolati.
   chaptersOf(item: Invoice): string {
+    if (item.chapters !== undefined) return item.chapters;
     const labels = new Set((item.commitmentShares ?? [])
       .map(s => s.commitment?.budgetChapter)
       .filter(c => !!c)
@@ -182,11 +186,22 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
   }
 
   utilitiesCountOf(item: Invoice): number {
+    if (item.utilities_count !== undefined) return item.utilities_count;
     return new Set((item.lines ?? []).map(l => l.utility_id_fk).filter(v => v !== null && v !== undefined)).size;
   }
 
   protected override entityLabel(): string {
     return 'Fattura';
+  }
+
+  // La riga dell'elenco è leggera (senza righe né quote): la scheda parte dalla
+  // fattura completa, altrimenti un Salva svuoterebbe le righe.
+  override openEditDialog(item: Invoice): void {
+    if (item.lines !== undefined) {
+      super.openEditDialog(item);
+      return;
+    }
+    this.invoices.getById(item.id).subscribe(full => super.openEditDialog(full));
   }
 
   override openDeleteDialog(entity: Invoice): void {
