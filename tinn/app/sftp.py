@@ -14,6 +14,10 @@ KNOWN_HOSTS = 'known_hosts'
 # giro resterebbe «in corso» per sempre.
 KEEPALIVE_SECONDS = 30
 READ_TIMEOUT_SECONDS = 300
+# Richieste di lettura in volo: di default paramiko le manda tutte insieme
+# (migliaia su un file grande) e il server di Tinn chiude il collegamento
+# («Server connection dropped»); con 64 lo zip intero arriva ed e' anche piu' veloce.
+MAX_CONCURRENT_REQUESTS = 64
 # Tipi di chiave da chiedere al server per una chiave RSA indicata a mano.
 RSA_TYPES = ('rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa')
 
@@ -67,7 +71,7 @@ def download(cfg, dest):
         sftp = paramiko.SFTPClient.from_transport(transport)
         sftp.get_channel().settimeout(READ_TIMEOUT_SECONDS)
         stat = sftp.stat(cfg.path)
-        sftp.get(cfg.path, dest)
+        sftp.get(cfg.path, dest, max_concurrent_prefetch_requests=MAX_CONCURRENT_REQUESTS)
         return datetime.fromtimestamp(stat.st_mtime)
     finally:
         transport.close()

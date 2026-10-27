@@ -226,7 +226,8 @@ class FakeSftp:
             st_mtime = 1761500000
         return S()
 
-    def get(self, path, dest):
+    def get(self, path, dest, **kwargs):
+        self.get_kwargs = kwargs
         open(dest, 'wb').close()
 
 
@@ -243,6 +244,13 @@ def test_sftp_download_has_timeouts(tmp_path, monkeypatch):
     job.sftp.download(cfg, str(tmp_path / 'work' / 'b.zip'))
     assert FakeTransport.last.keepalive == 30
     assert client.channel.timeout == 300
+
+
+def test_sftp_download_limits_concurrent_requests(tmp_path, monkeypatch):
+    client = patch_paramiko(monkeypatch)
+    cfg = make_cfg(tmp_path)
+    job.sftp.download(cfg, str(tmp_path / 'work' / 'b.zip'))
+    assert client.get_kwargs == {'max_concurrent_prefetch_requests': 64}
 
 
 def test_pinned_rsa_host_key_restricts_key_types(tmp_path, monkeypatch):
