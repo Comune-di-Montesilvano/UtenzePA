@@ -10,6 +10,7 @@ Nessuna credenziale dev/seed documentata. Per un test one-off creare un utente v
 - Colonne: password in `password_hash` (non `password`); NOT NULL anche `first_name`, `last_name`, `status` (enum `Attivo`/`Disattivo`), `created_by_user_id`, `updated_by_user_id` (usare `1`, l'admin seed). Valorizzare `username` (il login è per username) e `auth_provider='local'`.
 - Il ripristino del backup esclude `system_users`: i dati portano id di utenti di produzione che in locale non esistono (es. 23, migliaia di righe di audit, allegati, consumi). Un utente temporaneo con id automatico può prendere uno di quegli id e diventarne l'autore: inserirlo con un `id` esplicito alto e libero (es. `90001`). Alla pulizia eliminare solo le proprie righe di audit (per `created_at`) e mai riassegnare quelle altrui a `1`.
 - Pulizia: prima `DELETE FROM audit_logs WHERE user_id=<id>` (FK). Se l'utente ha creato master data (capitolo, fornitore…), riassegnarle all'utente di sistema (`-1`), anche `updated_by_user_id` e le righe di `audit_logs` non di accesso. Le FK verso `system_users` sono su ~17 tabelle:
+- Impostazioni salvate dall'utente temporaneo (es. Branding): rimettere `app_settings.updated_by_user_id` precedente con `update_date=update_date` prima di eliminarlo.
   ```
   SELECT CONCAT(TABLE_NAME,'.',COLUMN_NAME) FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA='mydatabase' AND REFERENCED_TABLE_NAME='system_users';
   ```
@@ -27,6 +28,7 @@ Nessuna credenziale dev/seed documentata. Per un test one-off creare un utente v
 - Liste con ricerca libera: dopo un Salva la lista si ricarica senza filtro, ricercare prima di riaprire (successo: salvata la fattura sbagliata).
 - `?selectedId=<id>` apre il dialog su `/utilities`, `/building` (immobili, non `/assets`), `/contracts`; `/budget-chapter` (singolare) non lo supporta, aprire dalla riga.
 - Datepicker Material: digitare `gg/mm/aaaa` (ISO → campo invalido, Salva disabilitato).
+- Login nel browser senza digitare la password: token con `POST /authModule/login` (Python), poi `page.evaluate` → `sessionStorage` `auth_token` (access_token) e `auth_user` (JSON di `user` della risposta), quindi `page.goto`. In `browser_run_code_unsafe` niente `import('fs')`: il token va scritto nel codice.
 - Screenshot: solo dentro il repo (`.playwright-mcp/…`), lo scratchpad è fuori dalle root consentite.
 - Viewport di default troppo stretto: form compresso, input larghi 0 e `fill` che fallisce con «element is not visible». Prima di provare pagine larghe (editor pattern): `browser_resize` 1500×950.
 - `mat-select` in un `mat-form-field` outline: il click sul trigger viene intercettato dal `mat-label`. Cliccare `mat-label:text-is("<etichetta>")`, poi `role=option[name=/…/]`.
