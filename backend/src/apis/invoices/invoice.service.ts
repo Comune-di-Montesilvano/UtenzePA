@@ -64,7 +64,19 @@ const LIST_FIELDS = [
   'sdi_status',
   'sdi_outcome_discarded',
   'contratto_id_fk',
+  'payment_status',
+  'paid_on',
 ] as const;
+
+export interface InvoicePayment {
+  liquidation_number: string | null;
+  commitment: string;
+  amount: number;
+  mandate_number: string | null;
+  mandate_date: string | null;
+  paid_date: string | null;
+  paid_amount: number | null;
+}
 
 export type InvoiceListRow = Invoice & {
   utilities_count: number;
@@ -173,6 +185,30 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     return qb.getMany();
   }
 
+  // Liquidazioni della fattura dalla contabilità (passo payments), per la scheda.
+  async findPayments(id: number): Promise<InvoicePayment[]> {
+    const rows: Record<string, unknown>[] = await this.dataSource.query(
+      'SELECT liquidation_number, commitment_year, commitment_num, commitment_sub, amount, mandate_number, ' +
+        "DATE_FORMAT(mandate_date, '%Y-%m-%d') AS mandate_date, DATE_FORMAT(paid_date, '%Y-%m-%d') AS paid_date, " +
+        'paid_amount FROM acc_liquidations WHERE invoice_id_fk = ? AND cancelled = 0 ' +
+        'ORDER BY liquidation_number, id',
+      [id],
+    );
+    return rows.map((r) => ({
+      liquidation_number: (r.liquidation_number as string | null) ?? null,
+      commitment: commitmentLabel(
+        Number(r.commitment_year),
+        Number(r.commitment_num),
+        Number(r.commitment_sub),
+      ),
+      amount: Number(r.amount),
+      mandate_number: (r.mandate_number as string | null) ?? null,
+      mandate_date: (r.mandate_date as string | null) ?? null,
+      paid_date: (r.paid_date as string | null) ?? null,
+      paid_amount: r.paid_amount === null ? null : Number(r.paid_amount),
+    }));
+  }
+
   // Elenco fatture: testata, contratto e nome del fornitore, senza righe né
   // quote (con migliaia di fatture la risposta completa pesava decine di MB).
   // Capitoli, utenze, totale e periodo delle righe li calcola il server; la
@@ -274,9 +310,14 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       } else if (filters.sdi_status) {
         qb.andWhere('Invoice.sdi_status = :sdiStatus', { sdiStatus: filters.sdi_status });
       }
+      if (filters.payment_status)
+        qb.andWhere('Invoice.payment_status = :paymentStatus', {
+          paymentStatus: filters.payment_status,
+        });
       this.applyFilters(qb, filters, 'Invoice', [
         'deleted',
         'sdi_status',
+        'payment_status',
         'utility_id',
         'supplier_id_fk',
         'budget_chapter_ids',

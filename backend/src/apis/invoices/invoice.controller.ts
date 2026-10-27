@@ -16,7 +16,7 @@ import type { Response } from 'express';
 import { contentDisposition } from '@apis/attachments/attachment-file-policy';
 import { InvoiceImportService } from '@apis/invoice-import/invoice-import.service';
 import { SdiDocumentQueryDto } from './dto/sdi-document-query.dto';
-import { InvoiceListRow, InvoicesService } from './invoice.service';
+import { InvoiceListRow, InvoicePayment, InvoicesService } from './invoice.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { SearchInvoiceDto } from './dto/search-invoice.dto';
@@ -71,6 +71,12 @@ export class InvoicesController {
     @CurrentUser() user: ICurrentUser,
   ): Promise<Invoice> {
     return maskInvoice(await this.service.findOne(id), user?.role);
+  }
+
+  // Liquidazioni e mandati dalla contabilità: solo numeri, importi e date.
+  @Get(':id/payments')
+  payments(@Param('id', ParseIntPipe) id: number): Promise<InvoicePayment[]> {
+    return this.service.findPayments(id);
   }
 
   // XML o PDF della fattura riletti dalla PEC dello SDI, per la sola visualizzazione.

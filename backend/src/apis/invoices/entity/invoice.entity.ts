@@ -17,6 +17,7 @@ import { InvoiceLine } from './invoice-line.entity';
 import { InvoiceCommitmentShare } from './invoice-commitment-share.entity';
 import { Contract } from '@apis/contracts/entity/contract.entity';
 import { SdiStatus } from '../enum/sdi-status.enum';
+import { PaymentStatus } from '../enum/payment-status.enum';
 
 @Entity('invoices')
 export class Invoice {
@@ -82,6 +83,14 @@ export class Invoice {
   // Esito committente scartato dallo SDI: da segnalare finché non ne arriva un altro.
   @Column({ type: 'boolean', default: false })
   sdi_outcome_discarded: boolean;
+
+  // Stato del pagamento dalla contabilità (passo payments dell'import), mai dal form.
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  payment_status: PaymentStatus | null;
+
+  // Data dell'ultimo pagamento, solo per le pagate.
+  @Column({ type: 'date', nullable: true })
+  paid_on: string | null;
 
   // Fattura dell'import modificata a mano: l'import non la rielabora più.
   @Column({ type: 'boolean', default: false })

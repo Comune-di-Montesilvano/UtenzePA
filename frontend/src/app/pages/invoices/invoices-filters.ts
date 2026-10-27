@@ -6,6 +6,7 @@ import {ContractsService} from '../contracts/contract.service';
 import {BudgetChaptersService} from '../budget-chapters/budget-chapters.service';
 import {UtilityService} from '../utilities/utility.service';
 import {SDI_STATUS_LABELS, SDI_STATUS_NONE, SdiStatus} from './sdi-status';
+import {PAYMENT_STATUS_LABELS, PaymentStatus} from './payment-status';
 import {IMPORT_ISSUE_LABELS, INVOICE_ISSUE_SIGNAL_TYPES} from '../invoice-import/import-issues';
 
 const byLabel = (a: {label: string}, b: {label: string}) => (a.label ?? '').localeCompare(b.label ?? '');
@@ -29,6 +30,8 @@ export function invoiceFilters(): FilterDef[] {
         ...Object.values(SdiStatus).map(s => ({label: SDI_STATUS_LABELS[s], value: s})),
         {label: 'Senza messaggio SDI', value: SDI_STATUS_NONE},
       ]},
+    {key: 'payment_status', label: 'Pagamento', type: 'select', group: 'Documento',
+      options: Object.values(PaymentStatus).map(s => ({label: PAYMENT_STATUS_LABELS[s], value: s}))},
     {key: 'invoice_id', label: 'Numero fattura', type: 'text', group: 'Documento'},
     {key: 'protocol_number', label: 'Numero protocollo', type: 'text', group: 'Documento'},
     {key: 'notes_on_invoices', label: 'Note', type: 'text', group: 'Documento'},

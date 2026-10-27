@@ -38,6 +38,8 @@ import {ChapterBudgetService} from '../budget-chapters/chapter-budget.service';
 import {BudgetWarning} from '../budget-chapters/chapter-budget.model';
 import {toIsoDate} from '../../core/helpers/date.helper';
 import {sdiStatusBadge} from './sdi-status';
+import {InvoicePayment, paymentStatusBadge, PaymentStatus} from './payment-status';
+import {InvoicesService} from './invoices.service';
 import {SdiDocumentDialogComponent, SdiDocumentDialogData} from './sdi-document-dialog.component';
 
 // Data 'AAAA-MM-GG' letta come giorno locale (new Date(v) = mezzanotte UTC).
@@ -77,6 +79,7 @@ export class InvoiceEditDialogComponent implements OnInit {
   private toast = inject(ToastService);
   private budget = inject(ChapterBudgetService);
   private dialog = inject(MatDialog);
+  private invoicesService = inject(InvoicesService);
   protected data = inject<EditDialogData<Invoice>>(MAT_DIALOG_DATA);
 
   // Capitoli che con questa fattura superano l'assestato: solo avviso, mai blocco.
@@ -91,6 +94,11 @@ export class InvoiceEditDialogComponent implements OnInit {
   // Stato SDI e documenti dalla PEC: solo lettura, mai nel form.
   readonly sdiBadge = sdiStatusBadge(this.data.item.sdi_status, this.data.item.sdi_outcome_discarded);
   readonly hasSdiDocument = !this.isNew && !!this.data.item.sdi_identifier;
+  // Pagamento dalla contabilità: solo lettura.
+  readonly paymentBadge = paymentStatusBadge(this.data.item.payment_status, this.data.item.paid_on);
+  readonly hasPayment = !this.isNew && !!this.data.item.payment_status;
+  readonly toLiquidate = this.data.item.payment_status === PaymentStatus.TO_LIQUIDATE;
+  payments: InvoicePayment[] = [];
   readonly lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
 
   private contracts: Contract[] = [];
@@ -209,7 +217,12 @@ export class InvoiceEditDialogComponent implements OnInit {
     return n.toLocaleString('it-IT', {style: 'currency', currency: 'EUR'});
   }
 
+  dayIt(iso: string | null): string {
+    return iso ? (toLocalDate(iso)?.toLocaleDateString('it-IT') ?? '') : '';
+  }
+
   ngOnInit(): void {
+    if (this.hasPayment) this.invoicesService.payments(this.data.item.id).subscribe(p => this.payments = p);
     this.checkBudget();
     this.loadContracts();
     this.loadSuppliers();

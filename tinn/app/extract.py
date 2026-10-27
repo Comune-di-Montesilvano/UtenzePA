@@ -22,7 +22,8 @@ COMMITMENT_HEADER = ['commitment_year', 'commitment_num', 'commitment_sub', 'fis
                      'supplier_vat', 'amount', 'cig', 'cancelled', 'description']
 LIQUIDATION_HEADER = ['liquidation_key', 'commitment_year', 'commitment_num', 'commitment_sub', 'fiscal_year',
                       'sdi_identifier', 'invoice_number', 'invoice_date', 'invoice_total', 'invoice_cig',
-                      'supplier_vat', 'amount', 'cancelled']
+                      'supplier_vat', 'amount', 'cancelled', 'liquidation_number', 'mandate_number',
+                      'mandate_date', 'paid_date', 'paid_amount']
 
 
 def isql_path():
@@ -113,14 +114,27 @@ def commitment_rows(raw):
              cancelled(r[11]), r[12]] for r in pick_latest_years(raw)]
 
 
+# Righe di mandato della liquidazione L (FK GFMARIN1 -> GFLIQUN1, con
+# l'esercizio), mandati annullati esclusi.
+MANDATES = ('FROM GFMARIN1 R JOIN GFMATEN1 T ON T.ESERCIZIO=R.ESERCIZIO AND T.PROGRESSIVO=R.PROGRESSIVO '
+            'WHERE R.ESERCIZIO=L.ESERCIZIO AND R.LI_ANNO_CREA=L.ANNO_CREA AND R.LI_SIGLA=L.SIGLA '
+            "AND R.LI_NUMERAZIONE=L.NUMERAZIONE AND R.LI_PROGRESSIVO=L.PROGRESSIVO AND T.STATO_MAND IS DISTINCT FROM 'A'")
+
+
 def liquidation_sql(from_year):
     # Fornitore = anagrafica della fattura, non il creditore della liquidazione.
+    # Mandato: il più recente; pagato = righe con data di pagamento.
     return ('SELECT ' + cols("L.ESERCIZIO || '-' || L.ANNO_CREA || '-' || L.SIGLA || '-' || L.NUMERAZIONE "
                              "|| '-' || L.PROGRESSIVO",
                              'L.IM_ANNO_CREA', 'L.IM_NUMERAZIONE', 'L.IM_PROGRESSIVO', 'L.IM_ESERCIZIO',
                              'P.FE_ID_SDI_S', 'P.NUMERO_DOCUMENTO', 'P.DOC_DATA', 'P.TOTALE_DOCUMENTO',
                              'COALESCE(P.CODICE_CIG, L.CODICE_CIG)', 'A.PARTITA_IVA', 'A.COD_FISCALE',
-                             'L.IMPORTO', 'L.ANNULLATO')
+                             'L.IMPORTO', 'L.ANNULLATO', 'L.ANNO_CREA', 'L.NUMERAZIONE', 'L.PROGRESSIVO',
+                             "(SELECT FIRST 1 R.ESERCIZIO || '/' || R.PROGRESSIVO " + MANDATES
+                             + ' ORDER BY T.D_EMISSIONE DESC, R.PROGRESSIVO DESC)',
+                             '(SELECT MAX(T.D_EMISSIONE) ' + MANDATES + ')',
+                             '(SELECT MAX(R.DATA_PAG) ' + MANDATES + ' AND R.DATA_PAG IS NOT NULL)',
+                             '(SELECT SUM(R.IMP_PAGATO) ' + MANDATES + ' AND R.DATA_PAG IS NOT NULL)')
             + ' FROM GFLIQUN1 L LEFT JOIN GFPNCGN1 P ON P.ESERCIZIO=L.FA_ESERCIZIO AND P.NUMERO=L.FA_NUMERO'
             + ' LEFT JOIN GFANCON1 A ON A.CODICE=P.ANAGRAFICA'
             + ' WHERE L.IM_SIGLA=1 AND L.IM_ESERCIZIO>=' + str(int(from_year)))
@@ -128,7 +142,8 @@ def liquidation_sql(from_year):
 
 def liquidation_rows(raw):
     return [[r[0], r[1], r[2], r[3], r[4], r[5], r[6], to_iso_date(r[7]), to_amount(r[8]), r[9],
-             supplier_id(r[10], r[11]), to_amount(r[12]), cancelled(r[13])] for r in raw]
+             supplier_id(r[10], r[11]), to_amount(r[12]), cancelled(r[13]), '/'.join(r[14:17]), r[17],
+             to_iso_date(r[18]), to_iso_date(r[19]), to_amount(r[20])] for r in raw]
 
 
 def write_csv(path, header, rows):

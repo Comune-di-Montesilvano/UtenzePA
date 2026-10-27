@@ -67,6 +67,14 @@ Le fatture elettroniche arrivano dallo SDI sulla casella PEC del Comune. UtenzeP
 - Nella scheda di una fattura collegata compare il badge dello stato SDI (vedi [Stati SDI delle fatture](#stati-sdi-delle-fatture)); nell'elenco c'è la colonna **Stato SDI** e il filtro omonimo, con la voce «Senza messaggio SDI» per le fatture non collegate.
 - **Vedi XML** e **Vedi PDF** mostrano a video la fattura elettronica e il PDF allegato dal fornitore. I file non sono salvati in UtenzePA: vengono riletti al momento dalla PEC.
 
+### Sapere se una fattura è stata pagata
+
+Con l'import della contabilità acceso (vedi [Collegare la contabilità](#collegare-la-contabilità-solo-amministratori)) ogni fattura dall'anno di partenza ha uno stato di pagamento (vedi [Stati di pagamento delle fatture](#stati-di-pagamento-delle-fatture)).
+
+- Nell'elenco c'è la colonna **Pagamento** e, tra i filtri avanzati, il filtro omonimo: per esempio «Da liquidare» mostra le fatture che la ragioneria non ha ancora liquidato.
+- Nella scheda compare il badge dello stato e il tab **Pagamento** con le liquidazioni della fattura: numero, impegno, importo, mandato, data di emissione e data di pagamento.
+- Lo stato si aggiorna a ogni caricamento della contabilità (con il servizio Tinn ogni notte) e non si modifica a mano.
+
 ### Controllare la spesa di un capitolo
 
 1. Apri **Capitoli di spesa** e scegli il capitolo. Il riepilogo mostra l'esercizio in corso in una barra: **fatturato sugli impegni**, **rimanenza impegni** (impegnato non ancora fatturato), **da impegnare** (assestato meno impegnato). In rosso l'impegnato oltre l'assestato e il fatturato senza impegno; passa sopra la barra per i dettagli. Il badge in testa dice quanto resta da impegnare: a zero non vuol dire che non si possa più fatturare, conta la rimanenza degli impegni. Anche la scheda di un impegno ha la sua barra: fatturato, rimanenza e, in rosso, il fatturato oltre l'importo. Il pulsante accanto al capitolo apre la scheda del capitolo.
@@ -295,6 +303,7 @@ Cosa fa il caricamento:
 - **Impegni**: tutti quelli non annullati dei capitoli importati, con un'annualità per anno di competenza. Negli anni presenti nel file gli impegni e le annualità che la contabilità non ha (inseriti a mano o annullati in ragioneria) si tolgono, con le loro quote: le fatture tornano al calcolo automatico.
 - **Fatture**: una fattura pagata che UtenzePA non ha viene creata (fornitore, numero, data, totale, identificativo SDI e contratto dal CIG); a una fattura presente senza identificativo SDI si aggiunge quello della contabilità. Le righe arrivano poi dall'import PEC o si inseriscono a mano. Una fattura non ancora liquidata non è un errore: semplicemente non è ancora stata pagata.
 - **Quote d'impegno**: le fatture pagate pesano sugli impegni come le ha liquidate la ragioneria (origine **Ragioneria**), al posto delle quote automatiche o a mano.
+- **Pagamenti**: ogni fattura dall'anno di partenza prende lo stato di pagamento dalle sue liquidazioni e dai mandati (vedi [Stati di pagamento delle fatture](#stati-di-pagamento-delle-fatture)).
 - **Collegamenti**: l'impegno si collega al contratto indicato dal suo CIG e ai contratti delle fatture pagate (i collegamenti esistenti restano); il capitolo di un'utenza diventa quello su cui sono state pagate le sue fatture nell'ultimo esercizio, se è uno solo.
 
 I dati importati hanno il badge **Da contabilità** e, con l'import acceso, numero, capitolo, fornitore e importi non si modificano (si correggono in ragioneria e si ricaricano); non si possono creare capitoli, esercizi o impegni a mano né eliminare quelli importati. Restano modificabili note, documenti, contratti collegati e tipi utenza ammessi.
@@ -305,7 +314,7 @@ Tracciato dei file (CSV, separatore punto e virgola, prima riga con i nomi delle
 | --- | --- |
 | Capitoli | year, chapter, article, description, initial_budget, adjusted_budget, spent |
 | Impegni (una riga per anno di competenza) | commitment_year, commitment_num, commitment_sub, fiscal_year, chapter, article, supplier_vat, amount, cig, cancelled, description |
-| Liquidazioni | liquidation_key, commitment_year, commitment_num, commitment_sub, fiscal_year, sdi_identifier, invoice_number, invoice_date, invoice_total, invoice_cig, supplier_vat, amount, cancelled |
+| Liquidazioni | liquidation_key, commitment_year, commitment_num, commitment_sub, fiscal_year, sdi_identifier, invoice_number, invoice_date, invoice_total, invoice_cig, supplier_vat, amount, cancelled; facoltative: liquidation_number, mandate_number, mandate_date, paid_date, paid_amount (mandato più recente e pagamento) |
 
 Come per l'import fatture, **spegni l'import prima di esportare o importare il database**: l'interruttore è salvato nel database.
 
@@ -417,6 +426,16 @@ Nella scheda dell'utenza i contratti di fornitura compaiono con quelli **in cors
 | Decorsi i termini | Nessun esito entro 15 giorni: la fattura si considera accettata | Conta |
 
 Se lo SDI scarta un esito inviato dal Comune, la fattura torna allo stato precedente e compare tra le segnalazioni «Esito scartato dallo SDI». Una fattura senza stato non è (ancora) collegata a un messaggio della PEC.
+
+### Stati di pagamento delle fatture
+
+| Stato | Significato |
+| --- | --- |
+| Da liquidare | Nessuna liquidazione in contabilità: la fattura non è ancora stata liquidata |
+| Liquidata | Liquidata, ma almeno un mandato non è ancora pagato (o non è ancora emesso) |
+| Pagata | Tutte le liquidazioni hanno il mandato pagato; la data è quella dell'ultimo pagamento |
+
+Senza stato restano le fatture prima dell'anno di partenza dell'import, le note di credito e quelle rifiutate dallo SDI. Per gli esercizi già chiusi la contabilità non sempre registra la data di pagamento del mandato: lì un mandato emesso e non annullato conta come pagato, con la data di emissione.
 
 ### Segnalazioni per elenco
 

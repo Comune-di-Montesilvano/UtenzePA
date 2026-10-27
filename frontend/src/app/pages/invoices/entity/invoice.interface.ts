@@ -20,7 +20,6 @@ export interface IInvoice {
   deleted: boolean;
   contratto?: IContract | null;
   lines?: InvoiceLine[];
-  is_paid?: boolean;
   sdi_identifier?: string | null;
   sdi_status?: SdiStatus | null;
   sdi_outcome_discarded?: boolean;
