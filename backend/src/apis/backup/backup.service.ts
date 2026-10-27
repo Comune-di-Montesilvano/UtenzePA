@@ -356,7 +356,12 @@ export class BackupService {
     const sqlContent = this.filterDumpTables(rawSql, excludeTables);
     const conn = await createConnection({ ...this.dbConfig(), multipleStatements: true });
     try {
+      // Il dump ha un INSERT per riga: con autocommit ogni riga aspetta il
+      // commit su disco (minuti con le tabelle acc_*). Senza, si committa a
+      // ogni DROP/CREATE (commit implicito del DDL), cioè una volta per tabella.
+      await conn.query('SET autocommit=0');
       await conn.query(sqlContent);
+      await conn.query('COMMIT');
       this.logger.log(`Restore completato da: ${sqlFilePath}`);
     } catch (err) {
       this.logger.error(`Restore fallito: ${(err as Error).message}`);

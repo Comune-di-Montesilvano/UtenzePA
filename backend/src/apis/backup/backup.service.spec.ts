@@ -130,6 +130,31 @@ describe('BackupService', () => {
     expect(mockConn.end).toHaveBeenCalled();
   });
 
+  it('restoreFromFile esegue il dump senza autocommit e fa COMMIT alla fine', async () => {
+    const sqlFile = path.join(backupDir, 'restore-input.sql');
+    fs.writeFileSync(sqlFile, 'INSERT INTO x VALUES (1);');
+    mockConn.query.mockResolvedValue([[], []]);
+
+    await service.restoreFromFile(sqlFile);
+
+    expect(mockConn.query.mock.calls.map((c) => c[0])).toEqual([
+      'SET autocommit=0',
+      'INSERT INTO x VALUES (1);',
+      'COMMIT',
+    ]);
+  });
+
+  it('restoreFromFile senza COMMIT se il dump fallisce', async () => {
+    const sqlFile = path.join(backupDir, 'restore-input.sql');
+    fs.writeFileSync(sqlFile, 'INVALID SQL;');
+    mockConn.query
+      .mockResolvedValueOnce([[], []])
+      .mockRejectedValueOnce(new Error('ERROR 1064: syntax error'));
+
+    await expect(service.restoreFromFile(sqlFile)).rejects.toThrow('ERROR 1064');
+    expect(mockConn.query).not.toHaveBeenCalledWith('COMMIT');
+  });
+
   it('restoreFromFile rimuove i blocchi delle tabelle escluse (excludeTables)', async () => {
     const sqlFile = path.join(backupDir, 'restore-input.sql');
     fs.writeFileSync(
@@ -156,7 +181,7 @@ describe('BackupService', () => {
 
     await service.restoreFromFile(sqlFile, ['system_users']);
 
-    const executedSql = mockConn.query.mock.calls[0][0] as string;
+    const executedSql = mockConn.query.mock.calls[1][0] as string;
     expect(executedSql).not.toContain('DROP TABLE IF EXISTS `system_users`;');
     expect(executedSql).not.toContain('INSERT INTO `system_users`');
     // La FK verso system_users nella CREATE TABLE di `assets` deve restare —
