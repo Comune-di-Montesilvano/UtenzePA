@@ -5,6 +5,7 @@ import {plainToInstance} from 'class-transformer';
 import {environment} from '../../../environments/environment';
 import {AbstractService} from '../../core/services/abstract.service';
 import {Invoice} from './entity/invoice.entity';
+import type {InvoicePayment} from './payment-status';
 
 @Injectable({
               providedIn: 'root',
@@ -23,6 +24,11 @@ export class InvoicesService extends AbstractService<Invoice> {
     return this.http.get<unknown[]>(`${this.BASE_URL}/list`, {headers: this.getAuthHeaders(), params}).pipe(
       map(data => plainToInstance(Invoice, data))
     );
+  }
+
+  // Liquidazioni e mandati dalla contabilità.
+  payments(id: number): Observable<InvoicePayment[]> {
+    return this.http.get<InvoicePayment[]>(`${this.BASE_URL}/${id}/payments`, {headers: this.getAuthHeaders()});
   }
 
   getMonthlyCosts(): Observable<number> {

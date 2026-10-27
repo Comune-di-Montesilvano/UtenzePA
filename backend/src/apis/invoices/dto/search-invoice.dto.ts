@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { SdiStatus } from '../enum/sdi-status.enum';
+import { PaymentStatus } from '../enum/payment-status.enum';
 import { SDI_STATUS_NONE } from '../sdi-status';
 import { TransformCsvToArray } from '@/common/decorators/transform-csv-to-array.decorator';
 
@@ -107,4 +108,9 @@ export class SearchInvoiceDto {
   @IsOptional()
   @IsIn([...Object.values(SdiStatus), SDI_STATUS_NONE], { message: 'Stato SDI non valido' })
   sdi_status?: SdiStatus | typeof SDI_STATUS_NONE;
+
+  // Stato del pagamento dalla contabilità.
+  @IsOptional()
+  @IsEnum(PaymentStatus, { message: 'Stato del pagamento non valido' })
+  payment_status?: PaymentStatus;
 }

@@ -5,6 +5,7 @@ import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 @Entity('acc_liquidations')
 @Index('IDX_acc_liquidations_sdi', ['sdi_identifier'])
 @Index('IDX_acc_liquidations_invoice', ['supplier_vat', 'invoice_date'])
+@Index('IDX_acc_liquidations_invoice_id', ['invoice_id_fk'])
 export class AccLiquidation {
   @PrimaryGeneratedColumn('increment')
   id: number;
@@ -47,4 +48,24 @@ export class AccLiquidation {
 
   @Column({ type: 'boolean', default: false })
   cancelled: boolean;
+
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  liquidation_number: string | null;
+
+  // Mandato più recente non annullato.
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  mandate_number: string | null;
+
+  @Column({ type: 'date', nullable: true })
+  mandate_date: string | null;
+
+  @Column({ type: 'date', nullable: true })
+  paid_date: string | null;
+
+  @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
+  paid_amount: number | null;
+
+  // Fattura abbinata, scritta dal passo payments (dettaglio nella scheda).
+  @Column({ type: 'int', nullable: true })
+  invoice_id_fk: number | null;
 }

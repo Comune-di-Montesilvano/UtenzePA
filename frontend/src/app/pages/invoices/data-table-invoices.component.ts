@@ -25,6 +25,7 @@ import {partyName} from '../../core/helpers/party-name.helper';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
 import {CREDIT_NOTE_BADGE, isCreditNote} from '../../core/helpers/entity-status';
 import {SDI_STATUS_LABELS, sdiStatusBadge} from './sdi-status';
+import {paymentStatusBadge, paymentStatusLabel} from './payment-status';
 
 @Component({
   selector: 'app-data-table-invoices',
@@ -42,6 +43,7 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
   readonly creditNoteBadge = CREDIT_NOTE_BADGE;
   readonly isCreditNote = isCreditNote;
   readonly sdiStatusBadge = sdiStatusBadge;
+  readonly paymentStatusBadge = paymentStatusBadge;
 
   readonly allColumns: IColumnDef[] = [
     {field: 'invoice_id', header: 'ID Fattura', minWidth: '120px'},
@@ -54,7 +56,7 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
     {field: 'contratto.supplier', header: 'Fornitore', minWidth: '150px'},
     {field: 'chapters', header: 'Capitoli (da impegni)', minWidth: '180px'},
     {field: 'utilities_count', header: 'Utenze', minWidth: '80px'},
-    {field: 'is_paid', header: 'Stato Pagamento', minWidth: '120px'},
+    {field: 'payment_status', header: 'Pagamento', minWidth: '130px'},
     {field: 'sdi_status', header: 'Stato SDI', minWidth: '130px'},
     {field: 'notes_on_invoices', header: 'Note', minWidth: '200px'},
   ];
@@ -62,7 +64,7 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
   private readonly defaultVisibleFields = new Set([
     'invoice_id', 'protocol_number', 'invoice_date', 'total_amount', 'net_amount_excl_vat',
     'last_invoice_arrears', 'contratto.cig_contract', 'contratto.supplier',
-    'chapters', 'utilities_count', 'is_paid', 'sdi_status',
+    'chapters', 'utilities_count', 'payment_status', 'sdi_status',
   ]);
 
   private static readonly STORAGE_KEY = 'columns:invoices';
@@ -145,8 +147,8 @@ export class DataTableInvoicesComponent extends AbstractDataTableComponent<Invoi
         return item.sdi_status ? SDI_STATUS_LABELS[item.sdi_status] : '';
       case 'utilities_count':
         return String(this.utilitiesCountOf(item));
-      case 'is_paid':
-        return ExportHelper.boolData(item.is_paid);
+      case 'payment_status':
+        return paymentStatusLabel(item.payment_status, item.paid_on);
       default:
         return String(this.getNestedValue(item, field) ?? '');
     }

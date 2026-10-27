@@ -1,5 +1,5 @@
-liquidation_key;commitment_year;commitment_num;commitment_sub;fiscal_year;sdi_identifier;invoice_number;invoice_date;invoice_total;invoice_cig;supplier_vat;amount;cancelled
-2024-2024-1-100-1;2024;10;1;2024;12345678;FT/1;2024-03-24;122.00;Z0A1B2C3D4;01234567890;61.00;0
-2024-2024-1-100-2;2024;10;1;2024;12345678;FT/1;2024-03-24;122.00;Z0A1B2C3D4;01234567890;61.00;0
-2024-2024-1-101-1;2024;11;1;2024;;FT/2;2024-04-01;50.00;CIGL;RSSMRA80A01H501U;50.00;1
-2024-2024-1-102-1;2024;10;1;2024;;;;;;;5.00;0
+liquidation_key;commitment_year;commitment_num;commitment_sub;fiscal_year;sdi_identifier;invoice_number;invoice_date;invoice_total;invoice_cig;supplier_vat;amount;cancelled;liquidation_number;mandate_number;mandate_date;paid_date;paid_amount
+2024-2024-1-100-1;2024;10;1;2024;12345678;FT/1;2024-03-24;122.00;Z0A1B2C3D4;01234567890;61.00;0;2024/100/1;2024/50;2024-04-10;2024-04-15;61.00
+2024-2024-1-100-2;2024;10;1;2024;12345678;FT/1;2024-03-24;122.00;Z0A1B2C3D4;01234567890;61.00;0;2024/100/2;2024/51;2024-04-12;;
+2024-2024-1-101-1;2024;11;1;2024;;FT/2;2024-04-01;50.00;CIGL;RSSMRA80A01H501U;50.00;1;2024/101/1;;;;
+2024-2024-1-102-1;2024;10;1;2024;;;;;;;5.00;0;2024/102/1;;;;

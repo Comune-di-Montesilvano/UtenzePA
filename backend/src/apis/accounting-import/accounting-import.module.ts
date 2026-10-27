@@ -17,6 +17,7 @@ import { CommitmentApplierService } from './commitment-applier.service';
 import { AccountingInvoiceService } from './accounting-invoice.service';
 import { ShareApplierService } from './share-applier.service';
 import { LinkApplierService } from './link-applier.service';
+import { PaymentApplierService } from './payment-applier.service';
 import { AccChapter } from './entity/acc-chapter.entity';
 import { AccCommitment } from './entity/acc-commitment.entity';
 import { AccLiquidation } from './entity/acc-liquidation.entity';
@@ -35,7 +36,7 @@ export function inboxCronTime(value: string | undefined): string {
 }
 
 // Ordine dei passi del giro: perimetro e capitoli, poi impegni, fatture,
-// quote, collegamenti. Ognuno legge quello che hanno scritto i precedenti.
+// quote, collegamenti, stato dei pagamenti. Ognuno legge quello che hanno scritto i precedenti.
 @Module({
   imports: [
     // Tabelle di appoggio: con autoLoadEntities entrano nel DataSource solo da qui.
@@ -53,6 +54,7 @@ export function inboxCronTime(value: string | undefined): string {
     AccountingInvoiceService,
     ShareApplierService,
     LinkApplierService,
+    PaymentApplierService,
     {
       provide: ACCOUNTING_STEPS,
       useFactory: (
@@ -61,12 +63,14 @@ export function inboxCronTime(value: string | undefined): string {
         invoices: AccountingInvoiceService,
         shares: ShareApplierService,
         links: LinkApplierService,
+        payments: PaymentApplierService,
       ): AccountingStep[] => [
         { name: 'chapters', apply: () => chapters.apply() },
         { name: 'commitments', apply: () => commitments.apply() },
         { name: 'invoices', apply: () => invoices.apply() },
         { name: 'shares', apply: () => shares.apply() },
         { name: 'links', apply: () => links.apply() },
+        { name: 'payments', apply: (ctx) => payments.apply(ctx) },
       ],
       inject: [
         ChapterApplierService,
@@ -74,6 +78,7 @@ export function inboxCronTime(value: string | undefined): string {
         AccountingInvoiceService,
         ShareApplierService,
         LinkApplierService,
+        PaymentApplierService,
       ],
     },
   ],

@@ -71,6 +71,26 @@ describe('parseAccountingCsv', () => {
     expect(rows.map((r) => r.cancelled)).toEqual([false, true]);
   });
 
+  it('mandato e pagamento facoltativi: assenti = null', () => {
+    const head = 'liquidation_key;commitment_year;commitment_num;commitment_sub;fiscal_year;amount';
+    const { rows } = parseAccountingCsv(
+      'liquidations',
+      `${head};liquidation_number;mandate_number;mandate_date;paid_date;paid_amount\n` +
+        'L1;2026;1;1;2026;10;2026/100/1;2026/50;2026-04-10;2026-04-15;10,00\n' +
+        'L2;2026;1;1;2026;10;2026/101/1;;;;\n',
+    );
+    expect(rows[0]).toMatchObject({
+      liquidation_number: '2026/100/1',
+      mandate_number: '2026/50',
+      mandate_date: '2026-04-10',
+      paid_date: '2026-04-15',
+      paid_amount: 10,
+    });
+    expect(rows[1]).toMatchObject({ mandate_number: null, paid_date: null, paid_amount: null });
+    const old = parseAccountingCsv('liquidations', `${head}\nL1;2026;1;1;2026;10\n`);
+    expect(old.rows[0].paid_date).toBeNull();
+  });
+
   it('data non ISO = issue', () => {
     const csv =
       'liquidation_key;commitment_year;commitment_num;commitment_sub;fiscal_year;amount;invoice_date\n' +

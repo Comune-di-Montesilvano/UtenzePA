@@ -8,6 +8,7 @@ import {Contract} from '../../contracts/entity/contract.entity';
 import {DateOnly} from '../../../core/helpers/date.helper';
 import {SystemUser} from '../../system-users/entity/system-user.entity';
 import type {SdiStatus} from '../sdi-status';
+import type {PaymentStatus} from '../payment-status';
 
 export class Invoice extends AbstractEntity implements IInvoice {
   invoice_id!: string;
@@ -56,8 +57,11 @@ export class Invoice extends AbstractEntity implements IInvoice {
   @Transform(({value}) => (Array.isArray(value) ? value.map(toSharePayload) : value), {toPlainOnly: true})
   commitment_shares?: InvoiceCommitmentShare[];
 
+  // Dalla contabilità (import, passo payments), mai inviati.
   @Exclude({toPlainOnly: true})
-  is_paid?: boolean;
+  payment_status?: PaymentStatus | null;
+  @Exclude({toPlainOnly: true})
+  paid_on?: string | null;
 
   // Solo dall'elenco leggero (GET /invoices/list), mai inviati.
   @Exclude({toPlainOnly: true})

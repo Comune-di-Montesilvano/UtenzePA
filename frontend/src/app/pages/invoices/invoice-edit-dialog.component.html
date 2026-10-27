@@ -11,6 +11,9 @@
     @if (sdiBadge) {
       <app-status-badge [info]="sdiBadge"></app-status-badge>
     }
+    @if (paymentBadge) {
+      <app-status-badge [info]="paymentBadge"></app-status-badge>
+    }
     @if (data.item.source === 'ACCOUNTING') {
       <app-status-badge [info]="accountingBadge"></app-status-badge>
     }
@@ -109,6 +112,42 @@
         </app-invoice-commitments-tab>
         <ng-container [ngTemplateOutlet]="budgetWarningsTpl"></ng-container>
       </mat-tab>
+
+      @if (hasPayment) {
+        <mat-tab aria-label="Pagamento">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="paid" label="Pagamento" [count]="payments.length"></app-tab-label>
+          </ng-template>
+          @if (toLiquidate) {
+            <p>Nessuna liquidazione in contabilità per questa fattura.</p>
+          } @else {
+            <table class="sheet-table">
+              <thead>
+                <tr>
+                  <th>Liquidazione</th>
+                  <th>Impegno</th>
+                  <th>Importo</th>
+                  <th>Mandato</th>
+                  <th>Emesso il</th>
+                  <th>Pagato il</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of payments; track $index) {
+                  <tr>
+                    <td>{{ p.liquidation_number || '—' }}</td>
+                    <td>{{ p.commitment }}</td>
+                    <td>{{ eur(p.amount) }}</td>
+                    <td>{{ p.mandate_number || 'Nessun mandato' }}</td>
+                    <td>{{ dayIt(p.mandate_date) }}</td>
+                    <td>{{ dayIt(p.paid_date) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </mat-tab>
+      }
     </mat-tab-group>
   </form>
 

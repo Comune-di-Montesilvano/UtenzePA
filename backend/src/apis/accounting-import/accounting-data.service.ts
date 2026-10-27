@@ -58,7 +58,9 @@ export class AccountingDataService {
     const rows = await this.dataSource.query(
       'SELECT liquidation_key, commitment_year, commitment_num, commitment_sub, fiscal_year, sdi_identifier, ' +
         "invoice_number, DATE_FORMAT(invoice_date, '%Y-%m-%d') AS invoice_date, invoice_total, invoice_cig, " +
-        'supplier_vat, amount, cancelled FROM acc_liquidations',
+        'supplier_vat, amount, cancelled, liquidation_number, mandate_number, ' +
+        "DATE_FORMAT(mandate_date, '%Y-%m-%d') AS mandate_date, DATE_FORMAT(paid_date, '%Y-%m-%d') AS paid_date, " +
+        'paid_amount FROM acc_liquidations',
     );
     return rows.map((r: Record<string, unknown>) => ({
       liquidation_key: String(r.liquidation_key),
@@ -74,6 +76,11 @@ export class AccountingDataService {
       supplier_vat: (r.supplier_vat as string | null) ?? null,
       amount: Number(r.amount),
       cancelled: !!Number(r.cancelled),
+      liquidation_number: (r.liquidation_number as string | null) ?? null,
+      mandate_number: (r.mandate_number as string | null) ?? null,
+      mandate_date: (r.mandate_date as string | null) ?? null,
+      paid_date: (r.paid_date as string | null) ?? null,
+      paid_amount: num(r.paid_amount),
     }));
   }
 

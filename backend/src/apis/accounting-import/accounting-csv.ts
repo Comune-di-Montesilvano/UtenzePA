@@ -49,6 +49,12 @@ export interface AccLiquidationRow {
   supplier_vat: string | null;
   amount: number;
   cancelled: boolean;
+  // Facoltativi (formato dalla v1.52.0): mandato più recente e pagamento.
+  liquidation_number?: string | null;
+  mandate_number?: string | null;
+  mandate_date?: string | null;
+  paid_date?: string | null;
+  paid_amount?: number | null;
 }
 
 export interface ParsedCsv<T> {
@@ -96,6 +102,11 @@ const COLUMNS: Record<AccKind, Column[]> = {
     ['supplier_vat', 'text', false],
     ['amount', 'money', true],
     ['cancelled', 'bool', false],
+    ['liquidation_number', 'text', false],
+    ['mandate_number', 'text', false],
+    ['mandate_date', 'date', false],
+    ['paid_date', 'date', false],
+    ['paid_amount', 'money', false],
   ],
 };
 
@@ -147,6 +158,8 @@ const TEXT_MAX: Record<string, number> = {
   sdi_identifier: 20,
   invoice_number: 50,
   liquidation_key: 50,
+  liquidation_number: 30,
+  mandate_number: 30,
 };
 const DESCRIPTION_MAX = 255;
 

@@ -45,11 +45,17 @@ def test_chapter_adjusted_is_initial_plus_variations():
 
 def test_cancelled_liquidation_exported_with_flag():
     raw = ['2024-2024-1-101-1', '2024', '11', '1', '2024', '', 'FT/2', '01-APR-2024', '50',
-           'CIGL', '', 'RSSMRA80A01H501U', '50', 'A']
+           'CIGL', '', 'RSSMRA80A01H501U', '50', 'A', '2024', '101', '1', '', '', '', '']
     assert liquidation_rows([raw]) == [
         ['2024-2024-1-101-1', '2024', '11', '1', '2024', '', 'FT/2', '2024-04-01', '50.00',
-         'CIGL', 'RSSMRA80A01H501U', '50.00', '1']
+         'CIGL', 'RSSMRA80A01H501U', '50.00', '1', '2024/101/1', '', '', '', '']
     ]
+
+
+def test_liquidation_with_paid_mandate():
+    raw = ['2024-2024-1-100-1', '2024', '10', '1', '2024', '', '', '', '', '', '', '', '61', '',
+           '2024', '100', '1', '2024/50', '10-APR-2024', '15-APR-2024', '61.0000000001']
+    assert liquidation_rows([raw])[0][13:] == ['2024/100/1', '2024/50', '2024-04-10', '2024-04-15', '61.00']
 
 
 def test_trailing_empty_fields_kept():
