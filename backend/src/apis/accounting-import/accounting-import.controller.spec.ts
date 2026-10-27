@@ -14,13 +14,16 @@ describe('AccountingImportController', () => {
   });
 
   describe('container/run', () => {
-    const make = (present: boolean, state?: string) => {
+    const make = (present: boolean, state?: string, loading = false) => {
       const inbox = {
         present: jest.fn(() => present),
         readStatus: jest.fn(() => (state ? { state } : null)),
         requestRun: jest.fn(),
       };
-      const service = { getStatus: jest.fn(async () => ({ enabled: true })) };
+      const service = {
+        getStatus: jest.fn(async () => ({ enabled: true })),
+        isRunning: jest.fn(() => loading),
+      };
       const controller = new AccountingImportController(
         service as never,
         {} as never,
@@ -49,5 +52,23 @@ describe('AccountingImportController', () => {
       expect(inbox.requestRun).toHaveBeenCalled();
       expect(Reflect.getMetadata(ROLES_KEY, AccountingImportController)).toEqual(['Admin']);
     });
+  });
+
+  it('400 durante un caricamento della contabilità', async () => {
+    const inbox = {
+      present: () => true,
+      readStatus: () => ({ state: 'ok' }),
+      requestRun: jest.fn(),
+    };
+    const service = { getStatus: jest.fn(), isRunning: () => true };
+    const controller = new AccountingImportController(
+      service as never,
+      {} as never,
+      inbox as never,
+    );
+    await expect(controller.runContainer()).rejects.toThrow(
+      'Caricamento della contabilità in corso.',
+    );
+    expect(inbox.requestRun).not.toHaveBeenCalled();
   });
 });

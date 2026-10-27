@@ -13,10 +13,10 @@ Il servizio `tinn` di `docker-compose.yml` ha il profilo `tinn`: senza `COMPOSE_
 | `TINN_SFTP_HOST` | — | server SFTP di Tinn |
 | `TINN_SFTP_PORT` | `22` | |
 | `TINN_SFTP_USER` | — | |
-| `TINN_SFTP_PASSWORD` | — | segreta, mai nei log |
+| `TINN_SFTP_PASSWORD` | — | segreta, mai nei log; con `$`, spazi o `#` scriverla tra apici singoli nel `.env` (`'ab$c d#1'`), altrimenti Compose la altera |
 | `TINN_SFTP_PATH` | — | percorso dello zip sul server |
 | `TINN_DB_FILE` | — | nome del `.fbk` dentro lo zip |
-| `TINN_SFTP_HOST_KEY` | — | facoltativa: chiave host attesa (`ssh-ed25519 AAAA…`); senza, quella vista al primo collegamento |
+| `TINN_SFTP_HOST_KEY` | — | facoltativa: chiave host attesa (`ssh-ed25519 AAAA…`, anche una riga di `ssh-keyscan` con l'host davanti; si chiede al server quel tipo di chiave); senza, quella vista al primo collegamento |
 | `TINN_CRON` | `0 4 * * *` | orario del giro (fuso `Europe/Rome`) |
 
 Il firewall deve permettere la connessione in uscita verso il server SFTP. Durante il giro servono circa 6 GB liberi nel volume `tinn_work`; alla fine resta vuoto.

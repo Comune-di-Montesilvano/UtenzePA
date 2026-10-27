@@ -166,3 +166,127 @@ def test_config_requires_sftp_without_local_zip():
         Config.from_env({'TINN_DB_FILE': 'DB.fbk'})
     assert 'TINN_SFTP_HOST' in str(e.value)
     assert Config.from_env({'TINN_DB_FILE': 'DB.fbk', 'TINN_LOCAL_ZIP': '/x.zip'}).local_zip == '/x.zip'
+
+
+class FakeChannel:
+    def __init__(self):
+        self.timeout = None
+
+    def settimeout(self, value):
+        self.timeout = value
+
+
+class FakeSecurity:
+    key_types = ('ssh-ed25519', 'ecdsa-sha2-nistp256', 'rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa')
+
+
+class FakeTransport:
+    last = None
+
+    def __init__(self, addr):
+        FakeTransport.last = self
+        self.keepalive = None
+        self.security = FakeSecurity()
+        self.key_types_at_start = None
+
+    def get_security_options(self):
+        return self.security
+
+    def start_client(self, timeout=None):
+        self.key_types_at_start = tuple(self.security.key_types)
+
+    def get_remote_server_key(self):
+        class Key:
+            def get_name(self):
+                return 'ssh-rsa'
+
+            def get_base64(self):
+                return 'AAAAkey'
+        return Key()
+
+    def set_keepalive(self, seconds):
+        self.keepalive = seconds
+
+    def auth_password(self, user, password):
+        pass
+
+    def close(self):
+        pass
+
+
+class FakeSftp:
+    def __init__(self):
+        self.channel = FakeChannel()
+
+    def get_channel(self):
+        return self.channel
+
+    def stat(self, path):
+        class S:
+            st_mtime = 1761500000
+        return S()
+
+    def get(self, path, dest):
+        open(dest, 'wb').close()
+
+
+def patch_paramiko(monkeypatch):
+    sftp_client = FakeSftp()
+    monkeypatch.setattr(job.sftp.paramiko, 'Transport', FakeTransport)
+    monkeypatch.setattr(job.sftp.paramiko.SFTPClient, 'from_transport', lambda t: sftp_client)
+    return sftp_client
+
+
+def test_sftp_download_has_timeouts(tmp_path, monkeypatch):
+    client = patch_paramiko(monkeypatch)
+    cfg = make_cfg(tmp_path)
+    job.sftp.download(cfg, str(tmp_path / 'work' / 'b.zip'))
+    assert FakeTransport.last.keepalive == 30
+    assert client.channel.timeout == 300
+
+
+def test_pinned_rsa_host_key_restricts_key_types(tmp_path, monkeypatch):
+    patch_paramiko(monkeypatch)
+    cfg = make_cfg(tmp_path, host_key='sftp.example ssh-rsa AAAAkey')
+    job.sftp.download(cfg, str(tmp_path / 'work' / 'b.zip'))
+    assert FakeTransport.last.key_types_at_start == ('rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa')
+
+
+def test_gbak_has_timeout(tmp_path, monkeypatch):
+    seen = {}
+
+    def fake_run(args, **kw):
+        seen.update(kw)
+        return subprocess.CompletedProcess(args, 0, b'', b'')
+
+    monkeypatch.setattr(job.subprocess, 'run', fake_run)
+    job.restore(str(tmp_path / 'a.fbk'), str(tmp_path / 'a.fdb'))
+    assert seen.get('timeout')
+
+
+def test_status_write_failure_does_not_escape(tmp_path, monkeypatch):
+    cfg = make_cfg(tmp_path)
+
+    def failing(cfg, dest):
+        open(dest, 'wb').write(b'x')
+        raise OSError(28, 'No space left on device')
+
+    calls = {'n': 0}
+    real = job.write_status
+
+    def flaky_write(box, status):
+        calls['n'] += 1
+        if status.get('state') == 'error':
+            raise OSError(28, 'No space left on device')
+        real(box, status)
+
+    monkeypatch.setattr(job, 'write_status', flaky_write)
+    d, _ = deps(download=failing)
+    assert run_job(cfg, force=False, deps=d) == 'error'
+    assert os.listdir(cfg.work) == []
+
+
+def test_disk_full_message(tmp_path):
+    from app.inbox import public_message
+    msg = public_message('download', OSError(28, 'No space left on device'), [])
+    assert msg.startswith('Spazio su disco esaurito')

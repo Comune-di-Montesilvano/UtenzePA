@@ -6,6 +6,7 @@ UtenzePA: settings (anno di partenza, ultimo backup caricato) e request
 («Esegui ora»). Ogni scrittura passa da un file .tmp e os.replace, così
 nessuno legge mai un file a metà.
 """
+import errno
 import json
 import os
 from dataclasses import dataclass
@@ -102,5 +103,7 @@ def public_message(step, error, secrets):
     for secret in secrets:
         if secret:
             detail = detail.replace(secret, '***')
+    if isinstance(error, OSError) and error.errno == errno.ENOSPC:
+        return 'Spazio su disco esaurito nel container Tinn (volume tinn_work)'
     base = STEP_MESSAGES.get(step, 'Errore')
     return base + (': ' + detail if detail else '')

@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from croniter import croniter
 
@@ -15,6 +15,7 @@ from app.job import clean_work, now_iso, run_job
 
 log = logging.getLogger('tinn')
 POLL_SECONDS = 60
+STARTUP_RETRY_AFTER = timedelta(minutes=30)
 
 
 def next_run(cron, after):
@@ -32,12 +33,34 @@ def recover(cfg):
         write_status(cfg.inbox, status)
 
 
+def _started(status):
+    try:
+        value = datetime.fromisoformat(status.get('started_at') or '')
+    except ValueError:
+        return None
+    return value.astimezone().replace(tzinfo=None) if value.tzinfo else value
+
+
+def run_at_startup(status, now):
+    """Primo avvio, configurazione corretta o errore vecchio: si parte subito. Un
+    errore recente no: un container che si riavvia di continuo riscaricherebbe il
+    backup a ogni riavvio. Resta «Esegui ora» o il giro programmato."""
+    if not status:
+        return True
+    if status.get('state') in ('ok', 'unchanged'):
+        return False
+    if status.get('step') == 'config':
+        return True
+    started = _started(status)
+    return started is None or now - started > STARTUP_RETRY_AFTER
+
+
 def startup(cfg, now, run):
     """Restituisce l'orario del prossimo giro programmato."""
+    status = read_status(cfg.inbox)
     recover(cfg)
     nxt = next_run(cfg.cron, now)
-    status = read_status(cfg.inbox)
-    if not status or status.get('state') not in ('ok', 'unchanged'):
+    if run_at_startup(status, now):
         run(False, nxt)
     return nxt
 
@@ -51,6 +74,16 @@ def tick(cfg, now, nxt, run):
         run(False, upcoming)
         return upcoming
     return nxt
+
+
+def safe_tick(cfg, now, nxt, run):
+    """tick che non fa mai uscire il processo: un'uscita, con restart
+    unless-stopped, diventerebbe un riavvio con un nuovo giro."""
+    try:
+        return tick(cfg, now, nxt, run)
+    except Exception:  # noqa: BLE001
+        log.exception('controllo non riuscito')
+        return nxt
 
 
 def report_config_error(box, message):
@@ -74,11 +107,15 @@ def main():
     def run(force, nxt):
         run_job(cfg, force, next_run_at=nxt)
 
-    nxt = startup(cfg, datetime.now(), run)
+    try:
+        nxt = startup(cfg, datetime.now(), run)
+    except Exception:  # noqa: BLE001
+        log.exception('avvio non riuscito')
+        nxt = next_run(cfg.cron, datetime.now())
     log.info('prossimo giro: %s', nxt.isoformat(timespec='minutes'))
     while True:
         time.sleep(POLL_SECONDS)
-        nxt = tick(cfg, datetime.now(), nxt, run)
+        nxt = safe_tick(cfg, datetime.now(), nxt, run)
 
 
 if __name__ == '__main__':

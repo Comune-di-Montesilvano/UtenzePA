@@ -12,6 +12,8 @@ from datetime import datetime
 
 SEP = 'ASCII_CHAR(31)'
 FILES = ('capitoli', 'impegni', 'liquidazioni')
+# Ogni query dura secondi sul DB del Comune: oltre 30 minuti è bloccata.
+ISQL_TIMEOUT_SECONDS = 30 * 60
 
 CHAPTER_HEADER = ['year', 'chapter', 'article', 'description', 'initial_budget', 'adjusted_budget', 'spent']
 COMMITMENT_HEADER = ['commitment_year', 'commitment_num', 'commitment_sub', 'fiscal_year', 'chapter', 'article',
@@ -37,7 +39,7 @@ def parse_isql_output(out):
 
 def run_isql(db_path, select):
     sql = 'SET LIST OFF;\nSET HEADING OFF;\n' + select + ';\n'
-    res = subprocess.run([isql_path(), '-user', 'SYSDBA', '-q', '-bail', db_path],
+    res = subprocess.run([isql_path(), '-user', 'SYSDBA', '-q', '-bail', db_path], timeout=ISQL_TIMEOUT_SECONDS,
                          input=sql.encode('ascii'), capture_output=True)
     if res.returncode != 0 or res.stderr.strip():
         raise RuntimeError(res.stderr.decode('cp1252', errors='replace').strip()[:300] or 'isql non riuscito')

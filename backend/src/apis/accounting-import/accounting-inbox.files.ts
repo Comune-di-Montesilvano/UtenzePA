@@ -62,9 +62,9 @@ export function readStatus(dir: string): TinnStatus | null {
   };
 }
 
-export function readReady(dir: string): TinnReady | null {
-  if (!existsSync(join(dir, 'ready'))) return null;
-  const r = readJson(join(dir, 'ready'));
+export function readReady(dir: string, name = 'ready'): TinnReady | null {
+  if (!existsSync(join(dir, name))) return null;
+  const r = readJson(join(dir, name));
   return { backupSha256: str(r?.backup_sha256) ?? '', extractedAt: str(r?.extracted_at) };
 }
 
@@ -77,8 +77,31 @@ export function readCsvs(dir: string): Record<keyof typeof INBOX_CSV, Buffer> | 
   >;
 }
 
+// Consegna presa in carico: ready → ready.loading prima di leggere i CSV. Se nel
+// frattempo il container consegna di nuovo (nuovo ready), quella resta intatta.
+const LOADING = 'ready.loading';
+
+export function claimDelivery(dir: string): void {
+  renameSync(join(dir, 'ready'), join(dir, LOADING));
+}
+
+// Caricamento interrotto (API riavviata) o rimandato: la consegna torna in attesa,
+// salvo che ne sia arrivata una nuova.
+export function releaseClaim(dir: string): void {
+  if (!existsSync(join(dir, LOADING))) return;
+  if (existsSync(join(dir, 'ready'))) unlinkSync(join(dir, LOADING));
+  else renameSync(join(dir, LOADING), join(dir, 'ready'));
+}
+
+export function claimPending(dir: string): boolean {
+  return existsSync(join(dir, LOADING));
+}
+
+// Caricata: si tolgono i CSV solo se non è arrivata una consegna nuova.
 export function clearDelivery(dir: string): void {
-  for (const name of [...Object.values(INBOX_CSV), 'ready']) {
+  if (existsSync(join(dir, LOADING))) unlinkSync(join(dir, LOADING));
+  if (existsSync(join(dir, 'ready'))) return;
+  for (const name of Object.values(INBOX_CSV)) {
     if (existsSync(join(dir, name))) unlinkSync(join(dir, name));
   }
 }
@@ -86,7 +109,9 @@ export function clearDelivery(dir: string): void {
 // Consegna non caricabile: non si riprova da sola (fallirebbe uguale), aspetta
 // la consegna successiva o «Esegui ora». I CSV restano per capire cosa è successo.
 export function markFailed(dir: string): void {
-  if (existsSync(join(dir, 'ready'))) renameSync(join(dir, 'ready'), join(dir, 'ready.failed'));
+  if (!existsSync(join(dir, LOADING))) return;
+  if (existsSync(join(dir, 'ready'))) unlinkSync(join(dir, LOADING));
+  else renameSync(join(dir, LOADING), join(dir, 'ready.failed'));
 }
 
 function writeAtomic(path: string, content: string): void {

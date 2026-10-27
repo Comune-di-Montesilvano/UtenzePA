@@ -2,6 +2,8 @@ import { Inject, Injectable, Logger, OnApplicationBootstrap, Optional } from '@n
 import { AccountingImportService } from './accounting-import.service';
 import { AccountingStateService } from './accounting-state.service';
 import {
+  claimDelivery,
+  claimPending,
   clearDelivery,
   inboxDir,
   inboxPresent,
@@ -9,6 +11,7 @@ import {
   readCsvs,
   readReady,
   readStatus,
+  releaseClaim,
   requestRun,
   writeSettings,
   type TinnStatus,
@@ -72,14 +75,20 @@ export class AccountingInboxService implements OnApplicationBootstrap {
     const state = await this.states.state();
     if (!(await this.states.isActive()) || !state.from_year) return 'off';
 
+    if (this.importer.isRunning()) return 'busy';
+    // Presa in carico rimasta da un caricamento interrotto: torna in attesa.
+    if (claimPending(this.dir)) releaseClaim(this.dir);
     const ready = readReady(this.dir);
     if (!ready) return this.confirmUnchanged(state);
-    if (this.importer.isRunning()) return 'busy';
 
+    claimDelivery(this.dir);
     const files = readCsvs(this.dir);
     try {
       if (!files) throw new Error('file della consegna mancanti');
-      await this.importer.run(files);
+      if (!(await this.importer.tryRun(files))) {
+        releaseClaim(this.dir);
+        return 'busy';
+      }
     } catch (error) {
       this.logger.error(`consegna della contabilità non caricata: ${(error as Error).message}`);
       markFailed(this.dir);

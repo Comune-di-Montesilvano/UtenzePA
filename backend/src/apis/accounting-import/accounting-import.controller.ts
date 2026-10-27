@@ -54,6 +54,9 @@ export class AccountingImportController {
       throw new BadRequestException('Scaricamento automatico non installato.');
     if (this.inbox.readStatus()?.state === 'running')
       throw new BadRequestException('Scaricamento già in corso.');
+    // Una consegna nuova durante il caricamento verrebbe caricata solo al giro dopo.
+    if (this.service.isRunning())
+      throw new BadRequestException('Caricamento della contabilità in corso.');
     this.inbox.requestRun();
     return this.service.getStatus();
   }

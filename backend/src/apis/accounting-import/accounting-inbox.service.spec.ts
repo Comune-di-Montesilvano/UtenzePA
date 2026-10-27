@@ -1,4 +1,12 @@
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { AccountingInboxService } from './accounting-inbox.service';
@@ -10,7 +18,15 @@ type State = {
   last_loaded_sha256: string | null;
 };
 
-function setup(patch: Partial<State> = {}, opts: { running?: boolean; fail?: boolean } = {}) {
+function setup(
+  patch: Partial<State> = {},
+  opts: {
+    running?: boolean;
+    fail?: boolean;
+    refuse?: boolean;
+    during?: (dir: string) => void;
+  } = {},
+) {
   const dir = mkdtempSync(join(tmpdir(), 'inbox-'));
   const state: State = {
     enabled: true,
@@ -26,8 +42,10 @@ function setup(patch: Partial<State> = {}, opts: { running?: boolean; fail?: boo
   };
   const importer = {
     isRunning: jest.fn(() => opts.running ?? false),
-    run: jest.fn(async () => {
+    tryRun: jest.fn(async () => {
       if (opts.fail) throw new Error('giro non riuscito');
+      if (opts.refuse) return null;
+      opts.during?.(dir);
       return { loaded: {}, issues: {}, steps: {} };
     }),
   };
@@ -65,7 +83,7 @@ describe('AccountingInboxService', () => {
     deliver(dir);
     expect(service.present()).toBe(false);
     expect(await service.check()).toBe('none');
-    expect(importer.run).not.toHaveBeenCalled();
+    expect(importer.tryRun).not.toHaveBeenCalled();
   });
 
   it('carica i tre file, li cancella e salva lo sha caricato', async () => {
@@ -73,7 +91,7 @@ describe('AccountingInboxService', () => {
     writeStatus(dir, { state: 'ok' });
     deliver(dir);
     expect(await service.check()).toBe('loaded');
-    expect(importer.run).toHaveBeenCalledWith({
+    expect(importer.tryRun).toHaveBeenCalledWith({
       chapters: Buffer.from('c'),
       commitments: Buffer.from('i'),
       liquidations: Buffer.from('l'),
@@ -91,7 +109,7 @@ describe('AccountingInboxService', () => {
     writeStatus(dir, { state: 'ok' });
     deliver(dir);
     expect(await service.check()).toBe('off');
-    expect(importer.run).not.toHaveBeenCalled();
+    expect(importer.tryRun).not.toHaveBeenCalled();
     expect(existsSync(join(dir, 'ready'))).toBe(true);
     expect(existsSync(join(dir, 'ready.failed'))).toBe(false);
   });
@@ -109,7 +127,7 @@ describe('AccountingInboxService', () => {
     writeStatus(dir, { state: 'ok' });
     deliver(dir);
     expect(await service.check()).toBe('busy');
-    expect(importer.run).not.toHaveBeenCalled();
+    expect(importer.tryRun).not.toHaveBeenCalled();
     expect(existsSync(join(dir, 'ready'))).toBe(true);
   });
 
@@ -121,7 +139,7 @@ describe('AccountingInboxService', () => {
     expect(existsSync(join(dir, 'ready'))).toBe(false);
     expect(existsSync(join(dir, 'ready.failed'))).toBe(true);
     expect(await service.check()).toBe('none');
-    expect(importer.run).toHaveBeenCalledTimes(1);
+    expect(importer.tryRun).toHaveBeenCalledTimes(1);
   });
 
   it('backup invariato già caricato conferma last_success_at', async () => {
@@ -190,5 +208,41 @@ describe('AccountingInboxService', () => {
     const { dir, service } = make();
     service.requestRun();
     expect(existsSync(join(dir, 'request'))).toBe(true);
+  });
+
+  it('giro rifiutato al momento (manuale partito o import spento): file lasciati', async () => {
+    const { dir, service } = make({}, { refuse: true });
+    writeStatus(dir, { state: 'ok' });
+    deliver(dir);
+    expect(await service.check()).toBe('busy');
+    expect(readdirSync(dir).sort()).toEqual([
+      'capitoli.csv',
+      'impegni.csv',
+      'liquidazioni.csv',
+      'ready',
+      'settings',
+      'status',
+    ]);
+  });
+
+  it('consegna nuova arrivata durante il caricamento: resta per il giro dopo', async () => {
+    const { dir, service, state } = make({}, { during: (d) => deliver(d, 'new') });
+    writeStatus(dir, { state: 'ok' });
+    deliver(dir, 'old');
+    expect(await service.check()).toBe('loaded');
+    expect(state.last_loaded_sha256).toBe('old');
+    expect(existsSync(join(dir, 'ready'))).toBe(true);
+    expect(existsSync(join(dir, 'capitoli.csv'))).toBe(true);
+    expect(JSON.parse(readFileSync(join(dir, 'ready'), 'utf8')).backup_sha256).toBe('new');
+  });
+
+  it('consegna presa da un caricamento interrotto: ripresa al controllo dopo', async () => {
+    const { dir, service, importer } = make();
+    writeStatus(dir, { state: 'ok' });
+    deliver(dir);
+    renameSync(join(dir, 'ready'), join(dir, 'ready.loading'));
+    expect(await service.check()).toBe('loaded');
+    expect(importer.tryRun).toHaveBeenCalledTimes(1);
+    expect(readdirSync(dir).sort()).toEqual(['settings', 'status']);
   });
 });

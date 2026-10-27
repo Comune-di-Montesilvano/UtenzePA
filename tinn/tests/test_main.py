@@ -78,3 +78,46 @@ def test_config_error_written_to_status(tmp_path):
     assert s['state'] == 'error'
     assert s['step'] == 'config'
     assert s['message'] == 'Configurazione incompleta: Variabili mancanti: TINN_SFTP_HOST'
+
+
+def test_recent_error_does_not_rerun_at_startup(tmp_path):
+    from datetime import timedelta
+    cfg = make_cfg(tmp_path)
+    started = (NOW - timedelta(minutes=5)).isoformat()
+    (tmp_path / 'inbox' / 'status').write_text(json.dumps({'state': 'error', 'step': 'download',
+                                                           'started_at': started}))
+    calls, run = runner()
+    startup(cfg, NOW, run)
+    assert calls == []
+
+
+def test_old_error_reruns_at_startup(tmp_path):
+    from datetime import timedelta
+    cfg = make_cfg(tmp_path)
+    started = (NOW - timedelta(hours=2)).isoformat()
+    (tmp_path / 'inbox' / 'status').write_text(json.dumps({'state': 'error', 'step': 'download',
+                                                           'started_at': started}))
+    calls, run = runner()
+    startup(cfg, NOW, run)
+    assert calls == [False]
+
+
+def test_config_error_reruns_at_startup(tmp_path):
+    cfg = make_cfg(tmp_path)
+    (tmp_path / 'inbox' / 'status').write_text(json.dumps({'state': 'error', 'step': 'config',
+                                                           'started_at': NOW.isoformat()}))
+    calls, run = runner()
+    startup(cfg, NOW, run)
+    assert calls == [False]
+
+
+def test_safe_tick_survives_exceptions(tmp_path):
+    from app.main import safe_tick
+    cfg = make_cfg(tmp_path)
+    (tmp_path / 'inbox' / 'request').write_text('')
+
+    def boom(force, nxt):
+        raise RuntimeError('rotto')
+
+    nxt = datetime(2026, 10, 28, 4, 0)
+    assert safe_tick(cfg, NOW, nxt, boom) == nxt

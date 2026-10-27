@@ -17,6 +17,8 @@ from app.inbox import deliver, public_message, read_settings, write_status
 from app.sftp import KNOWN_HOSTS
 
 log = logging.getLogger('tinn')
+# Il ripristino del backup del Comune dura circa 3 minuti: oltre 2 ore è bloccato.
+RESTORE_TIMEOUT_SECONDS = 2 * 60 * 60
 
 
 @dataclass
@@ -28,7 +30,8 @@ class Deps:
 
 def restore(fbk, db):
     gbak = os.path.join(os.environ.get('FB_BIN', '/opt/firebird/bin'), 'gbak')
-    res = subprocess.run([gbak, '-c', '-p', '16384', '-user', 'SYSDBA', fbk, db], capture_output=True)
+    res = subprocess.run([gbak, '-c', '-p', '16384', '-user', 'SYSDBA', fbk, db], capture_output=True,
+                         timeout=RESTORE_TIMEOUT_SECONDS)
     if res.returncode != 0:
         raise RuntimeError(res.stderr.decode('utf-8', errors='replace').strip()[:300] or 'gbak non riuscito')
 
@@ -115,10 +118,15 @@ def run_job(cfg, force, next_run_at=None, deps=DEFAULT_DEPS):
         log.info('consegnati: %s', counts)
         return 'ok'
     except Exception as error:  # noqa: BLE001 — ogni errore chiude il giro con uno stato leggibile
+        # Prima si libera il disco: con il disco pieno anche lo stato non si scriverebbe.
+        clean_work(cfg.work)
         status.update(state='error', message=public_message(status['step'], error, cfg.secrets()),
                       finished_at=now_iso())
-        write_status(cfg.inbox, status)
         log.error('%s', status['message'])
+        try:
+            write_status(cfg.inbox, status)
+        except OSError as write_error:
+            log.error('stato non scritto: %s', write_error)
         return 'error'
     finally:
         clean_work(cfg.work)

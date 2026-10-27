@@ -23,7 +23,7 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Dati"). Le correzioni 
 
 ## Container Tinn (import automatico della contabilità)
 
-- Installazione: nel `.env` `COMPOSE_PROFILES=tinn` e le variabili `TINN_SFTP_HOST/PORT/USER/PASSWORD/PATH`, `TINN_DB_FILE` (nome del `.fbk` nello zip), facoltative `TINN_SFTP_HOST_KEY` e `TINN_CRON`; poi `docker compose up -d`. Variabile mancante = il container lo scrive nello stato (pagina Contabilità) e resta fermo. Firewall: uscita verso l'SFTP. Credenziali solo nel `.env`, mai nel repo né nei messaggi.
+- Installazione: nel `.env` `COMPOSE_PROFILES=tinn` e le variabili `TINN_SFTP_HOST/PORT/USER/PASSWORD/PATH`, `TINN_DB_FILE` (nome del `.fbk` nello zip), facoltative `TINN_SFTP_HOST_KEY` e `TINN_CRON`; poi `docker compose up -d`. Variabile mancante = il container lo scrive nello stato (pagina Contabilità) e resta fermo. Firewall: uscita verso l'SFTP. Credenziali solo nel `.env`, mai nel repo né nei messaggi; password con `$`, spazi o `#` tra apici singoli (Compose interpola `$` e tronca a ` #`).
 - Prova locale senza SFTP (override di sviluppo): `TINN_LOCAL_ZIP=/backup/<file>.zip` e `TINN_LOCAL_ZIP_DIR=<cartella dello zip sull'host>` nel `.env`, variabili SFTP con valori fittizi, `COMPOSE_PROFILES=tinn docker compose up -d --build tinn`. Ripristino del backup del Comune con Firebird 5: circa 3 minuti; i CSV restano nel volume `accounting_inbox` finché UtenzePA non li carica (import acceso e anno di partenza impostato). Dati reali: mai copiare i CSV fuori dalla macchina.
 - Test del container: `docker build --target test -t utenzepa-tinn:test tinn && docker run --rm utenzepa-tinn:test python3 -m pytest -q` e `... python3 -m app.selftest` (DB finto da `tinn/testdata`, `--write` rigenera gli attesi).
 

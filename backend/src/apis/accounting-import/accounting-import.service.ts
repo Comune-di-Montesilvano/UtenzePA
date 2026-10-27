@@ -108,16 +108,36 @@ export class AccountingImportService {
     return this.execute(files, await this.begin(files));
   }
 
-  // Controlli prima del giro (400 subito) e prenotazione del giro.
+  // Come run, ma null invece del 400 quando il giro non può partire adesso
+  // (spento, senza anno, altro giro in corso): la casella del container Tinn
+  // lascia i file e riprova. Gli errori del giro restano eccezioni.
+  async tryRun(files: Partial<Record<AccKind, Buffer>>): Promise<AccountingImportSummary | null> {
+    let fromYear: number;
+    try {
+      fromYear = await this.begin(files);
+    } catch (error) {
+      if (error instanceof BadRequestException) return null;
+      throw error;
+    }
+    return this.execute(files, fromYear);
+  }
+
+  // Controlli prima del giro (400 subito) e prenotazione del giro, presa prima
+  // di ogni attesa: due giri partiti insieme non passano entrambi.
   private async begin(files: Partial<Record<AccKind, Buffer>>): Promise<number> {
     if (!KINDS.some((kind) => files[kind])) throw new BadRequestException('Nessun file caricato.');
-    const state = await this.states.state();
-    if (this.states.forcedOff || !state.enabled)
-      throw new BadRequestException('Import contabilità spento.');
-    if (!state.from_year) throw new BadRequestException("Impostare l'anno di partenza.");
     if (this.running) throw new BadRequestException('Import contabilità già in corso.');
     this.running = true;
-    return state.from_year;
+    try {
+      const state = await this.states.state();
+      if (this.states.forcedOff || !state.enabled)
+        throw new BadRequestException('Import contabilità spento.');
+      if (!state.from_year) throw new BadRequestException("Impostare l'anno di partenza.");
+      return state.from_year;
+    } catch (error) {
+      this.running = false;
+      throw error;
+    }
   }
 
   private async execute(
