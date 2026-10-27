@@ -73,6 +73,8 @@ pnpm run build    # ng build --configuration production
 - Un solo stack dev (`name: utenzepa`) per tutti i worktree: rilanciare `docker compose up -d` dal worktree in uso.
 - File `.ts` aggiunti/spostati/rinominati sotto watch (anche migration nuove): `rm -rf dist tsconfig.build.tsbuildinfo` + `docker restart`.
 - Sorgenti con CRLF: modifiche via script in Python preservando `\r\n` (sostituzioni con `\` dentro un heredoc non trovano il testo: usare Edit); mai riscrivere un file LF in CRLF (`git diff --ignore-cr-at-eol` per controllare).
+- Mai `sed -i` da Git Bash sui sorgenti: riscrive in LF (toglie i CRLF). Solo Python con `newline=''` o Edit.
+- `ng serve` non vede i `git checkout` di branch: prima di verificare nel browser `docker restart utenzepa-frontend-1` e attendere «bundle generation complete».
 
 ## Migration DB (dettagli in `docs/claude/backend.md`)
 
@@ -162,6 +164,7 @@ pnpm run build    # ng build --configuration production
 - Repo `Comune-di-Montesilvano/UtenzePA`. `main` protetta da ruleset con **merge queue** (squash): PR obbligatoria, check `dependency-review`, `backend`, `frontend`, `migrations`, `docker (backend, production)`, `docker (frontend, prod)`, `e2e`, nessuna approvazione umana.
 - Mai `git add .`/`-A` (`.playwright-mcp/`, `.serena/`, `docker-compose.proxy.yml`, `proxy/` non tracciati): file sempre elencati.
 - Merge: `gh pr merge N` (`--auto` se i check girano ancora; niente `--delete-branch`, rifiutato con la coda: i branch li cancella GitHub dopo il merge) dal worktree principale mette la PR nella merge queue, che la prova già unita a `main` e la mergia; niente più `update-branch`. Auto-merge automatico solo per le PR dependabot minor/patch e `deps/lockfile-refresh` (token GitHub App).
+- `git commit` con gli hook husky può superare 120s: lanciarlo con `run_in_background`.
 - `gh api` in Git Bash: endpoint senza `/` iniziale.
 - `tests.yml`: job `migrations` (tutte le migration su DB vuoto, `schema:log` = `src/database/schema-drift.baseline.txt`, down → up delle nuove; `backend/scripts/check-migrations.sh`) ed `e2e` (stack `docker-compose.yml` con le immagini della PR, smoke Playwright in `e2e/`). CodeQL (default setup), Scorecard (`scorecard.yml`), SBOM e provenance firmata sulle immagini (`gh attestation verify oci://… --owner Comune-di-Montesilvano`).
 - Job `docker` di `tests.yml`: build degli stage di produzione (base ripescate) + Trivy bloccante su CRITICAL/HIGH con fix; eccezioni in `.trivyignore` con motivo e `exp:`. CVE in una transitiva: override in `pnpm-workspace.yaml` solo se `pnpm update` non basta (`lockfile-refresh.yml` lo fa ogni notte, PR in auto-merge).
