@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
+import { OFFSET_STATUSES, PaymentStatus } from '@apis/invoices/enum/payment-status.enum';
 import { lineFiscalYear } from '@apis/spending/line-year';
 import { dbDay } from '@/helpers/date.helpers';
 import { allocate, AllocCommitment, AllocInvoice, AllocShare } from './commitment-allocation';
@@ -27,7 +28,7 @@ const COMMITMENTS_SQL =
 // capitoli (JSON) delle utenze delle righe, 0 = utenza senza capitolo; quote fisse
 // e quota automatica attuale (JSON).
 const INVOICES_SQL =
-  '/* r_invoices */ SELECT i.id, i.invoice_date AS date, i.contratto_id_fk AS contract_id, ' +
+  '/* r_invoices */ SELECT i.id, i.invoice_date AS date, i.contratto_id_fk AS contract_id, i.payment_status, ' +
   'COALESCE(i.total_amount, (SELECT SUM(il.amount) FROM invoice_lines il WHERE il.invoice_id_fk = i.id)) AS amount, ' +
   '(SELECT MIN(il.period_start) FROM invoice_lines il WHERE il.invoice_id_fk = i.id) AS period_start, ' +
   '(SELECT MAX(il.period_end) FROM invoice_lines il WHERE il.invoice_id_fk = i.id) AS period_end, ' +
@@ -185,6 +186,8 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
       const noAmount = r.amount === null || r.amount === undefined;
       // Senza righe e senza totale non c'è un importo da imputare (le quote fisse contano comunque).
       if (noAmount && !fixed.length) continue;
+      // Stornata o nota di credito per la contabilità: non pesa sugli impegni, nessuna quota automatica.
+      if (OFFSET_STATUSES.includes(r.payment_status as PaymentStatus) && !fixed.length) continue;
       const date = dbDay(r.date) ?? '';
       const chapters = [...new Set((parseJson<unknown[]>(r.chapters) ?? []).map(Number))];
       invoices.push({

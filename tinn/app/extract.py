@@ -1,4 +1,4 @@
-"""Estrazione dei tre CSV del formato neutro da un DB Tinn ripristinato.
+"""Estrazione dei CSV del formato neutro da un DB Tinn ripristinato.
 
 Query verificate sul DB del Comune il 2026-10-26 (spec della fase 3,
 «Verificato sul DB del Comune»). isql in embedded: ogni riga utile esce come
@@ -13,7 +13,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 SEP = 'ASCII_CHAR(31)'
 CENT = Decimal('0.01')
-FILES = ('capitoli', 'impegni', 'liquidazioni')
+FILES = ('capitoli', 'impegni', 'liquidazioni', 'note_credito')
 # Ogni query dura secondi sul DB del Comune: oltre 30 minuti è bloccata.
 ISQL_TIMEOUT_SECONDS = 30 * 60
 
@@ -24,6 +24,9 @@ LIQUIDATION_HEADER = ['liquidation_key', 'commitment_year', 'commitment_num', 'c
                       'sdi_identifier', 'invoice_number', 'invoice_date', 'invoice_total', 'invoice_cig',
                       'supplier_vat', 'amount', 'cancelled', 'liquidation_number', 'mandate_number',
                       'mandate_date', 'paid_date', 'paid_amount']
+CREDIT_NOTE_HEADER = ['link_key', 'fiscal_year', 'amount', 'supplier_vat', 'note_sdi_identifier', 'note_number',
+                      'note_date', 'note_total', 'invoice_sdi_identifier', 'invoice_number', 'invoice_date',
+                      'invoice_total']
 
 
 def isql_path():
@@ -146,6 +149,27 @@ def liquidation_rows(raw):
              to_iso_date(r[18]), to_iso_date(r[19]), to_amount(r[20])] for r in raw]
 
 
+def credit_note_sql(from_year):
+    # GFRIPNC: nota di credito (NC_*) compensata su una fattura (FA_*), importo
+    # negativo. Verificato sul DB del Comune il 2026-10-27: le note non hanno
+    # liquidazioni; la fattura si liquida al netto o, se stornata per intero, mai.
+    # Fornitore = anagrafica della fattura.
+    return ('SELECT ' + cols("R.NC_ESERCIZIO || '-' || R.NC_NUMERO || '-' || R.FA_ESERCIZIO || '-' || R.FA_NUMERO "
+                             "|| '-' || R.ID",
+                             'R.NC_ESERCIZIO', 'R.IMPORTO', 'A.PARTITA_IVA', 'A.COD_FISCALE',
+                             'N.FE_ID_SDI_S', 'N.NUMERO_DOCUMENTO', 'N.DOC_DATA', 'N.TOTALE_DOCUMENTO',
+                             'F.FE_ID_SDI_S', 'F.NUMERO_DOCUMENTO', 'F.DOC_DATA', 'F.TOTALE_DOCUMENTO')
+            + ' FROM GFRIPNC R JOIN GFPNCGN1 N ON N.ESERCIZIO=R.NC_ESERCIZIO AND N.NUMERO=R.NC_NUMERO'
+            + ' JOIN GFPNCGN1 F ON F.ESERCIZIO=R.FA_ESERCIZIO AND F.NUMERO=R.FA_NUMERO'
+            + ' LEFT JOIN GFANCON1 A ON A.CODICE=F.ANAGRAFICA'
+            + ' WHERE R.NC_ESERCIZIO>=' + str(int(from_year)))
+
+
+def credit_note_rows(raw):
+    return [[r[0], r[1], to_amount(r[2]), supplier_id(r[3], r[4]), r[5], r[6], to_iso_date(r[7]), to_amount(r[8]),
+             r[9], r[10], to_iso_date(r[11]), to_amount(r[12])] for r in raw]
+
+
 def write_csv(path, header, rows):
     with open(path, 'w', encoding='utf-8', newline='') as f:
         w = csv.writer(f, delimiter=';', lineterminator='\n')
@@ -154,11 +178,12 @@ def write_csv(path, header, rows):
 
 
 def extract(db_path, from_year, out_dir):
-    """Scrive capitoli.csv, impegni.csv e liquidazioni.csv in out_dir; restituisce le righe per file."""
+    """Scrive i CSV di FILES in out_dir; restituisce le righe per file."""
     files = {
         'capitoli': (CHAPTER_HEADER, chapter_rows(run_isql(db_path, chapter_sql(from_year)))),
         'impegni': (COMMITMENT_HEADER, commitment_rows(run_isql(db_path, commitment_sql(from_year)))),
         'liquidazioni': (LIQUIDATION_HEADER, liquidation_rows(run_isql(db_path, liquidation_sql(from_year)))),
+        'note_credito': (CREDIT_NOTE_HEADER, credit_note_rows(run_isql(db_path, credit_note_sql(from_year)))),
     }
     for name, (header, rows) in files.items():
         write_csv(os.path.join(out_dir, name + '.csv'), header, rows)

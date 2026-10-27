@@ -7,6 +7,7 @@ import { inboxDir, inboxPresent, readStatus, type TinnStatus } from './accountin
 import { AccChapter } from './entity/acc-chapter.entity';
 import { AccCommitment } from './entity/acc-commitment.entity';
 import { AccLiquidation } from './entity/acc-liquidation.entity';
+import { AccCreditNote } from './entity/acc-credit-note.entity';
 
 export const ACCOUNTING_STEPS = 'ACCOUNTING_STEPS';
 
@@ -48,8 +49,9 @@ const TABLES: Record<
   chapters: { table: 'acc_chapters', entity: AccChapter, yearField: 'year' },
   commitments: { table: 'acc_commitments', entity: AccCommitment, yearField: 'fiscal_year' },
   liquidations: { table: 'acc_liquidations', entity: AccLiquidation, yearField: 'fiscal_year' },
+  credit_notes: { table: 'acc_credit_notes', entity: AccCreditNote, yearField: 'fiscal_year' },
 };
-const KINDS: AccKind[] = ['chapters', 'commitments', 'liquidations'];
+const KINDS: AccKind[] = ['chapters', 'commitments', 'liquidations', 'credit_notes'];
 const BATCH = 500;
 
 // Caricamento dei CSV del formato neutro: ogni file sostituisce in blocco la
@@ -71,7 +73,7 @@ export class AccountingImportService {
     const state = await this.states.state();
     const [counts] = await this.dataSource.query(
       'SELECT (SELECT COUNT(*) FROM acc_chapters) AS chapters, (SELECT COUNT(*) FROM acc_commitments) AS commitments, ' +
-        '(SELECT COUNT(*) FROM acc_liquidations) AS liquidations',
+        '(SELECT COUNT(*) FROM acc_liquidations) AS liquidations, (SELECT COUNT(*) FROM acc_credit_notes) AS credit_notes',
     );
     return {
       enabled: state.enabled,
@@ -86,6 +88,7 @@ export class AccountingImportService {
         chapters: Number(counts?.chapters ?? 0),
         commitments: Number(counts?.commitments ?? 0),
         liquidations: Number(counts?.liquidations ?? 0),
+        credit_notes: Number(counts?.credit_notes ?? 0),
       },
       container: inboxPresent(inboxDir()) ? readStatus(inboxDir()) : null,
     };

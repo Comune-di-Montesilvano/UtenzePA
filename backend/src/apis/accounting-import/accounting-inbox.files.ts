@@ -13,7 +13,10 @@ export const INBOX_CSV = {
   chapters: 'capitoli.csv',
   commitments: 'impegni.csv',
   liquidations: 'liquidazioni.csv',
+  // Facoltativo: i container Tinn prima della v1.53.0 non lo scrivono.
+  credit_notes: 'note_credito.csv',
 } as const;
+const OPTIONAL_CSV = new Set<string>(['credit_notes']);
 
 export interface TinnStatus {
   state: 'running' | 'ok' | 'unchanged' | 'error';
@@ -79,13 +82,14 @@ export function readReady(dir: string, name = 'ready'): TinnReady | null {
   return { backupSha256: str(r?.backup_sha256) ?? '', extractedAt: str(r?.extracted_at) };
 }
 
-export function readCsvs(dir: string): Record<keyof typeof INBOX_CSV, Buffer> | null {
+export function readCsvs(
+  dir: string,
+): Partial<Record<keyof typeof INBOX_CSV, Buffer>> | null {
   const paths = Object.entries(INBOX_CSV).map(([kind, name]) => [kind, join(dir, name)] as const);
-  if (paths.some(([, path]) => !existsSync(path))) return null;
-  return Object.fromEntries(paths.map(([kind, path]) => [kind, readFileSync(path)])) as Record<
-    keyof typeof INBOX_CSV,
-    Buffer
-  >;
+  if (paths.some(([kind, path]) => !OPTIONAL_CSV.has(kind) && !existsSync(path))) return null;
+  return Object.fromEntries(
+    paths.filter(([, path]) => existsSync(path)).map(([kind, path]) => [kind, readFileSync(path)]),
+  ) as Partial<Record<keyof typeof INBOX_CSV, Buffer>>;
 }
 
 // Consegna presa in carico: ready → ready.loading prima di leggere i CSV. Se nel

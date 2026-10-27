@@ -4,7 +4,7 @@
 // date AAAA-MM-GG, booleani 1/0, celle vuote = null. Una riga non valida si
 // scarta con il motivo; le altre si caricano.
 
-export type AccKind = 'chapters' | 'commitments' | 'liquidations';
+export type AccKind = 'chapters' | 'commitments' | 'liquidations' | 'credit_notes';
 
 export interface CsvIssue {
   line: number;
@@ -55,6 +55,25 @@ export interface AccLiquidationRow {
   mandate_date?: string | null;
   paid_date?: string | null;
   paid_amount?: number | null;
+}
+
+// Nota di credito abbinata a una fattura (formato dalla v1.53.0, file
+// facoltativo note_credito.csv): una riga per abbinamento, importo negativo
+// = parte della nota compensata sulla fattura. Fiscal_year = esercizio di
+// registrazione della nota.
+export interface AccCreditNoteRow {
+  link_key: string;
+  fiscal_year: number;
+  amount: number;
+  supplier_vat: string | null;
+  note_sdi_identifier: string | null;
+  note_number: string | null;
+  note_date: string | null;
+  note_total: number | null;
+  invoice_sdi_identifier: string | null;
+  invoice_number: string | null;
+  invoice_date: string | null;
+  invoice_total: number | null;
 }
 
 export interface ParsedCsv<T> {
@@ -108,6 +127,20 @@ const COLUMNS: Record<AccKind, Column[]> = {
     ['paid_date', 'date', false],
     ['paid_amount', 'money', false],
   ],
+  credit_notes: [
+    ['link_key', 'text', true],
+    ['fiscal_year', 'int', true],
+    ['amount', 'money', true],
+    ['supplier_vat', 'text', false],
+    ['note_sdi_identifier', 'text', false],
+    ['note_number', 'text', false],
+    ['note_date', 'date', false],
+    ['note_total', 'money', false],
+    ['invoice_sdi_identifier', 'text', false],
+    ['invoice_number', 'text', false],
+    ['invoice_date', 'date', false],
+    ['invoice_total', 'money', false],
+  ],
 };
 
 // Campi di una riga CSV con le virgolette del formato standard ("" = ").
@@ -145,6 +178,7 @@ const KEYS: Record<AccKind, string[]> = {
   chapters: ['year', 'chapter', 'article'],
   commitments: ['commitment_year', 'commitment_num', 'commitment_sub', 'fiscal_year'],
   liquidations: ['liquidation_key'],
+  credit_notes: ['link_key'],
 };
 
 // Lunghezze delle colonne delle tabelle acc_*: la descrizione si tronca, gli
@@ -160,6 +194,10 @@ const TEXT_MAX: Record<string, number> = {
   liquidation_key: 50,
   liquidation_number: 30,
   mandate_number: 30,
+  link_key: 60,
+  note_sdi_identifier: 20,
+  note_number: 50,
+  invoice_sdi_identifier: 20,
 };
 const DESCRIPTION_MAX = 255;
 
@@ -197,6 +235,10 @@ export function parseAccountingCsv(
   kind: 'liquidations',
   text: string,
 ): ParsedCsv<AccLiquidationRow>;
+export function parseAccountingCsv(
+  kind: 'credit_notes',
+  text: string,
+): ParsedCsv<AccCreditNoteRow>;
 export function parseAccountingCsv(kind: AccKind, text: string): ParsedCsv<unknown>;
 export function parseAccountingCsv(kind: AccKind, text: string): ParsedCsv<unknown> {
   // BOM UTF-8 iniziale (Excel) tolto.

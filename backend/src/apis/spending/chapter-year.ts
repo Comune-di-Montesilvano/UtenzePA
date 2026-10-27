@@ -1,4 +1,5 @@
 import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
+import { NOT_OFFSET_SQL } from '@apis/invoices/enum/payment-status.enum';
 import { lineYearSql } from './line-year';
 
 // Esercizio di un capitolo: dati della ragioneria (budget_chapter_spending) +
@@ -8,7 +9,9 @@ export type Query = (sql: string, params?: unknown[]) => Promise<Record<string, 
 // Voci di spesa per capitolo (ci): quote d'impegno della fattura (capitolo
 // dell'impegno, esercizio = annualità della quota) e, per le fatture senza
 // quote, le righe (capitolo dell'utenza, competenza del periodo della riga,
-// line-year.ts). Solo fatture valide (join con invoices i in coda).
+// line-year.ts). Solo fatture valide (join con invoices i in coda); stornate e
+// note di credito della contabilità escluse (in ragioneria non toccano il
+// capitolo: la fattura si liquida al netto).
 export const CHAPTER_ITEMS = `FROM (
     SELECT s.id AS share_id, NULL AS line_id, s.invoice_id_fk AS invoice_id, NULL AS utility_id,
            bcm.budget_chapter_id_fk AS chapter_id, s.fiscal_year AS year, s.amount
@@ -22,7 +25,8 @@ export const CHAPTER_ITEMS = `FROM (
       LEFT JOIN utilities u ON u.id = il.utility_id_fk
      WHERE NOT EXISTS (SELECT 1 FROM invoice_commitment_shares x WHERE x.invoice_id_fk = il.invoice_id_fk)
   ) ci
-  JOIN invoices i ON i.id = ci.invoice_id AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}`;
+  JOIN invoices i ON i.id = ci.invoice_id AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
+    AND ${NOT_OFFSET_SQL('i')}`;
 
 // Annualità degli impegni (bcy), contate una volta qualunque sia il numero
 // dei contratti collegati: un pluriennale conta in ogni suo esercizio.

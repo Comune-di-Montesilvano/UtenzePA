@@ -4,7 +4,7 @@ import {Observable} from 'rxjs';
 import {environment} from '../../../environments/environment';
 import {AuthService} from '../../services/auth.service';
 
-export type AccKind = 'chapters' | 'commitments' | 'liquidations';
+export type AccKind = 'chapters' | 'commitments' | 'liquidations' | 'credit_notes';
 
 export interface CsvIssue {
   line: number;

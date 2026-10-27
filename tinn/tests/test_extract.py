@@ -1,5 +1,6 @@
 from app.extract import (
     chapter_rows,
+    credit_note_rows,
     liquidation_rows,
     parse_isql_output,
     pick_latest_years,
@@ -66,3 +67,12 @@ def test_trailing_empty_fields_kept():
 def test_fields_trimmed_of_tabs_and_nbsp():
     # Come la bozza verificata: tab e spazi non separabili ai bordi dei campi si tolgono.
     assert parse_isql_output(b'#\x1fA\t\t\x1f\xa0B\n') == [['A', 'B']]
+
+
+def test_credit_note_link_rows():
+    raw = ['2024-3-2024-2-7', '2024', '-50.0000000001', '', 'RSSMRA80A01H501U', '87654321', 'NC/1',
+           '02-MAY-2024', '-50', '', 'FT/2', '01-APR-2024', '50']
+    assert credit_note_rows([raw]) == [
+        ['2024-3-2024-2-7', '2024', '-50.00', 'RSSMRA80A01H501U', '87654321', 'NC/1', '2024-05-02', '-50.00',
+         '', 'FT/2', '2024-04-01', '50.00']
+    ]

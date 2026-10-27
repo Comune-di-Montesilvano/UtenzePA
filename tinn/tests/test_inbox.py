@@ -8,7 +8,7 @@ from app.inbox import Settings, deliver, public_message, read_settings, remove_p
 def make_csvs(tmp_path):
     src = tmp_path / 'out'
     src.mkdir()
-    for name in ('capitoli', 'impegni', 'liquidazioni'):
+    for name in ('capitoli', 'impegni', 'liquidazioni', 'note_credito'):
         (src / (name + '.csv')).write_text('h\n')
     return src
 
@@ -21,7 +21,7 @@ def test_deliver_writes_ready_last(tmp_path, monkeypatch):
     monkeypatch.setattr(inbox.os, 'replace', lambda a, b: (order.append(os.path.basename(b)), real(a, b)))
     deliver(str(box), str(make_csvs(tmp_path)), {'backup_sha256': 'abc'})
     assert order[-1] == 'ready'
-    assert sorted(order[:-1]) == ['capitoli.csv', 'impegni.csv', 'liquidazioni.csv']
+    assert sorted(order[:-1]) == ['capitoli.csv', 'impegni.csv', 'liquidazioni.csv', 'note_credito.csv']
     assert json.loads((box / 'ready').read_text())['backup_sha256'] == 'abc'
     assert not [f for f in os.listdir(box) if f.endswith('.tmp')]
 

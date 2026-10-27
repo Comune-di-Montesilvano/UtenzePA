@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import type { AccChapterRow, AccCommitmentRow, AccLiquidationRow } from './accounting-csv';
+import type {
+  AccChapterRow,
+  AccCommitmentRow,
+  AccCreditNoteRow,
+  AccLiquidationRow,
+} from './accounting-csv';
 import { computeScope, type AccountingScope } from './scope';
 
 const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
@@ -81,6 +86,28 @@ export class AccountingDataService {
       mandate_date: (r.mandate_date as string | null) ?? null,
       paid_date: (r.paid_date as string | null) ?? null,
       paid_amount: num(r.paid_amount),
+    }));
+  }
+
+  async creditNotes(): Promise<AccCreditNoteRow[]> {
+    const rows = await this.dataSource.query(
+      'SELECT link_key, fiscal_year, amount, supplier_vat, note_sdi_identifier, note_number, ' +
+        "DATE_FORMAT(note_date, '%Y-%m-%d') AS note_date, note_total, invoice_sdi_identifier, invoice_number, " +
+        "DATE_FORMAT(invoice_date, '%Y-%m-%d') AS invoice_date, invoice_total FROM acc_credit_notes",
+    );
+    return rows.map((r: Record<string, unknown>) => ({
+      link_key: String(r.link_key),
+      fiscal_year: Number(r.fiscal_year),
+      amount: Number(r.amount),
+      supplier_vat: (r.supplier_vat as string | null) ?? null,
+      note_sdi_identifier: (r.note_sdi_identifier as string | null) ?? null,
+      note_number: (r.note_number as string | null) ?? null,
+      note_date: (r.note_date as string | null) ?? null,
+      note_total: num(r.note_total),
+      invoice_sdi_identifier: (r.invoice_sdi_identifier as string | null) ?? null,
+      invoice_number: (r.invoice_number as string | null) ?? null,
+      invoice_date: (r.invoice_date as string | null) ?? null,
+      invoice_total: num(r.invoice_total),
     }));
   }
 

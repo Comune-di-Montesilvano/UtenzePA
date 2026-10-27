@@ -38,7 +38,7 @@ import {ChapterBudgetService} from '../budget-chapters/chapter-budget.service';
 import {BudgetWarning} from '../budget-chapters/chapter-budget.model';
 import {toIsoDate} from '../../core/helpers/date.helper';
 import {sdiStatusBadge} from './sdi-status';
-import {InvoicePayment, paymentStatusBadge, PaymentStatus} from './payment-status';
+import {InvoicePayment, paymentNote, paymentStatusBadge} from './payment-status';
 import {InvoicesService} from './invoices.service';
 import {SdiDocumentDialogComponent, SdiDocumentDialogData} from './sdi-document-dialog.component';
 
@@ -97,7 +97,8 @@ export class InvoiceEditDialogComponent implements OnInit {
   // Pagamento dalla contabilità: solo lettura.
   readonly paymentBadge = paymentStatusBadge(this.data.item.payment_status, this.data.item.paid_on);
   readonly hasPayment = !this.isNew && !!this.data.item.payment_status;
-  readonly toLiquidate = this.data.item.payment_status === PaymentStatus.TO_LIQUIDATE;
+  // Stati senza liquidazioni: al posto della tabella, il perché.
+  readonly paymentNote = paymentNote(this.data.item.payment_status);
   payments: InvoicePayment[] = [];
   readonly lastModified = lastModifiedLabel(this.data.item.update_date, this.data.item.updated_by);
 

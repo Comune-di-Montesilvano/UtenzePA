@@ -131,6 +131,8 @@ describe('chapter-year', () => {
   it('voci di capitolo: quote (capitolo dell’impegno, annualità) più righe delle fatture senza quote', () => {
     expect(CHAPTER_ITEMS).toContain('FROM invoice_commitment_shares');
     expect(CHAPTER_ITEMS).toContain('UNION ALL');
+    // Stornate e note di credito della contabilità fuori dal capitolo.
+    expect(CHAPTER_ITEMS).toContain("NOT IN ('CANCELLED', 'COMPENSATED', 'TO_COMPENSATE')");
     expect(CHAPTER_ITEMS).toMatch(/NOT EXISTS \(SELECT 1 FROM invoice_commitment_shares/);
     expect(CHAPTER_ITEMS).toContain('bcm.budget_chapter_id_fk AS chapter_id');
     expect(CHAPTER_ITEMS).toContain('u.budget_chapter_code_fk');

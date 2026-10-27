@@ -80,7 +80,7 @@ describe('planPayments', () => {
     ]);
   });
 
-  it('nessuno stato prima dell anno di partenza, su note di credito, cancellate o rifiutate', () => {
+  it('nessuno stato prima dell anno di partenza, su cancellate o rifiutate; nota di credito da compensare', () => {
     const changes = planPayments(
       [],
       new Map(),
@@ -94,6 +94,7 @@ describe('planPayments', () => {
     );
     expect(changes).toEqual([
       { id: 1, status: null, paidOn: null },
+      { id: 2, status: PaymentStatus.TO_COMPENSATE, paidOn: null },
       { id: 3, status: null, paidOn: null },
     ]);
   });
@@ -107,5 +108,33 @@ describe('planPayments', () => {
       2026,
     );
     expect(changes).toEqual([]);
+  });
+
+  it('note di credito abbinate: fattura stornata per intero, compensata in parte, nota compensata', () => {
+    const changes = planPayments(
+      [liq('a', paid('2026-04-01'))],
+      new Map([['a', 4]]),
+      [
+        inv(1),
+        inv(2),
+        inv(3, { total_amount: -100 }),
+        inv(4, { total_amount: 160 }),
+        inv(5, { total_amount: 0.01 }),
+      ],
+      2025,
+      2026,
+      [
+        { amount: -100, noteId: 3, invoiceId: 1 },
+        { amount: -40, invoiceId: 2 },
+        { amount: -60, invoiceId: 4 },
+      ],
+    );
+    expect(changes).toEqual([
+      { id: 1, status: PaymentStatus.CANCELLED, paidOn: null },
+      { id: 2, status: PaymentStatus.TO_LIQUIDATE, paidOn: null },
+      { id: 3, status: PaymentStatus.COMPENSATED, paidOn: null },
+      { id: 4, status: PaymentStatus.PAID, paidOn: '2026-04-01' },
+      { id: 5, status: PaymentStatus.TO_LIQUIDATE, paidOn: null },
+    ]);
   });
 });

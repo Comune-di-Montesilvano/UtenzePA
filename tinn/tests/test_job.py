@@ -33,10 +33,10 @@ def fake_download(member='DB.fbk', content=b'fbk'):
 
 
 def fake_extract(db, from_year, out):
-    for name in ('capitoli', 'impegni', 'liquidazioni'):
+    for name in ('capitoli', 'impegni', 'liquidazioni', 'note_credito'):
         with open(os.path.join(out, name + '.csv'), 'w') as f:
             f.write('h\n')
-    return {'capitoli': 1, 'impegni': 1, 'liquidazioni': 1}
+    return {'capitoli': 1, 'impegni': 1, 'liquidazioni': 1, 'note_credito': 1}
 
 
 def zip_sha(tmp, member='DB.fbk', content=b'fbk'):
@@ -65,7 +65,7 @@ def test_ok_run_delivers_and_cleans_work(tmp_path):
     d, calls = deps()
     assert run_job(cfg, force=False, deps=d) == 'ok'
     assert calls == ['restore']
-    assert sorted(os.listdir(cfg.inbox)) == ['capitoli.csv', 'impegni.csv', 'liquidazioni.csv', 'ready', 'status']
+    assert sorted(os.listdir(cfg.inbox)) == ['capitoli.csv', 'impegni.csv', 'liquidazioni.csv', 'note_credito.csv', 'ready', 'status']
     assert status(cfg)['state'] == 'ok'
     assert status(cfg)['backup_date'].startswith('2026-10-22')
     assert os.listdir(cfg.work) == []

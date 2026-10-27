@@ -11,7 +11,7 @@ import json
 import os
 from dataclasses import dataclass
 
-CSV_NAMES = ('capitoli', 'impegni', 'liquidazioni')
+CSV_NAMES = ('capitoli', 'impegni', 'liquidazioni', 'note_credito')
 DEFAULT_FROM_YEAR = 2023
 MODE = 0o664
 

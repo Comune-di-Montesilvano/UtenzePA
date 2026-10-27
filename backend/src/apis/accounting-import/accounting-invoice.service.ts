@@ -8,7 +8,12 @@ import { deriveSdiStatus, NOT_REJECTED_SQL, type SdiEvent } from '@apis/invoices
 import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
 import type { AccLiquidationRow } from './accounting-csv';
 import { AccountingDataService } from './accounting-data.service';
-import { invoiceKey, matchInvoices, type MatchableInvoice } from './invoice-match';
+import {
+  invoiceKey,
+  matchInvoices,
+  type MatchableDocument,
+  type MatchableInvoice,
+} from './invoice-match';
 import { RecordSource } from './record-source.enum';
 
 const INVOICES_SQL =
@@ -36,6 +41,28 @@ export class AccountingInvoiceService {
   async matchedByKey(): Promise<Map<string, number>> {
     const [liquidations, invoices] = await Promise.all([this.data.liquidations(), this.invoices()]);
     return matchInvoices(liquidations, invoices);
+  }
+
+  // Abbinamenti delle note di credito: nota e fattura di ciascuno, se in UtenzePA.
+  async creditNoteLinks(): Promise<{ amount: number; noteId?: number; invoiceId?: number }[]> {
+    const [links, invoices] = await Promise.all([this.data.creditNotes(), this.invoices()]);
+    const side = (key: string, sdi: string | null, number: string | null, date: string | null, vat: string | null): MatchableDocument => ({
+      liquidation_key: key,
+      sdi_identifier: sdi,
+      invoice_number: number,
+      invoice_date: date,
+      supplier_vat: vat,
+    });
+    const docs = links.flatMap((l) => [
+      side(`N|${l.link_key}`, l.note_sdi_identifier, l.note_number, l.note_date, l.supplier_vat),
+      side(`F|${l.link_key}`, l.invoice_sdi_identifier, l.invoice_number, l.invoice_date, l.supplier_vat),
+    ]);
+    const matched = matchInvoices(docs, invoices);
+    return links.map((l) => ({
+      amount: l.amount,
+      noteId: matched.get(`N|${l.link_key}`),
+      invoiceId: matched.get(`F|${l.link_key}`),
+    }));
   }
 
   async apply(): Promise<Record<'created' | 'sdiCompleted', number>> {

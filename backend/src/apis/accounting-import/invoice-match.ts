@@ -12,12 +12,19 @@ export interface MatchableInvoice {
 export const invoiceKey = (vat: string, number: string, date: string): string =>
   `${vat}|${normalizeInvoiceNumber(number)}|${date}`;
 
+// Documento della contabilità da abbinare: liquidazione (fattura pagata) o
+// lato di un abbinamento nota di credito → fattura.
+export type MatchableDocument = Pick<
+  AccLiquidationRow,
+  'liquidation_key' | 'sdi_identifier' | 'invoice_number' | 'invoice_date' | 'supplier_vat'
+>;
+
 // Liquidazione → fattura: prima per IdentificativoSdI (in un lotto SDI più
 // fatture hanno lo stesso identificativo: lì vale il numero normalizzato), poi
 // per P.IVA del fornitore + numero normalizzato + data. Le fatture passate sono
 // già solo quelle non cancellate e non rifiutate.
 export function matchInvoices(
-  liquidations: AccLiquidationRow[],
+  liquidations: MatchableDocument[],
   invoices: MatchableInvoice[],
 ): Map<string, number> {
   const bySdi = new Map<string, MatchableInvoice[]>();
@@ -29,7 +36,7 @@ export function matchInvoices(
       if (!byNumber.has(key)) byNumber.set(key, i.id);
     }
   }
-  const sdiMatch = (l: AccLiquidationRow): number | undefined => {
+  const sdiMatch = (l: MatchableDocument): number | undefined => {
     const found = l.sdi_identifier ? (bySdi.get(l.sdi_identifier) ?? []) : [];
     if (found.length === 1) return found[0].id;
     const number = l.invoice_number ? normalizeInvoiceNumber(l.invoice_number) : null;

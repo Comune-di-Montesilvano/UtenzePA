@@ -31,6 +31,13 @@ const FILES: {kind: AccKind; label: string; columns: string}[] = [
       'liquidation_key;commitment_year;commitment_num;commitment_sub;fiscal_year;sdi_identifier;invoice_number;' +
       'invoice_date;invoice_total;invoice_cig;supplier_vat;amount;cancelled',
   },
+  {
+    kind: 'credit_notes',
+    label: 'Note di credito (facoltativo)',
+    columns:
+      'link_key;fiscal_year;amount;supplier_vat;note_sdi_identifier;note_number;note_date;note_total;' +
+      'invoice_sdi_identifier;invoice_number;invoice_date;invoice_total',
+  },
 ];
 
 // Numeri del giro per passo (backend: chiave del passo → contatori).
@@ -176,7 +183,8 @@ const STEP_LABELS: Record<string, Record<string, string>> = {
             <p><strong>{{ f.label }}</strong>: <code>{{ f.columns }}</code></p>
           }
           <p class="muted">Importi con la virgola o il punto decimale, date AAAA-MM-GG, cancelled = 1 per le righe annullate.
-            Impegni: una riga per anno di competenza. Liquidazioni: liquidation_key univoca, dati della fattura pagata.</p>
+            Impegni: una riga per anno di competenza. Liquidazioni: liquidation_key univoca, dati della fattura pagata.
+            Note di credito: una riga per ogni nota compensata su una fattura, amount negativo.</p>
         </div>
       } @else {
         <mat-spinner diameter="32"></mat-spinner>

@@ -25,10 +25,11 @@ export class PaymentApplierService {
   ) {}
 
   async apply(ctx: AccountingRunContext): Promise<Record<'linked' | 'changed', number>> {
-    const [liquidations, matched, rows] = await Promise.all([
+    const [liquidations, matched, rows, creditNotes] = await Promise.all([
       this.data.liquidations(),
       this.invoices.matchedByKey(),
       this.dataSource.query(INVOICES_SQL),
+      this.invoices.creditNoteLinks(),
     ]);
     const invoices: PaymentInvoice[] = rows.map((r: Record<string, unknown>) => ({
       id: Number(r.id),
@@ -44,6 +45,7 @@ export class PaymentApplierService {
       invoices,
       ctx.fromYear,
       new Date().getFullYear(),
+      creditNotes,
     );
     const links = [...matched];
     await this.dataSource.transaction(async (manager) => {

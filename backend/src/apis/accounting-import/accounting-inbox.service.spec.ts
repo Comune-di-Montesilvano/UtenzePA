@@ -255,4 +255,15 @@ describe('AccountingInboxService', () => {
     writeStatus(dir, { state: 'error', step: 'config', next_run_at: null });
     expect(service.present()).toBe(true);
   });
+
+  it('note_credito.csv facoltativo: caricato se presente', async () => {
+    const { dir, service, importer } = make();
+    writeStatus(dir, { state: 'ok' });
+    writeFileSync(join(dir, 'note_credito.csv'), 'n');
+    deliver(dir);
+    expect(await service.check()).toBe('loaded');
+    expect(importer.tryRun).toHaveBeenCalledWith(
+      expect.objectContaining({ credit_notes: Buffer.from('n') }),
+    );
+  });
 });

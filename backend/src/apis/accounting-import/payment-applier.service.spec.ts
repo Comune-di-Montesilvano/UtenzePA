@@ -42,7 +42,10 @@ describe('PaymentApplierService', () => {
         },
       ]),
     };
-    const invoices = { matchedByKey: jest.fn().mockResolvedValue(new Map([['k1', 1]])) };
+    const invoices = {
+      matchedByKey: jest.fn().mockResolvedValue(new Map([['k1', 1]])),
+      creditNoteLinks: jest.fn().mockResolvedValue([]),
+    };
     const service = new PaymentApplierService(
       dataSource as never,
       data as never,

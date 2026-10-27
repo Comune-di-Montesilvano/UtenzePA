@@ -25,6 +25,11 @@ INSERT INTO GFIMDEN1 VALUES (501, 2024, 2024, 2024, 12, 1, 11407, 0, 1, 7, 0, 0,
 INSERT INTO GFIMDEN1 VALUES (1, 2022, 2022, 2022, 13, 1, 11407, 0, 1, 7, 0, 0, NULL, NULL, 'VECCHIO');
 INSERT INTO GFPNCGN1 VALUES (2024, 1, '12345678', 'FT/1', '2024-03-24', 122.0000000001, 'Z0A1B2C3D4', 1);
 INSERT INTO GFPNCGN1 VALUES (2024, 2, NULL, 'FT/2', '2024-04-01', 50, NULL, 2);
+-- Nota di credito che storna per intero la fattura 2; fuori: abbinamento di una nota del 2022.
+INSERT INTO GFPNCGN1 VALUES (2024, 3, '87654321', 'NC/1', '2024-05-02', -50.0000000001, NULL, 2);
+INSERT INTO GFPNCGN1 VALUES (2022, 9, NULL, 'NC/0', '2022-05-02', -5, NULL, 1);
+INSERT INTO GFRIPNC VALUES (7, -50.0000000001, 2024, 2, 2024, 3);
+INSERT INTO GFRIPNC VALUES (8, -5, 2024, 1, 2022, 9);
 -- Due liquidazioni della fattura 1 (vale il CIG della fattura), una annullata della fattura 2 (CIG
 -- della liquidazione), una senza fattura; fuori: competenza 2022 e sigla 501.
 INSERT INTO GFLIQUN1 VALUES (2024, 2024, 1, 100, 1, 2024, 10, 1, 2024, 1, 2024, 1, NULL, 61.0000000001, NULL);

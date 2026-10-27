@@ -118,8 +118,8 @@
           <ng-template mat-tab-label>
             <app-tab-label icon="paid" label="Pagamento" [count]="payments.length"></app-tab-label>
           </ng-template>
-          @if (toLiquidate) {
-            <p>Nessuna liquidazione in contabilità per questa fattura.</p>
+          @if (paymentNote) {
+            <p>{{ paymentNote }}</p>
           } @else {
             <table class="sheet-table">
               <thead>

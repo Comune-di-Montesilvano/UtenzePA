@@ -298,4 +298,21 @@ describe('CommitmentReconcileService', () => {
     await Promise.all([service.reconcileContracts([1]), service.reconcileContracts([1])]);
     expect(tagged(calls, 'r_invoices')).toHaveLength(1);
   });
+
+  it('stornata o nota di credito per la contabilità: nessuna quota automatica e nessuna rimanenza consumata', async () => {
+    const { ds, calls } = fakeDataSource({
+      commitments: [commitment(10, 521, 100)],
+      invoices: [
+        invoice(1, 100, '2026-01-10', {
+          payment_status: 'CANCELLED',
+          auto_share: { commitment_id: 10, fiscal_year: 2026, amount: 100 },
+        }),
+        invoice(2, -30, '2026-01-20', { payment_status: 'TO_COMPENSATE' }),
+        invoice(3, 100, '2026-02-10'),
+      ],
+    });
+    await new CommitmentReconcileService(ds).reconcileContracts([1]);
+    expect(deletes(calls).map((c) => c.params)).toEqual([[1], [3]]);
+    expect(inserts(calls).map((c) => c.params)).toEqual([[3, 10, 2026, 100, 3]]);
+  });
 });

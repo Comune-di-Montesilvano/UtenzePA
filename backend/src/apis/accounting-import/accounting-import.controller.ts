@@ -21,7 +21,7 @@ import { AccountingInboxService } from './accounting-inbox.service';
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 type UploadedCsv = Partial<
-  Record<'chapters' | 'commitments' | 'liquidations', Express.Multer.File[]>
+  Record<'chapters' | 'commitments' | 'liquidations' | 'credit_notes', Express.Multer.File[]>
 >;
 
 @Controller('accounting-import')
@@ -79,7 +79,12 @@ export class AccountingImportController {
   @Post()
   @UseInterceptors(
     FileFieldsInterceptor(
-      [{ name: 'chapters' }, { name: 'commitments' }, { name: 'liquidations' }],
+      [
+        { name: 'chapters' },
+        { name: 'commitments' },
+        { name: 'liquidations' },
+        { name: 'credit_notes' },
+      ],
       {
         limits: { fileSize: MAX_FILE_SIZE },
       },
@@ -90,6 +95,7 @@ export class AccountingImportController {
       chapters: files.chapters?.[0]?.buffer,
       commitments: files.commitments?.[0]?.buffer,
       liquidations: files.liquidations?.[0]?.buffer,
+      credit_notes: files.credit_notes?.[0]?.buffer,
     });
   }
 }

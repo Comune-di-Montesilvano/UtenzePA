@@ -18,6 +18,7 @@ import { AccountingInvoiceService } from './accounting-invoice.service';
 import { ShareApplierService } from './share-applier.service';
 import { LinkApplierService } from './link-applier.service';
 import { PaymentApplierService } from './payment-applier.service';
+import { AccCreditNote } from './entity/acc-credit-note.entity';
 import { AccChapter } from './entity/acc-chapter.entity';
 import { AccCommitment } from './entity/acc-commitment.entity';
 import { AccLiquidation } from './entity/acc-liquidation.entity';
@@ -40,7 +41,7 @@ export function inboxCronTime(value: string | undefined): string {
 @Module({
   imports: [
     // Tabelle di appoggio: con autoLoadEntities entrano nel DataSource solo da qui.
-    TypeOrmModule.forFeature([AccChapter, AccCommitment, AccLiquidation]),
+    TypeOrmModule.forFeature([AccChapter, AccCommitment, AccLiquidation, AccCreditNote]),
     AccountingStateModule,
     BudgetCommitmentsModule,
     AuditLogModule,

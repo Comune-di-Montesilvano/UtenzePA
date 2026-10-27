@@ -2,7 +2,7 @@ import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
 import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
 import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
-import type { AccLiquidationRow } from './accounting-csv';
+import type { AccCreditNoteRow, AccLiquidationRow } from './accounting-csv';
 import { AccountingInvoiceService } from './accounting-invoice.service';
 import { RecordSource } from './record-source.enum';
 
@@ -25,6 +25,7 @@ const liq = (key: string, patch: Partial<AccLiquidationRow> = {}): AccLiquidatio
 
 interface Fixture {
   liquidations: AccLiquidationRow[];
+  creditNotes?: AccCreditNoteRow[];
   invoices?: Record<string, unknown>[];
   contracts?: Record<string, unknown>[];
   messages?: Record<string, unknown>[];
@@ -55,6 +56,7 @@ function setup(f: Fixture) {
   };
   const data = {
     liquidations: jest.fn(async () => f.liquidations),
+    creditNotes: jest.fn(async () => f.creditNotes ?? []),
     suppliersByVat: jest.fn(async () => new Map([['00000000001', 3]])),
   };
   const audit = { record: jest.fn(async () => undefined) };
@@ -223,5 +225,49 @@ describe('AccountingInvoiceService', () => {
       ],
     });
     expect(await service.matchedByKey()).toEqual(new Map([['L1', 501]]));
+  });
+
+  it('creditNoteLinks abbina nota e fattura di ogni abbinamento, per SDI o P.IVA + numero + data', async () => {
+    const { service } = setup({
+      liquidations: [],
+      invoices: [
+        { id: 501, supplier_vat: '00000000001', invoice_number: 'FT/12', invoice_date: '2026-03-01', sdi_identifier: null },
+        { id: 502, supplier_vat: '00000000001', invoice_number: 'NC/1', invoice_date: '2026-04-01', sdi_identifier: '888' },
+      ],
+      creditNotes: [
+        {
+          link_key: 'K1',
+          fiscal_year: 2026,
+          amount: -50,
+          supplier_vat: '00000000001',
+          note_sdi_identifier: '888',
+          note_number: 'NC/1',
+          note_date: '2026-04-01',
+          note_total: -50,
+          invoice_sdi_identifier: null,
+          invoice_number: 'FT/12',
+          invoice_date: '2026-03-01',
+          invoice_total: 122,
+        },
+        {
+          link_key: 'K2',
+          fiscal_year: 2026,
+          amount: -10,
+          supplier_vat: '00000000001',
+          note_sdi_identifier: '999',
+          note_number: 'NC/2',
+          note_date: '2026-05-01',
+          note_total: -10,
+          invoice_sdi_identifier: null,
+          invoice_number: 'FT/99',
+          invoice_date: '2026-03-01',
+          invoice_total: 10,
+        },
+      ],
+    });
+    expect(await service.creditNoteLinks()).toEqual([
+      { amount: -50, noteId: 502, invoiceId: 501 },
+      { amount: -10, noteId: undefined, invoiceId: undefined },
+    ]);
   });
 });

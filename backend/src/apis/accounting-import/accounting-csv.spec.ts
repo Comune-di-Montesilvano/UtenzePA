@@ -130,4 +130,29 @@ describe('parseAccountingCsv', () => {
     expect(issues).toEqual([]);
     expect(rows).toHaveLength(1);
   });
+
+  it('note di credito: abbinamento nota → fattura, campi dei documenti facoltativi', () => {
+    const { rows, issues } = parseAccountingCsv(
+      'credit_notes',
+      'link_key;fiscal_year;amount;supplier_vat;note_number;note_date;note_total;invoice_number;invoice_date;invoice_total\n' +
+        '2026-4245-2026-1796;2026;-1451,80;00000000001;NC 1;2026-09-01;-1451.80;FT 9;2026-05-02;1451.8\n',
+    );
+    expect(issues).toEqual([]);
+    expect(rows).toEqual([
+      {
+        link_key: '2026-4245-2026-1796',
+        fiscal_year: 2026,
+        amount: -1451.8,
+        supplier_vat: '00000000001',
+        note_sdi_identifier: null,
+        note_number: 'NC 1',
+        note_date: '2026-09-01',
+        note_total: -1451.8,
+        invoice_sdi_identifier: null,
+        invoice_number: 'FT 9',
+        invoice_date: '2026-05-02',
+        invoice_total: 1451.8,
+      },
+    ]);
+  });
 });
