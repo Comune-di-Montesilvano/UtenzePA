@@ -94,6 +94,10 @@ export class AccountingImportService {
     return this.getStatus();
   }
 
+  isRunning(): boolean {
+    return this.running;
+  }
+
   async run(files: Partial<Record<AccKind, Buffer>>): Promise<AccountingImportSummary> {
     return this.execute(files, await this.begin(files));
   }
@@ -135,8 +139,10 @@ export class AccountingImportService {
         summary.steps[step.name] = await step.apply({ fromYear });
       }
       await this.reconcile.reconcileAll();
+      const now = new Date();
       await this.states.update({
-        last_run_at: new Date(),
+        last_run_at: now,
+        last_success_at: now,
         last_summary: summary,
         last_error: null,
       });

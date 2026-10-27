@@ -15,6 +15,7 @@ import { Roles } from '@core/auth/decorators/roles.decorator';
 import { UpdateAccountingImportDto } from './dto/update-accounting-import.dto';
 import { AccountingImportService, type AccountingImportStatus } from './accounting-import.service';
 import { AccountingStateService } from './accounting-state.service';
+import { AccountingInboxService } from './accounting-inbox.service';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
@@ -29,6 +30,7 @@ export class AccountingImportController {
   constructor(
     private readonly service: AccountingImportService,
     private readonly states: AccountingStateService,
+    private readonly inbox: AccountingInboxService,
   ) {}
 
   // Solo acceso/spento, per tutti i ruoli: il frontend mette in sola lettura i
@@ -50,6 +52,8 @@ export class AccountingImportController {
       ...(dto.enabled !== undefined ? { enabled: dto.enabled } : {}),
       ...(dto.from_year !== undefined ? { from_year: dto.from_year } : {}),
     });
+    // Anno di partenza nuovo: lo legge subito anche il container Tinn.
+    await this.inbox.writeSettings();
     return this.service.getStatus();
   }
 

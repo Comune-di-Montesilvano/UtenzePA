@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { CronJob } from 'cron';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditLogModule } from '@apis/audit-log/audit-log.module';
 import { BudgetCommitmentsModule } from '@apis/budget-commitments/budget-commitments.module';
@@ -9,6 +10,7 @@ import {
   type AccountingStep,
 } from './accounting-import.service';
 import { AccountingStateModule } from './accounting-state.module';
+import { AccountingInboxService } from './accounting-inbox.service';
 import { AccountingDataService } from './accounting-data.service';
 import { ChapterApplierService } from './chapter-applier.service';
 import { CommitmentApplierService } from './commitment-applier.service';
@@ -31,6 +33,7 @@ import { AccLiquidation } from './entity/acc-liquidation.entity';
   ],
   providers: [
     AccountingImportService,
+    AccountingInboxService,
     AccountingDataService,
     ChapterApplierService,
     CommitmentApplierService,
@@ -62,5 +65,25 @@ import { AccLiquidation } from './entity/acc-liquidation.entity';
     },
   ],
   controllers: [AccountingImportController],
+  exports: [AccountingInboxService],
 })
-export class AccountingImportModule {}
+export class AccountingImportModule implements OnModuleInit, OnModuleDestroy {
+  private inboxJob?: CronJob;
+
+  constructor(private readonly inbox: AccountingInboxService) {}
+
+  // Casella del container Tinn: ogni 5 minuti (ACCOUNTING_INBOX_CRON).
+  onModuleInit() {
+    this.inboxJob = new CronJob(
+      process.env.ACCOUNTING_INBOX_CRON ?? '*/5 * * * *',
+      () => void this.inbox.check().catch(() => undefined),
+      null,
+      true,
+      'Europe/Rome',
+    );
+  }
+
+  onModuleDestroy() {
+    void this.inboxJob?.stop();
+  }
+}

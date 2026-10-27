@@ -37,6 +37,8 @@ export class AccountingStateService {
       last_run_at: null,
       last_summary: null,
       last_error: null,
+      last_success_at: null,
+      last_loaded_sha256: null,
     };
   }
 
