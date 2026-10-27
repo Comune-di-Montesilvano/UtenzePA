@@ -89,6 +89,7 @@ updates:
     directories:
       - /backend
       - /frontend
+      - /tinn
     schedule:
       interval: daily
       time: "01:00"

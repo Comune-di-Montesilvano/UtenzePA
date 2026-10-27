@@ -16,7 +16,7 @@ DEFAULT_FROM_YEAR = 2023
 MODE = 0o664
 
 STEP_MESSAGES = {
-    'download': 'Server SFTP non raggiungibile o file non trovato',
+    'download': 'Server SFTP non raggiungibile',
     'restore': 'Ripristino del backup non riuscito',
     'extract': 'Estrazione dei dati non riuscita',
     'deliver': 'Consegna dei file a UtenzePA non riuscita',
@@ -90,11 +90,25 @@ def take_request(box):
         return False
 
 
+# .tmp del container; quelli di UtenzePA (settings, request) non si toccano.
+OWN_TMP = tuple('.%s.tmp' % name for name in [n + '.csv' for n in CSV_NAMES] + ['status', 'ready'])
+
+
 def remove_partial(box):
     """Toglie i .tmp lasciati da un giro interrotto."""
     for name in os.listdir(box):
-        if name.startswith('.') and name.endswith('.tmp'):
+        if name in OWN_TMP:
             os.remove(os.path.join(box, name))
+
+
+def _download_base(error):
+    if type(error).__name__ in ('AuthenticationException', 'BadAuthenticationType'):
+        return 'Autenticazione SFTP non riuscita (utente o password)'
+    if 'chiave host' in str(error):
+        return 'Chiave host del server SFTP non valida'
+    if isinstance(error, FileNotFoundError) or getattr(error, 'errno', None) == errno.ENOENT:
+        return 'File del backup non trovato sul server SFTP'
+    return STEP_MESSAGES['download']
 
 
 def public_message(step, error, secrets):
@@ -105,5 +119,5 @@ def public_message(step, error, secrets):
             detail = detail.replace(secret, '***')
     if isinstance(error, OSError) and error.errno == errno.ENOSPC:
         return 'Spazio su disco esaurito nel container Tinn (volume tinn_work)'
-    base = STEP_MESSAGES.get(step, 'Errore')
+    base = _download_base(error) if step == 'download' else STEP_MESSAGES.get(step, 'Errore')
     return base + (': ' + detail if detail else '')

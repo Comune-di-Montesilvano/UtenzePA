@@ -121,3 +121,10 @@ def test_safe_tick_survives_exceptions(tmp_path):
 
     nxt = datetime(2026, 10, 28, 4, 0)
     assert safe_tick(cfg, NOW, nxt, boom) == nxt
+
+
+def test_sigterm_raises_system_exit():
+    import pytest
+    from app.main import handle_sigterm
+    with pytest.raises(SystemExit):
+        handle_sigterm(15, None)

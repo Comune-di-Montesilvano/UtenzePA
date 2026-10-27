@@ -10,7 +10,7 @@ import {MatSlideToggleModule} from '@angular/material/slide-toggle';
 import {AccountingStateService} from '../../core/services/accounting-state.service';
 import {ToastService} from '../../core/services/toast.service';
 import {AccKind, AccountingImportService, AccountingImportStatus, CsvIssue} from './accounting-import.service';
-import {tinnStatusLabel} from './tinn-status';
+import {containerWait, tinnStatusLabel} from './tinn-status';
 
 const FILES: {kind: AccKind; label: string; columns: string}[] = [
   {
@@ -221,7 +221,7 @@ export class AccountingImportPageComponent implements OnInit, OnDestroy {
       next: s => {
         this.apply(s);
         this.toast.add({severity: 'info', summary: 'Scaricamento richiesto', detail: 'Parte entro un minuto.'});
-        this.waitForContainer(previousStart);
+        this.waitForContainer(previousStart, Date.now());
       },
       error: err => {
         this.containerWaiting = false;
@@ -232,22 +232,29 @@ export class AccountingImportPageComponent implements OnInit, OnDestroy {
 
   // Il container legge la richiesta entro un minuto: si rilegge lo stato finché
   // non è partito un giro nuovo e non è finito.
-  private waitForContainer(previousStart: string | null): void {
+  private waitForContainer(previousStart: string | null, since: number): void {
     this.containerPoll = setTimeout(() => {
       this.service.status().subscribe({
         next: s => {
           this.apply(s);
           const c = s.container;
-          if (c && (c.state === 'running' || c.startedAt === previousStart)) return this.waitForContainer(previousStart);
+          const outcome = containerWait(c, previousStart, Date.now() - since);
+          if (outcome === 'wait') return this.waitForContainer(previousStart, since);
           this.containerWaiting = false;
-          if (!c) return;
+          if (outcome === 'timeout' || !c) {
+            this.toast.add({
+              severity: 'error', summary: 'Il servizio non risponde',
+              detail: 'Lo scaricamento automatico non è partito: verificare che il container tinn sia avviato.',
+            });
+            return;
+          }
           if (c.state === 'error') {
             this.toast.add({severity: 'error', summary: 'Scaricamento non riuscito', detail: c.message ?? ''});
           } else {
             this.toast.add({severity: 'success', summary: 'Scaricamento completato', detail: tinnStatusLabel(c)});
           }
         },
-        error: () => this.waitForContainer(previousStart),
+        error: () => this.waitForContainer(previousStart, since),
       });
     }, 3000);
   }

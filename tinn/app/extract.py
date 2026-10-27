@@ -9,8 +9,10 @@ import csv
 import os
 import subprocess
 from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
 
 SEP = 'ASCII_CHAR(31)'
+CENT = Decimal('0.01')
 FILES = ('capitoli', 'impegni', 'liquidazioni')
 # Ogni query dura secondi sul DB del Comune: oltre 30 minuti è bloccata.
 ISQL_TIMEOUT_SECONDS = 30 * 60
@@ -52,8 +54,13 @@ def cols(*exprs):
     return "'#' || " + SEP + ' || ' + (' || ' + SEP + ' || ').join(parts)
 
 
+def _decimal(v):
+    return Decimal(v.strip()) if v and v.strip() else Decimal(0)
+
+
+# Importi in Decimal: niente arrotondamenti del float su valori come 1,005.
 def to_amount(v):
-    return '' if v == '' else '{:.2f}'.format(round(float(v), 2))
+    return '' if v == '' else str(_decimal(v).quantize(CENT, rounding=ROUND_HALF_UP))
 
 
 def to_iso_date(v):
@@ -77,7 +84,7 @@ def chapter_sql(from_year):
 
 
 def chapter_rows(raw):
-    return [[y, c, a, d, to_amount(i), to_amount(str(float(i or 0) + float(v or 0))), '']
+    return [[y, c, a, d, to_amount(i), to_amount(str(_decimal(i) + _decimal(v))), '']
             for y, c, a, d, i, v in raw]
 
 

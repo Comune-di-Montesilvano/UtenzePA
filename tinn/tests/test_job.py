@@ -290,3 +290,29 @@ def test_disk_full_message(tmp_path):
     from app.inbox import public_message
     msg = public_message('download', OSError(28, 'No space left on device'), [])
     assert msg.startswith('Spazio su disco esaurito')
+
+
+def test_request_during_run_is_ignored(tmp_path):
+    cfg = make_cfg(tmp_path)
+
+    def download_with_request(cfg, dest):
+        (tmp_path / 'inbox' / 'request').write_text('')
+        return fake_download()(cfg, dest)
+
+    d, _ = deps(download=download_with_request)
+    run_job(cfg, force=True, deps=d)
+    assert not (tmp_path / 'inbox' / 'request').exists()
+
+
+def test_amounts_round_half_up_exactly():
+    from app.extract import to_amount
+    assert to_amount('0.125') == '0.13'
+    assert to_amount('1.005') == '1.01'
+    assert to_amount('2.675') == '2.68'
+
+
+def test_adjusted_budget_sum_is_exact():
+    from app.extract import chapter_rows
+    row = chapter_rows([['2026', '100', '0', 'X', '1.004', '0.001']])[0]
+    assert row[4] == '1.00'
+    assert row[5] == '1.01'

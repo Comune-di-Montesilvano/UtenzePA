@@ -245,4 +245,14 @@ describe('AccountingInboxService', () => {
     expect(importer.tryRun).toHaveBeenCalledTimes(1);
     expect(readdirSync(dir).sort()).toEqual(['settings', 'status']);
   });
+
+  it('status fermo da più di 7 giorni = container tolto', () => {
+    const { dir, service } = make();
+    writeStatus(dir, { state: 'ok', next_run_at: '2020-01-01T04:00:00+01:00' });
+    expect(service.present()).toBe(false);
+    writeStatus(dir, { state: 'ok', next_run_at: new Date(Date.now() + 3600_000).toISOString() });
+    expect(service.present()).toBe(true);
+    writeStatus(dir, { state: 'error', step: 'config', next_run_at: null });
+    expect(service.present()).toBe(true);
+  });
 });

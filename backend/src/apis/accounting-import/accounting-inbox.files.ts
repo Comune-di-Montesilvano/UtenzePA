@@ -44,8 +44,19 @@ function readJson(path: string): Record<string, unknown> | null {
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
 
-// Container presente = ha scritto almeno uno status.
-export const inboxPresent = (dir: string): boolean => existsSync(join(dir, 'status'));
+// Container presente = ha scritto uno status e il suo prossimo giro non è passato
+// da più di 7 giorni: tolto il profilo, lo status vecchio resta nel volume e la
+// sezione e la segnalazione sparirebbero mai. Per una settimana la segnalazione
+// «non aggiornata» resta (scatta dopo 2 giorni).
+const ABANDONED_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function inboxPresent(dir: string, now = new Date()): boolean {
+  if (!existsSync(join(dir, 'status'))) return false;
+  const next = str(readJson(join(dir, 'status'))?.next_run_at);
+  if (!next) return true;
+  const at = new Date(next).getTime();
+  return Number.isNaN(at) || now.getTime() - at <= ABANDONED_MS;
+}
 
 export function readStatus(dir: string): TinnStatus | null {
   const s = readJson(join(dir, 'status'));

@@ -63,9 +63,13 @@ export class AccountingImportController {
 
   @Patch()
   async update(@Body() dto: UpdateAccountingImportDto): Promise<AccountingImportStatus> {
+    // Anno cambiato: il container deve riestrarre anche se il backup è lo stesso.
+    const yearChanged =
+      dto.from_year !== undefined && dto.from_year !== (await this.states.state()).from_year;
     await this.states.update({
       ...(dto.enabled !== undefined ? { enabled: dto.enabled } : {}),
       ...(dto.from_year !== undefined ? { from_year: dto.from_year } : {}),
+      ...(yearChanged ? { last_loaded_sha256: null } : {}),
     });
     // Anno di partenza nuovo: lo legge subito anche il container Tinn.
     await this.inbox.writeSettings();

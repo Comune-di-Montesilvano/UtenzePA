@@ -20,7 +20,7 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Dati"). Le correzioni 
 - MySQL: una TEMPORARY TABLE non si può usare due volte nella stessa query (ERROR 1137): una query per riferimento.
 - Export impegni della contabilità (`.csv` cp1252 `;`, campi multilinea): due colonne `anno` (1ª = anno dell'impegno, 2ª = competenza), chiave `anno/sigla/num./prg.`, `Importo Defin.` = importo, `Disponibilità` = non ancora liquidato. L'export di un esercizio contiene solo gli impegni aperti in quell'esercizio: per gli anni passati serve l'export di quell'esercizio.
 - Capitoli di spesa rinumerati negli anni (11201→11407, 11218→11408, 11188→14091, 14521/0→14521/20): dati contabili storici abbinati per descrizione, non per codice, e confermati con la ragioneria (mai capitolo "provvisorio" a mano).
-
+
 ## Container Tinn (import automatico della contabilità)
 
 - Installazione: nel `.env` `COMPOSE_PROFILES=tinn` e le variabili `TINN_SFTP_HOST/PORT/USER/PASSWORD/PATH`, `TINN_DB_FILE` (nome del `.fbk` nello zip), facoltative `TINN_SFTP_HOST_KEY` e `TINN_CRON`; poi `docker compose up -d`. Variabile mancante = il container lo scrive nello stato (pagina Contabilità) e resta fermo. Firewall: uscita verso l'SFTP. Credenziali solo nel `.env`, mai nel repo né nei messaggi; password con `$`, spazi o `#` tra apici singoli (Compose interpola `$` e tronca a ` #`).

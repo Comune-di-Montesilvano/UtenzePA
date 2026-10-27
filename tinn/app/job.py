@@ -13,7 +13,7 @@ from typing import Callable
 
 from app import extract as extract_module
 from app import sftp
-from app.inbox import deliver, public_message, read_settings, write_status
+from app.inbox import deliver, public_message, read_settings, take_request, write_status
 from app.sftp import KNOWN_HOSTS
 
 log = logging.getLogger('tinn')
@@ -130,3 +130,5 @@ def run_job(cfg, force, next_run_at=None, deps=DEFAULT_DEPS):
         return 'error'
     finally:
         clean_work(cfg.work)
+        # «Esegui ora» premuto durante il giro: ignorato, il giro appena fatto basta.
+        take_request(cfg.inbox)

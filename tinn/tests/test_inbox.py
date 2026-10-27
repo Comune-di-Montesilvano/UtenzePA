@@ -65,4 +65,28 @@ def test_remove_partial_deletes_tmp_only(tmp_path):
 def test_error_message_hides_password():
     msg = public_message('download', Exception("auth failed for p$a'ss #1"), ["p$a'ss #1"])
     assert "p$a'ss #1" not in msg
-    assert msg.startswith('Server SFTP non raggiungibile o file non trovato')
+    assert msg.startswith('Server SFTP non raggiungibile')
+
+
+def test_auth_failure_message():
+    class AuthenticationException(Exception):
+        pass
+    msg = public_message('download', AuthenticationException('Authentication failed.'), [])
+    assert msg.startswith('Autenticazione SFTP non riuscita')
+
+
+def test_host_key_message():
+    msg = public_message('download', OSError('chiave host del server SFTP diversa da TINN_SFTP_HOST_KEY'), [])
+    assert msg.startswith('Chiave host del server SFTP non valida')
+
+
+def test_missing_file_message():
+    msg = public_message('download', FileNotFoundError(2, 'No such file'), [])
+    assert msg.startswith('File del backup non trovato sul server SFTP')
+
+
+def test_remove_partial_keeps_backend_tmp(tmp_path):
+    for name in ('.settings.tmp', '.request.tmp', '.capitoli.csv.tmp', '.status.tmp', '.ready.tmp'):
+        (tmp_path / name).write_text('x')
+    remove_partial(str(tmp_path))
+    assert sorted(os.listdir(tmp_path)) == ['.request.tmp', '.settings.tmp']

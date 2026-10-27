@@ -3,6 +3,7 @@ riuscito, poi a TINN_CRON (fuso TZ) e su richiesta di UtenzePA («Esegui ora»,
 file request nella casella). Un giro alla volta, controllo ogni minuto."""
 import logging
 import os
+import signal
 import sys
 import time
 from datetime import datetime, timedelta
@@ -86,6 +87,12 @@ def safe_tick(cfg, now, nxt, run):
         return nxt
 
 
+def handle_sigterm(signum, frame):
+    """docker stop: uscita subito, con pulizia della cartella di lavoro (finally
+    del giro). Da PID 1 Python ignorerebbe SIGTERM e Docker aspetterebbe 10 s."""
+    raise SystemExit(0)
+
+
 def report_config_error(box, message):
     write_status(box, {'state': 'error', 'step': 'config', 'message': 'Configurazione incompleta: ' + message,
                        'started_at': now_iso(), 'finished_at': now_iso(), 'backup_sha256': None,
@@ -94,6 +101,7 @@ def report_config_error(box, message):
 
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+    signal.signal(signal.SIGTERM, handle_sigterm)
     try:
         cfg = Config.from_env(os.environ)
     except ConfigError as error:

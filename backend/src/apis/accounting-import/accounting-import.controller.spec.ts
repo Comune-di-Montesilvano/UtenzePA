@@ -71,4 +71,23 @@ describe('AccountingImportController', () => {
     );
     expect(inbox.requestRun).not.toHaveBeenCalled();
   });
+
+  it('cambio di anno di partenza: il container riesegue anche con il backup invariato', async () => {
+    const states = {
+      state: jest.fn(async () => ({ from_year: 2023 })),
+      update: jest.fn(async () => undefined),
+    };
+    const inbox = { writeSettings: jest.fn(async () => undefined) };
+    const service = { getStatus: jest.fn(async () => ({})) };
+    const controller = new AccountingImportController(
+      service as never,
+      states as never,
+      inbox as never,
+    );
+    await controller.update({ from_year: 2021 });
+    expect(states.update).toHaveBeenCalledWith({ from_year: 2021, last_loaded_sha256: null });
+    states.update.mockClear();
+    await controller.update({ from_year: 2023 });
+    expect(states.update).toHaveBeenCalledWith({ from_year: 2023 });
+  });
 });

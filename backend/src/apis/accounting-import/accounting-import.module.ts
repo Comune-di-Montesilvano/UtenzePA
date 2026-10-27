@@ -1,5 +1,5 @@
-import { Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { CronJob } from 'cron';
+import { Logger, Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { CronJob, CronTime } from 'cron';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditLogModule } from '@apis/audit-log/audit-log.module';
 import { BudgetCommitmentsModule } from '@apis/budget-commitments/budget-commitments.module';
@@ -20,6 +20,19 @@ import { LinkApplierService } from './link-applier.service';
 import { AccChapter } from './entity/acc-chapter.entity';
 import { AccCommitment } from './entity/acc-commitment.entity';
 import { AccLiquidation } from './entity/acc-liquidation.entity';
+
+const DEFAULT_INBOX_CRON = '*/5 * * * *';
+
+// ACCOUNTING_INBOX_CRON vuota o non valida: il default, mai un'API che non parte.
+export function inboxCronTime(value: string | undefined): string {
+  if (!value?.trim()) return DEFAULT_INBOX_CRON;
+  try {
+    new CronTime(value);
+    return value;
+  } catch {
+    return DEFAULT_INBOX_CRON;
+  }
+}
 
 // Ordine dei passi del giro: perimetro e capitoli, poi impegni, fatture,
 // quote, collegamenti. Ognuno legge quello che hanno scritto i precedenti.
@@ -74,9 +87,15 @@ export class AccountingImportModule implements OnModuleInit, OnModuleDestroy {
 
   // Casella del container Tinn: ogni 5 minuti (ACCOUNTING_INBOX_CRON).
   onModuleInit() {
+    const logger = new Logger(AccountingImportModule.name);
     this.inboxJob = new CronJob(
-      process.env.ACCOUNTING_INBOX_CRON ?? '*/5 * * * *',
-      () => void this.inbox.check().catch(() => undefined),
+      inboxCronTime(process.env.ACCOUNTING_INBOX_CRON),
+      () =>
+        void this.inbox
+          .check()
+          .catch((error: Error) =>
+            logger.error(`controllo della casella Tinn non riuscito: ${error.message}`),
+          ),
       null,
       true,
       'Europe/Rome',
