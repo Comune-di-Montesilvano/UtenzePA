@@ -38,3 +38,7 @@ backend/.local/
 graphify-out/.graphify_python
 graphify-out/.graphify_root
 graphify-out/cache/
+
+# Dati finti del selftest del container Tinn (nessun dato reale).
+!tinn/testdata/*.sql
+!tinn/testdata/expected/*.csv
