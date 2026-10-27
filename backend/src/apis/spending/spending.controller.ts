@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '@/core/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@/core/auth/guards/roles.guard';
 import {
@@ -10,6 +20,7 @@ import {
   YearSpending,
 } from './spending.service';
 import { ChapterYear, ChapterYearSummary } from './chapter-year';
+import { ChapterUtilityStats, StatsPeriod } from './chapter-utility-stats';
 import { BudgetCheckDto } from './dto/budget-check.dto';
 
 @Controller()
@@ -47,6 +58,20 @@ export class SpendingController {
   @Get('budget-chapters/:id/invoice-lines')
   chapterLines(@Param('id', ParseIntPipe) id: number): Promise<ChapterInvoiceLine[]> {
     return this.service.chapterInvoiceLines(id);
+  }
+
+  // period = last12 (default) o un anno.
+  @Get('budget-chapters/:id/utility-stats')
+  chapterUtilityStats(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('period') period?: string,
+  ): Promise<ChapterUtilityStats & { years: number[] }> {
+    let value: StatsPeriod = 'last12';
+    if (period && period !== 'last12') {
+      if (!/^\d{4}$/.test(period)) throw new BadRequestException('Periodo non valido');
+      value = Number(period);
+    }
+    return this.service.chapterUtilityStats(id, value);
   }
 
   // Nessun @Roles: sola lettura, serve anche al Lettore che apre una fattura.

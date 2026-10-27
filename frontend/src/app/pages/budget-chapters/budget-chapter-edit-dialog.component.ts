@@ -14,6 +14,7 @@ import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sh
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
 import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.component';
 import {LinkedColumn, LinkedTableComponent} from '../../core/components/entity-sheet/linked-table.component';
+import {groupByYear, keepOpen, SheetGroup, SheetGroupsComponent} from '../../core/components/entity-sheet/sheet-groups.component';
 import {PreviewCardComponent, PreviewItem} from '../../core/components/entity-sheet/preview-card.component';
 import {dateIt, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityHistoryComponent} from '../../core/components/entity-history.component';
@@ -44,7 +45,7 @@ import {HardTypeDescription} from '../utility-types/enum/hard-type.enum';
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatTabsModule,
     MatIconModule, MatTooltipModule, ChapterBudgetBarComponent, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, LinkedTableComponent,
     PreviewCardComponent, EntityHistoryComponent, MultiSelectComponent, OnlyNumbersDirective,
-    BudgetChapterUtilitiesTabComponent, BudgetChapterYearsTabComponent,
+    BudgetChapterUtilitiesTabComponent, BudgetChapterYearsTabComponent, SheetGroupsComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './budget-chapter-edit-dialog.component.html',
@@ -83,6 +84,8 @@ export class BudgetChapterEditDialogComponent implements OnInit {
   status: StatusInfo = chapterBudgetStatus(null);
   commitments: ChapterCommitment[] = [];
   lines: ChapterInvoiceLine[] = [];
+  // Righe per esercizio (come gli esercizi del capitolo), aperto quello in corso.
+  lineGroups: SheetGroup<ChapterInvoiceLine>[] = [];
   utilityPreview: PreviewItem[] = [];
   utilitiesCount: number | null = null;
   commitmentPreview: PreviewItem[] = [];
@@ -162,6 +165,8 @@ export class BudgetChapterEditDialogComponent implements OnInit {
       next: rows => {
         // Id di quote e righe da tabelle diverse: chiave unica per il track.
         this.lines = rows.map(l => ({...l, id: l.kind === 'share' ? -l.id : l.id}));
+        this.lineGroups = keepOpen(groupByYear(this.lines, l => l.year,
+          group => formatEuro(Math.round(group.reduce((sum, l) => sum + Number(l.amount), 0) * 100) / 100)), this.lineGroups);
         this.linePreview = this.lines.map(l => ({id: l.id, label: `${l.number} del ${dateIt(l.invoice_date)}`, sublabel: formatEuro(l.amount)}));
       },
       error: err => console.error('Errore caricamento fatture del capitolo:', err),

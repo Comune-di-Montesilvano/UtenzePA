@@ -124,10 +124,12 @@
           @if (!invoices.length) {
             <p class="sheet-empty">Nessuna fattura su questo impegno.</p>
           } @else {
+            <app-sheet-groups [groups]="invoiceGroups">
+              <ng-template let-rows>
             <table class="sheet-table">
               <thead><tr><th>Fattura</th><th>Data</th><th>Competenza</th><th>Importo</th><th>Speso progressivo</th><th>Origine</th></tr></thead>
               <tbody>
-                @for (r of invoices; track r.share_id) {
+                @for (r of rows; track r.share_id) {
                   <tr class="line-row" (click)="openInvoice(r)">
                     <td>{{ r.invoice_number }}</td>
                     <td>{{ dateIt(r.invoice_date) }}</td>
@@ -151,6 +153,8 @@
                 }
               </tbody>
             </table>
+              </ng-template>
+            </app-sheet-groups>
           }
         </mat-tab>
 
