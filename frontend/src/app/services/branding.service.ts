@@ -13,6 +13,8 @@ export interface Branding {
   logo_mime: string | null;
   favicon: string | null;
   favicon_mime: string | null;
+  // false = catasto senza sezioni: campo «Sezione» nascosto.
+  cadastral_sections: boolean;
 }
 
 export interface UpdateBrandingPayload extends Partial<Branding> {

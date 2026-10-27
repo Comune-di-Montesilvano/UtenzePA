@@ -37,6 +37,17 @@ describe('SettingsService', () => {
     expect(result.updated_by_user_id).toBe(7);
   });
 
+  it('updateBranding salva la sezione catastale e lascia il resto invariato', async () => {
+    const existing = { id: 1, entity_name: 'x', cadastral_sections: true } as AppSettings;
+    repo.findOneOrFail.mockResolvedValue(existing);
+    repo.save.mockImplementation(async (e) => e);
+
+    const result = await service.updateBranding({ cadastral_sections: false }, 1);
+
+    expect(result.cadastral_sections).toBe(false);
+    expect(result.entity_name).toBe('x');
+  });
+
   it('updateBranding rifiuta un mime non in whitelist', async () => {
     repo.findOneOrFail.mockResolvedValue({ id: 1 } as AppSettings);
 

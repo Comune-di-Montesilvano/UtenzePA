@@ -75,6 +75,7 @@ export const appConfig: ApplicationConfig = {
           logo_mime: null,
           favicon: null,
           favicon_mime: null,
+          cadastral_sections: true,
         });
         document.title = 'UtenzePA';
       }

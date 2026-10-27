@@ -12,8 +12,9 @@ export class CadastralUnit {
   cadastral_income?: number | null;
 }
 
-// Testo breve per elenchi e anteprime: "F. 16 P. 200 sub. 3".
-export const cadastralUnitLabel = (u: CadastralUnit): string =>
-  [u.section ? `Sez. ${u.section}` : null, `F. ${u.sheet}`, `P. ${u.parcel}`, u.subordinate ? `sub. ${u.subordinate}` : null]
+// Testo breve per elenchi e anteprime: "F. 16 P. 200 sub. 3". withSection =
+// impostazione dell'ente (branding cadastral_sections).
+export const cadastralUnitLabel = (u: CadastralUnit, withSection = true): string =>
+  [withSection && u.section ? `Sez. ${u.section}` : null, `F. ${u.sheet}`, `P. ${u.parcel}`, u.subordinate ? `sub. ${u.subordinate}` : null]
     .filter(Boolean)
     .join(' ');

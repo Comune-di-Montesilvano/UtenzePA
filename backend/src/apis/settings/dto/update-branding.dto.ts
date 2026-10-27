@@ -46,6 +46,10 @@ export class UpdateBrandingDto {
   @IsOptional()
   @IsBoolean()
   removeFavicon?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  cadastral_sections?: boolean;
 }
 
 export { ALLOWED_MIME };

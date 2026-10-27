@@ -61,6 +61,7 @@ import type {AssetSpending} from '../spending/spending.model';
 import {ComplexService} from '../complexes/complex.service';
 import {ConfirmDialogComponent, ConfirmDialogData} from '../../core/components/confirm-dialog.component';
 import {CadastralUnit, cadastralUnitLabel} from './entity/cadastral-unit';
+import {BrandingService} from '../../services/branding.service';
 import {
   CADASTRAL_STATUS_LABEL,
   CONSTRUCTION_PERIOD_LABEL,
@@ -150,6 +151,8 @@ export class AssetEditDialogComponent implements OnInit {
   // Tab Documenti: allegati + atti collegati (si aggiorna alla prima apertura).
   documentCount: number | null = null;
   private spendingService = inject(SpendingService);
+  // Impostazione dell'ente: catasto senza sezioni = colonna nascosta.
+  readonly withSection = inject(BrandingService).current().cadastral_sections !== false;
   // Spesa da fatture per anno (Riepilogo).
   assetSpending: AssetSpending | null = null;
   readonly eur = (n: number): string => n.toLocaleString('it-IT', {style: 'currency', currency: 'EUR'});
@@ -610,7 +613,7 @@ export class AssetEditDialogComponent implements OnInit {
 
   removeUnit(index: number): void {
     const u = this.units.at(index).getRawValue() as CadastralUnit;
-    const label = u.sheet || u.parcel ? cadastralUnitLabel(u) : 'unità vuota';
+    const label = u.sheet || u.parcel ? cadastralUnitLabel(u, this.withSection) : 'unità vuota';
     this.dialog
       .open<ConfirmDialogComponent, ConfirmDialogData, boolean>(ConfirmDialogComponent, {
         data: {title: 'Rimuovi unità catastale', message: `Rimuovere ${label}?`, confirmLabel: 'Rimuovi', danger: true},

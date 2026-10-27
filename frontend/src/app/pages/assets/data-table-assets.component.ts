@@ -1,4 +1,4 @@
-import {Component, Type, ChangeDetectionStrategy} from '@angular/core';
+import {Component, Type, ChangeDetectionStrategy, inject} from '@angular/core';
 import {MatTableModule} from '@angular/material/table';
 import {MatSortModule} from '@angular/material/sort';
 import {MatPaginatorModule} from '@angular/material/paginator';
@@ -19,6 +19,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
 import {HardType} from '../utility-types/enum/hard-type.enum';
 import {TruncatePipe} from '../../core/pipes/truncate.pipe';
 import {cadastralUnitLabel} from './entity/cadastral-unit';
+import {BrandingService} from '../../services/branding.service';
 import {LEGAL_NATURE_LABEL, MEF_USAGE_LABEL} from './mef-domains';
 
 @Component({
@@ -72,9 +73,11 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
   readonly legalNatureLabel = LEGAL_NATURE_LABEL as Record<string, string>;
   readonly usageLabel = MEF_USAGE_LABEL as Record<string, string>;
 
+  private readonly withSection = inject(BrandingService).current().cadastral_sections !== false;
+
   // Unità catastali in una riga: "F. 16 P. 200 sub. 3, F. 16 P. 201".
   cadastreText(item: Asset): string {
-    return (item.cadastralUnits ?? []).map(cadastralUnitLabel).join(', ');
+    return (item.cadastralUnits ?? []).map(u => cadastralUnitLabel(u, this.withSection)).join(', ');
   }
 
   selectedColumns: IColumnDef[] = this.loadColumnSelection(
@@ -114,7 +117,7 @@ export class DataTableAssetsComponent extends AbstractDataTableComponent<Asset> 
       case 'cadastre':
         // CSV: anche categoria e rendita di ogni unità.
         return (item.cadastralUnits ?? [])
-          .map(u => [cadastralUnitLabel(u), u.category, u.cadastral_income != null
+          .map(u => [cadastralUnitLabel(u, this.withSection), u.category, u.cadastral_income != null
             ? `rendita ${Number(u.cadastral_income).toLocaleString('it-IT', {minimumFractionDigits: 2})}` : null]
             .filter(Boolean).join(' '))
           .join('; ');
