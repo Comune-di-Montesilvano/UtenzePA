@@ -40,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
           version: 11.24.0
 
@@ -63,7 +63,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
           version: 11.24.0
 
@@ -179,7 +179,7 @@ jobs:
           # Storia completa: serve il confronto con la base per contare le migration nuove.
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
           version: 11.24.0
 
@@ -256,7 +256,7 @@ jobs:
           docker compose -f docker-compose.yml exec -T mysql mysql -uroot -p"$MYSQL_PASSWORD" mydatabase -e \
             "INSERT INTO system_users (first_name, last_name, username, password_hash, auth_provider, role, status, created_by_user_id, updated_by_user_id) VALUES ('E2E', 'Admin', '$E2E_USERNAME', '$hash', 'local', 'Admin', 'Attivo', -1, -1)"
 
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
           version: 11.24.0
 
