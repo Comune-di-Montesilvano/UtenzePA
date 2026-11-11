@@ -297,7 +297,7 @@ export class AnomaliesService {
 
     const duplicateCigs: { cig: string; contracts: string }[] = await this.dataSource.query(
       `SELECT MIN(TRIM(c.cig_contract)) AS cig, GROUP_CONCAT(c.id ORDER BY c.id) AS contracts
-       FROM contracts c WHERE c.deleted = 0 AND c.closed = 0 AND ${HAS_CIG}
+       FROM contracts c WHERE c.deleted = 0 AND c.closed = 0 AND ${NOT_DRAFT_SQL('c')} AND ${HAS_CIG}
        GROUP BY LOWER(TRIM(c.cig_contract)) HAVING COUNT(*) > 1`,
     );
 
@@ -914,7 +914,7 @@ export class AnomaliesService {
       `/* contracts_draft_overdue */
        SELECT c.id, c.cig_contract, DATE_FORMAT(c.supply_start_date, '%Y-%m-%d') AS supply_start_date
          FROM contracts c
-        WHERE c.deleted = 0 AND c.draft = 1 AND c.supply_start_date < CURDATE()
+        WHERE c.deleted = 0 AND c.closed = 0 AND c.draft = 1 AND c.supply_start_date < CURDATE()
         ORDER BY c.supply_start_date, c.id`,
     );
     const commitments = commitmentRows.map((r) => {

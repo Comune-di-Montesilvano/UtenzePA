@@ -1290,6 +1290,12 @@ describe('AnomaliesService', () => {
       return { result, sqls };
     };
 
+    it('CIG duplicati: le bozze non contano', async () => {
+      const { sqls } = await run();
+      const duplicates = sqls.find((s) => s.includes('GROUP BY LOWER(TRIM(c.cig_contract))'));
+      expect(duplicates).toContain('c.draft = 0');
+    });
+
     it('bozze scadute: query in fondo, righe convertite', async () => {
       const { result, sqls } = await run([{ id: '90', cig_contract: null, supply_start_date: '2026-09-01' }]);
       expect(result.contracts_draft_overdue).toEqual({
@@ -1300,6 +1306,7 @@ describe('AnomaliesService', () => {
       expect(sqls[46]).toContain('c.draft = 1');
       expect(sqls[46]).toContain('c.deleted = 0');
       expect(sqls[46]).toContain('c.supply_start_date < CURDATE()');
+      expect(sqls[46]).toContain('c.closed = 0');
     });
 
     it('una bozza non è un contratto valido: fuori da contratto corrente, senza CIG, capitolo non impegnato', async () => {

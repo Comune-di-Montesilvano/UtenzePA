@@ -36,7 +36,7 @@
                         matTooltip="Utenze già note il cui ordine non è ancora emesso: conta solo per il fabbisogno della convenzione, non copre le utenze e non riceve fatture">
             Bozza (ordine non ancora emesso)
           </mat-checkbox>
-          @if (isNew && data.replacesContract) {
+          @if (isNew && data.replacesContract && !form.controls.draft.value) {
             <mat-checkbox formControlName="close_replaced" class="span-2">
               Chiudi il contratto precedente ({{ data.replacesContract.label }})
             </mat-checkbox>

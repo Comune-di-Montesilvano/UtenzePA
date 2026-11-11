@@ -11,7 +11,7 @@ import { SearchContractDto } from '@apis/contracts/dto/search-contract.dto';
 import { BaseService, toFindOptionsRelations } from '@apis/shared/base.service';
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { replacedContractPatch } from './replace-contract';
-import { draftError } from './contract-draft';
+import { draftError, NOT_DRAFT_SQL } from './contract-draft';
 import { todayIso } from '@apis/utilizer-grant/real-estate-contract.calc';
 
 // Assente = ordinario.
@@ -57,7 +57,9 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
         qb.andWhere(`${alias}.supplier_id_fk = :supplier_id_fk`, { supplier_id_fk: filters.supplier_id_fk });
       }
       if (filters.missing_cig) {
-        qb.andWhere(`TRIM(IFNULL(${alias}.cig_contract, '')) = '' AND ${alias}.contract_kind = '${ContractKind.STANDARD}'`);
+        qb.andWhere(
+          `TRIM(IFNULL(${alias}.cig_contract, '')) = '' AND ${alias}.contract_kind = '${ContractKind.STANDARD}' AND ${NOT_DRAFT_SQL(alias)}`,
+        );
       }
       if (filters.closed !== undefined) {
         qb.andWhere(`${alias}.closed = :closed`, { closed: filters.closed });

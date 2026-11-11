@@ -304,7 +304,7 @@ describe('ContractsService', () => {
     it('solo contratti senza CIG e non esclusi', async () => {
       await service.findAll({ missing_cig: true } as never);
       expect(qb.andWhere).toHaveBeenCalledWith(
-        "TRIM(IFNULL(contract.cig_contract, '')) = '' AND contract.contract_kind = 'STANDARD'",
+        "TRIM(IFNULL(contract.cig_contract, '')) = '' AND contract.contract_kind = 'STANDARD' AND contract.draft = 0",
       );
     });
   });
