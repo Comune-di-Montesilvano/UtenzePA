@@ -122,6 +122,12 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
       ? await this.repo.findOne({ where: { id: replaces_contract_id, deleted: false } as never })
       : null;
     if (replaces_contract_id && !previous) throw new BadRequestException('Contratto precedente non trovato.');
+    // Una bozza non si chiude: non può essere il contratto sostituito da un rinnovo.
+    if (previous?.draft) {
+      throw new BadRequestException(
+        'Il contratto precedente è una bozza: non si rinnova, togli la spunta Bozza e inserisci il CIG.',
+      );
+    }
     const previousSnapshot: Record<string, unknown> | null = previous ? { ...previous } : null;
     let previousPatch: Record<string, unknown> | null = null;
 

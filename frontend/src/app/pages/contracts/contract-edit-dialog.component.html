@@ -182,7 +182,7 @@
   </form>
 
   <ng-container sheetActions>
-    @if (canEdit && !isNew && form.controls.utility_ids.value?.length) {
+    @if (canEdit && !isNew && !form.controls.draft.value && form.controls.utility_ids.value?.length) {
       <button mat-stroked-button type="button" (click)="renewWithUtilities()" [disabled]="renewing">Nuovo contratto con queste utenze</button>
     }
     <button mat-stroked-button type="button" (click)="cancel()">{{ canEdit ? 'Annulla' : 'Chiudi' }}</button>

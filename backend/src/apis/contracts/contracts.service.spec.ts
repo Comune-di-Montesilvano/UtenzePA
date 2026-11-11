@@ -286,6 +286,14 @@ describe('ContractsService', () => {
       await expect(service.update(85, { consip_order: 'X' } as never, 1)).resolves.toBeDefined();
     });
 
+    it('create: un contratto vero non sostituisce (e non chiude) una bozza → 400', async () => {
+      repo.findOne.mockResolvedValue({ id: 7, deleted: false, closed: false, draft: true } as unknown as Contract);
+      await expect(
+        service.create({ cig_contract: 'CIG1', supply_start_date: '2027-01-01', replaces_contract_id: 7 } as never, 1),
+      ).rejects.toThrow('Il contratto precedente è una bozza: non si rinnova, togli la spunta Bozza e inserisci il CIG.');
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+
     it('findAll: filtra per bozza', async () => {
       await service.findAll({ draft: true } as never);
       expect(qb.andWhere).toHaveBeenCalledWith('contract.draft = :draft', { draft: true });
