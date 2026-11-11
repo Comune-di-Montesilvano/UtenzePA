@@ -15,13 +15,13 @@ import {
   type MatchableInvoice,
 } from './invoice-match';
 import { RecordSource } from './record-source.enum';
+import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
 
 const INVOICES_SQL =
   '/* a_invoices */ SELECT i.id, COALESCE(NULLIF(t.vat_number, ""), t.tax_code) AS supplier_vat, ' +
   "i.invoice_id AS invoice_number, DATE_FORMAT(i.invoice_date, '%Y-%m-%d') AS invoice_date, i.sdi_identifier " +
   `FROM invoices i LEFT JOIN third_parties t ON t.id = i.supplier_id_fk WHERE i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}`;
-const CONTRACTS_SQL =
-  '/* a_contracts */ SELECT id, supplier_id_fk, cig_contract FROM contracts WHERE deleted = 0 AND cig_contract IS NOT NULL';
+export const CONTRACTS_SQL = `/* a_contracts */ SELECT id, supplier_id_fk, cig_contract FROM contracts WHERE deleted = 0 AND ${NOT_DRAFT_SQL('contracts')} AND cig_contract IS NOT NULL`;
 const MESSAGES_SQL =
   '/* a_messages */ SELECT kind, outcome, status, received_at, create_date FROM sdi_messages WHERE sdi_identifier = ?';
 // Stato SDI scritto dal sistema: non cambia «Ultima modifica».

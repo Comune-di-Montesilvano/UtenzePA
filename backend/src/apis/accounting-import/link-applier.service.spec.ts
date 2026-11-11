@@ -1,6 +1,6 @@
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
-import { LinkApplierService } from './link-applier.service';
+import { CONTRACTS_SQL, LinkApplierService } from './link-applier.service';
 
 function setup() {
   const queries: { sql: string; params: unknown[] }[] = [];
@@ -60,5 +60,11 @@ describe('LinkApplierService', () => {
         action: AuditAction.UPDATE,
       }),
     );
+  });
+});
+
+describe('ordini in bozza', () => {
+  it('l_contracts esclude le bozze', () => {
+    expect(CONTRACTS_SQL).toContain('contracts.draft = 0');
   });
 });

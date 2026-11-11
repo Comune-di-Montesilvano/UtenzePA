@@ -7,15 +7,16 @@ import type {
   AccLiquidationRow,
 } from './accounting-csv';
 import { computeScope, type AccountingScope } from './scope';
+import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
 
 const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 
 // Fornitori del perimetro: soggetti terzi con almeno un contratto di fornitura
 // (stessa regola dell'import PEC). Chiave = P.IVA, altrimenti codice fiscale.
-const SUPPLIERS_SQL =
+export const SUPPLIERS_SQL =
   'SELECT t.id, COALESCE(NULLIF(t.vat_number, ""), t.tax_code) AS vat FROM third_parties t ' +
   'WHERE t.deleted = 0 AND COALESCE(NULLIF(t.vat_number, ""), t.tax_code) IS NOT NULL ' +
-  'AND EXISTS (SELECT 1 FROM contracts c WHERE c.supplier_id_fk = t.id AND c.deleted = 0)';
+  `AND EXISTS (SELECT 1 FROM contracts c WHERE c.supplier_id_fk = t.id AND c.deleted = 0 AND ${NOT_DRAFT_SQL('c')})`;
 
 // Lettura delle tabelle di appoggio con i tipi del formato neutro (i decimal
 // arrivano da MySQL come stringhe) e calcolo del perimetro: in comune a tutti

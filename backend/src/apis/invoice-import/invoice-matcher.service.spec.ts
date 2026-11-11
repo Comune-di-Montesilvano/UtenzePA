@@ -1,5 +1,10 @@
 import { ImportIssueType } from './enum/import-issue-type.enum';
-import { InvoiceMatcher } from './invoice-matcher.service';
+import {
+  CONTRACT_REF_SQL,
+  CONTRACT_SQL,
+  HEADER_CONTRACT_SQL,
+  InvoiceMatcher,
+} from './invoice-matcher.service';
 import type { ExtractedInvoice, ExtractedLine } from './pattern/pattern-rules';
 
 type Handler = (params: unknown[]) => unknown[];
@@ -347,5 +352,18 @@ describe('InvoiceMatcher: matricola del contatore', () => {
     const result = await matcher(withMeter('123')).match(invoice(), 46);
     expect(result.blocking).toEqual([]);
     expect(result.meterFills).toEqual([]);
+  });
+});
+
+describe('ordini in bozza: mai scelti dalla lettura delle fatture', () => {
+  it.each([
+    ['m_contract_ref', CONTRACT_REF_SQL],
+    ['m_contract', CONTRACT_SQL],
+  ])('%s esclude le bozze', (_name, sql) => {
+    expect(sql).toContain('c.draft = 0');
+  });
+
+  it('m_header_contract esclude le bozze anche con il CIG scritto', () => {
+    expect(HEADER_CONTRACT_SQL).toContain('contracts.draft = 0');
   });
 });
