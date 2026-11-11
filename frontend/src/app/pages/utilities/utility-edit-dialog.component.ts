@@ -338,12 +338,12 @@ export class UtilityEditDialogComponent implements OnInit {
 
   // Fornitura di un contratto a titolo gratuito aperto: capitolo non necessario.
   get freeOfCharge(): boolean {
-    return this.contracts.some(c => !c.closed && c.contract_kind === ContractKind.FREE);
+    return this.contracts.some(c => !c.closed && !c.draft && c.contract_kind === ContractKind.FREE);
   }
 
   // Contratto aperto dell'utenza, solo se uno: precompila la nuova fattura.
   currentContractId(): number | null {
-    const open = this.contracts.filter(c => !c.closed);
+    const open = this.contracts.filter(c => !c.closed && !c.draft);
     return open.length === 1 ? open[0].id : null;
   }
 
@@ -599,7 +599,7 @@ export class UtilityEditDialogComponent implements OnInit {
   }
 
   private loadCommittedChapters(): void {
-    const open = this.contracts.filter(c => !c.closed);
+    const open = this.contracts.filter(c => !c.closed && !c.draft);
     if (!open.length) return;
     forkJoin(open.map(c => this.commitmentService.byContract(c.id))).subscribe({
       next: lists => {

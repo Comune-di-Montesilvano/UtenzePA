@@ -11,6 +11,7 @@ export interface AgreementContract {
   supply_start_date: string | null;
   supply_expiry_date: string | null;
   closed: boolean;
+  draft?: boolean;
 }
 
 export class ConsipAgreement extends AbstractEntity implements IConsipAgreement {

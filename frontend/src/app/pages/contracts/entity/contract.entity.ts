@@ -17,6 +17,8 @@ export class Contract extends AbstractEntity implements IContract {
   maintenance_included?: boolean;
   // Chiuso/scaduto esplicito: mai corrente, anche senza date.
   closed?: boolean;
+  // Ordine in bozza (non ancora emesso): non vale come contratto, solo per il fabbisogno.
+  draft?: boolean;
   consip_order?: string;
   consip_agreement_id?: number | null;
   @DateOnly()
@@ -45,7 +47,7 @@ export class Contract extends AbstractEntity implements IContract {
   updated_by?: SystemUser | null;
 
   get isCurrent(): boolean {
-    if (this.closed) return false;
+    if (this.closed || this.draft) return false;
     if (!this.supply_expiry_date) return true;
     const today = new Date();
     today.setHours(0, 0, 0, 0);

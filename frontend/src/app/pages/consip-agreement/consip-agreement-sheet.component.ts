@@ -32,7 +32,7 @@ import {PartyRole} from '../third-parties/third-party.model';
 import {AgreementCommitments, ConsipAgreementService} from './consip-agreement.service';
 import {AgreementContract, ConsipAgreement} from './entity/consip-agreement.entity';
 
-type ContractRow = {id: number; order: string; cig: string; period: string; closed: boolean};
+type ContractRow = {id: number; order: string; cig: string; period: string; closed: boolean; draft: boolean};
 
 // Scheda della convenzione CONSIP: dati, contratti di fornitura collegati
 // (consip_agreement_id del contratto), impegni dei suoi contratti, documenti.
@@ -82,7 +82,7 @@ export class ConsipAgreementSheetComponent implements OnInit {
     {label: 'Ordine', value: r => r.order},
     {label: 'CIG', value: r => r.cig},
     {label: 'Periodo', value: r => r.period},
-    {label: 'Stato', value: r => (r.closed ? 'Chiuso' : 'Aperto')},
+    {label: 'Stato', value: r => (r.draft ? 'Bozza' : r.closed ? 'Chiuso' : 'Aperto')},
   ];
 
   readonly commitmentColumns: LinkedColumn<Commitment>[] = [
@@ -165,6 +165,7 @@ export class ConsipAgreementSheetComponent implements OnInit {
       cig: c.cig_contract || 'CIG non specificato',
       period: [c.supply_start_date, c.supply_expiry_date].map(d => (d ? dateIt(d) : '…')).join(' – '),
       closed: !!c.closed,
+      draft: !!c.draft,
     };
   }
 

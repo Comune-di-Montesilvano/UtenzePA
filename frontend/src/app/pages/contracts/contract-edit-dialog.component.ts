@@ -48,7 +48,12 @@ export interface ContractDialogExtra {
 }
 
 // CIG obbligatorio solo per i contratti ordinari (stessa regola del backend).
+// Ordine in bozza: CIG facoltativo, date di fornitura previste obbligatorie.
 function cigRequiredUnlessExempt(group: AbstractControl): ValidationErrors | null {
+  if (group.get('draft')?.value) {
+    const dates = group.get('supply_start_date')?.value && group.get('supply_expiry_date')?.value;
+    return dates ? null : {draftDates: true};
+  }
   const cig = (group.get('cig_contract')?.value ?? '').toString().trim();
   const required = isCigRequired(group.get('contract_kind')?.value);
   const closed = !!group.get('closed')?.value;
@@ -135,7 +140,9 @@ export class ContractEditDialogComponent implements OnInit {
     cig_contract: [this.data.item.cig_contract ?? ''],
     contract_kind: [this.data.item.contract_kind ?? ContractKind.STANDARD],
     maintenance_included: [this.data.item.maintenance_included ?? false],
-    closed: [this.data.item.closed ?? false],
+    closed: [{value: this.data.item.closed ?? false, disabled: !!this.data.item.draft}],
+    // Un contratto già emesso non torna in bozza: spunta bloccata.
+    draft: [{value: this.data.item.draft ?? false, disabled: !this.isNew && !this.data.item.draft}],
     consip_order: [this.data.item.consip_order ?? ''],
     consip_agreement_id: [this.data.item.consip_agreement_id ?? null],
     supplier_id_fk: [this.data.item.supplier_id_fk ?? null],
@@ -329,6 +336,17 @@ export class ContractEditDialogComponent implements OnInit {
 
   assetNames(u: Utility): string {
     return (u.assets ?? []).map(a => a.asset_name).join(', ');
+  }
+
+  // Una bozza non si chiude: la spunta «chiuso» segue quella della bozza.
+  onDraftChange(draft: boolean): void {
+    const closed = this.form.controls.closed;
+    if (draft) {
+      closed.setValue(false);
+      closed.disable();
+    } else {
+      closed.enable();
+    }
   }
 
   // Header

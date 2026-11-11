@@ -37,7 +37,7 @@ import {SHARE_SOURCE_LABELS} from '../invoices/entity/invoice-commitment-share.m
 import {commitmentLabel} from './commitment-label';
 import {CommitmentService} from './commitment.service';
 
-type ContractRow = {id: number; cig: string; order: string; period: string; closed: boolean};
+type ContractRow = {id: number; cig: string; order: string; period: string; closed: boolean; draft: boolean};
 type YearBar = {fiscal_year: number; amount: number | null; segments: BarSegment[]};
 
 const toNumber = (v: unknown): number | null => (v === null || v === undefined || `${v}` === '' ? null : Number(v));
@@ -106,7 +106,7 @@ export class CommitmentSheetComponent implements OnInit {
     {label: 'CIG', value: r => r.cig},
     {label: 'Ordine', value: r => r.order},
     {label: 'Periodo', value: r => r.period},
-    {label: 'Stato', value: r => (r.closed ? 'Chiuso' : 'Aperto')},
+    {label: 'Stato', value: r => (r.draft ? 'Bozza' : r.closed ? 'Chiuso' : 'Aperto')},
   ];
 
   form = this.fb.group({
@@ -249,6 +249,7 @@ export class CommitmentSheetComponent implements OnInit {
       order: c.consip_order ?? '',
       period: [c.supply_start_date, c.supply_expiry_date].map(d => (d ? dateIt(d) : '…')).join(' – '),
       closed: !!c.closed,
+      draft: !!c.draft,
     }));
     this.contractOptions = this.allContracts
       .filter(c => !linked.has(c.id) && (!supplier || c.supplier_id_fk === supplier))

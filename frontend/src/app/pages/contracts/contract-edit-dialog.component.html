@@ -16,7 +16,7 @@
 
       <mat-tab aria-label="Riepilogo">
         <ng-template mat-tab-label>
-          <app-tab-label icon="dashboard" label="Riepilogo" [error]="form.hasError('cigRequired') && form.touched"></app-tab-label>
+          <app-tab-label icon="dashboard" label="Riepilogo" [error]="(form.hasError('cigRequired') || form.hasError('draftDates')) && form.touched"></app-tab-label>
         </ng-template>
 
         @if (form.hasError('cigRequired')) {
@@ -25,7 +25,17 @@
           </div>
         }
 
+        @if (form.hasError('draftDates') && form.touched) {
+          <div class="sheet-alert tone-danger">
+            Una bozza deve avere le date di fornitura previste: compila Decorrenza Fornitura e Scadenza Fornitura.
+          </div>
+        }
+
         <div class="sheet-grid">
+          <mat-checkbox formControlName="draft" class="span-2" (change)="onDraftChange($event.checked)"
+                        matTooltip="Utenze già note il cui ordine non è ancora emesso: conta solo per il fabbisogno della convenzione, non copre le utenze e non riceve fatture">
+            Bozza (ordine non ancora emesso)
+          </mat-checkbox>
           @if (isNew && data.replacesContract) {
             <mat-checkbox formControlName="close_replaced" class="span-2">
               Chiudi il contratto precedente ({{ data.replacesContract.label }})
@@ -40,7 +50,7 @@
             </mat-select>
           </mat-form-field>
           <mat-form-field class="span-2">
-            <mat-label>CIG{{ isCigRequired(form.controls.contract_kind.value) ? ' *' : '' }}</mat-label>
+            <mat-label>CIG{{ isCigRequired(form.controls.contract_kind.value) && !form.controls.draft.value ? ' *' : '' }}</mat-label>
             <input matInput formControlName="cig_contract">
           </mat-form-field>
           <mat-checkbox formControlName="maintenance_included" style="align-self: center;">Manutenzione inclusa</mat-checkbox>
