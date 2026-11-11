@@ -45,6 +45,10 @@ export class Contract {
   @Column({ type: 'boolean', default: false })
   closed: boolean;
 
+  // Ordine in bozza (non ancora emesso): vedi contract-draft.ts.
+  @Column({ type: 'boolean', default: false })
+  draft: boolean;
+
   @Column({ length: 100, nullable: true })
   consip_order: string;
 
