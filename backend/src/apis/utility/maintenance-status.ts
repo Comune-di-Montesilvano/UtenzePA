@@ -1,5 +1,6 @@
 import { ContractStatus } from '@apis/utilizer-grant/enum/real-estate-contract.enum';
 import { PartyFields, partyName } from '@apis/third-parties/third-party.name';
+import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
 
 // "Manutenzione a carico di" calcolata (roadmap voce 18). In ordine:
 // - contratto di fornitura aperto con "Manutenzione inclusa" → SUPPLIER
@@ -31,6 +32,7 @@ interface SupplyContractLike {
   id: number;
   deleted?: boolean | number | null;
   closed?: boolean | number | null;
+  draft?: boolean | number | null;
   maintenance_included?: boolean | number | null;
   supplier?: PartyLike | null;
 }
@@ -50,7 +52,7 @@ export interface MaintenanceInput {
 
 export function maintenanceInfo(utility: MaintenanceInput): MaintenanceInfo {
   const contracts = (utility.contratti ?? [])
-    .filter((c) => !c.deleted && !c.closed && !!c.maintenance_included)
+    .filter((c) => !c.deleted && !c.closed && !c.draft && !!c.maintenance_included)
     .map((c) => ({ id: c.id, name: c.supplier ? partyName(c.supplier) : '' }));
   if (contracts.length) return { status: MaintenanceStatus.SUPPLIER, contracts, parties: [] };
 
@@ -76,7 +78,7 @@ export function maintenanceInfo(utility: MaintenanceInput): MaintenanceInfo {
 const supplierSql = (alias: string) =>
   `SELECT 1 FROM contract_utilities cu
      JOIN contracts c ON c.id = cu.contract_id
-       AND c.deleted = 0 AND c.closed = 0 AND c.maintenance_included = 1
+       AND c.deleted = 0 AND c.closed = 0 AND ${NOT_DRAFT_SQL('c')} AND c.maintenance_included = 1
    WHERE cu.utility_id = ${alias}.id`;
 
 // Contratti immobiliari attivi, in entrambe le direzioni, su immobili non

@@ -16,7 +16,7 @@ import {
 
 export type AgreementContract = Pick<
   Contract,
-  'id' | 'cig_contract' | 'consip_order' | 'supply_start_date' | 'supply_expiry_date' | 'closed'
+  'id' | 'cig_contract' | 'consip_order' | 'supply_start_date' | 'supply_expiry_date' | 'closed' | 'draft'
 >;
 
 export interface AgreementCommitments {
@@ -58,6 +58,7 @@ export class ConsipAgreementService extends BaseService<
         supply_start_date: true,
         supply_expiry_date: true,
         closed: true,
+        draft: true,
       },
       order: { supply_start_date: 'DESC', id: 'DESC' },
     });

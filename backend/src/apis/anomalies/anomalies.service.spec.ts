@@ -111,7 +111,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(46);
+    expect(query).toHaveBeenCalledTimes(47);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -1278,6 +1278,43 @@ describe('AnomaliesService', () => {
     it('container assente: niente', async () => {
       const { result } = await run({ enabled: 1, last_success_at: null }, false);
       expect(result.accounting_import_stale.count).toBe(0);
+    });
+  });
+
+  describe('ordini in bozza', () => {
+    const run = async (rows: Record<string, unknown>[] = []) => {
+      for (let i = 0; i < 46; i++) query.mockResolvedValueOnce([]);
+      query.mockResolvedValueOnce(rows);
+      const result = await service.getAnomalies();
+      const sqls = query.mock.calls.map(([s]) => String(s));
+      return { result, sqls };
+    };
+
+    it('bozze scadute: query in fondo, righe convertite', async () => {
+      const { result, sqls } = await run([{ id: '90', cig_contract: null, supply_start_date: '2026-09-01' }]);
+      expect(result.contracts_draft_overdue).toEqual({
+        count: 1,
+        items: [{ id: 90, cig_contract: null, supply_start_date: '2026-09-01' }],
+      });
+      expect(sqls[46]).toContain('/* contracts_draft_overdue */');
+      expect(sqls[46]).toContain('c.draft = 1');
+      expect(sqls[46]).toContain('c.deleted = 0');
+      expect(sqls[46]).toContain('c.supply_start_date < CURDATE()');
+    });
+
+    it('una bozza non è un contratto valido: fuori da contratto corrente, senza CIG, capitolo non impegnato', async () => {
+      const { sqls } = await run();
+      const find = (marker: string) => sqls.find((s) => s.includes(marker)) ?? '';
+      expect(find('AND NOT EXISTS (SELECT 1 FROM contract_utilities cu JOIN contracts c')).toContain('c.draft = 0');
+      expect(find("c.contract_kind = 'STANDARD' AND NOT TRIM")).toContain('c.draft = 0');
+      expect(find('JOIN budget_chapters b ON b.id = u.budget_chapter_code_fk')).toContain('c.draft = 0');
+    });
+
+    it('una bozza non si sovrappone a un contratto vero', async () => {
+      const { sqls } = await run();
+      const overlapping = sqls.find((s) => s.includes('contract_utilities cu1')) ?? '';
+      expect(overlapping).toContain('c1.draft = 0');
+      expect(overlapping).toContain('c2.draft = 0');
     });
   });
 });
