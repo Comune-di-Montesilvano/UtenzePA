@@ -1,6 +1,6 @@
 # Fabbisogno della convenzione: quanto impegnare e avviso in corsa — design
 
-Data: 2026-11-11. Fase 1 del piano a lungo termine (`docs/roadmap-patrimonio.md`, voce 24). Rilascio previsto: **v1.55.0** (minor, c'è una migration).
+Data: 2026-11-11. Fase 1 del piano a lungo termine (`docs/roadmap-patrimonio.md`, voce 24). Rilascio previsto: **v1.55.0** per l'ordine in bozza e **v1.56.0** per il fabbisogno (minor, ognuna ha una migration).
 
 Legenda: **[utente]** = detto dall'utente; **[scelta mia]** = decisione di chi ha scritto il design, da contestare se non convince; il resto sono fatti verificati sul DB locale l'11/11.
 
