@@ -41,7 +41,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 21 | Scadenzario degli obblighi dell'immobile | da approfondire |
 | 22 | Storico di attivazione delle utenze | fatto, v1.33.0 (storico di attivazioni, cessazioni, volture e reintestazioni; decisioni per utenza sul contratto immobiliare; dati da portare in produzione con la migration) |
 | 23 | Letture stimate | fatto (v1.34.0) |
-| 24 | Stima e previsione della spesa | da approfondire (dopo la voce 17: storico per capitolo, stima macro del fabbisogno dell'esercizio successivo) |
+| 24 | Stima e previsione della spesa | in corso: design `docs/superpowers/specs/2026-11-11-fabbisogno-convenzione-design.md` (fabbisogno per convenzione, capitolo ed esercizio, dalle utenze; avviso in corsa); ordine in bozza fatto in v1.55.0; fabbisogno da fare (v1.56.0) |
 | 25 | Nuovo contratto che sostituisce più contratti | fatto, v1.47.1 (tab Utenze: «Collega le utenze di un contratto», non attive escluse salvo spunta; chiusura automatica dei contratti sostituiti non prevista) |
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).

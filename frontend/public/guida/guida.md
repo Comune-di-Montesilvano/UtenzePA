@@ -1,6 +1,6 @@
 # UtenzePA – Guida per gli operatori
 
-_Ultimo aggiornamento: 2026-10-27_
+_Ultimo aggiornamento: 2026-11-11_
 
 ## Cos'è e chi lo usa
 
@@ -412,6 +412,8 @@ Le schede, gli elenchi degli allegati e gli atti sono visibili a tutti. **Aprire
 
 Un CIG può essere usato da un solo contratto. Il numero d'ordine CONSIP è unico.
 
+**Ordine in bozza:** quando aderisci a una convenzione e sai già quali utenze entreranno più tardi, ma il loro ordine non è ancora emesso, crea il contratto con la spunta **Bozza (ordine non ancora emesso)**. Il CIG è facoltativo; **Decorrenza Fornitura** e **Scadenza Fornitura** previste sono obbligatorie. Collega le utenze come in un contratto normale, anche con **Collega le utenze di un contratto**. Una bozza serve a calcolare quanto impegnare per la convenzione e si può già collegare agli impegni, ma non è un contratto valido: non copre le utenze (che restano segnalate se non hanno un altro contratto), non riceve fatture dall'import, non si può chiudere e, se nasce da **Nuovo contratto con queste utenze**, non chiude il contratto precedente. Quando l'ordine è emesso togli la spunta e inserisci il CIG: da quel momento è un contratto come gli altri e non può tornare bozza.
+
 Nella scheda dell'utenza i contratti di fornitura compaiono con quelli **in corso** in alto, poi dal più recente al più vecchio.
 
 **Rinnovo con le stesse utenze:** nella scheda di un contratto, **Nuovo contratto con queste utenze** apre un nuovo contratto con le stesse utenze collegate e con fornitore, tipologia, convenzione CONSIP e «Manutenzione inclusa» già compilati. CIG, ordine e date vanno inseriti. Con **Chiudi il contratto precedente** spuntata (scelta predefinita), il contratto precedente scade il giorno prima della decorrenza del nuovo (se la sua scadenza manca o non è anteriore), così non risultano contratti sovrapposti. Se la decorrenza del nuovo è già arrivata il precedente diventa subito chiuso; se è futura resta il contratto corrente fino ad allora. Prima di usare l'azione salva o annulla le modifiche alla scheda.
@@ -452,7 +454,7 @@ Senza stato restano le fatture prima dell'anno di partenza dell'import e quelle 
 | Immobili | Da classificare (tipologia o funzione mancanti) · Non di proprietà senza contratto passivo attivo · Di proprietà senza catasto · Fabbricati di proprietà senza Id MEF · Subalterno da assegnare (stessi via, civico, foglio e particella) |
 | Impianti | Senza posizione · Senza immobile · Presidi scaduti (almeno un estintore con una scadenza superata) · Verifiche obbligatorie mancanti (vedi [Verifiche obbligatorie per legge](#verifiche-obbligatorie-per-legge)) |
 | Fatture | Fuori dai periodi di attività · Con righe senza utenza (né contratto in testata) · Esito scartato dallo SDI · Quote d'impegno che non tornano col totale · Differenze trovate dall'import (vedi sotto) |
-| Contratti di fornitura | Senza CIG (non esclusi) · CIG duplicati |
+| Contratti di fornitura | Senza CIG (non esclusi) · CIG duplicati · Bozze scadute (ordine in bozza con decorrenza prevista già passata: da emettere o da eliminare) |
 | Contratti immobiliari | Senza immobile · Senza parti |
 | Capitoli di spesa | Oltre l'assestato dell'anno · Senza assestato dell'anno |
 | Soggetti terzi | Senza P.IVA o codice fiscale |
