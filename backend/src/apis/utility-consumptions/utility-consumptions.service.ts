@@ -239,13 +239,16 @@ export class UtilityConsumptionsService extends BaseService<
   }
 
   // Matricola attuale = quella dell'ultima lettura; poi ricalcolo valori.
+  // Una lettura senza matricola (fatture che non la riportano) non dice
+  // nulla sul contatore: matricola dell'utenza invariata.
   // Il cambio matricola è un'azione dell'utente: updated_by + riga audit
   // esplicita sull'utenza (lo Storico dell'utenza deve mostrarlo).
   private async afterChange(utility: Utility, userId: number | undefined): Promise<void> {
     const records = await this.repo.find({ where: { utility_id_fk: utility.id, deleted: false } });
     const latest = currentMeterReading(records);
-    if (latest && normalizeMeter(latest.meter_number) !== normalizeMeter(utility.meter_number)) {
-      const newMeter = latest.meter_number.trim();
+    const latestMeter = normalizeMeter(latest?.meter_number);
+    if (latest && latestMeter && latestMeter !== normalizeMeter(utility.meter_number)) {
+      const newMeter = (latest.meter_number ?? '').trim();
       await this.utilityRepo.update(utility.id, {
         meter_number: newMeter,
         ...(userId !== undefined && { updated_by_user_id: userId }),
