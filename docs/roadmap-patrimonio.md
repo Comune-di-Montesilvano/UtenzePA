@@ -1,6 +1,6 @@
 # Roadmap: estensione del perimetro di UtenzePA al patrimonio
 
-Aggiornata: 2026-10-26
+Aggiornata: 2026-11-11
 
 Obiettivo: portare UtenzePA da gestionale delle utenze a gestionale del **patrimonio** comunale (immobili, contratti, impianti, inventario), sfruttando i dati già presenti in `W:\PATRIMONIO`.
 
@@ -19,7 +19,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | # | Funzione | Stato |
 |---|---|---|
 | 1 | Contratti immobiliari (unificazione Concessioni) | fatto, v1.7.0 (dati: registro ripulito e import fonti sul DB locale; registri di `W:\CONTRATTI` importati il 2026-10-11, 339 contratti; tutto da portare in produzione) |
-| 2 | Inventario patrimoniale e catasto | da approfondire |
+| 2 | Inventario patrimoniale e catasto | parziale: unità catastali, consistenza, natura giuridica, vincoli, Id MEF e dati MEF calcolati in v1.19.0 (import MEF sul DB locale); restano export MEF e trasparenza, terreni, campi MEF mancanti, catasto da SIT |
 | 3 | Impianto unificato | fatto, v1.7.0 (immobili convertiti in impianti e consistenze 2025 importate sul DB locale, da portare in produzione) |
 | 4 | Complessi | fatto, v1.18.0–v1.20.2 (fisici e amministrativi, tipi di compendio MEF, in mappa); **prossimo: condomini veri** (immobili comunali in condominio, quote e spese) come tipo particolare di complesso, dall'analisi di `06_CONDOMINI` e dei 36 file delle case comunali |
 | 5 | Aree verdi | da approfondire |
@@ -38,11 +38,59 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 18 | Pulizia entità e incongruenze del modello | fatto: parte 1 v1.9.0 (tabelle morte, aggregati immobili, gestori manutenzione → manutenzione calcolata), parte 2 v1.9.1 (campi doppi) |
 | 19 | Allegati di contratti, immobili e impianti | fatto, v1.22.0 (allegati e atti; utenze e complessi, ricerca nei PDF e firma digitale rimandati) |
 | 20 | Assestato dei capitoli e disponibilità | fatto in v1.14.0 (mandati non ancora) |
-| 21 | Scadenzario degli obblighi dell'immobile | da approfondire |
+| 21 | Scadenzario degli obblighi dell'immobile | da approfondire (per gli impianti già fatto: verifiche obbligatorie per legge v1.29.0, scadenze degli estintori v1.24.0) |
 | 22 | Storico di attivazione delle utenze | fatto, v1.33.0 (storico di attivazioni, cessazioni, volture e reintestazioni; decisioni per utenza sul contratto immobiliare; dati da portare in produzione con la migration) |
 | 23 | Letture stimate | fatto (v1.34.0) |
 | 24 | Stima e previsione della spesa | in corso: design `docs/superpowers/specs/2026-11-11-fabbisogno-convenzione-design.md` (fabbisogno per convenzione, capitolo ed esercizio, dalle utenze; avviso in corsa); ordine in bozza fatto in v1.55.0; fabbisogno da fare (v1.56.0) |
 | 25 | Nuovo contratto che sostituisce più contratti | fatto, v1.47.1 (tab Utenze: «Collega le utenze di un contratto», non attive escluse salvo spunta; chiusura automatica dei contratti sostituiti non prevista) |
+| 26 | Import giornaliero dalla contabilità (Tinn) e impegni pluriennali | fatto, v1.48.0–v1.53.0 (quattro fasi, stato del pagamento, note di credito) |
+| 27 | Avvisi attivi (riepilogo periodico via email) | da approfondire (fase 2 del piano) |
+| 28 | Registro degli interventi di manutenzione | da approfondire (fase 4 del piano) |
+| 29 | Costo totale dell'immobile | da approfondire (fase 4 del piano) |
+| 30 | Energia: indicatori e confronto tra edifici | da approfondire (fase 5 del piano) |
+
+## Piano a lungo termine (2026-11-11)
+
+Direzione: l'app oggi è un registro (dice cosa c'è e cosa è successo, e bisogna andare a guardare). Deve diventare uno strumento che **avvisa**, poi **prevede**, poi **produce gli adempimenti**. Cinque fasi, in quest'ordine di priorità (deciso dall'utente). Ogni fase è un progetto a sé: giro domande → spec → piano quando la si apre, non prima; il contenuto qui sotto è il perimetro, non il design.
+
+| Fase | Tema | Voci | Fatta quando |
+|---|---|---|---|
+| 1 | Previsione della spesa | 24, residui della 6, parte spesa della 16 | per ogni capitolo e impegno si vede la proiezione a fine esercizio e l'avviso arriva prima dello sforamento; a fine anno l'app propone il fabbisogno dell'esercizio successivo |
+| 2 | Scadenzario unico e avvisi attivi | 21, 27, parte «cose da fare» della 16 | tutte le scadenze stanno in un solo calendario e chi deve agire lo sa senza aprire l'app |
+| 3 | Inventario e adempimenti | 2, 4 (condomini), 5 | l'invio al MEF e la pubblicazione in Amministrazione trasparente escono dall'app senza fogli di calcolo |
+| 4 | Manutenzione e costo totale dell'immobile | 7, 28, 29 | di ogni immobile si sa quanto costa in un anno e chi ne cura ogni impianto |
+| 5 | Energia | 30 | gli edifici che consumano troppo rispetto ai simili si vedono da soli |
+
+**Fase 1, previsione della spesa.** È l'obiettivo dichiarato sulla spesa (voce 26: programmare e accorgersi in tempo, non replicare la contabilità) e i dati ci sono da poco: fatture dalla PEC, impegni, assestati e pagamenti da Tinn, consumi giornalieri. Dentro: proiezione a fine esercizio per capitolo e impegno dallo storico e dai consumi; soglie di avviso; stima del fabbisogno dell'esercizio successivo (voce 24); conguagli e note di credito su periodi già fatturati (residuo della voce 6), perché sporcano lo storico su cui si proietta; verifica sui dati reali che i contratti a corpo e la telefonia (righe senza utenza, v1.45.0) entrino bene nella spesa per capitolo. Fuori: funzioni contabili (FPV, riaccertamenti, cassa).
+
+**Fase 2, scadenzario unico e avvisi attivi.** Le scadenze esistono già ma sparse: contratti immobiliari (scadenza, preavviso, rinnovo tacito), contratti di fornitura, convenzioni CONSIP, verifiche degli impianti, attivazioni, cessazioni e volture in sospeso. Dentro: obblighi dell'immobile (voce 21: CPI/SCIA, APE e simili, sul modello delle verifiche degli impianti); un calendario unico con filtro per area; riepilogo periodico via email a chi deve agire (voce 27, col mailer già presente); dashboard delle anomalie come elenco di cose da fare (voce 16). Da decidere nel design: chi riceve cosa, frequenza, se gli avvisi passano da comunicaPA.
+
+**Fase 3, inventario e adempimenti.** La più grossa e la più legata alla pulizia dei dati; conviene spezzarla in rilasci. Ordine interno proposto: campi MEF mancanti sull'immobile ed export MEF (voce 2, «Da fare prima dell'export MEF»); terreni, provenienza del bene; export per Amministrazione trasparente (patrimonio immobiliare, canoni versati e percepiti: i contratti immobiliari ci sono già); foglio e particella da SIT; condomini (voce 4, dall'analisi di `06_CONDOMINI`); aree verdi (voce 5). Valori e ammortamento restano fuori finché la ragioneria non dice altro.
+
+**Fase 4, manutenzione e costo totale dell'immobile.** Contratti di servizio e manutenzione sugli impianti (voce 7: ditta, ambito, costo, scadenza, determina), che entrano nello scadenzario della fase 2 e sostituiscono la spunta «Manutenzione inclusa» dove serve; registro degli interventi per impianto e immobile (voce 28: data, ditta, esito, verbale allegato; niente gestione dei ticket); nella scheda immobile il costo annuo completo (voce 29): utenze, manutenzione, canoni passivi, spese condominiali, calcolato e mai salvato come la spesa di oggi. Dipende dalla fase 3 per i condomini.
+
+**Fase 5, energia.** Solo lettura di dati già presenti: consumo e costo per metro quadro e per funzione, confronto tra edifici simili, consumi fuori norma (perdite d'acqua, impianti lasciati accesi) sul modello delle statistiche del capitolo (v1.52.0), produzione del fotovoltaico. La superficie sull'immobile c'è già: prima di partire contare quanti immobili la hanno. Da decidere nel design: se servono dati esterni (gradi giorno, APE).
+
+**Già fatto, da non rifare** (confronto col codice alla v1.54.1, 2026-11-11):
+
+| Fase | C'è già | Manca |
+|---|---|---|
+| 1 | barra del capitolo e dell'impegno (fatturato, rimanenza, da impegnare), segnalazioni «Oltre l'assestato» e impegni «Sforati», `POST /spending/budget-check`, presunto annuo per utenza e totali presunto/effettivo a 12 mesi per capitolo, statistiche delle utenze del capitolo con le fuori norma (v1.52.0), note di credito dalla contabilità (v1.53.0), righe senza utenza sul contratto (v1.45.0) | tutto ciò che guarda avanti: proiezione in euro a fine esercizio, avviso prima dello sforamento, fabbisogno dell'esercizio successivo; conguagli sui consumi |
+| 2 | riquadri in dashboard, ognuno per conto suo: contratti di fornitura in scadenza, convenzioni CONSIP, contratti immobiliari, verifiche degli impianti; verifiche obbligatorie mancanti e presidi scaduti nelle segnalazioni | obblighi dell'immobile, vista unica, qualsiasi avviso via email (oggi la posta parte solo per OTP e reset password) |
+| 3 | unità catastali, consistenza e superfici, natura giuridica (copre demaniale / indisponibile / disponibile), vincoli, federalismo, confiscati, Id MEF, utilizzo, tipologia e finalità MEF calcolati, segnalazioni di catasto e Id MEF, complessi con i tipi di compendio | ogni export (MEF, trasparenza), terreni, tipologia MEF per singolo immobile, valore di mercato e gli altri campi MEF mancanti, catasto da SIT, condomini, aree verdi |
+| 4 | solo «Manutenzione a carico di» calcolata dalle due spunte; determine di manutenzione importate come atti | tutto: contratti di servizio, interventi, costo totale |
+| 5 | consumi giornalieri, costo unitario e fuori norma dentro il capitolo, penali per energia reattiva, dati tecnici elettrici, superficie sull'immobile (`area_sqm`) | indicatori per metro quadro e per funzione, confronto tra edifici, produzione del fotovoltaico |
+
+Conseguenze: la fase 5 non aspetta più la fase 3 per le superfici (il campo c'è; conta quanti immobili lo hanno compilato); nella fase 3 la classificazione patrimoniale è già la natura giuridica; i permessi (voce 8) sono fermi ai tre ruoli.
+
+**Trasversali**, senza fase propria:
+
+- **Permessi per area (voce 8)**: da fare appena un secondo ufficio scrive nell'app; al più tardi prima della fase 3, quando entra l'inventario.
+- **Dashboard (voce 16)**: non un rifacimento unico; ogni fase porta i suoi indicatori (spesa nella 1, cose da fare nella 2, patrimonio nella 3).
+- **Nome nuovo (voce 15)**: da decidere prima della fase 3, quando il patrimonio pesa più delle utenze.
+- **Riuso da altri enti**: ogni funzione nuova nasce opzionale e senza valori dell'ente nel codice, come l'import della contabilità.
+
+L'ordine delle fasi e i cinque temi sono decisi; il contenuto di ogni fase, l'ordine interno della fase 3 e la collocazione delle voci trasversali sono una proposta da confermare quando si apre la fase.
 
 I dati si correggono solo sul DB locale; la produzione si allinea con export del DB locale e import (nessuno script o migration di dati).
 
@@ -469,6 +517,22 @@ Emerso 2026-10-25 dalla correzione una tantum con le liquidazioni 2025–2026 (`
 - **Opzionale (riuso)**: spenta di default (variabile d'ambiente + stato nel DB, come l'import PEC); formato neutro (capitoli, impegni, liquidazioni) in tabelle di appoggio, Tinn = un adattatore, altri enti un altro adattatore o un CSV con lo stesso tracciato; driver Firebird con import dinamico solo se l'adattatore è attivo, nessun driver Firebird nel backend: l'adattatore Tinn è un container opzionale (profilo compose) che ripristina il backup e produce i CSV del formato neutro; nessun valore dell'ente nel codice; sola lettura sulla contabilità.
 - Tinn (2026-10-25): schema visto su un DB di un altro ente (uguale al 99%): Firebird 3 (ODS 12.0, dialect 1, importi double), backup `gbak` ripristinabile; capitoli `GFBIPRN1`, impegni `GFIMDEN1` (competenza = `ANNO`), liquidazioni `GFLIQUN1` → registro fatture `GFPNCGN1` con IdentificativoSdI (`FE_ID_SDI_S`). Design e fasi: `docs/superpowers/specs/2026-10-25-import-contabilita-design.md`. Da verificare sul DB del Comune: importo definitivo vs residuo, campi di assestato/iniziale, charset, trasporto (SFTP/FTPS).
 - **Stato delle fasi** (spec sopra): fase 1 (annualità dell'impegno, impegni pluriennali) fatta in v1.48.0; fase 2 (quote d'impegno della fattura) fatta in v1.49.0: l'impegno è della fattura e non più della riga (`invoice_commitment_shares`), automatico = una quota per tutto l'importo, «Dividi a mano» per le fatture pagate da più impegni, segnalazione delle quote che non tornano col totale; le fatture con contratto e senza righe (canoni) hanno la quota automatica solo se gli impegni del contratto nell'esercizio sono tutti sullo stesso capitolo, altrimenti vanno divise a mano nel tab «Impegni». Fase 3 fatta in v1.50.0: formato neutro (tre CSV caricati da Impostazioni → Contabilità, solo Admin), interruttore nel DB + `ACCOUNTING_IMPORT_DISABLED`, anno di partenza; con l'import acceso la contabilità vince: capitoli del perimetro creati, esercizi del capitolo e impegni allineati (quelli a mano non presenti tolti), fatture pagate mancanti create dal registro, IdentificativoSdI completato, quote `ACCOUNTING` dalle liquidazioni, contratti degli impegni dal CIG e dalle fatture pagate, capitolo dell'utenza dall'ultimo esercizio liquidato; sola lettura sui dati importati, tre segnalazioni. Provata sul DB locale con l'estrazione Tinn dal 2023 (2026-10-27): 4.914 fatture create (soprattutto 2023–2024, prima dell'avvio di UtenzePA), 5.045 fatture 2025+ con le quote della ragioneria, assestati uguali a Tinn, secondo caricamento senza modifiche. Da tenere d'occhio: le liquidazioni su impegni del perimetro verso fornitori non in anagrafica (es. TIM, ~700) e gli impegni del perimetro senza contratto finiscono nelle segnalazioni; righe di spesa a mano di capitoli rinumerati negli anni (2023–2024) vengono tolte perché la contabilità non ha quel numero. Fase 4 fatta (2026-10-27, spec `docs/superpowers/specs/2026-10-27-adattatore-tinn-design.md`): container `tinn` opzionale (profilo compose) che ogni notte scarica il backup via SFTP, lo ripristina con Firebird 5 ed estrae i tre CSV in una cartella condivisa; UtenzePA li carica da solo, sezione «Scaricamento automatico» con «Esegui ora» in Impostazioni → Contabilità, segnalazione «Contabilità non aggiornata». Estrazione sul backup del Comune identica alla bozza (24.874 capitoli, 12.755 impegni, 40.644 liquidazioni dal 2023). Dopo il primo rilascio: aggiungere `tinn` alla matrice di `ghcr-cleanup.yml` e rendere pubblico il pacchetto GHCR `utenzepa-tinn`.
+
+## 27. Avvisi attivi
+
+Emerso dal piano a lungo termine (2026-11-11, fase 2): oggi ogni scadenza e segnalazione va cercata in dashboard. Riepilogo periodico via email delle scadenze in arrivo e delle segnalazioni nuove, a chi deve agire. Da approfondire: destinatari per area (legato alla voce 8), frequenza, cosa entra nel riepilogo, se l'invio passa da comunicaPA o dal mailer interno.
+
+## 28. Registro degli interventi di manutenzione
+
+Emerso dal piano a lungo termine (2026-11-11, fase 4): le verifiche periodiche degli impianti ci sono, gli interventi no. Per impianto e immobile: data, ditta (soggetto terzo), contratto di manutenzione (voce 7), descrizione, esito, costo facoltativo, verbale come allegato. Non è una gestione dei ticket: si registra a intervento fatto.
+
+## 29. Costo totale dell'immobile
+
+Emerso dal piano a lungo termine (2026-11-11, fase 4): nella scheda immobile il costo annuo completo, calcolato e mai salvato: utenze (già in `apis/spending/`), manutenzione (voci 7 e 28), canoni dei contratti immobiliari passivi, spese condominiali (voce 4). Da approfondire: ripartizione dei costi di contratti e impianti che servono più immobili.
+
+## 30. Energia: indicatori e confronto tra edifici
+
+Emerso dal piano a lungo termine (2026-11-11, fase 5): consumo e costo per metro quadro e per funzione, confronto tra edifici simili, consumi fuori norma, produzione del fotovoltaico. Base: `buildDailyConsumption` e le statistiche delle utenze del capitolo (v1.52.0). Servono le superfici degli immobili (voce 2). Da approfondire: dati esterni (gradi giorno, APE), perimetro degli edifici confrontabili.
 
 ## Archivio 4_IMMOBILIARE: stato degli import
 
