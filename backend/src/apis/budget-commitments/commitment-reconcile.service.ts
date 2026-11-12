@@ -98,11 +98,19 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
   private readonly logger = new Logger(CommitmentReconcileService.name);
   private chain: Promise<void> = Promise.resolve();
   private readonly pending = new Set<number>();
+  private readonly listeners: ((contractIds: number[]) => void)[] = [];
 
   constructor(private readonly dataSource: DataSource) {}
 
   onApplicationBootstrap(): void {
     void this.reconcileAll().catch((e: Error) => this.logger.error('Consumo impegni all’avvio fallito', e));
+  }
+
+  // Chi deve riallinearsi dopo un giro riuscito (fabbisogno delle
+  // convenzioni) si registra qui: riceve i contratti ricalcolati. Un
+  // ascoltatore che fallisce non tocca la riconciliazione.
+  onReconciled(listener: (contractIds: number[]) => void): void {
+    this.listeners.push(listener);
   }
 
   reconcileContracts(contractIds: number[]): Promise<void> {
@@ -224,6 +232,13 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
         await m.query(AUTO_DELETE_SQL, [id]);
         if (wanted) await m.query(AUTO_INSERT_SQL, [id, wanted.commitment_id, wanted.fiscal_year, wanted.amount, id]);
       });
+    }
+    for (const listener of this.listeners) {
+      try {
+        listener(contracts);
+      } catch (e) {
+        this.logger.error('Avviso di fine riconciliazione fallito', e as Error);
+      }
     }
   }
 }

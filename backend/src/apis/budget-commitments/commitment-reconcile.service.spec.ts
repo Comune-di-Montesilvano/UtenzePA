@@ -315,4 +315,38 @@ describe('CommitmentReconcileService', () => {
     expect(deletes(calls).map((c) => c.params)).toEqual([[1], [3]]);
     expect(inserts(calls).map((c) => c.params)).toEqual([[3, 10, 2026, 100, 3]]);
   });
+
+  describe('onReconciled', () => {
+    it('dopo un giro riuscito avvisa con i contratti ricalcolati', async () => {
+      const { ds } = fakeDataSource({ closure: [{ contract_id: 2 }] });
+      const service = new CommitmentReconcileService(ds);
+      const listener = jest.fn();
+      service.onReconciled(listener);
+      await service.reconcileContracts([1]);
+      expect(listener).toHaveBeenCalledTimes(1);
+      expect(listener).toHaveBeenCalledWith([1, 2]);
+    });
+
+    it('un giro fallito non avvisa', async () => {
+      const { ds } = fakeDataSource({});
+      (ds.query as jest.Mock).mockRejectedValueOnce(new Error('boom'));
+      const service = new CommitmentReconcileService(ds);
+      const listener = jest.fn();
+      service.onReconciled(listener);
+      await expect(service.reconcileContracts([1])).rejects.toThrow('boom');
+      expect(listener).not.toHaveBeenCalled();
+    });
+
+    it('un ascoltatore che fallisce non fa fallire la riconciliazione', async () => {
+      const { ds } = fakeDataSource({});
+      const service = new CommitmentReconcileService(ds);
+      const second = jest.fn();
+      service.onReconciled(() => {
+        throw new Error('boom');
+      });
+      service.onReconciled(second);
+      await expect(service.reconcileContracts([1])).resolves.toBeUndefined();
+      expect(second).toHaveBeenCalled();
+    });
+  });
 });

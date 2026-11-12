@@ -111,7 +111,7 @@ describe('AnomaliesService', () => {
     expect(result.active_utilities_without_cig_contract.count).toBe(2);
     expect(result.utilities_with_overlapping_contracts).toEqual({ count: 0, items: [] });
     expect(result.duplicate_cigs).toEqual({ count: 1, items: [{ cig: 'ABC', contracts: [3, 4] }] });
-    expect(query).toHaveBeenCalledTimes(47);
+    expect(query).toHaveBeenCalledTimes(49);
     // Fornitore = nome del soggetto terzo, non più la sigla.
     expect(query.mock.calls[0][0]).toContain('LEFT JOIN third_parties s');
     // I contratti chiusi non sono né correnti né anomalie "senza CIG"
@@ -1278,6 +1278,73 @@ describe('AnomaliesService', () => {
     it('container assente: niente', async () => {
       const { result } = await run({ enabled: 1, last_success_at: null }, false);
       expect(result.accounting_import_stale.count).toBe(0);
+    });
+  });
+
+  describe('fabbisogno della convenzione', () => {
+    const run = async (short: Record<string, unknown>[] = [], variation: Record<string, unknown>[] = []) => {
+      for (let i = 0; i < 47; i++) query.mockResolvedValueOnce([]);
+      query.mockResolvedValueOnce(short);
+      query.mockResolvedValueOnce(variation);
+      const result = await service.getAnomalies();
+      const sqls = query.mock.calls.map(([s]) => String(s));
+      return { result, sqls };
+    };
+
+    it('impegni insufficienti: una voce per convenzione, capitoli e impegni raggruppati', async () => {
+      const { result } = await run([
+        { id: '3', name: 'Convenzione A', chapter_id: '7', chapter_code: '1234', article: '0', description: 'Luce scuole', shortfall: '650.00', commitment_ids: '10,11' },
+        { id: '3', name: 'Convenzione A', chapter_id: null, chapter_code: null, article: null, description: null, shortfall: '350.50', commitment_ids: null },
+        { id: '4', name: 'Convenzione B', chapter_id: '8', chapter_code: '1300', article: '1', description: null, shortfall: '900', commitment_ids: '11,12' },
+      ]);
+      expect(result.agreements_commitments_short).toEqual({
+        count: 2,
+        items: [
+          {
+            id: 3,
+            label: 'Convenzione A',
+            missing: 1000.5,
+            chapters: [
+              { id: 7, label: '1234/0 — Luce scuole', missing: 650 },
+              { id: null, label: 'Senza capitolo', missing: 350.5 },
+            ],
+            commitment_ids: [10, 11],
+          },
+          {
+            id: 4,
+            label: 'Convenzione B',
+            missing: 900,
+            chapters: [{ id: 8, label: '1300/1', missing: 900 }],
+            commitment_ids: [11, 12],
+          },
+        ],
+      });
+    });
+
+    it('capitoli da variare: righe convertite', async () => {
+      const { result } = await run([], [
+        { id: '7', chapter_code: '1234', article: '0', description: 'Luce scuole', missing: '5000.00', available: '1200.00' },
+      ]);
+      expect(result.chapters_variation_needed).toEqual({
+        count: 1,
+        items: [{ id: 7, chapter: '1234/0', description: 'Luce scuole', missing: 5000, available: 1200 }],
+      });
+    });
+
+    it('le due query leggono solo la cache, sull’esercizio in corso, in fondo', async () => {
+      const { sqls } = await run();
+      expect(sqls[47]).toContain('/* agreements_commitments_short */');
+      expect(sqls[48]).toContain('/* chapters_variation_needed */');
+      for (const s of [sqls[47], sqls[48]]) {
+        expect(s).toContain('consip_agreement_forecasts');
+        expect(s).toContain('YEAR(CURDATE())');
+        expect(s).toContain('f.shortfall > 0');
+        expect(s).toContain('c.closed = 0');
+        expect(s).not.toContain('invoice_lines');
+        expect(s).not.toContain('utility_consumptions');
+      }
+      expect(sqls[48]).toContain('s.adjusted_budget IS NOT NULL');
+      expect(sqls[48]).toContain('f.budget_chapter_id_fk IS NOT NULL');
     });
   });
 
