@@ -70,7 +70,7 @@
         <mat-card-header style="display: flex; flex-direction: row; padding: 1.25rem 1.25rem;">
           <div style="display: flex; flex-direction: column; gap: 0.5rem;">
             <mat-card-title style="font-size: 1.1rem;">Contratti di fornitura in scadenza</mat-card-title>
-            <mat-card-subtitle>Contratti di fornitura in scadenza nei prossimi {{ expireMonths }} mesi.</mat-card-subtitle>
+            <mat-card-subtitle>Contratti di fornitura in scadenza nei prossimi {{ expireMonths }} mesi, senza un contratto successivo per tutte le utenze.</mat-card-subtitle>
           </div>
           <div style="display: flex; flex-direction: row; gap: 1rem; align-items: center; margin-left: auto;">
             <button mat-stroked-button (click)="navigateToExpiringContracts()">
@@ -118,6 +118,9 @@
                     </td>
                     <td style="padding: 0.5rem;">
                       <strong>{{ item.contract.utilities?.length ?? 0 }}</strong>
+                      @if (item.uncovered < (item.contract.utilities?.length ?? 0)) {
+                        · {{ item.uncovered }} senza contratto successivo
+                      }
                       <div style="font-size: 0.8rem; color: var(--app-muted);">{{ utilitiesPreview(item.contract) }}</div>
                     </td>
                   </tr>
