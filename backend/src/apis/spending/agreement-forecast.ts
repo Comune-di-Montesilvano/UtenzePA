@@ -1,5 +1,6 @@
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import {
+  buildDailyConsumption,
   type ConsumptionRecord,
   fromDay,
   toDay,
@@ -13,6 +14,7 @@ import {
   type SupplyEventLike,
 } from '@apis/utility-supply/supply-state';
 import { lineShare, spendOnDays, type StatsLine } from './chapter-utility-stats';
+import { lineFiscalYear } from './line-year';
 
 // Fabbisogno della convenzione CONSIP (roadmap voce 24). Funzioni pure,
 // niente DB: per ogni utenza e ogni giorno coperto da un ordine della
@@ -58,7 +60,7 @@ export interface ForecastUtility {
 // Origine della stima dei giorni non fatturati di un'utenza.
 export type ForecastSource = 'history' | 'annual' | 'spend' | 'none';
 
-const hasBothDates = (o: ForecastOrder): o is ForecastOrder & { start: string; end: string } =>
+const hasBothDates = (o: ForecastOrder): boolean =>
   !!o.start && !!o.end && o.end >= o.start;
 
 // Periodi a carico del Comune: attiva e non volturata. Senza attivazioni né
@@ -87,8 +89,8 @@ export function utilityDays(orders: ForecastOrder[], utility: ForecastUtility): 
   const days = new Set<number>();
   for (const o of orders) {
     if (!hasBothDates(o) || !o.utility_ids.includes(utility.id)) continue;
-    const end = toDay(o.end);
-    for (let d = toDay(o.start); d <= end; d++) {
+    const end = toDay(o.end as string);
+    for (let d = toDay(o.start as string); d <= end; d++) {
       if (intervals.some((i) => d >= i.start && d <= i.end)) days.add(d);
     }
   }
@@ -132,10 +134,29 @@ export function consumptionTrend(dailies: Map<number, number>[], today: number):
 
 const lineDay = (l: StatsLine): number => toDay(l.period_end ?? l.period_start ?? l.invoice_date);
 
+const hasPeriod = (l: StatsLine): boolean =>
+  !!l.period_start && !!l.period_end && toDay(l.period_end) >= toDay(l.period_start);
+const periodOf = (l: StatsLine): { s: number; e: number } => ({
+  s: toDay(l.period_start as string),
+  e: toDay(l.period_end as string),
+});
+
+// Giorni della finestra coperti dal periodo di almeno una riga.
+function billedDays(lines: StatsLine[], w: { start: number; end: number }): Set<number> {
+  const days = new Set<number>();
+  for (const l of lines) {
+    if (!hasPeriod(l)) continue;
+    const p = periodOf(l);
+    for (let d = Math.max(p.s, w.start); d <= Math.min(p.e, w.end); d++) days.add(d);
+  }
+  return days;
+}
+
 // Costo unitario tutto incluso: spesa delle righe / consumo, sugli ultimi
 // PRICE_DAYS giorni che finiscono all'ultimo giorno coperto da una riga,
-// contando solo i giorni con consumo (stessa regola del costo unitario di
-// chapter-utility-stats). null senza righe o senza consumo.
+// contando solo i giorni fatturati che hanno anche il consumo (un giorno con
+// consumo ma senza bolletta abbasserebbe il prezzo). null senza righe o
+// senza consumo.
 export function proposedPrice(
   utilities: { lines: StatsLine[]; daily: Map<number, number> }[],
 ): number | null {
@@ -146,8 +167,9 @@ export function proposedPrice(
   let spend = 0;
   let consumption = 0;
   for (const u of utilities) {
+    const billed = billedDays(u.lines, w);
     const days = new Set<number>();
-    for (let d = w.start; d <= w.end; d++) {
+    for (const d of billed) {
       const value = u.daily.get(d) ?? 0;
       if (value > 0) {
         days.add(d);
@@ -230,4 +252,304 @@ export function expectedDayCost(
   const spend = dailySpend(utility.lines, today);
   if (spend !== null) return { source: 'spend', consumption: () => null, cost: () => spend };
   return { source: 'none', consumption: () => null, cost: () => 0 };
+}
+
+export interface ForecastCommitted {
+  chapter_id: number | null;
+  year: number;
+  // Somma delle annualità con importo.
+  committed: number;
+  // committed − quote già spese su quelle annualità (COMMITMENT_SPENT).
+  remaining: number;
+  // Annualità senza importo.
+  without_amount: number;
+}
+
+export interface ForecastInput {
+  today: number;
+  orders: ForecastOrder[];
+  utilities: ForecastUtility[];
+  committed: ForecastCommitted[];
+  manualPrices: Partial<Record<HardTypeEnum, number>>;
+}
+
+export interface ForecastUtilityRow {
+  id: number;
+  utility_code: string | null;
+  hard_type: HardTypeEnum | null;
+  chapter_id: number | null;
+  source: ForecastSource;
+  // Conta solo grazie a ordini in bozza.
+  from_draft: boolean;
+  lines_without_period: boolean;
+  years: {
+    year: number;
+    invoiced: number;
+    to_invoice: number;
+    expected_consumption: number | null;
+  }[];
+}
+
+export interface ForecastRow {
+  chapter_id: number | null;
+  year: number;
+  utilities: number;
+  invoiced: number;
+  to_invoice: number;
+  total: number;
+  committed: number;
+  remaining: number;
+  // remaining − to_invoice: negativa = manca.
+  difference: number;
+  // Quota dei giorni calcolati da fatture o dallo storico dei consumi.
+  coverage: number;
+  // Importo mancante, solo se scatta l'avviso.
+  shortfall: number | null;
+  alert: 'short' | 'insufficient_data' | null;
+}
+
+export interface ForecastPrice {
+  hard_type: HardTypeEnum;
+  proposed: number | null;
+  manual: number | null;
+  used: number | null;
+  trend: number;
+}
+
+export interface AgreementForecast {
+  horizon: { start: string; end: string } | null;
+  prices: ForecastPrice[];
+  rows: ForecastRow[];
+  utilities: ForecastUtilityRow[];
+  warnings: {
+    orders_without_dates: number[];
+    utilities_without_data: number[];
+    // Tipi senza convenzione di fornitura (acqua, connettività): esclusi.
+    utilities_other_type: number[];
+  };
+}
+
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+const round4 = (n: number): number => Math.round(n * 10000) / 10000;
+const round6 = (n: number): number => Math.round(n * 1000000) / 1000000;
+const yearOfDay = (day: number): number => new Date(day * 86_400_000).getUTCFullYear();
+
+// Tipi di utenza che passano da una convenzione di fornitura.
+const FORECAST_TYPES: HardTypeEnum[] = [HardTypeEnum.LIGHT, HardTypeEnum.GAS];
+
+// Regola dell'avviso su una riga dell'esercizio in corso.
+export function shortfall(
+  row: Pick<ForecastRow, 'committed' | 'difference' | 'coverage' | 'to_invoice'>,
+): { shortfall: number | null; alert: ForecastRow['alert'] } {
+  const missing = -row.difference;
+  if (missing <= SHORTFALL_MIN_AMOUNT || missing <= SHORTFALL_MIN_RATIO * row.committed) {
+    return { shortfall: null, alert: null };
+  }
+  if (row.coverage < MIN_ALERT_COVERAGE) return { shortfall: null, alert: 'insufficient_data' };
+  return { shortfall: round2(missing), alert: 'short' };
+}
+
+interface Bucket {
+  chapter_id: number | null;
+  year: number;
+  utilities: Set<number>;
+  invoiced: number;
+  toInvoice: number;
+  days: number;
+  goodDays: number;
+}
+
+type TypeContext = { today: number; trend: number; price: number | null };
+
+const keyOf = (chapter: number | null, year: number): string => `${chapter ?? ''}|${year}`;
+
+export function agreementForecast(input: ForecastInput): AgreementForecast {
+  const { today, orders, committed, manualPrices } = input;
+  const currentYear = yearOfDay(today);
+  const dated = orders.filter(hasBothDates);
+  const horizon = dated.length
+    ? {
+        start: dated.map((o) => o.start as string).sort()[0],
+        end: dated.map((o) => o.end as string).sort()[dated.length - 1],
+      }
+    : null;
+
+  const isForecastType = (u: ForecastUtility): boolean =>
+    !!u.hard_type && FORECAST_TYPES.includes(u.hard_type);
+  const otherType = input.utilities.filter((u) => !isForecastType(u));
+  const utilities = input.utilities.filter(isForecastType);
+  const dailies = new Map(utilities.map((u) => [u.id, buildDailyConsumption(u.consumptions)]));
+  const dailyOf = (u: ForecastUtility): Map<number, number> =>
+    dailies.get(u.id) as Map<number, number>;
+
+  // Prezzo e andamento per tipo, sull'insieme delle utenze della convenzione.
+  const prices: ForecastPrice[] = [];
+  const ctxByType = new Map<HardTypeEnum, TypeContext>();
+  for (const type of FORECAST_TYPES) {
+    const ofType = utilities.filter((u) => u.hard_type === type);
+    if (!ofType.length) continue;
+    const trend = consumptionTrend(ofType.map(dailyOf), today);
+    const proposed = proposedPrice(ofType.map((u) => ({ lines: u.lines, daily: dailyOf(u) })));
+    const manual = manualPrices[type] ?? null;
+    const used = manual ?? proposed;
+    prices.push({
+      hard_type: type,
+      proposed: proposed === null ? null : round6(proposed),
+      manual,
+      used: used === null ? null : round6(used),
+      trend: round4(trend),
+    });
+    ctxByType.set(type, { today, trend, price: used });
+  }
+
+  const buckets = new Map<string, Bucket>();
+  const bucket = (chapter: number | null, year: number): Bucket => {
+    const key = keyOf(chapter, year);
+    let b = buckets.get(key);
+    if (!b) {
+      b = {
+        chapter_id: chapter,
+        year,
+        utilities: new Set(),
+        invoiced: 0,
+        toInvoice: 0,
+        days: 0,
+        goodDays: 0,
+      };
+      buckets.set(key, b);
+    }
+    return b;
+  };
+
+  const utilityRows: ForecastUtilityRow[] = [];
+  const withoutData: number[] = [];
+
+  for (const u of utilities) {
+    const days = utilityDays(orders, u);
+    if (!days.length) continue;
+    const inDays = new Set(days);
+    const expected = expectedDayCost(
+      u,
+      dailyOf(u),
+      ctxByType.get(u.hard_type as HardTypeEnum) as TypeContext,
+    );
+    if (expected.source === 'none') withoutData.push(u.id);
+
+    // Quota reale di ogni giorno coperto da una riga con periodo completo;
+    // le righe senza periodo vanno nel fatturato dell'esercizio e non
+    // coprono giorni.
+    const billed = new Map<number, number>();
+    const loose = new Map<number, number>();
+    for (const l of u.lines) {
+      const amount = Number(l.amount);
+      if (hasPeriod(l)) {
+        const { s, e } = periodOf(l);
+        const perDay = amount / (e - s + 1);
+        for (let d = s; d <= e; d++) {
+          if (inDays.has(d)) billed.set(d, (billed.get(d) ?? 0) + perDay);
+        }
+      } else if (inDays.has(lineDay(l))) {
+        const year = lineFiscalYear(l.period_start, l.period_end, l.invoice_date);
+        loose.set(year, (loose.get(year) ?? 0) + amount);
+      }
+    }
+    const withoutPeriod = loose.size > 0;
+    const estimated = expected.source === 'history' || expected.source === 'annual';
+
+    const perYear = new Map<
+      number,
+      { invoiced: number; toInvoice: number; consumption: number | null }
+    >();
+    const yearOf = (year: number) => {
+      let y = perYear.get(year);
+      if (!y) {
+        y = { invoiced: 0, toInvoice: 0, consumption: null };
+        perYear.set(year, y);
+      }
+      return y;
+    };
+    for (const d of days) {
+      const year = yearOfDay(d);
+      const y = yearOf(year);
+      const b = bucket(u.chapter_id, year);
+      b.days++;
+      const real = billed.get(d);
+      if (real !== undefined) {
+        y.invoiced += real;
+        if (!withoutPeriod) b.goodDays++;
+      } else if (year >= currentYear) {
+        // Esercizi chiusi: nessuna proiezione.
+        y.toInvoice += expected.cost(d);
+        const consumption = expected.consumption(d);
+        if (consumption !== null) y.consumption = (y.consumption ?? 0) + consumption;
+        if (estimated && !withoutPeriod) b.goodDays++;
+      }
+    }
+    for (const [year, amount] of loose) yearOf(year).invoiced += amount;
+
+    for (const [year, y] of perYear) {
+      const b = bucket(u.chapter_id, year);
+      b.utilities.add(u.id);
+      b.invoiced += y.invoiced;
+      b.toInvoice += y.toInvoice;
+    }
+    utilityRows.push({
+      id: u.id,
+      utility_code: u.utility_code,
+      hard_type: u.hard_type,
+      chapter_id: u.chapter_id,
+      source: expected.source,
+      from_draft: !orders.some((o) => !o.draft && o.utility_ids.includes(u.id)),
+      lines_without_period: withoutPeriod,
+      years: [...perYear.entries()]
+        .sort(([a], [b]) => a - b)
+        .map(([year, y]) => ({
+          year,
+          invoiced: round2(y.invoiced),
+          to_invoice: round2(y.toInvoice),
+          expected_consumption: y.consumption === null ? null : round2(y.consumption),
+        })),
+    });
+  }
+
+  // Capitoli con impegni della convenzione ma senza utenze: riga comunque.
+  const committedBy = new Map(committed.map((c) => [keyOf(c.chapter_id, c.year), c] as const));
+  for (const c of committed) bucket(c.chapter_id, c.year);
+
+  const rows: ForecastRow[] = [...buckets.values()]
+    .sort((a, b) => b.year - a.year || (a.chapter_id ?? Infinity) - (b.chapter_id ?? Infinity))
+    .map((b) => {
+      const c = committedBy.get(keyOf(b.chapter_id, b.year));
+      const toInvoice = round2(b.toInvoice);
+      const invoiced = round2(b.invoiced);
+      const remaining = round2(Number(c?.remaining ?? 0));
+      const base = {
+        chapter_id: b.chapter_id,
+        year: b.year,
+        utilities: b.utilities.size,
+        invoiced,
+        to_invoice: toInvoice,
+        total: round2(invoiced + toInvoice),
+        committed: round2(Number(c?.committed ?? 0)),
+        remaining,
+        difference: round2(remaining - toInvoice),
+        coverage: b.days ? round4(b.goodDays / b.days) : 0,
+      };
+      // Avviso solo sull'esercizio in corso.
+      const alert: { shortfall: number | null; alert: ForecastRow['alert'] } =
+        b.year === currentYear ? shortfall(base) : { shortfall: null, alert: null };
+      return { ...base, ...alert };
+    });
+
+  return {
+    horizon,
+    prices,
+    rows,
+    utilities: utilityRows,
+    warnings: {
+      orders_without_dates: orders.filter((o) => !hasBothDates(o)).map((o) => o.id),
+      utilities_without_data: withoutData,
+      utilities_other_type: otherType.map((u) => u.id),
+    },
+  };
 }

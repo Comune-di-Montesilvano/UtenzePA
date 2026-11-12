@@ -10,10 +10,14 @@ import { SupplyEventType } from '@apis/utility-supply/enum/supply-event-type.enu
 import type { SupplyEventLike } from '@apis/utility-supply/supply-state';
 import type { StatsLine } from './chapter-utility-stats';
 import {
+  type AgreementForecast,
+  agreementForecast,
   consumptionTrend,
   dailySpend,
   expectedDayCost,
+  type ForecastInput,
   type ForecastOrder,
+  shortfall,
   type ForecastUtility,
   proposedPrice,
   sameDayLastYear,
@@ -263,5 +267,201 @@ describe('expectedDayCost', () => {
     const r = expectedDayCost(utility(1), new Map(), ctx);
     expect(r.source).toBe('none');
     expect(r.cost(target)).toBe(0);
+  });
+});
+
+describe('shortfall', () => {
+  const row = (committed: number, difference: number, coverage = 0.9) => ({
+    committed,
+    difference,
+    coverage,
+    to_invoice: 1000,
+  });
+
+  it('sotto 200 € o sotto il 5 % dell’impegnato: nessun avviso', () => {
+    expect(shortfall(row(10000, -150))).toEqual({ shortfall: null, alert: null });
+    expect(shortfall(row(10000, -400))).toEqual({ shortfall: null, alert: null });
+    expect(shortfall(row(10000, 300))).toEqual({ shortfall: null, alert: null });
+  });
+
+  it('oltre le due soglie con copertura sufficiente: avviso con l’importo', () => {
+    expect(shortfall(row(10000, -600))).toEqual({ shortfall: 600, alert: 'short' });
+  });
+
+  it('copertura sotto il 60 %: dati insufficienti, nessun importo', () => {
+    expect(shortfall(row(10000, -600, 0.5))).toEqual({ shortfall: null, alert: 'insufficient_data' });
+  });
+
+  it('nessun impegno e spesa prevista: manca tutto', () => {
+    expect(shortfall(row(0, -500, 1))).toEqual({ shortfall: 500, alert: 'short' });
+  });
+});
+
+describe('agreementForecast', () => {
+  const today = toDay('2026-01-31');
+  // 10 al giorno dal 2025 a fine gennaio 2026 (396 giorni).
+  const history = [period('2025-01-01', '2026-01-31', 3960)];
+  const base = (over: Partial<ForecastInput> = {}): ForecastInput => ({
+    today,
+    orders: [order(1, '2026-01-01', '2026-12-31', [1])],
+    utilities: [
+      utility(1, { consumptions: history, lines: [line(310, '2026-01-01', '2026-01-31')] }),
+    ],
+    committed: [{ chapter_id: 7, year: 2026, committed: 3000, remaining: 2690, without_amount: 0 }],
+    manualPrices: { [HardTypeEnum.LIGHT]: 1 },
+    ...over,
+  });
+  const rowOf = (f: AgreementForecast, chapter: number | null, year: number) =>
+    f.rows.find((r) => r.chapter_id === chapter && r.year === year);
+
+  it('caso base: fatturato reale, resto previsto, differenza sulla rimanenza', () => {
+    const f = agreementForecast(base());
+    expect(f.horizon).toEqual({ start: '2026-01-01', end: '2026-12-31' });
+    expect(rowOf(f, 7, 2026)).toEqual({
+      chapter_id: 7,
+      year: 2026,
+      utilities: 1,
+      invoiced: 310,
+      to_invoice: 3340,
+      total: 3650,
+      committed: 3000,
+      remaining: 2690,
+      difference: -650,
+      coverage: 1,
+      shortfall: 650,
+      alert: 'short',
+    });
+    expect(f.prices).toEqual([
+      { hard_type: HardTypeEnum.LIGHT, proposed: 1, manual: 1, used: 1, trend: 1 },
+    ]);
+    expect(f.utilities[0]).toMatchObject({ id: 1, source: 'history', from_draft: false });
+    expect(f.utilities[0].years).toEqual([
+      { year: 2026, invoiced: 310, to_invoice: 3340, expected_consumption: 3340 },
+    ]);
+  });
+
+  it('senza prezzo a mano usa il proposto', () => {
+    const f = agreementForecast(base({ manualPrices: {} }));
+    expect(f.prices[0]).toMatchObject({ proposed: 1, manual: null, used: 1 });
+    expect(rowOf(f, 7, 2026)?.to_invoice).toBe(3340);
+  });
+
+  it('nota di credito sui giorni fatturati: il giorno resta fatturato, importo col segno', () => {
+    const f = agreementForecast(
+      base({
+        utilities: [
+          utility(1, {
+            consumptions: history,
+            lines: [line(310, '2026-01-01', '2026-01-31'), line(-31, '2026-01-01', '2026-01-31')],
+          }),
+        ],
+      }),
+    );
+    expect(rowOf(f, 7, 2026)).toMatchObject({ invoiced: 279, to_invoice: 3340 });
+  });
+
+  it('utenza senza capitolo e annualità senza importo: nessun errore', () => {
+    const f = agreementForecast(
+      base({
+        utilities: [utility(1, { chapter_id: null, consumptions: history })],
+        committed: [{ chapter_id: null, year: 2026, committed: 0, remaining: 0, without_amount: 1 }],
+      }),
+    );
+    expect(rowOf(f, null, 2026)).toMatchObject({ chapter_id: null, committed: 0, utilities: 1 });
+  });
+
+  it('ordine a cavallo d’anno: una riga per esercizio con i suoi giorni', () => {
+    const f = agreementForecast(
+      base({
+        orders: [order(1, '2026-07-01', '2027-06-30', [1])],
+        utilities: [utility(1, { consumptions: history })],
+        committed: [],
+      }),
+    );
+    expect(rowOf(f, 7, 2026)?.to_invoice).toBe(1840);
+    expect(rowOf(f, 7, 2027)?.to_invoice).toBe(1810);
+    // Avviso solo sull'esercizio in corso.
+    expect(rowOf(f, 7, 2026)?.alert).toBe('short');
+    expect(rowOf(f, 7, 2027)?.alert).toBeNull();
+  });
+
+  it('utenza che entra a metà orizzonte e ordine in bozza', () => {
+    const f = agreementForecast(
+      base({
+        orders: [
+          order(1, '2026-01-01', '2026-12-31', [1]),
+          { ...order(2, '2026-07-01', '2026-12-31', [2]), draft: true },
+        ],
+        utilities: [
+          utility(1, { consumptions: history }),
+          utility(2, { consumptions: history }),
+        ],
+        committed: [],
+      }),
+    );
+    expect(rowOf(f, 7, 2026)).toMatchObject({ utilities: 2, to_invoice: 3650 + 1840 });
+    expect(f.utilities.find((u) => u.id === 2)?.from_draft).toBe(true);
+    expect(f.utilities.find((u) => u.id === 1)?.from_draft).toBe(false);
+  });
+
+  it('esercizio chiuso: nessuna proiezione né avviso', () => {
+    const f = agreementForecast(base({ today: toDay('2027-02-01') }));
+    expect(rowOf(f, 7, 2026)).toMatchObject({
+      invoiced: 310,
+      to_invoice: 0,
+      shortfall: null,
+      alert: null,
+    });
+  });
+
+  it('riga senza periodo: nel fatturato dell’anno, non copre giorni', () => {
+    const f = agreementForecast(
+      base({
+        utilities: [utility(1, { consumptions: history, lines: [line(50, null, null, '2026-01-15')] })],
+      }),
+    );
+    expect(rowOf(f, 7, 2026)).toMatchObject({ invoiced: 50, to_invoice: 3650, coverage: 0 });
+    expect(f.utilities[0].lines_without_period).toBe(true);
+  });
+
+  it('avvisi: ordine senza date, utenza senza dati, altro tipo di utenza', () => {
+    const f = agreementForecast(
+      base({
+        orders: [order(1, '2026-01-01', '2026-12-31', [1, 2, 3]), order(9, '2026-01-01', null, [1])],
+        utilities: [
+          utility(1, { consumptions: history }),
+          utility(2),
+          utility(3, { hard_type: HardTypeEnum.WATER, consumptions: history }),
+        ],
+        committed: [],
+      }),
+    );
+    expect(f.warnings).toEqual({
+      orders_without_dates: [9],
+      utilities_without_data: [2],
+      utilities_other_type: [3],
+    });
+    expect(rowOf(f, 7, 2026)).toMatchObject({ utilities: 2, to_invoice: 3650, coverage: 0.5 });
+  });
+
+  it('nessun ordine con date: nessun orizzonte, righe solo dall’impegnato', () => {
+    const f = agreementForecast(base({ orders: [order(1, null, null, [1])] }));
+    expect(f.horizon).toBeNull();
+    expect(f.rows).toEqual([
+      {
+        chapter_id: 7,
+        year: 2026,
+        utilities: 0,
+        invoiced: 0,
+        to_invoice: 0,
+        total: 0,
+        committed: 3000,
+        remaining: 2690,
+        difference: 2690,
+        coverage: 0,
+        shortfall: null,
+        alert: null,
+      },
+    ]);
   });
 });
