@@ -37,6 +37,7 @@ import { ActsModule } from '@apis/acts/acts.module';
 import { AnomaliesModule } from '@apis/anomalies/anomalies.module';
 import { InvoicesModule } from '@apis/invoices/invoie.module';
 import { ConsipAgreementModule } from '@apis/consip-agreement/consip-agreement.module';
+import { AgreementForecastModule } from '@apis/agreement-forecast/agreement-forecast.module';
 import { SettingsModule } from '@apis/settings/settings.module';
 import { ThirdPartiesModule } from '@apis/third-parties/third-parties.module';
 import { BackupModule } from '@apis/backup/backup.module';
@@ -82,6 +83,7 @@ import { AuditLogModule } from '@apis/audit-log/audit-log.module';
     AnomaliesModule,
     InvoicesModule,
     ConsipAgreementModule,
+    AgreementForecastModule,
     SettingsModule,
     ThirdPartiesModule,
     BackupModule,
