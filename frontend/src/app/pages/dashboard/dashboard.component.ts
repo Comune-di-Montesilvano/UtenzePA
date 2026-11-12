@@ -19,6 +19,8 @@ import {RealEstateContractsCardComponent} from './real-estate-contracts-card.com
 import {PlantInspectionsCardComponent} from './plant-inspections-card.component';
 import {ContractsService} from '../contracts/contract.service';
 import {Contract} from '../contracts/entity/contract.entity';
+import {forkJoin} from 'rxjs';
+import {uncoveredUtilityIds} from './expiring-contracts';
 
 /** Colore badge/tag: mappato su classi CSS locali (vedi dashboard.component.css), non più sulle severity PrimeNG. */
 type Severity = 'info' | 'success' | 'warn' | 'danger' | 'secondary' | 'contrast';
@@ -37,8 +39,9 @@ export class DashboardComponent implements OnInit {
 
   today: Date = new Date();
   // Contratti in scadenza: è il contratto che scade, le utenze sono solo
-  // quelle che copre.
-  expiringContracts: {contract: Contract; days: number}[] = [];
+  // quelle che copre. Esclusi quelli le cui utenze passano tutte a un
+  // contratto successivo (anche in bozza); uncovered = utenze senza successore.
+  expiringContracts: {contract: Contract; days: number; uncovered: number}[] = [];
   // Alert contratti in scadenza: finestra di 4 mesi di calendario.
   readonly expireMonths = 4;
   futureDate: Date | null = null;
@@ -71,18 +74,23 @@ export class DashboardComponent implements OnInit {
     this.futureDate = this.expiryWindowEnd();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    this.contractsService.search({supply_expiry_date_range: [this.isoDate(today), this.isoDate(this.futureDate)], draft: false} as never)
-      .subscribe((contracts: Contract[]) => {
-        this.expiringContracts = contracts
-          .filter(c => c.supply_expiry_date)
-          .map(c => {
-            const expiry = new Date(c.supply_expiry_date as unknown as string);
-            expiry.setHours(0, 0, 0, 0);
-            return {contract: c, days: Math.round((expiry.getTime() - today.getTime()) / 86_400_000)};
-          })
-          .filter(x => x.days >= 0)
-          .sort((a, b) => a.days - b.days);
-      });
+    forkJoin({
+      expiring: this.contractsService.search({
+        supply_expiry_date_range: [this.isoDate(today), this.isoDate(this.futureDate)], draft: false, closed: false,
+      } as never),
+      open: this.contractsService.search({closed: false} as never),
+    }).subscribe(({expiring, open}: {expiring: Contract[]; open: Contract[]}) => {
+      this.expiringContracts = expiring
+        .filter(c => c.supply_expiry_date)
+        .map(c => {
+          const expiry = new Date(c.supply_expiry_date as unknown as string);
+          expiry.setHours(0, 0, 0, 0);
+          const uncovered = uncoveredUtilityIds(c, open).length;
+          return {contract: c, days: Math.round((expiry.getTime() - today.getTime()) / 86_400_000), uncovered};
+        })
+        .filter(x => x.days >= 0 && (x.uncovered > 0 || !(x.contract.utilities ?? []).length))
+        .sort((a, b) => a.days - b.days);
+    });
   }
 
   utilitiesPreview(contract: Contract): string {
