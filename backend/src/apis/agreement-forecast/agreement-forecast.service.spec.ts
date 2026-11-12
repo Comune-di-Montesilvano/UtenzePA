@@ -65,11 +65,22 @@ describe('AgreementForecastService', () => {
       [sql.EVENTS_SQL, []],
       [
         sql.COMMITTED_SQL,
-        [{ chapter_id: 7, year: 2026, committed: '3000.00', remaining: '2690.00', without_amount: '0' }],
+        [
+          {
+            chapter_id: 7,
+            year: 2026,
+            committed: '3000.00',
+            remaining: '2690.00',
+            without_amount: '0',
+          },
+        ],
       ],
       [sql.SHARED_COMMITMENTS_SQL, []],
       [sql.SHARES_WITHOUT_LINES_SQL, []],
-      [sql.CHAPTERS_SQL, [{ id: 7, chapter_code: '1234', article: '0', description: 'Capitolo di prova' }]],
+      [
+        sql.CHAPTERS_SQL,
+        [{ id: 7, chapter_code: '1234', article: '0', description: 'Capitolo di prova' }],
+      ],
     ]);
   };
 
@@ -81,7 +92,9 @@ describe('AgreementForecastService', () => {
       transaction: jest.fn(async (cb) => cb(manager)),
     };
     priceRepo = {
-      find: jest.fn().mockResolvedValue([{ hard_type: HardTypeEnum.LIGHT, unit_price: '1.000000' }]),
+      find: jest
+        .fn()
+        .mockResolvedValue([{ hard_type: HardTypeEnum.LIGHT, unit_price: '1.000000' }]),
       delete: jest.fn(),
       upsert: jest.fn(),
     };
@@ -91,12 +104,24 @@ describe('AgreementForecastService', () => {
 
   afterEach(() => jest.useRealTimers());
 
+  it('compute: capitolo senza descrizione, etichetta senza trattino finale', async () => {
+    answers.set(sql.CHAPTERS_SQL, [{ id: 7, chapter_code: '1234', article: '0', description: '' }]);
+    expect((await service.compute(3)).chapters).toEqual([{ id: 7, label: '1234/0' }]);
+  });
+
   it('compute: calcola e sostituisce in blocco la cache della convenzione', async () => {
     const result = await service.compute(3);
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0]).toMatchObject({ chapter_id: 7, year: 2026, invoiced: 310, committed: 3000 });
+    expect(result.rows[0]).toMatchObject({
+      chapter_id: 7,
+      year: 2026,
+      invoiced: 310,
+      committed: 3000,
+    });
     expect(result.chapters).toEqual([{ id: 7, label: '1234/0 — Capitolo di prova' }]);
-    expect(manager.delete).toHaveBeenCalledWith(ConsipAgreementForecast, { consip_agreement_id_fk: 3 });
+    expect(manager.delete).toHaveBeenCalledWith(ConsipAgreementForecast, {
+      consip_agreement_id_fk: 3,
+    });
     const inserted = manager.insert.mock.calls[0][1] as Record<string, unknown>[];
     expect(manager.insert.mock.calls[0][0]).toBe(ConsipAgreementForecast);
     expect(inserted).toHaveLength(1);
@@ -125,7 +150,9 @@ describe('AgreementForecastService', () => {
 
   it('compute: convenzione inesistente → 400', async () => {
     answers.set(sql.AGREEMENT_SQL, []);
-    await expect(service.compute(99)).rejects.toThrow(new BadRequestException('Convenzione non trovata'));
+    await expect(service.compute(99)).rejects.toThrow(
+      new BadRequestException('Convenzione non trovata'),
+    );
   });
 
   it('compute con asOf: usa quella data come oggi, taglia i dati successivi, non scrive la cache', async () => {
@@ -133,7 +160,9 @@ describe('AgreementForecastService', () => {
     expect(dataSource.transaction).not.toHaveBeenCalled();
     const linesCall = dataSource.query.mock.calls.find(([text]) => text === sql.LINES_SQL);
     expect(linesCall?.[1]).toEqual([[11], '2025-12-31']);
-    const consumptionsCall = dataSource.query.mock.calls.find(([text]) => text === sql.CONSUMPTIONS_SQL);
+    const consumptionsCall = dataSource.query.mock.calls.find(
+      ([text]) => text === sql.CONSUMPTIONS_SQL,
+    );
     expect(consumptionsCall?.[1]).toEqual([[11], '2025-12-31']);
     // Oggi = fine 2025: il 2026 è un esercizio futuro, quindi previsto e senza avviso.
     expect(result.rows[0].alert).toBeNull();
@@ -143,11 +172,19 @@ describe('AgreementForecastService', () => {
   it('setPrice: valore → upsert con l’utente; null → elimina; poi ricalcola', async () => {
     await service.setPrice(3, HardTypeEnum.LIGHT, 0.3, 5);
     expect(priceRepo.upsert).toHaveBeenCalledWith(
-      { consip_agreement_id_fk: 3, hard_type: HardTypeEnum.LIGHT, unit_price: 0.3, updated_by_user_id: 5 },
+      {
+        consip_agreement_id_fk: 3,
+        hard_type: HardTypeEnum.LIGHT,
+        unit_price: 0.3,
+        updated_by_user_id: 5,
+      },
       ['consip_agreement_id_fk', 'hard_type'],
     );
     await service.setPrice(3, HardTypeEnum.LIGHT, null, 5);
-    expect(priceRepo.delete).toHaveBeenCalledWith({ consip_agreement_id_fk: 3, hard_type: HardTypeEnum.LIGHT });
+    expect(priceRepo.delete).toHaveBeenCalledWith({
+      consip_agreement_id_fk: 3,
+      hard_type: HardTypeEnum.LIGHT,
+    });
     expect(dataSource.transaction).toHaveBeenCalledTimes(2);
   });
 

@@ -21,6 +21,7 @@ import {ActFilters, ActService} from './act.service';
 import {Act} from './act.model';
 import {ActEditDialogComponent, ActEditDialogData} from './act-edit-dialog.component';
 import {actFilters} from './acts-filters';
+import type {IColumnDef} from '../../core/interfaces/column-def.interface';
 
 // Colonne visibili ricordate (tutte, se nessuna scelta salvata).
 const COLUMNS_KEY = 'columns:acts';

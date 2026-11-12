@@ -124,7 +124,7 @@ Per le utenze che entreranno nella convenzione più avanti, crea subito un **ord
 
 Un ordine **chiuso** non riceve più fatture: i suoi giorni contano per il fatturato ma non vengono previsti. Quando le utenze passano a un nuovo ordine, chiudi il vecchio: altrimenti gli stessi giorni risultano da fatturare due volte.
 
-Sopra la tabella un riquadro avvisa di ciò che rende la stima meno precisa, dicendo quali ordini e quali utenze: ordini senza date di fornitura valide (non entrano nel calcolo), utenze senza dati, utenze con righe di fattura senza periodo, utenze di altro tipo escluse, impegni condivisi con un'altra convenzione (contano per intero in entrambe), quote su fatture senza righe per utenza.
+Sopra la tabella un riquadro avvisa di ciò che rende la stima meno precisa, dicendo quali ordini e quali utenze: ordini senza date di fornitura valide (non entrano nel calcolo), utenze senza dati, utenze con righe di fattura senza periodo, utenze di altro tipo escluse, annualità di impegno senza importo (contano come niente impegnato: inserisci l'importo nell'impegno), impegni condivisi con un'altra convenzione (contano per intero in entrambe), quote su fatture senza righe per utenza. Se il calcolo non riesce, «Ricalcola» lo riprova.
 
 Limiti da conoscere:
 

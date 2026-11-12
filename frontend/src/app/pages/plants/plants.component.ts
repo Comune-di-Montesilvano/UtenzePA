@@ -35,6 +35,7 @@ import {fromQueryParams, toSearchParams} from '../../core/components/list/filter
 import {PLANT_SIGNALS, plantFilters} from './plants-filters';
 import {ActiveSignal, ListSignalsComponent} from '../../core/components/list/list-signals.component';
 import type {FilterChip} from '../../core/components/list/filter-def';
+import type {IColumnDef} from '../../core/interfaces/column-def.interface';
 
 // Colonne visibili ricordate (tutte, se nessuna scelta salvata).
 const COLUMNS_KEY = 'columns:plants';

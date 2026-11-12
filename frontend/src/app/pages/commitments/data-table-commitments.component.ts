@@ -15,6 +15,7 @@ import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.compo
 import {formatEuro} from '../budget-chapters/spending/budget-chapter-spending.service';
 import {Commitment, competenceLabel} from './commitment.model';
 import {CommitmentSheetComponent} from './commitment-sheet.component';
+import type {IColumnDef} from '../../core/interfaces/column-def.interface';
 
 @Component({
   selector: 'app-data-table-commitments',

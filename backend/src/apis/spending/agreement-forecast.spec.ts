@@ -36,7 +36,12 @@ const utility = (id: number, over: Partial<ForecastUtility> = {}): ForecastUtili
   ...over,
 });
 
-const order = (id: number, start: string | null, end: string | null, ids: number[]): ForecastOrder => ({
+const order = (
+  id: number,
+  start: string | null,
+  end: string | null,
+  ids: number[],
+): ForecastOrder => ({
   id,
   draft: false,
   closed: false,
@@ -71,7 +76,12 @@ const period = (start: string, end: string, consumption: number): ConsumptionRec
   consumption,
 });
 
-const line = (amount: number, start: string | null, end: string | null, invoice = '2026-01-31'): StatsLine => ({
+const line = (
+  amount: number,
+  start: string | null,
+  end: string | null,
+  invoice = '2026-01-31',
+): StatsLine => ({
   amount,
   period_start: start,
   period_end: end,
@@ -115,7 +125,14 @@ describe('utilityDays', () => {
       ],
     });
     const d = days(utilityDays([order(1, '2026-01-01', '2026-01-10', [1])], u));
-    expect(d).toEqual(['2026-01-01', '2026-01-02', '2026-01-03', '2026-01-04', '2026-01-05', '2026-01-06']);
+    expect(d).toEqual([
+      '2026-01-01',
+      '2026-01-02',
+      '2026-01-03',
+      '2026-01-04',
+      '2026-01-05',
+      '2026-01-06',
+    ]);
   });
 
   it('voltura e reintestazione: fuori i giorni tra le due', () => {
@@ -155,7 +172,10 @@ describe('sameDayLastYear', () => {
 describe('consumptionTrend', () => {
   const today = toDay('2026-06-30');
   const both = (now: number, before: number) =>
-    new Map([...flat('2025-01-01', '2025-12-31', before), ...flat('2026-01-01', '2026-06-30', now)]);
+    new Map([
+      ...flat('2025-01-01', '2025-12-31', before),
+      ...flat('2026-01-01', '2026-06-30', now),
+    ]);
 
   it('rapporto tra gli ultimi 90 giorni e gli stessi giorni dell’anno prima', () => {
     expect(consumptionTrend([both(10, 8)], today)).toBeCloseTo(1.25, 6);
@@ -178,28 +198,48 @@ describe('consumptionTrend', () => {
 });
 
 describe('proposedPrice', () => {
+  const today = toDay('2026-12-31');
+
   it('spesa diviso consumo', () => {
     const lines = [line(300, '2026-01-01', '2026-01-30')];
-    expect(proposedPrice([{ lines, daily: flat('2026-01-01', '2026-01-30', 10) }])).toBeCloseTo(1, 6);
+    expect(
+      proposedPrice([{ lines, daily: flat('2026-01-01', '2026-01-30', 10) }], today),
+    ).toBeCloseTo(1, 6);
   });
 
   it('conta solo i giorni con consumo', () => {
     const lines = [line(300, '2026-01-01', '2026-01-30')];
-    expect(proposedPrice([{ lines, daily: flat('2026-01-01', '2026-01-15', 10) }])).toBeCloseTo(1, 6);
+    expect(
+      proposedPrice([{ lines, daily: flat('2026-01-01', '2026-01-15', 10) }], today),
+    ).toBeCloseTo(1, 6);
   });
 
   it('consumo zero o nessuna riga: null, mai Infinity', () => {
     const lines = [line(300, '2026-01-01', '2026-01-30')];
-    expect(proposedPrice([{ lines, daily: new Map() }])).toBeNull();
-    expect(proposedPrice([{ lines, daily: flat('2026-01-01', '2026-01-30', 0) }])).toBeNull();
-    expect(proposedPrice([{ lines: [], daily: flat('2026-01-01', '2026-01-30', 10) }])).toBeNull();
-    expect(proposedPrice([])).toBeNull();
+    expect(proposedPrice([{ lines, daily: new Map() }], today)).toBeNull();
+    expect(
+      proposedPrice([{ lines, daily: flat('2026-01-01', '2026-01-30', 0) }], today),
+    ).toBeNull();
+    expect(
+      proposedPrice([{ lines: [], daily: flat('2026-01-01', '2026-01-30', 10) }], today),
+    ).toBeNull();
+    expect(proposedPrice([], today)).toBeNull();
   });
 
   it('righe più vecchie della finestra rispetto all’ultima non contano', () => {
     const lines = [line(9000, '2025-01-01', '2025-01-30'), line(300, '2026-01-01', '2026-01-30')];
-    const daily = new Map([...flat('2025-01-01', '2025-01-30', 10), ...flat('2026-01-01', '2026-01-30', 10)]);
-    expect(proposedPrice([{ lines, daily }])).toBeCloseTo(1, 6);
+    const daily = new Map([
+      ...flat('2025-01-01', '2025-01-30', 10),
+      ...flat('2026-01-01', '2026-01-30', 10),
+    ]);
+    expect(proposedPrice([{ lines, daily }], today)).toBeCloseTo(1, 6);
+  });
+
+  it('riga con una fine periodo nel futuro (errore di battitura): la finestra finisce oggi', () => {
+    const lines = [line(300, '2026-01-01', '2026-01-30'), line(10, '2026-01-31', '2099-12-31')];
+    expect(
+      proposedPrice([{ lines, daily: flat('2026-01-01', '2026-01-30', 10) }], toDay('2026-01-31')),
+    ).toBeCloseTo(1, 6);
   });
 });
 
@@ -214,6 +254,10 @@ describe('dailySpend', () => {
   it('nessuna riga nell’ultimo anno: null', () => {
     expect(dailySpend([line(365, '2024-01-01', '2024-12-31')], today)).toBeNull();
     expect(dailySpend([], today)).toBeNull();
+  });
+
+  it('solo note di credito: zero, mai una spesa negativa', () => {
+    expect(dailySpend([line(-100, '2026-12-01', '2026-12-31')], today)).toBe(0);
   });
 });
 
@@ -232,7 +276,11 @@ describe('expectedDayCost', () => {
 
   it('29 febbraio: usa il 28 dell’anno prima', () => {
     const daily = flat('2027-01-01', '2027-12-31', 8);
-    const r = expectedDayCost(utility(1), daily, { today: toDay('2028-01-31'), trend: 1, price: 1 });
+    const r = expectedDayCost(utility(1), daily, {
+      today: toDay('2028-01-31'),
+      trend: 1,
+      price: 1,
+    });
     expect(r.cost(toDay('2028-02-29'))).toBeCloseTo(8, 6);
   });
 
@@ -289,7 +337,10 @@ describe('shortfall', () => {
   });
 
   it('copertura sotto il 60 %: dati insufficienti, nessun importo', () => {
-    expect(shortfall(row(10000, -600, 0.5))).toEqual({ shortfall: null, alert: 'insufficient_data' });
+    expect(shortfall(row(10000, -600, 0.5))).toEqual({
+      shortfall: null,
+      alert: 'insufficient_data',
+    });
   });
 
   it('nessun impegno e spesa prevista: manca tutto', () => {
@@ -364,10 +415,27 @@ describe('agreementForecast', () => {
     const f = agreementForecast(
       base({
         utilities: [utility(1, { chapter_id: null, consumptions: history })],
-        committed: [{ chapter_id: null, year: 2026, committed: 0, remaining: 0, without_amount: 1 }],
+        committed: [
+          { chapter_id: null, year: 2026, committed: 0, remaining: 0, without_amount: 1 },
+        ],
       }),
     );
     expect(rowOf(f, null, 2026)).toMatchObject({ chapter_id: null, committed: 0, utilities: 1 });
+    expect(f.warnings.commitments_without_amount).toEqual([
+      { chapter_id: null, year: 2026, count: 1 },
+    ]);
+  });
+
+  it('utenza in una bozza con date e in un ordine senza date: conta grazie alla bozza', () => {
+    const f = agreementForecast(
+      base({
+        orders: [
+          { ...order(1, '2026-01-01', '2026-12-31', [1]), draft: true },
+          order(2, null, null, [1]),
+        ],
+      }),
+    );
+    expect(f.utilities[0].from_draft).toBe(true);
   });
 
   it('ordine a cavallo d’anno: una riga per esercizio con i suoi giorni', () => {
@@ -392,10 +460,7 @@ describe('agreementForecast', () => {
           order(1, '2026-01-01', '2026-12-31', [1]),
           { ...order(2, '2026-07-01', '2026-12-31', [2]), draft: true },
         ],
-        utilities: [
-          utility(1, { consumptions: history }),
-          utility(2, { consumptions: history }),
-        ],
+        utilities: [utility(1, { consumptions: history }), utility(2, { consumptions: history })],
         committed: [],
       }),
     );
@@ -417,7 +482,9 @@ describe('agreementForecast', () => {
   it('riga senza periodo: nel fatturato dell’anno, non copre giorni', () => {
     const f = agreementForecast(
       base({
-        utilities: [utility(1, { consumptions: history, lines: [line(50, null, null, '2026-01-15')] })],
+        utilities: [
+          utility(1, { consumptions: history, lines: [line(50, null, null, '2026-01-15')] }),
+        ],
       }),
     );
     expect(rowOf(f, 7, 2026)).toMatchObject({ invoiced: 50, to_invoice: 3650, coverage: 0 });
@@ -427,7 +494,10 @@ describe('agreementForecast', () => {
   it('avvisi: ordine senza date, utenza senza dati, altro tipo di utenza', () => {
     const f = agreementForecast(
       base({
-        orders: [order(1, '2026-01-01', '2026-12-31', [1, 2, 3]), order(9, '2026-01-01', null, [1])],
+        orders: [
+          order(1, '2026-01-01', '2026-12-31', [1, 2, 3]),
+          order(9, '2026-01-01', null, [1]),
+        ],
         utilities: [
           utility(1, { consumptions: history }),
           utility(2),
@@ -440,6 +510,7 @@ describe('agreementForecast', () => {
       orders_without_dates: [9],
       utilities_without_data: [2],
       utilities_other_type: [3],
+      commitments_without_amount: [],
     });
     expect(rowOf(f, 7, 2026)).toMatchObject({ utilities: 2, to_invoice: 3650, coverage: 0.5 });
   });

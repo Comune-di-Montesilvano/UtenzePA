@@ -51,6 +51,8 @@ export interface AgreementForecast {
     orders_without_dates: number[];
     utilities_without_data: number[];
     utilities_other_type: number[];
+    // Annualità di impegno senza importo: contano come niente impegnato.
+    commitments_without_amount: {chapter_id: number | null; year: number; count: number}[];
   };
   computed_at: string;
   chapters: {id: number; label: string}[];

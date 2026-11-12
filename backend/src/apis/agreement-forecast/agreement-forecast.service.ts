@@ -168,7 +168,7 @@ export class AgreementForecastService {
     const chapters = chapterIds.length
       ? (await this.q(sql.CHAPTERS_SQL, [chapterIds])).map((c) => ({
           id: Number(c.id),
-          label: `${String(c.chapter_code)}/${String(c.article ?? 0)} — ${String(c.description ?? '')}`,
+          label: `${String(c.chapter_code)}/${String(c.article ?? 0)}${c.description ? ` — ${String(c.description)}` : ''}`,
         }))
       : [];
     const shared = (await this.q(sql.SHARED_COMMITMENTS_SQL, [agreementId, agreementId])).map(

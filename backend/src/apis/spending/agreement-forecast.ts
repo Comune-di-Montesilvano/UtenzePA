@@ -158,16 +158,19 @@ function billedDays(lines: StatsLine[], w: { start: number; end: number }): Set<
 }
 
 // Costo unitario tutto incluso: spesa delle righe / consumo, sugli ultimi
-// PRICE_DAYS giorni che finiscono all'ultimo giorno coperto da una riga,
+// PRICE_DAYS giorni che finiscono all'ultimo giorno coperto da una riga (mai
+// dopo oggi: una fine periodo sbagliata nel futuro svuoterebbe la finestra),
 // contando solo i giorni fatturati che hanno anche il consumo (un giorno con
 // consumo ma senza bolletta abbasserebbe il prezzo). null senza righe o
 // senza consumo.
 export function proposedPrice(
   utilities: { lines: StatsLine[]; daily: Map<number, number> }[],
+  today: number,
 ): number | null {
   let last = -Infinity;
   for (const u of utilities) for (const l of u.lines) last = Math.max(last, lineDay(l));
   if (last === -Infinity) return null;
+  last = Math.min(last, today);
   const w = { start: last - PRICE_DAYS + 1, end: last };
   let spend = 0;
   let consumption = 0;
@@ -188,7 +191,8 @@ export function proposedPrice(
 
 // Spesa media giornaliera dalle righe degli ultimi 365 giorni: importo
 // diviso i giorni coperti dalle righe (non 365: le bollette arrivano in
-// ritardo); righe senza periodo: diviso 365. null senza righe nel periodo.
+// ritardo); righe senza periodo: diviso 365. null senza righe nel periodo;
+// mai negativa (solo note di credito = nessuna spesa attesa).
 export function dailySpend(lines: StatsLine[], today: number): number | null {
   const w = { start: today - 364, end: today };
   let total = 0;
@@ -208,7 +212,7 @@ export function dailySpend(lines: StatsLine[], today: number): number | null {
     total += share;
   }
   if (!any) return null;
-  return total / (covered.size || 365);
+  return Math.max(0, total / (covered.size || 365));
 }
 
 // Origine della stima dell'utenza e costo previsto di un giorno non
@@ -331,6 +335,8 @@ export interface AgreementForecast {
     utilities_without_data: number[];
     // Tipi senza convenzione di fornitura (acqua, connettività): esclusi.
     utilities_other_type: number[];
+    // Annualità di impegno senza importo: contano come niente impegnato.
+    commitments_without_amount: { chapter_id: number | null; year: number; count: number }[];
   };
 }
 
@@ -394,7 +400,10 @@ export function agreementForecast(input: ForecastInput): AgreementForecast {
     const ofType = utilities.filter((u) => u.hard_type === type);
     if (!ofType.length) continue;
     const trend = consumptionTrend(ofType.map(dailyOf), today);
-    const proposed = proposedPrice(ofType.map((u) => ({ lines: u.lines, daily: dailyOf(u) })));
+    const proposed = proposedPrice(
+      ofType.map((u) => ({ lines: u.lines, daily: dailyOf(u) })),
+      today,
+    );
     const manual = manualPrices[type] ?? null;
     const used = manual ?? proposed;
     prices.push({
@@ -517,7 +526,7 @@ export function agreementForecast(input: ForecastInput): AgreementForecast {
       hard_type: u.hard_type,
       chapter_id: u.chapter_id,
       source: expected.source,
-      from_draft: !orders.some((o) => !o.draft && o.utility_ids.includes(u.id)),
+      from_draft: !dated.some((o) => !o.draft && o.utility_ids.includes(u.id)),
       lines_without_period: withoutPeriod,
       years: [...perYear.entries()]
         .sort(([a], [b]) => a - b)
@@ -568,6 +577,9 @@ export function agreementForecast(input: ForecastInput): AgreementForecast {
       orders_without_dates: orders.filter((o) => !hasBothDates(o)).map((o) => o.id),
       utilities_without_data: withoutData,
       utilities_other_type: otherType.map((u) => u.id),
+      commitments_without_amount: committed
+        .filter((c) => c.without_amount > 0)
+        .map((c) => ({ chapter_id: c.chapter_id, year: c.year, count: c.without_amount })),
     },
   };
 }

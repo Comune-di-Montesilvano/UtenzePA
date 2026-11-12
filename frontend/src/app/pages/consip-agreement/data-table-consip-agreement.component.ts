@@ -16,6 +16,7 @@ import {ConsipAgreementSheetComponent} from './consip-agreement-sheet.component'
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 import {BooleanYesNoPipe} from '../../core/pipes/boolean-yes-no-pipe';
 import {partyName} from '../../core/helpers/party-name.helper';
+import type {IColumnDef} from '../../core/interfaces/column-def.interface';
 
 @Component({
   selector: 'app-data-table-consip-agreement',

@@ -26,6 +26,7 @@ import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-ba
 import {CREDIT_NOTE_BADGE, isCreditNote} from '../../core/helpers/entity-status';
 import {SDI_STATUS_LABELS, sdiStatusBadge} from './sdi-status';
 import {paymentStatusBadge, paymentStatusLabel} from './payment-status';
+import type {IColumnDef} from '../../core/interfaces/column-def.interface';
 
 @Component({
   selector: 'app-data-table-invoices',

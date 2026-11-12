@@ -21,6 +21,7 @@ import {TruncatePipe} from '../../core/pipes/truncate.pipe';
 import {cadastralUnitLabel} from './entity/cadastral-unit';
 import {BrandingService} from '../../services/branding.service';
 import {LEGAL_NATURE_LABEL, MEF_USAGE_LABEL} from './mef-domains';
+import type {IColumnDef} from '../../core/interfaces/column-def.interface';
 
 @Component({
   selector: 'app-data-table-assets',
