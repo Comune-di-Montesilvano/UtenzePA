@@ -23,6 +23,13 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Dipendenze").
 - Merge sequenziale di più PR sullo stesso lockfile: conflitti a cascata, riaggiornarle una alla volta dopo ogni merge.
 - Aggiungere un fix sopra un bump dependabot senza ricreare la PR: branch locale da `origin/<branch-dependabot>`, commit, `git push origin <branch-locale>:<branch-dependabot>` (la CI riparte da sola).
 
+## Refresh del lockfile: difetti noti (2026-11-12, da sistemare)
+
+Emersi con la CVE-2026-116689 di `follow-redirects`, che ha bloccato il job `docker (backend, production)` di ogni PR finché l'override non è stato alzato a mano (PR #368).
+
+- **I pacchetti sotto `overrides` non si aggiornano da soli.** Con l'override a `^1.16.1` il refresh ha lasciato la 1.16.1 per due settimane, benché la 1.16.2 fosse già uscita; alzato l'override, lo stesso workflow ha preso la 1.16.3. Da fare: nel workflow, un aggiornamento esplicito per ogni voce di `overrides` (da provare), oppure alzare l'override a mano a ogni segnalazione Trivy.
+- **La PR del refresh può restare rossa in silenzio.** La #348 è rimasta aperta dal 28 ottobre con `ERR_PNPM_OUTDATED_LOCKFILE` su `backend` e `migrations` (lockfile non allineato al `package.json` della stessa PR; il workflow riscrive anche i `package.json`): l'auto-merge non scattava e nessuno veniva avvisato. Da fare: capire perché i due file divergono, e un controllo schedulato che apra una issue se `deps/lockfile-refresh` resta aperta e rossa per più di due giorni.
+
 ## Pacchetti ESM-only e jest
 
 - Un pacchetto solo ESM (`"type": "module"`, senza build CJS — es. `@nestjs/schedule@12`) rompe jest/ts-jest se importato staticamente in un file coperto da spec ("SyntaxError: Unexpected token export"), anche se a runtime Node lo carica. Fix nel codice, non nel tooling: unico import statico nel `.module.ts` (mai caricato dagli spec, escluso da `collectCoverageFrom`) e registrazione via API imperativa. Per i cron: "Dynamic schedule module" (`SchedulerRegistry.addCronJob()` in `onModuleInit()`), vedi `cronjobs.module.ts`/`backup.module.ts`.
