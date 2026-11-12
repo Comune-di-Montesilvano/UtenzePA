@@ -136,7 +136,7 @@ export function lineShare(line: StatsLine, w: DayWindow): number {
 }
 
 // Spesa dei soli giorni con consumo: ogni riga conta per i suoi giorni coperti.
-function spendOnDays(lines: StatsLine[], days: Set<number>, w: DayWindow): number {
+export function spendOnDays(lines: StatsLine[], days: Set<number>, w: DayWindow): number {
   let total = 0;
   for (const line of lines) {
     const amount = Number(line.amount);
