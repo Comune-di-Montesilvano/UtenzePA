@@ -19,6 +19,7 @@ import {AbstractDataTableComponent} from '../../core/components/abstract-data-ta
 import {ContractEditDialogComponent} from './contract-edit-dialog.component';
 import {ConfirmDialogComponent} from '../../core/components/confirm-dialog.component';
 import {partyName} from '../../core/helpers/party-name.helper';
+import type {IColumnDef} from '../../core/interfaces/column-def.interface';
 
 @Component({
   selector: 'app-data-table-contracts',

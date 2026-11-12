@@ -21,6 +21,7 @@ import {ComplexFilters, ComplexService} from './complex.service';
 import {Complex, COMPLEX_TYPE_LABEL} from './complex.model';
 import {ComplexEditDialogComponent, ComplexEditDialogData} from './complex-edit-dialog.component';
 import {complexFilters} from './complexes-filters';
+import type {IColumnDef} from '../../core/interfaces/column-def.interface';
 
 // Colonne visibili ricordate (tutte, se nessuna scelta salvata).
 const COLUMNS_KEY = 'columns:complexes';

@@ -5,6 +5,7 @@ import {MatIconModule} from '@angular/material/icon';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatSelectModule} from '@angular/material/select';
 import {HasRoleDirective} from '../../directives/has-role.directive';
+import type {IColumnDef} from '../../interfaces/column-def.interface';
 
 // "Elenco (N)" a sinistra; Colonne, Esporta CSV, + Nuovo a destra, sempre in quest'ordine.
 @Component({

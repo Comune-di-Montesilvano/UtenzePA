@@ -17,6 +17,7 @@ import {partyName} from '../../core/helpers/party-name.helper';
 import {ThirdParty} from './entity/third-party.entity';
 import {partyIdentifier, TYPE_LABEL} from './third-party.model';
 import {ThirdPartyEditDialogComponent} from './third-party-edit-dialog.component';
+import type {IColumnDef} from '../../core/interfaces/column-def.interface';
 
 @Component({
   selector: 'app-data-table-third-parties',

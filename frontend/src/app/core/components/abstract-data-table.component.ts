@@ -6,6 +6,7 @@ import {MatDialog} from '@angular/material/dialog';
 import {ConfirmDialogComponent, ConfirmDialogData} from './confirm-dialog.component';
 import {ScreenSizeService} from '../../services/screen-size.service';
 import {isSheetRefresh, sheetDialogConfig} from './entity-sheet/sheet-utils';
+import type {IColumnDef} from '../interfaces/column-def.interface';
 
 export interface EditDialogData<T> {
   mode: 'create' | 'edit';

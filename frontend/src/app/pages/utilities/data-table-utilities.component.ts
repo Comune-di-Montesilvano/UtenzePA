@@ -25,6 +25,7 @@ import {FormatAmountPipe} from '../../core/pipes/format-amount.pipe';
 import {partyName} from '../../core/helpers/party-name.helper';
 import {costStatus, isTransferredUtility, maintenanceStatus} from '../../core/helpers/entity-status';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
+import type {IColumnDef} from '../../core/interfaces/column-def.interface';
 
 @Component({
   selector: 'app-data-table-utilities',

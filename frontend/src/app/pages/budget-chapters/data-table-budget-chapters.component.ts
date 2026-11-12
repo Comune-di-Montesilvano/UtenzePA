@@ -17,6 +17,7 @@ import {ChapterBudgetService} from './chapter-budget.service';
 import {ChapterYearSummary} from './chapter-budget.model';
 import {formatEuro} from './spending/budget-chapter-spending.service';
 import {ACCOUNTING_SOURCE, AccountingStateService} from '../../core/services/accounting-state.service';
+import type {IColumnDef} from '../../core/interfaces/column-def.interface';
 
 @Component({
   selector: 'app-data-table-budget-chapters',

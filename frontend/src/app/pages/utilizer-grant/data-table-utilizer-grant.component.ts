@@ -27,6 +27,7 @@ import {
   STATUS_LABEL,
   statusBadge,
 } from './real-estate-contract.model';
+import type {IColumnDef} from '../../core/interfaces/column-def.interface';
 
 @Component({
   selector: 'app-data-table-utilizer-grant',
