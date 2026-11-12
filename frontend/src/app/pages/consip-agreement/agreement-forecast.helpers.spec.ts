@@ -1,5 +1,5 @@
-import {differenceTone, SOURCE_LABEL, unitLabel, utilitiesOf, yearGroups} from './agreement-forecast.helpers';
-import type {ForecastRow, ForecastUtilityRow} from './agreement-forecast.model';
+import {differenceTone, forecastNotices, SOURCE_LABEL, unitLabel, utilitiesOf, yearGroups} from './agreement-forecast.helpers';
+import type {AgreementForecast, ForecastRow, ForecastUtilityRow} from './agreement-forecast.model';
 
 const row = (over: Partial<ForecastRow>): ForecastRow => ({
   chapter_id: 7, year: 2026, utilities: 1, invoiced: 0, to_invoice: 0, total: 0, committed: 0, remaining: 0,
@@ -91,5 +91,52 @@ describe('utilitiesOf', () => {
   it('capitolo null = utenze senza capitolo', () => {
     const list = [utility({id: 5, chapter_id: null, years: [{year: 2026, invoiced: 0, to_invoice: 1, expected_consumption: null}]})];
     expect(utilitiesOf(list, null, 2026).map(u => u.id)).toEqual([5]);
+  });
+});
+
+describe('forecastNotices', () => {
+  const u = (id: number, over: Partial<ForecastUtilityRow> = {}): ForecastUtilityRow => ({
+    id, utility_code: `IT00${id}`, hard_type: 'LIGHT', chapter_id: 7, source: 'history', from_draft: false,
+    lines_without_period: false, years: [], ...over,
+  });
+  const forecast = (over: Partial<AgreementForecast> = {}): AgreementForecast => ({
+    horizon: null, prices: [], rows: [], utilities: [],
+    warnings: {orders_without_dates: [], utilities_without_data: [], utilities_other_type: []},
+    computed_at: '2026-11-12T10:00:00.000Z', chapters: [{id: 7, label: '1234/0 — Luce scuole'}],
+    shared_commitments: [], shares_without_lines: [], ...over,
+  });
+
+  it('niente da segnalare: nessun avviso', () => {
+    expect(forecastNotices(forecast())).toEqual([]);
+  });
+
+  it('ogni avviso dice quali ordini e quali utenze', () => {
+    const notices = forecastNotices(forecast({
+      utilities: [u(1, {source: 'none'}), u(2, {lines_without_period: true}), u(3, {utility_code: null, lines_without_period: true})],
+      warnings: {orders_without_dates: [12, 15], utilities_without_data: [1], utilities_other_type: [8, 9]},
+      shared_commitments: [{id: 4, label: '2026/514/1'}],
+      shares_without_lines: [{year: 2026, amount: 100}],
+      rows: [{chapter_id: 7, year: 2026, utilities: 1, invoiced: 0, to_invoice: 0, total: 0, committed: 0, remaining: 0,
+        difference: 0, coverage: 0.4, shortfall: null, alert: 'insufficient_data'}],
+    }));
+    expect(notices.slice(0, 6)).toEqual([
+      'Ordini senza date di fornitura valide: 2 (contratti id 12, 15): non entrano nel calcolo',
+      'Utenze senza dati: 1 (IT001)',
+      'Utenze con righe di fattura senza periodo: 2 (IT002, id 3): l\u2019importo \u00e8 nel fatturato ma i giorni restano da fatturare',
+      'Utenze di altro tipo (acqua, connettivit\u00e0) escluse dal calcolo: 2',
+      "Impegni condivisi con un'altra convenzione: 2026/514/1 (contano per intero in entrambe)",
+      "Dati insufficienti per l'avviso: 1234/0 — Luce scuole (2026)",
+    ]);
+    expect(notices[6]).toMatch(/^Quote su fatture senza righe per utenza: 100,00.€ \(2026\)$/);
+    expect(notices).toHaveLength(7);
+  });
+
+  it('elenchi lunghi: i primi dieci e il resto contato', () => {
+    const many = Array.from({length: 13}, (_, i) => u(i + 1, {source: 'none'}));
+    const [notice] = forecastNotices(forecast({
+      utilities: many,
+      warnings: {orders_without_dates: [], utilities_without_data: many.map(x => x.id), utilities_other_type: []},
+    }));
+    expect(notice).toBe('Utenze senza dati: 13 (IT001, IT002, IT003, IT004, IT005, IT006, IT007, IT008, IT009, IT0010 e altre 3)');
   });
 });

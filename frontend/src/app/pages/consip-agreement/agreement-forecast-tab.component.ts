@@ -10,7 +10,7 @@ import {ToastService} from '../../core/services/toast.service';
 import {formatEuro} from '../budget-chapters/spending/budget-chapter-spending.service';
 import {HardType, HardTypeDescription} from '../utility-types/enum/hard-type.enum';
 import {
-  differenceTone, ForecastUtilityYear, SOURCE_LABEL, unitLabel, utilitiesOf, yearGroups,
+  differenceTone, forecastNotices, ForecastUtilityYear, SOURCE_LABEL, unitLabel, utilitiesOf, yearGroups,
 } from './agreement-forecast.helpers';
 import type {AgreementForecast, ForecastPrice, ForecastRow} from './agreement-forecast.model';
 import {ConsipAgreementService} from './consip-agreement.service';
@@ -100,7 +100,8 @@ const CONSUMPTION_UNIT: Record<string, string> = {LIGHT: 'kWh', GAS: 'Smc'};
                 <tr>
                   <th>Capitolo</th><th class="num">Utenze</th><th class="num">Fatturato</th>
                   <th class="num">Previsto da fatturare</th><th class="num">Totale previsto</th>
-                  <th class="num">Impegnato</th><th class="num">Differenza</th><th class="num">Copertura</th>
+                  <th class="num">Impegnato</th><th class="num" matTooltip="Impegnato meno le quote già spese">Rimanenza</th>
+                  <th class="num">Differenza</th><th class="num">Copertura</th>
                 </tr>
               </thead>
               <tbody>
@@ -116,6 +117,7 @@ const CONSUMPTION_UNIT: Record<string, string> = {LIGHT: 'kWh', GAS: 'Smc'};
                     <td class="num">{{ eur(r.to_invoice) }}</td>
                     <td class="num">{{ eur(r.total) }}</td>
                     <td class="num">{{ eur(r.committed) }}</td>
+                    <td class="num">{{ eur(r.remaining) }}</td>
                     <td class="num" [class.fc-danger]="tone(r) === 'danger'" [class.fc-warning]="tone(r) === 'warning'"
                         [matTooltip]="differenceTooltip(r)">
                       {{ eur(r.difference) }}
@@ -124,7 +126,7 @@ const CONSUMPTION_UNIT: Record<string, string> = {LIGHT: 'kWh', GAS: 'Smc'};
                   </tr>
                   @if (isOpen(r)) {
                     <tr class="fc-detail">
-                      <td colspan="8">
+                      <td colspan="9">
                         <table class="sheet-table fc-inner">
                           <thead>
                             <tr>
@@ -163,6 +165,7 @@ const CONSUMPTION_UNIT: Record<string, string> = {LIGHT: 'kWh', GAS: 'Smc'};
                     <td class="num">{{ eur(t.to_invoice) }}</td>
                     <td class="num">{{ eur(t.total) }}</td>
                     <td class="num">{{ eur(t.committed) }}</td>
+                    <td class="num">{{ eur(t.remaining) }}</td>
                     <td class="num">{{ eur(t.difference) }}</td>
                     <td class="num">{{ percent(t.coverage) }}</td>
                   </tr>
@@ -249,25 +252,7 @@ export class AgreementForecastTabComponent implements OnChanges {
       summary: y.totals.shortfall !== null ? `Mancano ${formatEuro(y.totals.shortfall)}` : undefined,
       open: y.open,
     })), this.groups);
-    this.notices = this.buildNotices(f);
-  }
-
-  private buildNotices(f: AgreementForecast): string[] {
-    const out: string[] = [];
-    const w = f.warnings;
-    if (w.orders_without_dates.length) out.push(`Ordini senza date di fornitura: ${w.orders_without_dates.length}`);
-    if (w.utilities_without_data.length) out.push(`Utenze senza dati: ${w.utilities_without_data.length}`);
-    if (f.shared_commitments.length) {
-      out.push(`Impegni condivisi con un'altra convenzione: ${f.shared_commitments.map(c => c.label).join(', ')} (contano per intero in entrambe)`);
-    }
-    const insufficient = f.rows.filter(r => r.alert === 'insufficient_data');
-    if (insufficient.length) {
-      out.push(`Dati insufficienti per l'avviso: ${insufficient.map(r => `${this.chapterLabel(r.chapter_id)} (${r.year})`).join(', ')}`);
-    }
-    for (const s of f.shares_without_lines) {
-      out.push(`Quote su fatture senza righe per utenza: ${formatEuro(s.amount)} (${s.year})`);
-    }
-    return out;
+    this.notices = forecastNotices(f);
   }
 
   private dateIt(iso: string): string {
@@ -332,7 +317,7 @@ export class AgreementForecastTabComponent implements OnChanges {
   differenceTooltip(r: ForecastRow): string {
     if (r.alert === 'short') return `Impegni insufficienti: mancano ${formatEuro(r.shortfall)}`;
     if (r.alert === 'insufficient_data') return "Dati insufficienti per l'avviso: copertura sotto il 60 %";
-    return 'Rimanenza degli impegni meno il previsto da fatturare';
+    return 'Rimanenza meno previsto da fatturare';
   }
 
   recompute(): void {
@@ -380,10 +365,10 @@ export class AgreementForecastTabComponent implements OnChanges {
     const f = this.forecast;
     if (!f) return;
     const n = (v: number): string => v.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false});
-    const header = ['Esercizio', 'Capitolo', 'Utenze', 'Fatturato', 'Previsto da fatturare', 'Totale previsto', 'Impegnato', 'Differenza', 'Copertura'];
+    const header = ['Esercizio', 'Capitolo', 'Utenze', 'Fatturato', 'Previsto da fatturare', 'Totale previsto', 'Impegnato', 'Rimanenza', 'Differenza', 'Copertura'];
     const rows = [...f.rows].sort((a, b) => b.year - a.year).map(r => [
       r.year, this.chapterLabel(r.chapter_id), r.utilities, n(r.invoiced), n(r.to_invoice), n(r.total), n(r.committed),
-      n(r.difference), this.percent(r.coverage),
+      n(r.remaining), n(r.difference), this.percent(r.coverage),
     ]);
     const csv = '﻿' + [header, ...rows]
       .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))

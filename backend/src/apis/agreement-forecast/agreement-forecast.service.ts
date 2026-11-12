@@ -44,6 +44,9 @@ export class AgreementForecastService {
   private readonly logger = new Logger(AgreementForecastService.name);
   private chain: Promise<unknown> = Promise.resolve();
   private readonly pending = new Set<number>();
+  // Un calcolo alla volta per convenzione: la scheda (GET), il prezzo a mano
+  // e la coda del ricalcolo scrivono la stessa cache.
+  private readonly locks = new Map<number, Promise<unknown>>();
 
   constructor(
     private readonly dataSource: DataSource,
@@ -57,7 +60,23 @@ export class AgreementForecastService {
 
   // Con asOf il calcolo è «come se fosse» quel giorno (prova di validità):
   // dati successivi ignorati, cache non scritta.
-  async compute(agreementId: number, opts: { asOf?: string } = {}): Promise<ForecastResponse> {
+  compute(agreementId: number, opts: { asOf?: string } = {}): Promise<ForecastResponse> {
+    if (opts.asOf) return this.computeNow(agreementId, opts);
+    const previous = this.locks.get(agreementId) ?? Promise.resolve();
+    const next = previous.catch(() => undefined).then(() => this.computeNow(agreementId, opts));
+    this.locks.set(agreementId, next);
+    void next
+      .catch(() => undefined)
+      .finally(() => {
+        if (this.locks.get(agreementId) === next) this.locks.delete(agreementId);
+      });
+    return next;
+  }
+
+  private async computeNow(
+    agreementId: number,
+    opts: { asOf?: string } = {},
+  ): Promise<ForecastResponse> {
     if (!(await this.q(sql.AGREEMENT_SQL, [agreementId])).length) {
       throw new BadRequestException('Convenzione non trovata');
     }

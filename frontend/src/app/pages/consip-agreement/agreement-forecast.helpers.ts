@@ -1,4 +1,4 @@
-import type {ForecastRow, ForecastSource, ForecastUtilityRow} from './agreement-forecast.model';
+import type {AgreementForecast, ForecastRow, ForecastSource, ForecastUtilityRow} from './agreement-forecast.model';
 
 export const SOURCE_LABEL: Record<ForecastSource, string> = {
   history: 'Storico dei consumi',
@@ -93,4 +93,47 @@ export function utilitiesOf(utilities: ForecastUtilityRow[], chapterId: number |
     });
   }
   return out.sort((a, b) => (a.utility_code ?? '').localeCompare(b.utility_code ?? '', 'it'));
+}
+
+export function chapterLabelOf(f: AgreementForecast, id: number | null): string {
+  return id === null ? 'Senza capitolo' : f.chapters.find(c => c.id === id)?.label ?? `Capitolo id ${id}`;
+}
+
+// «N (a, b, c)»: al massimo dieci nomi, il resto contato.
+function listed(names: string[]): string {
+  const shown = names.slice(0, 10).join(', ');
+  return `${names.length} (${names.length > 10 ? `${shown} e altre ${names.length - 10}` : shown})`;
+}
+
+// Avvisi sopra la tabella: tutto ciò che rende la stima meno precisa, con gli
+// ordini e le utenze interessate.
+export function forecastNotices(f: AgreementForecast): string[] {
+  const out: string[] = [];
+  const w = f.warnings;
+  const name = (u: ForecastUtilityRow): string => u.utility_code || `id ${u.id}`;
+  const codes = (ids: number[]): string[] =>
+    ids.map(id => f.utilities.find(u => u.id === id)).map((u, i) => (u ? name(u) : `id ${ids[i]}`));
+  if (w.orders_without_dates.length) {
+    out.push(`Ordini senza date di fornitura valide: ${w.orders_without_dates.length} (contratti id ${w.orders_without_dates.join(', ')}): non entrano nel calcolo`);
+  }
+  if (w.utilities_without_data.length) out.push(`Utenze senza dati: ${listed(codes(w.utilities_without_data))}`);
+  const loose = f.utilities.filter(u => u.lines_without_period);
+  if (loose.length) {
+    out.push(`Utenze con righe di fattura senza periodo: ${listed(loose.map(name))}: l’importo è nel fatturato ma i giorni restano da fatturare`);
+  }
+  if (w.utilities_other_type.length) {
+    out.push(`Utenze di altro tipo (acqua, connettività) escluse dal calcolo: ${w.utilities_other_type.length}`);
+  }
+  if (f.shared_commitments.length) {
+    out.push(`Impegni condivisi con un'altra convenzione: ${f.shared_commitments.map(c => c.label).join(', ')} (contano per intero in entrambe)`);
+  }
+  const insufficient = f.rows.filter(r => r.alert === 'insufficient_data');
+  if (insufficient.length) {
+    out.push(`Dati insufficienti per l'avviso: ${insufficient.map(r => `${chapterLabelOf(f, r.chapter_id)} (${r.year})`).join(', ')}`);
+  }
+  for (const s of f.shares_without_lines) {
+    const amount = s.amount.toLocaleString('it-IT', {style: 'currency', currency: 'EUR'});
+    out.push(`Quote su fatture senza righe per utenza: ${amount} (${s.year})`);
+  }
+  return out;
 }

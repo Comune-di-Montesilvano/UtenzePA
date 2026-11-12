@@ -115,14 +115,16 @@ Dalla scheda del contratto di fornitura il pulsante accanto al campo **Convenzio
 Il tab **Fabbisogno** della convenzione mette a confronto, per ogni capitolo ed esercizio, quello che resta da fatturare con quello che resta sugli impegni. Vale per le utenze di luce e gas degli ordini della convenzione (i suoi contratti di fornitura, bozze comprese), per tutto il periodo degli ordini.
 
 1. Apri la convenzione e scegli **Fabbisogno**. Gli esercizi sono gruppi apribili; quello in corso è già aperto. Se gli impegni non basteranno, accanto all'esercizio leggi «Mancano … €» e in alto nella scheda compare il badge **Impegni insufficienti**.
-2. Leggi le colonne. **Fatturato**: le righe di fattura già arrivate per le utenze del capitolo. **Previsto da fatturare**: la stima dei giorni non ancora coperti da una fattura. **Totale previsto**: la somma dei due. **Impegnato**: gli impegni della convenzione su quel capitolo ed esercizio. **Differenza**: la rimanenza degli impegni meno il previsto da fatturare; se è negativa manca quella cifra. **Copertura**: quanta parte della stima viene da fatture o dallo storico dei consumi; sotto il 60 % la stima è debole e l'avviso non scatta (la differenza è in giallo, «Dati insufficienti per l'avviso»).
+2. Leggi le colonne. **Fatturato**: le righe di fattura già arrivate per le utenze del capitolo. **Previsto da fatturare**: la stima dei giorni non ancora coperti da una fattura. **Totale previsto**: la somma dei due. **Impegnato**: gli impegni della convenzione su quel capitolo ed esercizio. **Rimanenza**: l'impegnato meno le quote già spese dalle fatture. **Differenza**: la rimanenza meno il previsto da fatturare; se è negativa manca quella cifra. **Copertura**: quanta parte dei giorni viene da fatture, dallo storico dei consumi o dal presunto annuo (non dalla sola spesa); sotto il 60 % la stima è debole e l'avviso non scatta (la differenza è in giallo, «Dati insufficienti per l'avviso»).
 3. Un clic su un capitolo mostra le sue utenze con consumo atteso, fatturato, costo previsto e origine della stima: **Storico dei consumi** (i consumi dello stesso periodo dell'anno prima, corretti con l'andamento recente), **Presunto annuo** (il consumo presunto della scheda utenza), **Stima dalla sola spesa** (la spesa media delle fatture, per le utenze senza consumi), **Senza dati**. Un clic sull'utenza ne apre la scheda.
 4. Controlla il **Costo unitario**. L'app propone il costo medio tutto incluso delle fatture degli ultimi tre mesi (IVA compresa). Se conosci un prezzo diverso (nuovo listino, rincaro annunciato) scrivilo nel campo **A mano** e premi Invio: la stima si ricalcola subito con quel prezzo. **Torna al proposto** lo toglie. Il prezzo a mano possono cambiarlo amministratori e operatori.
-5. **Ricalcola** aggiorna la stima; **Esporta** scarica la tabella. Il calcolo si aggiorna comunque da solo ogni notte e dopo ogni modifica a impegni e fatture: quando integri un impegno l'avviso sparisce.
+5. **Ricalcola** aggiorna la stima; **Esporta** scarica la tabella. Il calcolo si aggiorna comunque da solo ogni notte (per le convenzioni con almeno un ordine non chiuso) e ogni volta che salvi un impegno o una fattura dei suoi contratti: quando integri un impegno l'avviso sparisce.
 
 Per le utenze che entreranno nella convenzione più avanti, crea subito un **ordine in bozza** (contratto di fornitura con la spunta Bozza, le utenze e le date previste): il fabbisogno le conta dal giorno previsto e nel dettaglio sono marcate «Bozza».
 
-Sopra la tabella un riquadro avvisa di ciò che rende la stima meno precisa: ordini senza date di fornitura (non entrano nel calcolo), utenze senza dati, impegni condivisi con un'altra convenzione (contano per intero in entrambe), quote su fatture senza righe per utenza.
+Un ordine **chiuso** non riceve più fatture: i suoi giorni contano per il fatturato ma non vengono previsti. Quando le utenze passano a un nuovo ordine, chiudi il vecchio: altrimenti gli stessi giorni risultano da fatturare due volte.
+
+Sopra la tabella un riquadro avvisa di ciò che rende la stima meno precisa, dicendo quali ordini e quali utenze: ordini senza date di fornitura valide (non entrano nel calcolo), utenze senza dati, utenze con righe di fattura senza periodo, utenze di altro tipo escluse, impegni condivisi con un'altra convenzione (contano per intero in entrambe), quote su fatture senza righe per utenza.
 
 Limiti da conoscere:
 
@@ -605,7 +607,7 @@ L'import non corregge mai le anagrafiche: segnala le differenze, che trovi in da
 
 ### La convenzione risulta con impegni insufficienti
 
-**Causa:** nell'esercizio in corso, su almeno un capitolo, la stima di quello che resta da fatturare supera di oltre 200 € e del 5 % la rimanenza degli impegni della convenzione.
+**Causa:** nell'esercizio in corso, su almeno un capitolo, la stima di quello che resta da fatturare supera la rimanenza degli impegni della convenzione di oltre 200 € e di oltre il 5 % dell'impegnato.
 
 **Soluzione:** apri il tab **Fabbisogno** della convenzione e guarda i capitoli con la differenza in rosso. Se l'ammanco è vero, chiedi alla ragioneria di integrare l'impegno; se sul capitolo non resta abbastanza da impegnare (segnalazione **Variazione di bilancio da chiedere**) serve prima la variazione. Se la stima è troppo alta, controlla il costo unitario (puoi scriverne uno a mano), le date degli ordini e le utenze del capitolo: un'utenza cessata senza la cessazione registrata continua a essere prevista.
 

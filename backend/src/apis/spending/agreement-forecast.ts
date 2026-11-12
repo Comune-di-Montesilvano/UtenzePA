@@ -60,7 +60,13 @@ export interface ForecastUtility {
 // Origine della stima dei giorni non fatturati di un'utenza.
 export type ForecastSource = 'history' | 'annual' | 'spend' | 'none';
 
-const hasBothDates = (o: ForecastOrder): boolean => !!o.start && !!o.end && o.end >= o.start;
+// Durata massima credibile di un ordine (20 anni): oltre è un errore di
+// battitura nella scadenza e l'ordine conta come senza date (il calcolo
+// scorre i giorni uno a uno).
+const MAX_ORDER_DAYS = 7305;
+
+const hasBothDates = (o: ForecastOrder): boolean =>
+  !!o.start && !!o.end && o.end >= o.start && toDay(o.end) - toDay(o.start) <= MAX_ORDER_DAYS;
 
 // Periodi a carico del Comune: attiva e non volturata. Senza attivazioni né
 // cessazioni registrate l'utenza conta come attiva da sempre (stessa regola
@@ -427,6 +433,15 @@ export function agreementForecast(input: ForecastInput): AgreementForecast {
     const days = utilityDays(orders, u);
     if (!days.length) continue;
     const inDays = new Set(days);
+    // Un ordine chiuso non riceve più fatture: i suoi giorni contano per il
+    // fatturato ma non si prevedono (di solito le utenze sono passate a un
+    // altro ordine, che li prevede già).
+    const openDays = new Set(
+      utilityDays(
+        orders.filter((o) => !o.closed),
+        u,
+      ),
+    );
     const expected = expectedDayCost(
       u,
       dailyOf(u),
@@ -453,6 +468,9 @@ export function agreementForecast(input: ForecastInput): AgreementForecast {
       }
     }
     const withoutPeriod = loose.size > 0;
+    // Una riga senza periodo rende incerti i giorni del suo esercizio, non
+    // degli altri.
+    const uncertain = (year: number): boolean => loose.has(year);
     const estimated = expected.source === 'history' || expected.source === 'annual';
 
     const perYear = new Map<
@@ -469,19 +487,20 @@ export function agreementForecast(input: ForecastInput): AgreementForecast {
     };
     for (const d of days) {
       const year = yearOfDay(d);
+      const real = billed.get(d);
+      if (real === undefined && !openDays.has(d)) continue;
       const y = yearOf(year);
       const b = bucket(u.chapter_id, year);
       b.days++;
-      const real = billed.get(d);
       if (real !== undefined) {
         y.invoiced += real;
-        if (!withoutPeriod) b.goodDays++;
+        if (!uncertain(year)) b.goodDays++;
       } else if (year >= currentYear) {
         // Esercizi chiusi: nessuna proiezione.
         y.toInvoice += expected.cost(d);
         const consumption = expected.consumption(d);
         if (consumption !== null) y.consumption = (y.consumption ?? 0) + consumption;
-        if (estimated && !withoutPeriod) b.goodDays++;
+        if (estimated && !uncertain(year)) b.goodDays++;
       }
     }
     for (const [year, amount] of loose) yearOf(year).invoiced += amount;

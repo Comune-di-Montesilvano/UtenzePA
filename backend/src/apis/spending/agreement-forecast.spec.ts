@@ -464,4 +464,54 @@ describe('agreementForecast', () => {
       },
     ]);
   });
+
+  it('ordine chiuso: resta il fatturato, nessuna proiezione né avviso', () => {
+    const f = agreementForecast(
+      base({ orders: [{ ...order(1, '2026-01-01', '2026-12-31', [1]), closed: true }] }),
+    );
+    expect(rowOf(f, 7, 2026)).toMatchObject({
+      invoiced: 310,
+      to_invoice: 0,
+      coverage: 1,
+      shortfall: null,
+      alert: null,
+    });
+  });
+
+  it('ordine chiuso e ordine aperto sugli stessi giorni: si prevede', () => {
+    const f = agreementForecast(
+      base({
+        orders: [
+          { ...order(1, '2026-01-01', '2026-12-31', [1]), closed: true },
+          order(2, '2026-07-01', '2026-12-31', [1]),
+        ],
+      }),
+    );
+    // Solo i 184 giorni dell'ordine aperto.
+    expect(rowOf(f, 7, 2026)).toMatchObject({ invoiced: 310, to_invoice: 1840 });
+  });
+
+  it('riga senza periodo di un altro esercizio: la copertura di quello in corso non cala', () => {
+    const f = agreementForecast(
+      base({
+        orders: [order(1, '2025-07-01', '2026-12-31', [1])],
+        utilities: [
+          utility(1, {
+            consumptions: history,
+            lines: [line(50, null, null, '2025-08-15'), line(310, '2026-01-01', '2026-01-31')],
+          }),
+        ],
+      }),
+    );
+    expect(f.utilities[0].lines_without_period).toBe(true);
+    expect(rowOf(f, 7, 2026)).toMatchObject({ coverage: 1 });
+    expect(rowOf(f, 7, 2025)).toMatchObject({ invoiced: 50, coverage: 0 });
+  });
+
+  it('ordine con una scadenza assurda: come senza date, nessun calcolo infinito', () => {
+    const f = agreementForecast(base({ orders: [order(1, '2026-01-01', '9999-12-31', [1])] }));
+    expect(f.horizon).toBeNull();
+    expect(f.warnings.orders_without_dates).toEqual([1]);
+    expect(f.utilities).toEqual([]);
+  });
 });

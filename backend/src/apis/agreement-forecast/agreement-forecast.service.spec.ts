@@ -182,4 +182,23 @@ describe('AgreementForecastService', () => {
       .mockRejectedValueOnce(new Error('boom'));
     await expect(service.refreshAll()).resolves.toEqual({ processed: 1, failed: 1 });
   });
+
+  it('due calcoli insieme sulla stessa convenzione: uno alla volta, le scritture non si accavallano', async () => {
+    jest.useRealTimers();
+    const events: string[] = [];
+    dataSource.transaction.mockImplementation(async (cb) => {
+      events.push('inizio');
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      await cb(manager);
+      events.push('fine');
+    });
+    await Promise.all([service.compute(3), service.compute(3)]);
+    expect(events).toEqual(['inizio', 'fine', 'inizio', 'fine']);
+  });
+
+  it('un calcolo fallito non blocca il successivo sulla stessa convenzione', async () => {
+    dataSource.transaction.mockRejectedValueOnce(new Error('boom'));
+    await expect(service.compute(3)).rejects.toThrow('boom');
+    await expect(service.compute(3)).resolves.toMatchObject({ rows: [{ chapter_id: 7 }] });
+  });
 });
