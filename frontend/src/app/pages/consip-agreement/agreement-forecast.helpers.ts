@@ -15,43 +15,55 @@ export function unitLabel(hardType: string): string {
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
-export interface ForecastYearGroup {
-  year: number;
-  open: boolean;
-  rows: ForecastRow[];
-  totals: ForecastRow;
+// Copertura sotto cui la stima del capitolo è incerta (gemella di
+// MIN_ALERT_COVERAGE nel backend).
+export const UNCERTAIN_COVERAGE = 0.6;
+
+export interface PlanRow extends ForecastRow {
+  // Da chiedere alla ragioneria: quanto resta da pagare oltre il disponibile.
+  to_commit: number;
+  // Disponibile che avanza dopo aver pagato il previsto.
+  surplus: number;
+  // Già speso sugli impegni (impegnato − rimanenza).
+  spent: number;
+  uncertain: boolean;
 }
 
-// Righe per esercizio, dal più recente; aperto l'esercizio in corso o, se non
-// ha righe, il più recente. Totali: somma delle colonne, copertura media
-// pesata sulle utenze.
-export function yearGroups(rows: ForecastRow[], currentYear: number): ForecastYearGroup[] {
-  const years = [...new Set(rows.map(r => r.year))].sort((a, b) => b - a);
-  const openYear = years.includes(currentYear) ? currentYear : years[0];
-  return years.map(year => {
-    const list = rows.filter(r => r.year === year);
-    const sum = (pick: (r: ForecastRow) => number): number => round2(list.reduce((s, r) => s + pick(r), 0));
-    const utilities = list.reduce((s, r) => s + r.utilities, 0);
-    const missing = list.filter(r => r.shortfall !== null);
+export interface PlanYear {
+  year: number;
+  open: boolean;
+  rows: PlanRow[];
+  // Capitoli senza nulla da pagare né disponibile: non mostrati.
+  hidden: number;
+  totals: {to_pay: number; available: number; to_commit: number; short_chapters: number};
+}
+
+// Piano degli impegni: esercizio in corso e successivi, dal più vicino;
+// aperto l'esercizio in corso (o il primo). Da impegnare sommato capitolo per
+// capitolo: l'avanzo di un capitolo non copre un altro.
+export function planYears(rows: ForecastRow[], currentYear: number): PlanYear[] {
+  const years = [...new Set(rows.map(r => r.year))].filter(y => y >= currentYear).sort((a, b) => a - b);
+  return years.map((year, i) => {
+    const all = rows.filter(r => r.year === year);
+    const shown = all.filter(r => r.to_invoice !== 0 || r.remaining !== 0);
+    const plan: PlanRow[] = shown.map(r => ({
+      ...r,
+      to_commit: round2(Math.max(0, r.to_invoice - r.remaining)),
+      surplus: round2(Math.max(0, r.remaining - r.to_invoice)),
+      spent: round2(r.committed - r.remaining),
+      uncertain: r.to_invoice > 0 && r.coverage < UNCERTAIN_COVERAGE,
+    }));
+    const sum = (pick: (r: PlanRow) => number): number => round2(plan.reduce((s, r) => s + pick(r), 0));
     return {
       year,
-      open: year === openYear,
-      rows: list,
+      open: year === currentYear || (i === 0 && !years.includes(currentYear)),
+      rows: plan,
+      hidden: all.length - shown.length,
       totals: {
-        chapter_id: null,
-        year,
-        utilities,
-        invoiced: sum(r => r.invoiced),
-        to_invoice: sum(r => r.to_invoice),
-        total: sum(r => r.total),
-        committed: sum(r => r.committed),
-        remaining: sum(r => r.remaining),
-        difference: sum(r => r.difference),
-        coverage: utilities
-          ? Math.round((list.reduce((s, r) => s + r.coverage * r.utilities, 0) / utilities) * 10000) / 10000
-          : 0,
-        shortfall: missing.length ? round2(missing.reduce((s, r) => s + (r.shortfall ?? 0), 0)) : null,
-        alert: null,
+        to_pay: sum(r => r.to_invoice),
+        available: sum(r => r.remaining),
+        to_commit: sum(r => r.to_commit),
+        short_chapters: plan.filter(r => r.to_commit > 0).length,
       },
     };
   });
@@ -105,39 +117,36 @@ function listed(names: string[]): string {
   return `${names.length} (${names.length > 10 ? `${shown} e altre ${names.length - 10}` : shown})`;
 }
 
-// Avvisi sopra la tabella: tutto ciò che rende la stima meno precisa, con gli
-// ordini e le utenze interessate.
-export function forecastNotices(f: AgreementForecast): string[] {
+// Avvisi sopra la tabella: solo ciò che cambia il piano dall'esercizio in
+// corso in poi, con cosa fare e su quali ordini o utenze.
+export function forecastNotices(f: AgreementForecast, currentYear: number): string[] {
   const out: string[] = [];
   const w = f.warnings;
   const name = (u: ForecastUtilityRow): string => u.utility_code || `id ${u.id}`;
   const codes = (ids: number[]): string[] =>
     ids.map(id => f.utilities.find(u => u.id === id)).map((u, i) => (u ? name(u) : `id ${ids[i]}`));
   if (w.orders_without_dates.length) {
-    out.push(`Ordini senza date di fornitura valide: ${w.orders_without_dates.length} (contratti id ${w.orders_without_dates.join(', ')}): non entrano nel calcolo`);
+    out.push(`Ordini senza date di fornitura: ${w.orders_without_dates.length} (contratti id ${w.orders_without_dates.join(', ')}): completa le date nel contratto, altrimenti non entrano nel calcolo`);
   }
-  if (w.utilities_without_data.length) out.push(`Utenze senza dati: ${listed(codes(w.utilities_without_data))}`);
+  if (w.utilities_without_data.length) out.push(`Utenze senza dati: ${listed(codes(w.utilities_without_data))}: previste a zero`);
   const loose = f.utilities.filter(u => u.lines_without_period);
   if (loose.length) {
-    out.push(`Utenze con righe di fattura senza periodo: ${listed(loose.map(name))}: l’importo è nel fatturato ma i giorni restano da fatturare`);
+    out.push(`Utenze con righe di fattura senza periodo: ${listed(loose.map(name))}: l’importo è nel fatturato ma i giorni restano da pagare`);
   }
   if (w.utilities_other_type.length) {
     out.push(`Utenze di altro tipo (acqua, connettività) escluse dal calcolo: ${w.utilities_other_type.length}`);
   }
-  if (w.commitments_without_amount.length) {
-    const list = w.commitments_without_amount.map(c => `${chapterLabelOf(f, c.chapter_id)} (${c.year}, ${c.count})`).join(', ');
+  const withoutAmount = w.commitments_without_amount.filter(c => c.year >= currentYear);
+  if (withoutAmount.length) {
+    const list = withoutAmount.map(c => `${chapterLabelOf(f, c.chapter_id)} (${c.year}, ${c.count})`).join(', ');
     out.push(`Annualità di impegno senza importo: ${list}: contano come niente impegnato`);
   }
   if (f.shared_commitments.length) {
-    out.push(`Impegni condivisi con un'altra convenzione: ${f.shared_commitments.map(c => c.label).join(', ')} (contano per intero in entrambe)`);
+    out.push(`Impegni collegati anche a un'altra convenzione: ${listed(f.shared_commitments.map(c => c.label))}: il disponibile conta in entrambe, verifica che basti`);
   }
-  const insufficient = f.rows.filter(r => r.alert === 'insufficient_data');
-  if (insufficient.length) {
-    out.push(`Dati insufficienti per l'avviso: ${insufficient.map(r => `${chapterLabelOf(f, r.chapter_id)} (${r.year})`).join(', ')}`);
-  }
-  for (const s of f.shares_without_lines) {
+  for (const s of f.shares_without_lines.filter(x => x.year >= currentYear)) {
     const amount = s.amount.toLocaleString('it-IT', {style: 'currency', currency: 'EUR'});
-    out.push(`Quote su fatture senza righe per utenza: ${amount} (${s.year})`);
+    out.push(`Fatture senza righe per utenza nel ${s.year}: ${amount} di canoni o servizi, non previsti per il resto dell’anno`);
   }
   return out;
 }

@@ -87,6 +87,29 @@ describe('AgreementForecastTabComponent', () => {
     expect(input.value).toBe('');
   });
 
+  it('esito dell’anno: quanto impegnare in testa, capitoli da integrare nel riquadro', () => {
+    show(forecastOf(120));
+    const text = el().textContent ?? '';
+    expect(text).toMatch(/Da impegnare\s+30,00\s€/);
+    expect(text).toContain('1 capitolo da integrare');
+  });
+
+  it('ordini finiti e nulla da pagare: messaggio con il disponibile avanzato, niente tabella né costo unitario', () => {
+    show({...forecastOf(0), horizon: {start: '2024-01-01', end: '2025-12-31'}});
+    const text = el().textContent ?? '';
+    expect(text).toContain('Gli ordini della convenzione sono chiusi o scaduti');
+    expect(text).toContain('Sugli impegni restano 90,00');
+    expect(el().querySelector('table')).toBeNull();
+    expect(text).not.toContain('Costo unitario');
+  });
+
+  it('ordini in corso ma nulla da prevedere: fatture senza righe per utenza (canoni), non «ordini scaduti»', () => {
+    show({...forecastOf(0), horizon: {start: '2024-01-01', end: '2099-12-31'}});
+    const text = el().textContent ?? '';
+    expect(text).toContain('righe per utenza');
+    expect(text).not.toContain('chiusi o scaduti');
+  });
+
   it('riga del capitolo: si apre anche con la barra spaziatrice', () => {
     show(forecastOf(10));
     const row = el().querySelector('tbody tr.row-clickable') as HTMLElement;

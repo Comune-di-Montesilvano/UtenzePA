@@ -574,7 +574,8 @@ export function agreementForecast(input: ForecastInput): AgreementForecast {
     rows,
     utilities: utilityRows,
     warnings: {
-      orders_without_dates: orders.filter((o) => !hasBothDates(o)).map((o) => o.id),
+      // Un ordine chiuso non riceve più fatture: senza date non serve segnalarlo.
+      orders_without_dates: orders.filter((o) => !o.closed && !hasBothDates(o)).map((o) => o.id),
       utilities_without_data: withoutData,
       utilities_other_type: otherType.map((u) => u.id),
       commitments_without_amount: committed
