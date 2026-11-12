@@ -501,6 +501,36 @@ const formatDate = (iso: string | null): string => {
               </ul>
             </mat-expansion-panel>
             }
+            @if (data.agreements_commitments_short.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.agreements_commitments_short.count }}</span>
+                  Convenzioni con impegni che non basteranno
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (a of data.agreements_commitments_short.items; track a.id) {
+                  <li (click)="openAgreement(a.id)">{{ a.label }} · mancano {{ eur(a.missing) }} · {{ shortChapters(a.chapters) }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
+            @if (data.chapters_variation_needed.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.chapters_variation_needed.count }}</span>
+                  Capitoli da variare
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (c of data.chapters_variation_needed.items; track c.id) {
+                  <li (click)="openChapter(c.id)">{{ c.chapter }} · mancano {{ eur(c.missing) }} · da impegnare {{ eur(c.available) }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
             @if (data.utilities_with_uncommitted_chapter.count > 0) {
             <mat-expansion-panel>
               <mat-expansion-panel-header>
@@ -813,6 +843,16 @@ export class AnomaliesCardComponent implements OnInit {
 
   eur(n: number): string {
     return n.toLocaleString('it-IT', {style: 'currency', currency: 'EUR'});
+  }
+
+  openAgreement(id: number): void {
+    this.navigator.openConsipAgreement(id).subscribe(() => this.load());
+  }
+
+  // Capitoli dell'ammanco di una convenzione: i primi tre, poi il conteggio.
+  shortChapters(chapters: {label: string}[]): string {
+    const names = chapters.slice(0, 3).map(c => c.label.split(' — ')[0]).join(', ');
+    return chapters.length > 3 ? `capitoli ${names} e altri ${chapters.length - 3}` : `capitoli ${names}`;
   }
 
   openChapter(id: number): void {

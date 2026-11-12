@@ -98,6 +98,16 @@ export interface Anomalies {
   accounting_utility_chapter_ambiguous: AnomalyList<{id: number; utility_id: string; chapters: string}>;
   // Scaricamento automatico installato ma nessun caricamento riuscito da più di 2 giorni.
   accounting_import_stale: AnomalyList<{id: number; label: string}>;
+  // Convenzioni con impegni che non basteranno nell'esercizio in corso (cache del fabbisogno).
+  agreements_commitments_short: AnomalyList<{
+    id: number;
+    label: string;
+    missing: number;
+    chapters: {id: number | null; label: string; missing: number}[];
+    commitment_ids: number[];
+  }>;
+  // Capitoli dove l'ammanco previsto supera il «da impegnare»: serve la variazione di bilancio.
+  chapters_variation_needed: AnomalyList<ChapterAnomaly & {missing: number; available: number}>;
   // Fatture con contratto che il ricalcolo lascia senza impegno (nessun impegno nell'esercizio o da scegliere a mano).
   invoices_without_commitment: AnomalyList<{id: number; number: string; date: string; contract_id: number; amount: number; reason: 'NO_COMMITMENTS' | 'AMBIGUOUS'}>;
 }
