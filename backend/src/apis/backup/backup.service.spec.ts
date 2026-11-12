@@ -2,10 +2,49 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as mysql2Promise from 'mysql2/promise';
-import { BackupService } from './backup.service';
+import { BackupService, sqlBatches } from './backup.service';
 import { maintenance } from '@common/maintenance/maintenance';
 
 jest.mock('mysql2/promise');
+
+describe('sqlBatches', () => {
+  const create =
+    'DROP TABLE IF EXISTS `x`;\nCREATE TABLE `x` (\n  `id` int NOT NULL,\n  `t` text\n) ENGINE=InnoDB;\n\n';
+  const inserts = Array.from(
+    { length: 50 },
+    (_, i) => `INSERT INTO \`x\` (\`id\`, \`t\`) VALUES (${i}, 'riga; con\\npunto e virgola');\n`,
+  ).join('');
+  const dump = `SET FOREIGN_KEY_CHECKS=0;\n\n${create}${inserts}\nSET FOREIGN_KEY_CHECKS=1;\n`;
+
+  it('un dump piccolo resta un blocco solo, identico', () => {
+    expect([...sqlBatches(dump)]).toEqual([dump]);
+  });
+
+  it('divide in più blocchi senza perdere testo e senza spezzare le istruzioni', () => {
+    const batches = [...sqlBatches(dump, 200)];
+    expect(batches.length).toBeGreaterThan(5);
+    expect(batches.join('')).toBe(dump);
+    for (const batch of batches) {
+      expect(batch.trimEnd().endsWith(';')).toBe(true);
+      expect(batch.trimStart()).toMatch(/^(SET|DROP|CREATE|INSERT) /);
+    }
+  });
+
+  it('non taglia dentro una CREATE TABLE su più righe', () => {
+    const batches = [...sqlBatches(dump, 10)];
+    expect(batches.filter((b) => b.includes('CREATE TABLE'))).toEqual([
+      'CREATE TABLE `x` (\n  `id` int NOT NULL,\n  `t` text\n) ENGINE=InnoDB;\n',
+    ]);
+  });
+
+  it('accetta i fine riga CRLF e scarta una coda di soli spazi', () => {
+    const crlf = 'INSERT INTO x VALUES (1);\r\nINSERT INTO x VALUES (2);\r\n\r\n';
+    expect([...sqlBatches(crlf, 5)]).toEqual([
+      'INSERT INTO x VALUES (1);\r\n',
+      'INSERT INTO x VALUES (2);\r\n',
+    ]);
+  });
+});
 
 describe('BackupService', () => {
   let service: BackupService;

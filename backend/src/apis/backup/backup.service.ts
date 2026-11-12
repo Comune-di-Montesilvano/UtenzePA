@@ -43,6 +43,35 @@ function escapeValue(v: unknown): string {
     .replace(/\0/g, '\\0')}'`;
 }
 
+// Caratteri per blocco inviato a MySQL durante il ripristino: in UTF-8 al
+// massimo 16 MB, sotto il max_allowed_packet di default del server (64 MB).
+const RESTORE_BATCH_CHARS = 4 * 1024 * 1024;
+
+/**
+ * Divide un dump in blocchi di istruzioni intere. Il dump inviato in una sola
+ * query è un solo pacchetto: oltre max_allowed_packet il server lo rifiuta
+ * («Got a packet bigger than 'max_allowed_packet' bytes»). Il taglio cade solo
+ * dopo una riga che finisce con ";": gli a capo nei valori sono scritti come
+ * "\n" (vedi escapeValue), quindi una riga così chiude sempre un'istruzione.
+ */
+export function* sqlBatches(sql: string, maxChars = RESTORE_BATCH_CHARS): Generator<string> {
+  let start = 0;
+  let pos = 0;
+  while (pos < sql.length) {
+    const newline = sql.indexOf('\n', pos);
+    const lineEnd = newline === -1 ? sql.length : newline;
+    const lastChar = sql.charAt(sql.charAt(lineEnd - 1) === '\r' ? lineEnd - 2 : lineEnd - 1);
+    pos = newline === -1 ? sql.length : newline + 1;
+    if (pos - start >= maxChars && lastChar === ';') {
+      yield sql.slice(start, pos);
+      start = pos;
+    }
+  }
+  // Una coda di soli spazi darebbe «Query was empty».
+  const rest = sql.slice(start);
+  if (rest.trim().length > 0) yield rest;
+}
+
 export interface BackupInfo {
   filename: string;
   size: number;
@@ -360,7 +389,11 @@ export class BackupService {
       // commit su disco (minuti con le tabelle acc_*). Senza, si committa a
       // ogni DROP/CREATE (commit implicito del DDL), cioè una volta per tabella.
       await conn.query('SET autocommit=0');
-      await conn.query(sqlContent);
+      // A blocchi sulla stessa connessione: le SET in testa al dump
+      // (FOREIGN_KEY_CHECKS, SQL_MODE) valgono per tutta la sessione.
+      for (const batch of sqlBatches(sqlContent)) {
+        await conn.query(batch);
+      }
       await conn.query('COMMIT');
       this.logger.log(`Restore completato da: ${sqlFilePath}`);
     } catch (err) {
