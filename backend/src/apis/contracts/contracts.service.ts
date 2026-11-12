@@ -11,6 +11,7 @@ import { SearchContractDto } from '@apis/contracts/dto/search-contract.dto';
 import { BaseService, toFindOptionsRelations } from '@apis/shared/base.service';
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { replacedContractPatch } from './replace-contract';
+import { draftError, NOT_DRAFT_SQL } from './contract-draft';
 import { todayIso } from '@apis/utilizer-grant/real-estate-contract.calc';
 
 // Assente = ordinario.
@@ -56,10 +57,15 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
         qb.andWhere(`${alias}.supplier_id_fk = :supplier_id_fk`, { supplier_id_fk: filters.supplier_id_fk });
       }
       if (filters.missing_cig) {
-        qb.andWhere(`TRIM(IFNULL(${alias}.cig_contract, '')) = '' AND ${alias}.contract_kind = '${ContractKind.STANDARD}'`);
+        qb.andWhere(
+          `TRIM(IFNULL(${alias}.cig_contract, '')) = '' AND ${alias}.contract_kind = '${ContractKind.STANDARD}' AND ${NOT_DRAFT_SQL(alias)}`,
+        );
       }
       if (filters.closed !== undefined) {
         qb.andWhere(`${alias}.closed = :closed`, { closed: filters.closed });
+      }
+      if (filters.draft !== undefined) {
+        qb.andWhere(`${alias}.draft = :draft`, { draft: filters.draft });
       }
       if (filters.consip_order) {
         qb.andWhere(`${alias}.consip_order LIKE :consip_order`, { consip_order: `%${filters.consip_order}%` });
@@ -105,14 +111,25 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
   }
 
   async create(dto: CreateContractDto, userId?: number): Promise<Contract> {
-    const { utility_ids, replaces_contract_id, ...rest } = dto;
-    this.assertCigPresent(rest.cig_contract, rest.contract_kind, rest.closed);
+    const { utility_ids, replaces_contract_id: replacesId, ...rest } = dto;
+    const draftProblem = draftError(rest);
+    if (draftProblem) throw new BadRequestException(draftProblem);
+    // Una bozza non chiude il contratto che sostituirà: il rinnovo si
+    // completa a mano quando l'ordine è emesso.
+    const replaces_contract_id = rest.draft ? undefined : replacesId;
+    if (!rest.draft) this.assertCigPresent(rest.cig_contract, rest.contract_kind, rest.closed);
     if (isCigRequired(rest.contract_kind)) await this.assertCigAvailable(rest.cig_contract, null);
     // Rinnovo: il contratto sostituito si chiude nella stessa transazione.
     const previous = replaces_contract_id
       ? await this.repo.findOne({ where: { id: replaces_contract_id, deleted: false } as never })
       : null;
     if (replaces_contract_id && !previous) throw new BadRequestException('Contratto precedente non trovato.');
+    // Una bozza non si chiude: non può essere il contratto sostituito da un rinnovo.
+    if (previous?.draft) {
+      throw new BadRequestException(
+        'Il contratto precedente è una bozza: non si rinnova, togli la spunta Bozza e inserisci il CIG.',
+      );
+    }
     const previousSnapshot: Record<string, unknown> | null = previous ? { ...previous } : null;
     let previousPatch: Record<string, unknown> | null = null;
 
@@ -171,11 +188,22 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
 
     const before = await this.repo.findOne({ where: { id } as never });
     if (!before) throw new BadRequestException('elemento non trovato');
-    this.assertCigPresent(
-      rest.cig_contract !== undefined ? rest.cig_contract : before.cig_contract,
-      rest.contract_kind !== undefined ? rest.contract_kind : before.contract_kind,
-      rest.closed !== undefined ? rest.closed : before.closed,
-    );
+    // Regole valutate sullo stato risultante: dto sopra il salvato.
+    const next = {
+      draft: rest.draft !== undefined ? rest.draft : before.draft,
+      closed: rest.closed !== undefined ? rest.closed : before.closed,
+      supply_start_date: rest.supply_start_date !== undefined ? rest.supply_start_date : before.supply_start_date,
+      supply_expiry_date: rest.supply_expiry_date !== undefined ? rest.supply_expiry_date : before.supply_expiry_date,
+    };
+    const draftProblem = draftError(next, before);
+    if (draftProblem) throw new BadRequestException(draftProblem);
+    if (!next.draft) {
+      this.assertCigPresent(
+        rest.cig_contract !== undefined ? rest.cig_contract : before.cig_contract,
+        rest.contract_kind !== undefined ? rest.contract_kind : before.contract_kind,
+        next.closed,
+      );
+    }
     if (rest.cig_contract !== undefined) await this.assertCigAvailable(rest.cig_contract, id);
     const beforeSnapshot: Record<string, unknown> = { ...before };
 

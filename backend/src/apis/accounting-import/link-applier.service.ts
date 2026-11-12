@@ -7,14 +7,14 @@ import { AccountingDataService } from './accounting-data.service';
 import { planCommitmentContracts, planUtilityChapters } from './link-plan';
 import { RecordSource } from './record-source.enum';
 import { commitmentKey } from './scope';
+import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
 
 const COMMITMENTS_SQL =
   '/* l_commitments */ SELECT id, commitment_year, commitment_num, commitment_sub FROM budget_commitments ' +
   `WHERE deleted = 0 AND source = '${RecordSource.ACCOUNTING}'`;
 const LINKS_SQL =
   '/* l_links */ SELECT commitment_id, contract_id FROM budget_commitment_contracts';
-const CONTRACTS_SQL =
-  '/* l_contracts */ SELECT id, cig_contract FROM contracts WHERE deleted = 0 AND cig_contract IS NOT NULL';
+export const CONTRACTS_SQL = `/* l_contracts */ SELECT id, cig_contract FROM contracts WHERE deleted = 0 AND ${NOT_DRAFT_SQL('contracts')} AND cig_contract IS NOT NULL`;
 // Contratti delle fatture pagate, per impegno.
 const PAID_SQL =
   '/* l_paid */ SELECT DISTINCT s.commitment_id_fk AS commitment_id, i.contratto_id_fk AS contract_id ' +

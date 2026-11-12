@@ -33,6 +33,19 @@ const utility = (contratti: unknown[], grantsPerAsset: unknown[][] = []) =>
   ({ contratti, assets: grantsPerAsset.map((utilizerGrants) => ({ utilizerGrants })) }) as never;
 
 describe('maintenanceInfo', () => {
+  it('ordine in bozza con manutenzione inclusa: non conta', () => {
+    expect(maintenanceInfo(utility([supply(1, party(9, 'Luce Spa'), { draft: true })])).status).toBe(
+      MaintenanceStatus.COMUNE,
+    );
+    expect(maintenanceInfo(utility([supply(1, party(9, 'Luce Spa'), { draft: false })])).status).toBe(
+      MaintenanceStatus.SUPPLIER,
+    );
+  });
+
+  it('SQL gemella: esclude le bozze', () => {
+    expect(maintenanceStatusSql(MaintenanceStatus.SUPPLIER, 'u')).toContain('c.draft = 0');
+  });
+
   it('nessun contratto con flag: Comune', () => {
     expect(
       maintenanceInfo(

@@ -241,6 +241,22 @@ const formatDate = (iso: string | null): string => {
             </mat-expansion-panel>
             }
 
+            @if (data.contracts_draft_overdue.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.contracts_draft_overdue.count }}</span>
+                  Ordini in bozza scaduti (da emettere o eliminare)
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (c of data.contracts_draft_overdue.items; track c.id) {
+                  <li (click)="openContract(c.id)">#{{ c.id }} · {{ c.cig_contract || 'senza CIG' }} · previsto dal {{ dateIt(c.supply_start_date) }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
+
             @if (data.duplicate_cigs.count > 0) {
             <mat-expansion-panel>
               <mat-expansion-panel-header>

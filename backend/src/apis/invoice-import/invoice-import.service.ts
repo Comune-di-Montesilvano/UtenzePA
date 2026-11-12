@@ -34,6 +34,7 @@ import { parsePecMessage, type PecMessage, type SdiFile } from './sdi/pec-messag
 import { pdfText } from './sdi/pdf-text';
 import { extractPdf, parseInvoiceHeader, parseNotification } from './sdi/sdi-files';
 import { CommitmentReconcileService } from '@apis/budget-commitments/commitment-reconcile.service';
+import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
 
 export interface ImportRunResult {
   processed: number;
@@ -88,19 +89,19 @@ const UNBLOCKED_SQL =
 // Fatture fuori perimetro il cui fornitore ora è in perimetro (aggiunto in anagrafica
 // con un contratto dopo l'arrivo): tornano in attesa e si rielaborano. Senza
 // identificativo SDI (copie delle fatture emesse dal Comune) restano fuori.
-const RESCOPE_SQL =
+export const RESCOPE_SQL =
   'SELECT m.id, tp.id AS supplier_id FROM sdi_messages m JOIN third_parties tp ON tp.vat_number = m.supplier_vat AND tp.deleted = 0 ' +
   "WHERE m.kind = 'INVOICE' AND m.status = 'OUT_OF_SCOPE' AND m.sdi_identifier IS NOT NULL " +
-  'AND EXISTS (SELECT 1 FROM contracts c WHERE c.supplier_id_fk = tp.id AND c.deleted = 0) ' +
+  `AND EXISTS (SELECT 1 FROM contracts c WHERE c.supplier_id_fk = tp.id AND c.deleted = 0 AND ${NOT_DRAFT_SQL('c')}) ` +
   'ORDER BY m.id LIMIT 200';
 
 // structure_key vuota = messaggio non più sulla casella: non si ritenta.
 const GONE_STRUCTURE = '';
 
 // Fornitore in perimetro: in anagrafica con questa P.IVA e almeno un contratto di fornitura.
-const SUPPLIER_SQL =
+export const SUPPLIER_SQL =
   'SELECT tp.id FROM third_parties tp WHERE tp.deleted = 0 AND tp.vat_number = ? ' +
-  'AND EXISTS (SELECT 1 FROM contracts c WHERE c.supplier_id_fk = tp.id AND c.deleted = 0) LIMIT 1';
+  `AND EXISTS (SELECT 1 FROM contracts c WHERE c.supplier_id_fk = tp.id AND c.deleted = 0 AND ${NOT_DRAFT_SQL('c')}) LIMIT 1`;
 
 // Scrittura di sistema: non tocca "Ultima modifica" della fattura.
 const KEEP_UPDATE_DATE = { update_date: () => '`update_date`' };

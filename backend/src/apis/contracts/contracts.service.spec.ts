@@ -235,11 +235,76 @@ describe('ContractsService', () => {
     });
   });
 
+  describe('ordine in bozza', () => {
+    const dates = { supply_start_date: '2027-01-01', supply_expiry_date: '2027-12-31' };
+    const datesMsg = 'Una bozza deve avere le date di fornitura previste (inizio e scadenza).';
+
+    it('create: bozza ordinaria senza CIG → ammessa', async () => {
+      manager.findOne.mockResolvedValue({ id: 80, updated_by_user_id: 1 });
+      await expect(
+        service.create({ draft: true, contract_kind: 'STANDARD', cig_contract: '', ...dates, utility_ids: [] } as never, 1),
+      ).resolves.toMatchObject({ id: 80 });
+    });
+
+    it('create: bozza senza date → 400', async () => {
+      await expect(service.create({ draft: true, utility_ids: [] } as never, 1)).rejects.toThrow(datesMsg);
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('create: bozza come rinnovo non chiude il contratto precedente', async () => {
+      repo.findOne.mockResolvedValue({ id: 7, deleted: false, closed: false, supply_expiry_date: null } as unknown as Contract);
+      manager.findOne.mockResolvedValue({ id: 81, updated_by_user_id: 1 });
+      const auditLogService = { record: jest.fn() };
+      (service as any).auditLogService = auditLogService;
+
+      await service.create({ draft: true, replaces_contract_id: 7, ...dates } as never, 1);
+
+      expect(manager.save).not.toHaveBeenCalledWith(Contract, expect.objectContaining({ id: 7 }));
+      expect(auditLogService.record).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'UPDATE' }));
+    });
+
+    it('update: un contratto emesso non torna in bozza → 400', async () => {
+      repo.findOne.mockResolvedValue({ id: 82, cig_contract: 'ABC', contract_kind: 'STANDARD', draft: false, ...dates });
+      await expect(service.update(82, { draft: true } as never, 1)).rejects.toThrow(
+        'Un contratto già emesso non può tornare in bozza.',
+      );
+    });
+
+    it('update: promozione di una bozza ordinaria senza CIG → 400 CIG obbligatorio', async () => {
+      repo.findOne.mockResolvedValue({ id: 83, cig_contract: null, contract_kind: 'STANDARD', draft: true, ...dates });
+      await expect(service.update(83, { draft: false } as never, 1)).rejects.toThrow(/CIG obbligatorio/);
+    });
+
+    it('update: togliere una data a una bozza → 400', async () => {
+      repo.findOne.mockResolvedValue({ id: 84, cig_contract: null, contract_kind: 'STANDARD', draft: true, ...dates });
+      await expect(service.update(84, { supply_start_date: null } as never, 1)).rejects.toThrow(datesMsg);
+    });
+
+    it('update: una bozza senza CIG si salva', async () => {
+      repo.findOne.mockResolvedValue({ id: 85, cig_contract: null, contract_kind: 'STANDARD', draft: true, ...dates });
+      manager.findOne.mockResolvedValue({ id: 85 });
+      await expect(service.update(85, { consip_order: 'X' } as never, 1)).resolves.toBeDefined();
+    });
+
+    it('create: un contratto vero non sostituisce (e non chiude) una bozza → 400', async () => {
+      repo.findOne.mockResolvedValue({ id: 7, deleted: false, closed: false, draft: true } as unknown as Contract);
+      await expect(
+        service.create({ cig_contract: 'CIG1', supply_start_date: '2027-01-01', replaces_contract_id: 7 } as never, 1),
+      ).rejects.toThrow('Il contratto precedente è una bozza: non si rinnova, togli la spunta Bozza e inserisci il CIG.');
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('findAll: filtra per bozza', async () => {
+      await service.findAll({ draft: true } as never);
+      expect(qb.andWhere).toHaveBeenCalledWith('contract.draft = :draft', { draft: true });
+    });
+  });
+
   describe('filtro missing_cig', () => {
     it('solo contratti senza CIG e non esclusi', async () => {
       await service.findAll({ missing_cig: true } as never);
       expect(qb.andWhere).toHaveBeenCalledWith(
-        "TRIM(IFNULL(contract.cig_contract, '')) = '' AND contract.contract_kind = 'STANDARD'",
+        "TRIM(IFNULL(contract.cig_contract, '')) = '' AND contract.contract_kind = 'STANDARD' AND contract.draft = 0",
       );
     });
   });

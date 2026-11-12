@@ -15,6 +15,8 @@ export function contractFilters(): FilterDef[] {
         map(list => list.map(p => ({label: partyName(p), value: p.id})).sort((a, b) => a.label.localeCompare(b.label))))},
     {key: 'closed', label: 'Stato', type: 'select', inline: true,
       options: [{label: 'Aperti', value: false}, {label: 'Chiusi', value: true}]},
+    {key: 'draft', label: 'Bozza', type: 'select', group: 'Dati contratto',
+      options: [{label: 'Solo bozze', value: true}, {label: 'Senza bozze', value: false}]},
     {key: 'cig_contract', label: 'CIG', type: 'text', group: 'Dati contratto'},
     {key: 'consip_order', label: 'Numero ordine (ODA)', type: 'text', group: 'Dati contratto'},
     {key: 'supply_expiry_date_range', label: 'Scadenza fornitura', type: 'dateRange', group: 'Date'},
@@ -27,4 +29,5 @@ export function contractFilters(): FilterDef[] {
 export const CONTRACT_SIGNALS: SignalDef[] = [
   {key: 'contracts_without_cig', label: 'Senza CIG (non esclusi)'},
   {key: 'duplicate_cigs', label: 'CIG duplicati', ids: items => items.flatMap(i => i.contracts)},
+  {key: 'contracts_draft_overdue', label: 'Bozze scadute'},
 ];

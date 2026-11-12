@@ -71,7 +71,7 @@ export class DashboardComponent implements OnInit {
     this.futureDate = this.expiryWindowEnd();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    this.contractsService.search({supply_expiry_date_range: [this.isoDate(today), this.isoDate(this.futureDate)]} as never)
+    this.contractsService.search({supply_expiry_date_range: [this.isoDate(today), this.isoDate(this.futureDate)], draft: false} as never)
       .subscribe((contracts: Contract[]) => {
         this.expiringContracts = contracts
           .filter(c => c.supply_expiry_date)

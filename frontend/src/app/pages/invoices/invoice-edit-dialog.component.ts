@@ -248,7 +248,9 @@ export class InvoiceEditDialogComponent implements OnInit {
     this.contractsService.search({deleted: false}).subscribe({
       next: data => {
         this.contracts = data;
+        // Un ordine in bozza non riceve fatture.
         this.contractOptions = data
+          .filter(c => !c.draft)
           .map(c => ({label: c.cig_contract || `Contratto senza CIG (id ${c.id})`, value: c.id, sublabel: partyName(c.supplier) || undefined}))
           .sort((a, b) => (a.label ?? '').localeCompare(b.label ?? ''));
         after?.();

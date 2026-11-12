@@ -147,9 +147,13 @@ export function inspectionStatusInfo(s: InspectionStatus | null | undefined): St
 // Stesso criterio di Contract.isCurrent: chiuso = mai corrente; senza
 // scadenza = in corso; scadenza uguale a oggi = ancora in corso.
 export function supplyContractStatus(
-  c: {closed?: boolean | null; supply_start_date?: Date | string | null; supply_expiry_date?: Date | string | null},
+  c: {closed?: boolean | null; draft?: boolean | null; supply_start_date?: Date | string | null; supply_expiry_date?: Date | string | null},
   today = todayIso(),
 ): StatusInfo {
+  // Ordine non ancora emesso: non è un contratto valido, mai «in corso».
+  if (c.draft) {
+    return {tone: 'info', label: 'Bozza', icon: 'edit_note', tooltip: 'Ordine non ancora emesso: vale solo per il fabbisogno della convenzione'};
+  }
   if (c.closed) return {tone: 'off', label: 'Chiuso', icon: 'lock'};
   if (c.supply_expiry_date && isoOf(c.supply_expiry_date) < today) {
     return {tone: 'danger', label: 'Scaduto', icon: 'event_busy'};
@@ -163,7 +167,7 @@ export function supplyContractStatus(
 
 // Contratti di fornitura nella scheda utenza: prima quelli in corso, poi per
 // decorrenza decrescente; senza decorrenza in fondo; a parità id decrescente.
-export function sortSupplyContracts<T extends {id: number; closed?: boolean | null;
+export function sortSupplyContracts<T extends {id: number; closed?: boolean | null; draft?: boolean | null;
   supply_start_date?: Date | string | null; supply_expiry_date?: Date | string | null}>(
   contracts: T[], today = todayIso(),
 ): T[] {
@@ -198,10 +202,10 @@ export function chapterBudgetStatus(
 }
 
 // Stessa regola del validatore cigRequiredUnlessExempt del dialog.
-export function supplyContractFlags(c: {cig_contract?: string | null; contract_kind?: ContractKind | null; closed?: boolean | null}): StatusInfo[] {
+export function supplyContractFlags(c: {cig_contract?: string | null; contract_kind?: ContractKind | null; closed?: boolean | null; draft?: boolean | null}): StatusInfo[] {
   if (c.contract_kind === ContractKind.FREE) return [{tone: 'info', label: 'A titolo gratuito', icon: 'volunteer_activism'}];
   if (c.contract_kind === ContractKind.CIG_EXEMPT) return [{tone: 'info', label: 'Escluso da CIG', icon: 'info'}];
-  if (!(c.cig_contract ?? '').trim() && !c.closed) {
+  if (!(c.cig_contract ?? '').trim() && !c.closed && !c.draft) {
     return [{tone: 'danger', label: 'Senza CIG', icon: 'report', tooltip: 'Senza CIG il contratto è considerato inesistente'}];
   }
   return [];

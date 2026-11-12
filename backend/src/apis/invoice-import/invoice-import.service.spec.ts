@@ -1,6 +1,6 @@
 import { maintenance } from '@common/maintenance/maintenance';
 import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
-import { InvoiceImportService } from './invoice-import.service';
+import { InvoiceImportService, RESCOPE_SQL, SUPPLIER_SQL } from './invoice-import.service';
 import { SdiMessageStatus } from './enum/sdi-message-status.enum';
 import { ImportIssueType } from './enum/import-issue-type.enum';
 import type { PecMailbox } from './pec-imap.client';
@@ -759,5 +759,14 @@ describe('InvoiceImportService.getDocument', () => {
     invoices.rows[0].sdi_identifier = null;
     await expect(service().getDocument(50, 'xml')).rejects.toThrow('Fattura senza messaggio SDI.');
     expect(mailbox.open).not.toHaveBeenCalled();
+  });
+});
+
+describe('perimetro: una bozza da sola non mette il fornitore in perimetro', () => {
+  it.each([
+    ['RESCOPE_SQL', RESCOPE_SQL],
+    ['SUPPLIER_SQL', SUPPLIER_SQL],
+  ])('%s esclude le bozze', (_name, sql) => {
+    expect(sql).toContain('c.draft = 0');
   });
 });

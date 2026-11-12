@@ -22,13 +22,14 @@ import { commitmentLabel } from '@apis/budget-commitments/commitment-label';
 import { invoiceCompetenceYear } from '@apis/spending/line-year';
 import { CommitmentShareSource } from '@apis/invoices/entity/commitment-share-source.enum';
 import { inboxDir, inboxPresent } from '@apis/accounting-import/accounting-inbox.files';
+import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
 
 // Contratto valido oggi: stessa definizione di "contratto corrente" usata in
 // UtilitiesService (scadenza assente o non ancora passata).
 // Contratto valido oggi: non chiuso e con scadenza assente o non ancora passata
 // (stessa definizione di "contratto corrente" in UtilitiesService).
-const CURRENT =
-  '(c.closed = 0 AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE()))';
+// Un ordine in bozza non è un contratto valido (contract-draft.ts).
+const CURRENT = `(c.closed = 0 AND ${NOT_DRAFT_SQL('c')} AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE()))`;
 const HAS_CIG = "TRIM(IFNULL(c.cig_contract, '')) <> ''";
 
 export interface AnomalyList<T> {
@@ -57,6 +58,8 @@ export interface Anomalies {
   active_utilities_without_cig_contract: AnomalyList<UtilityAnomaly>;
   utilities_with_overlapping_contracts: AnomalyList<UtilityAnomaly>;
   duplicate_cigs: AnomalyList<{ cig: string; contracts: number[] }>;
+  /** Ordini in bozza con inizio previsto già passato: da emettere o eliminare. */
+  contracts_draft_overdue: AnomalyList<{ id: number; cig_contract: string | null; supply_start_date: string }>;
   real_estate_contracts_without_assets: AnomalyList<RealEstateContractAnomaly>;
   plants_without_position: AnomalyList<PlantAnomaly>;
   active_utilities_without_position: AnomalyList<UtilityAnomaly>;
@@ -245,7 +248,7 @@ export class AnomaliesService {
        FROM contracts c
        LEFT JOIN third_parties s ON s.id = c.supplier_id_fk
        LEFT JOIN consip_agreement ca ON ca.id = c.consip_agreement_id
-       WHERE c.deleted = 0 AND c.closed = 0 AND c.contract_kind = 'STANDARD' AND NOT ${HAS_CIG}
+       WHERE c.deleted = 0 AND c.closed = 0 AND ${NOT_DRAFT_SQL('c')} AND c.contract_kind = 'STANDARD' AND NOT ${HAS_CIG}
        ORDER BY supplier, c.id`,
     );
 
@@ -281,9 +284,9 @@ export class AnomaliesService {
       `SELECT ${utilityColumns}, ${currentContractsList} ${activeUtilities}
        AND EXISTS (
          SELECT 1 FROM contract_utilities cu1
-         JOIN contracts c1 ON c1.id = cu1.contract_id AND c1.deleted = 0 AND c1.closed = 0
+         JOIN contracts c1 ON c1.id = cu1.contract_id AND c1.deleted = 0 AND c1.closed = 0 AND ${NOT_DRAFT_SQL('c1')}
          JOIN contract_utilities cu2 ON cu2.utility_id = cu1.utility_id AND cu2.contract_id > cu1.contract_id
-         JOIN contracts c2 ON c2.id = cu2.contract_id AND c2.deleted = 0 AND c2.closed = 0
+         JOIN contracts c2 ON c2.id = cu2.contract_id AND c2.deleted = 0 AND c2.closed = 0 AND ${NOT_DRAFT_SQL('c2')}
          WHERE cu1.utility_id = u.id
            AND (c1.supply_expiry_date IS NULL OR c1.supply_expiry_date >= CURDATE())
            AND (c2.supply_expiry_date IS NULL OR c2.supply_expiry_date >= CURDATE())
@@ -294,7 +297,7 @@ export class AnomaliesService {
 
     const duplicateCigs: { cig: string; contracts: string }[] = await this.dataSource.query(
       `SELECT MIN(TRIM(c.cig_contract)) AS cig, GROUP_CONCAT(c.id ORDER BY c.id) AS contracts
-       FROM contracts c WHERE c.deleted = 0 AND c.closed = 0 AND ${HAS_CIG}
+       FROM contracts c WHERE c.deleted = 0 AND c.closed = 0 AND ${NOT_DRAFT_SQL('c')} AND ${HAS_CIG}
        GROUP BY LOWER(TRIM(c.cig_contract)) HAVING COUNT(*) > 1`,
     );
 
@@ -455,7 +458,7 @@ export class AnomaliesService {
        WHERE u.deleted = 0 AND ${inChargeSql('u')}
        AND EXISTS (
          SELECT 1 FROM contract_utilities cu JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
-         WHERE cu.utility_id = u.id AND c.closed = 0
+         WHERE cu.utility_id = u.id AND c.closed = 0 AND ${NOT_DRAFT_SQL('c')}
            AND EXISTS (SELECT 1 FROM budget_commitment_contracts x JOIN budget_commitments any_c ON any_c.id = x.commitment_id AND any_c.deleted = 0 WHERE x.contract_id = c.id)
            AND NOT EXISTS (SELECT 1 FROM budget_commitment_contracts y
                            JOIN budget_commitments bc ON bc.id = y.commitment_id AND bc.deleted = 0
@@ -907,6 +910,13 @@ export class AnomaliesService {
       `/* accounting_import_stale */
        SELECT enabled, last_success_at FROM accounting_import_state WHERE id = 1`,
     );
+    const draftOverdue: Record<string, unknown>[] = await this.dataSource.query(
+      `/* contracts_draft_overdue */
+       SELECT c.id, c.cig_contract, DATE_FORMAT(c.supply_start_date, '%Y-%m-%d') AS supply_start_date
+         FROM contracts c
+        WHERE c.deleted = 0 AND c.closed = 0 AND c.draft = 1 AND c.supply_start_date < CURDATE()
+        ORDER BY c.supply_start_date, c.id`,
+    );
     const commitments = commitmentRows.map((r) => {
       const amount = r.amount == null ? null : Number(r.amount);
       return {
@@ -1196,6 +1206,13 @@ export class AnomaliesService {
         duplicateCigs.map((d) => ({
           cig: d.cig,
           contracts: String(d.contracts).split(',').map(Number),
+        })),
+      ),
+      contracts_draft_overdue: list(
+        draftOverdue.map((c) => ({
+          id: Number(c.id),
+          cig_contract: ((c.cig_contract as string) ?? '').trim() || null,
+          supply_start_date: String(c.supply_start_date),
         })),
       ),
     };

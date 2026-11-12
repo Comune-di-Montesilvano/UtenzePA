@@ -31,6 +31,11 @@ export class CreateContractDto {
   @IsBoolean()
   closed?: boolean;
 
+  // Ordine in bozza (non ancora emesso).
+  @IsOptional()
+  @IsBoolean()
+  draft?: boolean;
+
   @IsOptional()
   @IsString()
   @MaxLength(100)

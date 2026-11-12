@@ -49,6 +49,8 @@ export interface Anomalies {
   active_utilities_without_cig_contract: AnomalyList<UtilityAnomaly>;
   utilities_with_overlapping_contracts: AnomalyList<UtilityAnomaly>;
   duplicate_cigs: AnomalyList<{cig: string; contracts: number[]}>;
+  // Ordini in bozza con inizio previsto già passato.
+  contracts_draft_overdue: AnomalyList<{id: number; cig_contract: string | null; supply_start_date: string}>;
   real_estate_contracts_without_assets: AnomalyList<{id: number; counterparty: string | null; subject: string | null}>;
   plants_without_position: AnomalyList<{id: number; code: string; name: string; type: string}>;
   active_utilities_without_position: AnomalyList<UtilityAnomaly>;

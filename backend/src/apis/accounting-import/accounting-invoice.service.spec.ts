@@ -3,7 +3,7 @@ import { Invoice } from '@apis/invoices/entity/invoice.entity';
 import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
 import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
 import type { AccCreditNoteRow, AccLiquidationRow } from './accounting-csv';
-import { AccountingInvoiceService } from './accounting-invoice.service';
+import { AccountingInvoiceService, CONTRACTS_SQL } from './accounting-invoice.service';
 import { RecordSource } from './record-source.enum';
 
 const liq = (key: string, patch: Partial<AccLiquidationRow> = {}): AccLiquidationRow => ({
@@ -269,5 +269,11 @@ describe('AccountingInvoiceService', () => {
       { amount: -50, noteId: 502, invoiceId: 501 },
       { amount: -10, noteId: undefined, invoiceId: undefined },
     ]);
+  });
+});
+
+describe('ordini in bozza', () => {
+  it('a_contracts esclude le bozze', () => {
+    expect(CONTRACTS_SQL).toContain('contracts.draft = 0');
   });
 });

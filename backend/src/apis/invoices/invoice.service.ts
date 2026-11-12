@@ -356,6 +356,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
   async create(dto: CreateInvoiceDto, userId?: number): Promise<Invoice> {
     const { lines, commitment_shares: shares, ...rest } = dto;
     checkCreditNote(rest.total_amount, rest.net_amount_excl_vat);
+    await this.assertNotDraft(rest.contratto_id_fk);
     const header = await this.withSupplier(rest);
     const saved = await this.dataSource.transaction(async (manager) => {
       if (lines?.length) this.checkLines(lines);
@@ -395,6 +396,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     const contractId =
       rest.contratto_id_fk !== undefined ? rest.contratto_id_fk : before.contratto_id_fk;
     const contractChanged = (contractId ?? null) !== (before.contratto_id_fk ?? null);
+    if (contractChanged) await this.assertNotDraft(contractId);
     const header = await this.withSupplier({ ...rest, contratto_id_fk: contractId });
     let previousLines: InvoiceLine[] = [];
     let previousShares: InvoiceCommitmentShare[] = [];
@@ -518,6 +520,17 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
     return contract?.supplier_id_fk
       ? { ...header, supplier_id_fk: contract.supplier_id_fk }
       : header;
+  }
+
+  // Un ordine in bozza non è un contratto valido: non riceve fatture.
+  private async assertNotDraft(contractId: number | null | undefined): Promise<void> {
+    if (!contractId) return;
+    const contract = await this.contractRepo.findOne({ where: { id: contractId } });
+    if (contract?.draft) {
+      throw new BadRequestException(
+        'Il contratto è una bozza (ordine non ancora emesso): non può ricevere fatture.',
+      );
+    }
   }
 
   private checkLines(lines: InvoiceLineDto[]): void {

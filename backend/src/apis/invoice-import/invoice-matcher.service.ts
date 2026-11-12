@@ -5,6 +5,7 @@ import type { ExtractedInvoice, ExtractedReading } from './pattern/pattern-rules
 import { normalizeUtilityCode } from './pattern/utility-code';
 import { normalizeInvoiceNumber } from '@apis/accounting-import/invoice-number';
 import { invoiceCompetenceYear } from '@apis/spending/line-year';
+import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
 
 export interface MatchedLine {
   utility_id_fk: number | null;
@@ -69,22 +70,23 @@ const UTILITY_SQL =
   'AND (u.utility_id = ? OR (u.utility_code = ? AND EXISTS (SELECT 1 FROM contract_utilities cu ' +
   'JOIN contracts c ON c.id = cu.contract_id WHERE cu.utility_id = u.id AND c.supplier_id_fk = ? AND c.deleted = 0))) ' +
   'ORDER BY u.utility_id = ? DESC, u.id LIMIT 1';
-const CONTRACT_REF_SQL =
+// Un ordine in bozza non riceve fatture, nemmeno per CIG (contract-draft.ts).
+export const CONTRACT_REF_SQL =
   '/* m_contract_ref */ SELECT DISTINCT u.id, u.budget_chapter_code_fk, u.meter_number FROM contracts c ' +
   'JOIN contract_utilities cu ON cu.contract_id = c.id ' +
   'JOIN utilities u ON u.id = cu.utility_id AND u.deleted = 0 ' +
-  'WHERE c.deleted = 0 AND c.supplier_id_fk = ? AND (c.consip_order = ? OR c.cig_contract = ?) LIMIT 2';
-const CONTRACT_SQL =
+  `WHERE c.deleted = 0 AND ${NOT_DRAFT_SQL('c')} AND c.supplier_id_fk = ? AND (c.consip_order = ? OR c.cig_contract = ?) LIMIT 2`;
+export const CONTRACT_SQL =
   '/* m_contract */ SELECT c.id, c.cig_contract FROM contracts c ' +
   'JOIN contract_utilities cu ON cu.contract_id = c.id ' +
-  'WHERE cu.utility_id = ? AND c.supplier_id_fk = ? AND c.deleted = 0 ' +
+  `WHERE cu.utility_id = ? AND c.supplier_id_fk = ? AND c.deleted = 0 AND ${NOT_DRAFT_SQL('c')} ` +
   'AND (c.supply_start_date IS NULL OR c.supply_start_date <= ?) ' +
   'AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= ?) ' +
   'ORDER BY c.supply_start_date DESC, c.id DESC LIMIT 1';
 // Contratto della fattura dal CIG o dal riferimento ordine, per le righe senza utenza
 // (canoni di contratto, sedi senza codice): vale solo se ne indica uno.
-const HEADER_CONTRACT_SQL =
-  '/* m_header_contract */ SELECT id, cig_contract FROM contracts WHERE deleted = 0 AND supplier_id_fk = ? ' +
+export const HEADER_CONTRACT_SQL =
+  `/* m_header_contract */ SELECT id, cig_contract FROM contracts WHERE deleted = 0 AND ${NOT_DRAFT_SQL('contracts')} AND supplier_id_fk = ? ` +
   'AND (TRIM(cig_contract) IN (?, ?) OR TRIM(consip_order) = ?) LIMIT 2';
 // Esiste almeno un'annualità d'impegno del contratto nell'esercizio? L'impegno
 // lo assegna poi il ricalcolo (CommitmentReconcileService); qui solo la segnalazione.
