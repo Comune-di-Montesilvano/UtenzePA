@@ -60,8 +60,7 @@ export interface ForecastUtility {
 // Origine della stima dei giorni non fatturati di un'utenza.
 export type ForecastSource = 'history' | 'annual' | 'spend' | 'none';
 
-const hasBothDates = (o: ForecastOrder): boolean =>
-  !!o.start && !!o.end && o.end >= o.start;
+const hasBothDates = (o: ForecastOrder): boolean => !!o.start && !!o.end && o.end >= o.start;
 
 // Periodi a carico del Comune: attiva e non volturata. Senza attivazioni né
 // cessazioni registrate l'utenza conta come attiva da sempre (stessa regola

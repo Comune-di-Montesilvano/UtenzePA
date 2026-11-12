@@ -107,14 +107,12 @@ export class AgreementForecastService {
         hard_type: (u.hard_type as HardTypeEnum | null) ?? null,
         chapter_id: num(u.chapter_id),
         estimated_annual_consumption: num(u.estimated_annual_consumption),
-        lines: (linesBy.get(id) ?? []).map(
-          (l): StatsLine => ({
-            amount: Number(l.amount),
-            period_start: (l.period_start as string | null) ?? null,
-            period_end: (l.period_end as string | null) ?? null,
-            invoice_date: l.invoice_date as string,
-          }),
-        ),
+        lines: (linesBy.get(id) ?? []).map((l): StatsLine => ({
+          amount: Number(l.amount),
+          period_start: (l.period_start as string | null) ?? null,
+          period_end: (l.period_end as string | null) ?? null,
+          invoice_date: l.invoice_date as string,
+        })),
         consumptions: (consumptionsBy.get(id) ?? []) as unknown as ConsumptionRecord[],
         events: (eventsBy.get(id) ?? []).map(
           (e) =>
@@ -157,7 +155,11 @@ export class AgreementForecastService {
     const shared = (await this.q(sql.SHARED_COMMITMENTS_SQL, [agreementId, agreementId])).map(
       (c) => ({
         id: Number(c.id),
-        label: commitmentLabel(num(c.commitment_year), num(c.commitment_num), num(c.commitment_sub)),
+        label: commitmentLabel(
+          num(c.commitment_year),
+          num(c.commitment_num),
+          num(c.commitment_sub),
+        ),
       }),
     );
     const sharesWithoutLines = (await this.q(sql.SHARES_WITHOUT_LINES_SQL, [agreementId])).map(

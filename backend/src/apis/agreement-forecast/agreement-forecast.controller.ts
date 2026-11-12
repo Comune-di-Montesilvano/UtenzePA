@@ -51,7 +51,8 @@ export class AgreementForecastController {
     @Body() dto: AgreementPriceDto,
     @CurrentUser() user: ICurrentUser,
   ): Promise<ForecastResponse> {
-    if (!PRICE_TYPES.includes(hardType)) throw new BadRequestException('Tipo di utenza non valido.');
+    if (!PRICE_TYPES.includes(hardType))
+      throw new BadRequestException('Tipo di utenza non valido.');
     return this.service.setPrice(id, hardType as HardTypeEnum, dto.unit_price ?? null, user.id);
   }
 }

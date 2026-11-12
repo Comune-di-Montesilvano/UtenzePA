@@ -41,7 +41,7 @@ I PDF (circa 12.000) non sono stati estratti: si leggono solo su richiesta, per 
 | 21 | Scadenzario degli obblighi dell'immobile | da approfondire (per gli impianti già fatto: verifiche obbligatorie per legge v1.29.0, scadenze degli estintori v1.24.0) |
 | 22 | Storico di attivazione delle utenze | fatto, v1.33.0 (storico di attivazioni, cessazioni, volture e reintestazioni; decisioni per utenza sul contratto immobiliare; dati da portare in produzione con la migration) |
 | 23 | Letture stimate | fatto (v1.34.0) |
-| 24 | Stima e previsione della spesa | in corso: design `docs/superpowers/specs/2026-11-11-fabbisogno-convenzione-design.md` (fabbisogno per convenzione, capitolo ed esercizio, dalle utenze; avviso in corsa); ordine in bozza fatto in v1.55.0; fabbisogno da fare (v1.56.0) |
+| 24 | Stima e previsione della spesa | in corso: design `docs/superpowers/specs/2026-11-11-fabbisogno-convenzione-design.md` (fabbisogno per convenzione, capitolo ed esercizio, dalle utenze; avviso in corsa); ordine in bozza fatto in v1.55.0; fabbisogno fatto in v1.56.0 (tab «Fabbisogno», segnalazioni «Impegni insufficienti» e «Variazione di bilancio da chiedere»); restano canoni a corpo, contratti senza convenzione, avvisi via email (voce 27) |
 | 25 | Nuovo contratto che sostituisce più contratti | fatto, v1.47.1 (tab Utenze: «Collega le utenze di un contratto», non attive escluse salvo spunta; chiusura automatica dei contratti sostituiti non prevista) |
 | 26 | Import giornaliero dalla contabilità (Tinn) e impegni pluriennali | fatto, v1.48.0–v1.53.0 (quattro fasi, stato del pagamento, note di credito) |
 | 27 | Avvisi attivi (riepilogo periodico via email) | da approfondire (fase 2 del piano) |
@@ -502,6 +502,10 @@ Emerso dall'analisi delle fatture ACA (2026-10-19): le fatture riportano letture
 ## 24. Stima e previsione della spesa
 
 Emerso con la voce 17 (2026-10-23): con gli impegni reali e lo speso per impegno, serve una stima macro del fabbisogno: dallo storico per capitolo (e per contratto) capire se gli impegni dell'esercizio basteranno e quanto impegnare per l'esercizio successivo. Nessun dettaglio per utenza: basta una stima. Da progettare a parte.
+
+- **Fatto in v1.56.0** (spec `docs/superpowers/specs/2026-11-11-fabbisogno-convenzione-design.md`): fabbisogno della convenzione CONSIP per capitolo ed esercizio, calcolato dalle utenze (luce e gas) degli ordini, bozze comprese (v1.55.0); cache `consip_agreement_forecasts` riallineata dopo ogni riconciliazione degli impegni e ogni notte alle 4:30; costo unitario proposto (ultimi 92 giorni) o a mano; segnalazioni «Impegni insufficienti» e «Variazione di bilancio da chiedere». Prova di validità sul DB locale (convenzione luce, calcolo «come al 31/12/2025» contro il fatturato vero del 2026): +10,4 % sul totale, scarto mediano per capitolo 17 %.
+- **Resta**: canoni a corpo e fatture senza righe per utenza (oggi non proiettati: l'ammanco risulta gonfiato, il tab ne mostra l'importo); contratti di fornitura senza convenzione; acqua e connettività; andamento dei consumi calcolato su pochi mesi quando lo storico parte da meno di due anni (nella prova: 1,43 usato contro +24 % vero); impegni condivisi tra due convenzioni contati per intero in entrambe; avvisi via email (voce 27).
+- **Da tenere d'occhio**: il bundle iniziale del frontend è a 2,99 MB su 3 MB di limite (il tab è già in un chunk a parte con `@defer`): la prossima scheda nuova va caricata allo stesso modo o il limite va rivisto.
 
 ## 25. Nuovo contratto che sostituisce più contratti
 
