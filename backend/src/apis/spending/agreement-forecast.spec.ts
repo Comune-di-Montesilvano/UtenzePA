@@ -579,6 +579,18 @@ describe('agreementForecast', () => {
     expect(rowOf(f, 7, 2025)).toMatchObject({ invoiced: 50, coverage: 0 });
   });
 
+  it('ordine chiuso senza date: nessun avviso (non si aspetta più nulla)', () => {
+    const f = agreementForecast(
+      base({
+        orders: [
+          order(1, '2026-01-01', '2026-12-31', [1]),
+          { ...order(2, null, null, [1]), closed: true },
+        ],
+      }),
+    );
+    expect(f.warnings.orders_without_dates).toEqual([]);
+  });
+
   it('ordine con una scadenza assurda: come senza date, nessun calcolo infinito', () => {
     const f = agreementForecast(base({ orders: [order(1, '2026-01-01', '9999-12-31', [1])] }));
     expect(f.horizon).toBeNull();
