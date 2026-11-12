@@ -19,6 +19,14 @@ import { AgreementPriceDto } from './dto/agreement-price.dto';
 
 const PRICE_TYPES: string[] = [HardTypeEnum.LIGHT, HardTypeEnum.GAS];
 
+function isRealDay(text: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (!match) return false;
+  const [y, m, d] = match.slice(1).map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
+
 // Fabbisogno della convenzione CONSIP (tab «Fabbisogno» della scheda).
 @Controller('consip-agreement')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -30,14 +38,16 @@ export class AgreementForecastController {
   @Get(':id/forecast')
   forecast(
     @Param('id', ParseIntPipe) id: number,
-    @Query('as_of') asOf: string | undefined,
+    @Query('as_of') asOf: unknown,
     @CurrentUser() user: ICurrentUser,
   ): Promise<ForecastResponse> {
     if (!asOf) return this.service.compute(id, {});
     if (user?.role !== 'Admin') {
       throw new BadRequestException('Solo un amministratore può calcolare a una data passata.');
     }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf) || Number.isNaN(Date.parse(asOf))) {
+    // Un parametro ripetuto arriva come array: solo una stringa AAAA-MM-GG di
+    // un giorno che esiste.
+    if (typeof asOf !== 'string' || !isRealDay(asOf)) {
       throw new BadRequestException('Data non valida.');
     }
     return this.service.compute(id, { asOf });

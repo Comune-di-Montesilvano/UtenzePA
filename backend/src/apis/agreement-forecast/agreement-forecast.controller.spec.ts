@@ -9,7 +9,10 @@ describe('AgreementForecastController', () => {
   const operator = { id: 2, email: 'o', role: 'Operatore' };
 
   beforeEach(() => {
-    service = { compute: jest.fn().mockResolvedValue({}), setPrice: jest.fn().mockResolvedValue({}) };
+    service = {
+      compute: jest.fn().mockResolvedValue({}),
+      setPrice: jest.fn().mockResolvedValue({}),
+    };
     controller = new AgreementForecastController(service as never);
   });
 
@@ -27,6 +30,15 @@ describe('AgreementForecastController', () => {
     expect(() => controller.forecast(3, '31/12/2025', admin)).toThrow(
       new BadRequestException('Data non valida.'),
     );
+  });
+
+  it('forecast: data inesistente o parametro ripetuto: 400, nessun calcolo', () => {
+    const invalid = new BadRequestException('Data non valida.');
+    expect(() => controller.forecast(3, '2025-02-31', admin)).toThrow(invalid);
+    expect(() =>
+      controller.forecast(3, ['2025-12-31', '2025-12-30'] as unknown as string, admin),
+    ).toThrow(invalid);
+    expect(service.compute).not.toHaveBeenCalled();
   });
 
   it('setPrice: tipo di utenza valido, id dell’utente', async () => {
