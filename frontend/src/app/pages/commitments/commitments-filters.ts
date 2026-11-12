@@ -45,4 +45,7 @@ export const COMMITMENT_SIGNALS: SignalDef[] = [
   {key: 'commitments_without_contract', label: 'Senza contratto'},
   {key: 'commitments_without_amount', label: 'Senza importo'},
   {key: 'accounting_commitments_without_contract', label: 'Dalla contabilità senza contratto'},
+  // Impegni delle convenzioni dove il previsto da fatturare supera la rimanenza.
+  {key: 'agreements_commitments_short', label: 'Convenzione con impegni insufficienti',
+    ids: items => [...new Set(items.flatMap((a: {commitment_ids: number[]}) => a.commitment_ids))]},
 ];

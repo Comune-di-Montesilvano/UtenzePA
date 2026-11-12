@@ -201,6 +201,21 @@ export function chapterBudgetStatus(
     tooltip: 'Assestato meno impegnato'};
 }
 
+// Convenzione CONSIP (badge della scheda): almeno un capitolo dell'esercizio
+// in corso dove gli impegni non basteranno (tab «Fabbisogno»).
+export function agreementForecastStatus(
+  rows: {year: number; alert: string | null}[] | null | undefined,
+  currentYear: number,
+): StatusInfo | null {
+  if (!rows?.some(r => r.year === currentYear && r.alert === 'short')) return null;
+  return {
+    tone: 'danger',
+    label: 'Impegni insufficienti',
+    icon: 'report',
+    tooltip: 'Il previsto da fatturare supera la rimanenza degli impegni: vedi il tab Fabbisogno',
+  };
+}
+
 // Stessa regola del validatore cigRequiredUnlessExempt del dialog.
 export function supplyContractFlags(c: {cig_contract?: string | null; contract_kind?: ContractKind | null; closed?: boolean | null; draft?: boolean | null}): StatusInfo[] {
   if (c.contract_kind === ContractKind.FREE) return [{tone: 'info', label: 'A titolo gratuito', icon: 'volunteer_activism'}];

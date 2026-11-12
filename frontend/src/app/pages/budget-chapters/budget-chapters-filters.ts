@@ -23,4 +23,5 @@ export function budgetChapterFilters(): FilterDef[] {
 export const CHAPTER_SIGNALS: SignalDef[] = [
   {key: 'chapters_over_budget', label: "Oltre l'assestato dell'anno"},
   {key: 'chapters_without_budget', label: "Senza assestato dell'anno"},
+  {key: 'chapters_variation_needed', label: 'Variazione di bilancio da chiedere'},
 ];

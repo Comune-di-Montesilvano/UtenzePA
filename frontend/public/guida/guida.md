@@ -1,6 +1,6 @@
 # UtenzePA – Guida per gli operatori
 
-_Ultimo aggiornamento: 2026-11-11_
+_Ultimo aggiornamento: 2026-11-12_
 
 ## Cos'è e chi lo usa
 
@@ -105,9 +105,33 @@ Con l'import della contabilità acceso (vedi [Collegare la contabilità](#colleg
 1. Apri **Convenzioni CONSIP** e scegli la convenzione. Nel tab **Dati** ci sono nome, CIG master, scadenza, fornitore aggiudicatario, salvaguardia e descrizione; il badge in alto dice se è in corso o scaduta.
 2. Il tab **Contratti** elenca i contratti di fornitura aderenti alla convenzione (numero d'ordine, CIG, periodo, stato). **Collega contratto** propone i contratti dello stesso fornitore senza convenzione; **Nuovo contratto** ne crea uno con fornitore e convenzione già compilati. Collegare e scollegare valgono subito, senza premere Salva.
 3. Il tab **Impegni** mostra gli impegni dei contratti della convenzione con impegnato, speso e rimanenza totali; un clic apre la scheda dell'impegno.
-4. Il tab **Documenti** contiene i file della convenzione (es. guida alla convenzione, listino).
+4. Il tab **Fabbisogno** dice se gli impegni basteranno (vedi sotto).
+5. Il tab **Documenti** contiene i file della convenzione (es. guida alla convenzione, listino).
 
 Dalla scheda del contratto di fornitura il pulsante accanto al campo **Convenzione CONSIP** apre la scheda della convenzione.
+
+### Capire se gli impegni di una convenzione basteranno
+
+Il tab **Fabbisogno** della convenzione mette a confronto, per ogni capitolo ed esercizio, quello che resta da fatturare con quello che resta sugli impegni. Vale per le utenze di luce e gas degli ordini della convenzione (i suoi contratti di fornitura, bozze comprese), per tutto il periodo degli ordini.
+
+1. Apri la convenzione e scegli **Fabbisogno**. Gli esercizi sono gruppi apribili; quello in corso è già aperto. Se gli impegni non basteranno, accanto all'esercizio leggi «Mancano … €» e in alto nella scheda compare il badge **Impegni insufficienti**.
+2. Leggi le colonne. **Fatturato**: le righe di fattura già arrivate per le utenze del capitolo. **Previsto da fatturare**: la stima dei giorni non ancora coperti da una fattura. **Totale previsto**: la somma dei due. **Impegnato**: gli impegni della convenzione su quel capitolo ed esercizio. **Rimanenza**: l'impegnato meno le quote già spese dalle fatture. **Differenza**: la rimanenza meno il previsto da fatturare; se è negativa manca quella cifra. **Copertura**: quanta parte dei giorni viene da fatture, dallo storico dei consumi o dal presunto annuo (non dalla sola spesa); sotto il 60 % la stima è debole e l'avviso non scatta (la differenza è in giallo, «Dati insufficienti per l'avviso»).
+3. Un clic su un capitolo mostra le sue utenze con consumo atteso, fatturato, costo previsto e origine della stima: **Storico dei consumi** (i consumi dello stesso periodo dell'anno prima, corretti con l'andamento recente), **Presunto annuo** (il consumo presunto della scheda utenza), **Stima dalla sola spesa** (la spesa media delle fatture, per le utenze senza consumi), **Senza dati**. Un clic sull'utenza ne apre la scheda.
+4. Controlla il **Costo unitario**. L'app propone il costo medio tutto incluso delle fatture degli ultimi tre mesi (IVA compresa). Se conosci un prezzo diverso (nuovo listino, rincaro annunciato) scrivilo nel campo **A mano** e premi Invio: la stima si ricalcola subito con quel prezzo. **Torna al proposto** lo toglie. Il prezzo a mano possono cambiarlo amministratori e operatori.
+5. **Ricalcola** aggiorna la stima; **Esporta** scarica la tabella. Il calcolo si aggiorna comunque da solo ogni notte (per le convenzioni con almeno un ordine non chiuso) e ogni volta che salvi un impegno o una fattura dei suoi contratti: quando integri un impegno l'avviso sparisce.
+
+Per le utenze che entreranno nella convenzione più avanti, crea subito un **ordine in bozza** (contratto di fornitura con la spunta Bozza, le utenze e le date previste): il fabbisogno le conta dal giorno previsto e nel dettaglio sono marcate «Bozza».
+
+Un ordine **chiuso** non riceve più fatture: i suoi giorni contano per il fatturato ma non vengono previsti. Quando le utenze passano a un nuovo ordine, chiudi il vecchio: altrimenti gli stessi giorni risultano da fatturare due volte.
+
+Sopra la tabella un riquadro avvisa di ciò che rende la stima meno precisa, dicendo quali ordini e quali utenze: ordini senza date di fornitura valide (non entrano nel calcolo), utenze senza dati, utenze con righe di fattura senza periodo, utenze di altro tipo escluse, impegni condivisi con un'altra convenzione (contano per intero in entrambe), quote su fatture senza righe per utenza.
+
+Limiti da conoscere:
+
+- È una stima, non un dato di contabilità. Nella prova sui dati del 2026 il totale previsto a inizio anno si è scostato di circa il 10 % dal fatturato vero; sul singolo capitolo lo scarto può essere maggiore.
+- Il prezzo futuro non lo conosce nessuno: l'app propone quello recente e mostra l'effetto del prezzo che scrivi tu.
+- Canoni e fatture senza righe per utenza non entrano nella stima: i loro giorni risultano ancora da fatturare e l'ammanco può risultare più alto del vero. Il riquadro degli avvisi ne mostra l'importo.
+- Acqua e connettività non sono calcolate.
 
 ### Attivazioni, cessazioni e volture di un'utenza
 
@@ -456,7 +480,9 @@ Senza stato restano le fatture prima dell'anno di partenza dell'import e quelle 
 | Fatture | Fuori dai periodi di attività · Con righe senza utenza (né contratto in testata) · Esito scartato dallo SDI · Quote d'impegno che non tornano col totale · Differenze trovate dall'import (vedi sotto) |
 | Contratti di fornitura | Senza CIG (non esclusi) · CIG duplicati · Bozze scadute (ordine in bozza con decorrenza prevista già passata: da emettere o da eliminare) |
 | Contratti immobiliari | Senza immobile · Senza parti |
-| Capitoli di spesa | Oltre l'assestato dell'anno · Senza assestato dell'anno |
+| Capitoli di spesa | Oltre l'assestato dell'anno · Senza assestato dell'anno · Variazione di bilancio da chiedere (l'ammanco previsto dalle convenzioni supera quanto resta da impegnare sul capitolo) |
+| Convenzioni CONSIP | Impegni insufficienti (nell'esercizio in corso il previsto da fatturare supera la rimanenza degli impegni: vedi [Capire se gli impegni di una convenzione basteranno](#capire-se-gli-impegni-di-una-convenzione-basteranno)) |
+| Impegni | Sforati · Senza contratto · Senza importo · Dalla contabilità senza contratto · Convenzione con impegni insufficienti (gli impegni da integrare) |
 | Soggetti terzi | Senza P.IVA o codice fiscale |
 
 In dashboard compare anche **Funzioni immobile senza tipologia MEF**: funzioni usate da immobili di proprietà a cui manca la tipologia del censimento MEF. Per l'import dalla PEC compaiono **Import fatture fermo** (nessun giro riuscito da più di 2 ore), **Fatture PEC in attesa di import** (fatture di fornitori in perimetro non ancora inserite), **Fornitori con fatture senza pattern** (un clic apre l'editor) e **Differenze trovate dall'import fatture**. Per l'import della contabilità compare **Fatture pagate dalla ragioneria non trovate**: liquidazioni su impegni di UtenzePA la cui fattura non c'è e non si può creare (manca il totale o il fornitore non ha un contratto di fornitura).
@@ -578,6 +604,14 @@ L'import non corregge mai le anagrafiche: segnala le differenze, che trovi in da
 **Soluzione:** è un avviso, non un errore: la fattura si salva comunque. Verifica con la ragioneria l'assestato del capitolo e aggiornalo nel tab **Esercizi**, oppure controlla nel tab **Impegni** che la fattura sia sull'impegno giusto.
 
 **Apri un ticket se:** l'assestato è aggiornato ma l'avviso indica cifre diverse.
+
+### La convenzione risulta con impegni insufficienti
+
+**Causa:** nell'esercizio in corso, su almeno un capitolo, la stima di quello che resta da fatturare supera la rimanenza degli impegni della convenzione di oltre 200 € e di oltre il 5 % dell'impegnato.
+
+**Soluzione:** apri il tab **Fabbisogno** della convenzione e guarda i capitoli con la differenza in rosso. Se l'ammanco è vero, chiedi alla ragioneria di integrare l'impegno; se sul capitolo non resta abbastanza da impegnare (segnalazione **Variazione di bilancio da chiedere**) serve prima la variazione. Se la stima è troppo alta, controlla il costo unitario (puoi scriverne uno a mano), le date degli ordini e le utenze del capitolo: un'utenza cessata senza la cessazione registrata continua a essere prevista.
+
+**Apri un ticket se:** l'impegno è stato integrato e la segnalazione resta anche il giorno dopo, oppure i numeri del tab non tornano con le fatture dell'utenza.
 
 ### «Con l'import della contabilità attivo questo dato arriva dalla contabilità.»
 

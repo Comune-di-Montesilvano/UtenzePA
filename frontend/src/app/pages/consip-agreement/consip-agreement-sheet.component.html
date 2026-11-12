@@ -8,6 +8,9 @@
     @if (status) {
       <app-status-badge [info]="status" size="sm"></app-status-badge>
     }
+    @if (forecastStatus) {
+      <app-status-badge [info]="forecastStatus" size="sm"></app-status-badge>
+    }
   </ng-container>
 
   <form [formGroup]="form">
@@ -94,6 +97,19 @@
           }
           <app-linked-table [columns]="commitmentColumns" [rows]="commitments" [rowStatus]="commitmentStatus"
                             emptyText="Nessun impegno sui contratti di questa convenzione." (open)="openCommitment($event)"></app-linked-table>
+        </mat-tab>
+
+        <mat-tab aria-label="Fabbisogno">
+          <ng-template mat-tab-label>
+            <app-tab-label icon="query_stats" label="Fabbisogno"></app-tab-label>
+          </ng-template>
+          <ng-template matTabContent>
+            <!-- Fuori dal bundle iniziale: si scarica alla prima apertura del tab. -->
+            @defer (on immediate) {
+              <app-agreement-forecast-tab [agreementId]="data.item.id" [forecast]="forecast" [loading]="forecastLoading"
+                                          [canEdit]="canEdit" (forecastChange)="setForecast($event)"></app-agreement-forecast-tab>
+            }
+          </ng-template>
         </mat-tab>
 
         <mat-tab aria-label="Documenti">

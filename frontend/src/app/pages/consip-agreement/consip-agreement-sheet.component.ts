@@ -16,7 +16,7 @@ import {TabLabelComponent} from '../../core/components/entity-sheet/tab-label.co
 import {LinkedColumn, LinkedTableComponent} from '../../core/components/entity-sheet/linked-table.component';
 import {dateIt, hasInvalid, isEditorRole, SHEET_REFRESH} from '../../core/components/entity-sheet/sheet-utils';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
-import type {StatusInfo} from '../../core/helpers/entity-status';
+import {agreementForecastStatus, type StatusInfo} from '../../core/helpers/entity-status';
 import {partyName} from '../../core/helpers/party-name.helper';
 import {EntityNavigatorService, nameFrom} from '../../core/services/entity-navigator.service';
 import {ToastService} from '../../core/services/toast.service';
@@ -29,20 +29,23 @@ import {ContractsService} from '../contracts/contract.service';
 import type {Contract} from '../contracts/entity/contract.entity';
 import {ThirdPartiesService} from '../third-parties/third-parties.service';
 import {PartyRole} from '../third-parties/third-party.model';
+import {AgreementForecastTabComponent} from './agreement-forecast-tab.component';
+import type {AgreementForecast} from './agreement-forecast.model';
 import {AgreementCommitments, ConsipAgreementService} from './consip-agreement.service';
 import {AgreementContract, ConsipAgreement} from './entity/consip-agreement.entity';
 
 type ContractRow = {id: number; order: string; cig: string; period: string; closed: boolean; draft: boolean};
 
 // Scheda della convenzione CONSIP: dati, contratti di fornitura collegati
-// (consip_agreement_id del contratto), impegni dei suoi contratti, documenti.
+// (consip_agreement_id del contratto), impegni dei suoi contratti, fabbisogno
+// (quanto resta da fatturare contro la rimanenza degli impegni), documenti.
 @Component({
   selector: 'app-consip-agreement-sheet',
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule,
     MatDatepickerModule, MatTabsModule, MatIconModule, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent,
-    LinkedTableComponent, FilterableSelectComponent, AttachmentsComponent,
+    LinkedTableComponent, FilterableSelectComponent, AttachmentsComponent, AgreementForecastTabComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './consip-agreement-sheet.component.html',
@@ -73,6 +76,10 @@ export class ConsipAgreementSheetComponent implements OnInit {
   commitments: Commitment[] = [];
   totals: AgreementCommitments['totals'] | null = null;
   status: StatusInfo | null = null;
+  // Fabbisogno: caricato all'apertura (serve al badge) e passato al tab.
+  forecast: AgreementForecast | null = null;
+  forecastLoading = false;
+  forecastStatus: StatusInfo | null = null;
   // Contratti collegati/scollegati da questa scheda: l'elenco va ricaricato.
   private touched = false;
 
@@ -116,7 +123,27 @@ export class ConsipAgreementSheetComponent implements OnInit {
     if (!this.isNew) {
       this.loadContracts();
       this.loadCommitments();
+      this.loadForecast();
     }
+  }
+
+  private loadForecast(): void {
+    this.forecastLoading = true;
+    this.service.forecast(this.data.item.id).subscribe({
+      next: f => {
+        this.forecastLoading = false;
+        this.setForecast(f);
+      },
+      error: err => {
+        this.forecastLoading = false;
+        console.error('Errore nel calcolo del fabbisogno della convenzione:', err);
+      },
+    });
+  }
+
+  setForecast(f: AgreementForecast): void {
+    this.forecast = f;
+    this.forecastStatus = agreementForecastStatus(f.rows, new Date().getFullYear());
   }
 
   private statusOf(expiry: Date | string | null | undefined): StatusInfo | null {
@@ -183,6 +210,7 @@ export class ConsipAgreementSheetComponent implements OnInit {
     this.touched = true;
     this.loadContracts();
     this.loadCommitments();
+    this.loadForecast();
   }
 
   linkContract(contractId: number): void {
@@ -216,7 +244,9 @@ export class ConsipAgreementSheetComponent implements OnInit {
 
   openCommitment(c: Commitment): void {
     this.navigator.openCommitment(c.id).subscribe(saved => {
-      if (saved) this.loadCommitments();
+      if (!saved) return;
+      this.loadCommitments();
+      this.loadForecast();
     });
   }
 

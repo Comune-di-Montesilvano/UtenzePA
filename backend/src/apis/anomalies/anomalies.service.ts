@@ -32,6 +32,15 @@ import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
 const CURRENT = `(c.closed = 0 AND ${NOT_DRAFT_SQL('c')} AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE()))`;
 const HAS_CIG = "TRIM(IFNULL(c.cig_contract, '')) <> ''";
 
+export interface AgreementShortAnomaly {
+  id: number;
+  label: string;
+  missing: number;
+  chapters: { id: number | null; label: string; missing: number }[];
+  // Impegni della convenzione su quei capitoli nell'esercizio in corso.
+  commitment_ids: number[];
+}
+
 export interface AnomalyList<T> {
   count: number;
   items: T[];
@@ -60,6 +69,10 @@ export interface Anomalies {
   duplicate_cigs: AnomalyList<{ cig: string; contracts: number[] }>;
   /** Ordini in bozza con inizio previsto già passato: da emettere o eliminare. */
   contracts_draft_overdue: AnomalyList<{ id: number; cig_contract: string | null; supply_start_date: string }>;
+  /** Convenzioni con impegni che non basteranno nell'esercizio in corso (cache del fabbisogno). */
+  agreements_commitments_short: AnomalyList<AgreementShortAnomaly>;
+  /** Capitoli dove l'ammanco previsto supera il «da impegnare»: serve la variazione di bilancio. */
+  chapters_variation_needed: AnomalyList<ChapterAnomaly & { missing: number; available: number }>;
   real_estate_contracts_without_assets: AnomalyList<RealEstateContractAnomaly>;
   plants_without_position: AnomalyList<PlantAnomaly>;
   active_utilities_without_position: AnomalyList<UtilityAnomaly>;
@@ -917,6 +930,71 @@ export class AnomaliesService {
         WHERE c.deleted = 0 AND c.closed = 0 AND c.draft = 1 AND c.supply_start_date < CURDATE()
         ORDER BY c.supply_start_date, c.id`,
     );
+    // Fabbisogno delle convenzioni: solo dalla cache (consip_agreement_forecasts),
+    // mai un ricalcolo qui. Esercizio in corso, convenzioni con un ordine non chiuso.
+    const OPEN_AGREEMENT = `EXISTS (SELECT 1 FROM contracts c
+          WHERE c.consip_agreement_id = a.id AND c.deleted = 0 AND c.closed = 0)`;
+    const agreementsShort: Record<string, unknown>[] = await this.dataSource.query(
+      `/* agreements_commitments_short */
+       SELECT f.consip_agreement_id_fk AS id, a.name, f.budget_chapter_id_fk AS chapter_id,
+              b.chapter_code, b.article, b.description, f.shortfall,
+              (SELECT GROUP_CONCAT(DISTINCT bcm.id) FROM budget_commitments bcm
+                 JOIN budget_commitment_years bcy ON bcy.commitment_id = bcm.id AND bcy.fiscal_year = f.fiscal_year
+                WHERE bcm.deleted = 0 AND bcm.budget_chapter_id_fk <=> f.budget_chapter_id_fk
+                  AND EXISTS (SELECT 1 FROM budget_commitment_contracts bcc
+                        JOIN contracts oc ON oc.id = bcc.contract_id AND oc.deleted = 0
+                       WHERE bcc.commitment_id = bcm.id
+                         AND oc.consip_agreement_id = f.consip_agreement_id_fk)) AS commitment_ids
+         FROM consip_agreement_forecasts f
+         JOIN consip_agreement a ON a.id = f.consip_agreement_id_fk AND a.deleted = 0
+         LEFT JOIN budget_chapters b ON b.id = f.budget_chapter_id_fk
+        WHERE f.fiscal_year = YEAR(CURDATE()) AND f.shortfall > 0 AND ${OPEN_AGREEMENT}
+        ORDER BY a.name, f.consip_agreement_id_fk, b.chapter_code, b.article`,
+    );
+    const variationNeeded: Record<string, unknown>[] = await this.dataSource.query(
+      `/* chapters_variation_needed */
+       SELECT b.id, b.chapter_code, b.article, b.description, x.missing,
+              s.adjusted_budget - COALESCE(k.committed, 0) AS available
+         FROM (SELECT f.budget_chapter_id_fk AS chapter_id, SUM(f.shortfall) AS missing
+                 FROM consip_agreement_forecasts f
+                 JOIN consip_agreement a ON a.id = f.consip_agreement_id_fk AND a.deleted = 0
+                WHERE f.fiscal_year = YEAR(CURDATE()) AND f.shortfall > 0
+                  AND f.budget_chapter_id_fk IS NOT NULL AND ${OPEN_AGREEMENT}
+                GROUP BY f.budget_chapter_id_fk) x
+         JOIN budget_chapters b ON b.id = x.chapter_id AND b.deleted = 0
+         JOIN budget_chapter_spending s ON s.budget_chapter_id_fk = b.id AND s.deleted = 0
+              AND s.year = YEAR(CURDATE()) AND s.adjusted_budget IS NOT NULL
+         LEFT JOIN (SELECT bcm.budget_chapter_id_fk AS chapter_id, SUM(bcy.amount) AS committed
+                      FROM budget_commitment_years bcy
+                      JOIN budget_commitments bcm ON bcm.id = bcy.commitment_id
+                     WHERE bcm.deleted = 0 AND bcy.fiscal_year = YEAR(CURDATE())
+                     GROUP BY bcm.budget_chapter_id_fk) k ON k.chapter_id = b.id
+        WHERE x.missing > s.adjusted_budget - COALESCE(k.committed, 0)
+        ORDER BY b.chapter_code, b.article`,
+    );
+    const agreementsShortItems: AgreementShortAnomaly[] = [];
+    for (const r of agreementsShort) {
+      const id = Number(r.id);
+      let item = agreementsShortItems.find((a) => a.id === id);
+      if (!item) {
+        item = { id, label: String(r.name ?? ''), missing: 0, chapters: [], commitment_ids: [] };
+        agreementsShortItems.push(item);
+      }
+      const missing = Number(r.shortfall);
+      const description = ((r.description as string) ?? '').trim();
+      item.missing = Math.round((item.missing + missing) * 100) / 100;
+      item.chapters.push({
+        id: r.chapter_id == null ? null : Number(r.chapter_id),
+        label:
+          r.chapter_id == null
+            ? 'Senza capitolo'
+            : `${r.chapter_code}/${r.article}${description ? ` — ${description}` : ''}`,
+        missing,
+      });
+      const linked = r.commitment_ids ? String(r.commitment_ids).split(',').map(Number) : [];
+      item.commitment_ids = [...new Set([...item.commitment_ids, ...linked])];
+    }
+
     const commitments = commitmentRows.map((r) => {
       const amount = r.amount == null ? null : Number(r.amount);
       return {
@@ -1213,6 +1291,14 @@ export class AnomaliesService {
           id: Number(c.id),
           cig_contract: ((c.cig_contract as string) ?? '').trim() || null,
           supply_start_date: String(c.supply_start_date),
+        })),
+      ),
+      agreements_commitments_short: list(agreementsShortItems),
+      chapters_variation_needed: list(
+        variationNeeded.map((c) => ({
+          ...chapterLabel(c),
+          missing: Number(c.missing),
+          available: Number(c.available),
         })),
       ),
     };

@@ -2,7 +2,8 @@ import {Component, ChangeDetectionStrategy, inject} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
 import {DataTableConsipAgreementComponent} from './data-table-consip-agreement.component';
 import {ListFiltersComponent} from '../../core/components/list/list-filters.component';
-import {consipAgreementFilters} from './consip-agreement-filters';
+import {ListSignalsComponent} from '../../core/components/list/list-signals.component';
+import {CONSIP_AGREEMENT_SIGNALS, consipAgreementFilters} from './consip-agreement-filters';
 import {ConsipAgreementService} from './consip-agreement.service';
 import {AbstractComponent} from '../../core/components/abstract.component';
 import {ConsipAgreement} from './entity/consip-agreement.entity';
@@ -12,7 +13,8 @@ import {ConsipAgreement} from './entity/consip-agreement.entity';
   standalone: true,
   imports: [
     DataTableConsipAgreementComponent,
-    ListFiltersComponent
+    ListFiltersComponent,
+    ListSignalsComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   templateUrl: './consip-agreement.component.html'
@@ -25,6 +27,7 @@ export class ConsipAgreementComponent extends AbstractComponent<ConsipAgreement>
   }
 
   override filterDefs = consipAgreementFilters();
+  readonly signals = CONSIP_AGREEMENT_SIGNALS;
   private route = inject(ActivatedRoute);
 
   override ngOnInit(): void {

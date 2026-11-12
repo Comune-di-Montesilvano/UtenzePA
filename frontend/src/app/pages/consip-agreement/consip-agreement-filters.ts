@@ -1,6 +1,7 @@
 import {inject} from '@angular/core';
 import {map} from 'rxjs';
 import {DELETED_FILTER, FilterDef} from '../../core/components/list/filter-def';
+import type {SignalDef} from '../../core/components/list/list-signals.component';
 import {ThirdPartiesService} from '../third-parties/third-parties.service';
 import {PartyRole} from '../third-parties/third-party.model';
 import {partyName} from '../../core/helpers/party-name.helper';
@@ -20,3 +21,8 @@ export function consipAgreementFilters(): FilterDef[] {
     DELETED_FILTER,
   ];
 }
+
+// Segnalazioni dell'elenco (anomalie della dashboard).
+export const CONSIP_AGREEMENT_SIGNALS: SignalDef[] = [
+  {key: 'agreements_commitments_short', label: 'Impegni insufficienti'},
+];

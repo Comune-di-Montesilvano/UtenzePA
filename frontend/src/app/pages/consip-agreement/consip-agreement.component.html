@@ -2,7 +2,10 @@
   <h1>Convenzioni CONSIP</h1>
   <p class="list-subtitle">Convenzioni quadro CONSIP e fornitori aggiudicatari.</p>
   <app-list-filters [defs]="filterDefs" [values]="filterValues" placeholder="Cerca nome, CIG master, descrizione..."
-                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"></app-list-filters>
+                    (valuesChange)="onFiltersChange($event)" (quickSearch)="onQuickSearch($event)"
+                    [extraChips]="signalChips" (extraChipRemoved)="clearSignal()"></app-list-filters>
+  <app-list-signals [signals]="signals" [reloadToken]="signalsToken" [activeKey]="signal?.key ?? null"
+                    (selected)="onSignal($event)"></app-list-signals>
   <div style="margin-top: 1rem;">
     <app-data-table-consip-agreement [data]="list"
       [loading]="loading"
