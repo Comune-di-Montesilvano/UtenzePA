@@ -4,6 +4,7 @@ import {MatButtonModule} from '@angular/material/button';
 import {MatIconModule} from '@angular/material/icon';
 import {MatTooltipModule} from '@angular/material/tooltip';
 import {HasRoleDirective} from '../../../core/directives/has-role.directive';
+import {ToastService} from '../../../core/services/toast.service';
 import {ConfirmDialogComponent, ConfirmDialogData} from '../../../core/components/confirm-dialog.component';
 import {ConsumptionChartComponent} from './consumption-chart.component';
 import {ConsumptionEditDialogComponent, ConsumptionEditDialogData} from './consumption-edit-dialog.component';
@@ -147,6 +148,7 @@ const SOURCE_LABEL: Record<UtilityConsumption['source'], string> = {
 export class UtilityConsumptionsTabComponent implements OnInit {
   private service = inject(UtilityConsumptionService);
   private dialog = inject(MatDialog);
+  private toast = inject(ToastService);
 
   @Input({required: true}) utilityId!: number;
   @Input() meterNumber: string | null = null;
@@ -214,7 +216,16 @@ export class UtilityConsumptionsTabComponent implements OnInit {
       if (!confirmed) return;
       this.service.delete(row.id).subscribe({
         next: () => this.reload(),
-        error: err => console.error('Errore eliminazione rilevazione:', err),
+        // Ricarica comunque: un errore dopo il salvataggio lascerebbe a
+        // schermo una rilevazione già eliminata.
+        error: err => {
+          const message = err?.error?.message;
+          this.toast.add({
+            severity: 'error', summary: 'Rilevazione non eliminata',
+            detail: Array.isArray(message) ? message.join(' ') : (message ?? ''),
+          });
+          this.reload();
+        },
       });
     });
   }

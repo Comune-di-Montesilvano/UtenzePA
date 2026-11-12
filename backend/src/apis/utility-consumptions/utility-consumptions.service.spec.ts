@@ -87,6 +87,17 @@ describe('UtilityConsumptionsService', () => {
     expect(recalc.recalcUtility).toHaveBeenCalledWith(7);
   });
 
+  it('ultima lettura senza matricola (fattura che non la riporta): matricola dell’utenza invariata, ricalcolo fatto', async () => {
+    repo.find.mockResolvedValue([
+      ...existing,
+      { id: 99, utility_id_fk: 7, kind: ConsumptionKind.READING, reading_date: '2026-04-01', reading_value: '1400.000', meter_number: null, deleted: false },
+    ]);
+    repo.findOne.mockResolvedValue(existing[1]);
+    await service.remove(2, 3);
+    expect(utilityRepo.update).not.toHaveBeenCalled();
+    expect(recalc.recalcUtility).toHaveBeenCalledWith(7);
+  });
+
   it('rifiuta utenze INTERNET', async () => {
     utilityRepo.findOne.mockResolvedValue({ ...lightUtility, utilityType: { hard_type: HardTypeEnum.INTERNET } });
     await expect(service.createForUtility(7, readingDto('2026-04-01', 1400), 3)).rejects.toThrow(BadRequestException);
