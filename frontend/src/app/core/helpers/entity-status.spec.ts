@@ -1,4 +1,4 @@
-import {supplyContractFlags, supplyContractStatus, sortSupplyContracts} from './entity-status';
+import {agreementForecastStatus, supplyContractFlags, supplyContractStatus, sortSupplyContracts} from './entity-status';
 import {ContractKind} from '../../pages/contracts/contract-kind';
 
 describe('ordine in bozza', () => {
@@ -29,5 +29,20 @@ describe('ordine in bozza', () => {
       {id: 2, supply_start_date: '2026-01-01', supply_expiry_date: '2026-12-31'},
     ], today);
     expect(sorted.map(c => c.id)).toEqual([2, 1]);
+  });
+});
+
+describe('fabbisogno della convenzione', () => {
+  it('«Impegni insufficienti» con un ammanco nell’esercizio in corso', () => {
+    const status = agreementForecastStatus([{year: 2026, alert: null}, {year: 2026, alert: 'short'}], 2026);
+    expect(status?.label).toBe('Impegni insufficienti');
+    expect(status?.tone).toBe('danger');
+  });
+
+  it('niente badge per ammanchi di altri esercizi, dati insufficienti o senza righe', () => {
+    expect(agreementForecastStatus([{year: 2027, alert: 'short'}], 2026)).toBeNull();
+    expect(agreementForecastStatus([{year: 2026, alert: 'insufficient_data'}], 2026)).toBeNull();
+    expect(agreementForecastStatus([], 2026)).toBeNull();
+    expect(agreementForecastStatus(null, 2026)).toBeNull();
   });
 });
