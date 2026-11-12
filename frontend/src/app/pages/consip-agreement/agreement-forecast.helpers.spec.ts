@@ -101,7 +101,7 @@ describe('forecastNotices', () => {
   });
   const forecast = (over: Partial<AgreementForecast> = {}): AgreementForecast => ({
     horizon: null, prices: [], rows: [], utilities: [],
-    warnings: {orders_without_dates: [], utilities_without_data: [], utilities_other_type: []},
+    warnings: {orders_without_dates: [], utilities_without_data: [], utilities_other_type: [], commitments_without_amount: []},
     computed_at: '2026-11-12T10:00:00.000Z', chapters: [{id: 7, label: '1234/0 — Luce scuole'}],
     shared_commitments: [], shares_without_lines: [], ...over,
   });
@@ -113,7 +113,7 @@ describe('forecastNotices', () => {
   it('ogni avviso dice quali ordini e quali utenze', () => {
     const notices = forecastNotices(forecast({
       utilities: [u(1, {source: 'none'}), u(2, {lines_without_period: true}), u(3, {utility_code: null, lines_without_period: true})],
-      warnings: {orders_without_dates: [12, 15], utilities_without_data: [1], utilities_other_type: [8, 9]},
+      warnings: {orders_without_dates: [12, 15], utilities_without_data: [1], utilities_other_type: [8, 9], commitments_without_amount: []},
       shared_commitments: [{id: 4, label: '2026/514/1'}],
       shares_without_lines: [{year: 2026, amount: 100}],
       rows: [{chapter_id: 7, year: 2026, utilities: 1, invoiced: 0, to_invoice: 0, total: 0, committed: 0, remaining: 0,
@@ -131,11 +131,21 @@ describe('forecastNotices', () => {
     expect(notices).toHaveLength(7);
   });
 
+  it('annualità di impegno senza importo: capitolo ed esercizio', () => {
+    const notices = forecastNotices(forecast({
+      warnings: {orders_without_dates: [], utilities_without_data: [], utilities_other_type: [],
+        commitments_without_amount: [{chapter_id: 7, year: 2026, count: 2}, {chapter_id: null, year: 2027, count: 1}]},
+    }));
+    expect(notices).toEqual([
+      'Annualità di impegno senza importo: 1234/0 — Luce scuole (2026, 2), Senza capitolo (2027, 1): contano come niente impegnato',
+    ]);
+  });
+
   it('elenchi lunghi: i primi dieci e il resto contato', () => {
     const many = Array.from({length: 13}, (_, i) => u(i + 1, {source: 'none'}));
     const [notice] = forecastNotices(forecast({
       utilities: many,
-      warnings: {orders_without_dates: [], utilities_without_data: many.map(x => x.id), utilities_other_type: []},
+      warnings: {orders_without_dates: [], utilities_without_data: many.map(x => x.id), utilities_other_type: [], commitments_without_amount: []},
     }));
     expect(notice).toBe('Utenze senza dati: 13 (IT001, IT002, IT003, IT004, IT005, IT006, IT007, IT008, IT009, IT0010 e altre 3)');
   });

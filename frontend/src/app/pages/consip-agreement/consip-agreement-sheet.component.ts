@@ -9,6 +9,7 @@ import {MatDatepickerModule} from '@angular/material/datepicker';
 import {MatTabsModule} from '@angular/material/tabs';
 import {MatIconModule} from '@angular/material/icon';
 import {plainToInstance} from 'class-transformer';
+import type {Subscription} from 'rxjs';
 import {EditDialogData} from '../../core/components/abstract-data-table.component';
 import {EntitySheetComponent} from '../../core/components/entity-sheet/entity-sheet.component';
 import {StatusBadgeComponent} from '../../core/components/entity-sheet/status-badge.component';
@@ -80,6 +81,7 @@ export class ConsipAgreementSheetComponent implements OnInit {
   forecast: AgreementForecast | null = null;
   forecastLoading = false;
   forecastStatus: StatusInfo | null = null;
+  private forecastCall?: Subscription;
   // Contratti collegati/scollegati da questa scheda: l'elenco va ricaricato.
   private touched = false;
 
@@ -128,8 +130,10 @@ export class ConsipAgreementSheetComponent implements OnInit {
   }
 
   private loadForecast(): void {
+    // Un solo calcolo in volo: una risposta vecchia non sovrascrive la nuova.
+    this.forecastCall?.unsubscribe();
     this.forecastLoading = true;
-    this.service.forecast(this.data.item.id).subscribe({
+    this.forecastCall = this.service.forecast(this.data.item.id).subscribe({
       next: f => {
         this.forecastLoading = false;
         this.setForecast(f);

@@ -32,7 +32,14 @@ const CONSUMPTION_UNIT: Record<string, string> = {LIGHT: 'kWh', GAS: 'Smc'};
   template: `
     <div class="fc">
       @if (!forecast) {
-        <p class="fc-muted">{{ loading || busy ? 'Calcolo in corso…' : 'Fabbisogno non disponibile.' }}</p>
+        <div class="fc-bar">
+          <p class="fc-muted">{{ loading || busy ? 'Calcolo in corso…' : 'Fabbisogno non disponibile.' }}</p>
+          @if (!loading && !busy) {
+            <button mat-stroked-button type="button" (click)="recompute()">
+              <mat-icon>refresh</mat-icon> Ricalcola
+            </button>
+          }
+        </div>
       } @else {
         <div class="fc-bar">
           <span class="fc-muted">Ultimo calcolo: {{ computedAt }}</span>
@@ -62,7 +69,7 @@ const CONSUMPTION_UNIT: Record<string, string> = {LIGHT: 'kWh', GAS: 'Smc'};
                       <mat-label>A mano</mat-label>
                       <input matInput type="number" min="0" step="0.0001" [value]="p.manual ?? ''" [disabled]="busy"
                              [attr.aria-label]="'Costo unitario a mano ' + typeLabel(p.hard_type)"
-                             (change)="setPrice(p, $any($event.target).value)">
+                             (change)="setPrice(p, $any($event.target))">
                       <span matTextSuffix>{{ unit(p.hard_type) }}</span>
                     </mat-form-field>
                     @if (p.manual !== null) {
@@ -107,7 +114,7 @@ const CONSUMPTION_UNIT: Record<string, string> = {LIGHT: 'kWh', GAS: 'Smc'};
               <tbody>
                 @for (r of rows; track r.chapter_id) {
                   <tr class="row-clickable" tabindex="0" [attr.aria-expanded]="isOpen(r)"
-                      (click)="toggle(r)" (keydown.enter)="toggle(r)">
+                      (click)="toggle(r)" (keydown.enter)="toggle(r)" (keydown.space)="$event.preventDefault(); toggle(r)">
                     <td>
                       <mat-icon class="fc-caret">{{ isOpen(r) ? 'expand_more' : 'chevron_right' }}</mat-icon>
                       {{ chapterLabel(r.chapter_id) }}
@@ -136,7 +143,8 @@ const CONSUMPTION_UNIT: Record<string, string> = {LIGHT: 'kWh', GAS: 'Smc'};
                           </thead>
                           <tbody>
                             @for (u of detail(r); track u.id) {
-                              <tr class="row-clickable" tabindex="0" (click)="openUtility(u.id)" (keydown.enter)="openUtility(u.id)">
+                              <tr class="row-clickable" tabindex="0" (click)="openUtility(u.id)" (keydown.enter)="openUtility(u.id)"
+                                  (keydown.space)="$event.preventDefault(); openUtility(u.id)">
                                 <td>{{ u.utility_code || 'Utenza id ' + u.id }}</td>
                                 <td class="num">{{ consumption(u) }}</td>
                                 <td class="num">{{ eur(u.invoiced) }}</td>
@@ -226,19 +234,33 @@ export class AgreementForecastTabComponent implements OnChanges {
   private totals = new Map<string, ForecastRow>();
   private chapters = new Map<number, string>();
   private open = new Map<string, ForecastUtilityYear[]>();
+  // Fabbisogno già disegnato: la scheda ripassa quello appena ricalcolato
+  // da qui, che non va ricostruito una seconda volta.
+  private built: AgreementForecast | null | undefined;
 
   ngOnChanges(): void {
-    this.rebuild();
+    if (this.forecast !== this.built) this.rebuild();
   }
 
   private rebuild(): void {
     const f = this.forecast;
-    this.open.clear();
+    this.built = f;
     this.totals.clear();
     if (!f) {
+      this.open.clear();
       this.groups = [];
       this.notices = [];
       return;
+    }
+    // I dettagli aperti restano aperti, con le utenze del nuovo calcolo.
+    for (const key of [...this.open.keys()]) {
+      const [year, chapter] = key.split(':');
+      const chapterId = chapter === 'null' ? null : Number(chapter);
+      if (f.rows.some(r => r.year === Number(year) && r.chapter_id === chapterId)) {
+        this.open.set(key, utilitiesOf(f.utilities, chapterId, Number(year)));
+      } else {
+        this.open.delete(key);
+      }
     }
     this.chapters = new Map(f.chapters.map(c => [c.id, c.label]));
     this.computedAt = new Date(f.computed_at).toLocaleString('it-IT', {dateStyle: 'short', timeStyle: 'short'});
@@ -324,10 +346,12 @@ export class AgreementForecastTabComponent implements OnChanges {
     this.run(this.service.forecast(this.agreementId), 'Fabbisogno non calcolato');
   }
 
-  setPrice(p: ForecastPrice, raw: string): void {
+  setPrice(p: ForecastPrice, input: HTMLInputElement): void {
+    const raw = input.value;
     const value = raw === '' ? null : Number(raw);
-    if (value !== null && (!Number.isFinite(value) || value <= 0)) {
-      this.toast.add({severity: 'warn', summary: 'Costo unitario non valido', detail: 'Inserisci un numero maggiore di zero.'});
+    if (value !== null && (!Number.isFinite(value) || value <= 0 || value > 999999)) {
+      this.toast.add({severity: 'warn', summary: 'Costo unitario non valido', detail: 'Inserisci un numero maggiore di zero e fino a 999999.'});
+      input.value = p.manual === null ? '' : String(p.manual);
       return;
     }
     if (value === p.manual) return;

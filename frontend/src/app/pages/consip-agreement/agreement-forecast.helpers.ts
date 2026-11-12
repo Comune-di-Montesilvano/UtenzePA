@@ -124,6 +124,10 @@ export function forecastNotices(f: AgreementForecast): string[] {
   if (w.utilities_other_type.length) {
     out.push(`Utenze di altro tipo (acqua, connettività) escluse dal calcolo: ${w.utilities_other_type.length}`);
   }
+  if (w.commitments_without_amount.length) {
+    const list = w.commitments_without_amount.map(c => `${chapterLabelOf(f, c.chapter_id)} (${c.year}, ${c.count})`).join(', ');
+    out.push(`Annualità di impegno senza importo: ${list}: contano come niente impegnato`);
+  }
   if (f.shared_commitments.length) {
     out.push(`Impegni condivisi con un'altra convenzione: ${f.shared_commitments.map(c => c.label).join(', ')} (contano per intero in entrambe)`);
   }

@@ -108,6 +108,10 @@
             @defer (on immediate) {
               <app-agreement-forecast-tab [agreementId]="data.item.id" [forecast]="forecast" [loading]="forecastLoading"
                                           [canEdit]="canEdit" (forecastChange)="setForecast($event)"></app-agreement-forecast-tab>
+            } @placeholder {
+              <p class="sheet-empty">Caricamento…</p>
+            } @error {
+              <p class="sheet-empty">Il tab non si è caricato: ricarica la pagina.</p>
             }
           </ng-template>
         </mat-tab>
