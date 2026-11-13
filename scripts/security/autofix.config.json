@@ -1,0 +1,20 @@
+{
+  "pnpmDirs": ["backend", "frontend"],
+  "dockerfiles": {
+    "backend": "backend/Dockerfile",
+    "frontend": "frontend/Dockerfile",
+    "tinn": "tinn/Dockerfile"
+  },
+  "allowedFiles": [
+    "backend/package.json",
+    "backend/pnpm-lock.yaml",
+    "backend/pnpm-workspace.yaml",
+    "frontend/package.json",
+    "frontend/pnpm-lock.yaml",
+    "frontend/pnpm-workspace.yaml",
+    "backend/Dockerfile",
+    "frontend/Dockerfile",
+    "tinn/Dockerfile"
+  ],
+  "pip": null
+}
