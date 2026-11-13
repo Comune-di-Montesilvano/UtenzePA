@@ -11,7 +11,12 @@ import { UtilitySupplyModule } from '@apis/utility-supply/utility-supply.module'
 import { UtilityConsumptionsModule } from '@apis/utility-consumptions/utility-consumptions.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Utility, Contract, Asset, Plant]), UtilityConsumptionsModule, UtilitySupplyModule, BudgetCommitmentsModule],
+  imports: [
+    TypeOrmModule.forFeature([Utility, Contract, Asset, Plant]),
+    UtilityConsumptionsModule,
+    UtilitySupplyModule,
+    BudgetCommitmentsModule,
+  ],
   providers: [UtilitiesService],
   controllers: [UtilitiesController],
   exports: [UtilitiesService],

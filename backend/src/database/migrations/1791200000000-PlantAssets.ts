@@ -20,7 +20,9 @@ export class PlantAssets1791200000000 implements MigrationInterface {
     await queryRunner.query(
       `INSERT INTO \`plant_assets\` (\`plant_id\`, \`asset_id\`) SELECT \`id\`, \`asset_id_fk\` FROM \`plants\` WHERE \`asset_id_fk\` IS NOT NULL`,
     );
-    await queryRunner.query(`ALTER TABLE \`plants\` DROP FOREIGN KEY \`FK_277174dffd55273b0b17207d9bf\``);
+    await queryRunner.query(
+      `ALTER TABLE \`plants\` DROP FOREIGN KEY \`FK_277174dffd55273b0b17207d9bf\``,
+    );
     await queryRunner.query(`DROP INDEX \`IDX_172755cf0a27e671fea1c7d00d\` ON \`plants\``);
     await queryRunner.query(`ALTER TABLE \`plants\` DROP COLUMN \`asset_id_fk\``);
   }
@@ -37,8 +39,12 @@ export class PlantAssets1791200000000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE \`plants\` ADD CONSTRAINT \`FK_277174dffd55273b0b17207d9bf\` FOREIGN KEY (\`asset_id_fk\`) REFERENCES \`assets\`(\`id\`) ON DELETE NO ACTION ON UPDATE NO ACTION`,
     );
-    await queryRunner.query(`ALTER TABLE \`plant_assets\` DROP FOREIGN KEY \`FK_3243de449ddbe121a092299fbaa\``);
-    await queryRunner.query(`ALTER TABLE \`plant_assets\` DROP FOREIGN KEY \`FK_7a92bd8894d7b894163a19ac634\``);
+    await queryRunner.query(
+      `ALTER TABLE \`plant_assets\` DROP FOREIGN KEY \`FK_3243de449ddbe121a092299fbaa\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`plant_assets\` DROP FOREIGN KEY \`FK_7a92bd8894d7b894163a19ac634\``,
+    );
     await queryRunner.query(`DROP INDEX \`IDX_3243de449ddbe121a092299fba\` ON \`plant_assets\``);
     await queryRunner.query(`DROP INDEX \`IDX_7a92bd8894d7b894163a19ac63\` ON \`plant_assets\``);
     await queryRunner.query(`DROP TABLE \`plant_assets\``);

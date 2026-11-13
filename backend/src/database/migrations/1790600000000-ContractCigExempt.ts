@@ -7,7 +7,9 @@ export class ContractCigExempt1790600000000 implements MigrationInterface {
   name = 'ContractCigExempt1790600000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE \`contracts\` ADD \`cig_exempt\` tinyint NOT NULL DEFAULT 0`);
+    await queryRunner.query(
+      `ALTER TABLE \`contracts\` ADD \`cig_exempt\` tinyint NOT NULL DEFAULT 0`,
+    );
     await queryRunner.query(
       `UPDATE \`contracts\` c JOIN \`suppliers\` s ON s.\`id\` = c.\`supplier_id_fk\` SET c.\`cig_exempt\` = 1, c.\`update_date\` = c.\`update_date\` WHERE s.\`supplier_id\` IN ('ACA', 'OPEN FIBER')`,
     );

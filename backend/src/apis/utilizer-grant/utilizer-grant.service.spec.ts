@@ -52,7 +52,12 @@ describe('UtilizerGrantService', () => {
       utilityIdsOfGrant: jest.fn().mockResolvedValue([]),
       reconcileManySafe: jest.fn().mockResolvedValue(undefined),
     };
-    service = new UtilizerGrantService(repo as never, assetRepo as never, partyRepo as never, supply as never);
+    service = new UtilizerGrantService(
+      repo as never,
+      assetRepo as never,
+      partyRepo as never,
+      supply as never,
+    );
     jest.spyOn(service as never, 'today' as never).mockReturnValue('2026-10-02' as never);
   });
 
@@ -95,9 +100,9 @@ describe('UtilizerGrantService', () => {
   });
 
   it('rifiuta un contratto con canone senza periodicità', async () => {
-    await expect(
-      service.create({ party_ids: [1], rent_amount: 10 } as never, 3),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.create({ party_ids: [1], rent_amount: 10 } as never, 3)).rejects.toThrow(
+      BadRequestException,
+    );
     expect(repo.save).not.toHaveBeenCalled();
   });
 
@@ -150,7 +155,9 @@ describe('UtilizerGrantService', () => {
   it('update di un contratto cancellato: solo per ripristinarlo', async () => {
     jest.spyOn(BaseService.prototype, 'update').mockResolvedValue({ id: 1 } as never);
     repo.findOne.mockResolvedValue(null);
-    await expect(service.update(1, { subject: 'x' } as never, 3)).rejects.toThrow('Contratto non trovato');
+    await expect(service.update(1, { subject: 'x' } as never, 3)).rejects.toThrow(
+      'Contratto non trovato',
+    );
     expect(repo.findOne).toHaveBeenCalledWith({ where: { id: 1, deleted: false } });
 
     repo.findOne.mockResolvedValue({ id: 1, deleted: true });
@@ -173,9 +180,9 @@ describe('UtilizerGrantService', () => {
     await service.findAll({ party_id: 5, q: 'rossi' });
     const clauses = qb.andWhere.mock.calls.map((c) => String(c[0]));
     expect(clauses.some((c) => c.includes('gp.third_party_id = :fParty'))).toBe(true);
-    expect(clauses.some((c) => c.includes('FROM utilizer_grant_parties gp JOIN third_parties tp'))).toBe(
-      true,
-    );
+    expect(
+      clauses.some((c) => c.includes('FROM utilizer_grant_parties gp JOIN third_parties tp')),
+    ).toBe(true);
   });
 
   it('di default esclude i cancellati, con deleted=true mostra solo quelli', async () => {
@@ -243,19 +250,26 @@ describe('UtilizerGrantService', () => {
       const error = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
       repo.findOne.mockResolvedValue({ id: 1, deleted: false });
       jest.spyOn(BaseService.prototype, 'update').mockResolvedValue({ id: 1 } as never);
-      supply.utilityIdsOfGrant.mockResolvedValueOnce([1, 2]).mockRejectedValueOnce(new Error('db giù'));
+      supply.utilityIdsOfGrant
+        .mockResolvedValueOnce([1, 2])
+        .mockRejectedValueOnce(new Error('db giù'));
       await expect(service.update(1, { subject: 'x' } as never, 3)).resolves.toBeDefined();
       expect(supply.reconcileManySafe).toHaveBeenCalledWith([1, 2], 3);
       expect(error).toHaveBeenCalledWith(expect.stringContaining('contratto 1'), expect.any(Error));
 
-      supply.utilityIdsOfGrant.mockReset().mockResolvedValueOnce([8]).mockRejectedValueOnce(new Error('db giù'));
+      supply.utilityIdsOfGrant
+        .mockReset()
+        .mockResolvedValueOnce([8])
+        .mockRejectedValueOnce(new Error('db giù'));
       repo.findOne.mockResolvedValue({ id: 5, deleted: false, updated_by_user_id: 1 });
       await expect(service.remove(5, 3)).resolves.toBeUndefined();
       expect(supply.reconcileManySafe).toHaveBeenLastCalledWith([8], 3);
 
       supply.utilityIdsOfGrant.mockReset().mockRejectedValue(new Error('db giù'));
       repo.findOne.mockResolvedValue({ id: 99, assets: [] });
-      await expect(service.create({ party_ids: [1], asset_ids: [7] } as never, 3)).resolves.toBeDefined();
+      await expect(
+        service.create({ party_ids: [1], asset_ids: [7] } as never, 3),
+      ).resolves.toBeDefined();
       expect(supply.reconcileManySafe).toHaveBeenLastCalledWith([], 3);
     });
 

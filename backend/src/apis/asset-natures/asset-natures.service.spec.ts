@@ -4,7 +4,12 @@ import { AssetNaturesService } from './asset-natures.service';
 
 describe('AssetNaturesService', () => {
   let service: AssetNaturesService;
-  let repo: { createQueryBuilder: jest.Mock; findOne: jest.Mock; create: jest.Mock; save: jest.Mock };
+  let repo: {
+    createQueryBuilder: jest.Mock;
+    findOne: jest.Mock;
+    create: jest.Mock;
+    save: jest.Mock;
+  };
   let assetRepo: { count: jest.Mock };
   let qb: {
     leftJoinAndSelect: jest.Mock;
@@ -42,7 +47,11 @@ describe('AssetNaturesService', () => {
   });
 
   it('create salva le funzioni ammesse come relazione deduplicata', async () => {
-    repo.findOne.mockResolvedValue({ id: 1, name: 'Fabbricato', functions: [{ id: 4 }, { id: 5 }] });
+    repo.findOne.mockResolvedValue({
+      id: 1,
+      name: 'Fabbricato',
+      functions: [{ id: 4 }, { id: 5 }],
+    });
 
     await service.create({ name: 'Fabbricato', function_ids: [4, 5, 4] }, 9);
 
@@ -56,7 +65,11 @@ describe('AssetNaturesService', () => {
   });
 
   it('update rifiuta con 400 se rimuove una coppia usata da immobili', async () => {
-    repo.findOne.mockResolvedValue({ id: 1, name: 'Fabbricato', functions: [{ id: 4 }, { id: 5 }] });
+    repo.findOne.mockResolvedValue({
+      id: 1,
+      name: 'Fabbricato',
+      functions: [{ id: 4 }, { id: 5 }],
+    });
     assetRepo.count.mockResolvedValue(3);
 
     await expect(service.update(1, { function_ids: [4] }, 9)).rejects.toThrow(BadRequestException);
@@ -67,7 +80,11 @@ describe('AssetNaturesService', () => {
   });
 
   it('update sostituisce le funzioni ammesse se nessuna coppia rimossa è in uso', async () => {
-    repo.findOne.mockResolvedValue({ id: 1, name: 'Fabbricato', functions: [{ id: 4 }, { id: 5 }] });
+    repo.findOne.mockResolvedValue({
+      id: 1,
+      name: 'Fabbricato',
+      functions: [{ id: 4 }, { id: 5 }],
+    });
 
     await service.update(1, { function_ids: [4, 6] }, 9);
 

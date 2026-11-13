@@ -782,9 +782,36 @@ describe('MapService', () => {
     assetRepo.find.mockResolvedValue([]);
     plantRepo.find.mockResolvedValue([]);
     utilityRepo.find.mockResolvedValue([
-      { id: 5, utility_id: 'U5', latitude: '42.8', longitude: '14.4', supply_active: true, transferred_to_third_party_id: 3, assets: [], plants: [] },
-      { id: 6, utility_id: 'U6', latitude: '42.9', longitude: '14.5', supply_active: false, transferred_to_third_party_id: 3, assets: [], plants: [] },
-      { id: 7, utility_id: 'U7', latitude: '43.0', longitude: '14.6', supply_active: true, transferred_to_third_party_id: null, assets: [], plants: [] },
+      {
+        id: 5,
+        utility_id: 'U5',
+        latitude: '42.8',
+        longitude: '14.4',
+        supply_active: true,
+        transferred_to_third_party_id: 3,
+        assets: [],
+        plants: [],
+      },
+      {
+        id: 6,
+        utility_id: 'U6',
+        latitude: '42.9',
+        longitude: '14.5',
+        supply_active: false,
+        transferred_to_third_party_id: 3,
+        assets: [],
+        plants: [],
+      },
+      {
+        id: 7,
+        utility_id: 'U7',
+        latitude: '43.0',
+        longitude: '14.6',
+        supply_active: true,
+        transferred_to_third_party_id: null,
+        assets: [],
+        plants: [],
+      },
     ]);
     const { points } = await service.getPoints({});
     const pick = (id: number) => points.find((p) => p.type === 'utility' && p.id === id);

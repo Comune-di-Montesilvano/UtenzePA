@@ -5,14 +5,22 @@ import { UpdateUtilityDto } from './update-utility.dto';
 
 // Dati tecnici della connettività e campi dello storico fornitura.
 describe('connettività e date', () => {
-  const errorsOf = async (Dto: new () => object, plain: Record<string, unknown>, property: string) =>
-    (await validate(plainToInstance(Dto as never, plain) as object)).filter((e) => e.property === property);
+  const errorsOf = async (
+    Dto: new () => object,
+    plain: Record<string, unknown>,
+    property: string,
+  ) =>
+    (await validate(plainToInstance(Dto as never, plain) as object)).filter(
+      (e) => e.property === property,
+    );
 
   it.each([
     ['create', CreateUtilityDto],
     ['update', UpdateUtilityDto],
   ])('%s: tecnologia fuori elenco rifiutata, FTTH ammessa, null ammesso', async (_l, Dto) => {
-    expect(await errorsOf(Dto, { internet_technology: 'PIGEON' }, 'internet_technology')).not.toEqual([]);
+    expect(
+      await errorsOf(Dto, { internet_technology: 'PIGEON' }, 'internet_technology'),
+    ).not.toEqual([]);
     expect(await errorsOf(Dto, { internet_technology: 'FTTH' }, 'internet_technology')).toEqual([]);
     expect(await errorsOf(Dto, { internet_technology: null }, 'internet_technology')).toEqual([]);
   });
@@ -41,7 +49,14 @@ describe('connettività e date', () => {
     ['create', CreateUtilityDto],
     ['update', UpdateUtilityDto],
   ])('%s: i campi dello storico non sono più ammessi', async (_l, Dto) => {
-    for (const field of ['supply_active', 'activated_on', 'ceased_on', 'transferred_to_third_party_id', 'transferred_on', 'transfer_required']) {
+    for (const field of [
+      'supply_active',
+      'activated_on',
+      'ceased_on',
+      'transferred_to_third_party_id',
+      'transferred_on',
+      'transfer_required',
+    ]) {
       const errors = await validate(plainToInstance(Dto as never, { [field]: null }) as object, {
         whitelist: true,
         forbidNonWhitelisted: true,
@@ -52,8 +67,16 @@ describe('connettività e date', () => {
 
   it('create: initial_supply con data nel formato AAAA-MM-GG', async () => {
     const ok = { initial_supply: { active: false, requested_on: '2026-10-01' } };
-    expect((await validate(plainToInstance(CreateUtilityDto, ok))).filter((e) => e.property === 'initial_supply')).toEqual([]);
+    expect(
+      (await validate(plainToInstance(CreateUtilityDto, ok))).filter(
+        (e) => e.property === 'initial_supply',
+      ),
+    ).toEqual([]);
     const bad = { initial_supply: { active: true, effective_on: 'ieri' } };
-    expect((await validate(plainToInstance(CreateUtilityDto, bad))).filter((e) => e.property === 'initial_supply')).not.toEqual([]);
+    expect(
+      (await validate(plainToInstance(CreateUtilityDto, bad))).filter(
+        (e) => e.property === 'initial_supply',
+      ),
+    ).not.toEqual([]);
   });
 });

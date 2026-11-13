@@ -16,7 +16,7 @@ describe('ChunkedUploadService', () => {
     fs.rmSync(destDir, { recursive: true, force: true });
   });
 
-  it('assembla i chunk nell\'ordine corretto quando tutti sono presenti', () => {
+  it("assembla i chunk nell'ordine corretto quando tutti sono presenti", () => {
     const uploadId = 'test-upload-1';
     service.saveChunk(uploadId, 0, 3, Buffer.from('AAA'), destDir);
     service.saveChunk(uploadId, 1, 3, Buffer.from('BBB'), destDir);

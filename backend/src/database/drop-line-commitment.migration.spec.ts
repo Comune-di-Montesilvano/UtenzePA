@@ -20,7 +20,10 @@ describe('DropLineCommitment migration', () => {
     await new DropLineCommitment1796000000001().up(runner);
     const fk = indexOf(sql, /DROP FOREIGN KEY `FK_invoice_lines_commitment`/);
     const idx = indexOf(sql, /DROP INDEX `FK_invoice_lines_commitment`/);
-    const cols = indexOf(sql, /DROP COLUMN `commitment_id_fk`.*DROP COLUMN `commitment_auto`.*DROP COLUMN `commitment_fiscal_year`/);
+    const cols = indexOf(
+      sql,
+      /DROP COLUMN `commitment_id_fk`.*DROP COLUMN `commitment_auto`.*DROP COLUMN `commitment_fiscal_year`/,
+    );
     expect(fk).toBe(0);
     expect(idx).toBeGreaterThan(fk);
     expect(cols).toBeGreaterThan(idx);
@@ -29,7 +32,10 @@ describe('DropLineCommitment migration', () => {
   it('down ricrea colonne, indice e FK, poi riempie solo dalle fatture con una quota sola', async () => {
     const { runner, sql } = fakeRunner();
     await new DropLineCommitment1796000000001().down(runner);
-    const add = indexOf(sql, /ADD `commitment_id_fk` int NULL.*ADD `commitment_auto` tinyint NOT NULL DEFAULT 1.*ADD `commitment_fiscal_year` int NULL/);
+    const add = indexOf(
+      sql,
+      /ADD `commitment_id_fk` int NULL.*ADD `commitment_auto` tinyint NOT NULL DEFAULT 1.*ADD `commitment_fiscal_year` int NULL/,
+    );
     const idx = indexOf(sql, /CREATE INDEX `FK_invoice_lines_commitment`/);
     const fk = indexOf(sql, /ADD CONSTRAINT `FK_invoice_lines_commitment`/);
     const fill = indexOf(sql, /^UPDATE `invoice_lines`/);

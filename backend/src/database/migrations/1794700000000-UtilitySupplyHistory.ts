@@ -152,7 +152,9 @@ export class UtilitySupplyHistory1794700000000 implements MigrationInterface {
 
     // Unico controllo bloccante, prima di qualunque DDL (commit implicito):
     // senza autore l'INSERT degli eventi fallirebbe a schema gia' modificato.
-    const noAuthor = utilities.filter((u) => u.created_by_user_id === null || u.created_by_user_id === undefined);
+    const noAuthor = utilities.filter(
+      (u) => u.created_by_user_id === null || u.created_by_user_id === undefined,
+    );
     if (noAuthor.length) {
       throw new Error(
         `Utenze senza un autore valido e nessun utente in system_users (id: ${noAuthor.map((u) => u.id).join(', ')}). Creare almeno un utente prima di rilanciare la migration.`,
@@ -161,7 +163,7 @@ export class UtilitySupplyHistory1794700000000 implements MigrationInterface {
 
     const today = todayIso();
     const grantRows: GrantRow[] = await q.query(
-      "-- contratti attivi\nSELECT g.id AS grant_id, ua.utility_id AS utility_id, g.utilities_to_be_taken_over, " +
+      '-- contratti attivi\nSELECT g.id AS grant_id, ua.utility_id AS utility_id, g.utilities_to_be_taken_over, ' +
         "DATE_FORMAT(g.end_date, '%Y-%m-%d') AS end_date, g.tacit_renewal, g.renewal_months, g.notice_months, g.status " +
         'FROM `utilizer_grant` g ' +
         'JOIN `utilizer_grant_assets` uga ON uga.utilizer_grant_id = g.id ' +

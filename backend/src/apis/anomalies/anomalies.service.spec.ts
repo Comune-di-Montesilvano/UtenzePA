@@ -1282,7 +1282,10 @@ describe('AnomaliesService', () => {
   });
 
   describe('fabbisogno della convenzione', () => {
-    const run = async (short: Record<string, unknown>[] = [], variation: Record<string, unknown>[] = []) => {
+    const run = async (
+      short: Record<string, unknown>[] = [],
+      variation: Record<string, unknown>[] = [],
+    ) => {
       for (let i = 0; i < 47; i++) query.mockResolvedValueOnce([]);
       query.mockResolvedValueOnce(short);
       query.mockResolvedValueOnce(variation);
@@ -1293,9 +1296,36 @@ describe('AnomaliesService', () => {
 
     it('impegni insufficienti: una voce per convenzione, capitoli e impegni raggruppati', async () => {
       const { result } = await run([
-        { id: '3', name: 'Convenzione A', chapter_id: '7', chapter_code: '1234', article: '0', description: 'Luce scuole', shortfall: '650.00', commitment_ids: '10,11' },
-        { id: '3', name: 'Convenzione A', chapter_id: null, chapter_code: null, article: null, description: null, shortfall: '350.50', commitment_ids: null },
-        { id: '4', name: 'Convenzione B', chapter_id: '8', chapter_code: '1300', article: '1', description: null, shortfall: '900', commitment_ids: '11,12' },
+        {
+          id: '3',
+          name: 'Convenzione A',
+          chapter_id: '7',
+          chapter_code: '1234',
+          article: '0',
+          description: 'Luce scuole',
+          shortfall: '650.00',
+          commitment_ids: '10,11',
+        },
+        {
+          id: '3',
+          name: 'Convenzione A',
+          chapter_id: null,
+          chapter_code: null,
+          article: null,
+          description: null,
+          shortfall: '350.50',
+          commitment_ids: null,
+        },
+        {
+          id: '4',
+          name: 'Convenzione B',
+          chapter_id: '8',
+          chapter_code: '1300',
+          article: '1',
+          description: null,
+          shortfall: '900',
+          commitment_ids: '11,12',
+        },
       ]);
       expect(result.agreements_commitments_short).toEqual({
         count: 2,
@@ -1322,12 +1352,24 @@ describe('AnomaliesService', () => {
     });
 
     it('capitoli da variare: righe convertite', async () => {
-      const { result } = await run([], [
-        { id: '7', chapter_code: '1234', article: '0', description: 'Luce scuole', missing: '5000.00', available: '1200.00' },
-      ]);
+      const { result } = await run(
+        [],
+        [
+          {
+            id: '7',
+            chapter_code: '1234',
+            article: '0',
+            description: 'Luce scuole',
+            missing: '5000.00',
+            available: '1200.00',
+          },
+        ],
+      );
       expect(result.chapters_variation_needed).toEqual({
         count: 1,
-        items: [{ id: 7, chapter: '1234/0', description: 'Luce scuole', missing: 5000, available: 1200 }],
+        items: [
+          { id: 7, chapter: '1234/0', description: 'Luce scuole', missing: 5000, available: 1200 },
+        ],
       });
     });
 
@@ -1364,7 +1406,9 @@ describe('AnomaliesService', () => {
     });
 
     it('bozze scadute: query in fondo, righe convertite', async () => {
-      const { result, sqls } = await run([{ id: '90', cig_contract: null, supply_start_date: '2026-09-01' }]);
+      const { result, sqls } = await run([
+        { id: '90', cig_contract: null, supply_start_date: '2026-09-01' },
+      ]);
       expect(result.contracts_draft_overdue).toEqual({
         count: 1,
         items: [{ id: 90, cig_contract: null, supply_start_date: '2026-09-01' }],
@@ -1379,9 +1423,13 @@ describe('AnomaliesService', () => {
     it('una bozza non è un contratto valido: fuori da contratto corrente, senza CIG, capitolo non impegnato', async () => {
       const { sqls } = await run();
       const find = (marker: string) => sqls.find((s) => s.includes(marker)) ?? '';
-      expect(find('AND NOT EXISTS (SELECT 1 FROM contract_utilities cu JOIN contracts c')).toContain('c.draft = 0');
+      expect(
+        find('AND NOT EXISTS (SELECT 1 FROM contract_utilities cu JOIN contracts c'),
+      ).toContain('c.draft = 0');
       expect(find("c.contract_kind = 'STANDARD' AND NOT TRIM")).toContain('c.draft = 0');
-      expect(find('JOIN budget_chapters b ON b.id = u.budget_chapter_code_fk')).toContain('c.draft = 0');
+      expect(find('JOIN budget_chapters b ON b.id = u.budget_chapter_code_fk')).toContain(
+        'c.draft = 0',
+      );
     });
 
     it('una bozza non si sovrappone a un contratto vero', async () => {

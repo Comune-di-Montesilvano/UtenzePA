@@ -68,7 +68,11 @@ export interface Anomalies {
   utilities_with_overlapping_contracts: AnomalyList<UtilityAnomaly>;
   duplicate_cigs: AnomalyList<{ cig: string; contracts: number[] }>;
   /** Ordini in bozza con inizio previsto già passato: da emettere o eliminare. */
-  contracts_draft_overdue: AnomalyList<{ id: number; cig_contract: string | null; supply_start_date: string }>;
+  contracts_draft_overdue: AnomalyList<{
+    id: number;
+    cig_contract: string | null;
+    supply_start_date: string;
+  }>;
   /** Convenzioni con impegni che non basteranno nell'esercizio in corso (cache del fabbisogno). */
   agreements_commitments_short: AnomalyList<AgreementShortAnomaly>;
   /** Capitoli dove l'ammanco previsto supera il «da impegnare»: serve la variazione di bilancio. */

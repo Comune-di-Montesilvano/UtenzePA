@@ -84,7 +84,8 @@ export class UtilitySupplyController {
       );
       // Come listByUtility: niente relazioni nella risposta.
       const row = { ...saved } as Record<string, unknown>;
-      for (const key of ['thirdParty', 'grant', 'utility', 'created_by', 'updated_by']) delete row[key];
+      for (const key of ['thirdParty', 'grant', 'utility', 'created_by', 'updated_by'])
+        delete row[key];
       return {
         events: [{ ...row, third_party_name: null, grant_label: null } as SupplyEventView],
         warnings: [],

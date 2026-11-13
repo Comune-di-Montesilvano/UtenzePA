@@ -51,6 +51,8 @@ export class SearchContractDto {
 
   // Solo contratti senza CIG e non esclusi (anomalia).
   @IsOptional()
-  @Transform(({ value }) => (value === true || value === 'true' || value === '1' ? true : undefined))
+  @Transform(({ value }) =>
+    value === true || value === 'true' || value === '1' ? true : undefined,
+  )
   missing_cig?: boolean;
 }

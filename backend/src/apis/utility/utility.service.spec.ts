@@ -226,7 +226,9 @@ describe('UtilitiesService', () => {
 
     it('filtro per tipo impianto con sotto-query', async () => {
       await service.findAll({ plant_types: ['FOUNTAIN'] } as never);
-      const call = qb.andWhere.mock.calls.find((c) => String(c[0]).includes('p.type IN (:...plant_types)'));
+      const call = qb.andWhere.mock.calls.find((c) =>
+        String(c[0]).includes('p.type IN (:...plant_types)'),
+      );
       expect(call?.[1]).toEqual({ plant_types: ['FOUNTAIN'] });
       expect(String(call?.[0])).toContain('p.deleted = 0');
     });
@@ -239,7 +241,9 @@ describe('UtilitiesService', () => {
       expect(qb.andWhere).toHaveBeenCalledWith(
         '(Utility.supply_active = 0 AND Utility.transferred_to_third_party_id IS NULL)',
       );
-      expect(qb.andWhere.mock.calls.some((c) => /supply_active = :supply_active/.test(String(c[0])))).toBe(false);
+      expect(
+        qb.andWhere.mock.calls.some((c) => /supply_active = :supply_active/.test(String(c[0]))),
+      ).toBe(false);
     });
 
     it('filtro a carico di usa costStatusSql', async () => {
@@ -254,13 +258,17 @@ describe('UtilitiesService', () => {
 
     it('filtro per contratto immobiliare con sotto-query', async () => {
       await service.findAll({ grant_id: 12 } as never);
-      const call = qb.andWhere.mock.calls.find((c) => String(c[0]).includes('uga.utilizer_grant_id = :grant_id'));
+      const call = qb.andWhere.mock.calls.find((c) =>
+        String(c[0]).includes('uga.utilizer_grant_id = :grant_id'),
+      );
       expect(call?.[1]).toEqual({ grant_id: 12 });
     });
 
     it('filtro per contratto immobiliare: esclude gli immobili eliminati', async () => {
       await service.findAll({ grant_id: 12 } as never);
-      const call = qb.andWhere.mock.calls.find((c) => String(c[0]).includes('uga.utilizer_grant_id = :grant_id'));
+      const call = qb.andWhere.mock.calls.find((c) =>
+        String(c[0]).includes('uga.utilizer_grant_id = :grant_id'),
+      );
       expect(String(call?.[0])).toMatch(/JOIN assets a ON a\.id = ua\.asset_id AND a\.deleted = 0/);
     });
 
@@ -274,7 +282,9 @@ describe('UtilitiesService', () => {
     it('filtro per parte con sottoquery (elenco parti completo)', async () => {
       await service.findAll({ party_id: 3 } as never);
 
-      const call = qb.andWhere.mock.calls.find((c) => String(c[0]).includes('gp.third_party_id = :party_id'));
+      const call = qb.andWhere.mock.calls.find((c) =>
+        String(c[0]).includes('gp.third_party_id = :party_id'),
+      );
       expect(call?.[1]).toEqual({ party_id: 3 });
     });
 
@@ -299,9 +309,12 @@ describe('UtilitiesService', () => {
         'currentContract.supplier_id_fk = :cf_supplier_id_fk',
         { cf_supplier_id_fk: 7 },
       );
-      expect(qb.andWhere).toHaveBeenCalledWith('currentContract.cig_contract LIKE :cf_cig_contract', {
-        cf_cig_contract: '%ABC%',
-      });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'currentContract.cig_contract LIKE :cf_cig_contract',
+        {
+          cf_cig_contract: '%ABC%',
+        },
+      );
       expect(qb.andWhere).toHaveBeenCalledWith(
         'currentContract.consip_order LIKE :cf_consip_order',
         { cf_consip_order: '%CONSIP1%' },
@@ -378,7 +391,9 @@ describe('UtilitiesService', () => {
           id: 1,
           cost_status: 'TO_TRANSFER',
           pending_since: '2020-01-01',
-          assets: [{ utilizerGrants: [{ id: 7, deleted: false, status: 'ACTIVE', direction: 'ACTIVE' }] }],
+          assets: [
+            { utilizerGrants: [{ id: 7, deleted: false, status: 'ACTIVE', direction: 'ACTIVE' }] },
+          ],
         },
         {
           id: 2,
@@ -468,7 +483,9 @@ describe('UtilitiesService', () => {
         [1],
       ]);
       // Un contratto chiuso non è mai "corrente", qualunque siano le date.
-      expect(repo.manager.query).toHaveBeenCalledWith(expect.stringContaining('c.closed = 0'), [[1]]);
+      expect(repo.manager.query).toHaveBeenCalledWith(expect.stringContaining('c.closed = 0'), [
+        [1],
+      ]);
       // Un contratto che parte in futuro non scavalca quello in corso.
       expect(repo.manager.query).toHaveBeenCalledWith(
         expect.stringContaining(
@@ -476,7 +493,11 @@ describe('UtilitiesService', () => {
         ),
         [[1]],
       );
-      expect(qb.leftJoin).toHaveBeenCalledWith(expect.any(Function), 'current_link', expect.any(String));
+      expect(qb.leftJoin).toHaveBeenCalledWith(
+        expect.any(Function),
+        'current_link',
+        expect.any(String),
+      );
       expect(contractRepo.find).toHaveBeenCalledWith({
         where: { id: expect.anything() },
         relations: { supplier: true, consipAgreement: true },
@@ -524,7 +545,6 @@ describe('UtilitiesService', () => {
 
       expect(repo.manager.query).not.toHaveBeenCalled();
     });
-
   });
 
   describe('findBySafeguard', () => {
@@ -546,9 +566,7 @@ describe('UtilitiesService', () => {
       const utility = { id: 1, utilityType: null } as unknown as Utility;
       qb.getMany.mockResolvedValue([utility]);
       repo.manager.query.mockResolvedValue([{ utility_id: 1, contract_id: 50 }]);
-      contractRepo.find.mockResolvedValue([
-        { id: 50, supply_expiry_date: dateStrFromToday(-1) },
-      ]);
+      contractRepo.find.mockResolvedValue([{ id: 50, supply_expiry_date: dateStrFromToday(-1) }]);
 
       const result = await service.findBySafeguard();
 
@@ -592,7 +610,13 @@ describe('UtilitiesService', () => {
         assets: [
           {
             utilizerGrants: [
-              { id: 7, deleted: false, status: 'ACTIVE', direction: 'ACTIVE', subject: 'Locazione' },
+              {
+                id: 7,
+                deleted: false,
+                status: 'ACTIVE',
+                direction: 'ACTIVE',
+                subject: 'Locazione',
+              },
             ],
           },
         ],
@@ -637,15 +661,24 @@ describe('UtilitiesService', () => {
     it('supply_pending: attivazione richiesta e non avvenuta', async () => {
       qb.getOne.mockResolvedValue({ id: 1, cost_status: 'COMUNE', assets: [] });
       const eventRepo = {
-        find: jest.fn().mockResolvedValue([
-          { utility_id_fk: 1, type: 'ACTIVATION', requested_on: '2026-10-07', create_date: new Date('2026-10-08T08:00:00Z') },
-        ]),
+        find: jest
+          .fn()
+          .mockResolvedValue([
+            {
+              utility_id_fk: 1,
+              type: 'ACTIVATION',
+              requested_on: '2026-10-07',
+              create_date: new Date('2026-10-08T08:00:00Z'),
+            },
+          ]),
       };
       repo.manager.getRepository.mockImplementation((entity: { name: string }) =>
         entity.name === 'UtilitySupplyEvent' ? eventRepo : contractRepo,
       );
 
-      const result = (await service.findOne(1)) as unknown as { supply_pending: { type: string; since: string } };
+      const result = (await service.findOne(1)) as unknown as {
+        supply_pending: { type: string; since: string };
+      };
 
       expect(result.supply_pending).toMatchObject({ type: 'ACTIVATION', since: '2026-10-07' });
     });
@@ -661,7 +694,7 @@ describe('UtilitiesService', () => {
   });
 
   describe('create', () => {
-    it('crea l\'utenza', async () => {
+    it("crea l'utenza", async () => {
       const result = await service.create({ supply_expiry_date: null, asset_ids: [1] } as never, 4);
 
       expect(repo.save).toHaveBeenCalledWith(
@@ -672,10 +705,19 @@ describe('UtilitiesService', () => {
 
     it('restituisce l’utenza riletta dopo la riconciliazione della riga iniziale', async () => {
       repo.save.mockImplementation(async (d: object) => ({ id: 81, ...d, supply_active: false }));
-      const reloaded = { id: 81, supply_active: true, cost_status: 'COMUNE', assets: [], plants: [] };
+      const reloaded = {
+        id: 81,
+        supply_active: true,
+        cost_status: 'COMUNE',
+        assets: [],
+        plants: [],
+      };
       repo.findOne.mockResolvedValue(reloaded);
 
-      const result = await service.create({ asset_ids: [1], initial_supply: { active: true } } as never, 4);
+      const result = await service.create(
+        { asset_ids: [1], initial_supply: { active: true } } as never,
+        4,
+      );
 
       expect(supplyEvents.createInitial.mock.invocationCallOrder[0]).toBeLessThan(
         repo.findOne.mock.invocationCallOrder[repo.findOne.mock.invocationCallOrder.length - 1],
@@ -767,7 +809,7 @@ describe('UtilitiesService', () => {
   });
 
   describe('remove', () => {
-    it('marca l\'utenza come cancellata usando repo.findOne diretto (non il join sul contratto corrente)', async () => {
+    it("marca l'utenza come cancellata usando repo.findOne diretto (non il join sul contratto corrente)", async () => {
       const entity = { id: 1, deleted: false } as Utility;
       repo.findOne.mockResolvedValue(entity);
 
@@ -779,7 +821,7 @@ describe('UtilitiesService', () => {
       );
     });
 
-    it('lancia BadRequestException se l\'utenza non esiste', async () => {
+    it("lancia BadRequestException se l'utenza non esiste", async () => {
       repo.findOne.mockResolvedValue(null);
 
       await expect(service.remove(999, 1)).rejects.toThrow(BadRequestException);
@@ -794,7 +836,12 @@ describe('UtilitiesService', () => {
       await service.remove(1, 8);
 
       expect(auditLogService.record).toHaveBeenCalledWith(
-        expect.objectContaining({ entityName: 'utilities', entityId: 1, action: 'DELETE', userId: 8 }),
+        expect.objectContaining({
+          entityName: 'utilities',
+          entityId: 1,
+          action: 'DELETE',
+          userId: 8,
+        }),
       );
     });
   });
@@ -830,22 +877,40 @@ describe('UtilitiesService', () => {
     });
 
     it('update che toglie l’ultimo immobile senza impianti viene rifiutato', async () => {
-      repo.findOne.mockResolvedValue({ id: 5, utility_id: 'U1', deleted: false, assets: [{ id: 1 }], plants: [] });
+      repo.findOne.mockResolvedValue({
+        id: 5,
+        utility_id: 'U1',
+        deleted: false,
+        assets: [{ id: 1 }],
+        plants: [],
+      });
       await expect(service.update(5, { asset_ids: [] } as never, 1)).rejects.toThrow(
         /immobile o un impianto/,
       );
     });
 
     it('update che sostituisce l’immobile con un impianto', async () => {
-      repo.findOne.mockResolvedValue({ id: 5, utility_id: 'U1', deleted: false, assets: [{ id: 1 }], plants: [] });
+      repo.findOne.mockResolvedValue({
+        id: 5,
+        utility_id: 'U1',
+        deleted: false,
+        assets: [{ id: 1 }],
+        plants: [],
+      });
       await service.update(5, { asset_ids: [], plant_ids: [7] } as never, 1);
-      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ id: 5, plants: [{ id: 7 }] }));
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 5, plants: [{ id: 7 }] }),
+      );
     });
 
     it('findOne e findAll caricano gli impianti collegati', async () => {
       await service.findOne(1);
       await service.findAll({} as never);
-      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('Utility.plants', 'plants', 'plants.deleted = 0');
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
+        'Utility.plants',
+        'plants',
+        'plants.deleted = 0',
+      );
     });
   });
 
@@ -864,7 +929,11 @@ describe('UtilitiesService', () => {
 
     it('findOne carica immobili collegati con contratti immobiliari e parti', async () => {
       await service.findOne(1);
-      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('Utility.assets', 'assets', 'assets.deleted = 0');
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
+        'Utility.assets',
+        'assets',
+        'assets.deleted = 0',
+      );
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
         'utilizerGrants.parties',
         'grantParties',
@@ -957,14 +1026,24 @@ describe('UtilitiesService', () => {
 
     it('update con immobili cambiati riconcilia l’utenza', async () => {
       assetRepo.count.mockResolvedValue(1);
-      repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false, assets: [{ id: 3 }] });
+      repo.findOne.mockResolvedValue({
+        id: 10,
+        utility_id: 'U1',
+        deleted: false,
+        assets: [{ id: 3 }],
+      });
       await service.update(10, { asset_ids: [5] } as never, 1);
       expect(supplyReconcile.reconcileManySafe).toHaveBeenCalledWith([10], 1);
     });
 
     it('update con gli stessi immobili (ordine diverso) o senza asset_ids non riconcilia', async () => {
       assetRepo.count.mockResolvedValue(2);
-      repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false, assets: [{ id: 3 }, { id: 4 }] });
+      repo.findOne.mockResolvedValue({
+        id: 10,
+        utility_id: 'U1',
+        deleted: false,
+        assets: [{ id: 3 }, { id: 4 }],
+      });
       await service.update(10, { asset_ids: [4, 3] } as never, 1);
       repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false });
       await service.update(10, { notes: 'x' } as never, 1);
@@ -972,13 +1051,23 @@ describe('UtilitiesService', () => {
     });
 
     it('cambio di capitolo: le righe automatiche dell’utenza si riassegnano', async () => {
-      repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false, budget_chapter_code_fk: 7 });
+      repo.findOne.mockResolvedValue({
+        id: 10,
+        utility_id: 'U1',
+        deleted: false,
+        budget_chapter_code_fk: 7,
+      });
       await service.update(10, { budget_chapter_code_fk: 8 } as never, 1);
       expect(commitments.reconcileUtilities).toHaveBeenCalledWith([10]);
     });
 
     it('stesso capitolo o capitolo non inviato: nessun ricalcolo degli impegni', async () => {
-      repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false, budget_chapter_code_fk: 7 });
+      repo.findOne.mockResolvedValue({
+        id: 10,
+        utility_id: 'U1',
+        deleted: false,
+        budget_chapter_code_fk: 7,
+      });
       await service.update(10, { budget_chapter_code_fk: 7 } as never, 1);
       await service.update(10, { notes: 'x' } as never, 1);
       expect(commitments.reconcileUtilities).not.toHaveBeenCalled();
@@ -986,10 +1075,19 @@ describe('UtilitiesService', () => {
 
     it('i campi dello storico nel payload non vengono scritti', async () => {
       repo.findOne.mockResolvedValue({ id: 10, utility_id: 'U1', deleted: false });
-      const spy = jest.spyOn(BaseService.prototype, 'update').mockResolvedValue({ id: 10 } as never);
+      const spy = jest
+        .spyOn(BaseService.prototype, 'update')
+        .mockResolvedValue({ id: 10 } as never);
       await service.update(
         10,
-        { notes: 'x', supply_active: false, activated_on: '2026-01-01', ceased_on: '2026-01-02', transferred_to_third_party_id: 3, transferred_on: '2026-01-03' } as never,
+        {
+          notes: 'x',
+          supply_active: false,
+          activated_on: '2026-01-01',
+          ceased_on: '2026-01-02',
+          transferred_to_third_party_id: 3,
+          transferred_on: '2026-01-03',
+        } as never,
         1,
       );
       expect(spy).toHaveBeenCalledTimes(1);
@@ -1025,7 +1123,11 @@ describe('UtilitiesService', () => {
 
       it('update con immobili cambiati: né il salvataggio del form né quello dei collegamenti le contengono', async () => {
         repo.findOne.mockImplementation(async () => stored());
-        await service.update(10, { notes: 'x', asset_ids: [4], cost_status: 'COMUNE', pending_since: null } as never, 1);
+        await service.update(
+          10,
+          { notes: 'x', asset_ids: [4], cost_status: 'COMUNE', pending_since: null } as never,
+          1,
+        );
         expect(repo.save).toHaveBeenCalledTimes(2);
         for (const [saved] of repo.save.mock.calls) {
           for (const k of STATE) expect(saved).not.toHaveProperty(k);
@@ -1043,9 +1145,23 @@ describe('UtilitiesService', () => {
     });
 
     it('create: i campi dello storico non arrivano all’entity', async () => {
-      await service.create({ asset_ids: [1], supply_active: false, ceased_on: '2026-01-02', transferred_on: '2026-01-03' } as never, 4);
+      await service.create(
+        {
+          asset_ids: [1],
+          supply_active: false,
+          ceased_on: '2026-01-02',
+          transferred_on: '2026-01-03',
+        } as never,
+        4,
+      );
       const keys = Object.keys(repo.create.mock.calls[0][0]);
-      for (const k of ['supply_active', 'activated_on', 'ceased_on', 'transferred_to_third_party_id', 'transferred_on']) {
+      for (const k of [
+        'supply_active',
+        'activated_on',
+        'ceased_on',
+        'transferred_to_third_party_id',
+        'transferred_on',
+      ]) {
         expect(keys).not.toContain(k);
       }
     });
@@ -1107,7 +1223,10 @@ describe('UtilitiesService', () => {
 
     it('matricola invariata (spazi/maiuscole): nessun check (duplicati storici non bloccano)', async () => {
       await service.update(5, { meter_number: ' m5 ', notes: 'y' } as never, 2);
-      expect(qb.andWhere).not.toHaveBeenCalledWith('LOWER(u.meter_number) LIKE :meter', expect.anything());
+      expect(qb.andWhere).not.toHaveBeenCalledWith(
+        'LOWER(u.meter_number) LIKE :meter',
+        expect.anything(),
+      );
     });
 
     it('matricola salvata già trimmata (tab/spazi da import)', async () => {
@@ -1120,7 +1239,10 @@ describe('UtilitiesService', () => {
 
     it('create con stima > 0: MANUAL', async () => {
       assetRepo.count.mockResolvedValue(1);
-      await service.create({ utility_id: 'N1', asset_ids: [1], estimated_annual_consumption: 300 } as never, 2);
+      await service.create(
+        { utility_id: 'N1', asset_ids: [1], estimated_annual_consumption: 300 } as never,
+        2,
+      );
       const created = repo.create.mock.calls[0][0];
       expect(created.estimated_consumption_source).toBe('MANUAL');
       expect(created.estimated_consumption_set_at).toBeInstanceOf(Date);
@@ -1137,17 +1259,29 @@ describe('UtilitiesService', () => {
     it('create accetta una tipologia del tipo giusto', async () => {
       typeIs('WATER');
       await service.create(
-        { utility_id: 'U1', utility_type_id_fk: 33, arera_category: 'WATER_OTHER', asset_ids: [1] } as never,
+        {
+          utility_id: 'U1',
+          utility_type_id_fk: 33,
+          arera_category: 'WATER_OTHER',
+          asset_ids: [1],
+        } as never,
         1,
       );
-      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ arera_category: 'WATER_OTHER' }));
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ arera_category: 'WATER_OTHER' }),
+      );
     });
 
     it('create rifiuta con 400 una tipologia di un altro tipo', async () => {
       typeIs('GAS');
       await expect(
         service.create(
-          { utility_id: 'U1', utility_type_id_fk: 34, arera_category: 'WATER_OTHER', asset_ids: [1] } as never,
+          {
+            utility_id: 'U1',
+            utility_type_id_fk: 34,
+            arera_category: 'WATER_OTHER',
+            asset_ids: [1],
+          } as never,
           1,
         ),
       ).rejects.toThrow('Tipologia ARERA non valida per il tipo di utenza.');
@@ -1167,21 +1301,36 @@ describe('UtilitiesService', () => {
 
     it('update che cambia solo il tipo e lascia una tipologia non più ammessa viene rifiutato', async () => {
       typeIs('GAS');
-      repo.findOne.mockResolvedValue({ id: 5, utility_type_id_fk: 33, arera_category: 'WATER_OTHER', deleted: false });
+      repo.findOne.mockResolvedValue({
+        id: 5,
+        utility_type_id_fk: 33,
+        arera_category: 'WATER_OTHER',
+        deleted: false,
+      });
       await expect(service.update(5, { utility_type_id_fk: 34 } as never, 1)).rejects.toThrow(
         'Tipologia ARERA non valida per il tipo di utenza.',
       );
     });
 
     it('update che cambia tipo e svuota la tipologia passa', async () => {
-      repo.findOne.mockResolvedValue({ id: 5, utility_type_id_fk: 33, arera_category: 'WATER_OTHER', deleted: false });
+      repo.findOne.mockResolvedValue({
+        id: 5,
+        utility_type_id_fk: 33,
+        arera_category: 'WATER_OTHER',
+        deleted: false,
+      });
       await expect(
         service.update(5, { utility_type_id_fk: 34, arera_category: null } as never, 1),
       ).resolves.not.toThrow();
     });
 
     it('update senza tipo né tipologia non valida nulla', async () => {
-      repo.findOne.mockResolvedValue({ id: 5, utility_type_id_fk: 33, arera_category: null, deleted: false });
+      repo.findOne.mockResolvedValue({
+        id: 5,
+        utility_type_id_fk: 33,
+        arera_category: null,
+        deleted: false,
+      });
       await service.update(5, { notes: 'x' } as never, 1);
       expect(repo.manager.query).not.toHaveBeenCalledWith(
         expect.stringContaining('FROM utility_types'),
@@ -1203,12 +1352,18 @@ describe('UtilitiesService', () => {
       expect(qb.andWhere).toHaveBeenCalledWith('Utility.arera_category IS NULL');
       expect(qb.andWhere).toHaveBeenCalledWith('Utility.disconnectable IS NULL');
       // Nessun LIKE generico sui due campi.
-      expect(qb.andWhere.mock.calls.some((c) => /arera_category LIKE|disconnectable LIKE/.test(String(c[0])))).toBe(false);
+      expect(
+        qb.andWhere.mock.calls.some((c) =>
+          /arera_category LIKE|disconnectable LIKE/.test(String(c[0])),
+        ),
+      ).toBe(false);
     });
 
     it('findAll non fa più join sulle finalità', async () => {
       await service.findAll({} as never);
-      expect(qb.leftJoinAndSelect.mock.calls.some((c) => String(c[0]).includes('utilityTypePurposes'))).toBe(false);
+      expect(
+        qb.leftJoinAndSelect.mock.calls.some((c) => String(c[0]).includes('utilityTypePurposes')),
+      ).toBe(false);
     });
   });
 
@@ -1221,7 +1376,12 @@ describe('UtilitiesService', () => {
     it("create accetta una categoria d'uso su un'utenza gas", async () => {
       typeIs('GAS');
       await service.create(
-        { utility_id: 'U1', utility_type_id_fk: 34, gas_use_category: 'C3', asset_ids: [1] } as never,
+        {
+          utility_id: 'U1',
+          utility_type_id_fk: 34,
+          gas_use_category: 'C3',
+          asset_ids: [1],
+        } as never,
         1,
       );
       expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ gas_use_category: 'C3' }));
@@ -1231,7 +1391,12 @@ describe('UtilitiesService', () => {
       typeIs('WATER');
       await expect(
         service.create(
-          { utility_id: 'U1', utility_type_id_fk: 33, gas_use_category: 'C1', asset_ids: [1] } as never,
+          {
+            utility_id: 'U1',
+            utility_type_id_fk: 33,
+            gas_use_category: 'C1',
+            asset_ids: [1],
+          } as never,
           1,
         ),
       ).rejects.toThrow("Categoria d'uso ammessa solo per le utenze gas.");
@@ -1240,7 +1405,12 @@ describe('UtilitiesService', () => {
 
     it('update che cambia tipo da gas ad acqua lasciando la categoria viene rifiutato', async () => {
       typeIs('WATER');
-      repo.findOne.mockResolvedValue({ id: 5, utility_type_id_fk: 34, gas_use_category: 'C2', deleted: false });
+      repo.findOne.mockResolvedValue({
+        id: 5,
+        utility_type_id_fk: 34,
+        gas_use_category: 'C2',
+        deleted: false,
+      });
       await expect(service.update(5, { utility_type_id_fk: 33 } as never, 1)).rejects.toThrow(
         "Categoria d'uso ammessa solo per le utenze gas.",
       );
@@ -1254,7 +1424,9 @@ describe('UtilitiesService', () => {
       qb.andWhere.mockClear();
       await service.findAll({ gas_use_category: 'NONE' } as never);
       expect(qb.andWhere).toHaveBeenCalledWith('Utility.gas_use_category IS NULL');
-      expect(qb.andWhere.mock.calls.some((c) => /gas_use_category LIKE/.test(String(c[0])))).toBe(false);
+      expect(qb.andWhere.mock.calls.some((c) => /gas_use_category LIKE/.test(String(c[0])))).toBe(
+        false,
+      );
     });
   });
 });

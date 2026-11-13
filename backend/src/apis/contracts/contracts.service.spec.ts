@@ -35,7 +35,11 @@ describe('ContractsService', () => {
     repo = { createQueryBuilder: jest.fn().mockReturnValue(qb), findOne: jest.fn() };
     contractUtilityRepo = {};
     dataSource = { transaction: jest.fn((cb) => cb(manager)) };
-    service = new ContractsService(repo as never, contractUtilityRepo as never, dataSource as never);
+    service = new ContractsService(
+      repo as never,
+      contractUtilityRepo as never,
+      dataSource as never,
+    );
   });
 
   describe('findAll', () => {
@@ -62,7 +66,10 @@ describe('ContractsService', () => {
       expect(qb.where).toHaveBeenCalledWith('contract.deleted = :deleted', { deleted: false });
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('contract.supplier', 'supplier');
       expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('contract.utilities', 'utilities');
-      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('contract.consipAgreement', 'consipAgreement');
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
+        'contract.consipAgreement',
+        'consipAgreement',
+      );
     });
 
     it('filtra per utility_id (storico contratti di una utenza)', async () => {
@@ -81,7 +88,10 @@ describe('ContractsService', () => {
     it('crea il contratto e le associazioni alle utenze in transazione', async () => {
       manager.findOne.mockResolvedValue({ id: 10 } as Contract);
 
-      const result = await service.create({ cig_contract: 'CIG1', utility_ids: [1, 2] } as never, 5);
+      const result = await service.create(
+        { cig_contract: 'CIG1', utility_ids: [1, 2] } as never,
+        5,
+      );
 
       expect(dataSource.transaction).toHaveBeenCalledTimes(1);
       expect(manager.save).toHaveBeenCalledWith(
@@ -102,28 +112,57 @@ describe('ContractsService', () => {
       await service.create({ cig_contract: 'CIG1' } as never, 5);
 
       expect(auditLogService.record).toHaveBeenCalledWith(
-        expect.objectContaining({ entityName: 'contract', entityId: 10, action: 'CREATE', userId: 5 }),
+        expect.objectContaining({
+          entityName: 'contract',
+          entityId: 10,
+          action: 'CREATE',
+          userId: 5,
+        }),
       );
     });
   });
 
   describe('create con replaces_contract_id', () => {
     it('chiude il precedente e ne accorcia la scadenza nella stessa transazione', async () => {
-      repo.findOne.mockResolvedValue({ id: 3, deleted: false, closed: false, supply_expiry_date: null } as unknown as Contract);
+      repo.findOne.mockResolvedValue({
+        id: 3,
+        deleted: false,
+        closed: false,
+        supply_expiry_date: null,
+      } as unknown as Contract);
       manager.findOne.mockResolvedValue({ id: 10 } as Contract);
-      await service.create({ cig_contract: 'CIG1', supply_start_date: '2026-01-01', replaces_contract_id: 3 } as never, 5);
+      await service.create(
+        { cig_contract: 'CIG1', supply_start_date: '2026-01-01', replaces_contract_id: 3 } as never,
+        5,
+      );
       expect(dataSource.transaction).toHaveBeenCalledTimes(1);
       expect(manager.save).toHaveBeenCalledWith(
         Contract,
-        expect.objectContaining({ id: 3, closed: true, supply_expiry_date: '2025-12-31', updated_by_user_id: 5 }),
+        expect.objectContaining({
+          id: 3,
+          closed: true,
+          supply_expiry_date: '2025-12-31',
+          updated_by_user_id: 5,
+        }),
       );
-      expect(manager.create).not.toHaveBeenCalledWith(Contract, expect.objectContaining({ replaces_contract_id: 3 }));
+      expect(manager.create).not.toHaveBeenCalledWith(
+        Contract,
+        expect.objectContaining({ replaces_contract_id: 3 }),
+      );
     });
 
     it('rinnovo anticipato: il precedente resta aperto fino alla nuova decorrenza', async () => {
-      repo.findOne.mockResolvedValue({ id: 3, deleted: false, closed: false, supply_expiry_date: null } as unknown as Contract);
+      repo.findOne.mockResolvedValue({
+        id: 3,
+        deleted: false,
+        closed: false,
+        supply_expiry_date: null,
+      } as unknown as Contract);
       manager.findOne.mockResolvedValue({ id: 10 } as Contract);
-      await service.create({ cig_contract: 'CIG1', supply_start_date: '2099-07-01', replaces_contract_id: 3 } as never, 5);
+      await service.create(
+        { cig_contract: 'CIG1', supply_start_date: '2099-07-01', replaces_contract_id: 3 } as never,
+        5,
+      );
       expect(manager.save).toHaveBeenCalledWith(
         Contract,
         expect.objectContaining({ id: 3, closed: false, supply_expiry_date: '2099-06-30' }),
@@ -132,9 +171,9 @@ describe('ContractsService', () => {
 
     it('contratto precedente inesistente o cancellato: 400 e nessuna creazione', async () => {
       repo.findOne.mockResolvedValue(null);
-      await expect(service.create({ cig_contract: 'CIG1', replaces_contract_id: 99 } as never, 5)).rejects.toThrow(
-        'Contratto precedente non trovato.',
-      );
+      await expect(
+        service.create({ cig_contract: 'CIG1', replaces_contract_id: 99 } as never, 5),
+      ).rejects.toThrow('Contratto precedente non trovato.');
       expect(dataSource.transaction).not.toHaveBeenCalled();
     });
   });
@@ -162,7 +201,12 @@ describe('ContractsService', () => {
       await service.update(20, { cig_contract: 'NEW' } as never, 7);
 
       expect(auditLogService.record).toHaveBeenCalledWith(
-        expect.objectContaining({ entityName: 'contract', entityId: 20, action: 'UPDATE', userId: 7 }),
+        expect.objectContaining({
+          entityName: 'contract',
+          entityId: 20,
+          action: 'UPDATE',
+          userId: 7,
+        }),
       );
     });
   });
@@ -170,7 +214,9 @@ describe('ContractsService', () => {
   describe('CIG univoco', () => {
     it('create: CIG già usato da un altro contratto (spazi/maiuscole) → 400 con il contratto in conflitto', async () => {
       qb.getMany.mockResolvedValueOnce([{ id: 9, cig_contract: 'abc123 ' }]);
-      await expect(service.create({ cig_contract: ' ABC123', utility_ids: [] } as never, 1)).rejects.toThrow(/contratto 9/);
+      await expect(
+        service.create({ cig_contract: ' ABC123', utility_ids: [] } as never, 1),
+      ).rejects.toThrow(/contratto 9/);
       expect(dataSource.transaction).not.toHaveBeenCalled();
     });
 
@@ -178,7 +224,9 @@ describe('ContractsService', () => {
       qb.getMany.mockResolvedValueOnce([{ id: 9, cig_contract: 'ABC1234' }]);
       manager.save.mockImplementation(async (_e, data) => ({ id: 50, ...data }));
       manager.findOne.mockResolvedValue({ id: 50, updated_by_user_id: 1 });
-      await expect(service.create({ cig_contract: 'ABC123', utility_ids: [] } as never, 1)).resolves.toMatchObject({ id: 50 });
+      await expect(
+        service.create({ cig_contract: 'ABC123', utility_ids: [] } as never, 1),
+      ).resolves.toMatchObject({ id: 50 });
     });
 
     it('update: il contratto stesso è escluso dal controllo', async () => {
@@ -190,35 +238,48 @@ describe('ContractsService', () => {
     it('CIG vuoto su contratto escluso: nessun controllo di unicità', async () => {
       manager.save.mockImplementation(async (_e, data) => ({ id: 51, ...data }));
       manager.findOne.mockResolvedValue({ id: 51, updated_by_user_id: 1 });
-      await service.create({ cig_contract: '  ', contract_kind: 'CIG_EXEMPT', utility_ids: [] } as never, 1);
+      await service.create(
+        { cig_contract: '  ', contract_kind: 'CIG_EXEMPT', utility_ids: [] } as never,
+        1,
+      );
       expect(repo.createQueryBuilder).not.toHaveBeenCalled();
     });
   });
 
   describe('CIG obbligatorio', () => {
     it('create senza CIG e non escluso → 400', async () => {
-      await expect(service.create({ cig_contract: ' ', utility_ids: [] } as never, 1)).rejects.toThrow(/CIG obbligatorio/);
+      await expect(
+        service.create({ cig_contract: ' ', utility_ids: [] } as never, 1),
+      ).rejects.toThrow(/CIG obbligatorio/);
       expect(dataSource.transaction).not.toHaveBeenCalled();
     });
 
     it('create senza CIG ma escluso → ammesso', async () => {
       manager.findOne.mockResolvedValue({ id: 60, updated_by_user_id: 1 });
-      await expect(service.create({ contract_kind: 'CIG_EXEMPT', utility_ids: [] } as never, 1)).resolves.toMatchObject({ id: 60 });
+      await expect(
+        service.create({ contract_kind: 'CIG_EXEMPT', utility_ids: [] } as never, 1),
+      ).resolves.toMatchObject({ id: 60 });
     });
 
     it('update di un contratto senza CIG che non lo aggiunge → 400', async () => {
       repo.findOne.mockResolvedValue({ id: 30, cig_contract: null, contract_kind: 'STANDARD' });
-      await expect(service.update(30, { consip_order: 'X' } as never, 1)).rejects.toThrow(/CIG obbligatorio/);
+      await expect(service.update(30, { consip_order: 'X' } as never, 1)).rejects.toThrow(
+        /CIG obbligatorio/,
+      );
     });
 
     it('update che rimuove il CIG da un contratto non escluso → 400', async () => {
       repo.findOne.mockResolvedValue({ id: 31, cig_contract: 'ABC', contract_kind: 'STANDARD' });
-      await expect(service.update(31, { cig_contract: '' } as never, 1)).rejects.toThrow(/CIG obbligatorio/);
+      await expect(service.update(31, { cig_contract: '' } as never, 1)).rejects.toThrow(
+        /CIG obbligatorio/,
+      );
     });
 
     it('create a titolo gratuito senza CIG → ammesso', async () => {
       manager.findOne.mockResolvedValue({ id: 61, updated_by_user_id: 1 });
-      await expect(service.create({ contract_kind: 'FREE', utility_ids: [] } as never, 1)).resolves.toMatchObject({ id: 61 });
+      await expect(
+        service.create({ contract_kind: 'FREE', utility_ids: [] } as never, 1),
+      ).resolves.toMatchObject({ id: 61 });
     });
 
     it('update di un contratto escluso senza CIG → ammesso', async () => {
@@ -231,7 +292,9 @@ describe('ContractsService', () => {
   describe('contratti chiusi', () => {
     it('contratto chiuso (storico) senza CIG → ammesso', async () => {
       manager.findOne.mockResolvedValue({ id: 70, updated_by_user_id: 1 });
-      await expect(service.create({ closed: true, utility_ids: [] } as never, 1)).resolves.toMatchObject({ id: 70 });
+      await expect(
+        service.create({ closed: true, utility_ids: [] } as never, 1),
+      ).resolves.toMatchObject({ id: 70 });
     });
   });
 
@@ -242,17 +305,33 @@ describe('ContractsService', () => {
     it('create: bozza ordinaria senza CIG → ammessa', async () => {
       manager.findOne.mockResolvedValue({ id: 80, updated_by_user_id: 1 });
       await expect(
-        service.create({ draft: true, contract_kind: 'STANDARD', cig_contract: '', ...dates, utility_ids: [] } as never, 1),
+        service.create(
+          {
+            draft: true,
+            contract_kind: 'STANDARD',
+            cig_contract: '',
+            ...dates,
+            utility_ids: [],
+          } as never,
+          1,
+        ),
       ).resolves.toMatchObject({ id: 80 });
     });
 
     it('create: bozza senza date → 400', async () => {
-      await expect(service.create({ draft: true, utility_ids: [] } as never, 1)).rejects.toThrow(datesMsg);
+      await expect(service.create({ draft: true, utility_ids: [] } as never, 1)).rejects.toThrow(
+        datesMsg,
+      );
       expect(dataSource.transaction).not.toHaveBeenCalled();
     });
 
     it('create: bozza come rinnovo non chiude il contratto precedente', async () => {
-      repo.findOne.mockResolvedValue({ id: 7, deleted: false, closed: false, supply_expiry_date: null } as unknown as Contract);
+      repo.findOne.mockResolvedValue({
+        id: 7,
+        deleted: false,
+        closed: false,
+        supply_expiry_date: null,
+      } as unknown as Contract);
       manager.findOne.mockResolvedValue({ id: 81, updated_by_user_id: 1 });
       const auditLogService = { record: jest.fn() };
       (service as any).auditLogService = auditLogService;
@@ -260,37 +339,81 @@ describe('ContractsService', () => {
       await service.create({ draft: true, replaces_contract_id: 7, ...dates } as never, 1);
 
       expect(manager.save).not.toHaveBeenCalledWith(Contract, expect.objectContaining({ id: 7 }));
-      expect(auditLogService.record).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'UPDATE' }));
+      expect(auditLogService.record).not.toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'UPDATE' }),
+      );
     });
 
     it('update: un contratto emesso non torna in bozza → 400', async () => {
-      repo.findOne.mockResolvedValue({ id: 82, cig_contract: 'ABC', contract_kind: 'STANDARD', draft: false, ...dates });
+      repo.findOne.mockResolvedValue({
+        id: 82,
+        cig_contract: 'ABC',
+        contract_kind: 'STANDARD',
+        draft: false,
+        ...dates,
+      });
       await expect(service.update(82, { draft: true } as never, 1)).rejects.toThrow(
         'Un contratto già emesso non può tornare in bozza.',
       );
     });
 
     it('update: promozione di una bozza ordinaria senza CIG → 400 CIG obbligatorio', async () => {
-      repo.findOne.mockResolvedValue({ id: 83, cig_contract: null, contract_kind: 'STANDARD', draft: true, ...dates });
-      await expect(service.update(83, { draft: false } as never, 1)).rejects.toThrow(/CIG obbligatorio/);
+      repo.findOne.mockResolvedValue({
+        id: 83,
+        cig_contract: null,
+        contract_kind: 'STANDARD',
+        draft: true,
+        ...dates,
+      });
+      await expect(service.update(83, { draft: false } as never, 1)).rejects.toThrow(
+        /CIG obbligatorio/,
+      );
     });
 
     it('update: togliere una data a una bozza → 400', async () => {
-      repo.findOne.mockResolvedValue({ id: 84, cig_contract: null, contract_kind: 'STANDARD', draft: true, ...dates });
-      await expect(service.update(84, { supply_start_date: null } as never, 1)).rejects.toThrow(datesMsg);
+      repo.findOne.mockResolvedValue({
+        id: 84,
+        cig_contract: null,
+        contract_kind: 'STANDARD',
+        draft: true,
+        ...dates,
+      });
+      await expect(service.update(84, { supply_start_date: null } as never, 1)).rejects.toThrow(
+        datesMsg,
+      );
     });
 
     it('update: una bozza senza CIG si salva', async () => {
-      repo.findOne.mockResolvedValue({ id: 85, cig_contract: null, contract_kind: 'STANDARD', draft: true, ...dates });
+      repo.findOne.mockResolvedValue({
+        id: 85,
+        cig_contract: null,
+        contract_kind: 'STANDARD',
+        draft: true,
+        ...dates,
+      });
       manager.findOne.mockResolvedValue({ id: 85 });
       await expect(service.update(85, { consip_order: 'X' } as never, 1)).resolves.toBeDefined();
     });
 
     it('create: un contratto vero non sostituisce (e non chiude) una bozza → 400', async () => {
-      repo.findOne.mockResolvedValue({ id: 7, deleted: false, closed: false, draft: true } as unknown as Contract);
+      repo.findOne.mockResolvedValue({
+        id: 7,
+        deleted: false,
+        closed: false,
+        draft: true,
+      } as unknown as Contract);
       await expect(
-        service.create({ cig_contract: 'CIG1', supply_start_date: '2027-01-01', replaces_contract_id: 7 } as never, 1),
-      ).rejects.toThrow('Il contratto precedente è una bozza: non si rinnova, togli la spunta Bozza e inserisci il CIG.');
+        service.create(
+          {
+            cig_contract: 'CIG1',
+            supply_start_date: '2027-01-01',
+            replaces_contract_id: 7,
+          } as never,
+          1,
+        ),
+      ).rejects.toThrow(
+        'Il contratto precedente è una bozza: non si rinnova, togli la spunta Bozza e inserisci il CIG.',
+      );
       expect(dataSource.transaction).not.toHaveBeenCalled();
     });
 

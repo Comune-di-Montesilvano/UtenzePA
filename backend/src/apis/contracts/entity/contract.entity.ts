@@ -67,7 +67,6 @@ export class Contract {
   @Column({ type: 'date', nullable: true })
   takeover_termination_date: string;
 
-
   @CreateDateColumn({ type: 'timestamp' })
   create_date: string;
 

@@ -13,13 +13,23 @@ describe('MapController', () => {
     geocodingService = { geocode: jest.fn() };
     mapService = {} as MapService;
     settings = {
-      getBrandingSummary: jest.fn().mockResolvedValue({ default_latitude: null, default_longitude: null }),
+      getBrandingSummary: jest
+        .fn()
+        .mockResolvedValue({ default_latitude: null, default_longitude: null }),
       municipality: jest.fn(async () => {
         const { entity_name } = await settings.getBrandingSummary();
-        return String(entity_name ?? '').replace(/^comune di\s+/i, '').trim() || null;
+        return (
+          String(entity_name ?? '')
+            .replace(/^comune di\s+/i, '')
+            .trim() || null
+        );
       }),
     };
-    controller = new MapController(mapService, geocodingService as unknown as GeocodingService, settings as unknown as SettingsService);
+    controller = new MapController(
+      mapService,
+      geocodingService as unknown as GeocodingService,
+      settings as unknown as SettingsService,
+    );
   });
 
   it('geocode ritorna lat/lng quando Nominatim trova un match', async () => {
@@ -41,7 +51,9 @@ describe('MapController', () => {
 
   it('cerca prima nel Comune (nome dal branding), poi vicino, poi ovunque', async () => {
     settings.getBrandingSummary.mockResolvedValue({
-      entity_name: 'Comune di Montesilvano', default_latitude: '42.51', default_longitude: '14.14',
+      entity_name: 'Comune di Montesilvano',
+      default_latitude: '42.51',
+      default_longitude: '14.14',
     });
     geocodingService.geocode
       .mockResolvedValueOnce(null)
@@ -50,8 +62,14 @@ describe('MapController', () => {
 
     const result = await controller.geocode({ q: 'Via Roma' });
 
-    expect(geocodingService.geocode).toHaveBeenNthCalledWith(1, 'Via Roma, Montesilvano', undefined);
-    expect(geocodingService.geocode).toHaveBeenNthCalledWith(2, 'Via Roma', { viewbox: [14.04, 42.61, 14.24, 42.41] });
+    expect(geocodingService.geocode).toHaveBeenNthCalledWith(
+      1,
+      'Via Roma, Montesilvano',
+      undefined,
+    );
+    expect(geocodingService.geocode).toHaveBeenNthCalledWith(2, 'Via Roma', {
+      viewbox: [14.04, 42.61, 14.24, 42.41],
+    });
     expect(geocodingService.geocode).toHaveBeenNthCalledWith(3, 'Via Roma', undefined);
     expect(result).toEqual({ lat: '41.9', lng: '12.5' });
   });
@@ -67,7 +85,10 @@ describe('MapController', () => {
   });
 
   it('trovato vicino al Comune: una sola ricerca', async () => {
-    settings.getBrandingSummary.mockResolvedValue({ default_latitude: '42,51', default_longitude: '14,14' });
+    settings.getBrandingSummary.mockResolvedValue({
+      default_latitude: '42,51',
+      default_longitude: '14,14',
+    });
     geocodingService.geocode.mockResolvedValue({ lat: '42.5', lon: '14.15' });
 
     await controller.geocode({ q: 'Via Roma' });

@@ -21,7 +21,13 @@ const isCigRequired = (kind: ContractKind | null | undefined): boolean =>
 @Injectable()
 export class ContractsService extends BaseService<Contract, CreateContractDto, UpdateContractDto> {
   protected readonly entityName = 'contract';
-  protected readonly relations = ['supplier', 'consipAgreement', 'utilities', 'created_by', 'updated_by'];
+  protected readonly relations = [
+    'supplier',
+    'consipAgreement',
+    'utilities',
+    'created_by',
+    'updated_by',
+  ];
 
   constructor(
     @InjectRepository(Contract)
@@ -50,11 +56,19 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
       }
       if (filters.supply_expiry_date_range) {
         const range = filters.supply_expiry_date_range;
-        if (range[0]) qb.andWhere(`${alias}.supply_expiry_date >= :expiry_start`, { expiry_start: DateHelper.dateOnly(range[0]) });
-        if (range[1]) qb.andWhere(`${alias}.supply_expiry_date <= :expiry_end`, { expiry_end: DateHelper.dateOnly(range[1]) });
+        if (range[0])
+          qb.andWhere(`${alias}.supply_expiry_date >= :expiry_start`, {
+            expiry_start: DateHelper.dateOnly(range[0]),
+          });
+        if (range[1])
+          qb.andWhere(`${alias}.supply_expiry_date <= :expiry_end`, {
+            expiry_end: DateHelper.dateOnly(range[1]),
+          });
       }
       if (filters.supplier_id_fk) {
-        qb.andWhere(`${alias}.supplier_id_fk = :supplier_id_fk`, { supplier_id_fk: filters.supplier_id_fk });
+        qb.andWhere(`${alias}.supplier_id_fk = :supplier_id_fk`, {
+          supplier_id_fk: filters.supplier_id_fk,
+        });
       }
       if (filters.missing_cig) {
         qb.andWhere(
@@ -68,10 +82,14 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
         qb.andWhere(`${alias}.draft = :draft`, { draft: filters.draft });
       }
       if (filters.consip_order) {
-        qb.andWhere(`${alias}.consip_order LIKE :consip_order`, { consip_order: `%${filters.consip_order}%` });
+        qb.andWhere(`${alias}.consip_order LIKE :consip_order`, {
+          consip_order: `%${filters.consip_order}%`,
+        });
       }
       if (filters.cig_contract) {
-        qb.andWhere(`${alias}.cig_contract LIKE :cig_contract`, { cig_contract: `%${filters.cig_contract}%` });
+        qb.andWhere(`${alias}.cig_contract LIKE :cig_contract`, {
+          cig_contract: `%${filters.cig_contract}%`,
+        });
       }
     }
 
@@ -81,7 +99,10 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
   // CIG univoco tra contratti non cancellati (trim, case-insensitive).
   // Check applicativo, non indice DB (soft delete). La SQL fa solo da
   // prefiltro, l'uguaglianza esatta è in JS.
-  private async assertCigAvailable(cig: string | null | undefined, excludeId: number | null): Promise<void> {
+  private async assertCigAvailable(
+    cig: string | null | undefined,
+    excludeId: number | null,
+  ): Promise<void> {
     const normalized = (cig ?? '').trim().toLowerCase();
     if (!normalized) return;
     const qb = this.repo
@@ -123,7 +144,8 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
     const previous = replaces_contract_id
       ? await this.repo.findOne({ where: { id: replaces_contract_id, deleted: false } as never })
       : null;
-    if (replaces_contract_id && !previous) throw new BadRequestException('Contratto precedente non trovato.');
+    if (replaces_contract_id && !previous)
+      throw new BadRequestException('Contratto precedente non trovato.');
     // Una bozza non si chiude: non può essere il contratto sostituito da un rinnovo.
     if (previous?.draft) {
       throw new BadRequestException(
@@ -155,7 +177,11 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
       }
 
       if (previous) {
-        previousPatch = replacedContractPatch(previous.supply_expiry_date, rest.supply_start_date, todayIso());
+        previousPatch = replacedContractPatch(
+          previous.supply_expiry_date,
+          rest.supply_start_date,
+          todayIso(),
+        );
         Object.assign(previous, previousPatch);
         if (userId !== undefined) previous.updated_by_user_id = userId;
         await manager.save(Contract, previous);
@@ -175,7 +201,12 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
           previous as unknown as Record<string, unknown>,
           previousPatch,
         );
-        await this.recordAudit(AuditAction.UPDATE, previous.id, userId ?? saved.updated_by_user_id, changes);
+        await this.recordAudit(
+          AuditAction.UPDATE,
+          previous.id,
+          userId ?? saved.updated_by_user_id,
+          changes,
+        );
       } catch (error) {
         console.error(`[ContractsService] Errore audit del contratto sostituito`, error);
       }
@@ -192,8 +223,10 @@ export class ContractsService extends BaseService<Contract, CreateContractDto, U
     const next = {
       draft: rest.draft !== undefined ? rest.draft : before.draft,
       closed: rest.closed !== undefined ? rest.closed : before.closed,
-      supply_start_date: rest.supply_start_date !== undefined ? rest.supply_start_date : before.supply_start_date,
-      supply_expiry_date: rest.supply_expiry_date !== undefined ? rest.supply_expiry_date : before.supply_expiry_date,
+      supply_start_date:
+        rest.supply_start_date !== undefined ? rest.supply_start_date : before.supply_start_date,
+      supply_expiry_date:
+        rest.supply_expiry_date !== undefined ? rest.supply_expiry_date : before.supply_expiry_date,
     };
     const draftProblem = draftError(next, before);
     if (draftProblem) throw new BadRequestException(draftProblem);

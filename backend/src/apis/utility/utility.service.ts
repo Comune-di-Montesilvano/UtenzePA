@@ -15,10 +15,25 @@ import { Plant } from '@apis/plants/entity/plant.entity';
 import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
 import { EstimateSource } from '@apis/utility-consumptions/enum/estimate-source.enum';
 import { findMeterConflict } from './meter-number.helper';
-import { AreraCategory, ARERA_NONE, GasUseCategory, isAreraCategoryAllowed } from './arera-category';
+import {
+  AreraCategory,
+  ARERA_NONE,
+  GasUseCategory,
+  isAreraCategoryAllowed,
+} from './arera-category';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
-import { costInfo, costStatusSql, inChargeSql, SupplyPending, supplyPending, SupplyPendingType } from './cost-status';
-import { GrantUtilityDecisionValue, SupplyEventType } from '@apis/utility-supply/enum/supply-event-type.enum';
+import {
+  costInfo,
+  costStatusSql,
+  inChargeSql,
+  SupplyPending,
+  supplyPending,
+  SupplyPendingType,
+} from './cost-status';
+import {
+  GrantUtilityDecisionValue,
+  SupplyEventType,
+} from '@apis/utility-supply/enum/supply-event-type.enum';
 import { UtilitySupplyEvent } from '@apis/utility-supply/entity/utility-supply-event.entity';
 import { maintenanceInfo, maintenanceStatusSql } from './maintenance-status';
 import { SupplyReconcileService, romeDay } from '@apis/utility-supply/supply-reconcile.service';
@@ -295,8 +310,16 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0');
     qb.leftJoinAndSelect('Utility.budgetChapter', 'budgetChapter', 'budgetChapter.deleted = 0');
     qb.leftJoinAndSelect('Utility.contratti', 'contratti', 'contratti.deleted = 0');
-    qb.leftJoinAndSelect('contratti.supplier', 'contrattiSupplier', 'contrattiSupplier.deleted = 0');
-    qb.leftJoinAndSelect('contratti.consipAgreement', 'contrattiConsipAgreement', 'contrattiConsipAgreement.deleted = 0');
+    qb.leftJoinAndSelect(
+      'contratti.supplier',
+      'contrattiSupplier',
+      'contrattiSupplier.deleted = 0',
+    );
+    qb.leftJoinAndSelect(
+      'contratti.consipAgreement',
+      'contrattiConsipAgreement',
+      'contrattiConsipAgreement.deleted = 0',
+    );
 
     this.joinCurrentContract(qb);
 
@@ -466,7 +489,9 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       if (filters.arera_category === ARERA_NONE) {
         qb.andWhere('Utility.arera_category IS NULL');
       } else {
-        qb.andWhere('Utility.arera_category = :arera_category', { arera_category: filters.arera_category });
+        qb.andWhere('Utility.arera_category = :arera_category', {
+          arera_category: filters.arera_category,
+        });
       }
     }
     if (filters?.gas_use_category) {
@@ -514,7 +539,12 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     const pending = await this.loadSupplyPending(utilities.map((u) => u.id));
 
     return utilities.map((utility) =>
-      this.withCurrentContractFields(utility, currentContracts.get(utility.id), undefined, pending.get(utility.id)),
+      this.withCurrentContractFields(
+        utility,
+        currentContracts.get(utility.id),
+        undefined,
+        pending.get(utility.id),
+      ),
     );
   }
 
@@ -574,8 +604,16 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('utilizerGrants.parties', 'grantParties', 'grantParties.deleted = 0');
     qb.leftJoinAndSelect('Utility.budgetChapter', 'budgetChapter', 'budgetChapter.deleted = 0');
     qb.leftJoinAndSelect('Utility.contratti', 'contratti', 'contratti.deleted = 0');
-    qb.leftJoinAndSelect('contratti.supplier', 'contrattiSupplier', 'contrattiSupplier.deleted = 0');
-    qb.leftJoinAndSelect('contratti.consipAgreement', 'contrattiConsipAgreement', 'contrattiConsipAgreement.deleted = 0');
+    qb.leftJoinAndSelect(
+      'contratti.supplier',
+      'contrattiSupplier',
+      'contrattiSupplier.deleted = 0',
+    );
+    qb.leftJoinAndSelect(
+      'contratti.consipAgreement',
+      'contrattiConsipAgreement',
+      'contrattiConsipAgreement.deleted = 0',
+    );
     qb.where('Utility.deleted = :deleted', { deleted: false });
     qb.andWhere('currentConsipAgreement.safeguard = :safeguard', { safeguard: 1 });
 
@@ -584,7 +622,12 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     const pending = await this.loadSupplyPending(utilities.map((u) => u.id));
 
     return utilities.map((utility) =>
-      this.withCurrentContractFields(utility, currentContracts.get(utility.id), undefined, pending.get(utility.id)),
+      this.withCurrentContractFields(
+        utility,
+        currentContracts.get(utility.id),
+        undefined,
+        pending.get(utility.id),
+      ),
     );
   }
 
@@ -602,8 +645,16 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     qb.leftJoinAndSelect('Utility.updated_by', 'updated_by');
     qb.leftJoinAndSelect('Utility.transferredTo', 'transferredTo');
     qb.leftJoinAndSelect('Utility.contratti', 'contratti', 'contratti.deleted = 0');
-    qb.leftJoinAndSelect('contratti.supplier', 'contrattiSupplier', 'contrattiSupplier.deleted = 0');
-    qb.leftJoinAndSelect('contratti.consipAgreement', 'contrattiConsipAgreement', 'contrattiConsipAgreement.deleted = 0');
+    qb.leftJoinAndSelect(
+      'contratti.supplier',
+      'contrattiSupplier',
+      'contrattiSupplier.deleted = 0',
+    );
+    qb.leftJoinAndSelect(
+      'contratti.consipAgreement',
+      'contrattiConsipAgreement',
+      'contrattiConsipAgreement.deleted = 0',
+    );
 
     this.joinCurrentContract(qb);
 
@@ -617,7 +668,12 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     const currentContracts = await this.loadCurrentContracts([utility.id]);
     const decisions = await this.loadDecisions(utility.id);
     const pending = await this.loadSupplyPending([utility.id]);
-    return this.withCurrentContractFields(utility, currentContracts.get(utility.id), decisions, pending.get(utility.id));
+    return this.withCurrentContractFields(
+      utility,
+      currentContracts.get(utility.id),
+      decisions,
+      pending.get(utility.id),
+    );
   }
 
   // Decisioni sui contratti: solo per la scheda (findAll evita l'N+1).
@@ -632,7 +688,9 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
 
   // Attivazioni e cessazioni richieste e non ancora avvenute, per utenza
   // (badge del tab «Fornitura»). Data = richiesta, altrimenti inserimento.
-  private async loadSupplyPending(utilityIds: number[]): Promise<Map<number, SupplyPending | null>> {
+  private async loadSupplyPending(
+    utilityIds: number[],
+  ): Promise<Map<number, SupplyPending | null>> {
     const result = new Map<number, SupplyPending | null>();
     if (!utilityIds.length) return result;
     const rows = await this.repo.manager.getRepository(UtilitySupplyEvent).find({
@@ -648,7 +706,10 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     const byUtility = new Map<number, { type: SupplyPendingType; since: string }[]>();
     for (const r of rows ?? []) {
       const since = dbDay(r.requested_on) ?? romeDay(r.create_date);
-      byUtility.set(r.utility_id_fk, [...(byUtility.get(r.utility_id_fk) ?? []), { type: r.type as SupplyPendingType, since }]);
+      byUtility.set(r.utility_id_fk, [
+        ...(byUtility.get(r.utility_id_fk) ?? []),
+        { type: r.type as SupplyPendingType, since },
+      ]);
     }
     const today = romeDay(new Date());
     for (const [id, requests] of byUtility) result.set(id, supplyPending(requests, today));
@@ -657,13 +718,21 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
 
   // Stima annua inserita a mano: MANUAL con data (valida 12 mesi, poi la
   // sovrascrive lo storico); 0 = "nessuna stima manuale", torna a storico.
-  private estimateFields(value: number): Pick<Utility, 'estimated_consumption_source' | 'estimated_consumption_set_at'> {
+  private estimateFields(
+    value: number,
+  ): Pick<Utility, 'estimated_consumption_source' | 'estimated_consumption_set_at'> {
     return value > 0
-      ? { estimated_consumption_source: EstimateSource.MANUAL, estimated_consumption_set_at: new Date() }
+      ? {
+          estimated_consumption_source: EstimateSource.MANUAL,
+          estimated_consumption_set_at: new Date(),
+        }
       : { estimated_consumption_source: EstimateSource.NONE, estimated_consumption_set_at: null };
   }
 
-  private async assertMeterAvailable(meterNumber: string | null | undefined, utilityId: number | null): Promise<void> {
+  private async assertMeterAvailable(
+    meterNumber: string | null | undefined,
+    utilityId: number | null,
+  ): Promise<void> {
     const conflict = await findMeterConflict(this.repo, meterNumber, utilityId);
     if (conflict) {
       throw new BadRequestException(
@@ -682,7 +751,9 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
   ): Promise<void> {
     if (!category && !gasUse) return;
     const rows: { hard_type: HardTypeEnum }[] = utilityTypeId
-      ? await this.repo.manager.query('SELECT hard_type FROM utility_types WHERE id = ?', [utilityTypeId])
+      ? await this.repo.manager.query('SELECT hard_type FROM utility_types WHERE id = ?', [
+          utilityTypeId,
+        ])
       : [];
     const hardType = rows[0]?.hard_type;
     if (category && (!hardType || !isAreraCategoryAllowed(hardType, category))) {
@@ -698,7 +769,11 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
     if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
     await this.assertMeterAvailable(rest.meter_number, null);
-    await this.assertAreraCategory(rest.utility_type_id_fk, rest.arera_category, rest.gas_use_category);
+    await this.assertAreraCategory(
+      rest.utility_type_id_fk,
+      rest.arera_category,
+      rest.gas_use_category,
+    );
     const estimate = Number(rest.estimated_annual_consumption ?? 0);
     const assets = await this.resolveAssets(asset_ids ?? []);
     const plants = await this.resolvePlants(plant_ids ?? []);
@@ -754,7 +829,10 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       });
       return reloaded ?? saved;
     } catch (error) {
-      this.logger.error(`Utenza ${saved.id} creata ma non riletta dopo la riconciliazione`, error as Error);
+      this.logger.error(
+        `Utenza ${saved.id} creata ma non riletta dopo la riconciliazione`,
+        error as Error,
+      );
       return saved;
     }
   }
@@ -791,7 +869,10 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     }
 
     const normalizeMeter = (m?: string | null) => (m ?? '').trim().toLowerCase();
-    if (rest.meter_number !== undefined && normalizeMeter(rest.meter_number) !== normalizeMeter(current.meter_number)) {
+    if (
+      rest.meter_number !== undefined &&
+      normalizeMeter(rest.meter_number) !== normalizeMeter(current.meter_number)
+    ) {
       await this.assertMeterAvailable(rest.meter_number, id);
     }
 
@@ -847,7 +928,8 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
             .map((a) => a.id)
             .sort((x, y) => x - y)
             .join(',');
-        if (key(beforeAssets) !== key(assets)) await this.supplyReconcile.reconcileManySafe([id], userId);
+        if (key(beforeAssets) !== key(assets))
+          await this.supplyReconcile.reconcileManySafe([id], userId);
       }
     }
 
@@ -866,7 +948,9 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     if (oldIds.join(',') === newIds.join(',')) return;
     const newAssets = await this.assetRepo.find({ where: { id: In(newIds) } });
     const names = (list: Asset[], order: number[]) =>
-      order.map((assetId) => list.find((a) => a.id === assetId)?.asset_name ?? `#${assetId}`).join(', ');
+      order
+        .map((assetId) => list.find((a) => a.id === assetId)?.asset_name ?? `#${assetId}`)
+        .join(', ');
     await this.recordAudit(AuditAction.UPDATE, id, userId, [
       {
         fieldName: 'asset_ids',

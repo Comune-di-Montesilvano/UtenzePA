@@ -51,7 +51,8 @@ export function planPayments(
   const compensated = new Set(creditNotes.map((c) => c.noteId).filter((id) => id !== undefined));
   const offset = new Map<number, number>();
   for (const c of creditNotes) {
-    if (c.invoiceId !== undefined) offset.set(c.invoiceId, (offset.get(c.invoiceId) ?? 0) + c.amount);
+    if (c.invoiceId !== undefined)
+      offset.set(c.invoiceId, (offset.get(c.invoiceId) ?? 0) + c.amount);
   }
   const byInvoice = new Map<number, AccLiquidationRow[]>();
   for (const l of liquidations) {

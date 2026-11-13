@@ -88,7 +88,10 @@ describe('FireEquipmentDetails: up/down', () => {
     );
     await new FireEquipmentDetails1794200000000().down(q);
     const all = sqls.join('\n');
-    expect(params).toContainEqual(['scad. carica 2017; scad. collaudo 2018; ultima verifica 2014', 1]);
+    expect(params).toContainEqual([
+      'scad. carica 2017; scad. collaudo 2018; ultima verifica 2014',
+      1,
+    ]);
     expect(all).toContain('DELETE FROM `plant_fire_equipment` WHERE `equipment_type` IN');
     expect(all).toContain('DROP COLUMN `quantity`');
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('3 presidi'));

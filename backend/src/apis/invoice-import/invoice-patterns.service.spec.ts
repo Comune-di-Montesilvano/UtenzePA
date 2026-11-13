@@ -250,7 +250,9 @@ describe('InvoicePatternsService', () => {
       line: { amount: { kind: 'grossAmount' as const } },
     };
     const err = await service.create({ message_id: 9, name: 'Canone', rules }, 7).catch((e) => e);
-    expect(err?.message).not.toBe("Indica l'utenza della riga, oppure CIG o riferimento contratto della fattura, e l'importo della riga.");
+    expect(err?.message).not.toBe(
+      "Indica l'utenza della riga, oppure CIG o riferimento contratto della fattura, e l'importo della riga.",
+    );
   });
 
   it('salvataggio rifiutato senza utenza né CIG o con importo di riga «Non presente»', async () => {
@@ -263,9 +265,13 @@ describe('InvoicePatternsService', () => {
         },
         7,
       ),
-    ).rejects.toThrow("Indica l'utenza della riga, oppure CIG o riferimento contratto della fattura, e l'importo della riga.");
+    ).rejects.toThrow(
+      "Indica l'utenza della riga, oppure CIG o riferimento contratto della fattura, e l'importo della riga.",
+    );
     const noAmount = { ...RULES, line: { ...RULES.line, amount: { kind: 'none' as const } } };
-    await expect(service.create({ message_id: 9, name: 'Energia', rules: noAmount }, 7)).rejects.toThrow(
+    await expect(
+      service.create({ message_id: 9, name: 'Energia', rules: noAmount }, 7),
+    ).rejects.toThrow(
       "Indica l'utenza della riga, oppure CIG o riferimento contratto della fattura, e l'importo della riga.",
     );
   });

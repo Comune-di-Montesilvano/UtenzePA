@@ -79,13 +79,22 @@ describe('BackupService', () => {
   it('createBackup si connette al DB con la config corretta e produce un file .sql', async () => {
     mockConn.query
       .mockResolvedValueOnce([[{ Tables_in_mydatabase: 'users' }], []])
-      .mockResolvedValueOnce([[{ Table: 'users', 'Create Table': 'CREATE TABLE `users` (`id` INT)' }], []])
+      .mockResolvedValueOnce([
+        [{ Table: 'users', 'Create Table': 'CREATE TABLE `users` (`id` INT)' }],
+        [],
+      ])
       .mockResolvedValueOnce([[], []]);
 
     const result = await service.createBackup();
 
     expect(mysql2Promise.createConnection).toHaveBeenCalledWith(
-      expect.objectContaining({ host: 'localhost', port: 3306, user: 'root', password: 'secret', database: 'mydatabase' }),
+      expect.objectContaining({
+        host: 'localhost',
+        port: 3306,
+        user: 'root',
+        password: 'secret',
+        database: 'mydatabase',
+      }),
     );
     expect(result.filename).toMatch(/^utenzepa_\d{8}_\d{6}_[A-Za-z0-9._-]+\.sql$/);
     expect(fs.existsSync(path.join(backupDir, result.filename))).toBe(true);
@@ -96,10 +105,18 @@ describe('BackupService', () => {
     mockConn.query
       .mockResolvedValueOnce([[{ Tables_in_mydatabase: 'invoice_patterns' }], []])
       .mockResolvedValueOnce([
-        [{ Table: 'invoice_patterns', 'Create Table': 'CREATE TABLE `invoice_patterns` (`id` INT, `rules` JSON)' }],
+        [
+          {
+            Table: 'invoice_patterns',
+            'Create Table': 'CREATE TABLE `invoice_patterns` (`id` INT, `rules` JSON)',
+          },
+        ],
         [],
       ])
-      .mockResolvedValueOnce([[{ id: 1, rules: { line: { meter: { kind: 'textAfter', word: "l'ultima" } } } }], []]);
+      .mockResolvedValueOnce([
+        [{ id: 1, rules: { line: { meter: { kind: 'textAfter', word: "l'ultima" } } } }],
+        [],
+      ]);
 
     const result = await service.createBackup();
 
@@ -112,8 +129,7 @@ describe('BackupService', () => {
 
   it('createBackup include APP_VERSION nel nome file quando presente', async () => {
     process.env.APP_VERSION = 'v1.2.3';
-    mockConn.query
-      .mockResolvedValueOnce([[], []]);
+    mockConn.query.mockResolvedValueOnce([[], []]);
 
     const result = await service.createBackup();
 
@@ -122,7 +138,9 @@ describe('BackupService', () => {
   });
 
   it('createBackup non lascia file parziali se la connessione fallisce', async () => {
-    (mysql2Promise.createConnection as jest.Mock).mockRejectedValue(new Error('connection refused'));
+    (mysql2Promise.createConnection as jest.Mock).mockRejectedValue(
+      new Error('connection refused'),
+    );
 
     await expect(service.createBackup()).rejects.toThrow('connection refused');
     expect(fs.readdirSync(backupDir)).toEqual([]);
@@ -206,12 +224,12 @@ describe('BackupService', () => {
         'DROP TABLE IF EXISTS `system_users`;',
         'CREATE TABLE `system_users` (`id` INT);',
         '',
-        "INSERT INTO `system_users` (`id`) VALUES (1);",
+        'INSERT INTO `system_users` (`id`) VALUES (1);',
         '',
         'DROP TABLE IF EXISTS `assets`;',
         'CREATE TABLE `assets` (`id` INT, `created_by_user_id` INT REFERENCES `system_users` (`id`));',
         '',
-        "INSERT INTO `assets` (`id`) VALUES (1);",
+        'INSERT INTO `assets` (`id`) VALUES (1);',
         '',
         'SET FOREIGN_KEY_CHECKS=1;',
       ].join('\n'),
@@ -227,7 +245,7 @@ describe('BackupService', () => {
     // e' solo una colonna, non il blocco della tabella esclusa.
     expect(executedSql).toContain('REFERENCES `system_users`');
     expect(executedSql).toContain('DROP TABLE IF EXISTS `assets`;');
-    expect(executedSql).toContain("INSERT INTO `assets`");
+    expect(executedSql).toContain('INSERT INTO `assets`');
     expect(executedSql.trimEnd()).toMatch(/SET FOREIGN_KEY_CHECKS=1;$/);
   });
 
@@ -259,7 +277,10 @@ describe('BackupService', () => {
 
     mockConn.query
       .mockResolvedValueOnce([[{ Tables_in_mydatabase: 'users' }], []])
-      .mockResolvedValueOnce([[{ Table: 'users', 'Create Table': 'CREATE TABLE `users` (`id` INT)' }], []])
+      .mockResolvedValueOnce([
+        [{ Table: 'users', 'Create Table': 'CREATE TABLE `users` (`id` INT)' }],
+        [],
+      ])
       .mockResolvedValueOnce([[], []]);
 
     const result = await service.createBackup(true);
@@ -280,11 +301,17 @@ describe('BackupService', () => {
     process.env.PHOTOS_DIR = targetPhotosDir;
 
     fs.mkdirSync(path.join(sourcePhotosDir, 'photos', 'asset', '2'), { recursive: true });
-    fs.writeFileSync(path.join(sourcePhotosDir, 'photos', 'asset', '2', 'bar.jpg'), 'restored-bytes');
+    fs.writeFileSync(
+      path.join(sourcePhotosDir, 'photos', 'asset', '2', 'bar.jpg'),
+      'restored-bytes',
+    );
     fs.writeFileSync(path.join(sourcePhotosDir, 'dump.sql'), 'INSERT INTO x VALUES (1);');
 
     const archivePath = path.join(backupDir, 'utenzepa_20260101_000000.tar.gz');
-    await tar.create({ gzip: true, file: archivePath, cwd: sourcePhotosDir }, ['dump.sql', 'photos']);
+    await tar.create({ gzip: true, file: archivePath, cwd: sourcePhotosDir }, [
+      'dump.sql',
+      'photos',
+    ]);
     mockConn.query.mockResolvedValue([[], []]);
 
     await service.restoreFromFile(archivePath);
@@ -311,7 +338,10 @@ describe('BackupService', () => {
 
     mockConn.query
       .mockResolvedValueOnce([[{ Tables_in_mydatabase: 'users' }], []])
-      .mockResolvedValueOnce([[{ Table: 'users', 'Create Table': 'CREATE TABLE `users` (`id` INT)' }], []])
+      .mockResolvedValueOnce([
+        [{ Table: 'users', 'Create Table': 'CREATE TABLE `users` (`id` INT)' }],
+        [],
+      ])
       .mockResolvedValueOnce([[], []]);
 
     const result = await service.createBackup(false, true);
@@ -443,7 +473,7 @@ describe('BackupService', () => {
       expect(fs.existsSync(sqlFile)).toBe(false);
     });
 
-    it("startRestore: un errore toglie la manutenzione e resta nello stato", async () => {
+    it('startRestore: un errore toglie la manutenzione e resta nello stato', async () => {
       const sqlFile = path.join(backupDir, 'u2.sql');
       fs.writeFileSync(sqlFile, 'INVALID;');
       mockConn.query.mockRejectedValue(new Error('ERROR 1064'));

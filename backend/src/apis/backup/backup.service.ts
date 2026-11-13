@@ -5,11 +5,7 @@ import * as path from 'path';
 import * as tar from 'tar';
 import { createConnection, RowDataPacket } from 'mysql2/promise';
 import { maintenance } from '@common/maintenance/maintenance';
-import {
-  RetentionPolicy,
-  retentionPolicyFromEnv,
-  selectBackupsToKeep,
-} from './backup-retention';
+import { RetentionPolicy, retentionPolicyFromEnv, selectBackupsToKeep } from './backup-retention';
 
 // Due formati: ".sql" (solo dump, sempre) e ".tar.gz" (dump.sql + foto,
 // solo backup manuali — vedi createBackup). Entrambi coesistono nella
@@ -244,7 +240,11 @@ export class BackupService {
           }
           const attachmentsDir = this.resolveAttachmentsDir();
           if (includeAttachments && fs.existsSync(attachmentsDir)) {
-            fs.symlinkSync(path.resolve(attachmentsDir), path.join(stagingDir, 'attachments'), 'dir');
+            fs.symlinkSync(
+              path.resolve(attachmentsDir),
+              path.join(stagingDir, 'attachments'),
+              'dir',
+            );
           }
           const tmpArchivePath = `${finalPath}.tmp`;
           // Compressione minima: PDF e foto sono già compressi, il livello

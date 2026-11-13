@@ -126,7 +126,9 @@ describe('supply-state', () => {
     it('secondo pending dello stesso tipo', () => {
       const others = [ev({ type: T.CESSATION, requested_on: '2026-05-01' })];
       const c = ev({ id: 0, type: T.CESSATION, requested_on: '2026-05-10' });
-      expect(validateEvent(c, others, today)).toBe("C'è già una richiesta in sospeso di questo tipo.");
+      expect(validateEvent(c, others, today)).toBe(
+        "C'è già una richiesta in sospeso di questo tipo.",
+      );
     });
     it('voltura verso l intestatario attuale', () => {
       const others = [ev({ type: T.TRANSFER, third_party_id_fk: 5, effective_on: '2024-01-10' })];
@@ -142,7 +144,12 @@ describe('supply-state', () => {
       expect(validateEvent(c, [], today)).toBe('La data effettiva non può essere nel futuro.');
     });
     it('data effettiva prima della richiesta', () => {
-      const c = ev({ id: 0, type: T.ACTIVATION, requested_on: '2026-03-01', effective_on: '2026-02-01' });
+      const c = ev({
+        id: 0,
+        type: T.ACTIVATION,
+        requested_on: '2026-03-01',
+        effective_on: '2026-02-01',
+      });
       expect(validateEvent(c, [], today)).toBe('La data effettiva non può precedere la richiesta.');
     });
     it('voltura senza soggetto', () => {
@@ -155,14 +162,22 @@ describe('supply-state', () => {
       const dated = [ev({ type: T.ACTIVATION, effective_on: '2025-01-01' })];
 
       it('cessazione o attivazione a data non nota: 400', () => {
-        expect(validateEvent(ev({ id: 0, type: T.CESSATION, date_unknown: true }), dated, today)).toBe(msg);
-        expect(validateEvent(ev({ id: 0, type: T.ACTIVATION, date_unknown: true }), dated, today)).toBe(msg);
+        expect(
+          validateEvent(ev({ id: 0, type: T.CESSATION, date_unknown: true }), dated, today),
+        ).toBe(msg);
+        expect(
+          validateEvent(ev({ id: 0, type: T.ACTIVATION, date_unknown: true }), dated, today),
+        ).toBe(msg);
       });
 
       it('conta anche una voltura datata; non contano righe annullate, eliminate, in sospeso o a data non nota', () => {
         const c = ev({ id: 0, type: T.CESSATION, date_unknown: true });
         expect(
-          validateEvent(c, [ev({ type: T.TRANSFER, third_party_id_fk: 5, effective_on: '2025-01-01' })], today),
+          validateEvent(
+            c,
+            [ev({ type: T.TRANSFER, third_party_id_fk: 5, effective_on: '2025-01-01' })],
+            today,
+          ),
         ).toBe(msg);
         const ignored = [
           ev({ type: T.ACTIVATION, date_unknown: true }),
@@ -181,13 +196,22 @@ describe('supply-state', () => {
         expect(validateEvent({ ...before, type: T.CESSATION }, dated, today, before)).toBe(msg);
         const wasDated = ev({ id: 0, type: T.ACTIVATION, effective_on: '2024-01-01' });
         expect(
-          validateEvent({ ...wasDated, effective_on: null, date_unknown: true }, dated, today, wasDated),
+          validateEvent(
+            { ...wasDated, effective_on: null, date_unknown: true },
+            dated,
+            today,
+            wasDated,
+          ),
         ).toBe(msg);
       });
 
       it('voltura a data non nota senza volture datate: ammessa anche con attivazioni datate', () => {
         expect(
-          validateEvent(ev({ id: 0, type: T.TRANSFER, third_party_id_fk: 5, date_unknown: true }), dated, today),
+          validateEvent(
+            ev({ id: 0, type: T.TRANSFER, third_party_id_fk: 5, date_unknown: true }),
+            dated,
+            today,
+          ),
         ).toBeNull();
       });
 
@@ -197,13 +221,23 @@ describe('supply-state', () => {
         const transfer = ev({ type: T.TRANSFER, third_party_id_fk: 5, effective_on: '2025-02-01' });
 
         it('voltura datata poi reintestazione a data non nota: 400', () => {
-          expect(validateEvent(ev({ id: 0, type: T.RETURN, date_unknown: true }), [...dated, transfer], today)).toBe(vmsg);
+          expect(
+            validateEvent(
+              ev({ id: 0, type: T.RETURN, date_unknown: true }),
+              [...dated, transfer],
+              today,
+            ),
+          ).toBe(vmsg);
         });
 
         it('voltura e reintestazione datate poi voltura a data non nota: 400', () => {
           const others = [...dated, transfer, ev({ type: T.RETURN, effective_on: '2025-06-01' })];
           expect(
-            validateEvent(ev({ id: 0, type: T.TRANSFER, third_party_id_fk: 6, date_unknown: true }), others, today),
+            validateEvent(
+              ev({ id: 0, type: T.TRANSFER, third_party_id_fk: 6, date_unknown: true }),
+              others,
+              today,
+            ),
           ).toBe(vmsg);
         });
 
@@ -211,14 +245,25 @@ describe('supply-state', () => {
           const others = [
             ...dated,
             ev({ type: T.TRANSFER, third_party_id_fk: 5, requested_on: '2025-02-01' }),
-            ev({ type: T.TRANSFER, third_party_id_fk: 6, effective_on: '2025-02-01', cancelled_on: '2025-03-01' }),
+            ev({
+              type: T.TRANSFER,
+              third_party_id_fk: 6,
+              effective_on: '2025-02-01',
+              cancelled_on: '2025-03-01',
+            }),
           ];
           expect(
-            validateEvent(ev({ id: 0, type: T.TRANSFER, third_party_id_fk: 7, date_unknown: true }), others, today),
+            validateEvent(
+              ev({ id: 0, type: T.TRANSFER, third_party_id_fk: 7, date_unknown: true }),
+              others,
+              today,
+            ),
           ).toBeNull();
           const before = ev({ id: 0, type: T.TRANSFER, third_party_id_fk: 5, date_unknown: true });
           const rest = [...dated, ev({ type: T.RETURN, effective_on: '2025-06-01' })];
-          expect(validateEvent({ ...before, notes: 'x' } as SupplyEventLike, rest, today, before)).toBeNull();
+          expect(
+            validateEvent({ ...before, notes: 'x' } as SupplyEventLike, rest, today, before),
+          ).toBeNull();
         });
       });
     });
@@ -227,7 +272,9 @@ describe('supply-state', () => {
       const others = [ev({ type: T.ACTIVATION, effective_on: '2025-01-01' })];
       const c = ev({ id: 0, type: T.ACTIVATION, effective_on: '2026-01-01' });
       expect(validateEvent(c, others, today)).toBeNull();
-      expect(sequenceWarnings([...others, c])).toContain('Due attivazioni di fila: manca una cessazione?');
+      expect(sequenceWarnings([...others, c])).toContain(
+        'Due attivazioni di fila: manca una cessazione?',
+      );
     });
   });
 
@@ -258,16 +305,25 @@ describe('supply-state', () => {
 
     it('subtractIntervals: spezza, taglia e rispetta i limiti aperti', () => {
       expect(
-        subtractIntervals([{ start: null, end: null }], [{ start: '2023-01-01', end: '2023-06-01' }]),
+        subtractIntervals(
+          [{ start: null, end: null }],
+          [{ start: '2023-01-01', end: '2023-06-01' }],
+        ),
       ).toEqual([
         { start: null, end: '2023-01-01' },
         { start: '2023-06-01', end: null },
       ]);
       expect(
-        subtractIntervals([{ start: '2023-02-01', end: '2023-03-01' }], [{ start: '2023-01-01', end: null }]),
+        subtractIntervals(
+          [{ start: '2023-02-01', end: '2023-03-01' }],
+          [{ start: '2023-01-01', end: null }],
+        ),
       ).toEqual([]);
       expect(
-        subtractIntervals([{ start: '2023-02-01', end: '2023-03-01' }], [{ start: '2023-03-01', end: null }]),
+        subtractIntervals(
+          [{ start: '2023-02-01', end: '2023-03-01' }],
+          [{ start: '2023-03-01', end: null }],
+        ),
       ).toEqual([{ start: '2023-02-01', end: '2023-03-01' }]);
     });
 

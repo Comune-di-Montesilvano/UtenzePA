@@ -35,7 +35,10 @@ describe('nextContract', () => {
 
   it('chiusi e cancellati non contano', () => {
     const current = c(1, 10, '2026-01-01');
-    const others = [c(2, 20, '2027-01-01', { closed: true }), c(4, 20, '2027-01-01', { deleted: true })];
+    const others = [
+      c(2, 20, '2027-01-01', { closed: true }),
+      c(4, 20, '2027-01-01', { deleted: true }),
+    ];
     expect(nextContract([current, ...others], current, today)).toBeNull();
   });
 

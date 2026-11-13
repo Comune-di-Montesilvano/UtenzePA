@@ -228,7 +228,11 @@ describe('PlantsService', () => {
       9,
       {
         notes: 'nota',
-        electrical: { grounding_class: 'ORDINARY', lightning_protection: null, inail_number: 'P-1' },
+        electrical: {
+          grounding_class: 'ORDINARY',
+          lightning_protection: null,
+          inail_number: 'P-1',
+        },
       } as never,
       3,
     );
@@ -244,22 +248,42 @@ describe('PlantsService', () => {
       lightning_protection: true,
     });
     inspectionRepo.find.mockResolvedValue([
-      { id: 5, plant_id: 9, kind: 'Scariche atmosferiche (DPR 462/01)', period_months: 60, deleted: false },
+      {
+        id: 5,
+        plant_id: 9,
+        kind: 'Scariche atmosferiche (DPR 462/01)',
+        period_months: 60,
+        deleted: false,
+      },
     ]);
     await service.update(9, { electrical: { grounding_class: 'HIGH_RISK' } } as never, 3);
     expect(inspectionRepo.save).toHaveBeenCalledTimes(1);
     expect(inspectionRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 5, kind: 'Scariche atmosferiche (DPR 462/01)', period_months: 24 }),
+      expect.objectContaining({
+        id: 5,
+        kind: 'Scariche atmosferiche (DPR 462/01)',
+        period_months: 24,
+      }),
     );
   });
 
   it('riga: verifiche obbligatorie mancanti (ascensore senza verifica datata)', async () => {
     repo.find.mockResolvedValue([
-      plant({ type: PlantType.ELEVATOR, inspections: [{ kind: 'Manutenzione ordinaria', next_date: '2027-01-01', deleted: false }] }),
+      plant({
+        type: PlantType.ELEVATOR,
+        inspections: [{ kind: 'Manutenzione ordinaria', next_date: '2027-01-01', deleted: false }],
+      }),
       plant({
         id: 2,
         type: PlantType.ELEVATOR,
-        inspections: [{ kind: 'Verifica periodica (ente notificato)', last_date: '2025-01-10', next_date: '2027-01-10', deleted: false }],
+        inspections: [
+          {
+            kind: 'Verifica periodica (ente notificato)',
+            last_date: '2025-01-10',
+            next_date: '2027-01-10',
+            deleted: false,
+          },
+        ],
       }),
     ]);
     const [a, b] = await service.findAll({});
@@ -312,12 +336,20 @@ describe('PlantsService', () => {
   });
 
   it('posizione dal primo immobile collegato che ne ha una', async () => {
-    const none = { latitude: null, longitude: null, geocoded_latitude: null, geocoded_longitude: null };
+    const none = {
+      latitude: null,
+      longitude: null,
+      geocoded_latitude: null,
+      geocoded_longitude: null,
+    };
     repo.find.mockResolvedValue([
       plant({
         geocoded_latitude: null,
         geocoded_longitude: null,
-        assets: [{ id: 5, ...none }, { id: 6, ...none, latitude: '42.7', longitude: '14.3' }],
+        assets: [
+          { id: 5, ...none },
+          { id: 6, ...none, latitude: '42.7', longitude: '14.3' },
+        ],
       }),
     ]);
     const [r] = await service.findAll({});
@@ -382,10 +414,15 @@ describe('PlantsService', () => {
   });
 
   it('quantità null: 400, non errore SQL (colonna NOT NULL)', async () => {
-    fireRepo.findOne.mockResolvedValue({ id: 6, equipment_type: 'HYDRANT', quantity: 2, deleted: false });
-    await expect(
-      service.updateFireEquipment(6, { quantity: null } as never, 3),
-    ).rejects.toThrow(BadRequestException);
+    fireRepo.findOne.mockResolvedValue({
+      id: 6,
+      equipment_type: 'HYDRANT',
+      quantity: 2,
+      deleted: false,
+    });
+    await expect(service.updateFireEquipment(6, { quantity: null } as never, 3)).rejects.toThrow(
+      BadRequestException,
+    );
     expect(fireRepo.save).not.toHaveBeenCalled();
   });
 
@@ -457,28 +494,52 @@ describe('PlantsService', () => {
   describe('correzioni revisione finale', () => {
     it('verifica: prossima data svuotata + nuova ultima data → ricalcolata', async () => {
       inspectionRepo.findOne.mockResolvedValue({
-        id: 5, kind: 'Verifica', period_months: 24, last_date: '2024-03-01', next_date: '2026-03-01', deleted: false,
+        id: 5,
+        kind: 'Verifica',
+        period_months: 24,
+        last_date: '2024-03-01',
+        next_date: '2026-03-01',
+        deleted: false,
       });
       await service.updateInspection(5, { last_date: '2026-10-01', next_date: null } as never, 3);
-      expect(inspectionRepo.save).toHaveBeenCalledWith(expect.objectContaining({ next_date: '2028-10-01' }));
+      expect(inspectionRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ next_date: '2028-10-01' }),
+      );
     });
 
     it('verifica: prossima data svuotata senza ultima data → resta vuota', async () => {
       inspectionRepo.findOne.mockResolvedValue({
-        id: 5, kind: 'Verifica', period_months: 24, last_date: null, next_date: '2026-03-01', deleted: false,
+        id: 5,
+        kind: 'Verifica',
+        period_months: 24,
+        last_date: null,
+        next_date: '2026-03-01',
+        deleted: false,
       });
       await service.updateInspection(5, { next_date: null } as never, 3);
-      expect(inspectionRepo.save).toHaveBeenCalledWith(expect.objectContaining({ next_date: null }));
+      expect(inspectionRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ next_date: null }),
+      );
     });
 
     it('creazione con indirizzo e senza coordinate: geocodifica con il comune dell’ente', async () => {
       repo.findOne.mockResolvedValue(plant({ id: 9 }));
       await service.create(
-        { type: PlantType.FOUNTAIN, code: 'F9', name: 'F', address: 'Via X', civic_number: '1' } as never,
+        {
+          type: PlantType.FOUNTAIN,
+          code: 'F9',
+          name: 'F',
+          address: 'Via X',
+          civic_number: '1',
+        } as never,
         3,
       );
       expect(geocoding.buildQuery).toHaveBeenCalledWith(
-        expect.objectContaining({ address: 'Via X', civic_number: '1', municipality: 'Montesilvano' }),
+        expect.objectContaining({
+          address: 'Via X',
+          civic_number: '1',
+          municipality: 'Montesilvano',
+        }),
       );
       expect(repo.update).toHaveBeenCalledWith(
         9,
@@ -489,7 +550,14 @@ describe('PlantsService', () => {
     it('creazione con coordinate manuali: nessuna geocodifica', async () => {
       repo.findOne.mockResolvedValue(plant({ id: 9 }));
       await service.create(
-        { type: PlantType.FOUNTAIN, code: 'F8', name: 'F', address: 'Via X', latitude: '42.5', longitude: '14.1' } as never,
+        {
+          type: PlantType.FOUNTAIN,
+          code: 'F8',
+          name: 'F',
+          address: 'Via X',
+          latitude: '42.5',
+          longitude: '14.1',
+        } as never,
         3,
       );
       expect(geocoding.geocode).not.toHaveBeenCalled();
@@ -497,11 +565,17 @@ describe('PlantsService', () => {
 
     it('cambio indirizzo: azzera la geocodifica vecchia e rigeocodifica', async () => {
       repo.findOne
-        .mockResolvedValueOnce(plant({ id: 1, address: 'Via X', civic_number: null, utilities: [] }))
+        .mockResolvedValueOnce(
+          plant({ id: 1, address: 'Via X', civic_number: null, utilities: [] }),
+        )
         .mockResolvedValue(plant({ id: 1, address: 'Via Y' }));
       await service.update(1, { address: 'Via Y' } as never, 3);
       expect(repo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ address: 'Via Y', geocoded_latitude: null, geocoded_longitude: null }),
+        expect.objectContaining({
+          address: 'Via Y',
+          geocoded_latitude: null,
+          geocoded_longitude: null,
+        }),
       );
       expect(geocoding.geocode).toHaveBeenCalled();
     });
@@ -523,7 +597,12 @@ describe('PlantsService', () => {
     it('togliere un’utenza che ha anche un immobile è ammesso', async () => {
       repo.findOne.mockResolvedValue(plant({ id: 1, utilities: [{ id: 4 }] }));
       utilityRepo.find.mockResolvedValue([
-        { id: 4, utility_id: 'IT001', assets: [{ id: 2, deleted: false }], plants: [{ id: 1, deleted: false }] },
+        {
+          id: 4,
+          utility_id: 'IT001',
+          assets: [{ id: 2, deleted: false }],
+          plants: [{ id: 1, deleted: false }],
+        },
       ]);
       await expect(service.update(1, { utility_ids: [] } as never, 3)).resolves.toBeDefined();
     });

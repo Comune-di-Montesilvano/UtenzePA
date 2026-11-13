@@ -21,7 +21,9 @@ export class DropLineCommitment1796000000001 implements MigrationInterface {
       'ALTER TABLE `invoice_lines` ADD `commitment_id_fk` int NULL, ADD `commitment_auto` tinyint NOT NULL DEFAULT 1, ' +
         'ADD `commitment_fiscal_year` int NULL',
     );
-    await q.query('CREATE INDEX `FK_invoice_lines_commitment` ON `invoice_lines` (`commitment_id_fk`)');
+    await q.query(
+      'CREATE INDEX `FK_invoice_lines_commitment` ON `invoice_lines` (`commitment_id_fk`)',
+    );
     await q.query(
       'ALTER TABLE `invoice_lines` ADD CONSTRAINT `FK_invoice_lines_commitment` ' +
         'FOREIGN KEY (`commitment_id_fk`) REFERENCES `budget_commitments`(`id`) ON DELETE NO ACTION ON UPDATE NO ACTION',

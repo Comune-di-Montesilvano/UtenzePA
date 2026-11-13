@@ -224,12 +224,16 @@ export class SpendingService {
         )
       : [];
     const years = ids.length
-      ? await this.q(`SELECT DISTINCT ${YEAR} AS year ${LINES} WHERE il.utility_id_fk IN (?)`, [ids])
+      ? await this.q(`SELECT DISTINCT ${YEAR} AS year ${LINES} WHERE il.utility_id_fk IN (?)`, [
+          ids,
+        ])
       : [];
 
     const byUtility = <T extends Record<string, unknown>>(rows: T[]) => {
       const map = new Map<number, T[]>();
-      rows.forEach((r) => map.set(Number(r.utility_id), [...(map.get(Number(r.utility_id)) ?? []), r]));
+      rows.forEach((r) =>
+        map.set(Number(r.utility_id), [...(map.get(Number(r.utility_id)) ?? []), r]),
+      );
       return map;
     };
     const linesOf = byUtility(lines);

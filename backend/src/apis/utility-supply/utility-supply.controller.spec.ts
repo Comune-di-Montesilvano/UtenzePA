@@ -55,7 +55,12 @@ describe('UtilitySupplyController', () => {
       expect(result.stale).toBe(true);
       expect(result.warnings).toEqual([]);
       expect(result.events).toHaveLength(1);
-      expect(result.events[0]).toMatchObject({ id: 12, utility_id_fk: 7, third_party_name: null, grant_label: null });
+      expect(result.events[0]).toMatchObject({
+        id: 12,
+        utility_id_fk: 7,
+        third_party_name: null,
+        grant_label: null,
+      });
       expect(result.events[0]).not.toHaveProperty('utility');
       expect(error).toHaveBeenCalledWith(expect.stringContaining('riga 12'), expect.any(Error));
     },

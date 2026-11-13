@@ -2,15 +2,24 @@ import { replacedContractPatch } from './replace-contract';
 
 describe('replacedContractPatch', () => {
   it('scadenza assente: diventa il giorno prima della nuova decorrenza', () => {
-    expect(replacedContractPatch(null, '2026-07-01')).toEqual({ closed: true, supply_expiry_date: '2026-06-30' });
+    expect(replacedContractPatch(null, '2026-07-01')).toEqual({
+      closed: true,
+      supply_expiry_date: '2026-06-30',
+    });
   });
 
   it('scadenza oltre la nuova decorrenza: accorciata (anche a cavallo d’anno)', () => {
-    expect(replacedContractPatch('2027-06-30', '2026-01-01')).toEqual({ closed: true, supply_expiry_date: '2025-12-31' });
+    expect(replacedContractPatch('2027-06-30', '2026-01-01')).toEqual({
+      closed: true,
+      supply_expiry_date: '2025-12-31',
+    });
   });
 
   it('scadenza uguale alla nuova decorrenza: accorciata', () => {
-    expect(replacedContractPatch('2026-07-01', '2026-07-01')).toEqual({ closed: true, supply_expiry_date: '2026-06-30' });
+    expect(replacedContractPatch('2026-07-01', '2026-07-01')).toEqual({
+      closed: true,
+      supply_expiry_date: '2026-06-30',
+    });
   });
 
   it('scadenza già anteriore: solo chiuso', () => {
@@ -22,7 +31,9 @@ describe('replacedContractPatch', () => {
   });
 
   it('rinnovo anticipato (decorrenza futura): solo scadenza accorciata, resta corrente fino ad allora', () => {
-    expect(replacedContractPatch(null, '2026-07-01', '2026-06-10')).toEqual({ supply_expiry_date: '2026-06-30' });
+    expect(replacedContractPatch(null, '2026-07-01', '2026-06-10')).toEqual({
+      supply_expiry_date: '2026-06-30',
+    });
   });
 
   it('rinnovo anticipato con scadenza già anteriore: nessuna modifica', () => {
@@ -30,10 +41,16 @@ describe('replacedContractPatch', () => {
   });
 
   it('decorrenza uguale a oggi: chiuso', () => {
-    expect(replacedContractPatch(null, '2026-07-01', '2026-07-01')).toEqual({ closed: true, supply_expiry_date: '2026-06-30' });
+    expect(replacedContractPatch(null, '2026-07-01', '2026-07-01')).toEqual({
+      closed: true,
+      supply_expiry_date: '2026-06-30',
+    });
   });
 
   it('scadenza come Date: confrontata come giorno locale', () => {
-    expect(replacedContractPatch(new Date(2026, 11, 31), '2026-07-01')).toEqual({ closed: true, supply_expiry_date: '2026-06-30' });
+    expect(replacedContractPatch(new Date(2026, 11, 31), '2026-07-01')).toEqual({
+      closed: true,
+      supply_expiry_date: '2026-06-30',
+    });
   });
 });

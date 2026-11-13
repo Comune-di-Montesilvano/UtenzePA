@@ -13,7 +13,11 @@ import { MapController } from './map.controller';
   // GeocodingModule esporta GeocodingService — riusato dall'endpoint
   // /map/geocode (ricerca libera indirizzo) invece di duplicare il client
   // Nominatim/throttle/backoff qui.
-  imports: [TypeOrmModule.forFeature([Asset, Utility, Plant, Complex]), GeocodingModule, SettingsModule],
+  imports: [
+    TypeOrmModule.forFeature([Asset, Utility, Plant, Complex]),
+    GeocodingModule,
+    SettingsModule,
+  ],
   providers: [MapService],
   controllers: [MapController],
 })

@@ -52,7 +52,11 @@ describe('CommitmentReconcileService', () => {
   it('assegna le fatture automatiche in ordine di numero', async () => {
     const { ds, calls } = fakeDataSource({
       commitments: [commitment(20, 1886, 50), commitment(10, 521, 100)],
-      invoices: [invoice(1, 60, '2026-01-10'), invoice(2, 60, '2026-02-10'), invoice(3, 60, '2026-03-10')],
+      invoices: [
+        invoice(1, 60, '2026-01-10'),
+        invoice(2, 60, '2026-02-10'),
+        invoice(3, 60, '2026-03-10'),
+      ],
     });
     await new CommitmentReconcileService(ds).reconcileContracts([1]);
     expect(inserts(calls).map((c) => c.params)).toEqual([
@@ -99,7 +103,9 @@ describe('CommitmentReconcileService', () => {
     const { ds, calls } = fakeDataSource({
       commitments: [commitment(10, 521, 100), commitment(20, 600, 100)],
       invoices: [
-        invoice(1, 95, '2026-01-10', { fixed: [{ commitment_id: 10, fiscal_year: 2026, amount: '95.00' }] }),
+        invoice(1, 95, '2026-01-10', {
+          fixed: [{ commitment_id: 10, fiscal_year: 2026, amount: '95.00' }],
+        }),
         invoice(2, 20, '2026-01-11'),
       ],
     });
@@ -110,9 +116,14 @@ describe('CommitmentReconcileService', () => {
   });
 
   it("l'insert della quota automatica non scrive se esistono quote fisse", async () => {
-    const { ds, calls } = fakeDataSource({ commitments: [commitment(10, 521, 100)], invoices: [invoice(1, 5, '2026-01-10')] });
+    const { ds, calls } = fakeDataSource({
+      commitments: [commitment(10, 521, 100)],
+      invoices: [invoice(1, 5, '2026-01-10')],
+    });
     await new CommitmentReconcileService(ds).reconcileContracts([1]);
-    expect(inserts(calls)[0].sql).toContain("NOT EXISTS (SELECT 1 FROM invoice_commitment_shares WHERE invoice_id_fk = ? AND source <> 'AUTO')");
+    expect(inserts(calls)[0].sql).toContain(
+      "NOT EXISTS (SELECT 1 FROM invoice_commitment_shares WHERE invoice_id_fk = ? AND source <> 'AUTO')",
+    );
   });
 
   it('una fattura con quote fisse e una quota automatica residua: la automatica si toglie', async () => {
@@ -134,7 +145,10 @@ describe('CommitmentReconcileService', () => {
     const { ds, calls } = fakeDataSource({
       commitments: [commitment(10, 521, 100), commitment(20, 600, 100)],
       invoices: [
-        invoice(1, null, '2026-01-10', { chapters: null, fixed: [{ commitment_id: 10, fiscal_year: 2026, amount: 95 }] }),
+        invoice(1, null, '2026-01-10', {
+          chapters: null,
+          fixed: [{ commitment_id: 10, fiscal_year: 2026, amount: 95 }],
+        }),
         invoice(2, 20, '2026-01-11'),
       ],
     });
@@ -146,7 +160,10 @@ describe('CommitmentReconcileService', () => {
     const { ds, calls } = fakeDataSource({
       commitments: [commitment(10, 521, 100), commitment(20, 600, 100)],
       invoices: [
-        invoice(5, 100, '2026-01-01', { contract_id: 2, fixed: [{ commitment_id: 10, fiscal_year: 2026, amount: 100 }] }),
+        invoice(5, 100, '2026-01-01', {
+          contract_id: 2,
+          fixed: [{ commitment_id: 10, fiscal_year: 2026, amount: 100 }],
+        }),
         invoice(1, 30, '2026-01-10'),
       ],
     });
@@ -157,7 +174,9 @@ describe('CommitmentReconcileService', () => {
   it('la competenza viene dal periodo delle righe', async () => {
     const { ds, calls } = fakeDataSource({
       commitments: [commitment(10, 528, 100), { ...commitment(10, 528, 30), fiscal_year: 2027 }],
-      invoices: [invoice(1, 20, '2026-12-20', { period_start: '2027-01-01', period_end: '2027-02-28' })],
+      invoices: [
+        invoice(1, 20, '2026-12-20', { period_start: '2027-01-01', period_end: '2027-02-28' }),
+      ],
     });
     await new CommitmentReconcileService(ds).reconcileContracts([1]);
     expect(inserts(calls).map((c) => c.params)).toEqual([[1, 10, 2027, 20, 1]]);
@@ -180,7 +199,11 @@ describe('CommitmentReconcileService', () => {
 
   it('senza impegni la quota automatica esistente si toglie', async () => {
     const { ds, calls } = fakeDataSource({
-      invoices: [invoice(1, 10, '2026-01-10', { auto_share: { commitment_id: 99, fiscal_year: 2026, amount: 10 } })],
+      invoices: [
+        invoice(1, 10, '2026-01-10', {
+          auto_share: { commitment_id: 99, fiscal_year: 2026, amount: 10 },
+        }),
+      ],
     });
     await new CommitmentReconcileService(ds).reconcileContracts([1]);
     expect(deletes(calls).map((c) => c.params)).toEqual([[1]]);

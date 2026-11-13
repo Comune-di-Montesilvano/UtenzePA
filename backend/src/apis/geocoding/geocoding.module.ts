@@ -41,7 +41,7 @@ export class GeocodingModule implements OnModuleInit {
     });
 
     if (pending.length === 0) {
-      this.logger.log('Scan geocoding all\'avvio: nessun asset da geocodificare.');
+      this.logger.log("Scan geocoding all'avvio: nessun asset da geocodificare.");
       return;
     }
 

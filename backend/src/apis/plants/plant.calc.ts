@@ -12,7 +12,11 @@ import { addDays, addMonths } from '@apis/utilizer-grant/real-estate-contract.ca
 export const INSPECTION_DUE_DAYS = 60;
 
 // Tipi che stanno sempre dentro un edificio: senza immobile collegato sono un'anomalia.
-export const ASSET_REQUIRED_TYPES: PlantType[] = [PlantType.THERMAL, PlantType.ELEVATOR, PlantType.FIRE_PROTECTION];
+export const ASSET_REQUIRED_TYPES: PlantType[] = [
+  PlantType.THERMAL,
+  PlantType.ELEVATOR,
+  PlantType.FIRE_PROTECTION,
+];
 
 export function computeNextDate(
   lastDate: string | null,
@@ -102,7 +106,10 @@ export interface PositionInput extends Coords {
 
 const isSet = (v: string | null | undefined): v is string => v != null && v.trim() !== '';
 
-function coords(c: Coords | null, kind: 'manual' | 'geocoded'): { lat: string; lng: string } | null {
+function coords(
+  c: Coords | null,
+  kind: 'manual' | 'geocoded',
+): { lat: string; lng: string } | null {
   if (!c) return null;
   const [lat, lng] =
     kind === 'manual' ? [c.latitude, c.longitude] : [c.geocoded_latitude, c.geocoded_longitude];
@@ -179,7 +186,10 @@ export interface RequiredInspection {
 export interface RequiredInspectionInput {
   type: PlantType;
   status?: PlantStatus | null;
-  electrical?: { grounding_class?: GroundingClass | null; lightning_protection?: boolean | null } | null;
+  electrical?: {
+    grounding_class?: GroundingClass | null;
+    lightning_protection?: boolean | null;
+  } | null;
   thermal?: { power_kw?: number | string | null } | null;
 }
 
@@ -204,10 +214,19 @@ export function requiredInspections(p: RequiredInspectionInput): RequiredInspect
     }
     case PlantType.THERMAL: {
       const kw = p.thermal?.power_kw;
-      if (!thermalPlantObligations(kw === null || kw === undefined ? null : Number(kw)).efficiency_check_required) {
+      if (
+        !thermalPlantObligations(kw === null || kw === undefined ? null : Number(kw))
+          .efficiency_check_required
+      ) {
         return [];
       }
-      return [{ kind: EFFICIENCY_INSPECTION_KIND, period_months: Number(kw) > 100 ? 24 : 48, law: 'DPR 74/2013' }];
+      return [
+        {
+          kind: EFFICIENCY_INSPECTION_KIND,
+          period_months: Number(kw) > 100 ? 24 : 48,
+          law: 'DPR 74/2013',
+        },
+      ];
     }
     default:
       return [];
@@ -218,7 +237,12 @@ export function requiredInspections(p: RequiredInspectionInput): RequiredInspect
 // maiuscole ignorati) e almeno una data (ultima o prossima).
 export function missingInspections(
   p: RequiredInspectionInput,
-  inspections: { kind: string; last_date?: string | null; next_date?: string | null; deleted?: boolean }[],
+  inspections: {
+    kind: string;
+    last_date?: string | null;
+    next_date?: string | null;
+    deleted?: boolean;
+  }[],
 ): RequiredInspection[] {
   const dated = inspections.filter((i) => !i.deleted && (i.last_date || i.next_date));
   return requiredInspections(p).filter((r) => !dated.some((i) => sameKind(i.kind, r.kind)));

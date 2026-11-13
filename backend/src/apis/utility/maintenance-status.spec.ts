@@ -34,12 +34,12 @@ const utility = (contratti: unknown[], grantsPerAsset: unknown[][] = []) =>
 
 describe('maintenanceInfo', () => {
   it('ordine in bozza con manutenzione inclusa: non conta', () => {
-    expect(maintenanceInfo(utility([supply(1, party(9, 'Luce Spa'), { draft: true })])).status).toBe(
-      MaintenanceStatus.COMUNE,
-    );
-    expect(maintenanceInfo(utility([supply(1, party(9, 'Luce Spa'), { draft: false })])).status).toBe(
-      MaintenanceStatus.SUPPLIER,
-    );
+    expect(
+      maintenanceInfo(utility([supply(1, party(9, 'Luce Spa'), { draft: true })])).status,
+    ).toBe(MaintenanceStatus.COMUNE);
+    expect(
+      maintenanceInfo(utility([supply(1, party(9, 'Luce Spa'), { draft: false })])).status,
+    ).toBe(MaintenanceStatus.SUPPLIER);
   });
 
   it('SQL gemella: esclude le bozze', () => {
@@ -101,9 +101,9 @@ describe('maintenanceInfo', () => {
     ['restituito', { status: ContractStatus.RETURNED }],
     ['cancellato', { deleted: 1 }],
   ])('contratto immobiliare %s non conta', (_l, extra) => {
-    expect(
-      maintenanceInfo(utility([], [[grant(7, [party(3, 'Alfa Srl')], extra)]])).status,
-    ).toBe(MaintenanceStatus.COMUNE);
+    expect(maintenanceInfo(utility([], [[grant(7, [party(3, 'Alfa Srl')], extra)]])).status).toBe(
+      MaintenanceStatus.COMUNE,
+    );
   });
 
   it('contratto con flag senza parti valide: Comune', () => {

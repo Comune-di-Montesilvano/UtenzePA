@@ -53,7 +53,9 @@ export class UtilityTypesService extends BaseService<
   async update(id: number, dto: UpdateUtilityTypeDto, userId?: number): Promise<UtilityType> {
     if (dto.hard_type) {
       const allowed = ARERA_CATEGORIES_BY_HARD_TYPE[dto.hard_type] ?? [];
-      const notIn = allowed.length ? ` AND arera_category NOT IN (${allowed.map(() => '?').join(', ')})` : '';
+      const notIn = allowed.length
+        ? ` AND arera_category NOT IN (${allowed.map(() => '?').join(', ')})`
+        : '';
       // La categoria d'uso esiste solo per il gas.
       const gasUse = dto.hard_type !== HardTypeEnum.GAS ? ' OR gas_use_category IS NOT NULL' : '';
       const rows: { n: string | number }[] = await this.repo.manager.query(

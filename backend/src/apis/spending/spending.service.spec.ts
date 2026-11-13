@@ -41,16 +41,32 @@ describe('SpendingService', () => {
   it('riepilogo capitoli: unisce utenze, impegni e speso per capitolo', async () => {
     query
       .mockResolvedValueOnce([
-        { budget_chapter_id: 7, chapter_code: '11428', article: 0, description: 'Acqua', utilities: '12' },
-        { budget_chapter_id: null, chapter_code: null, article: null, description: null, utilities: '3' },
+        {
+          budget_chapter_id: 7,
+          chapter_code: '11428',
+          article: 0,
+          description: 'Acqua',
+          utilities: '12',
+        },
+        {
+          budget_chapter_id: null,
+          chapter_code: null,
+          article: null,
+          description: null,
+          utilities: '3',
+        },
       ])
       .mockResolvedValueOnce([{ id: 4, budget_chapter_id: 7, fiscal_year: 2026, amount: null }])
       .mockResolvedValueOnce([{ budget_chapter_id: 7, year: 2026, total: '99.90' }]);
     const rows = await service.chaptersSummary(1);
     // Solo utenze in carico al Comune (attive e non volturate).
-    expect(query.mock.calls[0][0]).toContain('u.supply_active = 1 AND u.transferred_to_third_party_id IS NULL');
+    expect(query.mock.calls[0][0]).toContain(
+      'u.supply_active = 1 AND u.transferred_to_third_party_id IS NULL',
+    );
     // Impegni del contratto dalla N-N: anche quelli condivisi con altri contratti.
-    expect(query.mock.calls[1][0]).toContain('JOIN budget_commitment_contracts bcc ON bcc.commitment_id = bcm.id AND bcc.contract_id = ?');
+    expect(query.mock.calls[1][0]).toContain(
+      'JOIN budget_commitment_contracts bcc ON bcc.commitment_id = bcm.id AND bcc.contract_id = ?',
+    );
     expect(rows[0]).toEqual({
       budget_chapter_id: 7,
       chapter_code: '11428',
@@ -96,11 +112,23 @@ describe('SpendingService', () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
-        { budget_chapter_id: 9, chapter_code: '12193', article: 0, description: 'Gas', year: 2026, total: '5' },
+        {
+          budget_chapter_id: 9,
+          chapter_code: '12193',
+          article: 0,
+          description: 'Gas',
+          year: 2026,
+          total: '5',
+        },
       ]);
     const rows = await service.chaptersSummary(1);
     expect(rows).toEqual([
-      expect.objectContaining({ budget_chapter_id: 9, chapter_code: '12193', description: 'Gas', spent: [{ year: 2026, total: 5 }] }),
+      expect.objectContaining({
+        budget_chapter_id: 9,
+        chapter_code: '12193',
+        description: 'Gas',
+        spent: [{ year: 2026, total: 5 }],
+      }),
     ]);
     expect(query.mock.calls[2][0]).toContain('LEFT JOIN budget_chapters b ON b.id = ci.chapter_id');
     expect(query.mock.calls[2][0]).toContain('FROM invoice_commitment_shares');
@@ -110,7 +138,14 @@ describe('SpendingService', () => {
   it('scheda capitolo: anni da bilancio, impegni e fatture del capitolo (capitolo dall’impegno o dall’utenza)', async () => {
     query
       .mockResolvedValueOnce([
-        { id: 1, year: 2024, amount: '100', initial_budget: null, adjusted_budget: null, notes: null },
+        {
+          id: 1,
+          year: 2024,
+          amount: '100',
+          initial_budget: null,
+          adjusted_budget: null,
+          notes: null,
+        },
       ])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
@@ -141,7 +176,18 @@ describe('SpendingService', () => {
         contract_ids: '10,11',
         fiscal_years: '[2027,2026]',
       },
-      { id: 4, commitment_year: null, commitment_num: null, commitment_sub: null, fiscal_year: 2026, fiscal_years: [2026], amount: null, spent: '5', supplier: null, contract_ids: null },
+      {
+        id: 4,
+        commitment_year: null,
+        commitment_num: null,
+        commitment_sub: null,
+        fiscal_year: 2026,
+        fiscal_years: [2026],
+        amount: null,
+        spent: '5',
+        supplier: null,
+        contract_ids: null,
+      },
     ]);
     expect(await service.chapterCommitments(5)).toEqual([
       {
@@ -155,7 +201,17 @@ describe('SpendingService', () => {
         supplier: 'Fornitore prova',
         contract_ids: [10, 11],
       },
-      { id: 4, label: '—', fiscal_year: 2026, fiscal_years: [2026], amount: null, spent: 5, remaining: null, supplier: null, contract_ids: [] },
+      {
+        id: 4,
+        label: '—',
+        fiscal_year: 2026,
+        fiscal_years: [2026],
+        amount: null,
+        spent: 5,
+        remaining: null,
+        supplier: null,
+        contract_ids: [],
+      },
     ]);
     const sql = String(query.mock.calls[0][0]);
     expect(sql).toContain('bcm.deleted = 0');
@@ -202,7 +258,9 @@ describe('SpendingService', () => {
       year: 2026,
       amount: 12.5,
     });
-    expect(line).toEqual(expect.objectContaining({ id: 1, kind: 'line', utility_id: 4, amount: 7 }));
+    expect(line).toEqual(
+      expect.objectContaining({ id: 1, kind: 'line', utility_id: 4, amount: 7 }),
+    );
     const [sql, params] = query.mock.calls[0];
     expect(sql).toContain('FROM invoice_commitment_shares');
     expect(sql).toContain('ci.chapter_id = ?');
@@ -211,7 +269,9 @@ describe('SpendingService', () => {
 
   describe('budgetCheck', () => {
     const chapterOk = (sql: string) =>
-      sql.includes('FROM budget_chapters b') ? [{ chapter_code: '12332', article: 0, adjusted_budget: '100.00' }] : null;
+      sql.includes('FROM budget_chapters b')
+        ? [{ chapter_code: '12332', article: 0, adjusted_budget: '100.00' }]
+        : null;
 
     it('quote: capitolo dell’impegno, annualità della quota o la più vicina alla competenza; righe ignorate', async () => {
       query.mockImplementation(async (sql: string) => {
@@ -229,7 +289,13 @@ describe('SpendingService', () => {
         ],
       } as never);
       expect(warnings).toEqual([
-        { budget_chapter_id: 7, chapter: '12332/0', year: 2026, invoiced: 110, adjusted_budget: 100 },
+        {
+          budget_chapter_id: 7,
+          chapter: '12332/0',
+          year: 2026,
+          invoiced: 110,
+          adjusted_budget: 100,
+        },
       ]);
       const sumCalls = query.mock.calls.filter(([s]) => String(s).includes('SUM(ci.amount)'));
       expect(sumCalls[0][0]).toContain('i.id <> ?');
@@ -238,7 +304,9 @@ describe('SpendingService', () => {
         [7, 2026, 44],
         [7, 2027, 44],
       ]);
-      expect(query.mock.calls.some(([s]) => String(s).includes('FROM utilities WHERE id IN'))).toBe(false);
+      expect(query.mock.calls.some(([s]) => String(s).includes('FROM utilities WHERE id IN'))).toBe(
+        false,
+      );
     });
 
     it('quote senza annualità indicata: competenza della fattura dalle righe', async () => {
@@ -285,7 +353,9 @@ describe('SpendingService', () => {
       });
       await service.budgetCheck({
         invoice_date: '2026-02-01',
-        lines: [{ utility_id_fk: 9, amount: 5, period_start: '2025-12-15', period_end: '2026-01-15' }],
+        lines: [
+          { utility_id_fk: 9, amount: 5, period_start: '2025-12-15', period_end: '2026-01-15' },
+        ],
       } as never);
       const sumCall = query.mock.calls.find(([s]) => String(s).includes('SUM(ci.amount)'));
       expect(sumCall[1]).toEqual([7, 2025, 0]);
@@ -298,7 +368,9 @@ describe('SpendingService', () => {
         lines: [],
         commitment_shares: [{ commitment_id_fk: 3, amount: 5 }],
       } as never);
-      const commitmentSql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('WHERE bcm.id IN'));
+      const commitmentSql = query.mock.calls
+        .map(([s]) => String(s))
+        .find((s) => s.includes('WHERE bcm.id IN'));
       expect(commitmentSql).toContain('deleted = 0');
       query.mockImplementation(async (sql: string) =>
         sql.includes('FROM utilities WHERE id IN') ? [{ id: 9, chapter_id: 7 }] : [],
@@ -307,14 +379,21 @@ describe('SpendingService', () => {
         invoice_date: '2026-03-01',
         lines: [{ utility_id_fk: 9, amount: 5 }],
       } as never);
-      const chapterSql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('FROM budget_chapters b'));
+      const chapterSql = query.mock.calls
+        .map(([s]) => String(s))
+        .find((s) => s.includes('FROM budget_chapters b'));
       expect(chapterSql).toContain('b.deleted = 0');
     });
 
     it('nessun avviso senza assestato, senza capitolo o senza utenza', async () => {
       query.mockImplementation(async (sql: string) => {
-        if (sql.includes('FROM utilities WHERE id IN')) return [{ id: 9, chapter_id: null }, { id: 8, chapter_id: 7 }];
-        if (sql.includes('FROM budget_chapters b')) return [{ chapter_code: '1', article: 0, adjusted_budget: null }];
+        if (sql.includes('FROM utilities WHERE id IN'))
+          return [
+            { id: 9, chapter_id: null },
+            { id: 8, chapter_id: 7 },
+          ];
+        if (sql.includes('FROM budget_chapters b'))
+          return [{ chapter_code: '1', article: 0, adjusted_budget: null }];
         return [];
       });
       expect(

@@ -93,7 +93,7 @@ describe('SystemUsersService', () => {
   });
 
   describe('findOne', () => {
-    it('restituisce l\'utente non cancellato', async () => {
+    it("restituisce l'utente non cancellato", async () => {
       const user = { id: 1 } as SystemUser;
       repo.findOne.mockResolvedValue(user);
 
@@ -113,7 +113,7 @@ describe('SystemUsersService', () => {
   });
 
   describe('create', () => {
-    it('crea l\'utente con la password hashata se l\'email non è già registrata', async () => {
+    it("crea l'utente con la password hashata se l'email non è già registrata", async () => {
       repo.findOne.mockResolvedValue(null);
       jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashed-password' as never);
 
@@ -141,7 +141,7 @@ describe('SystemUsersService', () => {
       expect(result).not.toHaveProperty('password');
     });
 
-    it('lancia BadRequestException se l\'email è già registrata', async () => {
+    it("lancia BadRequestException se l'email è già registrata", async () => {
       repo.findOne.mockResolvedValue({ id: 1, email: 'mario@comune.it' } as SystemUser);
 
       await expect(
@@ -151,7 +151,7 @@ describe('SystemUsersService', () => {
   });
 
   describe('update', () => {
-    it('imposta updated_by_user_id e aggiorna l\'utente', async () => {
+    it("imposta updated_by_user_id e aggiorna l'utente", async () => {
       const entity = { id: 1, firstName: 'Mario' } as SystemUser;
       repo.findOne.mockResolvedValue(entity);
 
@@ -165,7 +165,7 @@ describe('SystemUsersService', () => {
       expect(result).toBeDefined();
     });
 
-    it('lancia BadRequestException se l\'utente non esiste', async () => {
+    it("lancia BadRequestException se l'utente non esiste", async () => {
       repo.findOne.mockResolvedValue(null);
 
       await expect(service.update(999, { firstName: 'X' } as never)).rejects.toThrow(
@@ -175,7 +175,7 @@ describe('SystemUsersService', () => {
   });
 
   describe('remove', () => {
-    it('marca l\'utente come cancellato', async () => {
+    it("marca l'utente come cancellato", async () => {
       const entity = { id: 1, deleted: false } as SystemUser;
       repo.findOne.mockResolvedValue(entity);
 
@@ -197,7 +197,7 @@ describe('SystemUsersService', () => {
       );
     });
 
-    it('lancia BadRequestException se l\'utente non esiste', async () => {
+    it("lancia BadRequestException se l'utente non esiste", async () => {
       repo.findOne.mockResolvedValue(null);
 
       await expect(service.remove(999, 1)).rejects.toThrow(BadRequestException);
@@ -264,9 +264,7 @@ describe('SystemUsersService', () => {
           entityName: 'user',
           action: 'UPDATE',
           userId: 5,
-          fields: expect.arrayContaining([
-            expect.objectContaining({ fieldName: 'firstName' }),
-          ]),
+          fields: expect.arrayContaining([expect.objectContaining({ fieldName: 'firstName' })]),
         }),
       );
 

@@ -51,14 +51,18 @@ describe('SettingsService', () => {
   it('updateBranding rifiuta un mime non in whitelist', async () => {
     repo.findOneOrFail.mockResolvedValue({ id: 1 } as AppSettings);
 
-    await expect(
-      service.updateBranding({ logo: 'data:image/gif;base64,QUJD' }, 1),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.updateBranding({ logo: 'data:image/gif;base64,QUJD' }, 1)).rejects.toThrow(
+      BadRequestException,
+    );
     expect(repo.save).not.toHaveBeenCalled();
   });
 
   it('updateBranding con removeLogo azzera logo e logo_mime', async () => {
-    const existing = { id: 1, logo: 'data:image/png;base64,X', logo_mime: 'image/png' } as AppSettings;
+    const existing = {
+      id: 1,
+      logo: 'data:image/png;base64,X',
+      logo_mime: 'image/png',
+    } as AppSettings;
     repo.findOneOrFail.mockResolvedValue(existing);
     repo.save.mockImplementation(async (e) => e);
 
@@ -121,7 +125,11 @@ describe('SettingsService', () => {
   });
 
   it('updateBranding con removeFavicon azzera favicon e favicon_mime', async () => {
-    const existing = { id: 1, favicon: 'data:image/png;base64,X', favicon_mime: 'image/png' } as AppSettings;
+    const existing = {
+      id: 1,
+      favicon: 'data:image/png;base64,X',
+      favicon_mime: 'image/png',
+    } as AppSettings;
     repo.findOneOrFail.mockResolvedValue(existing);
     repo.save.mockImplementation(async (e) => e);
 

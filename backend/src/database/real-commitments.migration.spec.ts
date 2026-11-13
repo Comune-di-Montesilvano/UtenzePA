@@ -37,7 +37,10 @@ describe('RealCommitments migration', () => {
     const { runner, sql } = fakeRunner();
     await new RealCommitments1795800000000().down(runner);
     const structured = indexOf(sql, /SET `commitment_number` = CONCAT\(`commitment_year`/);
-    const fromNotes = indexOf(sql, /SET `commitment_number` = SUBSTRING_INDEX[\s\S]*`notes` LIKE 'Numero: %'/);
+    const fromNotes = indexOf(
+      sql,
+      /SET `commitment_number` = SUBSTRING_INDEX[\s\S]*`notes` LIKE 'Numero: %'/,
+    );
     expect(structured).toBeGreaterThanOrEqual(0);
     expect(fromNotes).toBeGreaterThan(structured);
   });

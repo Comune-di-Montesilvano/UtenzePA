@@ -27,7 +27,9 @@ describe('InvoiceCommitmentShares migration', () => {
     expect(sql[copy]).toMatch(/GROUP BY `invoice_id_fk` HAVING/);
     // Solo fatture con un'unica coppia impegno + annualità: le automatiche in
     // conflitto restano senza quota (la crea il ricalcolo all'avvio).
-    expect(sql[copy]).toMatch(/COUNT\(DISTINCT `commitment_id_fk`, IFNULL\(`commitment_fiscal_year`, 0\)\) = 1/);
+    expect(sql[copy]).toMatch(
+      /COUNT\(DISTINCT `commitment_id_fk`, IFNULL\(`commitment_fiscal_year`, 0\)\) = 1/,
+    );
     expect(sql[copy]).toMatch(/SUM\(`commitment_fiscal_year` IS NULL\) = 0/);
     expect(sql[copy]).toMatch(/IF\(MIN\(`commitment_auto`\) = 0, 'MANUAL', 'AUTO'\)/);
     expect(sql[copy]).toMatch(/SUM\(`amount`\)/);

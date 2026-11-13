@@ -4,7 +4,6 @@
 // istanzierebbe come migration ogni funzione esportata da quei file.
 export const IMPORTED_PREFIX = 'date importate: solo anno';
 
-
 const PARTS = [
   { key: 'revision', re: /^scad\. carica (\d{4})$/, label: 'scad. carica' },
   { key: 'test', re: /^scad\. collaudo (\d{4})$/, label: 'scad. collaudo' },

@@ -135,9 +135,7 @@ describe('InvoiceApplier', () => {
 
   it('rielaborazione: righe sostituite senza impegno, quote d’impegno intatte', async () => {
     manager.findOne.mockResolvedValue({ id: 321, contratto_id_fk: 5, import_locked: false });
-    manager.find.mockResolvedValue([
-      { utility_id_fk: 812, consumption_id_fk: null },
-    ]);
+    manager.find.mockResolvedValue([{ utility_id_fk: 812, consumption_id_fk: null }]);
     await applier.apply(message(), extracted, match({ existingInvoiceId: 321 }), 3, 7);
     expect(manager.delete).toHaveBeenCalledWith(InvoiceLine, { invoice_id_fk: 321 });
     const rows = manager.save.mock.calls.find(([e]) => e === InvoiceLine)[1];
@@ -147,7 +145,11 @@ describe('InvoiceApplier', () => {
     // Le quote (anche a mano) restano: l'import non le scrive.
     for (const fn of [manager.save, manager.delete, manager.update]) {
       expect(fn).not.toHaveBeenCalledWith(InvoiceCommitmentShare, expect.anything());
-      expect(fn).not.toHaveBeenCalledWith(InvoiceCommitmentShare, expect.anything(), expect.anything());
+      expect(fn).not.toHaveBeenCalledWith(
+        InvoiceCommitmentShare,
+        expect.anything(),
+        expect.anything(),
+      );
     }
   });
 

@@ -6,11 +6,7 @@ describe('maintenanceMiddleware', () => {
     const next = jest.fn();
     const json = jest.fn();
     const status = jest.fn().mockReturnValue({ json });
-    maintenanceMiddleware(
-      { method, path } as Request,
-      { status } as unknown as Response,
-      next,
-    );
+    maintenanceMiddleware({ method, path } as Request, { status } as unknown as Response, next);
     return { next, status, json };
   };
 

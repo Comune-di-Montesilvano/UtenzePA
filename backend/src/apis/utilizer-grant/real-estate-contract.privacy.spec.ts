@@ -12,7 +12,13 @@ const grant = () => ({
       tax_code: 'RSSMRA80A01H501U',
       phone: '333',
     },
-    { id: 3, type: ThirdPartyType.LEGAL, company_name: 'ACA', tax_code: '91015370686', phone: '085' },
+    {
+      id: 3,
+      type: ThirdPartyType.LEGAL,
+      company_name: 'ACA',
+      tax_code: '91015370686',
+      phone: '085',
+    },
   ],
 });
 
@@ -43,13 +49,15 @@ describe('privacy contratti: parti persone fisiche', () => {
     const asset = { id: 9, utilizerGrants: [grant()] };
     expect(maskAssetGrants(asset, 'Lettore').utilizerGrants[0].parties[0].tax_code).toBeNull();
     const utility = { id: 1, assets: [{ id: 9, utilizerGrants: [grant()] }] };
-    expect(
-      maskUtility(utility, 'Lettore').assets[0].utilizerGrants[0].parties[0].phone,
-    ).toBeNull();
+    expect(maskUtility(utility, 'Lettore').assets[0].utilizerGrants[0].parties[0].phone).toBeNull();
   });
 
   it('utenze: anche il fornitore (corrente e dei contratti) persona fisica', () => {
-    const person = () => ({ type: ThirdPartyType.NATURAL, tax_code: 'RSSMRA80A01H501U', phone: '333' });
+    const person = () => ({
+      type: ThirdPartyType.NATURAL,
+      tax_code: 'RSSMRA80A01H501U',
+      phone: '333',
+    });
     const utility = { id: 1, supplier: person(), contratti: [{ id: 5, supplier: person() }] };
     const masked = maskUtility(utility, 'Lettore');
     expect(masked.supplier.tax_code).toBeNull();

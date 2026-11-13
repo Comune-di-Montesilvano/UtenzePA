@@ -49,6 +49,9 @@ export class InvoiceLine {
   utility: Utility | null;
 
   @ManyToOne(() => UtilityConsumption, { onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'consumption_id_fk', foreignKeyConstraintName: 'FK_invoice_lines_consumption' })
+  @JoinColumn({
+    name: 'consumption_id_fk',
+    foreignKeyConstraintName: 'FK_invoice_lines_consumption',
+  })
   consumption_record: UtilityConsumption | null;
 }

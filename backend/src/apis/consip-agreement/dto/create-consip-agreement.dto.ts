@@ -1,11 +1,4 @@
-import {
-  IsIn,
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  MaxLength,
-} from 'class-validator';
+import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { DateOnly } from '@/common/decorators/date-only.decorator';
 
 export class CreateConsipAgreementDto {

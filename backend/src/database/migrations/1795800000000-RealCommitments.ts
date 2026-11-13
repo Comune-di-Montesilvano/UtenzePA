@@ -27,9 +27,11 @@ export class RealCommitments1795800000000 implements MigrationInterface {
     );
     await q.query(
       "UPDATE `budget_commitments` SET `notes` = CONCAT('Numero: ', `commitment_number`, IF(`notes` IS NULL OR `notes` = '', '', CONCAT('\\n', `notes`))), " +
-        '`update_date` = `update_date` WHERE `commitment_number` IS NOT NULL AND `commitment_number` <> \'\'',
+        "`update_date` = `update_date` WHERE `commitment_number` IS NOT NULL AND `commitment_number` <> ''",
     );
-    await q.query('ALTER TABLE `budget_commitments` DROP FOREIGN KEY `FK_budget_commitments_contract`');
+    await q.query(
+      'ALTER TABLE `budget_commitments` DROP FOREIGN KEY `FK_budget_commitments_contract`',
+    );
     await q.query('DROP INDEX `IDX_budget_commitments_contract` ON `budget_commitments`');
     await q.query('ALTER TABLE `budget_commitments` DROP COLUMN `contract_id_fk`');
     await q.query('ALTER TABLE `budget_commitments` DROP COLUMN `commitment_number`');
@@ -57,14 +59,18 @@ export class RealCommitments1795800000000 implements MigrationInterface {
   // contratti non sono rappresentabili nel vecchio modello: righe di fattura
   // scollegate e impegni eliminati. Allegati dei nuovi tipi eliminati.
   public async down(q: QueryRunner): Promise<void> {
-    await q.query("DELETE FROM `attachments` WHERE `entity_type` IN ('consip_agreement','budget_commitment')");
+    await q.query(
+      "DELETE FROM `attachments` WHERE `entity_type` IN ('consip_agreement','budget_commitment')",
+    );
     await q.query(
       'ALTER TABLE `attachments` MODIFY `entity_type` ' +
         "enum('asset','plant','plant_inspection','utilizer_grant','contract','act') NOT NULL",
     );
     await q.query('ALTER TABLE `invoice_lines` DROP COLUMN `commitment_auto`');
     await q.query('ALTER TABLE `budget_chapters` DROP COLUMN `notes`');
-    await q.query('ALTER TABLE `budget_commitments` DROP FOREIGN KEY `FK_budget_commitments_supplier`');
+    await q.query(
+      'ALTER TABLE `budget_commitments` DROP FOREIGN KEY `FK_budget_commitments_supplier`',
+    );
     await q.query('DROP INDEX `IDX_budget_commitments_number` ON `budget_commitments`');
     await q.query(
       'ALTER TABLE `budget_commitments` ADD `contract_id_fk` int NULL, ADD `commitment_number` varchar(50) NULL',

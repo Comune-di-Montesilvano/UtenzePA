@@ -68,9 +68,7 @@ export class Plants1791100000000 implements MigrationInterface {
     await queryRunner.query(
       `INSERT INTO \`utility_plants\` (\`utility_id\`, \`plant_id\`) SELECT \`utility_id_fk\`, \`id\` FROM \`thermal_plants\` WHERE \`deleted\` = 0 AND \`utility_id_fk\` IS NOT NULL`,
     );
-    await queryRunner.query(
-      `DROP TABLE \`thermal_plants\``,
-    );
+    await queryRunner.query(`DROP TABLE \`thermal_plants\``);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -122,38 +120,20 @@ export class Plants1791100000000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE \`plant_thermal\` DROP FOREIGN KEY \`FK_e1b3952c04a940dee6407c359f3\``,
     );
-    await queryRunner.query(
-      `DROP INDEX \`IDX_11e35c1ddc49a96f38c9d5a16e\` ON \`utility_plants\``,
-    );
-    await queryRunner.query(
-      `DROP INDEX \`IDX_26313a5b4f7d4c9ff6fdf965dd\` ON \`utility_plants\``,
-    );
-    await queryRunner.query(
-      `DROP TABLE \`utility_plants\``,
-    );
-    await queryRunner.query(
-      `DROP INDEX \`IDX_172755cf0a27e671fea1c7d00d\` ON \`plants\``,
-    );
-    await queryRunner.query(
-      `DROP TABLE \`plants\``,
-    );
+    await queryRunner.query(`DROP INDEX \`IDX_11e35c1ddc49a96f38c9d5a16e\` ON \`utility_plants\``);
+    await queryRunner.query(`DROP INDEX \`IDX_26313a5b4f7d4c9ff6fdf965dd\` ON \`utility_plants\``);
+    await queryRunner.query(`DROP TABLE \`utility_plants\``);
+    await queryRunner.query(`DROP INDEX \`IDX_172755cf0a27e671fea1c7d00d\` ON \`plants\``);
+    await queryRunner.query(`DROP TABLE \`plants\``);
     await queryRunner.query(
       `DROP INDEX \`IDX_30293b0e83f6b1704fefd3325a\` ON \`plant_inspections\``,
     );
-    await queryRunner.query(
-      `DROP TABLE \`plant_inspections\``,
-    );
+    await queryRunner.query(`DROP TABLE \`plant_inspections\``);
     await queryRunner.query(
       `DROP INDEX \`IDX_1bd07faf38bab12ca8c4b3f498\` ON \`plant_fire_equipment\``,
     );
-    await queryRunner.query(
-      `DROP TABLE \`plant_fire_equipment\``,
-    );
-    await queryRunner.query(
-      `DROP TABLE \`plant_elevator\``,
-    );
-    await queryRunner.query(
-      `DROP TABLE \`plant_thermal\``,
-    );
+    await queryRunner.query(`DROP TABLE \`plant_fire_equipment\``);
+    await queryRunner.query(`DROP TABLE \`plant_elevator\``);
+    await queryRunner.query(`DROP TABLE \`plant_thermal\``);
   }
 }

@@ -153,7 +153,11 @@ export class SupplyEventsService extends BaseService<
     );
   }
 
-  async update(id: number, dto: UpdateSupplyEventDto, userId?: number): Promise<UtilitySupplyEvent> {
+  async update(
+    id: number,
+    dto: UpdateSupplyEventDto,
+    userId?: number,
+  ): Promise<UtilitySupplyEvent> {
     const patch = Object.fromEntries(
       Object.entries(dto).filter(
         ([k, v]) => v !== undefined && (EDITABLE as readonly string[]).includes(k),

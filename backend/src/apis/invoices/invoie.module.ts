@@ -13,7 +13,13 @@ import { BudgetCommitmentsModule } from '@apis/budget-commitments/budget-commitm
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Invoice, InvoiceLine, InvoiceCommitmentShare, BudgetCommitment, Contract]),
+    TypeOrmModule.forFeature([
+      Invoice,
+      InvoiceLine,
+      InvoiceCommitmentShare,
+      BudgetCommitment,
+      Contract,
+    ]),
     InvoiceImportModule,
     UtilityConsumptionsModule,
     BudgetCommitmentsModule,

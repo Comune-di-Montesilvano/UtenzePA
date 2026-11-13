@@ -319,7 +319,20 @@ export function textBefore(text: string | null, word: string, nth?: number): str
 const MONTH =
   '(gen(?:naio)?|feb(?:braio)?|mar(?:zo)?|apr(?:ile)?|mag(?:gio)?|giu(?:gno)?|lug(?:lio)?|ago(?:sto)?|set(?:tembre)?|ott(?:obre)?|nov(?:embre)?|dic(?:embre)?)\\.?';
 const MONTH_PERIOD = `(^|[^a-zà-ù])${MONTH}(?:\\s+(\\d{4}))?(?:\\s*[-–/]\\s*${MONTH})?\\s+(\\d{4})(?!\\d)`;
-const MONTH_NAMES = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+const MONTH_NAMES = [
+  'gen',
+  'feb',
+  'mar',
+  'apr',
+  'mag',
+  'giu',
+  'lug',
+  'ago',
+  'set',
+  'ott',
+  'nov',
+  'dic',
+];
 const DATE_IN_TEXT = new RegExp(
   `\\d{4}-\\d{2}-\\d{2}|\\d{1,2}[/.-]\\d{1,2}[/.-](?:\\d{4}|\\d{2})(?!\\d)|${MONTH_PERIOD}`,
   'gi',
@@ -339,7 +352,8 @@ function dateRangeAfter(text: string | null, word: string, nth?: number): string
   if (!first) return null;
   const rest = window.slice(first.index + first[0].length);
   const link = RANGE_LINK.exec(rest);
-  const second = link && new RegExp(`^(?:${DATE_IN_TEXT.source})`, 'i').exec(rest.slice(link[0].length));
+  const second =
+    link && new RegExp(`^(?:${DATE_IN_TEXT.source})`, 'i').exec(rest.slice(link[0].length));
   return second ? `${first[0]} ${second[0]}` : first[0];
 }
 
@@ -372,7 +386,10 @@ function isoDates(value: string): string[] {
       found.push({ at: m.index, dates: [`${m[1]}-${m[2]}-${m[3]}`] });
     } else {
       const year = m[6].length === 2 ? `20${m[6]}` : m[6];
-      found.push({ at: m.index, dates: [`${year}-${m[5].padStart(2, '0')}-${m[4].padStart(2, '0')}`] });
+      found.push({
+        at: m.index,
+        dates: [`${year}-${m[5].padStart(2, '0')}-${m[4].padStart(2, '0')}`],
+      });
     }
   }
   const months = new RegExp(MONTH_PERIOD, 'gi');
@@ -383,7 +400,12 @@ function isoDates(value: string): string[] {
 }
 
 // «Dicembre-Gennaio 2026»: il primo mese, se viene dopo il secondo, è dell'anno prima.
-function monthPeriod(first: string, firstYear: string | undefined, last: string | undefined, year: string): string[] {
+function monthPeriod(
+  first: string,
+  firstYear: string | undefined,
+  last: string | undefined,
+  year: string,
+): string[] {
   const index = (name: string) => MONTH_NAMES.indexOf(name.slice(0, 3).toLowerCase());
   const from = index(first);
   const to = last ? index(last) : from;
