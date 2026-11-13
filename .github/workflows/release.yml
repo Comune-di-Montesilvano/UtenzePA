@@ -78,6 +78,7 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
+          REF: ${{ github.ref }}
         run: |
           set -euo pipefail
           auto=false
@@ -102,6 +103,12 @@ jobs:
             check=true
             if [[ "$DRY_RUN" == "true" ]]; then skip=true; fi
           elif [[ "$REBUILD_LATEST" == "true" ]]; then
+            # latest solo da main: da un altro branch pubblicherebbe codice non mergiato (e
+            # firmato con un'identita' che verify-images rifiuta).
+            if [[ "$REF" != "refs/heads/main" ]]; then
+              echo "::error::rebuild_latest solo da main (ref: $REF). Per provare il controllo cause: dry_run."
+              exit 1
+            fi
             auto=true
             reason="rebuild manuale (workflow_dispatch)"
           else
@@ -204,6 +211,9 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ${{ env.IMAGE }}
+          # Senza, metadata-action aggiunge `latest` a ogni tag git (flavor latest=auto): un
+          # hotfix su una versione vecchia riporterebbe `latest` indietro. `latest` solo da tag_latest.
+          flavor: latest=false
           tags: |
             type=ref,event=tag
             type=raw,value=latest,enable=${{ needs.setup.outputs.tag_latest == 'true' }}
