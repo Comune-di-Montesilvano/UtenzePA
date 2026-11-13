@@ -5,7 +5,8 @@ FROM node:26 AS base
 
 WORKDIR /app
 
-RUN corepack enable
+# Da Node 25 corepack non è più incluso nell'immagine: si installa da npm.
+RUN npm install -g corepack@0.36.0 && corepack enable
 
 ENV CI=true
 
