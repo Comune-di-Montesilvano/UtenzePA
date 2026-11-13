@@ -27,6 +27,12 @@ import { GrantUtilityDecision } from '@apis/utility-supply/entity/grant-utility-
 import { SupplyEventsService } from '@apis/utility-supply/supply-events.service';
 import { CommitmentReconcileService } from '@apis/budget-commitments/commitment-reconcile.service';
 import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
+import { nextContract } from './next-contract';
+
+// Contratto corrente: prima quelli già partiti (o senza data d'inizio), il più recente;
+// uno che parte in futuro solo se non ce n'è un altro (ordine nuovo firmato in anticipo).
+const CURRENT_CONTRACT_ORDER =
+  'ORDER BY (c.supply_start_date IS NOT NULL AND c.supply_start_date > CURDATE()), c.supply_start_date DESC, c.id DESC';
 
 // Colonne scritte solo dalla riconciliazione dello storico (apis/utility-supply):
 // mai dal payload di create/update, anche se un chiamante interno le passasse,
@@ -147,7 +153,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
                 .select('cu.utility_id', 'utility_id')
                 .addSelect('c.id', 'contract_id')
                 .addSelect(
-                  'ROW_NUMBER() OVER (PARTITION BY cu.utility_id ORDER BY c.supply_start_date DESC, c.id DESC)',
+                  `ROW_NUMBER() OVER (PARTITION BY cu.utility_id ${CURRENT_CONTRACT_ORDER})`,
                   'rn',
                 )
                 .from('contract_utilities', 'cu')
@@ -190,7 +196,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
          SELECT cu.utility_id, c.id AS contract_id,
                 ROW_NUMBER() OVER (
                   PARTITION BY cu.utility_id
-                  ORDER BY c.supply_start_date DESC, c.id DESC
+                  ${CURRENT_CONTRACT_ORDER}
                 ) AS rn
          FROM contract_utilities cu
          INNER JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
@@ -233,9 +239,13 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     decisions?: Map<number, GrantUtilityDecisionValue | null>,
     pending?: SupplyPending | null,
   ): Utility {
+    const next = nextContract(utility.contratti ?? [], current, romeDay(new Date()));
     return {
       ...utility,
       supplier: current?.supplier ?? null,
+      // Fornitore che subentra (ordine già firmato che parte più avanti).
+      next_supplier: next?.supplier ?? null,
+      next_supply_start_date: next?.supply_start_date ?? null,
       supplier_id_fk: current?.supplier_id_fk ?? null,
       cig_contract: current?.cig_contract ?? null,
       consip_order: current?.consip_order ?? null,

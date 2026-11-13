@@ -36,6 +36,7 @@ import type {IColumnDef} from '../../core/interfaces/column-def.interface';
     HasRoleDirective, TruncatePipe, FormatAmountPipe, DatePipe, StatusBadgeComponent
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
+  styles: ['.next-supplier { font-size: 12px; color: var(--app-muted); }'],
   templateUrl: './data-table-utilities.component.html'
 })
 export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Utility> {
@@ -249,7 +250,9 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
   protected override exportCellValue(utility: Utility, field: string): string {
     switch (field) {
       case 'supplier':
-        return partyName(utility.supplier);
+        return utility.next_supplier
+          ? `${partyName(utility.supplier)} (dal ${ExportHelper.formatDate(utility.next_supply_start_date)}: ${partyName(utility.next_supplier)})`
+          : partyName(utility.supplier);
       case 'supply_active':
         return isTransferredUtility(utility) ? 'Volturata' : ExportHelper.boolData(utility.supply_active);
       case 'meter_removed':
