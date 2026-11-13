@@ -5,7 +5,7 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Dati"). Le correzioni 
 ## Export da Access (`.accdb`) con mdbtools
 
 - Alpine: il pacchetto `mdbtools` installa solo le librerie, i binari CLI sono in `mdbtools-utils`.
-- Debian (`node:24`): le flag corte (`-d`, `-D`) falliscono, usare le lunghe (`--delimiter=`, `--date-format=`, `--datetime-format=`).
+- Debian (`node:26`): le flag corte (`-d`, `-D`) falliscono, usare le lunghe (`--delimiter=`, `--date-format=`, `--datetime-format=`).
 - Colonne lookup di Access (mostrano testo, salvano l'id FK): l'export dà l'id numerico. Verificare sempre contro la tabella lookup.
 - `iconv` BusyBox (Alpine) sostituisce gli apostrofi tipografici con `*`: serve GNU `iconv` (Debian) con `//TRANSLIT`.
 

@@ -31,7 +31,7 @@ Monorepo semplice (nessun workspace tool): `backend/` (NestJS) + `frontend/` (An
 
 | Servizio | Tecnologia | Porta default |
 |---|---|---|
-| **Backend API** | NestJS 11 (Node ≥24) | 3000 (debug 9229) |
+| **Backend API** | NestJS 11 (Node 26) | 3000 (debug 9229) |
 | **Frontend** | Angular 22 + Angular Material | 4300 |
 | **Database** | MySQL 8 | 3307 |
 
@@ -186,7 +186,7 @@ Sezioni principali del menu laterale:
 
 ## Sviluppo
 
-Il backend richiede Node ≥24: se l'host locale ha una versione diversa, i comandi vanno lanciati dentro il container (`docker exec utenzepa-api-1 ...` / `utenzepa-frontend-1`), non sull'host — vedi `CLAUDE.md` per i dettagli ed esempi.
+Il backend richiede Node 26: se l'host locale ha una versione diversa, i comandi vanno lanciati dentro il container (`docker exec utenzepa-api-1 ...` / `utenzepa-frontend-1`), non sull'host — vedi `CLAUDE.md` per i dettagli ed esempi.
 
 ### Backend
 
@@ -274,7 +274,7 @@ UtenzePA/
 ## Contribuire
 
 Prima di aprire una PR:
-- lancia `pnpm run lint`/`pnpm run test:unit -- --maxWorkers=2` (backend) e `pnpm run build` (frontend, se tocchi codice Angular) — dentro il container se l'host non ha Node ≥24
+- lancia `pnpm run lint`/`pnpm run test:unit -- --maxWorkers=2` (backend) e `pnpm run build` (frontend, se tocchi codice Angular) — dentro il container se l'host non ha Node 26
 - affidati a CI (`.github/workflows/tests.yml`, gira su ogni push/PR verso `main`) come gate autoritativo prima del merge
 - leggi `CLAUDE.md` per le convenzioni del repo e le note operative accumulate
 
