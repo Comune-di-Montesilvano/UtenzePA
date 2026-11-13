@@ -213,8 +213,8 @@ jobs:
           # flag e' spento: nel rebuild exit-code 1 scatterebbe anche su LOW/MEDIUM. Sui tag
           # resta spento (report completo nella tab Security, comunque non bloccante).
           limit-severities-for-sarif: ${{ needs.setup.outputs.auto == 'true' }}
-          # CVE escluse con motivo e scadenza (stesso file del job docker di tests.yml).
-          trivyignores: .trivyignore
+          # CVE escluse con motivo, percorso e scadenza (stesso file di security.yml).
+          trivyignores: .trivyignore.yaml
           # Versione fissa: trivy-version-check.yml apre una issue quando ne esce una nuova.
           version: v0.76.1
 
