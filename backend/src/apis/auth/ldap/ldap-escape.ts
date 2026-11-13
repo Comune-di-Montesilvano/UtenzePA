@@ -22,5 +22,3 @@ export function escapeLdapDnValue(value: string): string {
   if (escaped.endsWith(' ') && !escaped.endsWith('\\ ')) escaped = `${escaped.slice(0, -1)}\\ `;
   return escaped;
 }
-
-export const LINT_PROBE = "x";
