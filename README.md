@@ -56,7 +56,7 @@ docker compose up -d
 Una volta avviati i container:
 
 - **Frontend**: [http://localhost:4300](http://localhost:4300)
-- **Backend API**: [http://localhost:3000](http://localhost:3000)
+- **Backend API**: [http://localhost:3000](http://localhost:3000) in sviluppo; in produzione solo attraverso il frontend (`http://localhost:4300/api/v1`)
 - **Swagger API docs**: [http://localhost:3000/api-docs](http://localhost:3000/api-docs) (solo se `SWAGGER=true`, mai in produzione pubblica)
 
 Al primo avvio, con database vuoto, l'app reindirizza automaticamente al wizard di creazione del primo utente amministratore (`/setup`) — vedi sezione "Bootstrap del primo Admin" più sotto.
@@ -69,8 +69,8 @@ Configurazione tramite un file `.env` nella root, copiato da `.env.example` (ele
 
 | Variabile | Default | Descrizione |
 |---|---|---|
-| `DOCKER_API_PORT` | `3000` | Porta esposta dal backend |
-| `DOCKER_FRONTEND_PORT` | `4300` | Porta esposta dal frontend |
+| `DOCKER_API_PORT` | `3000` | Porta del backend sull'host, solo in sviluppo (`docker-compose.override.yml`) |
+| `DOCKER_FRONTEND_PORT` | `4300` | Porta esposta dal frontend (in produzione l'unica: nginx inoltra `/api/` al backend) |
 
 ### Database MySQL
 
@@ -92,8 +92,8 @@ Configurazione tramite un file `.env` nella root, copiato da `.env.example` (ele
 
 | Variabile | Descrizione |
 |---|---|
-| `CORS_ORIGIN` | Origine (o lista separata da virgola) ammessa dal backend — deve combaciare con l'URL reale del frontend visto dal browser |
-| `API_URL` | URL del backend raggiungibile dal browser, iniettato a runtime nel frontend |
+| `CORS_ORIGIN` | Origine (o lista separata da virgola) ammessa dal backend — serve solo se il browser chiama l'API su un'altra origin (sviluppo o `API_URL` assoluto) |
+| `API_URL` | Vuoto (consigliato): il browser chiama `/api/v1` sulla stessa origin del frontend. Valorizzato solo se l'API è esposta su un altro indirizzo |
 
 ### Login LDAP / Active Directory (opzionale, ruolo Lettore)
 

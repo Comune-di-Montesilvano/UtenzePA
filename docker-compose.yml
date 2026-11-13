@@ -3,12 +3,25 @@ name: utenzepa
 # PRODUZIONE (registry/Portainer): immagini da GHCR, solo volumi named,
 # nessun bind mount, nessuna porta di debug esposta. Per lo sviluppo vedi
 # docker-compose.override.yml (attivato da COMPOSE_FILE in .env).
+#
+# Ogni servizio: filesystem in sola lettura (scritture solo su volumi e tmpfs dichiarati),
+# nessuna capability, no-new-privileges. Solo il frontend pubblica una porta: nginx serve
+# l'app e inoltra /api/ all'API sulla rete interna (stessa origin, niente CORS).
+# I tmpfs non hanno uid=/gid= (podman li rifiuta): i permessi li sistemano gli entrypoint.
 
 services:
 
   mysql:
     image: mysql:8
     restart: unless-stopped
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    # L'entrypoint ufficiale parte root, sistema i permessi e scende all'utente mysql.
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+    tmpfs:
+      - /var/run/mysqld
+      - /tmp
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD obbligatorio - genera con openssl rand -hex 24}
       MYSQL_DATABASE: ${MYSQL_DB:-mydatabase}
@@ -25,6 +38,12 @@ services:
   api:
     image: ghcr.io/comune-di-montesilvano/utenzepa-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    # Backup e ripristino lavorano nella cartella dei backup (volume), qui solo temporanei piccoli.
+    tmpfs:
+      - /tmp
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -85,8 +104,8 @@ services:
       - photos_data:/usr/src/app/photos
       - attachments_data:/usr/src/app/attachments
       - accounting_inbox:/usr/src/app/accounting-inbox
-    ports:
-      - '${DOCKER_API_PORT:-3000}:3000'
+    # Nessuna porta sull'host: l'API si raggiunge dal frontend (/api/). Per un deploy che
+    # deve ancora esporla (API_URL assoluto) vedi docker-compose.override.yml.
     depends_on:
       mysql:
         condition: service_healthy
@@ -96,15 +115,21 @@ services:
   frontend:
     image: ghcr.io/comune-di-montesilvano/utenzepa-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    # config.js, resolver, cache e pid di nginx.
+    tmpfs:
+      - /tmp
     environment:
-      # URL pubblico del backend raggiungibile dal browser (non dalla rete
-      # Docker interna). Vuoto: il frontend usa il valore statico compilato.
+      # Vuoto (consigliato): stessa origin, /api/v1 inoltrato da nginx all'API.
+      # Valorizzato solo se il browser deve chiamare l'API su un altro indirizzo.
       - API_URL=${API_URL:-}
       # Error tracking (Sentry/GlitchTip) — vuoto = disabilitato
       - SENTRY_DSN=${SENTRY_DSN:-}
       - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-}
     ports:
-      - '${DOCKER_FRONTEND_PORT:-4300}:80'
+      - '${DOCKER_FRONTEND_PORT:-4300}:8080'
     depends_on:
       - api
     networks:
@@ -118,6 +143,14 @@ services:
     image: ghcr.io/comune-di-montesilvano/utenzepa-tinn:${IMAGE_TAG:-latest}
     profiles: ["tinn"]
     restart: unless-stopped
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    # L'entrypoint parte root per sistemare i volumi e scende a uid 1000 con setpriv.
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+    # Lock e temporanei di Firebird, log di Firebird (link da /opt/firebird/firebird.log).
+    tmpfs:
+      - /tmp
     environment:
       - TZ=Europe/Rome
       - TINN_SFTP_HOST=${TINN_SFTP_HOST:-}

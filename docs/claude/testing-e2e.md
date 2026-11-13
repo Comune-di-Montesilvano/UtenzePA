@@ -44,4 +44,4 @@ Edge headless: `msedge.exe --headless=new --disable-gpu --hide-scrollbars --scre
 
 ## Debug "il wizard/login non risponde" su un deploy
 
-Quasi sempre `CORS_ORIGIN`/`API_URL` non allineati all'origine reale del browser (`SetupService.getStatus()` in errore di rete ritorna `false`, indistinguibile da "admin già esiste" senza la Network tab), oppure c'è già un admin in `system_users`. Controllare questi due prima di sospettare un bug.
+Dalla v1.58.0 con `API_URL` vuoto le chiamate sono sulla stessa origin del frontend (`/api/v1`, proxy di nginx): un 502 su `/api/` = container `api` giù o non ancora pronto (migration). Con `API_URL` assoluto: quasi sempre `CORS_ORIGIN`/`API_URL` non allineati all'origine reale del browser (`SetupService.getStatus()` in errore di rete ritorna `false`, indistinguibile da "admin già esiste" senza la Network tab), oppure c'è già un admin in `system_users`. Controllare questi due prima di sospettare un bug.

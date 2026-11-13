@@ -76,7 +76,11 @@ services:
       - ./backend/photos:/usr/src/app/photos
       - ./backend/attachments:/usr/src/app/attachments
       - api_node_modules:/usr/src/app/node_modules
+    # In dev il frontend gira con `ng serve` (niente nginx davanti): il browser chiama l'API
+    # direttamente su questa porta. Lo stesso blocco serve a un deploy che deve ancora
+    # esporre l'API sull'host (API_URL assoluto).
     ports:
+      - '${DOCKER_API_PORT:-3000}:3000'
       - '9229:9229'
 
   # Container Tinn costruito dal sorgente (solo con COMPOSE_PROFILES=tinn). Per
