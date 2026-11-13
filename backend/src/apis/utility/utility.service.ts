@@ -246,6 +246,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       // Fornitore che subentra (ordine già firmato che parte più avanti).
       next_supplier: next?.supplier ?? null,
       next_supply_start_date: next?.supply_start_date ?? null,
+      next_contract_draft: next?.draft ?? false,
       supplier_id_fk: current?.supplier_id_fk ?? null,
       cig_contract: current?.cig_contract ?? null,
       consip_order: current?.consip_order ?? null,
