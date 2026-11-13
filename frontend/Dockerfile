@@ -41,13 +41,17 @@ RUN pnpm run build
 # -------------------
 # Stage 4: produzione con nginx
 # -------------------
-FROM nginx:1.31-alpine AS prod
+# nginx-unprivileged: gira come utente nginx (101) sulla porta 8080, filesystem in sola
+# lettura (config.js e resolver in /tmp, tmpfs nel docker-compose.yml).
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS prod
 
 # PKG_REFRESH (data del giorno, passata da release.yml) invalida la cache del layer una
 # volta al giorno, cosi' `apk upgrade` prende le patch Alpine anche prima che
 # l'immagine base nginx venga ripubblicata.
 ARG PKG_REFRESH=none
+USER root
 RUN apk upgrade --no-cache
+USER 101
 
 # APP_VERSION: tag git (release.yml, build da tag) o hash commit per build non
 # taggate — baked a build time, letto a runtime da 20-runtime-config.sh e
@@ -56,7 +60,7 @@ ARG APP_VERSION=dev
 ENV APP_VERSION=${APP_VERSION}
 
 # Con Angular 18+ il path di default è dist/<project-name>/browser
-COPY --from=build /app/dist/montesilvano-fe/browser /usr/share/nginx/html
+COPY --from=build --chown=nginx:nginx /app/dist/montesilvano-fe/browser /usr/share/nginx/html
 
 # Copia configurazione nginx personalizzata per SPA routing
 COPY nginx.conf /etc/nginx/conf.d/default.conf
@@ -65,6 +69,6 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # e' eseguito automaticamente dall'immagine ufficiale nginx prima di avviare)
 COPY --chmod=755 nginx/20-runtime-config.sh /docker-entrypoint.d/20-runtime-config.sh
 
-EXPOSE 80
+EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]
