@@ -9,13 +9,12 @@
 #   - production: Final production image (minimal size)
 #   - development: Development image with hot-reload support
 
-ARG NODE_VERSION=26
 
 # Limite memoria per Node.js (utile per macchine con poca RAM)
 
 ################################################################################
 # Use node image for base image for all stages.
-FROM node:${NODE_VERSION}-alpine AS base
+FROM node:26-alpine AS base
 
 
 # Enable corepack per gestire pnpm (versione pinnata in package.json → "packageManager").
@@ -84,7 +83,7 @@ RUN pnpm install --frozen-lockfile --prod --ignore-scripts && \
 ################################################################################
 # Production stage - use regular Node alpine instead of distroless
 # to ensure bcrypt native bindings work correctly
-FROM node:${NODE_VERSION}-alpine AS production
+FROM node:26-alpine AS production
 
 # Build metadata arguments (set during build time)
 ARG BUILD_DATE
@@ -154,7 +153,7 @@ CMD ["node", "dist/main.js"]
 
 ################################################################################
 # DEVELOPMENT STAGE
-FROM node:${NODE_VERSION}-alpine AS development
+FROM node:26-alpine AS development
 
 # VCS_REF opzionale: non passata di default da docker-compose.override.yml,
 # valorizzabile a mano (es. build.args in override o

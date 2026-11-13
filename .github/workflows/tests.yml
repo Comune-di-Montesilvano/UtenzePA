@@ -1,9 +1,10 @@
 # .github/workflows/tests.yml
 name: Test
 
+# Solo PR e merge queue: la coda prova lo stesso albero che finisce su main, un run su
+# push di main sarebbe un doppione (il controllo assoluto giornaliero su main e' in
+# security.yml).
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
   # Merge queue di main: i check girano sulla PR gia' unita a main prima del merge.
@@ -27,56 +28,113 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # Traffico in uscita registrato (audit, non bloccato): host contattati nel log del
+      # post-step e nella pagina insights StepSecurity della run.
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
 
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
 
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # pnpm dal campo packageManager (con hash) di backend/package.json: una sola fonte,
+      # la stessa che corepack usa nei Dockerfile.
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
-          version: 11.24.0
+          package_json_file: backend/package.json
+
+      # Le tre copie di packageManager (backend, frontend, e2e) devono coincidere.
+      - name: Stessa versione di pnpm nei tre progetti
+        working-directory: .
+        run: |
+          versions=$(for d in backend frontend e2e; do jq -r .packageManager "$d/package.json"; done | sort -u)
+          echo "$versions"
+          [ "$(printf '%s\n' "$versions" | wc -l)" -eq 1 ] || { echo "::error::packageManager diverso tra backend, frontend ed e2e"; exit 1; }
+
+      # Major di Node dall'immagine base del backend (aggiornata da Dependabot): la CI
+      # testa sulla stessa versione che gira in produzione.
+      - name: Versione Node dall'immagine base
+        id: node
+        run: |
+          major=$(sed -nE 's/^FROM node:([0-9]+)-.*/\1/p' Dockerfile | head -n1)
+          [ -n "$major" ] || { echo "::error::FROM node:<major> non trovato in backend/Dockerfile"; exit 1; }
+          echo "major=$major" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 26
+          node-version: ${{ steps.node.outputs.major }}
           cache: 'pnpm'
           cache-dependency-path: backend/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run lint
-      - run: pnpm run test:unit
+      # Senza --fix: in CI un errore correggibile fa fallire il job invece di sparire.
+      - run: pnpm run lint:ci
+      # tsc su tutto il progetto, spec compresi (nest build non li vede).
+      - run: pnpm run type-check
+      # Argomenti senza `--`: con pnpm 11 `pnpm run x -- a` passa `--` a jest, che tratta
+      # gli argomenti come pattern di file (nessuna coverage, tutti i test).
+      - run: pnpm run test:unit --coverage --coverageReporters=json-summary --coverageReporters=text-summary
+      - name: Coverage nel summary
+        run: node ../scripts/ci/coverage-summary.mjs backend coverage/coverage-summary.json
       - run: pnpm run build
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: frontend
     steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
-          version: 11.24.0
+          package_json_file: frontend/package.json
+
+      - name: Versione Node dall'immagine base
+        id: node
+        run: |
+          major=$(sed -nE 's/^FROM node:([0-9]+)-.*/\1/p' ../backend/Dockerfile | head -n1)
+          [ -n "$major" ] || { echo "::error::FROM node:<major> non trovato in backend/Dockerfile"; exit 1; }
+          echo "major=$major" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 26
+          node-version: ${{ steps.node.outputs.major }}
           cache: 'pnpm'
           cache-dependency-path: frontend/pnpm-lock.yaml
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm run lint
-      # Vitest su jsdom (builder @angular/build:unit-test): nessun browser.
-      - run: pnpm run test
+      # Vitest su jsdom (builder @angular/build:unit-test): nessun browser. Reporter di
+      # coverage in angular.json (text-summary, json-summary).
+      - run: pnpm exec ng test --watch=false --coverage
+      - name: Coverage nel summary
+        run: node ../scripts/ci/coverage-summary.mjs frontend "$(find coverage -name coverage-summary.json | head -n1)"
       - run: pnpm run build
 
   # Build delle immagini di produzione come in release.yml (immagini base ripescate), poi
@@ -97,7 +155,13 @@ jobs:
           - app: tinn
             target: production
     steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
@@ -123,7 +187,9 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
           trivyignores: .trivyignore
-          version: latest
+          # Versione fissa (nessun "latest"): trivy-version-check.yml apre una issue quando
+          # ne esce una nuova.
+          version: v0.76.1
 
       # Il container tinn non fa parte dello stack provato da e2e (profilo facoltativo).
       - name: Salva l'immagine per il job e2e
@@ -143,7 +209,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Build dello stage di test
         run: docker build --pull --target test -t utenzepa-tinn:test tinn
@@ -174,18 +246,31 @@ jobs:
       run:
         working-directory: backend
     steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          # Storia completa: serve il confronto con la base per contare le migration nuove.
+          # Storia completa: serve il confronto con la base per contare le migration nuove
+          # (git diff locale, nessuna credenziale necessaria).
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
-          version: 11.24.0
+          package_json_file: backend/package.json
+
+      - name: Versione Node dall'immagine base
+        id: node
+        run: |
+          major=$(sed -nE 's/^FROM node:([0-9]+)-.*/\1/p' Dockerfile | head -n1)
+          [ -n "$major" ] || { echo "::error::FROM node:<major> non trovato in backend/Dockerfile"; exit 1; }
+          echo "major=$major" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 26
+          node-version: ${{ steps.node.outputs.major }}
           cache: 'pnpm'
           cache-dependency-path: backend/pnpm-lock.yaml
 
@@ -225,7 +310,13 @@ jobs:
       E2E_USERNAME: e2e.admin
       E2E_PASSWORD: ci-e2e-password-not-secret
     steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -258,11 +349,18 @@ jobs:
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
-          version: 11.24.0
+          package_json_file: e2e/package.json
+
+      - name: Versione Node dall'immagine base
+        id: node
+        run: |
+          major=$(sed -nE 's/^FROM node:([0-9]+)-.*/\1/p' backend/Dockerfile | head -n1)
+          [ -n "$major" ] || { echo "::error::FROM node:<major> non trovato in backend/Dockerfile"; exit 1; }
+          echo "major=$major" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 26
+          node-version: ${{ steps.node.outputs.major }}
           cache: 'pnpm'
           cache-dependency-path: e2e/pnpm-lock.yaml
 

@@ -21,13 +21,16 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Git, CI e release").
 
 ## CI (`tests.yml`)
 
-- Frontend: `pnpm run lint` (angular-eslint, `eslint.config.js` con le regole spente motivate), `pnpm run test` (Vitest su jsdom con `@angular/build:unit-test`, niente browser), `pnpm run build`.
+- Solo PR e `merge_group` (niente push su `main`: la coda prova lo stesso albero). Ogni job: `harden-runner` in audit come primo step, `persist-credentials: false`, `timeout-minutes`. pnpm da `packageManager` (con hash) di ciascun `package.json` (`package_json_file`), le tre copie devono coincidere; Node = major di `FROM node:<major>-alpine` del backend.
+- Backend: `lint:ci` (eslint senza `--fix`, spec esclusi), `type-check` (tsc con gli spec), `test:unit` con coverage, `build`. Coverage di backend e frontend nel summary della run (`scripts/ci/coverage-summary.mjs`), nessuna soglia.
+
+- Frontend: `pnpm run lint` (angular-eslint, `eslint.config.js` con le regole spente motivate), `ng test --watch=false --coverage` (Vitest su jsdom con `@angular/build:unit-test`, niente browser), `pnpm run build`.
 - `migrations`: MySQL 8 come service, `backend/scripts/check-migrations.sh N` (N = migration aggiunte rispetto alla base, minimo 1). Su un DB nuovo `schema:log` non è vuoto: le 18 differenze storiche (vecchio SYNCHRONIZE) stanno in `src/database/schema-drift.baseline.txt`; una differenza nuova (colonna o indice dimenticati nella migration) ferma la PR, una tolta richiede di aggiornare la baseline. Prima di questo job un'installazione nuova si fermava a `RealEstateContracts` (FK presente in `InitialSchema`, assente nel DB del Comune).
 - `e2e`: carica le immagini del job `docker`, avvia `docker-compose.yml` con `IMAGE_TAG=ci` e secret usa e getta, aspetta `/health/liveness` (migration all'avvio), crea un Admin via SQL e lancia `e2e/` (Playwright: login dalla UI e ogni pagina principale senza errori JS né 5xx). In caso di errore: log dello stack nel job e artifact `playwright-report`.
 - `dependency-review` (solo PR): dipendenze nuove o aggiornate con advisory high/critical.
 - Esegue `pnpm run build` su backend e frontend oltre a lint e test: un errore di tipo non preso da `ts-jest` (isolatedModules) può comunque rompere `nest build`.
 - Job `docker` (matrice backend/frontend): build di `production`/`prod` con `pull: true` (cache letta dal `buildcache` pubblico, mai scritta), poi Trivy CRITICAL/HIGH con fix, bloccante. Ferma una PR quando esce una CVE nelle dipendenze o l'immagine base non è più aggiornata (nginx 1.28: nessuna immagine da marzo 2026, CVE non chiudibili con `apk upgrade`). Eccezioni in `.trivyignore` alla root, una riga per CVE con commento e `exp:AAAA-MM-GG` (alla scadenza torna a bloccare); lo stesso file vale per `release.yml`.
-- CVE in locale prima della PR (Git Bash, `MSYS_NO_PATHCONV=1` per i volumi): `docker run --rm -v //var/run/docker.sock:/var/run/docker.sock -v "$PWD/.trivyignore:/ig" aquasec/trivy:latest image --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed --ignorefile /ig <immagine>`.
+- CVE in locale prima della PR (Git Bash, `MSYS_NO_PATHCONV=1` per i volumi): `docker run --rm -v //var/run/docker.sock:/var/run/docker.sock -v "$PWD/.trivyignore:/ig" aquasec/trivy:0.76.1 image --scanners vuln --severity CRITICAL,HIGH --ignore-unfixed --ignorefile /ig <immagine>`.
 
 ## Dockerfile: bug già incontrati (tag v1.0.1 rotto)
 

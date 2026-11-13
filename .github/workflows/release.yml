@@ -44,8 +44,14 @@ jobs:
       tag_latest: ${{ steps.mode.outputs.tag_latest }}
       pkg_refresh: ${{ steps.mode.outputs.pkg_refresh }}
     steps:
+      # Traffico in uscita registrato (audit, non bloccato): host nel log del post-step.
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          persist-credentials: false
           # Storia + tag completi: il rebuild automatico ricava l'ultimo tag vX.Y.Z.
           fetch-depth: 0
 
@@ -109,6 +115,7 @@ jobs:
     needs: setup
     if: needs.setup.outputs.skip != 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -128,7 +135,14 @@ jobs:
     env:
       IMAGE: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}
     steps:
+      # Traffico in uscita registrato (audit, non bloccato): host nel log del post-step.
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - id: vars
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
@@ -201,10 +215,8 @@ jobs:
           limit-severities-for-sarif: ${{ needs.setup.outputs.auto == 'true' }}
           # CVE escluse con motivo e scadenza (stesso file del job docker di tests.yml).
           trivyignores: .trivyignore
-          # Scanner Trivy (non l'Action stessa, quella resta pinnata per SHA
-          # sopra) — 'latest' qui è il pattern raccomandato dall'action per
-          # avere sempre il rilevamento CVE più aggiornato senza bump manuali.
-          version: latest
+          # Versione fissa: trivy-version-check.yml apre una issue quando ne esce una nuova.
+          version: v0.76.1
 
       - name: Promuovi latest
         if: needs.setup.outputs.auto == 'true'

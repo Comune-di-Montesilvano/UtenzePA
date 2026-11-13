@@ -87,7 +87,8 @@
           "options": {
             "runner": "vitest",
             "tsConfig": "tsconfig.spec.json",
-            "buildTarget": "::development"
+            "buildTarget": "::development",
+            "coverageReporters": ["text-summary", "json-summary"]
           }
         },
         "lint": {

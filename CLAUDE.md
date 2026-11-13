@@ -45,13 +45,13 @@ Query MySQL dirette: `docker exec utenzepa-mysql-1 mysql -uroot -p'<MYSQL_PASSWO
 ### Backend (`backend/`, dentro il container `api`)
 ```
 pnpm run start:dev | start:debug | build && start:prod
-pnpm run test:unit -- --maxWorkers=2              # src/**/*.spec.ts
+pnpm run test:unit --maxWorkers=2                 # src/**/*.spec.ts (argomenti senza `--`: con pnpm 11 diventano pattern di file)
 pnpm exec jest path/al/file.spec.ts --maxWorkers=2
 pnpm exec jest -t "nome del test" --maxWorkers=2
-pnpm run lint | format | type-check
+pnpm run lint | lint:ci | format | type-check   # lint:ci = senza --fix (CI)
 ```
 - Sempre `--maxWorkers=2` su jest. Suite intera rischia di far cadere Docker: preferire i file rilevanti e la CI come gate.
-- `test:e2e` non funziona (`test/jest-e2e.json` non esiste); `test:integration` è un residuo del template. Script `docker:dev*` rotti (file compose inesistente).
+- Coverage: `pnpm run test:unit --coverage --coverageReporters=json-summary` scrive `backend/coverage/coverage-summary.json`; in CI solo misura nel summary, nessuna soglia. Niente test d'integrazione per ora (seconda fase della spec CI/CD).
 - `pnpm run lint` nel container normalizza CRLF→LF su **ogni** `.ts`: prima di `git add` filtrare con `git diff --numstat` (righe `0 0` = rumore, `git checkout --`). Prettier riformatta anche file non correlati: tenere solo i propri.
 - Comandi pnpm come root nel container: poi `chown -R 1000:1000 node_modules .pnpm-store`.
 - Container `api`: cartella di lavoro `/usr/src/app` (non `/app`). `eslint` nel container su file CRLF dà errori `␍` falsi: filtrare con `grep -v '␍'`; `no-useless-assignment` è un errore bloccante in CI.
