@@ -31,6 +31,13 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Docker e Windows").
 - `git worktree remove` con container ancora attivi sul bind-mount fallisce con "Permission denied" sulla cartella, ma rimuove comunque la registrazione git: non bloccante, cleanup fisico rimandabile.
 - Lavoro lungo in un worktree può lasciare `main` del worktree principale divergente da `origin/main` con contenuto identico ma hash diversi (`git pull`: "Merge with strategy ort failed"). Se `git diff origin/main main --stat` è vuoto, `git reset --hard origin/main` è sicuro.
 
+## Compose di produzione irrigidito (v1.58.0)
+
+- Ogni servizio di `docker-compose.yml` gira con filesystem in sola lettura, senza capability e con `no-new-privileges`: un errore `Read-only file system` nei log = un percorso scritto fuori da volumi e `tmpfs` dichiarati (aggiungere il `tmpfs`, mai togliere `read_only`).
+- Frontend: `nginx-unprivileged` (uid 101) in ascolto su 8080 nel container; `config.js` e `resolver.conf` in `/tmp/runtime-config/` (`20-runtime-config.sh`). Il proxy `/api/` non bufferizza (backup e allegati di GB passano in streaming).
+- Provare un'immagine come in produzione: `MSYS_NO_PATHCONV=1 docker run --rm --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true -p 4399:8080 <immagine>`; per il proxy `--network utenzepa_utenzepa-network` (risolve `api` dello stack dev).
+- tinn: log di Firebird linkato su `/tmp/firebird.log`; stage `production` ultimo nel Dockerfile.
+
 ## Shell e altri strumenti
 
 - Alcuni sorgenti hanno fine riga CRLF (es. `backend/src/app.module.ts`): `sed` con `;$` non matcha. Per modifiche via script usare Python preservando `\r\n` e ricontrollare doppioni.

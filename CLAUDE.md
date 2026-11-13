@@ -38,7 +38,7 @@ Roadmap: `docs/roadmap-patrimonio.md`.
 cp .env.example .env   # scommentare COMPOSE_FILE
 docker compose up -d
 ```
-Frontend http://localhost:4300 — API http://localhost:3000 — Swagger http://localhost:3000/api-docs.
+Frontend http://localhost:4300 — API http://localhost:3000 — Swagger http://localhost:3000/api-docs (sviluppo; in produzione l'API è raggiungibile solo da `<frontend>/api/v1`).
 
 Query MySQL dirette: `docker exec utenzepa-mysql-1 mysql -uroot -p'<MYSQL_PASSWORD da .env>' mydatabase -e "SELECT ..."` (testi accentati: `--default-character-set=utf8mb4`).
 
@@ -64,7 +64,7 @@ pnpm run build    # ng build --configuration production
 `pnpm run lint` (angular-eslint, errori bloccanti in CI, warning `any`/accessibilità da sistemare col tempo) e `pnpm exec ng test --watch=false [--include=<spec>]` (Vitest su jsdom, gira anche nel container). Build/guida: `docker exec utenzepa-frontend-1 sh -c "pnpm exec ng build --configuration production"`, `... "node scripts/check-guida.mjs"`. Verifica = `ng build`/log di `ng serve` + E2E Playwright dall'host. `tsc --noEmit` non vede gli errori di template.
 
 ### Docker e Windows (dettagli in `docs/claude/docker-windows.md`)
-- Produzione: Podman rootless, solo volumi nominati (niente bind mount): ogni servizio nuovo deve funzionare così.
+- Produzione: Podman rootless, solo volumi nominati (niente bind mount): ogni servizio nuovo deve funzionare così. Ogni servizio di `docker-compose.yml` (v1.58.0): `read_only`, `cap_drop: [ALL]`, `no-new-privileges`, scritture solo su volumi e `tmpfs` (senza `uid=`/`gid=`, podman li rifiuta); mysql e tinn con le sole `cap_add` dell'entrypoint (CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID). Solo il frontend pubblica una porta. Job CI `tinn-runtime`: selftest sull'immagine di produzione con gli stessi vincoli.
 - Servizi con `profiles`: variabili `${VAR:-}`, mai `${VAR:?}` (interpolata anche a profilo spento, blocca tutto lo stack); il controllo lo fa il container.
 - `docker exec` con percorsi assoluti del container da Git Bash: prefisso `MSYS_NO_PATHCONV=1`.
 - Comandi Docker **uno alla volta**, mai in parallelo (crash di daemon e PC osservati). Dopo un 500 persistente: chiedere riavvio di Docker Desktop.
@@ -129,7 +129,7 @@ pnpm run build    # ng build --configuration production
 
 ### Frontend (insidie in `docs/claude/frontend.md`)
 - Standalone components + Angular Material, nessuno state manager (services + RxJS). `src/app/pages/` (viste), `src/app/core/` (components/directives/entities/helpers/interfaces/pipes/services/types/validators), `src/app/services/`, `src/app/guards/`. PrimeNG rimosso; icone Material Icons (font-awesome per pochi usi residui).
-- `apiUrl`: prima `window.__UTENZEPA_CONFIG__` (iniettata da `nginx/20-runtime-config.sh` via `API_URL`), poi il valore compilato. Nessun proxy: frontend e backend su origin diverse.
+- `apiUrl`: prima `window.__UTENZEPA_CONFIG__` (iniettata da `nginx/20-runtime-config.sh` via `API_URL`, scritta in `/tmp/runtime-config/`), poi il valore compilato (prod/stage `/api/v1`). Produzione (v1.58.0): stessa origin, nginx del frontend (`nginx-unprivileged`, porta 8080 nel container) inoltra `/api/` a `api:3000` senza buffering (`resolve`: ririsolve il nome dopo un redeploy dell'API); `API_URL` vuoto. Sviluppo: `ng serve` senza proxy, API diretta su `DOCKER_API_PORT` (porta pubblicata solo dall'override).
 - Interceptor `core/interceptors/auth-error.interceptor.ts`: su 401 `logout()` + `/login`, solo per `HttpClient`. **Non aggiunge il token**: un service che non estende `AbstractService` deve mettere `Authorization: Bearer` a mano. `AuthService` usa axios per login/OTP.
 - `RedirectToSetupGuard` sulla route `login`: senza utenti (`GET /setup/status` → `available:true`) va a `/setup`.
 - Dockerfile multi-stage: `dev` = `ng serve`, prod = nginx (SPA fallback, `nginx.conf`).
@@ -159,7 +159,7 @@ pnpm run build    # ng build --configuration production
 - Login via API: `POST /api/v1/authModule/login` con `{"email":"<username>","password":"..."}`, token in `token.access_token`.
 - Playwright: `?selectedId=<id>` su `/utilities`, `/building`, `/contracts`; datepicker `gg/mm/aaaa`; dopo un Salva ricercare prima di riaprire; screenshot solo in `.playwright-mcp/`; viewport 1500×950 e `mat-select` aperto dal `mat-label` (dettagli in testing-e2e).
 - `curl` verso `localhost:3010` dal Bash tool: serve `dangerouslyDisableSandbox`.
-- Deploy dove login/wizard non risponde: prima `CORS_ORIGIN`/`API_URL`, poi admin già presente.
+- Deploy dove login/wizard non risponde: prima `API_URL` (vuoto = stessa origin; un URL assoluto vuole la porta dell'API pubblicata e `CORS_ORIGIN` allineato), poi admin già presente.
 
 ## Git, CI e release (dettagli in `docs/claude/release-ci.md`)
 - Repo `Comune-di-Montesilvano/UtenzePA`. `main` protetta da ruleset con **merge queue** (squash): PR obbligatoria, check `dependency-review`, `backend`, `frontend`, `migrations`, `docker (backend, production)`, `docker (frontend, prod)`, `e2e`, nessuna approvazione umana.
