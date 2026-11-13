@@ -72,6 +72,13 @@ Configurazione tramite un file `.env` nella root, copiato da `.env.example` (ele
 | `DOCKER_API_PORT` | `3000` | Porta del backend sull'host, solo in sviluppo (`docker-compose.override.yml`) |
 | `DOCKER_FRONTEND_PORT` | `4300` | Porta esposta dal frontend (in produzione l'unica: nginx inoltra `/api/` al backend) |
 
+### Immagini
+
+| Variabile | Default | Descrizione |
+|---|---|---|
+| `IMAGE_TAG` | `latest` | Tag delle immagini GHCR (es. `v1.58.1`) |
+| `VERIFY_IMAGES` | `false` | `true` (consigliato in produzione): il servizio `verify-images` verifica le firme cosign delle immagini di `IMAGE_TAG` prima di avviarle; serve HTTPS verso ghcr.io e Sigstore. Verifica completa con provenance e SBOM: `scripts/verify-images.sh <tag>` |
+
 ### Database MySQL
 
 | Variabile | Default | Descrizione |
