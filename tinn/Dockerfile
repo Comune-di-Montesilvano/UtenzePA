@@ -2,7 +2,7 @@
 # contabilità via SFTP, lo ripristina con il Firebird di questa immagine ed
 # estrae i CSV del formato neutro per UtenzePA. Nessun server Firebird in
 # ascolto: gbak e isql lavorano in embedded sul file locale.
-FROM firebirdsql/firebird:5.0.3 AS base
+FROM firebirdsql/firebird:5.0.3@sha256:d1e15bdcc0da40bf5e8af24ba6ba1d14b23d0a43fd21faa4ec8b2089feefb3b8 AS base
 
 # upgrade: l'immagine base esce di rado, le correzioni di sicurezza Debian
 # arrivano prima (Trivy bloccante in CI). PKG_REFRESH (data del giorno, da

@@ -1,12 +1,15 @@
+# syntax=docker/dockerfile:1
 # -------------------
 # Stage 1: install & build
 # -------------------
-FROM node:26 AS base
+FROM node:26@sha256:e18c3ccdf7d71619990b0e85639f506e2028a95410999cab24cc373cbd10e0ac AS base
 
 WORKDIR /app
 
-# Da Node 25 corepack non è più incluso nell'immagine: si installa da npm.
-RUN npm install -g corepack@0.36.0 && corepack enable
+# corepack dal tarball del registry npm, verificato con sha256 (niente `npm install` senza
+# hash; da Node 25 non e' piu' nell'immagine). toolchain-version-check.yml segnala le nuove versioni.
+ADD --checksum=sha256:9128cfe26aee0c99f4fc68c15c6b8b12309a68be0de2c012cdfea2a463cb722f     https://registry.npmjs.org/corepack/-/corepack-0.36.0.tgz /tmp/corepack.tgz
+RUN mkdir -p /usr/local/lib/node_modules/corepack     && tar -xzf /tmp/corepack.tgz --strip-components=1 -C /usr/local/lib/node_modules/corepack     && rm /tmp/corepack.tgz     && ln -sf ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack     && corepack enable
 
 ENV CI=true
 
@@ -43,7 +46,7 @@ RUN pnpm run build
 # -------------------
 # nginx-unprivileged: gira come utente nginx (101) sulla porta 8080, filesystem in sola
 # lettura (config.js e resolver in /tmp, tmpfs nel docker-compose.yml).
-FROM nginxinc/nginx-unprivileged:1.31-alpine AS prod
+FROM nginxinc/nginx-unprivileged:1.31-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e AS prod
 
 # PKG_REFRESH (data del giorno, passata da release.yml) invalida la cache del layer una
 # volta al giorno, cosi' `apk upgrade` prende le patch Alpine anche prima che

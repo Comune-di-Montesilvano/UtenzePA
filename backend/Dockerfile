@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Multi-stage Dockerfile for NestJS applications
 # This Dockerfile uses a conservative caching strategy to prevent stale dependencies
 # while still benefiting from Docker's layer caching for faster builds.
@@ -14,12 +15,14 @@
 
 ################################################################################
 # Use node image for base image for all stages.
-FROM node:26-alpine AS base
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS base
 
 
-# Enable corepack per gestire pnpm (versione pinnata in package.json → "packageManager").
-# Da Node 25 corepack non è più incluso nell'immagine: si installa da npm.
-RUN npm install -g corepack@0.36.0 && corepack enable
+# Corepack gestisce pnpm (versione pinnata in package.json → "packageManager").
+# corepack dal tarball del registry npm, verificato con sha256 (niente `npm install` senza
+# hash; da Node 25 non e' piu' nell'immagine). toolchain-version-check.yml segnala le nuove versioni.
+ADD --checksum=sha256:9128cfe26aee0c99f4fc68c15c6b8b12309a68be0de2c012cdfea2a463cb722f     https://registry.npmjs.org/corepack/-/corepack-0.36.0.tgz /tmp/corepack.tgz
+RUN mkdir -p /usr/local/lib/node_modules/corepack     && tar -xzf /tmp/corepack.tgz --strip-components=1 -C /usr/local/lib/node_modules/corepack     && rm /tmp/corepack.tgz     && ln -sf ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack     && corepack enable
 
 # pnpm esegue un controllo di coerenza lockfile/node_modules prima di run script
 # (es. "pnpm run build"): se rileva un disallineamento prova a reinstallare e,
@@ -83,7 +86,7 @@ RUN pnpm install --frozen-lockfile --prod --ignore-scripts && \
 ################################################################################
 # Production stage - use regular Node alpine instead of distroless
 # to ensure bcrypt native bindings work correctly
-FROM node:26-alpine AS production
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS production
 
 # Build metadata arguments (set during build time)
 ARG BUILD_DATE
@@ -153,7 +156,7 @@ CMD ["node", "dist/main.js"]
 
 ################################################################################
 # DEVELOPMENT STAGE
-FROM node:26-alpine AS development
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS development
 
 # VCS_REF opzionale: non passata di default da docker-compose.override.yml,
 # valorizzabile a mano (es. build.args in override o
@@ -175,8 +178,13 @@ WORKDIR /usr/src/app
 # Copy package files first for better caching
 COPY --chown=nestjs:nodejs package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
+# corepack dal tarball del registry npm, verificato con sha256 (niente `npm install` senza
+# hash; da Node 25 non e' piu' nell'immagine). toolchain-version-check.yml segnala le nuove versioni.
+ADD --checksum=sha256:9128cfe26aee0c99f4fc68c15c6b8b12309a68be0de2c012cdfea2a463cb722f     https://registry.npmjs.org/corepack/-/corepack-0.36.0.tgz /tmp/corepack.tgz
+RUN mkdir -p /usr/local/lib/node_modules/corepack     && tar -xzf /tmp/corepack.tgz --strip-components=1 -C /usr/local/lib/node_modules/corepack     && rm /tmp/corepack.tgz     && ln -sf ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack     && corepack enable
+
 # Install all dependencies (including dev)
-RUN npm install -g corepack@0.36.0 && corepack enable && pnpm install
+RUN pnpm install
 
 # Copy source files
 COPY --chown=nestjs:nodejs . .

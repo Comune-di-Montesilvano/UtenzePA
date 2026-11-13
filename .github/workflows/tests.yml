@@ -248,12 +248,41 @@ jobs:
   # Migration su un database vuoto (installazione nuova), entity allineate alle migration
   # (schema:log = solo la baseline nota) e giro down -> up di quelle aggiunte dalla PR.
   # Vedi backend/scripts/check-migrations.sh.
+  # Immagine MySQL letta da docker-compose.yml (tag + digest, aggiornata da Dependabot): le
+  # migration si provano sullo stesso MySQL della produzione.
+  mysql-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      image: ${{ steps.img.outputs.image }}
+    steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: docker-compose.yml
+          sparse-checkout-cone-mode: false
+
+      - name: Immagine mysql dal compose
+        id: img
+        run: |
+          image=$(yq -r '.services.mysql.image' docker-compose.yml)
+          case "$image" in
+            mysql:*@sha256:*) ;;
+            *) echo "::error::services.mysql.image senza digest: '$image'"; exit 1 ;;
+          esac
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
   migrations:
+    needs: mysql-image
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
       mysql:
-        image: mysql:8
+        image: ${{ needs.mysql-image.outputs.image }}
         env:
           MYSQL_ROOT_PASSWORD: ci
           MYSQL_DATABASE: mydatabase
