@@ -10,7 +10,7 @@ Monorepo semplice (nessun workspace tool): `backend/` (NestJS) + `frontend/` (An
 
 | Servizio | Stack | Porta default |
 |---|---|---|
-| Backend API | NestJS 11 (Node ≥24) | 3000 (debug 9229) |
+| Backend API | NestJS 11 (Node 26) | 3000 (debug 9229) |
 | Frontend | Angular 22 + Angular Material 22 | 4300 |
 | Database | MySQL 8 | 3307 |
 

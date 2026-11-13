@@ -9,7 +9,7 @@
 #   - production: Final production image (minimal size)
 #   - development: Development image with hot-reload support
 
-ARG NODE_VERSION=24
+ARG NODE_VERSION=26
 
 # Limite memoria per Node.js (utile per macchine con poca RAM)
 
@@ -18,8 +18,9 @@ ARG NODE_VERSION=24
 FROM node:${NODE_VERSION}-alpine AS base
 
 
-# Enable corepack per gestire pnpm (versione pinnata in package.json → "packageManager")
-RUN corepack enable
+# Enable corepack per gestire pnpm (versione pinnata in package.json → "packageManager").
+# Da Node 25 corepack non è più incluso nell'immagine: si installa da npm.
+RUN npm install -g corepack@0.36.0 && corepack enable
 
 # pnpm esegue un controllo di coerenza lockfile/node_modules prima di run script
 # (es. "pnpm run build"): se rileva un disallineamento prova a reinstallare e,
@@ -176,7 +177,7 @@ WORKDIR /usr/src/app
 COPY --chown=nestjs:nodejs package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Install all dependencies (including dev)
-RUN corepack enable && pnpm install
+RUN npm install -g corepack@0.36.0 && corepack enable && pnpm install
 
 # Copy source files
 COPY --chown=nestjs:nodejs . .
