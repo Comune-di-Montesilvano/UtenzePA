@@ -85,7 +85,7 @@ describe('LdapService', () => {
       expect(result.displayName).toBe('Mario Rossi');
     });
 
-    it('include email quando AD restituisce l\'attributo mail', async () => {
+    it("include email quando AD restituisce l'attributo mail", async () => {
       mockClient.bind.mockImplementation((_dn: string, _pw: string, cb: (err: null) => void) =>
         cb(null),
       );
@@ -121,7 +121,7 @@ describe('LdapService', () => {
       expect(result.email).toBe('mario.rossi@comune.montesilvano.pe.it');
     });
 
-    it('email assente se AD non restituisce l\'attributo mail', async () => {
+    it("email assente se AD non restituisce l'attributo mail", async () => {
       mockClient.bind.mockImplementation((_dn: string, _pw: string, cb: (err: null) => void) =>
         cb(null),
       );
@@ -235,9 +235,8 @@ describe('LdapService', () => {
     });
 
     it('rifiuta se il bind fallisce (password errata)', async () => {
-      mockClient.bind.mockImplementation(
-        (_dn: string, _pw: string, cb: (err: Error) => void) =>
-          cb(new Error('Invalid credentials')),
+      mockClient.bind.mockImplementation((_dn: string, _pw: string, cb: (err: Error) => void) =>
+        cb(new Error('Invalid credentials')),
       );
 
       await expect(service.authenticate('mario.rossi', 'wrongpass')).rejects.toThrow(
@@ -250,8 +249,7 @@ describe('LdapService', () => {
         cb(null),
       );
       mockClient.search.mockImplementation(
-        (_base: string, _opts: unknown, cb: (err: Error) => void) =>
-          cb(new Error('search failed')),
+        (_base: string, _opts: unknown, cb: (err: Error) => void) => cb(new Error('search failed')),
       );
 
       await expect(service.authenticate('mario.rossi', 'password123')).rejects.toThrow(
@@ -294,6 +292,84 @@ describe('LdapService', () => {
       const result = await service.authenticate('mario.rossi', 'password123');
 
       expect(result.username).toBe('mario.rossi');
+    });
+  });
+
+  describe('escape dello username (iniezione nei filtri LDAP)', () => {
+    const INJECTED = 'x)(sAMAccountName=*';
+    const ESCAPED = 'x\\29\\28sAMAccountName=\\2a';
+
+    /** Risponde a ogni ricerca: utente con `memberOf`, gruppo con `groupDn`, membro ricorsivo. */
+    function mockDirectory(memberOf: string[], groupDn?: string) {
+      mockClient.bind.mockImplementation((_dn: string, _pw: string, cb: (err: null) => void) =>
+        cb(null),
+      );
+      mockClient.search.mockImplementation((_base: string, searchOpts: any, cb: any) => {
+        const filter: string = searchOpts.filter || '';
+        const res = {
+          on: jest.fn().mockImplementation(function (
+            this: typeof res,
+            event: string,
+            eventCb: (...args: unknown[]) => void,
+          ) {
+            if (event === 'searchEntry') {
+              if (filter.includes('objectClass=group')) {
+                if (groupDn) eventCb({ object: { distinguishedName: groupDn } });
+              } else if (filter.includes('1.2.840.113556.1.4.1941')) {
+                eventCb({ object: { sAMAccountName: 'x' } });
+              } else {
+                eventCb({ object: { sAMAccountName: 'x', displayName: 'X', memberOf } });
+              }
+            }
+            if (event === 'end') eventCb({ status: 0 });
+            return this;
+          }),
+        };
+        cb(null, res);
+      });
+    }
+
+    const filters = (): string[] =>
+      mockClient.search.mock.calls.map((call: any[]) => call[1].filter as string);
+
+    it("mette l'escape sullo username nel filtro di ricerca", async () => {
+      mockDirectory(['CN=UTENZEPA_LETTORI,OU=Groups,DC=test,DC=local']);
+
+      await service.authenticate(INJECTED, 'password123');
+
+      expect(filters()[0]).toBe(`(|(sAMAccountName=${ESCAPED})(userPrincipalName=${ESCAPED}))`);
+    });
+
+    it("mette l'escape sullo username nel filtro del gruppo ricorsivo", async () => {
+      const groupDn = 'CN=UTENZEPA_LETTORI,OU=Groups,DC=test,DC=local';
+      mockDirectory(['CN=ALTRO,OU=Groups,DC=test,DC=local'], groupDn);
+
+      await service.authenticate(INJECTED, 'password123');
+
+      expect(filters()).toContain(
+        `(&(|(sAMAccountName=${ESCAPED})(userPrincipalName=${ESCAPED}))(memberOf:1.2.840.113556.1.4.1941:=${groupDn}))`,
+      );
+    });
+
+    it("mette l'escape sul nome del gruppo richiesto", async () => {
+      process.env.LDAP_REQUIRED_GROUP = 'G(1)';
+      mockDirectory(['CN=ALTRO,OU=Groups,DC=test,DC=local']);
+
+      await expect(service.authenticate('mario.rossi', 'password123')).rejects.toThrow();
+
+      expect(filters()).toContain('(&(objectClass=group)(cn=G\\281\\29))');
+    });
+
+    it("mette l'escape DN solo se il template è un DN", async () => {
+      mockDirectory(['CN=UTENZEPA_LETTORI,OU=Groups,DC=test,DC=local']);
+
+      process.env.LDAP_USER_DN_TEMPLATE = 'CN=%s,OU=Utenti';
+      await service.authenticate('Rossi, Mario', 'password123');
+      expect(mockClient.bind.mock.calls[0][0]).toBe('CN=Rossi\\, Mario,OU=Utenti');
+
+      process.env.LDAP_USER_DN_TEMPLATE = '%s@test.local';
+      await service.authenticate('mario,rossi', 'password123');
+      expect(mockClient.bind.mock.calls[1][0]).toBe('mario,rossi@test.local');
     });
   });
 

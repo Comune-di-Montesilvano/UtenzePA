@@ -1,5 +1,6 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import * as ldapjs from 'ldapjs';
+import { escapeLdapDnValue, escapeLdapFilterValue } from './ldap-escape';
 
 export interface LdapUser {
   username: string;
@@ -35,7 +36,12 @@ export class LdapService {
     const dnTemplate = process.env.LDAP_USER_DN_TEMPLATE || '%s';
     const tlsSkipVerify = process.env.LDAP_TLS_SKIP_VERIFY === 'true';
     const requiredGroup = process.env.LDAP_REQUIRED_GROUP || '';
-    const userDn = dnTemplate.replace('%s', username);
+    // Template DN (contiene `=`, es. `CN=%s,OU=Utenti`): escape RFC 4514. Template UPN o `%s`:
+    // il valore non è un DN e resta com'è.
+    const userDn = dnTemplate.replace(
+      '%s',
+      dnTemplate.includes('=') ? escapeLdapDnValue(username) : username,
+    );
 
     return this.connectAndAuthenticate({
       host,
@@ -148,7 +154,7 @@ export class LdapService {
     baseDn: string,
     groupCn: string,
   ): Promise<string | null> {
-    const filter = `(&(objectClass=group)(cn=${groupCn}))`;
+    const filter = `(&(objectClass=group)(cn=${escapeLdapFilterValue(groupCn)}))`;
     return new Promise((resolve) => {
       let dn: string | null = null;
       client.search(
@@ -183,7 +189,8 @@ export class LdapService {
     username: string,
     groupDn: string,
   ): Promise<boolean> {
-    const filter = `(&(|(sAMAccountName=${username})(userPrincipalName=${username}))(memberOf:1.2.840.113556.1.4.1941:=${groupDn}))`;
+    const user = escapeLdapFilterValue(username);
+    const filter = `(&(|(sAMAccountName=${user})(userPrincipalName=${user}))(memberOf:1.2.840.113556.1.4.1941:=${escapeLdapFilterValue(groupDn)}))`;
     return new Promise((resolve) => {
       let matched = false;
       client.search(
@@ -217,7 +224,8 @@ export class LdapService {
     baseDn: string,
     username: string,
   ): Promise<Record<string, unknown> | null> {
-    const filter = `(|(sAMAccountName=${username})(userPrincipalName=${username}))`;
+    const user = escapeLdapFilterValue(username);
+    const filter = `(|(sAMAccountName=${user})(userPrincipalName=${user}))`;
     return new Promise((resolve, reject) => {
       let resolved = false;
       let found: Record<string, unknown> | null = null;
