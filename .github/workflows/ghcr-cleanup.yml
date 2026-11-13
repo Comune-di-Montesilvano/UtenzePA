@@ -5,11 +5,12 @@ name: Pulizia immagini ghcr
 #   - ogni versione con un tag diverso da latest-YYYYMMDD (vX.Y.Z, latest, buildcache);
 #   - gli ultimi KEEP_DAILY tag latest-YYYYMMDD;
 #   - le sotto-versioni (manifest per piattaforma, attestazioni) dei tag tenuti;
-#   - le attestazioni di provenienza (tag sha256-<digest>, release.yml) delle sole
+#   - attestazioni e firme cosign (tag sha256-<digest>, release.yml) delle sole
 #     immagini tenute;
 #   - tutto cio' che e' nato nelle ultime 6 ore (build in corso: i figli arrivano prima
 #     dell'indice).
-# Il resto viene cancellato. workflow_dispatch parte in dry-run per default.
+# Il resto viene cancellato, compresi i digest orfani di release.yml (push per digest mai
+# taggati perche' fermati da Trivy o dallo smoke) con firme e attestazioni. workflow_dispatch parte in dry-run per default.
 on:
   schedule:
     - cron: "0 3 * * 0"

@@ -390,12 +390,7 @@ jobs:
           echo "::error::API non pronta in 180 s"; exit 1
 
       - name: Crea l'Admin di prova
-        run: |
-          set -eu
-          hash=$(docker compose -f docker-compose.yml exec -T -e P="$E2E_PASSWORD" api \
-            node -e "require('bcrypt').hash(process.env.P, 10).then(console.log)")
-          docker compose -f docker-compose.yml exec -T mysql mysql -uroot -p"$MYSQL_PASSWORD" mydatabase -e \
-            "INSERT INTO system_users (first_name, last_name, username, password_hash, auth_provider, role, status, created_by_user_id, updated_by_user_id) VALUES ('E2E', 'Admin', '$E2E_USERNAME', '$hash', 'local', 'Admin', 'Attivo', -1, -1)"
+        run: scripts/e2e-admin.sh
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
