@@ -51,8 +51,8 @@
   },
   "devDependencies": {
     "@angular-eslint/builder": "22.6.0",
-    "@angular/build": "^22.2.6",
-    "@angular/cli": "^22.2.6",
+    "@angular/build": "^22.2.7",
+    "@angular/cli": "^22.2.7",
     "@angular/compiler-cli": "^22.2.6",
     "@eslint/js": "^10.0.1",
     "@types/leaflet": "^1.9.22",

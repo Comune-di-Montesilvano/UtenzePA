@@ -57,12 +57,12 @@
   },
   "dependencies": {
     "@infisical/sdk": "^5.3.0",
-    "@nestjs/common": "^11.2.9",
+    "@nestjs/common": "^11.2.10",
     "@nestjs/config": "^12.1.1",
-    "@nestjs/core": "^11.2.9",
+    "@nestjs/core": "^11.2.10",
     "@nestjs/jwt": "^12.0.4",
     "@nestjs/passport": "^12.0.1",
-    "@nestjs/platform-express": "^11.2.9",
+    "@nestjs/platform-express": "^11.2.10",
     "@nestjs/schedule": "^12.0.3",
     "@nestjs/swagger": "^11.4.8",
     "@nestjs/terminus": "^11.1.1",
@@ -94,7 +94,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "tar": "^7.5.23",
-    "typeorm": "^1.1.2"
+    "typeorm": "^1.1.3"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.4",
@@ -102,7 +102,7 @@
     "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^12.0.12",
     "@nestjs/schematics": "^11.1.0",
-    "@nestjs/testing": "^11.2.9",
+    "@nestjs/testing": "^11.2.10",
     "@types/bcrypt": "^6.0.0",
     "@types/compression": "^1.8.1",
     "@types/express": "^5.0.6",
