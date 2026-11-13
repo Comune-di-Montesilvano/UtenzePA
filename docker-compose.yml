@@ -11,6 +11,41 @@ name: utenzepa
 
 services:
 
+  # Verifica delle firme cosign delle 3 immagini di ${IMAGE_TAG} prima di avviarle
+  # (VERIFY_IMAGES=true): firmate da release.yml di questo repo su un tag v* o sul rebuild
+  # di main. Se fallisce, api, frontend e tinn restano creati ma non avviati e il deploy
+  # va in errore: rimettere il tag precedente. Spenta (default), esce subito con successo.
+  # Serve HTTPS verso ghcr.io e i servizi Sigstore (tuf-repo-cdn.sigstore.dev,
+  # rekor.sigstore.dev). Le ripartenze dei container gia' creati (riavvio host, restart
+  # policy) non passano di qui. Verifica completa con provenance e SBOM:
+  # scripts/verify-images.sh <tag>.
+  verify-images:
+    # Variante -dev (con shell busybox) per l'interruttore VERIFY_IMAGES; fissata per digest.
+    image: ghcr.io/sigstore/cosign/cosign:v3.1.4-dev@sha256:8af1a2cf9fba903fdfc6bdafdc25f7b13ef34ad722095543ea787fb96f7240c1
+    restart: "no"
+    read_only: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    # Cache TUF di cosign.
+    tmpfs:
+      - /home/nonroot:mode=1777
+    environment:
+      VERIFY_IMAGES: ${VERIFY_IMAGES:-false}
+      IMAGE_TAG: ${IMAGE_TAG:-latest}
+    entrypoint: ["/busybox/sh", "-ec"]
+    command:
+      - |
+        if [ "$$VERIFY_IMAGES" != "true" ]; then
+          echo "Verifica firme disattivata (VERIFY_IMAGES=$$VERIFY_IMAGES)"
+          exit 0
+        fi
+        R=ghcr.io/comune-di-montesilvano/utenzepa
+        cosign verify \
+          --certificate-identity-regexp '^https://github\.com/Comune-di-Montesilvano/UtenzePA/\.github/workflows/release\.yml@refs/(tags/v.*|heads/main)$$' \
+          --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+          "$$R-backend:$$IMAGE_TAG" "$$R-frontend:$$IMAGE_TAG" "$$R-tinn:$$IMAGE_TAG" >/dev/null
+        echo "Firme verificate: $$IMAGE_TAG"
+
   mysql:
     # Tag + digest: Dependabot (ecosistema docker-compose) aggiorna il digest; la major resta
     # manuale. La CI (job migrations) usa la stessa immagine letta da qui.
@@ -111,6 +146,8 @@ services:
     # Nessuna porta sull'host: l'API si raggiunge dal frontend (/api/). Per un deploy che
     # deve ancora esporla (API_URL assoluto) vedi docker-compose.override.yml.
     depends_on:
+      verify-images:
+        condition: service_completed_successfully
       mysql:
         condition: service_healthy
     networks:
@@ -135,7 +172,10 @@ services:
     ports:
       - '${DOCKER_FRONTEND_PORT:-4300}:8080'
     depends_on:
-      - api
+      verify-images:
+        condition: service_completed_successfully
+      api:
+        condition: service_started
     networks:
       - utenzepa-network
 
@@ -168,6 +208,9 @@ services:
     volumes:
       - accounting_inbox:/inbox
       - tinn_work:/work
+    depends_on:
+      verify-images:
+        condition: service_completed_successfully
 
 volumes:
   mysql_data:
