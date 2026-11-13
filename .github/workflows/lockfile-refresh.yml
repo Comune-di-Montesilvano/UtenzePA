@@ -47,10 +47,12 @@ jobs:
           node-version: 24
 
       - name: pnpm update
+        # `pnpm install` dopo l'update: riscrive nel lockfile gli overrides che rimandano
+        # a una dipendenza diretta (`tar: $tar`), altrimenti il frozen install della CI fallisce.
         run: |
           set -euo pipefail
           for dir in backend frontend e2e; do
-            (cd "$dir" && pnpm update --lockfile-only)
+            (cd "$dir" && pnpm update --lockfile-only && pnpm install --lockfile-only)
           done
 
       - name: PR con auto-merge
