@@ -106,6 +106,30 @@ updates:
       prefix: chore
       include: scope
 
+  # Immagini del compose di produzione (oggi solo mysql, le altre sono le nostre su GHCR):
+  # digest aggiornato ogni giorno, major di MySQL solo a mano (dump e upgrade del dato).
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: daily
+      time: "01:00"
+      timezone: Europe/Rome
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+    ignore:
+      - dependency-name: mysql
+        update-types:
+          - version-update:semver-major
+    groups:
+      compose-minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore
+      include: scope
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

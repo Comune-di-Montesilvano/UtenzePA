@@ -20,25 +20,33 @@ permissions:
   contents: read
 
 jobs:
-  # Dipendenze aggiunte o aggiornate dalla PR con advisory high/critical: PR ferma prima del
-  # merge (Trivy vede solo cio' che finisce nelle immagini, qui anche le devDependencies).
-  # Solo sulle PR: su push e merge queue il job risulta saltato.
-  dependency-review:
-    if: github.event_name == 'pull_request'
+  # Script dei gate di sicurezza (scripts/security, solo moduli Node built-in) usati da
+  # security.yml: un errore qui renderebbe inaffidabili i differenziali sulle PR.
+  security-scripts:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      # Traffico in uscita registrato (audit, non bloccato): host contattati nel log del
-      # post-step e nella pagina insights StepSecurity della run.
       - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+
+      - name: Versione Node dall'immagine base
+        id: node
+        run: |
+          major=$(sed -nE 's/^FROM node:([0-9]+)-.*/\1/p' backend/Dockerfile | head -n1)
+          [ -n "$major" ] || { echo "::error::FROM node:<major> non trovato in backend/Dockerfile"; exit 1; }
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          fail-on-severity: high
+          node-version: ${{ steps.node.outputs.major }}
+
+      - name: Test script di sicurezza
+        run: node --test 'scripts/security/test/*.test.mjs'
 
   backend:
     runs-on: ubuntu-latest
@@ -137,10 +145,9 @@ jobs:
         run: node ../scripts/ci/coverage-summary.mjs frontend "$(find coverage -name coverage-summary.json | head -n1)"
       - run: pnpm run build
 
-  # Build delle immagini di produzione come in release.yml (immagini base ripescate), poi
-  # Trivy bloccante su CRITICAL/HIGH con fix disponibile: un'immagine base non piu'
-  # aggiornata o una CVE nuova nelle dipendenze fermano la PR prima del tag, e il
-  # rebuild giornaliero di latest non trova sorprese. Nessun push.
+  # Build delle immagini di produzione come in release.yml (immagini base ripescate) per
+  # e2e e tinn-runtime. Nessun push. Le CVE delle immagini le controlla trivy-image di
+  # security.yml (merge queue, main, giro giornaliero); dependency-review e' li'.
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -177,19 +184,6 @@ jobs:
           tags: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:ci
           # Package ghcr pubblico: la cache si legge senza login, mai scritta dalle PR.
           cache-from: type=registry,ref=ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:buildcache
-
-      - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:ci
-          format: table
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: '1'
-          trivyignores: .trivyignore
-          # Versione fissa (nessun "latest"): trivy-version-check.yml apre una issue quando
-          # ne esce una nuova.
-          version: v0.76.1
 
       # backend e frontend per e2e, tinn per tinn-runtime (non fa parte dello stack di e2e).
       - name: Salva l'immagine per i job successivi
@@ -254,12 +248,41 @@ jobs:
   # Migration su un database vuoto (installazione nuova), entity allineate alle migration
   # (schema:log = solo la baseline nota) e giro down -> up di quelle aggiunte dalla PR.
   # Vedi backend/scripts/check-migrations.sh.
+  # Immagine MySQL letta da docker-compose.yml (tag + digest, aggiornata da Dependabot): le
+  # migration si provano sullo stesso MySQL della produzione.
+  mysql-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      image: ${{ steps.img.outputs.image }}
+    steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: docker-compose.yml
+          sparse-checkout-cone-mode: false
+
+      - name: Immagine mysql dal compose
+        id: img
+        run: |
+          image=$(yq -r '.services.mysql.image' docker-compose.yml)
+          case "$image" in
+            mysql:*@sha256:*) ;;
+            *) echo "::error::services.mysql.image senza digest: '$image'"; exit 1 ;;
+          esac
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
   migrations:
+    needs: mysql-image
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
       mysql:
-        image: mysql:8
+        image: ${{ needs.mysql-image.outputs.image }}
         env:
           MYSQL_ROOT_PASSWORD: ci
           MYSQL_DATABASE: mydatabase

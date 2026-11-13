@@ -1,0 +1,19 @@
+# Eccezioni Trivy motivate e limitate (security.yml e release.yml). Ogni voce con motivo;
+# le vulnerabilita' anche con scadenza: alla scadenza tornano a bloccare e vanno rivalutate.
+vulnerabilities:
+  # Senza paths: vale sia per il lockfile (trivy-fs) sia per l'immagine del backend
+  # (trivy-image, release), dove zod sta in node_modules.
+  - id: CVE-2023-54404
+    expired_at: 2027-01-31
+    statement: >-
+      zod 3.x arriva solo da @infisical/sdk 5.0.2 (ultima versione, richiede zod ^3): il
+      fix esiste solo in zod 4. Infisical e' opzionale (secrets) e zod lo usa solo lo SDK.
+
+misconfigurations:
+  - id: DS-0002
+    paths:
+      - "tinn/Dockerfile"
+    statement: >-
+      L'entrypoint parte root solo per sistemare i permessi dei volumi (chown di /inbox e
+      /work) e scende subito a uid 1000 con setpriv; in compose cap_drop ALL piu' le sole
+      capability necessarie, filesystem in sola lettura, no-new-privileges.

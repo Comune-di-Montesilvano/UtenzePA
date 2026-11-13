@@ -6,16 +6,23 @@ overrides:
   '@opentelemetry/sdk-logs': ^0.204.0
   '@opentelemetry/resources': ^2.1.0
   '@opentelemetry/otlp-transformer': ^0.204.0
-  # CVE (Trivy): follow-redirects fermo a 1.16.0 senza override, multer fissato
-  # esatto a 2.4.0 da @nestjs/platform-express (anche nella 12).
-  follow-redirects: ^1.16.2
-  multer: ^2.5.0
-  playwright: ^1.56.1
-  serialize-javascript: ^7.0.2
+  # Dipendenze transitive con CVE (Trivy/pnpm audit), ognuna limitata alla versione
+  # vulnerabile: quando il padre si aggiorna l'override smette di applicarsi e va tolto.
+  # follow-redirects (via axios): fermo a 1.16.0 senza override. Togliere quando axios
+  # risolve da solo >= 1.16.2.
+  'follow-redirects@<1.16.2': ^1.16.2
+  # multer fissato esatto a 2.4.0 da @nestjs/platform-express (anche nella 12). Togliere
+  # quando platform-express dipende da >= 2.5.0.
+  'multer@<2.5.0': ^2.5.0
+  # playwright (via @playwright/test, dev): versioni < 1.56.1 vulnerabili. Togliere
+  # quando @playwright/test e' >= 1.56.1 ovunque (oggi lo e': resta come guardia).
+  'playwright@<1.56.1': ^1.56.1
   # tar è anche dipendenza diretta: `$tar` segue il range di package.json, altrimenti
   # `pnpm update` (lockfile-refresh.yml) alza la diretta e il lockfile non è più frozen.
   tar: $tar
-  undici: ^7.19.0
+  # undici (via cheerio): versioni < 7.19.0 vulnerabili. Togliere quando cheerio
+  # dipende da >= 7.19.0.
+  'undici@<7.19.0': ^7.19.0
 allowBuilds:
   bcrypt: true
   protobufjs: true

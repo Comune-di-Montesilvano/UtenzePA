@@ -12,15 +12,19 @@ name: utenzepa
 services:
 
   mysql:
-    image: mysql:8
+    # Tag + digest: Dependabot (ecosistema docker-compose) aggiorna il digest; la major resta
+    # manuale. La CI (job migrations) usa la stessa immagine letta da qui.
+    image: mysql:8@sha256:a81d043930e51745522bd5c430961cf8286f0a23f0a9a2a6e0108f7ea71b0902
     restart: unless-stopped
     read_only: true
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
     # L'entrypoint ufficiale parte root, sistema i permessi e scende all'utente mysql.
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID]
+    # mode=0755: socket e pid non scrivibili da altri utenti (warning MY-011810 con il 1777
+    # di default); l'entrypoint assegna la cartella a mysql prima di scendere di utente.
     tmpfs:
-      - /var/run/mysqld
+      - /var/run/mysqld:mode=0755
       - /tmp
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD obbligatorio - genera con openssl rand -hex 24}
