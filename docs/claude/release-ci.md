@@ -51,3 +51,51 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Git, CI e release").
 - Immagine `utenzepa-tinn` (container facoltativo dell'import contabilità, v1.51.0): esce con ogni tag dalla matrice di `release.yml`. Primo rilascio v1.51.0; pacchetto GHCR da rendere pubblico (nasce privato: impostazioni del pacchetto → Change visibility), `tinn` nella matrice di `ghcr-cleanup.yml`. Nelle note di quel rilascio: profilo `COMPOSE_PROFILES=tinn` e variabili `TINN_*` (vedi `.env.example`).
 - Spostare un tag dopo un fix: `git tag -d vX`, `git push origin :refs/tags/vX`, ricreare e ripushare (rifà partire `release.yml`). Sicuro solo senza consumer esterni noti.
 - Migration che si fermano su dati da sistemare: i dati si sistemano solo in locale, quindi in produzione va importato il DB locale *prima* di aggiornare le immagini, altrimenti l'API resta giù al primo avvio (v1.9.0: `InvoiceBudgetChapterFk` fermata da 20 righe orfane; risolto con la stessa DELETE dalla shell del container MySQL, password in `$MYSQL_ROOT_PASSWORD`). Scriverlo nelle note di rilascio.
+
+## Baseline CI/CD di ComunicaPA: checklist (2026-11-13)
+
+Riferimento: `docs/ci-cd-security-baseline.md` di ComunicaPA. ✅ = fatto, ⚠️ = parziale, ❌ = gap dichiarato.
+
+**Repository**
+- ✅ `GITHUB_TOKEN` di default in sola lettura, non approva PR.
+- ✅ Secret scanning + push protection. ❌ Pattern generici (non provider) spenti: gap dichiarato.
+- ✅ Private vulnerability reporting, `SECURITY.md`. ✅ Dependabot security updates.
+- ✅ CodeQL (default setup) su PR e main.
+- ✅ `sha_pinning_required`, action consentite = GitHub + elenco.
+- ✅ Branch cancellati dopo il merge, solo squash. ✅ Bot = GitHub App (`BOT_CLIENT_ID`/`BOT_PRIVATE_KEY`).
+
+**Ruleset**
+- ✅ `main`: PR obbligatoria, niente force-push/cancellazione, nessun bypass; 17 check obbligatori (test, migration, docker, e2e, tinn, sicurezza); merge queue; regola code scanning.
+- ✅ Tag `v*` protetti (`release-tags`, solo admin).
+- ❌ Review di una seconda persona: un solo maintainer, gap dichiarato.
+
+**Workflow**
+- ✅ `permissions: contents: read` in testa, scritture nei job. ✅ Action per SHA.
+- ✅ `persist-credentials: false` su ogni checkout, input via `env:`, nessun `pull_request_target`.
+- ⚠️ `harden-runner` in `audit` ovunque; `block` su `release.yml` dopo ~7 rebuild notturni (host della run v1.58.1 raccolti).
+- ✅ `timeout-minutes` e `concurrency`. ✅ Scansioni pesanti delle immagini solo in coda, su main e in release.
+- ✅ Gate differenziali con script e base presi dalla base (`scripts/security/diff-gate.mjs`), test degli script (`security-scripts`) su copie fisse.
+
+**Dipendenze**
+- ✅ Lockfile congelato in CI. ✅ `pnpm-audit` HIGH+ e `dependency-review` sulle PR.
+- ✅ Dependabot su npm (3 progetti), Docker, compose (mysql) e Actions, con cooldown (`tinn` usa solo pacchetti Debian della base: aggiornati dal rebuild con `apt-get upgrade`).
+- ✅ Immagini base per digest, Trivy a versione fissa. ✅ Trivy fs (segreti, misconfig).
+- ✅ Eccezioni motivate e limitate (`.trivyignore.yaml` con `expired_at`/`paths`, override `pkg@<versione`).
+- ✅ Correzione autonoma (`security-autofix.yml`, script e `autofix.config.json` in `scripts/security`): 48h + provenienza, merge queue, file consentiti; refresh notturno dei lockfile con commit verificato.
+
+**Release**
+- ✅ Build solo in CI; Trivy bloccante sui tag, non regressione sui rebuild.
+- ✅ Push per digest, tag solo dopo lo smoke; firma cosign + provenance + SBOM attestati.
+- ✅ Smoke dello stack con le immagini firmate. ✅ Pulizia dei digest orfani (`ghcr-cleanup.yml`).
+- ❌ SLSA livello 3 (builder isolato): gap dichiarato, provenance dal runner GitHub.
+
+**Deploy e runtime**
+- ✅ Verifica firme (`verify-images`, `VERIFY_IMAGES=true`; `scripts/verify-images.sh`). ✅ Rollback = tag precedente (`IMAGE_TAG`).
+- ✅ Non-root (tinn scende a uid 1000; mysql dall'entrypoint), `cap_drop: ALL`, `no-new-privileges`, sola lettura con tmpfs/volumi.
+- ✅ Segreti obbligatori `${VAR:?}`. ✅ Solo il frontend pubblica una porta.
+
+**Governance**
+- ✅ `CONTRIBUTING.md` (test di regressione per ogni fix), template PR con checklist.
+- ⚠️ Scorecard attivo con badge; badge OpenSSF Best Practices da registrare su bestpractices.dev (account dell'organizzazione).
+- ✅ Alert aperti controllati ogni giorno (`security-alerts.yml`).
+- ❌ Fuzzing/property-based sugli input non fidati (import SDI, CSV contabilità): seconda fase dei test, insieme ai test d'integrazione.
