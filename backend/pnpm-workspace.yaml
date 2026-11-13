@@ -23,6 +23,10 @@ overrides:
   # undici (via cheerio): versioni < 7.19.0 vulnerabili. Togliere quando cheerio
   # dipende da >= 7.19.0.
   'undici@<7.19.0': ^7.19.0
+  # zod 3.x (via @infisical/sdk, che chiede ^3.23.8): GHSA-mrhx-c7xc-m3w5 corretto solo in
+  # 4.6.6. L'SDK usa solo API presenti anche in zod 4. Togliere quando @infisical/sdk
+  # dipende da zod >= 4.6.6.
+  'zod@<4.6.6': ^4.6.6
 allowBuilds:
   bcrypt: true
   protobufjs: true
