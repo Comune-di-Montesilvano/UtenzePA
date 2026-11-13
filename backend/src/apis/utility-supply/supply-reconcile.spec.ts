@@ -371,13 +371,25 @@ describe('supply-reconcile', () => {
       effective_on: '2025-02-01',
       utilizer_grant_id_fk: 1,
     });
-    const r = stable({ grants: [ended], decisions: [dec({ grant_id: 1 })], events: [active, transfer] });
+    const r = stable({
+      grants: [ended],
+      decisions: [dec({ grant_id: 1 })],
+      events: [active, transfer],
+    });
     expect(r.createDecisions).toEqual([]);
     expect(r.createEvents).toEqual([{ type: 'RETURN', third_party_id: null, grant_id: 1 }]);
     expect(r.costStatus).toBe(CostStatus.TO_RECOVER);
 
-    const pendingTransfer = ev({ type: T.TRANSFER, third_party_id_fk: 10, utilizer_grant_id_fk: 1 });
-    const p = stable({ grants: [ended], decisions: [dec({ grant_id: 1 })], events: [active, pendingTransfer] });
+    const pendingTransfer = ev({
+      type: T.TRANSFER,
+      third_party_id_fk: 10,
+      utilizer_grant_id_fk: 1,
+    });
+    const p = stable({
+      grants: [ended],
+      decisions: [dec({ grant_id: 1 })],
+      events: [active, pendingTransfer],
+    });
     expect(p.cancelEvents).toEqual([
       { id: pendingTransfer.id, reason: 'Contratto immobiliare non più attivo' },
     ]);

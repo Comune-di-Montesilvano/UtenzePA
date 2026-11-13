@@ -63,9 +63,7 @@ describe('ThirdPartiesService', () => {
       vat_number: null,
       deleted: true,
     });
-    const spy = jest
-      .spyOn(BaseService.prototype, 'update')
-      .mockResolvedValue({ id: 5 } as never);
+    const spy = jest.spyOn(BaseService.prototype, 'update').mockResolvedValue({ id: 5 } as never);
     await service.update(5, { deleted: false }, 1);
     expect(spy).toHaveBeenCalledWith(5, { deleted: false }, 1);
   });
@@ -118,9 +116,11 @@ describe('ThirdPartiesService', () => {
       ]),
     };
     repo.createQueryBuilder.mockReturnValue(qb);
-    dataSource.query.mockResolvedValueOnce([{ id: 42 }]).mockResolvedValueOnce([
-      { party_id: 1001, direction: ContractDirection.ACTIVE, kind: ContractKind.CONCESSION },
-    ]);
+    dataSource.query
+      .mockResolvedValueOnce([{ id: 42 }])
+      .mockResolvedValueOnce([
+        { party_id: 1001, direction: ContractDirection.ACTIVE, kind: ContractKind.CONCESSION },
+      ]);
 
     const rows = await service.findAll({ kind: ContractKind.CONCESSION });
     expect(rows.map((r) => r.id)).toEqual([1001]);

@@ -75,7 +75,9 @@ describe('costInfo', () => {
   });
 
   it('Comune senza pending_since: nessun in sospeso', () => {
-    expect(costInfo({ cost_status: CostStatus.COMUNE, pending_since: null }, TODAY).pending).toBeNull();
+    expect(
+      costInfo({ cost_status: CostStatus.COMUNE, pending_since: null }, TODAY).pending,
+    ).toBeNull();
   });
 
   it('nessun pending_since: nessun in sospeso', () => {
@@ -128,7 +130,9 @@ describe('costInfo', () => {
     });
 
     it('gemella SQL', () => {
-      expect(inChargeSql('u')).toBe('(u.supply_active = 1 AND u.transferred_to_third_party_id IS NULL)');
+      expect(inChargeSql('u')).toBe(
+        '(u.supply_active = 1 AND u.transferred_to_third_party_id IS NULL)',
+      );
       expect(inChargeSql()).toContain('Utility.supply_active = 1');
     });
   });
@@ -147,7 +151,9 @@ describe('supplyPending', () => {
   });
 
   it('attivazione richiesta: tipo, data e giorni', () => {
-    expect(supplyPending([{ type: SupplyEventType.ACTIVATION, since: '2026-10-07' }], TODAY)).toEqual({
+    expect(
+      supplyPending([{ type: SupplyEventType.ACTIVATION, since: '2026-10-07' }], TODAY),
+    ).toEqual({
       type: SupplyEventType.ACTIVATION,
       since: '2026-10-07',
       days: 12,

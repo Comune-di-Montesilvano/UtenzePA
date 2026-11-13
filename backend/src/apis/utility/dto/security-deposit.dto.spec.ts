@@ -30,10 +30,10 @@ describe('numeri facoltativi null', () => {
     ['create', CreateUtilityDto],
     ['update', UpdateUtilityDto],
   ])('%s: null resta null, valido', async (_l, Dto) => {
-    const dto = plainToInstance(Dto as never, { security_deposit: null, power_kw_electric: null }) as Record<
-      string,
-      unknown
-    >;
+    const dto = plainToInstance(Dto as never, {
+      security_deposit: null,
+      power_kw_electric: null,
+    }) as Record<string, unknown>;
     expect(dto.security_deposit).toBeNull();
     expect(dto.power_kw_electric).toBeNull();
     const errors = (await validate(dto as object)).filter((e) =>
@@ -43,7 +43,10 @@ describe('numeri facoltativi null', () => {
   });
 
   it('update: stringa numerica convertita', () => {
-    const dto = plainToInstance(UpdateUtilityDto, { security_deposit: '12.5', power_kw_electric: '3' });
+    const dto = plainToInstance(UpdateUtilityDto, {
+      security_deposit: '12.5',
+      power_kw_electric: '3',
+    });
     expect(dto.security_deposit).toBe(12.5);
     expect(dto.power_kw_electric).toBe(3);
   });

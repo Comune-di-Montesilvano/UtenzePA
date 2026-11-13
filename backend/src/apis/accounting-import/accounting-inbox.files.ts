@@ -82,9 +82,7 @@ export function readReady(dir: string, name = 'ready'): TinnReady | null {
   return { backupSha256: str(r?.backup_sha256) ?? '', extractedAt: str(r?.extracted_at) };
 }
 
-export function readCsvs(
-  dir: string,
-): Partial<Record<keyof typeof INBOX_CSV, Buffer>> | null {
+export function readCsvs(dir: string): Partial<Record<keyof typeof INBOX_CSV, Buffer>> | null {
   const paths = Object.entries(INBOX_CSV).map(([kind, name]) => [kind, join(dir, name)] as const);
   if (paths.some(([kind, path]) => !OPTIONAL_CSV.has(kind) && !existsSync(path))) return null;
   return Object.fromEntries(

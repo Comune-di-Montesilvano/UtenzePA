@@ -43,7 +43,12 @@ const MS_PER_DAY = 86_400_000;
 export const WINDOW_DAYS = 365;
 // Scarto ammesso tra somma delle fasce e consumo del periodo (arrotondamenti).
 export const BAND_TOLERANCE_KWH = 1;
-export const BAND_FIELDS = ['consumption_f0', 'consumption_f1', 'consumption_f2', 'consumption_f3'] as const;
+export const BAND_FIELDS = [
+  'consumption_f0',
+  'consumption_f1',
+  'consumption_f2',
+  'consumption_f3',
+] as const;
 type BandField = (typeof BAND_FIELDS)[number];
 const BAND_KEY: Record<BandField, BandKey> = {
   consumption_f0: 'F0',
@@ -238,7 +243,10 @@ function layeredDaily(records: ConsumptionRecord[], field?: BandField): Map<numb
       if (Number(b.reading_value) - Number(a.reading_value) < 0) continue;
       let rate: number | null = (Number(b.reading_value) - Number(a.reading_value)) / (to - from);
       if (field) {
-        rate = hasValue(a[field]) && hasValue(b[field]) ? (Number(b[field]) - Number(a[field])) / (to - from) : null;
+        rate =
+          hasValue(a[field]) && hasValue(b[field])
+            ? (Number(b[field]) - Number(a[field])) / (to - from)
+            : null;
         if (rate !== null && rate < 0) rate = null;
       }
       for (let d = from + 1; d <= to; d++) {
@@ -260,7 +268,9 @@ export function buildDailyConsumption(records: ConsumptionRecord[]): Map<number,
 // Mappe giorno -> consumo per fascia (solo fasce con almeno un dato): dai
 // periodi con la fascia valorizzata e dalle coppie di letture con entrambi i
 // totalizzatori, con la stessa priorità del totale.
-export function buildDailyBands(records: ConsumptionRecord[]): Partial<Record<BandKey, Map<number, number>>> {
+export function buildDailyBands(
+  records: ConsumptionRecord[],
+): Partial<Record<BandKey, Map<number, number>>> {
   const out: Partial<Record<BandKey, Map<number, number>>> = {};
   for (const f of BAND_FIELDS) {
     const daily = layeredDaily(records, f);
@@ -280,7 +290,13 @@ export function supersededIds(records: ConsumptionRecord[]): Set<number> {
   }
   const realDays = new Set<number>();
   for (const r of records) {
-    if (r.kind !== ConsumptionKind.PERIOD || !r.period_start || !r.period_end || r.consumption == null || isEst(r))
+    if (
+      r.kind !== ConsumptionKind.PERIOD ||
+      !r.period_start ||
+      !r.period_end ||
+      r.consumption == null ||
+      isEst(r)
+    )
       continue;
     for (let d = toDay(r.period_start); d <= toDay(r.period_end); d++) realDays.add(d);
   }
@@ -289,7 +305,13 @@ export function supersededIds(records: ConsumptionRecord[]): Set<number> {
     for (let d = toDay(a.reading_date) + 1; d <= toDay(b.reading_date); d++) realDays.add(d);
   }
   for (const r of records) {
-    if (r.kind !== ConsumptionKind.PERIOD || !isEst(r) || !r.period_start || !r.period_end || r.id === undefined)
+    if (
+      r.kind !== ConsumptionKind.PERIOD ||
+      !isEst(r) ||
+      !r.period_start ||
+      !r.period_end ||
+      r.id === undefined
+    )
       continue;
     let all = true;
     for (let d = toDay(r.period_start); d <= toDay(r.period_end) && all; d++) all = realDays.has(d);

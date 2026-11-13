@@ -47,11 +47,21 @@ export class CreateContract1788504891423 implements MigrationInterface {
     await queryRunner.query(
       'ALTER TABLE `contract_utilities` DROP FOREIGN KEY `FK_85d2825e71c7e216147a0dd73af`',
     );
-    await queryRunner.query('ALTER TABLE `contracts` DROP FOREIGN KEY `FK_4a9b1d7a38f0ff6ce4eb2478242`');
-    await queryRunner.query('ALTER TABLE `contracts` DROP FOREIGN KEY `FK_3ffd48901e416673c6e4a7b724b`');
-    await queryRunner.query('ALTER TABLE `contracts` DROP FOREIGN KEY `FK_30a6bb6b4b452ebed2a1479261f`');
-    await queryRunner.query('ALTER TABLE `contracts` DROP FOREIGN KEY `FK_3539f488388f2a3ddd4a45abbe6`');
-    await queryRunner.query('ALTER TABLE `invoices` DROP FOREIGN KEY `FK_fb520b9ab1cf9cb34bd02f88a5d`');
+    await queryRunner.query(
+      'ALTER TABLE `contracts` DROP FOREIGN KEY `FK_4a9b1d7a38f0ff6ce4eb2478242`',
+    );
+    await queryRunner.query(
+      'ALTER TABLE `contracts` DROP FOREIGN KEY `FK_3ffd48901e416673c6e4a7b724b`',
+    );
+    await queryRunner.query(
+      'ALTER TABLE `contracts` DROP FOREIGN KEY `FK_30a6bb6b4b452ebed2a1479261f`',
+    );
+    await queryRunner.query(
+      'ALTER TABLE `contracts` DROP FOREIGN KEY `FK_3539f488388f2a3ddd4a45abbe6`',
+    );
+    await queryRunner.query(
+      'ALTER TABLE `invoices` DROP FOREIGN KEY `FK_fb520b9ab1cf9cb34bd02f88a5d`',
+    );
     await queryRunner.query('DROP INDEX `IDX_4e326a469113167f19437d5c5c` ON `contract_utilities`');
     await queryRunner.query('DROP INDEX `IDX_85d2825e71c7e216147a0dd73a` ON `contract_utilities`');
     await queryRunner.query('ALTER TABLE `invoices` DROP COLUMN `contratto_id_fk`');

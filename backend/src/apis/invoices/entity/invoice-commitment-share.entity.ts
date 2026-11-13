@@ -26,7 +26,10 @@ export class InvoiceCommitmentShare {
     type: 'decimal',
     precision: 12,
     scale: 2,
-    transformer: { to: (v: number | null) => v, from: (v: string | null) => (v === null ? null : Number(v)) },
+    transformer: {
+      to: (v: number | null) => v,
+      from: (v: string | null) => (v === null ? null : Number(v)),
+    },
   })
   amount: number;
 
@@ -34,10 +37,16 @@ export class InvoiceCommitmentShare {
   source: CommitmentShareSource;
 
   @ManyToOne(() => Invoice, (i) => i.commitmentShares, { onDelete: 'CASCADE', nullable: false })
-  @JoinColumn({ name: 'invoice_id_fk', foreignKeyConstraintName: 'FK_invoice_commitment_shares_invoice' })
+  @JoinColumn({
+    name: 'invoice_id_fk',
+    foreignKeyConstraintName: 'FK_invoice_commitment_shares_invoice',
+  })
   invoice: Invoice;
 
   @ManyToOne(() => BudgetCommitment, { onDelete: 'RESTRICT', nullable: false })
-  @JoinColumn({ name: 'commitment_id_fk', foreignKeyConstraintName: 'FK_invoice_commitment_shares_commitment' })
+  @JoinColumn({
+    name: 'commitment_id_fk',
+    foreignKeyConstraintName: 'FK_invoice_commitment_shares_commitment',
+  })
   commitment: BudgetCommitment;
 }

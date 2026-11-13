@@ -54,7 +54,7 @@ describe('SetupService', () => {
       process.env.SETUP_BOOTSTRAP_TOKEN = originalBootstrapToken;
     });
 
-    it('genera un OTP a 6 cifre, hasha la password e invia l\'email se non esiste nessun admin', async () => {
+    it("genera un OTP a 6 cifre, hasha la password e invia l'email se non esiste nessun admin", async () => {
       userRepository.count.mockResolvedValue(0);
 
       const result = await service.requestOtp({
@@ -135,7 +135,7 @@ describe('SetupService', () => {
       return otp;
     };
 
-    it('crea l\'admin se OTP corretto e nessun utente esiste ancora', async () => {
+    it("crea l'admin se OTP corretto e nessun utente esiste ancora", async () => {
       const manager = {
         query: jest.fn(),
         insert: jest.fn().mockResolvedValue({ identifiers: [{ id: 1 }] }),
@@ -180,7 +180,7 @@ describe('SetupService', () => {
       expect(manager.insert).not.toHaveBeenCalled();
     });
 
-    it('rifiuta se non c\'è nessuna richiesta pendente', async () => {
+    it("rifiuta se non c'è nessuna richiesta pendente", async () => {
       const result = await service.verifyOtp('nessuno@comune.it', '123456');
 
       expect(result).toBe(false);
@@ -195,9 +195,7 @@ describe('SetupService', () => {
       const otp = await requestValidPending(manager);
       userRepository.count.mockResolvedValue(0);
 
-      await expect(service.verifyOtp('admin@comune.it', otp)).rejects.toThrow(
-        'ER_DUP_ENTRY',
-      );
+      await expect(service.verifyOtp('admin@comune.it', otp)).rejects.toThrow('ER_DUP_ENTRY');
 
       expect(manager.query).toHaveBeenCalledWith('SET FOREIGN_KEY_CHECKS=0');
       expect(manager.query).toHaveBeenCalledWith('SET FOREIGN_KEY_CHECKS=1');
@@ -219,7 +217,7 @@ describe('SetupService', () => {
       expect(manager.insert).not.toHaveBeenCalled();
     });
 
-    it('invalida lo stato pendente dopo troppi tentativi falliti, rifiutando anche l\'OTP corretto', async () => {
+    it("invalida lo stato pendente dopo troppi tentativi falliti, rifiutando anche l'OTP corretto", async () => {
       const manager = { query: jest.fn(), insert: jest.fn(), update: jest.fn() };
       const otp = await requestValidPending(manager);
       userRepository.count.mockResolvedValue(0);

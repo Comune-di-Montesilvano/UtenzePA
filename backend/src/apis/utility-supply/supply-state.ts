@@ -217,8 +217,7 @@ export function validateEvent(
   // così (es. dalla migration) resta modificabile.
   const supplyType =
     candidate.type === SupplyEventType.ACTIVATION || candidate.type === SupplyEventType.CESSATION;
-  const alreadyUnknown =
-    !!previous && previous.date_unknown && previous.type === candidate.type;
+  const alreadyUnknown = !!previous && previous.date_unknown && previous.type === candidate.type;
   if (
     supplyType &&
     candidate.date_unknown &&
@@ -237,7 +236,12 @@ export function validateEvent(
   if (
     holderType &&
     candidate.date_unknown &&
-    !(previous && previous.date_unknown && isHolderChange(previous) && previous.type === candidate.type) &&
+    !(
+      previous &&
+      previous.date_unknown &&
+      isHolderChange(previous) &&
+      previous.type === candidate.type
+    ) &&
     others.some((o) => isLive(o) && isHolderChange(o) && !o.date_unknown && !!o.effective_on)
   ) {
     return DATE_UNKNOWN_WITH_TRANSFER_DATES_MESSAGE;

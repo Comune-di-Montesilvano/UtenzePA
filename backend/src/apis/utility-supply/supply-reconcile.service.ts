@@ -529,9 +529,7 @@ export class SupplyReconcileService {
   // utente, cioè l'utente di sistema (SYSTEM_USER_ID = -1) dove esiste. Non in
   // cache: l'utente può essere eliminato tra un giro e l'altro.
   private async fallbackUserId(m: EntityManager): Promise<number> {
-    const rows: { id: number | null }[] = await m.query(
-      'SELECT MIN(id) AS id FROM system_users',
-    );
+    const rows: { id: number | null }[] = await m.query('SELECT MIN(id) AS id FROM system_users');
     const id = rows[0]?.id;
     if (id === null || id === undefined) {
       throw new Error('Nessun utente in system_users: impossibile registrare le righe automatiche');

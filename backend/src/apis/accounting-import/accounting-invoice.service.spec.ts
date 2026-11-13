@@ -231,8 +231,20 @@ describe('AccountingInvoiceService', () => {
     const { service } = setup({
       liquidations: [],
       invoices: [
-        { id: 501, supplier_vat: '00000000001', invoice_number: 'FT/12', invoice_date: '2026-03-01', sdi_identifier: null },
-        { id: 502, supplier_vat: '00000000001', invoice_number: 'NC/1', invoice_date: '2026-04-01', sdi_identifier: '888' },
+        {
+          id: 501,
+          supplier_vat: '00000000001',
+          invoice_number: 'FT/12',
+          invoice_date: '2026-03-01',
+          sdi_identifier: null,
+        },
+        {
+          id: 502,
+          supplier_vat: '00000000001',
+          invoice_number: 'NC/1',
+          invoice_date: '2026-04-01',
+          sdi_identifier: '888',
+        },
       ],
       creditNotes: [
         {

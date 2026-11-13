@@ -9,7 +9,13 @@ describe('ConsumptionRecalcService', () => {
   let service: ConsumptionRecalcService;
   let consumptionRepo: { find: jest.Mock };
   let utilityRepo: { findOne: jest.Mock; update: jest.Mock; createQueryBuilder: jest.Mock };
-  let qb: { innerJoin: jest.Mock; select: jest.Mock; where: jest.Mock; andWhere: jest.Mock; getRawMany: jest.Mock };
+  let qb: {
+    innerJoin: jest.Mock;
+    select: jest.Mock;
+    where: jest.Mock;
+    andWhere: jest.Mock;
+    getRawMany: jest.Mock;
+  };
 
   const utility = (overrides: Record<string, unknown> = {}) => ({
     id: 7,
@@ -22,7 +28,13 @@ describe('ConsumptionRecalcService', () => {
 
   // 2026-07-01..2026-07-10, 100 totali: effettivo 100, copertura 10, stima 3650
   const julyPeriod = [
-    { id: 1, kind: ConsumptionKind.PERIOD, period_start: '2026-07-01', period_end: '2026-07-10', consumption: '100.000' },
+    {
+      id: 1,
+      kind: ConsumptionKind.PERIOD,
+      period_start: '2026-07-01',
+      period_end: '2026-07-10',
+      consumption: '100.000',
+    },
   ];
 
   beforeEach(() => {
@@ -59,7 +71,10 @@ describe('ConsumptionRecalcService', () => {
 
   it('manuale valida: aggiorna solo effettivo e copertura', async () => {
     utilityRepo.findOne.mockResolvedValue(
-      utility({ estimated_consumption_source: EstimateSource.MANUAL, estimated_consumption_set_at: new Date('2026-03-01') }),
+      utility({
+        estimated_consumption_source: EstimateSource.MANUAL,
+        estimated_consumption_set_at: new Date('2026-03-01'),
+      }),
     );
     await service.recalcUtility(7, NOW);
     const patch = utilityRepo.update.mock.calls[0][1];
@@ -74,11 +89,20 @@ describe('ConsumptionRecalcService', () => {
       const m = ((9 + i) % 12) + 1;
       const last = new Date(y, m, 0).getDate();
       const mm = String(m).padStart(2, '0');
-      return { id: i + 1, kind: ConsumptionKind.PERIOD, period_start: `${y}-${mm}-01`, period_end: `${y}-${mm}-${last}`, consumption: '310.000' };
+      return {
+        id: i + 1,
+        kind: ConsumptionKind.PERIOD,
+        period_start: `${y}-${mm}-01`,
+        period_end: `${y}-${mm}-${last}`,
+        consumption: '310.000',
+      };
     });
     consumptionRepo.find.mockResolvedValue(months);
     utilityRepo.findOne.mockResolvedValue(
-      utility({ estimated_consumption_source: EstimateSource.MANUAL, estimated_consumption_set_at: new Date('2026-09-19') }),
+      utility({
+        estimated_consumption_source: EstimateSource.MANUAL,
+        estimated_consumption_set_at: new Date('2026-09-19'),
+      }),
     );
     await service.recalcUtility(7, NOW);
     const patch = utilityRepo.update.mock.calls[0][1];
@@ -88,16 +112,24 @@ describe('ConsumptionRecalcService', () => {
 
   it('manuale scaduta con storico: passa a HISTORY', async () => {
     utilityRepo.findOne.mockResolvedValue(
-      utility({ estimated_consumption_source: EstimateSource.MANUAL, estimated_consumption_set_at: new Date('2025-01-01') }),
+      utility({
+        estimated_consumption_source: EstimateSource.MANUAL,
+        estimated_consumption_set_at: new Date('2025-01-01'),
+      }),
     );
     await service.recalcUtility(7, NOW);
-    expect(utilityRepo.update.mock.calls[0][1].estimated_consumption_source).toBe(EstimateSource.HISTORY);
+    expect(utilityRepo.update.mock.calls[0][1].estimated_consumption_source).toBe(
+      EstimateSource.HISTORY,
+    );
   });
 
   it('manuale scaduta senza storico: stima invariata', async () => {
     consumptionRepo.find.mockResolvedValue([]);
     utilityRepo.findOne.mockResolvedValue(
-      utility({ estimated_consumption_source: EstimateSource.MANUAL, estimated_consumption_set_at: new Date('2025-01-01') }),
+      utility({
+        estimated_consumption_source: EstimateSource.MANUAL,
+        estimated_consumption_set_at: new Date('2025-01-01'),
+      }),
     );
     await service.recalcUtility(7, NOW);
     const patch = utilityRepo.update.mock.calls[0][1];
@@ -106,7 +138,9 @@ describe('ConsumptionRecalcService', () => {
   });
 
   it('utenza INTERNET o inesistente: nessuna scrittura', async () => {
-    utilityRepo.findOne.mockResolvedValue(utility({ utilityType: { hard_type: HardTypeEnum.INTERNET } }));
+    utilityRepo.findOne.mockResolvedValue(
+      utility({ utilityType: { hard_type: HardTypeEnum.INTERNET } }),
+    );
     await service.recalcUtility(7, NOW);
     utilityRepo.findOne.mockResolvedValue(null);
     await service.recalcUtility(8, NOW);
@@ -128,7 +162,9 @@ describe('ConsumptionRecalcService', () => {
 
   it('recalcAll: continua dopo un errore su una utenza', async () => {
     qb.getRawMany.mockResolvedValue([{ id: 1 }, { id: 2 }]);
-    utilityRepo.findOne.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce(utility({ id: 2 }));
+    utilityRepo.findOne
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce(utility({ id: 2 }));
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
     await expect(service.recalcAll(NOW)).resolves.toEqual({ processed: 1, failed: 1 });
     expect(utilityRepo.update).toHaveBeenCalledTimes(1);

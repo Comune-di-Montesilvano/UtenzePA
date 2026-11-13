@@ -19,7 +19,11 @@ function ev(p: Partial<SupplyEventLike> & { type: SupplyEventType }): SupplyEven
   };
 }
 const T = SupplyEventType;
-const line = (period_start: string | null, period_end: string | null, invoice_date = '2026-01-15') => ({
+const line = (
+  period_start: string | null,
+  period_end: string | null,
+  invoice_date = '2026-01-15',
+) => ({
   period_start,
   period_end,
   invoice_date,

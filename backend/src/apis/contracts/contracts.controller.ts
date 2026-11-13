@@ -45,10 +45,7 @@ export class ContractsController {
 
   @Roles('Admin', 'Operatore')
   @Post()
-  create(
-    @Body() dto: CreateContractDto,
-    @CurrentUser() user: ICurrentUser,
-  ): Promise<Contract> {
+  create(@Body() dto: CreateContractDto, @CurrentUser() user: ICurrentUser): Promise<Contract> {
     return this.service.create(dto, user.id);
   }
 

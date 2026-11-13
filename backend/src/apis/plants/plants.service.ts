@@ -128,9 +128,9 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     if (filters.type) where.type = filters.type;
     if (filters.status) where.status = filters.status;
     const today = this.today();
-    let rows = (
-      await this.repo.find({ where, relations: RELATIONS, order: { code: 'ASC' } })
-    ).map((p) => this.toRow(p, today));
+    let rows = (await this.repo.find({ where, relations: RELATIONS, order: { code: 'ASC' } })).map(
+      (p) => this.toRow(p, today),
+    );
     if (filters.asset_id) {
       rows = rows.filter((p) => (p.assets ?? []).some((a) => a.id === filters.asset_id));
     }
@@ -197,10 +197,17 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
         ...(userId !== undefined && { created_by_user_id: userId, updated_by_user_id: userId }),
       } as never),
     )) as unknown as Plant;
-    await this.saveDetails(saved.id, rest.type, { thermal, elevator, electrical }, userId ?? saved.updated_by_user_id);
+    await this.saveDetails(
+      saved.id,
+      rest.type,
+      { thermal, elevator, electrical },
+      userId ?? saved.updated_by_user_id,
+    );
     await this.recordAudit(AuditAction.CREATE, saved.id, userId ?? saved.updated_by_user_id, []);
     if (!isSet(rest.latitude) || !isSet(rest.longitude)) {
-      await this.geocode(saved.id, rest.address ?? null, rest.civic_number ?? null).catch(() => undefined);
+      await this.geocode(saved.id, rest.address ?? null, rest.civic_number ?? null).catch(
+        () => undefined,
+      );
     }
     return this.findOne(saved.id);
   }
@@ -217,7 +224,8 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
       rest.code = rest.code.trim();
     }
     const assets = asset_ids === undefined ? undefined : await this.resolveAssets(asset_ids);
-    const utilities = utility_ids === undefined ? undefined : await this.resolveUtilities(utility_ids);
+    const utilities =
+      utility_ids === undefined ? undefined : await this.resolveUtilities(utility_ids);
     if (utilities !== undefined) {
       const kept = new Set(utilities.map((u) => u.id));
       await this.assertNoOrphanUtilities(
@@ -228,10 +236,15 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     // Indirizzo cambiato: la vecchia geocodifica non vale più (come per gli immobili).
     const addressChanged =
       (rest.address !== undefined && (rest.address ?? null) !== (current.address ?? null)) ||
-      (rest.civic_number !== undefined && (rest.civic_number ?? null) !== (current.civic_number ?? null));
+      (rest.civic_number !== undefined &&
+        (rest.civic_number ?? null) !== (current.civic_number ?? null));
     const payload: Record<string, unknown> = { ...rest };
     if (addressChanged) {
-      Object.assign(payload, { geocoded_latitude: null, geocoded_longitude: null, geocoded_at: null });
+      Object.assign(payload, {
+        geocoded_latitude: null,
+        geocoded_longitude: null,
+        geocoded_at: null,
+      });
     }
     await super.update(id, payload as UpdatePlantDto, userId);
     // Cambio tipo: i dati specifici del tipo precedente non hanno più senso.
@@ -239,7 +252,12 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     if (type !== PlantType.THERMAL) await this.thermalRepo.delete({ plant_id: id });
     if (type !== PlantType.ELEVATOR) await this.elevatorRepo.delete({ plant_id: id });
     if (type !== PlantType.ELECTRICAL_SYSTEM) await this.electricalRepo.delete({ plant_id: id });
-    await this.saveDetails(id, type, { thermal, elevator, electrical }, userId ?? current.updated_by_user_id);
+    await this.saveDetails(
+      id,
+      type,
+      { thermal, elevator, electrical },
+      userId ?? current.updated_by_user_id,
+    );
     if (utilities !== undefined || assets !== undefined) {
       const entity = await this.repo.findOne({
         where: { id },
@@ -269,7 +287,10 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
       relations: { utilities: true },
     });
     if (!entity) throw new BadRequestException('Impianto non trovato');
-    await this.assertNoOrphanUtilities(id, (entity.utilities ?? []).map((u) => u.id));
+    await this.assertNoOrphanUtilities(
+      id,
+      (entity.utilities ?? []).map((u) => u.id),
+    );
     delete (entity as Partial<Plant>).utilities;
     entity.deleted = true;
     entity.updated_by_user_id = userId;
@@ -314,8 +335,7 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
       (dto.last_date !== undefined || dto.period_months !== undefined)
     ) {
       merged.next_date =
-        computeNextDate(merged.last_date ?? null, merged.period_months ?? null) ??
-        merged.next_date;
+        computeNextDate(merged.last_date ?? null, merged.period_months ?? null) ?? merged.next_date;
     }
     return this.inspectionRepo.save({ ...merged, updated_by_user_id: userId });
   }
@@ -482,7 +502,9 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     electrical: PlantElectricalDto,
     userId: number,
   ): Promise<void> {
-    const existing = await this.inspectionRepo.find({ where: { plant_id: plantId, deleted: false } });
+    const existing = await this.inspectionRepo.find({
+      where: { plant_id: plantId, deleted: false },
+    });
     for (const u of electricalPeriodUpdates(electrical, existing)) {
       const cur = existing.find((i) => i.id === u.id);
       await this.inspectionRepo.save({
@@ -515,13 +537,17 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
       position_quality: pos?.quality ?? PositionQuality.MISSING,
       inspection_status: SEVERITY.find((s) => statuses.includes(s)) ?? null,
       fire_equipment_status:
-        p.type === PlantType.FIRE_PROTECTION ? plantFireEquipmentStatus(fireEquipment, today) : null,
+        p.type === PlantType.FIRE_PROTECTION
+          ? plantFireEquipmentStatus(fireEquipment, today)
+          : null,
       missing_inspections: missingInspections(p, inspections),
     } as PlantRow;
     if (p.type === PlantType.THERMAL) {
       // decimal MySQL arriva come stringa.
       const kw = p.thermal?.power_kw;
-      row.obligations = thermalPlantObligations(kw === null || kw === undefined ? null : Number(kw));
+      row.obligations = thermalPlantObligations(
+        kw === null || kw === undefined ? null : Number(kw),
+      );
     }
     return row;
   }

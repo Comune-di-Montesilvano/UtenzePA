@@ -33,7 +33,9 @@ import { maskSupplierOf } from '@apis/third-parties/third-party.privacy';
 const maskInvoice = (i: Invoice, role?: string): Invoice => {
   if (!i) return i;
   const masked = maskSupplierOf(i, role);
-  return masked.contratto ? { ...masked, contratto: maskSupplierOf(masked.contratto, role) } : masked;
+  return masked.contratto
+    ? { ...masked, contratto: maskSupplierOf(masked.contratto, role) }
+    : masked;
 };
 
 @Controller('invoices')

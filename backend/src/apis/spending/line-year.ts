@@ -36,7 +36,10 @@ export function invoiceCompetenceYear(
   invoiceDate: string,
 ): number {
   const days = (values: (string | null)[]) =>
-    values.filter((v): v is string => !!v).map(day).sort();
+    values
+      .filter((v): v is string => !!v)
+      .map(day)
+      .sort();
   const starts = days(periods.map((p) => p.period_start));
   const ends = days(periods.map((p) => p.period_end));
   return lineFiscalYear(starts[0] ?? null, ends[ends.length - 1] ?? null, invoiceDate);

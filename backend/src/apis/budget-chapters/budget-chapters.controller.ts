@@ -39,7 +39,9 @@ export class BudgetChaptersController {
   }
 
   @Get(':id/consumption-summary')
-  consumptionSummary(@Param('id', ParseIntPipe) id: number): Promise<ChapterConsumptionSummaryRow[]> {
+  consumptionSummary(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<ChapterConsumptionSummaryRow[]> {
     return this.service.getConsumptionSummary(id);
   }
 

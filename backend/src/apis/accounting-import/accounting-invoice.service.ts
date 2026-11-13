@@ -46,7 +46,13 @@ export class AccountingInvoiceService {
   // Abbinamenti delle note di credito: nota e fattura di ciascuno, se in UtenzePA.
   async creditNoteLinks(): Promise<{ amount: number; noteId?: number; invoiceId?: number }[]> {
     const [links, invoices] = await Promise.all([this.data.creditNotes(), this.invoices()]);
-    const side = (key: string, sdi: string | null, number: string | null, date: string | null, vat: string | null): MatchableDocument => ({
+    const side = (
+      key: string,
+      sdi: string | null,
+      number: string | null,
+      date: string | null,
+      vat: string | null,
+    ): MatchableDocument => ({
       liquidation_key: key,
       sdi_identifier: sdi,
       invoice_number: number,
@@ -55,7 +61,13 @@ export class AccountingInvoiceService {
     });
     const docs = links.flatMap((l) => [
       side(`N|${l.link_key}`, l.note_sdi_identifier, l.note_number, l.note_date, l.supplier_vat),
-      side(`F|${l.link_key}`, l.invoice_sdi_identifier, l.invoice_number, l.invoice_date, l.supplier_vat),
+      side(
+        `F|${l.link_key}`,
+        l.invoice_sdi_identifier,
+        l.invoice_number,
+        l.invoice_date,
+        l.supplier_vat,
+      ),
     ]);
     const matched = matchInvoices(docs, invoices);
     return links.map((l) => ({

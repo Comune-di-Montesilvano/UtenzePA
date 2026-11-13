@@ -74,10 +74,20 @@ interface Share {
 
 // JSON da JSON_OBJECT/JSON_ARRAYAGG: mysql2 lo restituisce già decodificato, i mock come stringa.
 const parseJson = <T>(v: unknown): T | null =>
-  v === null || v === undefined || v === '' ? null : typeof v === 'string' ? (JSON.parse(v) as T) : (v as T);
+  v === null || v === undefined || v === ''
+    ? null
+    : typeof v === 'string'
+      ? (JSON.parse(v) as T)
+      : (v as T);
 
 const shareOf = (o: Record<string, unknown> | null): Share | null =>
-  o ? { commitment_id: Number(o.commitment_id), fiscal_year: Number(o.fiscal_year), amount: Number(o.amount) } : null;
+  o
+    ? {
+        commitment_id: Number(o.commitment_id),
+        fiscal_year: Number(o.fiscal_year),
+        amount: Number(o.amount),
+      }
+    : null;
 
 const sameShare = (a: Share | null, b: Share | null): boolean =>
   a === null || b === null
@@ -103,7 +113,9 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
   constructor(private readonly dataSource: DataSource) {}
 
   onApplicationBootstrap(): void {
-    void this.reconcileAll().catch((e: Error) => this.logger.error('Consumo impegni all’avvio fallito', e));
+    void this.reconcileAll().catch((e: Error) =>
+      this.logger.error('Consumo impegni all’avvio fallito', e),
+    );
   }
 
   // Chi deve riallinearsi dopo un giro riuscito (fabbisogno delle
@@ -117,11 +129,13 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
     contractIds.filter((id) => !!id).forEach((id) => this.pending.add(Number(id)));
     // Un giro fallito non blocca i successivi: la coda riparte dal catch,
     // il chiamante riceve comunque l'esito del proprio giro.
-    const next = this.chain.catch(() => undefined).then(async () => {
-      const batch = [...this.pending];
-      this.pending.clear();
-      if (batch.length) await this.run(batch);
-    });
+    const next = this.chain
+      .catch(() => undefined)
+      .then(async () => {
+        const batch = [...this.pending];
+        this.pending.clear();
+        if (batch.length) await this.run(batch);
+      });
     this.chain = next;
     return next;
   }
@@ -132,7 +146,10 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
     try {
       await this.reconcileContracts(contractIds);
     } catch (e) {
-      this.logger.error(`Consumo impegni fallito per i contratti ${contractIds.join(', ')}`, e as Error);
+      this.logger.error(
+        `Consumo impegni fallito per i contratti ${contractIds.join(', ')}`,
+        e as Error,
+      );
     }
   }
 
@@ -143,7 +160,10 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
       const contracts = ids(await this.dataSource.query(UTILITY_CONTRACTS_SQL, [utilityIds]));
       if (contracts.length) await this.reconcileContracts(contracts);
     } catch (e) {
-      this.logger.error(`Consumo impegni fallito per le utenze ${utilityIds.join(', ')}`, e as Error);
+      this.logger.error(
+        `Consumo impegni fallito per le utenze ${utilityIds.join(', ')}`,
+        e as Error,
+      );
     }
   }
 
@@ -168,21 +188,24 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
     // (la fattura non rientra più tra quelle dei contratti ricalcolati).
     await this.dataSource.query(ORPHANS_SQL);
     const contracts = await this.closure(start);
-    const commitments: AllocCommitment[] = (await this.dataSource.query(COMMITMENTS_SQL, [contracts])).map(
-      (r: Record<string, unknown>) => ({
-        id: Number(r.id),
-        year: r.year === null ? null : Number(r.year),
-        num: r.num === null ? null : Number(r.num),
-        sub: r.sub === null ? null : Number(r.sub),
-        amount: r.amount === null ? null : Number(r.amount),
-        chapter: Number(r.chapter),
-        fiscal_year: Number(r.fiscal_year),
-        contract_ids: idList(r.contract_ids),
-      }),
-    );
+    const commitments: AllocCommitment[] = (
+      await this.dataSource.query(COMMITMENTS_SQL, [contracts])
+    ).map((r: Record<string, unknown>) => ({
+      id: Number(r.id),
+      year: r.year === null ? null : Number(r.year),
+      num: r.num === null ? null : Number(r.num),
+      sub: r.sub === null ? null : Number(r.sub),
+      amount: r.amount === null ? null : Number(r.amount),
+      chapter: Number(r.chapter),
+      fiscal_year: Number(r.fiscal_year),
+      contract_ids: idList(r.contract_ids),
+    }));
     // [-1]: IN () vuoto non è SQL valido.
     const commitmentIds = commitments.length ? [...new Set(commitments.map((c) => c.id))] : [-1];
-    const rows: Record<string, unknown>[] = await this.dataSource.query(INVOICES_SQL, [contracts, commitmentIds]);
+    const rows: Record<string, unknown>[] = await this.dataSource.query(INVOICES_SQL, [
+      contracts,
+      commitmentIds,
+    ]);
 
     const invoices: AllocInvoice[] = [];
     // Quota automatica attuale per fattura (null = nessuna).
@@ -230,7 +253,14 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
       if (sameShare(share, wanted)) continue;
       await this.dataSource.transaction(async (m) => {
         await m.query(AUTO_DELETE_SQL, [id]);
-        if (wanted) await m.query(AUTO_INSERT_SQL, [id, wanted.commitment_id, wanted.fiscal_year, wanted.amount, id]);
+        if (wanted)
+          await m.query(AUTO_INSERT_SQL, [
+            id,
+            wanted.commitment_id,
+            wanted.fiscal_year,
+            wanted.amount,
+            id,
+          ]);
       });
     }
     for (const listener of this.listeners) {

@@ -53,8 +53,12 @@ export class InvoicePatterns1795100000000 implements MigrationInterface {
     );
     await q.query('ALTER TABLE `sdi_messages` DROP FOREIGN KEY `FK_sdi_messages_invoice`');
     await q.query('ALTER TABLE `sdi_messages` DROP FOREIGN KEY `FK_sdi_messages_pattern`');
-    await q.query('ALTER TABLE `invoice_patterns` DROP FOREIGN KEY `FK_invoice_patterns_updated_by`');
-    await q.query('ALTER TABLE `invoice_patterns` DROP FOREIGN KEY `FK_invoice_patterns_created_by`');
+    await q.query(
+      'ALTER TABLE `invoice_patterns` DROP FOREIGN KEY `FK_invoice_patterns_updated_by`',
+    );
+    await q.query(
+      'ALTER TABLE `invoice_patterns` DROP FOREIGN KEY `FK_invoice_patterns_created_by`',
+    );
     await q.query('ALTER TABLE `invoice_patterns` DROP FOREIGN KEY `FK_invoice_patterns_supplier`');
     await q.query('ALTER TABLE `invoice_lines` DROP FOREIGN KEY `FK_invoice_lines_consumption`');
     await q.query('ALTER TABLE `sdi_messages` DROP COLUMN `invoice_id_fk`');

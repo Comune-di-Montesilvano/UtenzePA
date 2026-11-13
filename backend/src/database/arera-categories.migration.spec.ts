@@ -18,7 +18,10 @@ describe('Migration AreraCategories1791600000000', () => {
 
   it('si ferma prima di qualunque DDL se trova un valore di disalimentabilità non previsto', async () => {
     const { q, calls } = runner([
-      { match: /-- preflight: disalimentabilità/, rows: [{ v: 'disalimentabile per E-DISTRIBUZIONE' }, { v: 'forse' }] },
+      {
+        match: /-- preflight: disalimentabilità/,
+        rows: [{ v: 'disalimentabile per E-DISTRIBUZIONE' }, { v: 'forse' }],
+      },
     ]);
     await expect(migration.up(q)).rejects.toThrow(/forse/);
     expect(calls.some((c) => /ALTER TABLE|DROP|CREATE/.test(c.sql))).toBe(false);

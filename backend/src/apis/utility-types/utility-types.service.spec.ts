@@ -9,7 +9,13 @@ describe('UtilityTypesService', () => {
     save: jest.Mock;
     manager: { query: jest.Mock };
   };
-  let qb: { where: jest.Mock; andWhere: jest.Mock; leftJoinAndSelect: jest.Mock; orderBy: jest.Mock; getMany: jest.Mock };
+  let qb: {
+    where: jest.Mock;
+    andWhere: jest.Mock;
+    leftJoinAndSelect: jest.Mock;
+    orderBy: jest.Mock;
+    getMany: jest.Mock;
+  };
 
   beforeEach(() => {
     qb = {
@@ -38,7 +44,9 @@ describe('UtilityTypesService', () => {
   it('findAll filtra nome e descrizione con LIKE e hard_type esatto', async () => {
     await service.findAll({ name: 'gas', hard_type: 'GAS' } as never);
     expect(qb.andWhere).toHaveBeenCalledWith('utility_types.name LIKE :name', { name: '%gas%' });
-    expect(qb.andWhere).toHaveBeenCalledWith('utility_types.hard_type = :hard_type', { hard_type: 'GAS' });
+    expect(qb.andWhere).toHaveBeenCalledWith('utility_types.hard_type = :hard_type', {
+      hard_type: 'GAS',
+    });
   });
 
   it('create salva il tipo con l’utente', async () => {
@@ -66,7 +74,13 @@ describe('UtilityTypesService', () => {
     await service.update(33, { hard_type: 'GAS' } as never, 5);
     const [sql, params] = repo.manager.query.mock.calls[0];
     expect(sql).toContain('arera_category NOT IN (?, ?, ?, ?)');
-    expect(params).toEqual([33, 'GAS_DOMESTIC', 'GAS_CONDOMINIUM_DOMESTIC', 'GAS_PUBLIC_SERVICE', 'GAS_OTHER']);
+    expect(params).toEqual([
+      33,
+      'GAS_DOMESTIC',
+      'GAS_CONDOMINIUM_DOMESTIC',
+      'GAS_PUBLIC_SERVICE',
+      'GAS_OTHER',
+    ]);
 
     repo.manager.query.mockClear();
     await service.update(33, { name: 'Acqua' } as never, 5);

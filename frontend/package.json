@@ -2,7 +2,7 @@
   "name": "montesilvano-fe",
   "version": "0.0.0",
   "license": "EUPL-1.2",
-  "packageManager": "pnpm@11.24.0",
+  "packageManager": "pnpm@11.24.0+sha512.bd27e345e976dcb0be0b7a1228217b049a817e21b1f355c90dbe7dc46671895a8bc1e6d06c24554505ea93ea0b45f489a27ec1bfbc8de6a9659fca0f16fa0000",
   "scripts": {
     "start": "ng serve --host 0.0.0.0 --port 4300 --poll 2000 --source-map=true",
     "build": "node scripts/check-guida.mjs && ng build --configuration production",
@@ -57,6 +57,7 @@
     "@eslint/js": "^10.0.1",
     "@types/leaflet": "^1.9.22",
     "@types/leaflet.markercluster": "^1.5.6",
+    "@vitest/coverage-v8": "^5.1.0",
     "angular-eslint": "22.6.0",
     "eslint": "^10.14.0",
     "istanbul-lib-instrument": "^6.0.3",

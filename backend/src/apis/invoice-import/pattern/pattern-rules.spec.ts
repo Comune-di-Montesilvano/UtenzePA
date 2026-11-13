@@ -787,7 +787,10 @@ describe('isoDate: mesi in lettere', () => {
   });
 
   it('mesi e date nello stesso testo: in ordine di comparsa', () => {
-    expect(period('emessa il 05/09/2026, periodo luglio 2026')).toEqual(['2026-09-05', '2026-07-31']);
+    expect(period('emessa il 05/09/2026, periodo luglio 2026')).toEqual([
+      '2026-09-05',
+      '2026-07-31',
+    ]);
   });
 
   it('intervallo «dal X al Y» dopo il testo: inizio X, fine Y (stessa regola dei mesi)', () => {

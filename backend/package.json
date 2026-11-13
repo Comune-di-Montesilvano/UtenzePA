@@ -8,7 +8,7 @@
   "engines": {
     "node": ">=26.0.0 <27.0.0"
   },
-  "packageManager": "pnpm@11.24.0",
+  "packageManager": "pnpm@11.24.0+sha512.bd27e345e976dcb0be0b7a1228217b049a817e21b1f355c90dbe7dc46671895a8bc1e6d06c24554505ea93ea0b45f489a27ec1bfbc8de6a9659fca0f16fa0000",
   "volta": {
     "node": "26.10.0"
   },
@@ -25,15 +25,10 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:unit": "jest --testPathPatterns=src/.*\\.spec\\.ts$",
-    "test:integration": "cross-env NODE_ENV=test jest --config jest.integration.config.js",
-    "test:integration:watch": "cross-env NODE_ENV=test jest --config jest.integration.config.js --watch",
-    "test:integration:cov": "cross-env NODE_ENV=test jest --config jest.integration.config.js --coverage",
-    "test:all": "pnpm run test:unit && pnpm run test:integration",
-    "test:ci": "jest --bail --passWithNoTests",
     "//== CODE QUALITY ==": "",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "lint:ci": "eslint \"src/**/*.ts\"",
     "lint:fix": "eslint . --fix",
     "lint:staged": "lint-staged",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -49,10 +44,6 @@
     "prepare": "husky",
     "pre-commit-test": "jest --bail --findRelatedTests --passWithNoTests",
     "//== DOCKER ==": "",
-    "docker:dev": "docker compose -f docker-compose-development.yml --env-file .env up",
-    "docker:dev:refresh": "docker compose -f docker-compose-development.yml --env-file .env up --build --force-recreate --remove-orphans",
-    "docker:dev:debug": "docker compose -f docker-compose-development.yml --env-file .env run --rm --service-ports api pnpm run start:debug",
-    "docker:dev:stop": "docker compose -f docker-compose-development.yml down",
     "docker:prod": "docker compose --env-file .env up --build --force-recreate --remove-orphans -d",
     "docker:prod:stop": "docker compose down",
     "docker:prod:log": "docker compose --env-file .env up --build --force-recreate --remove-orphans",

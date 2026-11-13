@@ -34,7 +34,9 @@ export class CommitmentYears1795900000000 implements MigrationInterface {
   // Un pluriennale torna annuale: esercizio = prima annualità, importo = somma
   // (null se un'annualità non ha importo).
   public async down(q: QueryRunner): Promise<void> {
-    await q.query('ALTER TABLE `budget_commitments` ADD `fiscal_year` int NULL, ADD `amount` decimal(14,2) NULL');
+    await q.query(
+      'ALTER TABLE `budget_commitments` ADD `fiscal_year` int NULL, ADD `amount` decimal(14,2) NULL',
+    );
     await q.query(
       'UPDATE `budget_commitments` bc JOIN (SELECT commitment_id, MIN(fiscal_year) AS y, ' +
         'IF(SUM(amount IS NULL) > 0, NULL, SUM(amount)) AS a FROM `budget_commitment_years` GROUP BY commitment_id) t ' +
@@ -45,7 +47,9 @@ export class CommitmentYears1795900000000 implements MigrationInterface {
     );
     await q.query('ALTER TABLE `budget_commitments` MODIFY `fiscal_year` int NOT NULL');
     await q.query('ALTER TABLE `invoice_lines` DROP COLUMN `commitment_fiscal_year`');
-    await q.query('ALTER TABLE `budget_commitment_years` DROP FOREIGN KEY `FK_budget_commitment_years_commitment`');
+    await q.query(
+      'ALTER TABLE `budget_commitment_years` DROP FOREIGN KEY `FK_budget_commitment_years_commitment`',
+    );
     await q.query('DROP TABLE `budget_commitment_years`');
   }
 }

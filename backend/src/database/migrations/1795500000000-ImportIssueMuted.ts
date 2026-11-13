@@ -6,9 +6,7 @@ export class ImportIssueMuted1795500000000 implements MigrationInterface {
   name = 'ImportIssueMuted1795500000000';
 
   public async up(q: QueryRunner): Promise<void> {
-    await q.query(
-      'ALTER TABLE `invoice_import_issues` ADD `muted` tinyint NOT NULL DEFAULT 0',
-    );
+    await q.query('ALTER TABLE `invoice_import_issues` ADD `muted` tinyint NOT NULL DEFAULT 0');
   }
 
   public async down(q: QueryRunner): Promise<void> {

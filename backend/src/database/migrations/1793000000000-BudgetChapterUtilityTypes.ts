@@ -30,8 +30,12 @@ export class BudgetChapterUtilityTypes1793000000000 implements MigrationInterfac
     await q.query(
       "UPDATE `budget_chapters` bc SET bc.`supply_type` = COALESCE((SELECT CASE ut.`hard_type` WHEN 'LIGHT' THEN 'ELECTRICITY' WHEN 'WATER' THEN 'WATER' WHEN 'GAS' THEN 'GAS_SUPPLY_ONLY' END FROM `budget_chapter_utility_types` x JOIN `utility_types` ut ON ut.`id` = x.`utility_type_id` WHERE x.`budget_chapter_id` = bc.`id` AND ut.`hard_type` <> 'INTERNET' ORDER BY ut.`id` LIMIT 1), 'SPRAR_UTILITIES')",
     );
-    await q.query('ALTER TABLE `budget_chapter_utility_types` DROP FOREIGN KEY `FK_61cb4ff56037a9fa026d7718f38`');
-    await q.query('ALTER TABLE `budget_chapter_utility_types` DROP FOREIGN KEY `FK_04b9bfce08bdc6b2eb70e8a27b1`');
+    await q.query(
+      'ALTER TABLE `budget_chapter_utility_types` DROP FOREIGN KEY `FK_61cb4ff56037a9fa026d7718f38`',
+    );
+    await q.query(
+      'ALTER TABLE `budget_chapter_utility_types` DROP FOREIGN KEY `FK_04b9bfce08bdc6b2eb70e8a27b1`',
+    );
     await q.query('DROP INDEX `IDX_61cb4ff56037a9fa026d7718f3` ON `budget_chapter_utility_types`');
     await q.query('DROP INDEX `IDX_04b9bfce08bdc6b2eb70e8a27b` ON `budget_chapter_utility_types`');
     await q.query('DROP TABLE `budget_chapter_utility_types`');

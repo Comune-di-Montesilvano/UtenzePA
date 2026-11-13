@@ -223,10 +223,16 @@ describe('Migration UtilitySupplyHistory1794700000000', () => {
       ['attiva senza date', {}],
       ['attiva con cessazione indicata', { activated_on: '2025-01-01', ceased_on: '2025-06-01' }],
       ['attiva con sola cessazione', { ceased_on: '2025-06-01' }],
-      ['riattivata (cessazione < attivazione)', { activated_on: '2025-05-01', ceased_on: '2025-01-01' }],
+      [
+        'riattivata (cessazione < attivazione)',
+        { activated_on: '2025-05-01', ceased_on: '2025-01-01' },
+      ],
       ['attiva con attivazione futura', { activated_on: '2999-01-01' }],
       ['attiva con cessazione futura', { activated_on: '2024-01-01', ceased_on: '2999-01-01' }],
-      ['cessata con entrambe le date', { supply_active: 0, activated_on: '2024-01-01', ceased_on: '2025-01-01' }],
+      [
+        'cessata con entrambe le date',
+        { supply_active: 0, activated_on: '2024-01-01', ceased_on: '2025-01-01' },
+      ],
       [
         'cessata con cessazione < attivazione',
         { supply_active: 0, activated_on: '2025-05-01', ceased_on: '2025-01-01' },
@@ -255,7 +261,9 @@ describe('Migration UtilitySupplyHistory1794700000000', () => {
       expect(i).toBeGreaterThan(
         calls.findIndex((c) => /INSERT INTO `utility_supply_events`/.test(c.sql)),
       );
-      expect(calls[i].sql).toMatch(/ORDER BY e\.date_unknown ASC, e\.effective_on DESC, e\.id DESC/);
+      expect(calls[i].sql).toMatch(
+        /ORDER BY e\.date_unknown ASC, e\.effective_on DESC, e\.id DESC/,
+      );
       expect(calls[i].params).toEqual([todayIso()]);
     });
 
@@ -293,7 +301,9 @@ describe('Migration UtilitySupplyHistory1794700000000', () => {
     const { q, calls } = runner();
     await new UtilitySupplyHistory1794700000000().up(q);
     const select = calls.find((c) => /-- utenze da convertire/.test(c.sql))!.sql;
-    expect(select).toMatch(/COALESCE\(\(SELECT s\.id FROM `system_users` s WHERE s\.id = utilities\.created_by_user_id\), \(SELECT MIN\(id\) FROM `system_users`\)\) AS created_by_user_id/);
+    expect(select).toMatch(
+      /COALESCE\(\(SELECT s\.id FROM `system_users` s WHERE s\.id = utilities\.created_by_user_id\), \(SELECT MIN\(id\) FROM `system_users`\)\) AS created_by_user_id/,
+    );
   });
 
   it('si ferma prima di qualunque DDL se un autore non è risolvibile, elencando gli id', async () => {
@@ -323,7 +333,9 @@ describe('Migration UtilitySupplyHistory1794700000000', () => {
     async function decisions(rows: unknown[]) {
       const { q, calls } = runner([{ match: /-- contratti attivi/, rows }]);
       await new UtilitySupplyHistory1794700000000().up(q);
-      const insert = calls.filter((c) => /INSERT INTO `utilizer_grant_utility_decisions`/.test(c.sql));
+      const insert = calls.filter((c) =>
+        /INSERT INTO `utilizer_grant_utility_decisions`/.test(c.sql),
+      );
       return insert.flatMap((c) => {
         const p = c.params as unknown[];
         const out: unknown[][] = [];

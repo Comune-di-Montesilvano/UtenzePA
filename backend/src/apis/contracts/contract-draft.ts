@@ -19,7 +19,8 @@ export interface DraftState {
 export function draftError(next: DraftState, before?: Pick<DraftState, 'draft'>): string | null {
   if (!next.draft) return null;
   if (before && !before.draft) return 'Un contratto già emesso non può tornare in bozza.';
-  if (next.closed) return 'Una bozza non può essere chiusa: eliminala oppure togli la spunta Bozza.';
+  if (next.closed)
+    return 'Una bozza non può essere chiusa: eliminala oppure togli la spunta Bozza.';
   if (!next.supply_start_date || !next.supply_expiry_date) {
     return 'Una bozza deve avere le date di fornitura previste (inizio e scadenza).';
   }

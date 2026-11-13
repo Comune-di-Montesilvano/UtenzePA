@@ -3,7 +3,12 @@ import { AssetFunctionsService } from './asset-functions.service';
 
 describe('AssetFunctionsService', () => {
   let service: AssetFunctionsService;
-  let repo: { createQueryBuilder: jest.Mock; findOne: jest.Mock; create: jest.Mock; save: jest.Mock };
+  let repo: {
+    createQueryBuilder: jest.Mock;
+    findOne: jest.Mock;
+    create: jest.Mock;
+    save: jest.Mock;
+  };
   let assetRepo: { count: jest.Mock };
   let qb: { where: jest.Mock; andWhere: jest.Mock; orderBy: jest.Mock; getMany: jest.Mock };
 

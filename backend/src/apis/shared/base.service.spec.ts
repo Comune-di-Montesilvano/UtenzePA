@@ -17,7 +17,11 @@ class TestService extends BaseService<TestEntity, Partial<TestEntity>, Partial<T
     super();
   }
 
-  applyFiltersPublic(qb: SelectQueryBuilder<TestEntity>, filters: Record<string, any>, exclude: string[] = []) {
+  applyFiltersPublic(
+    qb: SelectQueryBuilder<TestEntity>,
+    filters: Record<string, any>,
+    exclude: string[] = [],
+  ) {
     return this.applyFilters(qb, filters, 'test', exclude);
   }
 
@@ -44,7 +48,11 @@ describe('BaseService', () => {
 
   describe('applyFilters', () => {
     it('ignora le chiavi escluse', () => {
-      service.applyFiltersPublic(qb as unknown as SelectQueryBuilder<TestEntity>, { deleted: true }, ['deleted']);
+      service.applyFiltersPublic(
+        qb as unknown as SelectQueryBuilder<TestEntity>,
+        { deleted: true },
+        ['deleted'],
+      );
 
       expect(qb.andWhere).not.toHaveBeenCalled();
     });
@@ -59,7 +67,9 @@ describe('BaseService', () => {
     });
 
     it('applica LIKE per le stringhe non vuote, trimmate', () => {
-      service.applyFiltersPublic(qb as unknown as SelectQueryBuilder<TestEntity>, { name: '  mario  ' });
+      service.applyFiltersPublic(qb as unknown as SelectQueryBuilder<TestEntity>, {
+        name: '  mario  ',
+      });
 
       expect(qb.andWhere).toHaveBeenCalledWith('test.name LIKE :filter_name', {
         filter_name: '%mario%',
@@ -75,7 +85,9 @@ describe('BaseService', () => {
     it('converte i booleani in 1/0', () => {
       service.applyFiltersPublic(qb as unknown as SelectQueryBuilder<TestEntity>, { active: true });
 
-      expect(qb.andWhere).toHaveBeenCalledWith('test.active = :filter_active', { filter_active: 1 });
+      expect(qb.andWhere).toHaveBeenCalledWith('test.active = :filter_active', {
+        filter_active: 1,
+      });
     });
 
     it('applica un filtro esatto per i numeri', () => {
@@ -113,7 +125,9 @@ describe('BaseService', () => {
     });
 
     it('mappa errno 1062 in BadRequestException (400, mai 409)', () => {
-      expect(() => service.manageErrorsPublic({ errno: 1062 }, 'errore')).toThrow(BadRequestException);
+      expect(() => service.manageErrorsPublic({ errno: 1062 }, 'errore')).toThrow(
+        BadRequestException,
+      );
     });
 
     it('mappa ER_DUP_ENTRY dentro driverError in BadRequestException (400, mai 409)', () => {
@@ -158,12 +172,22 @@ describe('BaseService — audit', () => {
   });
 
   it('registra un CREATE con lo userId passato', async () => {
-    repo.save.mockResolvedValueOnce({ id: 1, name: 'Mario', deleted: false, updated_by_user_id: 9 });
+    repo.save.mockResolvedValueOnce({
+      id: 1,
+      name: 'Mario',
+      deleted: false,
+      updated_by_user_id: 9,
+    });
 
     await service.create({ name: 'Mario' } as any, 9);
 
     expect(auditLogService.record).toHaveBeenCalledWith(
-      expect.objectContaining({ entityName: 'test', entityId: 1, action: AuditAction.CREATE, userId: 9 }),
+      expect.objectContaining({
+        entityName: 'test',
+        entityId: 1,
+        action: AuditAction.CREATE,
+        userId: 9,
+      }),
     );
   });
 
@@ -178,7 +202,9 @@ describe('BaseService — audit', () => {
       expect.objectContaining({
         action: AuditAction.UPDATE,
         userId: 9,
-        fields: [expect.objectContaining({ fieldName: 'name', oldValue: 'Mario', newValue: 'Luigi' })],
+        fields: [
+          expect.objectContaining({ fieldName: 'name', oldValue: 'Mario', newValue: 'Luigi' }),
+        ],
       }),
     );
   });
@@ -216,7 +242,13 @@ describe('BaseService — audit', () => {
     const sameDate = new Date('2026-01-01T00:00:00.000Z');
     // `existing` simula l'entity idratata da mysql2 (repo.findOne): la colonna
     // date/timestamp arriva come istanza Date reale, non come stringa.
-    const existing = { id: 1, name: 'Mario', createdAt: sameDate, deleted: false, updated_by_user_id: 9 };
+    const existing = {
+      id: 1,
+      name: 'Mario',
+      createdAt: sameDate,
+      deleted: false,
+      updated_by_user_id: 9,
+    };
     repo.findOne.mockResolvedValue(existing);
     jest.spyOn(service, 'findOne').mockResolvedValue({ ...existing } as any);
 
@@ -240,7 +272,13 @@ describe('BaseService — audit', () => {
   });
 
   it('non registra un diff spurio su un campo decimal invariato (stringa "0.00" da mysql2 vs number 0 dal form)', async () => {
-    const existing = { id: 1, name: 'Mario', active: '0.00', deleted: false, updated_by_user_id: 9 };
+    const existing = {
+      id: 1,
+      name: 'Mario',
+      active: '0.00',
+      deleted: false,
+      updated_by_user_id: 9,
+    };
     repo.findOne.mockResolvedValue(existing);
     jest.spyOn(service, 'findOne').mockResolvedValue({ ...existing } as any);
 

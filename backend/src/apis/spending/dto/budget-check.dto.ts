@@ -1,5 +1,12 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsInt, IsNumber, IsOptional, ValidateNested } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  ValidateNested,
+} from 'class-validator';
 import { DateOnly } from '@/common/decorators/date-only.decorator';
 
 export class BudgetCheckLineDto {

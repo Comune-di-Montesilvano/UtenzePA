@@ -235,10 +235,7 @@ export function parseAccountingCsv(
   kind: 'liquidations',
   text: string,
 ): ParsedCsv<AccLiquidationRow>;
-export function parseAccountingCsv(
-  kind: 'credit_notes',
-  text: string,
-): ParsedCsv<AccCreditNoteRow>;
+export function parseAccountingCsv(kind: 'credit_notes', text: string): ParsedCsv<AccCreditNoteRow>;
 export function parseAccountingCsv(kind: AccKind, text: string): ParsedCsv<unknown>;
 export function parseAccountingCsv(kind: AccKind, text: string): ParsedCsv<unknown> {
   // BOM UTF-8 iniziale (Excel) tolto.

@@ -82,9 +82,9 @@ updates:
       prefix: chore
       include: scope
 
-  # Immagini base dei Dockerfile. Node del backend sta in un ARG (NODE_VERSION = major,
-  # tag mobile 26-alpine) che dependabot non segue: le patch arrivano dal rebuild
-  # giornaliero con pull, il cambio di major si fa a mano.
+  # Immagini base dei Dockerfile, con il tag scritto per intero (niente ARG, che dependabot
+  # non segue). La major di Node del backend decide anche la versione di Node della CI
+  # (tests.yml la legge da `FROM node:<major>-alpine`).
   - package-ecosystem: docker
     directories:
       - /backend

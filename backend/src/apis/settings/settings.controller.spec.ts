@@ -33,7 +33,7 @@ describe('SettingsController', () => {
     await expect(controller.getBranding()).resolves.toEqual(branding);
   });
 
-  it('updateBranding delega a service.updateBranding con l\'id dell\'utente corrente', async () => {
+  it("updateBranding delega a service.updateBranding con l'id dell'utente corrente", async () => {
     const updated = { id: 1, entity_name: 'Nuovo nome' } as AppSettings;
     service.updateBranding.mockResolvedValue(updated);
 
@@ -46,7 +46,7 @@ describe('SettingsController', () => {
     expect(result).toEqual(updated);
   });
 
-  it('updateBranding ha @UseGuards(JwtAuthGuard, RolesGuard) per proteggere l\'endpoint', () => {
+  it("updateBranding ha @UseGuards(JwtAuthGuard, RolesGuard) per proteggere l'endpoint", () => {
     const guards = Reflect.getMetadata(
       GUARDS_METADATA,
       SettingsController.prototype.updateBranding,

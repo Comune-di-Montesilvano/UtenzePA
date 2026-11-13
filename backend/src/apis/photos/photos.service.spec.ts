@@ -7,7 +7,13 @@ jest.mock('fs');
 
 describe('PhotosService', () => {
   let service: PhotosService;
-  let photoRepo: { count: jest.Mock; create: jest.Mock; save: jest.Mock; findOne: jest.Mock; remove: jest.Mock };
+  let photoRepo: {
+    count: jest.Mock;
+    create: jest.Mock;
+    save: jest.Mock;
+    findOne: jest.Mock;
+    remove: jest.Mock;
+  };
   let assetRepo: { exists: jest.Mock };
   let utilityRepo: { exists: jest.Mock };
   let plantRepo: { exists: jest.Mock };
@@ -41,16 +47,24 @@ describe('PhotosService', () => {
 
   describe('create', () => {
     it('rifiuta un mime type non in allowlist', async () => {
-      const file = { mimetype: 'application/pdf', buffer: Buffer.from(''), originalname: 'f.pdf' } as Express.Multer.File;
+      const file = {
+        mimetype: 'application/pdf',
+        buffer: Buffer.from(''),
+        originalname: 'f.pdf',
+      } as Express.Multer.File;
 
       await expect(
         service.create({ entityType: PhotoEntityType.ASSET, entityId: 1 }, file, 1),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('rifiuta se l\'entità collegata non esiste', async () => {
+    it("rifiuta se l'entità collegata non esiste", async () => {
       assetRepo.exists.mockResolvedValue(false);
-      const file = { mimetype: 'image/jpeg', buffer: Buffer.from('x'), originalname: 'f.jpg' } as Express.Multer.File;
+      const file = {
+        mimetype: 'image/jpeg',
+        buffer: Buffer.from('x'),
+        originalname: 'f.jpg',
+      } as Express.Multer.File;
 
       await expect(
         service.create({ entityType: PhotoEntityType.ASSET, entityId: 999 }, file, 1),
@@ -59,7 +73,11 @@ describe('PhotosService', () => {
 
     it('controlla l’esistenza dell’impianto per le foto di un impianto', async () => {
       plantRepo.exists.mockResolvedValue(false);
-      const file = { mimetype: 'image/jpeg', buffer: Buffer.from('x'), originalname: 'f.jpg' } as Express.Multer.File;
+      const file = {
+        mimetype: 'image/jpeg',
+        buffer: Buffer.from('x'),
+        originalname: 'f.jpg',
+      } as Express.Multer.File;
 
       await expect(
         service.create({ entityType: PhotoEntityType.PLANT, entityId: 3 }, file, 1),
@@ -69,7 +87,11 @@ describe('PhotosService', () => {
 
     it('controlla l’esistenza del complesso per le foto di un complesso', async () => {
       complexRepo.exists.mockResolvedValue(false);
-      const file = { mimetype: 'image/jpeg', buffer: Buffer.from('x'), originalname: 'f.jpg' } as Express.Multer.File;
+      const file = {
+        mimetype: 'image/jpeg',
+        buffer: Buffer.from('x'),
+        originalname: 'f.jpg',
+      } as Express.Multer.File;
 
       await expect(
         service.create({ entityType: PhotoEntityType.COMPLEX, entityId: 4 }, file, 1),
@@ -79,18 +101,30 @@ describe('PhotosService', () => {
 
     it('rifiuta se è già stato raggiunto il limite di 10 foto', async () => {
       photoRepo.count.mockResolvedValue(10);
-      const file = { mimetype: 'image/jpeg', buffer: Buffer.from('x'), originalname: 'f.jpg' } as Express.Multer.File;
+      const file = {
+        mimetype: 'image/jpeg',
+        buffer: Buffer.from('x'),
+        originalname: 'f.jpg',
+      } as Express.Multer.File;
 
       await expect(
         service.create({ entityType: PhotoEntityType.ASSET, entityId: 1 }, file, 1),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('salva il file jpeg così com\'è e crea la riga DB', async () => {
+    it("salva il file jpeg così com'è e crea la riga DB", async () => {
       const buffer = Buffer.from('jpeg-bytes');
-      const file = { mimetype: 'image/jpeg', buffer, originalname: 'foto.jpg' } as Express.Multer.File;
+      const file = {
+        mimetype: 'image/jpeg',
+        buffer,
+        originalname: 'foto.jpg',
+      } as Express.Multer.File;
 
-      const result = await service.create({ entityType: PhotoEntityType.UTILITY, entityId: 42 }, file, 7);
+      const result = await service.create(
+        { entityType: PhotoEntityType.UTILITY, entityId: 42 },
+        file,
+        7,
+      );
 
       expect(fs.writeFileSync).toHaveBeenCalledWith(expect.any(String), buffer);
       expect(photoRepo.save).toHaveBeenCalledWith(
@@ -112,30 +146,59 @@ describe('PhotosService', () => {
       jest.resetModules();
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { PhotosService: FreshPhotosService } = require('./photos.service');
-      const freshService = new FreshPhotosService(photoRepo as never, assetRepo as never, utilityRepo as never, plantRepo as never, complexRepo as never);
+      const freshService = new FreshPhotosService(
+        photoRepo as never,
+        assetRepo as never,
+        utilityRepo as never,
+        plantRepo as never,
+        complexRepo as never,
+      );
 
-      const file = { mimetype: 'image/heic', buffer: Buffer.from('heic-bytes'), originalname: 'foto.heic' } as Express.Multer.File;
+      const file = {
+        mimetype: 'image/heic',
+        buffer: Buffer.from('heic-bytes'),
+        originalname: 'foto.heic',
+      } as Express.Multer.File;
 
       await freshService.create({ entityType: PhotoEntityType.ASSET, entityId: 1 }, file, 1);
 
-      expect(photoRepo.save).toHaveBeenCalledWith(expect.objectContaining({ mime_type: 'image/jpeg' }));
+      expect(photoRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ mime_type: 'image/jpeg' }),
+      );
       jest.dontMock('heic-convert');
     });
 
     it('lancia BadRequestException (non 500) se la conversione heic fallisce, senza scrivere file', async () => {
-      jest.doMock('heic-convert', () => jest.fn().mockRejectedValue(new Error('formato non riconosciuto')), {
-        virtual: true,
-      });
+      jest.doMock(
+        'heic-convert',
+        () => jest.fn().mockRejectedValue(new Error('formato non riconosciuto')),
+        {
+          virtual: true,
+        },
+      );
       jest.resetModules();
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { PhotosService: FreshPhotosService } = require('./photos.service');
-      const freshService = new FreshPhotosService(photoRepo as never, assetRepo as never, utilityRepo as never, plantRepo as never, complexRepo as never);
+      const freshService = new FreshPhotosService(
+        photoRepo as never,
+        assetRepo as never,
+        utilityRepo as never,
+        plantRepo as never,
+        complexRepo as never,
+      );
 
-      const file = { mimetype: 'image/heic', buffer: Buffer.from('heic-bytes'), originalname: 'foto.heic' } as Express.Multer.File;
+      const file = {
+        mimetype: 'image/heic',
+        buffer: Buffer.from('heic-bytes'),
+        originalname: 'foto.heic',
+      } as Express.Multer.File;
 
       await expect(
         freshService.create({ entityType: PhotoEntityType.ASSET, entityId: 1 }, file, 1),
-      ).rejects.toMatchObject({ status: 400, message: 'Immagine HEIC non valida o non convertibile' });
+      ).rejects.toMatchObject({
+        status: 400,
+        message: 'Immagine HEIC non valida o non convertibile',
+      });
 
       expect(fs.writeFileSync).not.toHaveBeenCalled();
       expect(photoRepo.save).not.toHaveBeenCalled();
@@ -146,7 +209,13 @@ describe('PhotosService', () => {
   describe('findAll', () => {
     it('filtra per entity_type/entity_id e deleted=false', async () => {
       const repoFindAll = { ...photoRepo, find: jest.fn().mockResolvedValue([]) };
-      const svc = new PhotosService(repoFindAll as never, assetRepo as never, utilityRepo as never, plantRepo as never, complexRepo as never);
+      const svc = new PhotosService(
+        repoFindAll as never,
+        assetRepo as never,
+        utilityRepo as never,
+        plantRepo as never,
+        complexRepo as never,
+      );
 
       await svc.findAll(PhotoEntityType.ASSET, 5);
 

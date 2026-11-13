@@ -85,7 +85,8 @@ export class ConsumptionRecalcService {
   // Ricalcolo completo su richiesta di un Admin (es. dopo un import diretto
   // sul DB): uno alla volta, anche rispetto a quello notturno.
   async recalcAllManual(): Promise<{ processed: number; failed: number }> {
-    if (this.running) throw new BadRequestException('Ricalcolo dei consumi già in corso, riprova tra poco.');
+    if (this.running)
+      throw new BadRequestException('Ricalcolo dei consumi già in corso, riprova tra poco.');
     return this.exclusive(() => this.recalcAll());
   }
 

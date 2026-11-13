@@ -101,11 +101,14 @@ describe('SupplyEventsService', () => {
   it('create: 400 con il messaggio di validateEvent', async () => {
     const { service, reconcile } = build([activation]);
     await expect(
-      service.create({ utility_id_fk: 7, type: SupplyEventType.CESSATION, effective_on: '2026-12-01' }, 42),
+      service.create(
+        { utility_id_fk: 7, type: SupplyEventType.CESSATION, effective_on: '2026-12-01' },
+        42,
+      ),
     ).rejects.toThrow(new BadRequestException('La data effettiva non può essere nel futuro.'));
-    await expect(service.create({ utility_id_fk: 7, type: SupplyEventType.RETURN }, 42)).rejects.toThrow(
-      new BadRequestException("L'utenza è già intestata al Comune."),
-    );
+    await expect(
+      service.create({ utility_id_fk: 7, type: SupplyEventType.RETURN }, 42),
+    ).rejects.toThrow(new BadRequestException("L'utenza è già intestata al Comune."));
     expect(reconcile.reconcileWith).not.toHaveBeenCalled();
   });
 
@@ -127,16 +130,39 @@ describe('SupplyEventsService', () => {
       third_party_id_fk: 5,
     });
     // Stato risultante: intestata al terzo da prima di ogni data.
-    expect(stateAt(rows.map((r) => toEventLike(r as never)), '2026-10-19').holderId).toBe(5);
+    expect(
+      stateAt(
+        rows.map((r) => toEventLike(r as never)),
+        '2026-10-19',
+      ).holderId,
+    ).toBe(5);
     // Reintestazione «data non nota» dopo una voltura data non nota: torna al Comune.
-    const unknownTransfer = event({ id: 2, type: SupplyEventType.TRANSFER, third_party_id_fk: 5, date_unknown: true });
+    const unknownTransfer = event({
+      id: 2,
+      type: SupplyEventType.TRANSFER,
+      third_party_id_fk: 5,
+      date_unknown: true,
+    });
     const b = build([activation, unknownTransfer]);
-    await b.service.create({ utility_id_fk: 7, type: SupplyEventType.RETURN, date_unknown: true }, 42);
-    expect(stateAt(b.rows.map((r) => toEventLike(r as never)), '2026-10-19').holderId).toBeNull();
+    await b.service.create(
+      { utility_id_fk: 7, type: SupplyEventType.RETURN, date_unknown: true },
+      42,
+    );
+    expect(
+      stateAt(
+        b.rows.map((r) => toEventLike(r as never)),
+        '2026-10-19',
+      ).holderId,
+    ).toBeNull();
   });
 
   it('create: voltura datata poi reintestazione a data non nota → 400 (non cambierebbe l’intestatario)', async () => {
-    const transferred = event({ id: 2, type: SupplyEventType.TRANSFER, third_party_id_fk: 5, effective_on: '2025-01-01' });
+    const transferred = event({
+      id: 2,
+      type: SupplyEventType.TRANSFER,
+      third_party_id_fk: 5,
+      effective_on: '2025-01-01',
+    });
     const { service, reconcile } = build([activation, transferred]);
     await expect(
       service.create({ utility_id_fk: 7, type: SupplyEventType.RETURN, date_unknown: true }, 42),
@@ -147,12 +173,22 @@ describe('SupplyEventsService', () => {
   it('create: voltura e reintestazione datate poi voltura a data non nota → 400', async () => {
     const { service } = build([
       activation,
-      event({ id: 2, type: SupplyEventType.TRANSFER, third_party_id_fk: 5, effective_on: '2025-01-01' }),
+      event({
+        id: 2,
+        type: SupplyEventType.TRANSFER,
+        third_party_id_fk: 5,
+        effective_on: '2025-01-01',
+      }),
       event({ id: 3, type: SupplyEventType.RETURN, effective_on: '2025-06-01' }),
     ]);
     await expect(
       service.create(
-        { utility_id_fk: 7, type: SupplyEventType.TRANSFER, third_party_id_fk: 6, date_unknown: true },
+        {
+          utility_id_fk: 7,
+          type: SupplyEventType.TRANSFER,
+          third_party_id_fk: 6,
+          date_unknown: true,
+        },
         42,
       ),
     ).rejects.toThrow(new BadRequestException(TRANSFER_MSG));
@@ -175,7 +211,10 @@ describe('SupplyEventsService', () => {
     const dated = event({ id: 2, type: SupplyEventType.CESSATION, effective_on: '2025-03-01' });
     const { service, rows } = build([activation, dated]);
     await service.update(1, { notes: 'attiva da prima' }, 42);
-    expect(rows.find((r) => r.id === 1)).toMatchObject({ notes: 'attiva da prima', date_unknown: true });
+    expect(rows.find((r) => r.id === 1)).toMatchObject({
+      notes: 'attiva da prima',
+      date_unknown: true,
+    });
   });
 
   it('create: 400 su utenza inesistente', async () => {
@@ -200,7 +239,12 @@ describe('SupplyEventsService', () => {
   });
 
   it('update: data effettiva su una riga automatica ammessa', async () => {
-    const auto = event({ id: 2, type: SupplyEventType.TRANSFER, third_party_id_fk: 5, utilizer_grant_id_fk: 10 });
+    const auto = event({
+      id: 2,
+      type: SupplyEventType.TRANSFER,
+      third_party_id_fk: 5,
+      utilizer_grant_id_fk: 10,
+    });
     const { service, rows, reconcile } = build([activation, auto]);
     await service.update(2, { effective_on: '2026-10-10', third_party_id_fk: 5 }, 42);
     expect(rows.find((r) => r.id === 2)?.effective_on).toBe('2026-10-10');
@@ -208,7 +252,12 @@ describe('SupplyEventsService', () => {
   });
 
   it('update: altri campi di una riga automatica → 400', async () => {
-    const auto = event({ id: 2, type: SupplyEventType.TRANSFER, third_party_id_fk: 5, utilizer_grant_id_fk: 10 });
+    const auto = event({
+      id: 2,
+      type: SupplyEventType.TRANSFER,
+      third_party_id_fk: 5,
+      utilizer_grant_id_fk: 10,
+    });
     const { service } = build([activation, auto]);
     await expect(service.update(2, { third_party_id_fk: 6 }, 42)).rejects.toThrow(
       new BadRequestException(AUTO_MESSAGE),
@@ -216,7 +265,12 @@ describe('SupplyEventsService', () => {
   });
 
   it('cancel/remove di una riga automatica → 400', async () => {
-    const auto = event({ id: 2, type: SupplyEventType.TRANSFER, third_party_id_fk: 5, utilizer_grant_id_fk: 10 });
+    const auto = event({
+      id: 2,
+      type: SupplyEventType.TRANSFER,
+      third_party_id_fk: 5,
+      utilizer_grant_id_fk: 10,
+    });
     const { service } = build([activation, auto]);
     await expect(service.cancel(2, 42)).rejects.toThrow(new BadRequestException(AUTO_MESSAGE));
     await expect(service.remove(2, 42)).rejects.toThrow(new BadRequestException(AUTO_MESSAGE));
@@ -232,7 +286,12 @@ describe('SupplyEventsService', () => {
 
   it('listByUtility: righe ordinate, nomi risolti e avvisi di sequenza', async () => {
     const rows = [
-      event({ id: 3, type: SupplyEventType.TRANSFER, third_party_id_fk: 5, utilizer_grant_id_fk: 10 }),
+      event({
+        id: 3,
+        type: SupplyEventType.TRANSFER,
+        third_party_id_fk: 5,
+        utilizer_grant_id_fk: 10,
+      }),
       event({ id: 2, type: SupplyEventType.ACTIVATION, effective_on: '2025-01-01' }),
       activation,
     ];
@@ -240,7 +299,9 @@ describe('SupplyEventsService', () => {
     repo.find.mockImplementation(async () =>
       rows.map((r) => ({
         ...r,
-        thirdParty: r.third_party_id_fk ? { type: 'LEGAL', company_name: 'Alfa srl', tax_code: 'X' } : null,
+        thirdParty: r.third_party_id_fk
+          ? { type: 'LEGAL', company_name: 'Alfa srl', tax_code: 'X' }
+          : null,
         grant: r.utilizer_grant_id_fk ? { id: 10, subject: null, concession_act: 'Atto 1' } : null,
       })),
     );
@@ -283,7 +344,7 @@ describe('SupplyEventsService', () => {
     ).rejects.toThrow('boom');
   });
 
-  it('update: riga spostata su un\'altra utenza nel frattempo → 400', async () => {
+  it("update: riga spostata su un'altra utenza nel frattempo → 400", async () => {
     const manual = event({ id: 2, type: SupplyEventType.CESSATION });
     const { service, repo, rows } = build([activation, manual]);
     const original = repo.findOne.getMockImplementation() as (a: unknown) => Promise<unknown>;

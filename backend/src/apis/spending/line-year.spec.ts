@@ -30,7 +30,9 @@ describe('invoiceCompetenceYear', () => {
 
   it('senza periodi usa la data fattura', () => {
     expect(invoiceCompetenceYear([], '2026-02-01')).toBe(2026);
-    expect(invoiceCompetenceYear([{ period_start: null, period_end: null }], '2027-03-01')).toBe(2027);
+    expect(invoiceCompetenceYear([{ period_start: null, period_end: null }], '2027-03-01')).toBe(
+      2027,
+    );
   });
 });
 

@@ -173,7 +173,10 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
     try {
       await this.recordAudit(AuditAction.DELETE, id, updatedByUserId, []);
     } catch (error) {
-      console.error(`[BaseService] Errore durante la registrazione audit per ${this.entityName}`, error);
+      console.error(
+        `[BaseService] Errore durante la registrazione audit per ${this.entityName}`,
+        error,
+      );
     }
   }
 
@@ -266,7 +269,8 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
       // (DTO dal client) che non sono cambi di valore reali: istanze Date vs
       // stringa ISO, null/undefined/'' equivalenti a "vuoto", stringhe
       // numeriche decimal ("0.00") vs number (0). Vedi toComparableValue.
-      if (BaseService.toComparableValue(oldValue) === BaseService.toComparableValue(newValue)) continue;
+      if (BaseService.toComparableValue(oldValue) === BaseService.toComparableValue(newValue))
+        continue;
 
       const resolver = this.auditLabelResolvers?.[key];
       let oldLabel: string | null = null;
@@ -304,11 +308,20 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
     if (!this.auditLogService || userId === undefined) return;
     if (action === AuditAction.UPDATE && fields.length === 0) return;
     try {
-      await this.auditLogService.record({ entityName: this.entityName, entityId, action, userId, fields });
+      await this.auditLogService.record({
+        entityName: this.entityName,
+        entityId,
+        action,
+        userId,
+        fields,
+      });
     } catch (error) {
       // Audit è best-effort: un fallimento qui non deve mai propagarsi e far
       // fallire/mascherare l'esito dell'operazione primaria già eseguita.
-      console.error(`[BaseService] Errore durante la registrazione audit per ${this.entityName}`, error);
+      console.error(
+        `[BaseService] Errore durante la registrazione audit per ${this.entityName}`,
+        error,
+      );
     }
   }
 
@@ -325,7 +338,10 @@ export abstract class BaseService<TEntity extends BaseEntity, TCreateDto, TUpdat
     // ("0.00"), mentre il form Angular manda un number (0) — testo grezzo
     // diverso anche a valore invariato. Se il valore è numerico (number o
     // stringa numerica), confronta il numero normalizzato invece del testo.
-    if (typeof value === 'number' || (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value)))) {
+    if (
+      typeof value === 'number' ||
+      (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value)))
+    ) {
       return String(Number(value));
     }
     return String(value);

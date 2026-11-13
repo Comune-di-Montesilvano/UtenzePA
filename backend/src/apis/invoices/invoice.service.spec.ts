@@ -237,13 +237,21 @@ describe('InvoicesService', () => {
     it('create su un contratto in bozza: 400, nessun salvataggio', async () => {
       contractRepo.findOne.mockResolvedValue({ id: 9, supplier_id_fk: 44, draft: true });
       await expect(
-        service.create({ invoice_id: 'F-9', invoice_date: '2026-03-15', contratto_id_fk: 9 } as never, 3),
+        service.create(
+          { invoice_id: 'F-9', invoice_date: '2026-03-15', contratto_id_fk: 9 } as never,
+          3,
+        ),
       ).rejects.toThrow(msg);
       expect(dataSource.transaction).not.toHaveBeenCalled();
     });
 
     it('update che sposta la fattura su una bozza: 400', async () => {
-      repo.findOne.mockResolvedValue({ id: 20, invoice_id: 'OLD', contratto_id_fk: 1, deleted: false });
+      repo.findOne.mockResolvedValue({
+        id: 20,
+        invoice_id: 'OLD',
+        contratto_id_fk: 1,
+        deleted: false,
+      });
       contractRepo.findOne.mockResolvedValue({ id: 9, supplier_id_fk: 44, draft: true });
       await expect(service.update(20, { contratto_id_fk: 9 } as never, 7)).rejects.toThrow(msg);
       expect(dataSource.transaction).not.toHaveBeenCalled();

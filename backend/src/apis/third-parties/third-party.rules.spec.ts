@@ -1,4 +1,7 @@
-import { ContractDirection, ContractKind } from '@apis/utilizer-grant/enum/real-estate-contract.enum';
+import {
+  ContractDirection,
+  ContractKind,
+} from '@apis/utilizer-grant/enum/real-estate-contract.enum';
 import { PartyRole, ThirdPartyType } from './enum/third-party.enum';
 import { partyName, partyNameSql } from './third-party.name';
 import { normalizeParty, touchesIdentity, validateThirdParty } from './third-party.validation';

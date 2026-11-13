@@ -82,7 +82,10 @@ export class UpdateInvoiceDto {
 
   @IsOptional()
   @ValidateIf((_o, v) => v !== null)
-  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Il totale documento deve essere un numero valido.' })
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'Il totale documento deve essere un numero valido.' },
+  )
   total_amount?: number | null;
 
   @IsOptional()

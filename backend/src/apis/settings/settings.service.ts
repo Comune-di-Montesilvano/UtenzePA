@@ -7,7 +7,7 @@ import { ALLOWED_MIME, UpdateBrandingDto } from './dto/update-branding.dto';
 const SETTINGS_ID = 1;
 const DATA_URI_PATTERN = /^data:([a-zA-Z0-9/+.-]+);base64,([A-Za-z0-9+/=]+)$/;
 
-function parseDataUri(dataUri: string): { mime: string; } {
+function parseDataUri(dataUri: string): { mime: string } {
   const match = DATA_URI_PATTERN.exec(dataUri);
   if (!match) throw new BadRequestException('Formato immagine non valido');
   const mime = match[1];
@@ -50,7 +50,11 @@ export class SettingsService {
   // indirizzi senza comune proprio (impianti, ricerca in mappa).
   async municipality(): Promise<string | null> {
     const { entity_name } = await this.getBrandingSummary();
-    return String(entity_name ?? '').replace(/^comune di\s+/i, '').trim() || null;
+    return (
+      String(entity_name ?? '')
+        .replace(/^comune di\s+/i, '')
+        .trim() || null
+    );
   }
 
   async updateBranding(dto: UpdateBrandingDto, userId: number): Promise<AppSettings> {

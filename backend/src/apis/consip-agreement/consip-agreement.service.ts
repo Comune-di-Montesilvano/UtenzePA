@@ -16,7 +16,13 @@ import {
 
 export type AgreementContract = Pick<
   Contract,
-  'id' | 'cig_contract' | 'consip_order' | 'supply_start_date' | 'supply_expiry_date' | 'closed' | 'draft'
+  | 'id'
+  | 'cig_contract'
+  | 'consip_order'
+  | 'supply_start_date'
+  | 'supply_expiry_date'
+  | 'closed'
+  | 'draft'
 >;
 
 export interface AgreementCommitments {
@@ -46,7 +52,9 @@ export class ConsipAgreementService extends BaseService<
   }
 
   // Scheda: la convenzione con i contratti attuativi collegati.
-  async findOneWithContracts(id: number): Promise<ConsipAgreement & { contracts: AgreementContract[] }> {
+  async findOneWithContracts(
+    id: number,
+  ): Promise<ConsipAgreement & { contracts: AgreementContract[] }> {
     const agreement = await this.findOne(id);
     if (!agreement) throw new BadRequestException('Convenzione non trovata');
     const contracts = await this.contractRepo.find({
@@ -84,10 +92,14 @@ export class ConsipAgreementService extends BaseService<
     if (!agreement) throw new BadRequestException('Convenzione non trovata');
     const contract = await this.contract(contractId);
     if (contract.supplier_id_fk !== agreement.supplier_id) {
-      throw new BadRequestException('Il contratto è di un fornitore diverso da quello della convenzione');
+      throw new BadRequestException(
+        'Il contratto è di un fornitore diverso da quello della convenzione',
+      );
     }
     if (contract.consip_agreement_id && contract.consip_agreement_id !== id) {
-      throw new BadRequestException('Contratto già collegato a un’altra convenzione: scollegarlo prima da quella');
+      throw new BadRequestException(
+        'Contratto già collegato a un’altra convenzione: scollegarlo prima da quella',
+      );
     }
     await this.setAgreement(contract, id, userId);
   }
@@ -107,7 +119,11 @@ export class ConsipAgreementService extends BaseService<
   }
 
   // Modifica del contratto: l'audit va sul contratto, come dalla sua scheda.
-  private async setAgreement(contract: Contract, agreementId: number | null, userId: number): Promise<void> {
+  private async setAgreement(
+    contract: Contract,
+    agreementId: number | null,
+    userId: number,
+  ): Promise<void> {
     const previous = contract.consip_agreement_id ?? null;
     if (previous === agreementId) return;
     contract.consip_agreement_id = agreementId as number;
@@ -122,7 +138,10 @@ export class ConsipAgreementService extends BaseService<
         fields: [{ fieldName: 'consip_agreement_id', oldValue: previous, newValue: agreementId }],
       });
     } catch (error) {
-      console.error('[ConsipAgreementService] Errore durante la registrazione audit del contratto', error);
+      console.error(
+        '[ConsipAgreementService] Errore durante la registrazione audit del contratto',
+        error,
+      );
     }
   }
 

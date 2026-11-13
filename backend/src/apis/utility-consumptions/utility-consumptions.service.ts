@@ -36,7 +36,10 @@ import {
 } from './consumption-calculator';
 
 // superseded = stima che non conta più: è arrivato il dato reale.
-export type UtilityConsumptionRow = UtilityConsumption & { computed_consumption: number | null; superseded: boolean };
+export type UtilityConsumptionRow = UtilityConsumption & {
+  computed_consumption: number | null;
+  superseded: boolean;
+};
 
 export interface UtilityConsumptionSummary {
   unit: string | null;

@@ -10,7 +10,9 @@ export class ElectricalSystem1794600000000 implements MigrationInterface {
   name = 'ElectricalSystem1794600000000';
 
   public async up(q: QueryRunner): Promise<void> {
-    await q.query(`ALTER TABLE \`plants\` MODIFY \`type\` enum (${TYPES}, 'ELECTRICAL_SYSTEM') NOT NULL`);
+    await q.query(
+      `ALTER TABLE \`plants\` MODIFY \`type\` enum (${TYPES}, 'ELECTRICAL_SYSTEM') NOT NULL`,
+    );
     await q.query(
       "CREATE TABLE `plant_electrical` (`plant_id` int NOT NULL, `supply` enum ('LV', 'MV') NULL, `grounding_class` enum ('ORDINARY', 'HIGH_RISK', 'EXPLOSION') NULL, `conformity_type` enum ('DICO', 'DIRI') NULL, `conformity_date` date NULL, `conformity_number` varchar(100) NULL, `inail_date` date NULL, `inail_number` varchar(100) NULL, `lightning_protection` tinyint NULL, PRIMARY KEY (`plant_id`)) ENGINE=InnoDB",
     );
@@ -22,7 +24,9 @@ export class ElectricalSystem1794600000000 implements MigrationInterface {
   public async down(q: QueryRunner): Promise<void> {
     // Gli impianti elettrici hanno collegamenti, verifiche e allegati: non si
     // buttano in silenzio (anche i cancellati logicamente).
-    const [{ n }] = await q.query("SELECT COUNT(*) AS n FROM `plants` WHERE `type` = 'ELECTRICAL_SYSTEM'");
+    const [{ n }] = await q.query(
+      "SELECT COUNT(*) AS n FROM `plants` WHERE `type` = 'ELECTRICAL_SYSTEM'",
+    );
     if (Number(n) > 0) {
       throw new Error(
         `Impossibile annullare: ${n} impianti elettrici presenti (con collegamenti, verifiche e allegati). Eliminarli prima a mano.`,

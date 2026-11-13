@@ -44,7 +44,12 @@ export class MapController {
     }
     if (!result && Number.isFinite(lat) && Number.isFinite(lng)) {
       result = await this.geocodingService.geocode(query.q, {
-        viewbox: [round(lng - AREA_DELTA), round(lat + AREA_DELTA), round(lng + AREA_DELTA), round(lat - AREA_DELTA)],
+        viewbox: [
+          round(lng - AREA_DELTA),
+          round(lat + AREA_DELTA),
+          round(lng + AREA_DELTA),
+          round(lat - AREA_DELTA),
+        ],
       });
     }
     result ??= await this.geocodingService.geocode(query.q, undefined);

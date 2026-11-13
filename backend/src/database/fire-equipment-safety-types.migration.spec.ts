@@ -10,7 +10,7 @@ describe('FireEquipmentSafetyTypes', () => {
     return { q: { query } as never, sqls };
   };
 
-  it('up: porte REI, maniglioni, segnaletica e lampade di emergenza nell\'enum', async () => {
+  it("up: porte REI, maniglioni, segnaletica e lampade di emergenza nell'enum", async () => {
     const { q, sqls } = runner();
     await new FireEquipmentSafetyTypes1794400000000().up(q);
     for (const t of ['FIRE_DOOR', 'PANIC_BAR', 'EXIT_SIGN', 'EMERGENCY_LIGHT', 'SMOKE_DETECTOR']) {
@@ -18,7 +18,7 @@ describe('FireEquipmentSafetyTypes', () => {
     }
   });
 
-  it('down: righe dei quattro tipi eliminate prima di restringere l\'enum', async () => {
+  it("down: righe dei quattro tipi eliminate prima di restringere l'enum", async () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { q, sqls } = runner(5);
     await new FireEquipmentSafetyTypes1794400000000().down(q);

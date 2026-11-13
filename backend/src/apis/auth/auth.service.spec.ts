@@ -55,7 +55,11 @@ describe('AuthService', () => {
         { provide: EMailerService, useValue: mailer },
         {
           provide: SettingsService,
-          useValue: { getBrandingSummary: jest.fn().mockResolvedValue({ entity_name: 'Comune di Montesilvano' }) },
+          useValue: {
+            getBrandingSummary: jest
+              .fn()
+              .mockResolvedValue({ entity_name: 'Comune di Montesilvano' }),
+          },
         },
         { provide: LdapService, useValue: ldapService },
       ],
@@ -69,7 +73,7 @@ describe('AuthService', () => {
   });
 
   describe('validateUser', () => {
-    it('restituisce l\'utente se la password combacia', async () => {
+    it("restituisce l'utente se la password combacia", async () => {
       userRepository.findOne.mockResolvedValue(baseUser);
       jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
 
@@ -87,7 +91,7 @@ describe('AuthService', () => {
       expect(result).toBeNull();
     });
 
-    it('restituisce null se l\'utente non esiste e LDAP non è configurato', async () => {
+    it("restituisce null se l'utente non esiste e LDAP non è configurato", async () => {
       userRepository.findOne.mockResolvedValue(null);
       ldapService.isConfigured.mockReturnValue(false);
 
@@ -100,7 +104,10 @@ describe('AuthService', () => {
     it('utente esistente con authProvider ldap: verifica via LDAP, non bcrypt', async () => {
       const ldapUser = { ...baseUser, authProvider: AuthProvider.LDAP, passwordHash: null };
       userRepository.findOne.mockResolvedValue(ldapUser);
-      ldapService.authenticate.mockResolvedValue({ username: ldapUser.email, displayName: 'Mario Rossi' });
+      ldapService.authenticate.mockResolvedValue({
+        username: ldapUser.email,
+        displayName: 'Mario Rossi',
+      });
       userRepository.save.mockImplementation(async (u) => u);
       const bcryptSpy = jest.spyOn(bcrypt, 'compare');
 
@@ -113,7 +120,12 @@ describe('AuthService', () => {
     });
 
     it('utente esistente con authProvider ldap: valorizza email se assente e AD la restituisce', async () => {
-      const ldapUser = { ...baseUser, authProvider: AuthProvider.LDAP, email: null, username: 'mario.rossi' };
+      const ldapUser = {
+        ...baseUser,
+        authProvider: AuthProvider.LDAP,
+        email: null,
+        username: 'mario.rossi',
+      };
       userRepository.findOne.mockResolvedValue(ldapUser);
       ldapService.authenticate.mockResolvedValue({
         username: 'mario.rossi',
@@ -214,7 +226,7 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('firma un JWT con id/email/role dell\'utente', async () => {
+    it("firma un JWT con id/email/role dell'utente", async () => {
       const result = await service.login(baseUser);
 
       expect(jwtService.sign).toHaveBeenCalledWith({
@@ -225,7 +237,7 @@ describe('AuthService', () => {
       expect(result).toEqual({ access_token: 'signed-jwt' });
     });
 
-    it('aggiorna last_login dell\'utente', async () => {
+    it("aggiorna last_login dell'utente", async () => {
       await service.login(baseUser);
 
       expect(userRepository.update).toHaveBeenCalledWith(
@@ -236,7 +248,7 @@ describe('AuthService', () => {
   });
 
   describe('generateOtp', () => {
-    it('genera un OTP a 6 cifre, lo salva e invia l\'email', async () => {
+    it("genera un OTP a 6 cifre, lo salva e invia l'email", async () => {
       userRepository.findOne.mockResolvedValue({ ...baseUser });
       userRepository.save.mockResolvedValue(undefined);
 
@@ -256,7 +268,7 @@ describe('AuthService', () => {
       expect(fromName).toBe('Comune di Montesilvano');
     });
 
-    it('restituisce false se l\'utente non esiste, senza inviare email', async () => {
+    it("restituisce false se l'utente non esiste, senza inviare email", async () => {
       userRepository.findOne.mockResolvedValue(null);
 
       const result = await service.generateOtp('sconosciuto@comune.it');
@@ -296,7 +308,11 @@ describe('AuthService', () => {
     });
 
     it('restituisce false se non è mai stato generato un OTP', async () => {
-      userRepository.findOne.mockResolvedValue({ ...baseUser, otp: undefined, otp_expiry: undefined });
+      userRepository.findOne.mockResolvedValue({
+        ...baseUser,
+        otp: undefined,
+        otp_expiry: undefined,
+      });
 
       const result = await service.verifyOtp(baseUser.email, '123456');
 
@@ -305,7 +321,7 @@ describe('AuthService', () => {
   });
 
   describe('resetPassword', () => {
-    it('aggiorna la password e invalida l\'OTP se il codice è valido', async () => {
+    it("aggiorna la password e invalida l'OTP se il codice è valido", async () => {
       const future = new Date(Date.now() + 60_000);
       const user = { ...baseUser, otp: '123456', otp_expiry: future };
       userRepository.findOne.mockResolvedValue(user);
@@ -322,7 +338,7 @@ describe('AuthService', () => {
       expect(savedUser.otp_expiry).toBeNull();
     });
 
-    it('non aggiorna nulla se l\'OTP è scaduto', async () => {
+    it("non aggiorna nulla se l'OTP è scaduto", async () => {
       const past = new Date(Date.now() - 60_000);
       userRepository.findOne.mockResolvedValue({ ...baseUser, otp: '123456', otp_expiry: past });
 

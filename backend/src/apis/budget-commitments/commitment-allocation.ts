@@ -49,7 +49,10 @@ function candidates(ordered: AllocCommitment[], i: AllocInvoice): AllocCommitmen
     (c) =>
       (i.contract_id === undefined || !c.contract_ids || c.contract_ids.includes(i.contract_id)) &&
       (i.year === undefined || c.fiscal_year === undefined || c.fiscal_year === i.year) &&
-      (i.chapter === undefined || i.chapter === null || c.chapter === undefined || c.chapter === i.chapter),
+      (i.chapter === undefined ||
+        i.chapter === null ||
+        c.chapter === undefined ||
+        c.chapter === i.chapter),
   );
   if (i.chapter === null && new Set(found.map((c) => c.chapter)).size > 1) return [];
   return found;
@@ -75,10 +78,16 @@ export interface AllocTarget {
 const unitKey = (id: number, year: number | null | undefined) => `${id}:${year ?? '-'}`;
 
 /** Ritorna id fattura → annualità per le sole fatture senza quote fisse (null = nessuna quota). */
-export function allocate(commitments: AllocCommitment[], invoices: AllocInvoice[]): Map<number, AllocTarget | null> {
+export function allocate(
+  commitments: AllocCommitment[],
+  invoices: AllocInvoice[],
+): Map<number, AllocTarget | null> {
   const ordered = [...commitments].sort(byNumber);
   const remaining = new Map<string, number>(
-    ordered.map((c) => [unitKey(c.id, c.fiscal_year), c.amount === null ? Infinity : Number(c.amount)]),
+    ordered.map((c) => [
+      unitKey(c.id, c.fiscal_year),
+      c.amount === null ? Infinity : Number(c.amount),
+    ]),
   );
   const initial = new Map(remaining);
   const touched = new Set<string>();
@@ -104,7 +113,9 @@ export function allocate(commitments: AllocCommitment[], invoices: AllocInvoice[
     }
     const key = (c: AllocCommitment) => unitKey(c.id, c.fiscal_year);
     const consumed = (c: AllocCommitment) =>
-      initial.get(key(c)) === Infinity ? touched.has(key(c)) : remaining.get(key(c))! < initial.get(key(c))!;
+      initial.get(key(c)) === Infinity
+        ? touched.has(key(c))
+        : remaining.get(key(c))! < initial.get(key(c))!;
     const target =
       Number(i.amount) < 0
         ? ([...pool].reverse().find(consumed) ?? pool[0])
