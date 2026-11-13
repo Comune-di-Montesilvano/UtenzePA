@@ -6,7 +6,9 @@ name: Refresh lockfile
 # aggiorna) la PR `deps/lockfile-refresh` in auto-merge squash, con i soliti check
 # (lint, test, migration, docker + Trivy, e2e) come gate e merge dalla merge queue.
 # Token GitHub App (come dependabot-automerge.yml): push e PR fatti con GITHUB_TOKEN non
-# farebbero partire tests.yml.
+# farebbero partire tests.yml. Commit creato via API (scripts/security/gh-commit.mjs,
+# createCommitOnBranch): «Verified» da GitHub, nessuna credenziale git nel runner, solo i
+# file package.json/pnpm-lock.yaml dei tre progetti.
 on:
   schedule:
     # 02:00 UTC: dopo il giro dependabot (01:00 Europe/Rome), prima del rebuild di latest.
@@ -38,10 +40,13 @@ jobs:
         with:
           client-id: ${{ secrets.BOT_CLIENT_ID }}
           private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+          # Solo il branch deps/lockfile-refresh e la sua PR.
+          permission-contents: write
+          permission-pull-requests: write
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          token: ${{ steps.app.outputs.token }}
+          persist-credentials: false
 
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
@@ -70,15 +75,13 @@ jobs:
             exit 0
           fi
           git diff --stat
-          git config user.name 'comune-montesilvano-bot[bot]'
-          git config user.email '346033670+comune-montesilvano-bot[bot]@users.noreply.github.com'
-          git switch -c "$BRANCH"
-          git add backend/package.json backend/pnpm-lock.yaml frontend/package.json frontend/pnpm-lock.yaml \
-            e2e/package.json e2e/pnpm-lock.yaml
-          git commit -q -m 'chore(deps): refresh lockfiles' \
-            -m 'Transitive dependencies updated to the latest version allowed by the ranges.'
-          # Sempre ripartendo da main: la PR della notte prima viene sostituita.
-          git push --force origin "$BRANCH"
+          # Sempre ripartendo da main: la PR della notte prima viene sostituita. Un file fuori
+          # da --allow (pnpm che scrive altrove) fa fallire il commit.
+          allow=()
+          for dir in backend frontend e2e; do allow+=(--allow "$dir/package.json" --allow "$dir/pnpm-lock.yaml"); done
+          node scripts/security/gh-commit.mjs --repo "$GITHUB_REPOSITORY" --branch "$BRANCH" \
+            --base "$(git rev-parse HEAD)" "${allow[@]}" \
+            --message $'chore(deps): refresh lockfiles\n\nTransitive dependencies updated to the latest version allowed by the ranges.'
           pr=$(gh pr list --head "$BRANCH" --state open --json number -q '.[0].number // empty')
           if [ -z "$pr" ]; then
             gh pr create --head "$BRANCH" --base main --title 'chore(deps): refresh lockfiles' \
