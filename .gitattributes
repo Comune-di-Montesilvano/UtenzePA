@@ -14,3 +14,6 @@ backend/src/apis/invoice-import/sdi/fixtures/** -text
 tinn/testdata/** -text
 # Python del container Tinn: LF come nell'immagine.
 tinn/**/*.py text eol=lf
+
+# Fixture dei test di scripts/security: confrontate byte per byte (fine riga compresa).
+scripts/security/test/fixtures/** text eol=lf

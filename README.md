@@ -5,6 +5,12 @@
   </picture>
 </p>
 
+[![Test](https://github.com/Comune-di-Montesilvano/UtenzePA/actions/workflows/tests.yml/badge.svg?event=merge_group)](https://github.com/Comune-di-Montesilvano/UtenzePA/actions/workflows/tests.yml)
+[![Sicurezza](https://github.com/Comune-di-Montesilvano/UtenzePA/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/Comune-di-Montesilvano/UtenzePA/actions/workflows/security.yml)
+[![publiccode.yml validation](https://github.com/Comune-di-Montesilvano/UtenzePA/actions/workflows/publiccode-validate.yml/badge.svg)](https://github.com/Comune-di-Montesilvano/UtenzePA/actions/workflows/publiccode-validate.yml)
+[![Licenza EUPL-1.2](https://img.shields.io/badge/licenza-EUPL--1.2-blue.svg)](LICENSE)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Comune-di-Montesilvano/UtenzePA/badge)](https://scorecard.dev/viewer/?uri=github.com/Comune-di-Montesilvano/UtenzePA)
+
 Gestionale open-source del patrimonio immobiliare, degli impianti tecnici e delle utenze per enti pubblici locali: complessi, immobili (catasto e censimento MEF), impianti e verifiche di legge, utenze (storico forniture, volture e consumi), soggetti terzi, contratti immobiliari e di fornitura, convenzioni CONSIP, capitoli e impegni di spesa, fatture (con importazione automatica da PEC SDI) e atti amministrativi.
 
 Nato per il Comune di Montesilvano, ma pensato per il riuso: nome ente, tipo, coordinate mappa di default, logo e favicon sono configurabili da interfaccia in **Impostazioni > Branding** (da cui viene derivato anche il Comune per la geocodifica e la ricerca indirizzi), senza alcuna modifica al codice né rebuild delle immagini.
