@@ -469,6 +469,13 @@ describe('UtilitiesService', () => {
       ]);
       // Un contratto chiuso non è mai "corrente", qualunque siano le date.
       expect(repo.manager.query).toHaveBeenCalledWith(expect.stringContaining('c.closed = 0'), [[1]]);
+      // Un contratto che parte in futuro non scavalca quello in corso.
+      expect(repo.manager.query).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'ORDER BY (c.supply_start_date IS NOT NULL AND c.supply_start_date > CURDATE()), c.supply_start_date DESC, c.id DESC',
+        ),
+        [[1]],
+      );
       expect(qb.leftJoin).toHaveBeenCalledWith(expect.any(Function), 'current_link', expect.any(String));
       expect(contractRepo.find).toHaveBeenCalledWith({
         where: { id: expect.anything() },

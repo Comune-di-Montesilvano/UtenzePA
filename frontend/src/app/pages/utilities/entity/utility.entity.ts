@@ -104,6 +104,12 @@ export class Utility extends AbstractEntity {
   @Exclude({toPlainOnly: true})
   supplier?: ThirdParty;
 
+  // Fornitore che subentra al corrente (contratto di un altro fornitore che parte più avanti).
+  @Exclude({toPlainOnly: true})
+  next_supplier?: ThirdParty | null;
+  @Exclude({toPlainOnly: true})
+  next_supply_start_date?: string | null;
+
   @Exclude({toPlainOnly: true})
   @Type(() => Asset)
   assets?: Asset[];
