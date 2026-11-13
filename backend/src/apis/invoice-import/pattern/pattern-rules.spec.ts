@@ -642,6 +642,54 @@ describe('extract: dati nel PDF allegato', () => {
     ]);
   });
 
+  it('rettifica TD01 col totale negativo: letture sì (sono dati del contatore), consumi no', () => {
+    const text = [
+      'Tipologia   Data   Letture',
+      'Stimata   31/05/2026   7.241',
+      'Rilevata   30/06/2026   7.220',
+    ].join('\n');
+    const r: PatternRules = {
+      ...rules({}),
+      readingTable: { layout: 'rows', label: 'Tipologia Data Letture' },
+    };
+    const negative = Buffer.from(
+      aca
+        .toString('utf8')
+        .replace('<ImportoTotaleDocumento>66.00<', '<ImportoTotaleDocumento>-63.44<'),
+    );
+    const result = extract(negative, r, text);
+    expect(result.lines[0].readings).toEqual([
+      { date: '2026-05-31', value: 7241, estimated: true },
+      { date: '2026-06-30', value: 7220, estimated: false },
+    ]);
+    expect(result.lines.every((l) => l.consumption === null)).toBe(true);
+    expect(missingPdfData(r, result, text)).toBeNull();
+    // Tabella attesa e non trovata: segnalata anche sulla rettifica.
+    expect(missingPdfData(r, extract(negative, r, 'altro'), 'altro')).toContain(
+      'letture del contatore',
+    );
+    // Nota di credito: nessuna lettura.
+    expect(extract(asCreditNote(aca), r, text).lines.every((l) => !l.readings.length)).toBe(true);
+  });
+
+  it('rettifica col totale negativo e contatore che riparte da zero: nessun consumo dalla tabella', () => {
+    const text = [
+      'Periodo',
+      'Tipo di',
+      'Consumo',
+      '31.08.2026 30.09.2026   Energia attiva   0   Rilevata   1.417   Rilevata   1.417 kWh   Effettivo',
+    ].join('\n');
+    const r: PatternRules = { ...rules({}), readingTable: { layout: 'rows', label: 'Consumo' } };
+    const negative = Buffer.from(
+      aca
+        .toString('utf8')
+        .replace('<ImportoTotaleDocumento>66.00<', '<ImportoTotaleDocumento>-1.00<'),
+    );
+    const line = extract(negative, r, text).lines[0];
+    expect(line.readings).toEqual([]);
+    expect(line.consumption).toBeNull();
+  });
+
   it('lettura iniziale 0: contatore che riparte da zero, la finale è il consumo (A2A)', () => {
     const text = [
       'Periodo',

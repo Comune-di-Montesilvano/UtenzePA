@@ -139,8 +139,11 @@ export interface ExtractedInvoice {
   cig: string | null;
   contractRef: string | null;
   lines: ExtractedLine[];
-  // Nota di credito o totale negativo: consumi e letture non si leggono.
+  // Nota di credito o totale negativo: consumi non si leggono.
   noConsumption?: boolean;
+  // Nota di credito: letture non si leggono. Le rettifiche col totale negativo
+  // (TD01) le portano: sono dati del contatore, non importi.
+  noReadings?: boolean;
 }
 
 // Campi obbligatori del tracciato: valgono anche senza regola.
@@ -791,6 +794,7 @@ export function extract(
   // Totale del tracciato, altrimenti quello mappato (anche se il pattern non lo legge).
   const documentTotal = toNumber(headerValue(tree, TOTAL_PATH)) ?? total;
   const noConsumption = creditNote || (documentTotal !== null && documentTotal < 0);
+  const noReadings = creditNote;
 
   const filter = rules.consumptionLineFilter?.trim().toLowerCase();
   // Consumo letto dalla testata: una volta sola per utenza, sulla prima riga ammessa.
@@ -857,10 +861,10 @@ export function extract(
         : consumption === null
           ? null
           : wordUnit(unitRule, wordText(tree, line, unitRule, segment));
-    // Letture del contatore: come il consumo, niente da note di credito e righe senza utenza.
+    // Letture del contatore: niente da note di credito e righe senza utenza.
     let cells: ReadingCells | null = null;
     let readings: ExtractedReading[] = [];
-    if (rules.readingTable && !noConsumption && (utility !== null || !anyUtility)) {
+    if (rules.readingTable && !noReadings && (utility !== null || !anyUtility)) {
       cells = readingCells(segmentFor(tree.pdf, segment, tree.utilities), rules.readingTable);
       const columns = cells ? Math.min(cells.dates.length, cells.values.length) : 0;
       for (let i = 0; i < columns; i++) {
@@ -878,7 +882,7 @@ export function extract(
         const [, end] = readings;
         readings = [];
         const used = utility ?? '';
-        if (consumption === null && !tableConsumptionUsed.has(used)) {
+        if (!noConsumption && consumption === null && !tableConsumptionUsed.has(used)) {
           tableConsumptionUsed.add(used);
           consumption = end.value;
           if (end.bands) bands = [end.bands.f1 ?? null, end.bands.f2 ?? null, end.bands.f3 ?? null];
@@ -924,6 +928,7 @@ export function extract(
     contractRef: headerRule(tree, h.contractRef),
     lines,
     noConsumption,
+    noReadings,
   };
 }
 
@@ -985,7 +990,7 @@ export function missingPdfData(
   }
   // Tabella letta come consumo (contatore che riparte da zero): trovata anche senza letture.
   const tableRead = (l: ExtractedLine) => l.readings.length || l.readingCells?.values.length;
-  if (rules.readingTable && !extracted.noConsumption && !lines.some(tableRead)) {
+  if (rules.readingTable && !extracted.noReadings && !lines.some(tableRead)) {
     missing.push('readings');
   }
   if (!missing.length) return null;
