@@ -3,7 +3,8 @@ import { expect, Page, test } from '@playwright/test';
 // Smoke su un'installazione nuova (DB vuoto, solo migration): login dalla UI con l'Admin
 // creato da tests.yml, poi ogni pagina principale. Fallisce su errori JavaScript, risposte
 // 5xx dell'API o pagine che non arrivano a mostrare il contenuto.
-const API = process.env.E2E_API_URL ?? 'http://localhost:3000/api/v1';
+// API sulla stessa origin del frontend (nginx inoltra /api/ all'API).
+const API = process.env.E2E_API_URL ?? `${process.env.E2E_BASE_URL ?? 'http://localhost:4300'}/api/v1`;
 const USERNAME = process.env.E2E_USERNAME ?? 'e2e.admin';
 const PASSWORD = process.env.E2E_PASSWORD ?? '';
 

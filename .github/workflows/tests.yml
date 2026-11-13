@@ -191,13 +191,11 @@ jobs:
           # ne esce una nuova.
           version: v0.76.1
 
-      # Il container tinn non fa parte dello stack provato da e2e (profilo facoltativo).
-      - name: Salva l'immagine per il job e2e
-        if: matrix.app != 'tinn'
+      # backend e frontend per e2e, tinn per tinn-runtime (non fa parte dello stack di e2e).
+      - name: Salva l'immagine per i job successivi
         run: docker save ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:ci | gzip -1 > image-${{ matrix.app }}.tar.gz
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: matrix.app != 'tinn'
         with:
           name: image-${{ matrix.app }}
           path: image-${{ matrix.app }}.tar.gz
@@ -225,6 +223,33 @@ jobs:
 
       - name: Selftest dell'estrazione
         run: docker run --rm utenzepa-tinn:test python3 -m app.selftest
+
+  # Immagine di produzione di tinn (job docker) con i vincoli di docker-compose.yml: filesystem
+  # in sola lettura, solo le capability dichiarate, tmpfs su /tmp. Il selftest usa Firebird
+  # embedded come l'estrazione notturna (log e lock in /tmp): una scrittura fuori posto fallisce.
+  tinn-runtime:
+    needs: docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: image-tinn
+
+      - name: Carica l'immagine
+        run: gunzip -c image-tinn.tar.gz | docker load
+
+      - name: Selftest in sola lettura
+        run: |
+          docker run --rm --read-only --security-opt no-new-privileges:true             --cap-drop ALL --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add FOWNER --cap-add SETUID --cap-add SETGID             --tmpfs /tmp -v "$PWD/tinn/testdata:/app/testdata:ro"             --entrypoint python3 ghcr.io/comune-di-montesilvano/utenzepa-tinn:ci -m app.selftest
 
   # Migration su un database vuoto (installazione nuova), entity allineate alle migration
   # (schema:log = solo la baseline nota) e giro down -> up di quelle aggiunte dalla PR.
@@ -305,7 +330,8 @@ jobs:
       COOKIE_SECRET: ci-cookie-secret-not-secret-0123456789abcdef0123456789abcdef
       SETUP_BOOTSTRAP_TOKEN: ci-setup-token-not-secret
       CORS_ORIGIN: http://localhost:4300
-      API_URL: http://localhost:3000/api/v1
+      # Vuoto: il browser chiama /api/v1 sul frontend, nginx inoltra all'API (come in produzione).
+      API_URL: ''
       INVOICE_IMPORT_DISABLED: 'true'
       E2E_USERNAME: e2e.admin
       E2E_PASSWORD: ci-e2e-password-not-secret
@@ -320,19 +346,20 @@ jobs:
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: image-*
+          pattern: image-{backend,frontend}
           merge-multiple: true
 
       - name: Carica le immagini
-        run: for f in image-*.tar.gz; do gunzip -c "$f" | docker load; done
+        run: for f in image-backend.tar.gz image-frontend.tar.gz; do gunzip -c "$f" | docker load; done
 
       - name: Avvia lo stack di produzione
         run: |
           set -eu
           docker compose -f docker-compose.yml up -d --pull missing
-          # Migration all'avvio su DB vuoto: l'API risponde solo a migration finite.
+          # Migration all'avvio su DB vuoto: l'API risponde solo a migration finite. Attesa
+          # attraverso il frontend: prova insieme API pronta e proxy di nginx.
           for i in $(seq 1 90); do
-            if curl -fsS http://localhost:3000/api/v1/health/liveness >/dev/null; then
+            if curl -fsS http://localhost:4300/api/v1/health/liveness >/dev/null; then
               echo "API pronta dopo $((i * 2)) s"; exit 0
             fi
             sleep 2
