@@ -14,8 +14,9 @@ const day = (value: string | Date | null | undefined): string | null => {
 
 /**
  * Contratto che subentra a quello corrente: il primo che parte dopo `today` (AAAA-MM-GG),
- * di un altro fornitore (un rinnovo con lo stesso fornitore non cambia niente). Chiusi,
- * bozze e cancellati non contano, come per il contratto corrente.
+ * di un altro fornitore (un rinnovo con lo stesso fornitore non cambia niente). Chiusi e
+ * cancellati non contano; le bozze sì: l'ordine nuovo si prepara in bozza prima che il
+ * corrente scada (e toglie l'avviso di scadenza).
  */
 export function nextContract<T extends ContractLike>(
   contracts: T[],
@@ -28,7 +29,7 @@ export function nextContract<T extends ContractLike>(
   let best: T | null = null;
   for (const c of contracts) {
     const start = day(c.supply_start_date);
-    if (c.id === current.id || c.closed || c.draft || c.deleted || !start || start <= today) continue;
+    if (c.id === current.id || c.closed || c.deleted || !start || start <= today) continue;
     if (c.supplier_id_fk === current.supplier_id_fk) continue;
     if (!best || start < (day(best.supply_start_date) as string)) best = c;
   }

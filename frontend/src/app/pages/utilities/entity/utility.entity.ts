@@ -109,6 +109,8 @@ export class Utility extends AbstractEntity {
   next_supplier?: ThirdParty | null;
   @Exclude({toPlainOnly: true})
   next_supply_start_date?: string | null;
+  @Exclude({toPlainOnly: true})
+  next_contract_draft?: boolean;
 
   @Exclude({toPlainOnly: true})
   @Type(() => Asset)

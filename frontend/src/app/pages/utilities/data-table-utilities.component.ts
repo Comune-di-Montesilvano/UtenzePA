@@ -251,7 +251,7 @@ export class DataTableUtilitiesComponent extends AbstractDataTableComponent<Util
     switch (field) {
       case 'supplier':
         return utility.next_supplier
-          ? `${partyName(utility.supplier)} (dal ${ExportHelper.formatDate(utility.next_supply_start_date)}: ${partyName(utility.next_supplier)})`
+          ? `${partyName(utility.supplier)} (dal ${ExportHelper.formatDate(utility.next_supply_start_date)}: ${partyName(utility.next_supplier)}${utility.next_contract_draft ? ' (bozza)' : ''})`
           : partyName(utility.supplier);
       case 'supply_active':
         return isTransferredUtility(utility) ? 'Volturata' : ExportHelper.boolData(utility.supply_active);

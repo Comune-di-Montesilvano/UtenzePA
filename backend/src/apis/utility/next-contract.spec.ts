@@ -33,14 +33,16 @@ describe('nextContract', () => {
     expect(nextContract([current, c(2, 10, '2027-01-01')], current, today)).toBeNull();
   });
 
-  it('chiusi, bozze e cancellati non contano', () => {
+  it('chiusi e cancellati non contano', () => {
     const current = c(1, 10, '2026-01-01');
-    const others = [
-      c(2, 20, '2027-01-01', { closed: true }),
-      c(3, 20, '2027-01-01', { draft: true }),
-      c(4, 20, '2027-01-01', { deleted: true }),
-    ];
+    const others = [c(2, 20, '2027-01-01', { closed: true }), c(4, 20, '2027-01-01', { deleted: true })];
     expect(nextContract([current, ...others], current, today)).toBeNull();
+  });
+
+  it('ordine in bozza: conta (si prepara prima della scadenza del corrente)', () => {
+    const current = c(1, 10, '2026-01-01');
+    const draft = c(3, 20, '2027-01-01', { draft: true });
+    expect(nextContract([current, draft], current, today)).toBe(draft);
   });
 
   it('contratto già partito o senza data: non è futuro', () => {

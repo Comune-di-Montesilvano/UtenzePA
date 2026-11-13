@@ -54,7 +54,7 @@
     <td mat-cell *matCellDef="let item">
       {{ partyName(item.supplier) }}
       @if (item.next_supplier) {
-        <div class="next-supplier">dal {{ item.next_supply_start_date | date: 'dd/MM/yyyy' }}: {{ partyName(item.next_supplier) }}</div>
+        <div class="next-supplier">dal {{ item.next_supply_start_date | date: 'dd/MM/yyyy' }}: {{ partyName(item.next_supplier) }}@if (item.next_contract_draft) { (bozza)}</div>
       }
     </td>
   </ng-container>
