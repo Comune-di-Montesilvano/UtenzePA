@@ -24,8 +24,8 @@ importers:
   .:
     dependencies:
       '@infisical/sdk':
-        specifier: ^5.3.0
-        version: 5.3.0
+        specifier: ^5.3.1
+        version: 5.3.1
       '@nestjs/common':
         specifier: ^11.2.10
         version: 11.2.10(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
@@ -306,48 +306,48 @@ packages:
     resolution: {integrity: sha512-OHlfkNzDFjYnwNPABhwAkDTUi0HPjfsKUHJDR0bSMORpCXNzRpInPCNCIT08xKDhjaPlcLJ+2Av+Sk7hHnuC8A==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/client-cloudwatch-logs@3.1167.0':
-    resolution: {integrity: sha512-/Tb6VEoIgq7ew6Pp9vw1mtI22zPWYqPzw8qSBiPPRhpySotHPLF08CoeG1+XSLtBR+1BmJlfS9PFTL9sD68j7A==}
+  '@aws-sdk/client-cloudwatch-logs@3.1168.0':
+    resolution: {integrity: sha512-SJuNTjUL7uFc/FuFt+jBkQn3wD+RK6duGdTfpNZMWPcsWdv0W/foUCU4cCUBOv4N1Y0+/+iZSN1cuYD7YU+/3A==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/client-cloudwatch@3.1167.0':
-    resolution: {integrity: sha512-U5nBAXWvJ9esegEPMbNGr4moT7o7LRyGAYsGxHkwNWSKZOVEiZcd6thazk6ZqekoPqyahp1S0ROPK97DUXckNw==}
+  '@aws-sdk/client-cloudwatch@3.1168.0':
+    resolution: {integrity: sha512-IavnHBX9MiQNXNNXY9caTgk+iqp21C1AFdbuxUCnsDur1bi8+KKl1HuQQGnlroE4YKX6XKxJEg171dULf8Q46Q==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-cognito-identity@3.993.0':
     resolution: {integrity: sha512-7Ne3Yk/bgQPVebAkv7W+RfhiwTRSbfER9BtbhOa2w/+dIr902LrJf6vrZlxiqaJbGj2ALx8M+ZK1YIHVxSwu9A==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/client-ec2@3.1167.0':
-    resolution: {integrity: sha512-vEY+LbO7OprHhcCCYSS5tbk6yFAcnxc9ZGW76YsJBgxyZDOKDX4m5ooW7/FDy0SsPBW9nCrQZiJvZamaOJVmyA==}
+  '@aws-sdk/client-ec2@3.1168.0':
+    resolution: {integrity: sha512-39BUG0BlJ8ipGUSstaLhNvQaoMpONB3hEp4fvuKfbEkGjhBYLnttRnKICOfeswZdpl9LIGVYf/BFTWDHOp4ufg==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/client-ecs@3.1167.0':
-    resolution: {integrity: sha512-yF1GJ+S22EWEMdf6977bsfakbUa99sSli+tCmlcvgtUx4WaubHY3qQmmUCwmqGDlNZRvmcb3/7bN44Rs/4f11Q==}
+  '@aws-sdk/client-ecs@3.1168.0':
+    resolution: {integrity: sha512-Zv28U29tztrCEQIUH2XNkxsH6n3rpmEDvIIpwlqE19vqdEUVKEkwv9YChCyrwIy2j6CZrcvseWkq9UEnk+ZDAA==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/client-iam@3.1167.0':
-    resolution: {integrity: sha512-F3ZzVIII3IlUi7MJPlY/t5lmiv0cQNqCXu4C0sr1C5eL4pZrViLeMJRHTHd1tDUKq09wBw2Kov1AHVTaSf3+OQ==}
+  '@aws-sdk/client-iam@3.1168.0':
+    resolution: {integrity: sha512-eMLpuWlllTbZeq/nGqJK7q7DVPOE6hTtAT52Gov8UUlAwDycCCoEMz7pJvHnIR47mAzsqWf9wKoaNnZ2fN6amQ==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/client-lambda@3.1167.0':
-    resolution: {integrity: sha512-EaeelX3r0QVx9mRYaylSGGzyiOc5NTJcVDFC2aVrRTc1gR49sZiUbvSCTObDUA8yClV53SaUwMXMAaKsr6rJaQ==}
+  '@aws-sdk/client-lambda@3.1168.0':
+    resolution: {integrity: sha512-1kubDkP1S6l4n7F0r94LLEt0SDVFL/ULLqzce+JEsbw1I9zlGxm4Dei8kLNLhLmTBHMJfSgAunt8UdIl0vphOA==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/client-s3@3.1167.0':
-    resolution: {integrity: sha512-HMOyvnlf0+7DFjZjMxGYluL3kbaJMFfslmL7KVda7KFJU/gb0KROGuKhrv2s0abQ0Nryd006yGy0dsxz3BpK+w==}
+  '@aws-sdk/client-s3@3.1168.0':
+    resolution: {integrity: sha512-7NcVxqy7Vc6I8A3KOZFORGh+zfMCd4S5aje55tBNBfshddz+F1NZwxLXblt44TC6nw0Hgx5os3AM2d/P0McELQ==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/client-sqs@3.1167.0':
-    resolution: {integrity: sha512-v/65Uq48mP3Yy+AZrBeTBFCAZsPMlc3JipgTtjomNRXZn6N/OgP2ChX2E8JGyVodVuXLGnTCS/pbCRAlP/sFEA==}
+  '@aws-sdk/client-sqs@3.1168.0':
+    resolution: {integrity: sha512-MnYqQuhAsz4deENVt+CCCiZZ48g3D1UaJkI/ri+s3Ag1S2vNFBzQAELHvhefG37twfbErFIubg6jTaLe1IJbaQ==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/client-ssm@3.1167.0':
-    resolution: {integrity: sha512-y7oFX6o+FLJoJBsOTJEmGZp9J+zjfurhfTXQ8oht3YXvLD2yls+6+TMx5Kbux40UtNNo1Ss/x4PDWwFw4CkEMA==}
+  '@aws-sdk/client-ssm@3.1168.0':
+    resolution: {integrity: sha512-StTF9ufla0g8geUbtyKf9Dm1RS6Ai6XHTISbUY1vB05Ao2+qIjy10dXyRgepb7ioTCQRUXHnSvKw0+O/CxA18A==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/client-sts@3.1167.0':
-    resolution: {integrity: sha512-0DrmFoeqDiudnFmpcJ4LEqeHnFX5ECQF8cb6ktza8/t8SJx/lCo643u9Wk03VPHsOp0YjidGUZWa3ISVFPhIdw==}
+  '@aws-sdk/client-sts@3.1168.0':
+    resolution: {integrity: sha512-JGNX1KRKyOE2qlWx++QAg7sZeQ747MEI1kaELJLmGU4Q8L4AcERKaH9saC6JofFR8Jp+fa8lqvuxXqaYW2yeDw==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/core@3.981.0':
@@ -390,8 +390,8 @@ packages:
     resolution: {integrity: sha512-duLeE3xlf0viHeH+1RM4z5duR3b32BCZTWVMu+MbxFPjQBxy7hmIGEqt5hekuFPRuXoyhMovjNl+PNNsb5oiGQ==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/credential-providers@3.1167.0':
-    resolution: {integrity: sha512-ehfJtcSzLQt+/ELLCQ7B6TyJ9hPjaOlcxYJsCnAb2aTHG5UBuxrs4waCAejNNztA9AdME+ziRucCCIiG5y7WhQ==}
+  '@aws-sdk/credential-providers@3.1168.0':
+    resolution: {integrity: sha512-6EcK9b/n2t0xifguAieNoOkDvszaH3cH2uzw0BHDnsqD7df09cirTY/fSTKvLAZsIDqG9r8thAHiTHnT2U0mlQ==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/credential-providers@3.993.0':
@@ -540,16 +540,16 @@ packages:
     resolution: {integrity: sha512-rbAE25KUfjU/s3XHUdJgceoCP5dEOpMx85J04kF+QMdta73XkuG9JGHHinch+XIoKpBdqljin+KqURpJriSzLA==}
     engines: {node: '>=22.0.0'}
 
-  '@azure/msal-browser@5.29.0':
-    resolution: {integrity: sha512-Ko/Ovw6h+Gu33mp8f0FUyddr/KDWzbGzcgR8HKZaT4wgTYljLPKJP1rcDu0RHj7pkd4CR2hCHK51XFzgvq/Q5Q==}
+  '@azure/msal-browser@5.29.1':
+    resolution: {integrity: sha512-+TMoU/4h3KYUvQKZH+p1/9/iDaepDlVJQ7UMUAB6q8prPsMfsOoqA9m2alpPqLUQ48Bp7sXqN2wdhA9rOg9q1A==}
     engines: {node: '>=0.8.0'}
 
-  '@azure/msal-common@16.16.1':
-    resolution: {integrity: sha512-dSKdL9h/iercb4GumsKFh+wVvLe1ohuDPiviklgnQVHnY2FYNUlbQJ3E1Qd37vkof9CfraK9BQpCW1hoOg0znQ==}
+  '@azure/msal-common@16.16.2':
+    resolution: {integrity: sha512-IVoPgAup0hnpzwC8esxPxrrnDDVe0n3mmK+UU3JRmKWySKxBQrl+a30tTP3okmJ9Wc7dh+IgoNaUXkCxb2DBSg==}
     engines: {node: '>=0.8.0'}
 
-  '@azure/msal-node@7.2.1':
-    resolution: {integrity: sha512-6mntsfCNq7H1eAPSZik74jT3C5at4nRqiVk7OC+D5Hy3Pe3s76uwE4+J0xvDvlVPmoX2kasf3mSwUmzeq9rW/A==}
+  '@azure/msal-node@7.2.2':
+    resolution: {integrity: sha512-MjsAHC+KUSXYYC8P57lVXy5IgSeO+PraXzLLHZI6hcX7nx/hCokY6gTPm2JcKLI3W88mu7ozjObBVGKExZUhww==}
     engines: {node: '>=20'}
 
   '@azure/storage-blob@12.34.0':
@@ -919,8 +919,8 @@ packages:
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
     engines: {node: '>=18.18'}
 
-  '@infisical/sdk@5.3.0':
-    resolution: {integrity: sha512-RvVQfvv0MqsyYvNYD7qhCQHf0KXf0kY37lTkHQY/wCqlZ/YaEfzlp9qDA6Mh2z+MvD/53Sxz+1/sGYRSAqH0Bw==}
+  '@infisical/sdk@5.3.1':
+    resolution: {integrity: sha512-oSM4ATegVbIQjgg1bNHvvlfNMdOEbOaC8cYbqyD3RDHBDxgTwj+hmrOVswOnhraZXAo/+NRMC4rNQhVKgsHMPA==}
     engines: {node: '>=20'}
 
   '@inquirer/ansi@1.0.2':
@@ -1309,6 +1309,10 @@ packages:
 
   '@jridgewell/resolve-uri@3.1.2':
     resolution: {integrity: sha512-bRISgCIjP20/tbWSPWMEi54QVPRZExkuD9lJL+UIxUKtwVJA8wW1Trb1jMs1RFXo1CBTNZ/5hpC9QvmKWdopKw==}
+    engines: {node: '>=6.0.0'}
+
+  '@jridgewell/resolve-uri@3.1.3':
+    resolution: {integrity: sha512-lhTtjtoEArWBjismtfS761S9Hlyn+nIZqOZVYoZ1Xn82PMNMVnk+jj/NhC4fAXGTs7ydONcJiR5vyQBTMDu27g==}
     engines: {node: '>=6.0.0'}
 
   '@jridgewell/source-map@0.3.11':
@@ -3952,9 +3956,6 @@ packages:
     resolution: {integrity: sha512-QLV1qeYSo5l13mQzWgP/y0LbMr5Plr5fJilgAIwgnwseproEbtNym8xpLsDzeZ6MWXgNE6kdWGBjdh3zT/Qerg==}
     engines: {node: '>=20'}
 
-  graceful-fs@4.2.11:
-    resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
-
   graceful-fs@4.2.12:
     resolution: {integrity: sha512-iuyGF2E4oafQfPsRrG2wtY2ILupMhvtdrhzrxB+0VcjsPpSPttpfYdjnGFGsTi5MaJFjI1jOKHPQ6UTbTj9TAw==}
 
@@ -6024,8 +6025,8 @@ packages:
     resolution: {integrity: sha512-+QU2zd6OTD8XWIJCbffaiQeH9U73qIqafo1x6V1snCWYGJf6cVE0cDR4D8xRzcEnfI21IFrUPzPGtcPf8AC+Rw==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
 
-  ws@7.5.13:
-    resolution: {integrity: sha512-rsKI6xDBFVf4r/x8XyChGK04QR/XHroxs/jUcoWvtEZM8TPU/X/uIY9B1CsSzYws9ZJb/6bbBu7dPhFW00CAoA==}
+  ws@7.5.14:
+    resolution: {integrity: sha512-u9Oi2nQ8SZnTUAf6spLLKF5TyqoG3Nbbrd4ai6Sjo4P24bycDewhQqtNMIg4bFpnpH/TD4qk4IuAVhT0HIIqug==}
     engines: {node: '>=8.3.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -6223,7 +6224,7 @@ snapshots:
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
-  '@aws-sdk/client-cloudwatch-logs@3.1167.0':
+  '@aws-sdk/client-cloudwatch-logs@3.1168.0':
     dependencies:
       '@aws-sdk/core': 3.981.0
       '@aws-sdk/credential-provider-node': 3.972.97
@@ -6234,7 +6235,7 @@ snapshots:
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
-  '@aws-sdk/client-cloudwatch@3.1167.0':
+  '@aws-sdk/client-cloudwatch@3.1168.0':
     dependencies:
       '@aws-sdk/core': 3.981.0
       '@aws-sdk/credential-provider-node': 3.972.97
@@ -6288,7 +6289,7 @@ snapshots:
       '@smithy/util-utf8': 4.5.2
       tslib: 2.9.1
 
-  '@aws-sdk/client-ec2@3.1167.0':
+  '@aws-sdk/client-ec2@3.1168.0':
     dependencies:
       '@aws-sdk/core': 3.981.0
       '@aws-sdk/credential-provider-node': 3.972.97
@@ -6300,7 +6301,7 @@ snapshots:
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
-  '@aws-sdk/client-ecs@3.1167.0':
+  '@aws-sdk/client-ecs@3.1168.0':
     dependencies:
       '@aws-sdk/core': 3.981.0
       '@aws-sdk/credential-provider-node': 3.972.97
@@ -6311,7 +6312,7 @@ snapshots:
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
-  '@aws-sdk/client-iam@3.1167.0':
+  '@aws-sdk/client-iam@3.1168.0':
     dependencies:
       '@aws-sdk/core': 3.981.0
       '@aws-sdk/credential-provider-node': 3.972.97
@@ -6322,7 +6323,7 @@ snapshots:
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
-  '@aws-sdk/client-lambda@3.1167.0':
+  '@aws-sdk/client-lambda@3.1168.0':
     dependencies:
       '@aws-sdk/core': 3.981.0
       '@aws-sdk/credential-provider-node': 3.972.97
@@ -6333,7 +6334,7 @@ snapshots:
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
-  '@aws-sdk/client-s3@3.1167.0':
+  '@aws-sdk/client-s3@3.1168.0':
     dependencies:
       '@aws-sdk/checksums': 3.1002.5
       '@aws-sdk/core': 3.981.0
@@ -6347,7 +6348,7 @@ snapshots:
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
-  '@aws-sdk/client-sqs@3.1167.0':
+  '@aws-sdk/client-sqs@3.1168.0':
     dependencies:
       '@aws-sdk/core': 3.981.0
       '@aws-sdk/credential-provider-node': 3.972.97
@@ -6359,7 +6360,7 @@ snapshots:
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
-  '@aws-sdk/client-ssm@3.1167.0':
+  '@aws-sdk/client-ssm@3.1168.0':
     dependencies:
       '@aws-sdk/core': 3.981.0
       '@aws-sdk/credential-provider-node': 3.972.97
@@ -6370,7 +6371,7 @@ snapshots:
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
-  '@aws-sdk/client-sts@3.1167.0':
+  '@aws-sdk/client-sts@3.1168.0':
     dependencies:
       '@aws-sdk/core': 3.981.0
       '@aws-sdk/credential-provider-node': 3.972.97
@@ -6485,7 +6486,7 @@ snapshots:
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
-  '@aws-sdk/credential-providers@3.1167.0':
+  '@aws-sdk/credential-providers@3.1168.0':
     dependencies:
       '@aws-sdk/core': 3.981.0
       '@aws-sdk/credential-provider-cognito-identity': 3.972.83
@@ -6797,8 +6798,8 @@ snapshots:
       '@azure/core-tracing': 1.4.0
       '@azure/core-util': 1.14.0(supports-color@8.1.1)
       '@azure/logger': 1.4.0(supports-color@8.1.1)
-      '@azure/msal-browser': 5.29.0
-      '@azure/msal-node': 7.2.1
+      '@azure/msal-browser': 5.29.1
+      '@azure/msal-node': 7.2.2
       open: 11.0.4
       tslib: 2.9.1
     transitivePeerDependencies:
@@ -6813,15 +6814,15 @@ snapshots:
       - kerberos
       - supports-color
 
-  '@azure/msal-browser@5.29.0':
+  '@azure/msal-browser@5.29.1':
     dependencies:
-      '@azure/msal-common': 16.16.1
+      '@azure/msal-common': 16.16.2
 
-  '@azure/msal-common@16.16.1': {}
+  '@azure/msal-common@16.16.2': {}
 
-  '@azure/msal-node@7.2.1':
+  '@azure/msal-node@7.2.2':
     dependencies:
-      '@azure/msal-common': 16.16.1
+      '@azure/msal-common': 16.16.2
       jsonwebtoken: 9.0.3
 
   '@azure/storage-blob@12.34.0(supports-color@8.1.1)':
@@ -7294,7 +7295,7 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
-  '@infisical/sdk@5.3.0':
+  '@infisical/sdk@5.3.1':
     dependencies:
       '@aws-crypto/sha256-js': 5.2.0
       '@aws-sdk/credential-providers': 3.993.0
@@ -7746,7 +7747,7 @@ snapshots:
       chalk: 4.1.2
       convert-source-map: 2.0.0
       fast-json-stable-stringify: 2.1.0
-      graceful-fs: 4.2.11
+      graceful-fs: 4.2.12
       jest-haste-map: 30.5.1
       jest-regex-util: 30.5.0
       jest-util: 30.5.1
@@ -7778,6 +7779,8 @@ snapshots:
 
   '@jridgewell/resolve-uri@3.1.2': {}
 
+  '@jridgewell/resolve-uri@3.1.3': {}
+
   '@jridgewell/source-map@0.3.11':
     dependencies:
       '@jridgewell/gen-mapping': 0.3.13
@@ -7792,7 +7795,7 @@ snapshots:
 
   '@jridgewell/trace-mapping@0.3.9':
     dependencies:
-      '@jridgewell/resolve-uri': 3.1.2
+      '@jridgewell/resolve-uri': 3.1.3
       '@jridgewell/sourcemap-codec': 1.6.0
 
   '@js-sdsl/ordered-map@4.4.2': {}
@@ -9287,17 +9290,17 @@ snapshots:
   artillery@2.0.34(@types/node@26.6.6)(supports-color@8.1.1):
     dependencies:
       '@artilleryio/sketches-js': 2.1.1
-      '@aws-sdk/client-cloudwatch': 3.1167.0
-      '@aws-sdk/client-cloudwatch-logs': 3.1167.0
-      '@aws-sdk/client-ec2': 3.1167.0
-      '@aws-sdk/client-ecs': 3.1167.0
-      '@aws-sdk/client-iam': 3.1167.0
-      '@aws-sdk/client-lambda': 3.1167.0
-      '@aws-sdk/client-s3': 3.1167.0
-      '@aws-sdk/client-sqs': 3.1167.0
-      '@aws-sdk/client-ssm': 3.1167.0
-      '@aws-sdk/client-sts': 3.1167.0
-      '@aws-sdk/credential-providers': 3.1167.0
+      '@aws-sdk/client-cloudwatch': 3.1168.0
+      '@aws-sdk/client-cloudwatch-logs': 3.1168.0
+      '@aws-sdk/client-ec2': 3.1168.0
+      '@aws-sdk/client-ecs': 3.1168.0
+      '@aws-sdk/client-iam': 3.1168.0
+      '@aws-sdk/client-lambda': 3.1168.0
+      '@aws-sdk/client-s3': 3.1168.0
+      '@aws-sdk/client-sqs': 3.1168.0
+      '@aws-sdk/client-ssm': 3.1168.0
+      '@aws-sdk/client-sts': 3.1168.0
+      '@aws-sdk/credential-providers': 3.1168.0
       '@azure/arm-containerinstance': 9.1.0(supports-color@8.1.1)
       '@azure/identity': 4.14.1(supports-color@8.1.1)
       '@azure/storage-blob': 12.34.0(supports-color@8.1.1)
@@ -9372,12 +9375,12 @@ snapshots:
       semver: 7.8.6
       socket.io-client: 4.8.4(supports-color@8.1.1)
       socketio-wildcard: 2.0.0
-      sqs-consumer: 6.0.2(@aws-sdk/client-sqs@3.1167.0)(supports-color@8.1.1)
+      sqs-consumer: 6.0.2(@aws-sdk/client-sqs@3.1168.0)(supports-color@8.1.1)
       tempy: 3.2.0
       tough-cookie: 5.1.2
       uuid: 11.1.1
       walk-sync: 0.2.7
-      ws: 7.5.13
+      ws: 7.5.14
       yaml-js: 0.3.1
     transitivePeerDependencies:
       - '@types/node'
@@ -9420,7 +9423,7 @@ snapshots:
       babel-plugin-istanbul: 8.0.0(supports-color@8.1.1)
       babel-preset-jest: 30.5.0(@babel/core@7.29.13(supports-color@8.1.1))
       chalk: 4.1.2
-      graceful-fs: 4.2.11
+      graceful-fs: 4.2.12
       slash: 3.0.0
     transitivePeerDependencies:
       - supports-color
@@ -10114,7 +10117,7 @@ snapshots:
 
   enhanced-resolve@5.24.5:
     dependencies:
-      graceful-fs: 4.2.11
+      graceful-fs: 4.2.12
       tapable: 2.3.3
 
   ensure-posix-path@1.1.1: {}
@@ -10528,7 +10531,7 @@ snapshots:
 
   fs-extra@10.1.0:
     dependencies:
-      graceful-fs: 4.2.11
+      graceful-fs: 4.2.12
       jsonfile: 6.2.1
       universalify: 2.0.1
     optional: true
@@ -10652,8 +10655,6 @@ snapshots:
       p-cancelable: 4.0.1
       responselike: 4.0.2
       type-fest: 4.41.0
-
-  graceful-fs@4.2.11: {}
 
   graceful-fs@4.2.12: {}
 
@@ -11053,7 +11054,7 @@ snapshots:
       anymatch: 3.1.3
       fb-watchman: 2.0.2
       fdir: 6.5.0(picomatch@4.0.7)
-      graceful-fs: 4.2.11
+      graceful-fs: 4.2.12
       jest-regex-util: 30.5.0
       jest-util: 30.5.1
       jest-worker: 30.5.1
@@ -11197,7 +11198,7 @@ snapshots:
       '@types/node': 26.6.6
       chalk: 4.1.2
       ci-info: 4.5.0
-      graceful-fs: 4.2.11
+      graceful-fs: 4.2.12
       picomatch: 4.0.7
 
   jest-validate@30.5.1:
@@ -12278,9 +12279,9 @@ snapshots:
 
   sql-highlight@6.1.0: {}
 
-  sqs-consumer@6.0.2(@aws-sdk/client-sqs@3.1167.0)(supports-color@8.1.1):
+  sqs-consumer@6.0.2(@aws-sdk/client-sqs@3.1168.0)(supports-color@8.1.1):
     dependencies:
-      '@aws-sdk/client-sqs': 3.1167.0
+      '@aws-sdk/client-sqs': 3.1168.0
       debug: 4.4.3(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
@@ -12731,7 +12732,7 @@ snapshots:
 
   watchpack@2.5.2:
     dependencies:
-      graceful-fs: 4.2.11
+      graceful-fs: 4.2.12
 
   wcwidth@1.0.1:
     dependencies:
@@ -12761,7 +12762,7 @@ snapshots:
       eslint-scope: 5.1.1
       events: 3.3.0
       glob-to-regexp: 0.4.1
-      graceful-fs: 4.2.11
+      graceful-fs: 4.2.12
       loader-runner: 4.3.2
       mime-db: 1.54.0
       neo-async: 2.6.2
@@ -12842,7 +12843,7 @@ snapshots:
       imurmurhash: 0.1.4
       signal-exit: 4.1.0
 
-  ws@7.5.13: {}
+  ws@7.5.14: {}
 
   ws@8.21.3: {}
 
