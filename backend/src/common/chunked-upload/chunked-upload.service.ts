@@ -19,6 +19,13 @@ export class ChunkedUploadService {
     }
   }
 
+  // Il nome finale resta nella cartella: niente separatori, `.` o `..`.
+  private validateFileName(fileName: string): void {
+    if (!/^[a-zA-Z0-9_.-]+$/.test(fileName) || fileName === '.' || fileName === '..') {
+      throw new Error('nome file non valido');
+    }
+  }
+
   saveChunk(
     uploadId: string,
     chunkIndex: number,
@@ -73,6 +80,7 @@ export class ChunkedUploadService {
   }
 
   isComplete(uploadId: string, totalChunks: number, destDir: string): boolean {
+    this.validateUploadId(uploadId);
     for (let i = 0; i < totalChunks; i++) {
       const chunkPath = path.join(destDir, this.chunkFileName(uploadId, i));
       if (!fs.existsSync(chunkPath)) return false;
@@ -82,6 +90,7 @@ export class ChunkedUploadService {
 
   assemble(uploadId: string, totalChunks: number, destDir: string, finalFileName: string): string {
     this.validateUploadId(uploadId);
+    this.validateFileName(finalFileName);
     if (!this.isComplete(uploadId, totalChunks, destDir)) {
       throw new Error(`Chunk mancanti per upload ${uploadId}`);
     }
@@ -105,6 +114,7 @@ export class ChunkedUploadService {
   }
 
   cleanup(uploadId: string, totalChunks: number, destDir: string): void {
+    this.validateUploadId(uploadId);
     this.sizes.delete(this.sizesKey(uploadId, destDir));
     for (let i = 0; i < totalChunks; i++) {
       const chunkPath = path.join(destDir, this.chunkFileName(uploadId, i));
