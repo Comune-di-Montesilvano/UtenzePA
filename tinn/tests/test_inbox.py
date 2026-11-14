@@ -1,6 +1,8 @@
 import json
 import os
 
+import pytest
+
 from app import inbox
 from app.inbox import Settings, deliver, public_message, read_settings, remove_partial, take_request
 
@@ -90,3 +92,14 @@ def test_remove_partial_keeps_backend_tmp(tmp_path):
         (tmp_path / name).write_text('x')
     remove_partial(str(tmp_path))
     assert sorted(os.listdir(tmp_path)) == ['.request.tmp', '.settings.tmp']
+
+
+@pytest.mark.skipif(os.name != 'posix', reason='permessi POSIX')
+def test_files_not_readable_by_others(tmp_path):
+    src = make_csvs(tmp_path)
+    box = tmp_path / 'inbox'
+    box.mkdir()
+    deliver(str(box), str(src), {'sha256': 'x'})
+    inbox.write_json_atomic(str(box / 'status'), {})
+    for name in os.listdir(box):
+        assert os.stat(box / name).st_mode & 0o777 == 0o660, name
