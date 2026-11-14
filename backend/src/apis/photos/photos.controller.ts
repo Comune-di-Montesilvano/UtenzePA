@@ -103,7 +103,8 @@ export class PhotosController {
       dto.uploadId,
       dto.totalChunks,
       this.tmpDir,
-      `${dto.uploadId}-${dto.originalFilename}`,
+      // Mai il nome scelto dall'utente nel percorso: resta solo in originalname.
+      `${dto.uploadId}.upload`,
     );
     try {
       const buffer = fs.readFileSync(filePath);

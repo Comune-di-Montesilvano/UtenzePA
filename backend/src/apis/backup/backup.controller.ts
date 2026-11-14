@@ -97,7 +97,13 @@ export class BackupController {
     if (!validUser) {
       throw new BadRequestException('Password non corretta');
     }
-    if (!this.chunkedUpload.isComplete(dto.uploadId, dto.totalChunks, this.tmpDir)) {
+    let complete: boolean;
+    try {
+      complete = this.chunkedUpload.isComplete(dto.uploadId, dto.totalChunks, this.tmpDir);
+    } catch (e) {
+      throw new BadRequestException((e as Error).message);
+    }
+    if (!complete) {
       throw new BadRequestException('Caricamento del file incompleto: riprovare.');
     }
 

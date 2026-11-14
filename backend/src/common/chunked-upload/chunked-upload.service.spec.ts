@@ -77,6 +77,20 @@ describe('ChunkedUploadService', () => {
     );
   });
 
+  it('isComplete e cleanup rifiutano uploadId con path traversal', () => {
+    expect(() => service.isComplete('../../etc/passwd', 1, destDir)).toThrow('uploadId non valido');
+    expect(() => service.cleanup('../../etc/passwd', 1, destDir)).toThrow('uploadId non valido');
+  });
+
+  it('assemble rifiuta un nome finale che esce dalla cartella', () => {
+    service.saveChunk('up-1', 0, 1, Buffer.from('x'), destDir);
+    const names = ['up-1-../../evil', '../evil', 'sub/evil', 'sub\\evil', '..', '.', ''];
+    for (const name of names) {
+      expect(() => service.assemble('up-1', 1, destDir, name)).toThrow('nome file non valido');
+    }
+    expect(fs.existsSync(path.join(destDir, 'up-1.chunk0'))).toBe(true);
+  });
+
   it('rifiuta un upload che supera maxSizeBytes e pulisce i chunk già salvati', () => {
     const uploadId = 'test-upload-7';
     service.saveChunk(uploadId, 0, 3, Buffer.from('AAAA'), destDir, 10);

@@ -28,9 +28,12 @@ export class SystemUsersComponent extends AbstractComponent<SystemUser> {
     return `${entity.firstName} ${entity.lastName}`;
   }
 
-  private generateRandomPassword(length = 6): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    return Array.from({length}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  // Password iniziale mai comunicata (accesso con LDAP o dopo il reset via OTP), ma valida per il
+  // login locale: casuale crittografica e lunga. 64 caratteri = nessuna distorsione con il modulo.
+  private generateRandomPassword(length = 32): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    const bytes = crypto.getRandomValues(new Uint8Array(length));
+    return Array.from(bytes, (b) => chars[b % chars.length]).join('');
   }
 
   override onCreate(entity: SystemUser) {
