@@ -159,7 +159,7 @@ pnpm run build    # ng build --configuration production
 - Login via API: `POST /api/v1/authModule/login` con `{"email":"<username>","password":"..."}`, token in `token.access_token`.
 - Playwright: `?selectedId=<id>` su `/utilities`, `/building`, `/contracts`; datepicker `gg/mm/aaaa`; dopo un Salva ricercare prima di riaprire; screenshot solo in `.playwright-mcp/`; viewport 1500×950 e `mat-select` aperto dal `mat-label` (dettagli in testing-e2e).
 - `curl` verso `localhost:3010` dal Bash tool: serve `dangerouslyDisableSandbox`.
-- Deploy dove login/wizard non risponde: prima `API_URL` (vuoto = stessa origin; un URL assoluto vuole la porta dell'API pubblicata e `CORS_ORIGIN` allineato), poi admin già presente.
+- Deploy dove login/wizard non risponde: prima `API_URL` (vuoto = stessa origin; un URL assoluto vuole la porta dell'API pubblicata e `CORS_ORIGIN` allineato), poi il reverse proxy esterno (una regola `/api` verso la vecchia porta 3000 = 502 dalla v1.58.0: tutto va a `DOCKER_FRONTEND_PORT`; incidente di produzione 2026-11-13), poi admin già presente.
 
 ## Git, CI e release (dettagli in `docs/claude/release-ci.md`)
 - Repo `Comune-di-Montesilvano/UtenzePA`. `main` protetta da ruleset con **merge queue** (squash): PR obbligatoria, check `dependency-review`, `backend`, `frontend`, `migrations`, `docker (backend, production)`, `docker (frontend, prod)`, `docker (tinn, production)`, `tinn`, `tinn-runtime`, `e2e`, `security-scripts`, `pnpm-audit (backend)`, `pnpm-audit (frontend)`, `trivy-fs`, `trivy-image (backend)`, `trivy-image (frontend)`, `trivy-image (tinn)` (più la regola CodeQL), nessuna approvazione umana.

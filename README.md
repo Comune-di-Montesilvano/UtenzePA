@@ -76,7 +76,7 @@ Configurazione tramite un file `.env` nella root, copiato da `.env.example` (ele
 | Variabile | Default | Descrizione |
 |---|---|---|
 | `DOCKER_API_PORT` | `3000` | Porta del backend sull'host, solo in sviluppo (`docker-compose.override.yml`) |
-| `DOCKER_FRONTEND_PORT` | `4300` | Porta esposta dal frontend (in produzione l'unica: nginx inoltra `/api/` al backend) |
+| `DOCKER_FRONTEND_PORT` | `4300` | Porta esposta dal frontend (in produzione l'unica: nginx inoltra `/api/` al backend). Un reverse proxy esterno manda **tutto** qui, `/api/` compreso: dalla v1.58.0 la porta dell'API non è più pubblicata e una regola `/api` verso la vecchia porta dà 502 |
 
 ### Immagini
 
