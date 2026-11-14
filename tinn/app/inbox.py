@@ -13,7 +13,8 @@ from dataclasses import dataclass
 
 CSV_NAMES = ('capitoli', 'impegni', 'liquidazioni', 'note_credito')
 DEFAULT_FROM_YEAR = 2023
-MODE = 0o664
+# Lettura e scrittura per proprietario e gruppo 1001 (API), niente agli altri utenti.
+MODE = 0o660
 
 STEP_MESSAGES = {
     'download': 'Server SFTP non raggiungibile',

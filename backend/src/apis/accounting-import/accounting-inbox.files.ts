@@ -129,8 +129,9 @@ export function markFailed(dir: string): void {
 
 function writeAtomic(path: string, content: string): void {
   const tmp = join(dirname(path), `.${basename(path)}.tmp`);
-  writeFileSync(tmp, content, { mode: 0o664 });
-  chmodSync(tmp, 0o664);
+  // Come la casella di tinn (inbox.py): proprietario e gruppo, niente agli altri.
+  writeFileSync(tmp, content, { mode: 0o660 });
+  chmodSync(tmp, 0o660);
   renameSync(tmp, path);
 }
 
