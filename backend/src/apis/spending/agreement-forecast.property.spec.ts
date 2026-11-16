@@ -2,12 +2,20 @@ import fc from 'fast-check';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { ConsumptionKind } from '@apis/utility-consumptions/enum/consumption-kind.enum';
 import { fromDay, toDay } from '@apis/utility-consumptions/consumption-calculator';
-import { agreementForecast, consumptionTrend, type ForecastInput, TREND_MAX, TREND_MIN } from './agreement-forecast';
+import {
+  agreementForecast,
+  consumptionTrend,
+  type ForecastInput,
+  TREND_MAX,
+  TREND_MIN,
+} from './agreement-forecast';
 
 const TODAY = toDay('2026-06-15');
 // Giorni tra inizio 2025 e fine 2026, come stringhe 'AAAA-MM-GG'.
 const day = fc.integer({ min: toDay('2025-01-01'), max: toDay('2026-12-31') });
-const period = fc.tuple(day, fc.integer({ min: 0, max: 120 })).map(([s, len]) => [fromDay(s), fromDay(s + len)] as const);
+const period = fc
+  .tuple(day, fc.integer({ min: 0, max: 120 }))
+  .map(([s, len]) => [fromDay(s), fromDay(s + len)] as const);
 
 const input: fc.Arbitrary<ForecastInput> = fc
   .record({
@@ -15,7 +23,9 @@ const input: fc.Arbitrary<ForecastInput> = fc
       fc.record({
         hard_type: fc.constantFrom(HardTypeEnum.LIGHT, HardTypeEnum.GAS),
         chapter_id: fc.constantFrom(7, 8, null),
-        estimated_annual_consumption: fc.option(fc.integer({ min: 0, max: 100_000 }), { nil: null }),
+        estimated_annual_consumption: fc.option(fc.integer({ min: 0, max: 100_000 }), {
+          nil: null,
+        }),
         lines: fc.array(
           fc.record({
             amount: fc.integer({ min: -500, max: 5000 }),
@@ -24,11 +34,16 @@ const input: fc.Arbitrary<ForecastInput> = fc
           }),
           { maxLength: 6 },
         ),
-        consumptions: fc.array(fc.tuple(period, fc.integer({ min: 0, max: 20_000 })), { maxLength: 4 }),
+        consumptions: fc.array(fc.tuple(period, fc.integer({ min: 0, max: 20_000 })), {
+          maxLength: 4,
+        }),
       }),
       { minLength: 1, maxLength: 3 },
     ),
-    orders: fc.array(fc.tuple(fc.option(period, { nil: null }), fc.boolean(), fc.boolean()), { minLength: 1, maxLength: 2 }),
+    orders: fc.array(fc.tuple(fc.option(period, { nil: null }), fc.boolean(), fc.boolean()), {
+      minLength: 1,
+      maxLength: 2,
+    }),
     committed: fc.array(
       fc.record({
         chapter_id: fc.constantFrom(7, 8, null),

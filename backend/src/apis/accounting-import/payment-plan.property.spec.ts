@@ -5,7 +5,11 @@ import { PaymentInvoice, planPayments } from './payment-plan';
 
 const CURRENT_YEAR = 2026;
 const date = fc
-  .record({ y: fc.integer({ min: 2019, max: 2026 }), m: fc.integer({ min: 1, max: 12 }), d: fc.integer({ min: 1, max: 28 }) })
+  .record({
+    y: fc.integer({ min: 2019, max: 2026 }),
+    m: fc.integer({ min: 1, max: 12 }),
+    d: fc.integer({ min: 1, max: 28 }),
+  })
   .map(({ y, m, d }) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
 
 // Fatture 1..n con stato iniziale casuale (anche già allineato), liquidazioni abbinate a una di loro.
@@ -18,7 +22,9 @@ const scenario = fc.integer({ min: 1, max: 8 }).chain((n) =>
           invoice_date: date,
           total_amount: fc.option(fc.integer({ min: -500, max: 5000 }), { nil: null }),
           excluded: fc.boolean(),
-          payment_status: fc.option(fc.constantFrom(...Object.values(PaymentStatus)), { nil: null }),
+          payment_status: fc.option(fc.constantFrom(...Object.values(PaymentStatus)), {
+            nil: null,
+          }),
           paid_on: fc.option(date, { nil: null }),
         }),
       ),
@@ -33,7 +39,11 @@ const scenario = fc.integer({ min: 1, max: 8 }).chain((n) =>
       { maxLength: 12 },
     ),
     notes: fc.array(
-      fc.record({ amount: fc.integer({ min: -5000, max: -1 }), noteId: fc.integer({ min: 1, max: n }), invoiceId: fc.integer({ min: 1, max: n }) }),
+      fc.record({
+        amount: fc.integer({ min: -5000, max: -1 }),
+        noteId: fc.integer({ min: 1, max: n }),
+        invoiceId: fc.integer({ min: 1, max: n }),
+      }),
       { maxLength: 3 },
     ),
     fromYear: fc.integer({ min: 2019, max: 2026 }),
@@ -42,7 +52,12 @@ const scenario = fc.integer({ min: 1, max: 8 }).chain((n) =>
 
 type Scenario = {
   invoices: PaymentInvoice[];
-  liquidations: { invoice: number; cancelled: boolean; mandate_date: string | null; paid_date: string | null }[];
+  liquidations: {
+    invoice: number;
+    cancelled: boolean;
+    mandate_date: string | null;
+    paid_date: string | null;
+  }[];
   notes: { amount: number; noteId: number; invoiceId: number }[];
   fromYear: number;
 };
@@ -72,7 +87,11 @@ function finalState(s: Scenario) {
   const changes = new Map(plan(s).map((c) => [c.id, c]));
   return s.invoices.map((inv) => {
     const c = changes.get(inv.id);
-    return { ...inv, payment_status: c ? c.status : inv.payment_status, paid_on: c ? c.paidOn : inv.paid_on };
+    return {
+      ...inv,
+      payment_status: c ? c.status : inv.payment_status,
+      paid_on: c ? c.paidOn : inv.paid_on,
+    };
   });
 }
 
@@ -107,7 +126,12 @@ describe('planPayments (proprietà)', () => {
   it("non dipende dall'ordine delle liquidazioni", () => {
     fc.assert(
       fc.property(
-        scenario.chain((s) => fc.tuple(fc.constant(s), fc.shuffledSubarray(s.liquidations, { minLength: s.liquidations.length }))),
+        scenario.chain((s) =>
+          fc.tuple(
+            fc.constant(s),
+            fc.shuffledSubarray(s.liquidations, { minLength: s.liquidations.length }),
+          ),
+        ),
         ([s, shuffled]) => {
           const byId = (cs: { id: number }[]) => [...cs].sort((a, b) => a.id - b.id);
           expect(byId(plan(s, s.invoices, shuffled))).toEqual(byId(plan(s)));

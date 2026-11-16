@@ -24,6 +24,10 @@ export default async function globalSetup(): Promise<void> {
 
   execSync(
     'node -r ts-node/register -r tsconfig-paths/register node_modules/typeorm/cli.js migration:run -d src/database/data-source.ts',
-    { cwd: join(__dirname, '..', '..', '..'), env: { ...process.env, MYSQL_DB: database }, stdio: 'pipe' },
+    {
+      cwd: join(__dirname, '..', '..', '..'),
+      env: { ...process.env, MYSQL_DB: database },
+      stdio: 'pipe',
+    },
   );
 }

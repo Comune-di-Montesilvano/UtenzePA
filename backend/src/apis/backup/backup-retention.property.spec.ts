@@ -18,10 +18,14 @@ const ids = (s: Set<{ id: number }>) => [...s].map((b) => b.id).sort((a, b) => a
 describe('selectBackupsToKeep (proprietà)', () => {
   it('tiene sempre il backup più recente', () => {
     fc.assert(
-      fc.property(backups.filter((b) => b.length > 0), policy, (bs, p) => {
-        const newest = bs.reduce((a, b) => (b.createdAt > a.createdAt ? b : a));
-        expect(selectBackupsToKeep(bs, p).has(newest)).toBe(true);
-      }),
+      fc.property(
+        backups.filter((b) => b.length > 0),
+        policy,
+        (bs, p) => {
+          const newest = bs.reduce((a, b) => (b.createdAt > a.createdAt ? b : a));
+          expect(selectBackupsToKeep(bs, p).has(newest)).toBe(true);
+        },
+      ),
     );
   });
 
@@ -29,7 +33,9 @@ describe('selectBackupsToKeep (proprietà)', () => {
     fc.assert(
       fc.property(backups, policy, (bs, p) => {
         const kept = selectBackupsToKeep(bs, p);
-        expect(kept.size).toBeLessThanOrEqual(Math.min(bs.length, 1 + p.daily + p.weekly + p.monthly + p.yearly));
+        expect(kept.size).toBeLessThanOrEqual(
+          Math.min(bs.length, 1 + p.daily + p.weekly + p.monthly + p.yearly),
+        );
       }),
     );
   });
@@ -46,7 +52,9 @@ describe('selectBackupsToKeep (proprietà)', () => {
   it("non dipende dall'ordine dei backup in ingresso", () => {
     fc.assert(
       fc.property(
-        backups.chain((bs) => fc.tuple(fc.constant(bs), fc.shuffledSubarray(bs, { minLength: bs.length }))),
+        backups.chain((bs) =>
+          fc.tuple(fc.constant(bs), fc.shuffledSubarray(bs, { minLength: bs.length })),
+        ),
         policy,
         ([bs, shuffled], p) => {
           expect(ids(selectBackupsToKeep(shuffled, p))).toEqual(ids(selectBackupsToKeep(bs, p)));

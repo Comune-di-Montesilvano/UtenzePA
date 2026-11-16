@@ -18,7 +18,10 @@ async function insert(ds: DataSource, table: string, row: Row): Promise<number> 
   return Number(result.insertId);
 }
 
-const authored = (): Row => ({ created_by_user_id: SYSTEM_USER_ID, updated_by_user_id: SYSTEM_USER_ID });
+const authored = (): Row => ({
+  created_by_user_id: SYSTEM_USER_ID,
+  updated_by_user_id: SYSTEM_USER_ID,
+});
 
 export async function insertUtility(ds: DataSource, over: Row = {}): Promise<number> {
   const [type] = await ds.query('SELECT MIN(id) AS id FROM utility_types');

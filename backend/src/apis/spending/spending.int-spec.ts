@@ -30,19 +30,25 @@ describe('SpendingService (integrazione)', () => {
     });
 
     it('somma le righe per anno di competenza e conta le fatture', async () => {
-      expect(await service.forUtility(utilityId)).toStrictEqual([{ year: 2025, total: 150, invoices: 2 }]);
+      expect(await service.forUtility(utilityId)).toStrictEqual([
+        { year: 2025, total: 150, invoices: 2 },
+      ]);
     });
 
     it('esclude le fatture rifiutate dallo SDI', async () => {
       const rejected = await insertInvoice(ds, { sdi_status: SdiStatus.REJECTED });
       await insertInvoiceLine(ds, rejected, 70, { utility_id_fk: utilityId });
-      expect(await service.forUtility(utilityId)).toStrictEqual([{ year: 2025, total: 150, invoices: 2 }]);
+      expect(await service.forUtility(utilityId)).toStrictEqual([
+        { year: 2025, total: 150, invoices: 2 },
+      ]);
     });
 
     it('esclude le fatture cancellate', async () => {
       const deleted = await insertInvoice(ds, { deleted: 1 });
       await insertInvoiceLine(ds, deleted, 30, { utility_id_fk: utilityId });
-      expect(await service.forUtility(utilityId)).toStrictEqual([{ year: 2025, total: 150, invoices: 2 }]);
+      expect(await service.forUtility(utilityId)).toStrictEqual([
+        { year: 2025, total: 150, invoices: 2 },
+      ]);
     });
   });
 });

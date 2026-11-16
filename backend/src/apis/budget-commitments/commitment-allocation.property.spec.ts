@@ -43,7 +43,13 @@ const invoices = (cs: AllocCommitment[]) =>
         id: n + 1,
         ...i,
         fixed: fixed
-          ? [{ commitment_id: cs[fixed.commitment].id, fiscal_year: cs[fixed.commitment].fiscal_year!, amount: fixed.amount }]
+          ? [
+              {
+                commitment_id: cs[fixed.commitment].id,
+                fiscal_year: cs[fixed.commitment].fiscal_year!,
+                amount: fixed.amount,
+              },
+            ]
           : [],
       })),
     );
@@ -56,7 +62,9 @@ describe('allocate (proprietà)', () => {
     fc.assert(
       fc.property(scenario, ([cs, is]) => {
         const result = allocate(cs, is);
-        expect([...result.keys()].sort((a, b) => a - b)).toEqual(is.filter((i) => !i.fixed.length).map((i) => i.id));
+        expect([...result.keys()].sort((a, b) => a - b)).toEqual(
+          is.filter((i) => !i.fixed.length).map((i) => i.id),
+        );
       }),
     );
   });
@@ -82,7 +90,8 @@ describe('allocate (proprietà)', () => {
     fc.assert(
       fc.property(scenario, ([cs, is]) => {
         const result = allocate(cs, is);
-        for (const i of is.filter((x) => !x.fixed.length && x.chapter === 0)) expect(result.get(i.id)).toBeNull();
+        for (const i of is.filter((x) => !x.fixed.length && x.chapter === 0))
+          expect(result.get(i.id)).toBeNull();
       }),
     );
   });
