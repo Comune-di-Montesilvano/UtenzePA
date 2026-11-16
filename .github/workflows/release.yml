@@ -190,6 +190,8 @@ jobs:
       # Firma keyless cosign e attestazioni: certificato Sigstore sull'identita' OIDC del workflow.
       id-token: write
       attestations: write
+      # Record di storage delle attestazioni sul package (senza: avviso "Failed to create storage record").
+      artifact-metadata: write
       # Issue "vulnerabilita' non risolvibile con un rebuild".
       issues: write
     steps:
