@@ -19,6 +19,8 @@ export function escapeLdapFilterValue(value: string): string {
 export function escapeLdapDnValue(value: string): string {
   let escaped = value.replace(/[\\,+"<>;=]/g, (c) => `\\${c}`);
   if (escaped.startsWith('#') || escaped.startsWith(' ')) escaped = `\\${escaped}`;
-  if (escaped.endsWith(' ') && !escaped.endsWith('\\ ')) escaped = `${escaped.slice(0, -1)}\\ `;
+  // Deciso sul valore originale: nell'escaped un `\\` seguito da spazio sembra già protetto.
+  // Uno spazio solo è già protetto come iniziale.
+  if (value.endsWith(' ') && value.length > 1) escaped = `${escaped.slice(0, -1)}\\ `;
   return escaped;
 }
