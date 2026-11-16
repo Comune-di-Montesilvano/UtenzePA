@@ -1,37 +1,15 @@
-import { NOT_OFFSET_SQL } from '@apis/invoices/enum/payment-status.enum';
-import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
-import { COMMITMENT_SPENT } from '@apis/spending/chapter-year';
-import * as sql from './agreement-forecast.sql';
+import * as fs from 'fs';
+import * as path from 'path';
 
-describe('agreement-forecast.sql', () => {
-  it('ordini: tutti i contratti non cancellati della convenzione, bozze comprese', () => {
-    expect(sql.ORDERS_SQL).toContain('c.deleted = 0');
-    expect(sql.ORDERS_SQL).toContain('c.consip_agreement_id = ?');
-    expect(sql.ORDERS_SQL).not.toContain('draft = 0');
-    expect(sql.ORDERS_SQL).not.toContain('closed = 0');
-  });
-
-  it('righe: solo fatture valide, non rifiutate e non compensate', () => {
-    expect(sql.LINES_SQL).toContain('i.deleted = 0');
-    expect(sql.LINES_SQL).toContain(NOT_REJECTED_SQL('i'));
-    expect(sql.LINES_SQL).toContain(NOT_OFFSET_SQL('i'));
-  });
-
-  it('impegnato: annualità degli impegni collegati a un ordine della convenzione, con la rimanenza', () => {
-    expect(sql.COMMITTED_SQL).toContain(COMMITMENT_SPENT);
-    expect(sql.COMMITTED_SQL).toContain('budget_commitment_contracts');
-    expect(sql.COMMITTED_SQL).toContain('bcm.deleted = 0');
-    expect(sql.COMMITTED_SQL).toContain('GROUP BY bcm.budget_chapter_id_fk, bcy.fiscal_year');
-  });
-
-  it('convenzioni da ricalcolare: almeno un ordine non chiuso', () => {
-    expect(sql.OPEN_AGREEMENTS_SQL).toContain('c.closed = 0');
-    expect(sql.OPEN_AGREEMENTS_SQL).toContain('a.deleted = 0');
-  });
-
-  it('nessuna query passa dal CIG', () => {
-    for (const [name, text] of Object.entries(sql)) {
-      expect(`${name}: ${String(text).toLowerCase().includes('cig')}`).toBe(`${name}: false`);
-    }
-  });
+// Le condizioni delle query (ordini, fatture valide, impegni della convenzione) sono
+// provate sul database vero in agreement-forecast.int-spec.ts. Qui solo la regola che
+// un test sui dati non vede: il collegamento passa dal contratto, mai dal codice di gara.
+describe('query del fabbisogno', () => {
+  it.each(['agreement-forecast.sql.ts', 'agreement-forecast.queries.ts'])(
+    '%s non passa dal CIG',
+    (file) => {
+      const text = fs.readFileSync(path.join(__dirname, file), 'utf-8').toLowerCase();
+      expect(text.match(/\bcig\w*/g)).toBeNull();
+    },
+  );
 });

@@ -76,7 +76,14 @@ describe('AgreementForecastService (integrazione)', () => {
 
   afterEach(() => spy.mockRestore());
 
-  const input = () => plain(spy.mock.calls[0][0]) as Record<string, any>;
+  // Input del calcolo come arriva dalle query.
+  type Captured = {
+    orders: unknown;
+    committed: unknown[];
+    manualPrices: unknown;
+    utilities: Record<string, unknown>[];
+  };
+  const input = () => plain(spy.mock.calls[0][0]) as Captured;
   const order = (over: Record<string, unknown> = {}) =>
     insertContract(ds, { consip_agreement_id: agreement, ...over });
   const attach = (contract: number, utility: number) =>

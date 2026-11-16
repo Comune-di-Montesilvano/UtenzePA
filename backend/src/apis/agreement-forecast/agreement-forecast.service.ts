@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { commitmentLabel } from '@apis/budget-commitments/commitment-label';
 import {
   type AgreementForecast,
@@ -16,6 +16,7 @@ import {
 } from '@apis/utility-consumptions/consumption-calculator';
 import type { SupplyEventLike } from '@apis/utility-supply/supply-state';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
+import * as q from './agreement-forecast.queries';
 import * as sql from './agreement-forecast.sql';
 import { ConsipAgreementForecast } from './entity/agreement-forecast.entity';
 import { ConsipAgreementPrice } from './entity/agreement-price.entity';
@@ -54,8 +55,8 @@ export class AgreementForecastService {
     private readonly priceRepo: Repository<ConsipAgreementPrice>,
   ) {}
 
-  private q(text: string, params: unknown[] = []): Promise<Row[]> {
-    return this.dataSource.query(text, params);
+  private get m(): EntityManager {
+    return this.dataSource.manager;
   }
 
   // Con asOf il calcolo è «come se fosse» quel giorno (prova di validità):
@@ -77,14 +78,14 @@ export class AgreementForecastService {
     agreementId: number,
     opts: { asOf?: string } = {},
   ): Promise<ForecastResponse> {
-    if (!(await this.q(sql.AGREEMENT_SQL, [agreementId])).length) {
+    if (!(await q.agreementExists(this.m, agreementId))) {
       throw new BadRequestException('Convenzione non trovata');
     }
     const cutoff = opts.asOf ?? FAR_FUTURE;
     const today = opts.asOf ? toDay(opts.asOf) : todayDay();
 
-    const orderRows = await this.q(sql.ORDERS_SQL, [agreementId]);
-    const links = await this.q(sql.ORDER_UTILITIES_SQL, [agreementId]);
+    const orderRows = await q.orders(this.m, agreementId);
+    const links = await q.orderUtilities(this.m, agreementId);
     const orders: ForecastOrder[] = orderRows.map((o) => ({
       id: Number(o.id),
       draft: bool(o.draft),
@@ -99,10 +100,10 @@ export class AgreementForecastService {
 
     const [utilityRows, lines, consumptions, events] = ids.length
       ? await Promise.all([
-          this.q(sql.UTILITIES_SQL, [ids]),
-          this.q(sql.LINES_SQL, [ids, cutoff]),
-          this.q(sql.CONSUMPTIONS_SQL, [ids, cutoff]),
-          this.q(sql.EVENTS_SQL, [ids]),
+          q.utilities(this.m, ids),
+          q.lines(this.m, ids, cutoff),
+          q.consumptions(this.m, ids, cutoff),
+          q.events(this.m, ids),
         ])
       : [[], [], [], []];
     const group = (rows: Row[]): Map<number, Row[]> => {
@@ -148,7 +149,7 @@ export class AgreementForecastService {
       };
     });
 
-    const committed = (await this.q(sql.COMMITTED_SQL, [agreementId])).map((c) => ({
+    const committed = (await sql.committed(this.m, agreementId)).map((c) => ({
       chapter_id: num(c.chapter_id),
       year: Number(c.year),
       committed: Number(c.committed),
@@ -166,24 +167,19 @@ export class AgreementForecastService {
       ...new Set(forecast.rows.map((r) => r.chapter_id).filter((id): id is number => id !== null)),
     ];
     const chapters = chapterIds.length
-      ? (await this.q(sql.CHAPTERS_SQL, [chapterIds])).map((c) => ({
+      ? (await q.chapters(this.m, chapterIds)).map((c) => ({
           id: Number(c.id),
           label: `${String(c.chapter_code)}/${String(c.article ?? 0)}${c.description ? ` — ${String(c.description)}` : ''}`,
         }))
       : [];
-    const shared = (await this.q(sql.SHARED_COMMITMENTS_SQL, [agreementId, agreementId])).map(
-      (c) => ({
-        id: Number(c.id),
-        label: commitmentLabel(
-          num(c.commitment_year),
-          num(c.commitment_num),
-          num(c.commitment_sub),
-        ),
-      }),
-    );
-    const sharesWithoutLines = (await this.q(sql.SHARES_WITHOUT_LINES_SQL, [agreementId])).map(
-      (s) => ({ year: Number(s.year), amount: Number(s.amount) }),
-    );
+    const shared = (await sql.sharedCommitments(this.m, agreementId)).map((c) => ({
+      id: Number(c.id),
+      label: commitmentLabel(num(c.commitment_year), num(c.commitment_num), num(c.commitment_sub)),
+    }));
+    const sharesWithoutLines = (await sql.sharesWithoutLines(this.m, agreementId)).map((s) => ({
+      year: Number(s.year),
+      amount: Number(s.amount),
+    }));
 
     const computedAt = new Date();
     if (!opts.asOf) await this.writeCache(agreementId, forecast, computedAt);
@@ -229,7 +225,7 @@ export class AgreementForecastService {
     price: number | null,
     userId: number,
   ): Promise<ForecastResponse> {
-    if (!(await this.q(sql.AGREEMENT_SQL, [agreementId])).length) {
+    if (!(await q.agreementExists(this.m, agreementId))) {
       throw new BadRequestException('Convenzione non trovata');
     }
     if (price === null) {
@@ -266,16 +262,15 @@ export class AgreementForecastService {
   async refreshForContracts(contractIds: number[]): Promise<void> {
     const ids = contractIds.filter((id) => !!id);
     if (!ids.length) return;
-    const agreements = await this.q(sql.AGREEMENTS_OF_CONTRACTS_SQL, [ids]);
-    if (agreements.length) await this.refreshAgreements(agreements.map((a) => Number(a.id)));
+    const agreements = await q.agreementIdsOfContracts(this.m, ids);
+    if (agreements.length) await this.refreshAgreements(agreements);
   }
 
   refreshAll(): Promise<{ processed: number; failed: number }> {
     const next = this.chain
       .catch(() => undefined)
       .then(async () => {
-        const agreements = await this.q(sql.OPEN_AGREEMENTS_SQL);
-        return this.runBatch(agreements.map((a) => Number(a.id)));
+        return this.runBatch(await q.openAgreementIds(this.m));
       });
     this.chain = next;
     return next;

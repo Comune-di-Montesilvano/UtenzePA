@@ -1,28 +1,37 @@
 import { BadRequestException } from '@nestjs/common';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { AgreementForecastService } from './agreement-forecast.service';
+import * as q from './agreement-forecast.queries';
 import * as sql from './agreement-forecast.sql';
 import { ConsipAgreementForecast } from './entity/agreement-forecast.entity';
 
+jest.mock('./agreement-forecast.queries');
+jest.mock('./agreement-forecast.sql');
+
+// Risposte delle letture per nome della funzione (le query vere sono provate in
+// agreement-forecast.int-spec.ts).
+type Answer = unknown;
+const readers = { ...q, ...sql } as unknown as Record<string, jest.Mock>;
+
 describe('AgreementForecastService', () => {
   let service: AgreementForecastService;
-  let dataSource: { query: jest.Mock; transaction: jest.Mock };
+  let dataSource: { manager: object; transaction: jest.Mock };
   let manager: { delete: jest.Mock; insert: jest.Mock };
   let priceRepo: { find: jest.Mock; delete: jest.Mock; upsert: jest.Mock };
-  let answers: Map<string, Record<string, unknown>[]>;
+  let answers: Map<string, Answer>;
 
   // Un ordine sul 2026 con un'utenza luce sul capitolo 7, consumo 10 al
   // giorno dal 2025, una bolletta su gennaio 2026 e una arrivata dopo.
   const seed = () => {
-    answers = new Map<string, Record<string, unknown>[]>([
-      [sql.AGREEMENT_SQL, [{ id: 3 }]],
+    answers = new Map<string, Answer>([
+      ['agreementExists', true],
       [
-        sql.ORDERS_SQL,
+        'orders',
         [{ id: 1, draft: 0, closed: 0, supply_start: '2026-01-01', supply_end: '2026-12-31' }],
       ],
-      [sql.ORDER_UTILITIES_SQL, [{ contract_id: 1, utility_id: 11 }]],
+      ['orderUtilities', [{ contract_id: 1, utility_id: 11 }]],
       [
-        sql.UTILITIES_SQL,
+        'utilities',
         [
           {
             id: 11,
@@ -34,7 +43,7 @@ describe('AgreementForecastService', () => {
         ],
       ],
       [
-        sql.LINES_SQL,
+        'lines',
         [
           {
             utility_id: 11,
@@ -46,7 +55,7 @@ describe('AgreementForecastService', () => {
         ],
       ],
       [
-        sql.CONSUMPTIONS_SQL,
+        'consumptions',
         [
           {
             id: 1,
@@ -62,9 +71,9 @@ describe('AgreementForecastService', () => {
           },
         ],
       ],
-      [sql.EVENTS_SQL, []],
+      ['events', []],
       [
-        sql.COMMITTED_SQL,
+        'committed',
         [
           {
             chapter_id: 7,
@@ -75,10 +84,10 @@ describe('AgreementForecastService', () => {
           },
         ],
       ],
-      [sql.SHARED_COMMITMENTS_SQL, []],
-      [sql.SHARES_WITHOUT_LINES_SQL, []],
+      ['sharedCommitments', []],
+      ['sharesWithoutLines', []],
       [
-        sql.CHAPTERS_SQL,
+        'chapters',
         [{ id: 7, chapter_code: '1234', article: '0', description: 'Capitolo di prova' }],
       ],
     ]);
@@ -88,7 +97,7 @@ describe('AgreementForecastService', () => {
     seed();
     manager = { delete: jest.fn(), insert: jest.fn() };
     dataSource = {
-      query: jest.fn(async (text: string) => answers.get(text) ?? []),
+      manager: {},
       transaction: jest.fn(async (cb) => cb(manager)),
     };
     priceRepo = {
@@ -98,6 +107,9 @@ describe('AgreementForecastService', () => {
       delete: jest.fn(),
       upsert: jest.fn(),
     };
+    for (const [name, fn] of Object.entries(readers)) {
+      if (jest.isMockFunction(fn)) fn.mockImplementation(async () => answers.get(name) ?? []);
+    }
     service = new AgreementForecastService(dataSource as never, priceRepo as never);
     jest.useFakeTimers().setSystemTime(new Date('2026-02-15T10:00:00Z'));
   });
@@ -105,7 +117,7 @@ describe('AgreementForecastService', () => {
   afterEach(() => jest.useRealTimers());
 
   it('compute: capitolo senza descrizione, etichetta senza trattino finale', async () => {
-    answers.set(sql.CHAPTERS_SQL, [{ id: 7, chapter_code: '1234', article: '0', description: '' }]);
+    answers.set('chapters', [{ id: 7, chapter_code: '1234', article: '0', description: '' }]);
     expect((await service.compute(3)).chapters).toEqual([{ id: 7, label: '1234/0' }]);
   });
 
@@ -139,9 +151,9 @@ describe('AgreementForecastService', () => {
   });
 
   it('compute: convenzione senza righe non inserisce nulla ma svuota la cache', async () => {
-    answers.set(sql.ORDERS_SQL, []);
-    answers.set(sql.ORDER_UTILITIES_SQL, []);
-    answers.set(sql.COMMITTED_SQL, []);
+    answers.set('orders', []);
+    answers.set('orderUtilities', []);
+    answers.set('committed', []);
     const result = await service.compute(3);
     expect(result.rows).toEqual([]);
     expect(manager.delete).toHaveBeenCalled();
@@ -149,7 +161,7 @@ describe('AgreementForecastService', () => {
   });
 
   it('compute: convenzione inesistente → 400', async () => {
-    answers.set(sql.AGREEMENT_SQL, []);
+    answers.set('agreementExists', false);
     await expect(service.compute(99)).rejects.toThrow(
       new BadRequestException('Convenzione non trovata'),
     );
@@ -158,12 +170,8 @@ describe('AgreementForecastService', () => {
   it('compute con asOf: usa quella data come oggi, taglia i dati successivi, non scrive la cache', async () => {
     const result = await service.compute(3, { asOf: '2025-12-31' });
     expect(dataSource.transaction).not.toHaveBeenCalled();
-    const linesCall = dataSource.query.mock.calls.find(([text]) => text === sql.LINES_SQL);
-    expect(linesCall?.[1]).toEqual([[11], '2025-12-31']);
-    const consumptionsCall = dataSource.query.mock.calls.find(
-      ([text]) => text === sql.CONSUMPTIONS_SQL,
-    );
-    expect(consumptionsCall?.[1]).toEqual([[11], '2025-12-31']);
+    expect(readers.lines).toHaveBeenCalledWith(dataSource.manager, [11], '2025-12-31');
+    expect(readers.consumptions).toHaveBeenCalledWith(dataSource.manager, [11], '2025-12-31');
     // Oggi = fine 2025: il 2026 è un esercizio futuro, quindi previsto e senza avviso.
     expect(result.rows[0].alert).toBeNull();
     expect(result.rows[0].to_invoice).toBeGreaterThan(0);
@@ -201,18 +209,18 @@ describe('AgreementForecastService', () => {
 
   it('refreshForContracts: risolve le convenzioni dei contratti; nessuna = nessun calcolo', async () => {
     const compute = jest.spyOn(service, 'compute').mockResolvedValue({} as never);
-    answers.set(sql.AGREEMENTS_OF_CONTRACTS_SQL, [{ id: 3 }]);
+    answers.set('agreementIdsOfContracts', [3]);
     await service.refreshForContracts([1, 2]);
     expect(compute).toHaveBeenCalledWith(3);
     compute.mockClear();
-    answers.set(sql.AGREEMENTS_OF_CONTRACTS_SQL, []);
+    answers.set('agreementIdsOfContracts', []);
     await service.refreshForContracts([1]);
     await service.refreshForContracts([]);
     expect(compute).not.toHaveBeenCalled();
   });
 
   it('refreshAll: tutte le convenzioni con un ordine non chiuso, con il conteggio', async () => {
-    answers.set(sql.OPEN_AGREEMENTS_SQL, [{ id: 3 }, { id: 4 }]);
+    answers.set('openAgreementIds', [3, 4]);
     jest
       .spyOn(service, 'compute')
       .mockResolvedValueOnce({} as never)
