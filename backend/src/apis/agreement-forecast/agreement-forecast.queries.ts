@@ -1,7 +1,11 @@
-import { EntityManager } from 'typeorm';
+import { EntityManager, SelectQueryBuilder } from 'typeorm';
+import { BudgetCommitment } from '@apis/budget-commitments/entity/budget-commitment.entity';
 import { ConsipAgreement } from '@apis/consip-agreement/entity/consip-agreement.entity';
 import { NOT_OFFSET_SQL } from '@apis/invoices/enum/payment-status.enum';
+import { InvoiceCommitmentShare } from '@apis/invoices/entity/invoice-commitment-share.entity';
+import { Invoice } from '@apis/invoices/entity/invoice.entity';
 import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
+import { COMMITMENT_SPENT, commitmentYears } from '@apis/spending/spending.queries';
 
 // Letture del fabbisogno della convenzione. «Ordine» = contratto di fornitura non
 // cancellato della convenzione, bozze e chiusi compresi: l'orizzonte comprende anche
@@ -150,4 +154,91 @@ export async function agreementIdsOfContracts(
     .where('c.id IN (:...contractIds) AND c.consip_agreement_id IS NOT NULL', { contractIds })
     .getRawMany();
   return rows.map((r) => Number(r.id));
+}
+
+// --- Impegni della convenzione ---
+// Impegnato, rimanenza e quote riusano i frammenti della spesa per capitolo
+// (spending.queries.ts): fabbisogno e scheda del capitolo contano allo stesso modo.
+
+// Impegno (bcm) collegato ad almeno un ordine della convenzione :agreementId.
+const ofAgreement = <T extends object>(qb: SelectQueryBuilder<T>): string =>
+  'EXISTS ' +
+  qb
+    .subQuery()
+    .select('1')
+    .from('budget_commitment_contracts', 'bcc')
+    .innerJoin('contracts', 'c', 'c.id = bcc.contract_id AND c.deleted = 0')
+    .where('bcc.commitment_id = bcm.id AND c.consip_agreement_id = :agreementId')
+    .getQuery();
+
+// Annualità degli impegni della convenzione per capitolo ed esercizio: ogni
+// impegno conta una volta. Rimanenza = importo − tutte le quote già spese,
+// qualunque fattura le abbia consumate.
+export function committed(m: EntityManager, agreementId: number): Promise<Row[]> {
+  const qb = commitmentYears(m);
+  return qb
+    .select('bcm.budget_chapter_id_fk', 'chapter_id')
+    .addSelect('bcy.fiscal_year', 'year')
+    .addSelect('COALESCE(SUM(bcy.amount), 0)', 'committed')
+    .addSelect(
+      `COALESCE(SUM(CASE WHEN bcy.amount IS NULL THEN 0 ELSE bcy.amount - ${COMMITMENT_SPENT} END), 0)`,
+      'remaining',
+    )
+    .addSelect('SUM(bcy.amount IS NULL)', 'without_amount')
+    .where('bcm.deleted = 0')
+    .andWhere(ofAgreement(qb), { agreementId })
+    .groupBy('bcm.budget_chapter_id_fk')
+    .addGroupBy('bcy.fiscal_year')
+    .getRawMany();
+}
+
+// Impegni della convenzione collegati anche a ordini di un'altra: contano per
+// intero in entrambe.
+export function sharedCommitments(m: EntityManager, agreementId: number): Promise<Row[]> {
+  const qb = m.createQueryBuilder(BudgetCommitment, 'bcm');
+  const other = qb
+    .subQuery()
+    .select('1')
+    .from('budget_commitment_contracts', 'bx')
+    .innerJoin('contracts', 'cx', 'cx.id = bx.contract_id AND cx.deleted = 0')
+    .where('bx.commitment_id = bcm.id AND cx.consip_agreement_id IS NOT NULL')
+    .andWhere('cx.consip_agreement_id <> :agreementId')
+    .getQuery();
+  return qb
+    .select([
+      'bcm.id AS id',
+      'bcm.commitment_year AS commitment_year',
+      'bcm.commitment_num AS commitment_num',
+      'bcm.commitment_sub AS commitment_sub',
+    ])
+    .where('bcm.deleted = 0')
+    .andWhere(ofAgreement(qb), { agreementId })
+    .andWhere(`EXISTS ${other}`)
+    .getRawMany();
+}
+
+// Quote sugli impegni della convenzione di fatture senza righe per utenza
+// (canoni): riducono la rimanenza ma i loro giorni restano «da fatturare».
+export function sharesWithoutLines(m: EntityManager, agreementId: number): Promise<Row[]> {
+  const qb = m
+    .createQueryBuilder(InvoiceCommitmentShare, 's')
+    .innerJoin(
+      Invoice,
+      'i',
+      `i.id = s.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}`,
+    )
+    .innerJoin(BudgetCommitment, 'bcm', 'bcm.id = s.commitment_id_fk AND bcm.deleted = 0');
+  const lines = qb
+    .subQuery()
+    .select('1')
+    .from('invoice_lines', 'il')
+    .where('il.invoice_id_fk = i.id AND il.utility_id_fk IS NOT NULL')
+    .getQuery();
+  return qb
+    .select('s.fiscal_year', 'year')
+    .addSelect('SUM(s.amount)', 'amount')
+    .where(ofAgreement(qb), { agreementId })
+    .andWhere(`NOT EXISTS ${lines}`)
+    .groupBy('s.fiscal_year')
+    .getRawMany();
 }

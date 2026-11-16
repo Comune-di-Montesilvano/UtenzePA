@@ -1,20 +1,54 @@
 import { DataSource } from 'typeorm';
 import { CommitmentReconcileService } from './commitment-reconcile.service';
+import * as q from './commitment-reconcile.queries';
+import * as sql from './commitment-reconcile.sql';
+
+jest.mock('./commitment-reconcile.queries');
+jest.mock('./commitment-reconcile.sql');
+const mq = jest.mocked(q);
+const ms = jest.mocked(sql);
 
 type Row = Record<string, unknown>;
 
-// Risponde in base al tag /* r_… */ in testa a ogni query del servizio.
+// Letture e scritture simulate per nome, tutte instradate su `query` con un tag
+// r_… (così un test può farne fallire una). Le query vere sono provate in
+// commitment-reconcile.int-spec.ts.
 function fakeDataSource(data: { closure?: Row[]; commitments?: Row[]; invoices?: Row[] }) {
   const calls: { sql: string; params: unknown[] }[] = [];
-  const query = jest.fn(async (sql: string, params: unknown[] = []) => {
-    calls.push({ sql, params });
-    if (sql.includes('/* r_closure */')) return data.closure ?? [];
-    if (sql.includes('/* r_commitments */')) return data.commitments ?? [];
-    if (sql.includes('/* r_invoices */')) return data.invoices ?? [];
+  const query = jest.fn(async (tag: string, params: unknown[] = []) => {
+    calls.push({ sql: tag, params });
+    if (tag.includes('/* r_closure */')) return data.closure ?? [];
+    if (tag.includes('/* r_commitments */')) return data.commitments ?? [];
+    if (tag.includes('/* r_invoices */')) return data.invoices ?? [];
     return [];
   });
-  const transaction = async (cb: (m: { query: typeof query }) => Promise<void>) => cb({ query });
-  return { ds: { query, transaction } as unknown as DataSource, calls };
+  const contracts = (rows: Row[]) => rows.map((r) => Number(r.contract_id));
+  mq.sharingContracts.mockImplementation(async (_m, ids) =>
+    contracts(await query('/* r_closure */', [ids])),
+  );
+  mq.contractCommitmentYears.mockImplementation((_m, ids) => query('/* r_commitments */', [ids]));
+  mq.reconcileInvoices.mockImplementation((_m, ids, commitmentIds) =>
+    query('/* r_invoices */', [ids, commitmentIds]),
+  );
+  mq.dropAutoShare.mockImplementation(
+    async (_m, id) => void (await query('/* r_auto_delete */', [id])),
+  );
+  mq.dropOrphanAutoShares.mockImplementation(async () => void (await query('/* r_orphans */')));
+  mq.allContracts.mockImplementation(async () => contracts(await query('/* r_all */')));
+  mq.utilityContracts.mockImplementation(async (_m, ids) =>
+    contracts(await query('/* r_utility_contracts */', [ids])),
+  );
+  ms.insertAutoShare.mockImplementation(async (_m, id, share) => {
+    await query('/* r_auto_insert */', [
+      id,
+      share.commitment_id,
+      share.fiscal_year,
+      share.amount,
+      id,
+    ]);
+  });
+  const transaction = async (cb: (m: object) => Promise<void>) => cb({});
+  return { ds: { query, transaction, manager: {} } as unknown as DataSource, calls };
 }
 
 const tagged = (calls: { sql: string; params: unknown[] }[], tag: string) =>
@@ -65,7 +99,6 @@ describe('CommitmentReconcileService', () => {
       [3, 20, 2026, 60, 3],
     ]);
     expect(deletes(calls).map((c) => c.params)).toEqual([[1], [2], [3]]);
-    expect(inserts(calls)[0].sql).toContain("'AUTO'");
   });
 
   it('una quota automatica invariata non viene riscritta', async () => {
@@ -113,17 +146,6 @@ describe('CommitmentReconcileService', () => {
     expect(inserts(calls).map((c) => c.params)).toEqual([[2, 10, 2026, 20, 2]]);
     expect(inserts(calls).every((c) => c.params[0] !== 1)).toBe(true);
     expect(deletes(calls).every((c) => c.params[0] !== 1)).toBe(true);
-  });
-
-  it("l'insert della quota automatica non scrive se esistono quote fisse", async () => {
-    const { ds, calls } = fakeDataSource({
-      commitments: [commitment(10, 521, 100)],
-      invoices: [invoice(1, 5, '2026-01-10')],
-    });
-    await new CommitmentReconcileService(ds).reconcileContracts([1]);
-    expect(inserts(calls)[0].sql).toContain(
-      "NOT EXISTS (SELECT 1 FROM invoice_commitment_shares WHERE invoice_id_fk = ? AND source <> 'AUTO')",
-    );
   });
 
   it('una fattura con quote fisse e una quota automatica residua: la automatica si toglie', async () => {
@@ -237,25 +259,10 @@ describe('CommitmentReconcileService', () => {
     expect(inserts(calls).map((c) => c.params)).toEqual([[1, 10, 2026, 10, 1]]);
   });
 
-  it('legge solo fatture non cancellate e non rifiutate, con il contratto in testata', async () => {
-    const { ds, calls } = fakeDataSource({ commitments: [commitment(10, 1, 100)] });
-    await new CommitmentReconcileService(ds).reconcileContracts([1]);
-    const q = tagged(calls, 'r_invoices')[0];
-    expect(q.sql).toContain('i.deleted = 0');
-    expect(q.sql).toContain('sdi_status');
-    expect(q.sql).toContain('i.contratto_id_fk');
-    expect(q.sql).toContain('invoice_commitment_shares');
-    expect(q.sql).not.toContain('commitment_auto');
-    expect(q.sql).not.toMatch(/\bi\.contract_id_fk\b/);
-  });
-
   it('carica anche le quote a mano sugli impegni di fatture di altri contratti', async () => {
     const { ds, calls } = fakeDataSource({ commitments: [commitment(10, 1, 100)] });
     await new CommitmentReconcileService(ds).reconcileContracts([1]);
-    const q = tagged(calls, 'r_invoices')[0];
-    expect(q.sql).toContain("m.source <> 'AUTO'");
-    expect(q.params).toEqual([[1], [10]]);
-    expect(tagged(calls, 'r_commitments')[0].sql).not.toContain('GROUP_CONCAT');
+    expect(tagged(calls, 'r_invoices')[0].params).toEqual([[1], [10]]);
   });
 
   it('allarga ai contratti che condividono un impegno', async () => {
@@ -267,11 +274,7 @@ describe('CommitmentReconcileService', () => {
   it('reconcileAll toglie le quote automatiche delle fatture senza contratto', async () => {
     const { ds, calls } = fakeDataSource({});
     await new CommitmentReconcileService(ds).reconcileAll();
-    const orphans = tagged(calls, 'r_orphans');
-    expect(orphans).toHaveLength(1);
-    expect(orphans[0].sql).toContain('contratto_id_fk IS NULL');
-    expect(orphans[0].sql).toContain("source = 'AUTO'");
-    expect(orphans[0].sql).toContain('DELETE');
+    expect(tagged(calls, 'r_orphans')).toHaveLength(1);
   });
 
   it('ogni giro toglie le quote automatiche delle fatture rimaste senza contratto', async () => {

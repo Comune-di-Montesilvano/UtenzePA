@@ -1,6 +1,25 @@
 import { CostStatus, costStatusSql, inChargeSql } from '@apis/utility/cost-status';
 import { AnomaliesService } from './anomalies.service';
 
+// Riepilogo dei capitoli (spending/chapter-year.ts): le sue tre letture passano dal
+// `query` simulato, nello stesso ordine e con lo stesso testo di prima.
+type Q = { query: (sql: string, params: unknown[]) => Promise<unknown> };
+jest.mock('@apis/spending/spending.queries', () => ({
+  yearBudgets: (m: Q, year: number) =>
+    m.query(
+      'SELECT budget_chapter_id_fk AS chapter_id FROM budget_chapter_spending WHERE year = ?',
+      [year],
+    ),
+  yearCommitted: (m: Q, year: number) =>
+    m.query('SELECT bcm.budget_chapter_id_fk AS chapter_id, remaining WHERE bcy.fiscal_year = ?', [
+      year,
+    ]),
+}));
+jest.mock('@apis/spending/chapter-items.sql', () => ({
+  yearInvoiced: (m: Q, year: number) =>
+    m.query('SELECT ci.chapter_id, SUM(ci.amount) AS total WHERE ci.year = ?', [year]),
+}));
+
 describe('AnomaliesService', () => {
   let query: jest.Mock;
   let service: AnomaliesService;
@@ -8,7 +27,7 @@ describe('AnomaliesService', () => {
   beforeEach(() => {
     // Query non mockate esplicitamente: nessuna riga.
     query = jest.fn().mockResolvedValue([]);
-    service = new AnomaliesService({ query } as never);
+    service = new AnomaliesService({ query, manager: { query } } as never);
   });
 
   it('righe senza utenza e fuori periodo: fatture rifiutate escluse', async () => {

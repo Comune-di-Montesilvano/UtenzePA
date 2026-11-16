@@ -2,16 +2,14 @@ import { BadRequestException } from '@nestjs/common';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { AgreementForecastService } from './agreement-forecast.service';
 import * as q from './agreement-forecast.queries';
-import * as sql from './agreement-forecast.sql';
 import { ConsipAgreementForecast } from './entity/agreement-forecast.entity';
 
 jest.mock('./agreement-forecast.queries');
-jest.mock('./agreement-forecast.sql');
 
 // Risposte delle letture per nome della funzione (le query vere sono provate in
 // agreement-forecast.int-spec.ts).
 type Answer = unknown;
-const readers = { ...q, ...sql } as unknown as Record<string, jest.Mock>;
+const readers = { ...q } as unknown as Record<string, jest.Mock>;
 
 describe('AgreementForecastService', () => {
   let service: AgreementForecastService;

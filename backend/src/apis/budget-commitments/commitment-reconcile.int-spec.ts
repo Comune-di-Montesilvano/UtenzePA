@@ -10,6 +10,7 @@ import {
   insertUtility,
 } from '../../test/integration/fixtures';
 import { CommitmentReconcileService } from './commitment-reconcile.service';
+import { insertAutoShare } from './commitment-reconcile.sql';
 
 // Riconciliazione delle quote automatiche su MySQL vero: fatture dei contratti,
 // impegni (anche pluriennali) collegati, quote fisse, contratti che condividono
@@ -265,5 +266,19 @@ describe('CommitmentReconcileService (integrazione)', () => {
     await service.reconcileUtilities([u]);
     expect(brief(await shares())).toEqual([[i, k, 2025, 25, 'AUTO']]);
     expect(reconciled).toEqual([[c], [c]]);
+  });
+
+  it('quota automatica non scritta se la fattura ha già una quota fissa (salvata nel frattempo)', async () => {
+    const c = await contract();
+    const k = await commitment(1, { 2025: 100 }, [c]);
+    const fixed = await invoice(c, [[10, '2025-01-01', '2025-01-31']]);
+    await share(fixed, k, 2025, 10, 'MANUAL');
+    const free = await invoice(c, [[20, '2025-01-01', '2025-01-31']]);
+    for (const id of [fixed, free])
+      await insertAutoShare(ds.manager, id, { commitment_id: k, fiscal_year: 2025, amount: 1 });
+    expect(brief(await shares())).toEqual([
+      [fixed, k, 2025, 10, 'MANUAL'],
+      [free, k, 2025, 1, 'AUTO'],
+    ]);
   });
 });

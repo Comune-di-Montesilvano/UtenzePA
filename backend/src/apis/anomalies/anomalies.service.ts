@@ -503,10 +503,7 @@ export class AnomaliesService {
 
     // Capitoli sull'esercizio in corso (scheda capitolo, roadmap voce 20).
     const year = currentYear();
-    const summary = await chaptersYearSummary(
-      (sql, params) => this.dataSource.query(sql, params),
-      year,
-    );
+    const summary = await chaptersYearSummary(this.dataSource.manager, year);
     const over = summary.filter((r) => r.over_budget);
     const overLabels: Record<string, unknown>[] = over.length
       ? await this.dataSource.query(

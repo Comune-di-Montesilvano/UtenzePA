@@ -17,7 +17,6 @@ import {
 import type { SupplyEventLike } from '@apis/utility-supply/supply-state';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import * as q from './agreement-forecast.queries';
-import * as sql from './agreement-forecast.sql';
 import { ConsipAgreementForecast } from './entity/agreement-forecast.entity';
 import { ConsipAgreementPrice } from './entity/agreement-price.entity';
 
@@ -149,7 +148,7 @@ export class AgreementForecastService {
       };
     });
 
-    const committed = (await sql.committed(this.m, agreementId)).map((c) => ({
+    const committed = (await q.committed(this.m, agreementId)).map((c) => ({
       chapter_id: num(c.chapter_id),
       year: Number(c.year),
       committed: Number(c.committed),
@@ -172,11 +171,11 @@ export class AgreementForecastService {
           label: `${String(c.chapter_code)}/${String(c.article ?? 0)}${c.description ? ` — ${String(c.description)}` : ''}`,
         }))
       : [];
-    const shared = (await sql.sharedCommitments(this.m, agreementId)).map((c) => ({
+    const shared = (await q.sharedCommitments(this.m, agreementId)).map((c) => ({
       id: Number(c.id),
       label: commitmentLabel(num(c.commitment_year), num(c.commitment_num), num(c.commitment_sub)),
     }));
-    const sharesWithoutLines = (await sql.sharesWithoutLines(this.m, agreementId)).map((s) => ({
+    const sharesWithoutLines = (await q.sharesWithoutLines(this.m, agreementId)).map((s) => ({
       year: Number(s.year),
       amount: Number(s.amount),
     }));
