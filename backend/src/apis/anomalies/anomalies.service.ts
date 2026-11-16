@@ -9,7 +9,7 @@ import {
   toUnknownStructure,
   UNKNOWN_STRUCTURES_SQL,
   type UnknownStructureRow,
-} from '@apis/invoice-import/pattern/unknown-structures';
+} from '@apis/invoice-import/pattern/unknown-structures.sql';
 import { CostStatus, costStatusSql, inChargeSql } from '@apis/utility/cost-status';
 import { chaptersYearSummary, currentYear } from '@apis/spending/chapter-year';
 import { romeDay } from '@apis/utility-supply/supply-reconcile.service';

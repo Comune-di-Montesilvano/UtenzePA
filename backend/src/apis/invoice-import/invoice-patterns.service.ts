@@ -43,7 +43,7 @@ import {
   UNTYPED_SQL,
   UNKNOWN_STRUCTURES_SQL,
   type UnknownStructureRow,
-} from './pattern/unknown-structures';
+} from './pattern/unknown-structures.sql';
 
 export type UnknownStructure = UnknownStructureRow;
 
