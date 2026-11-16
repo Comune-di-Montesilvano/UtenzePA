@@ -22,6 +22,17 @@ describe('escapeLdapDnValue (RFC 4514)', () => {
     expect(escapeLdapDnValue(' x ')).toBe('\\ x\\ ');
   });
 
+  // Trovato dal test di proprietà: lo spazio dopo un \ protetto sembrava già protetto.
+  it("mette l'escape sullo spazio finale anche dopo un backslash", () => {
+    expect(escapeLdapDnValue('a\\ ')).toBe('a\\\\\\ ');
+    expect(escapeLdapDnValue('\\ ')).toBe('\\\\\\ ');
+  });
+
+  it('protegge una volta sola uno spazio che è insieme iniziale e finale', () => {
+    expect(escapeLdapDnValue(' ')).toBe('\\ ');
+    expect(escapeLdapDnValue('  ')).toBe('\\ \\ ');
+  });
+
   it('lascia invariato un nome semplice', () => {
     expect(escapeLdapDnValue('mario.rossi')).toBe('mario.rossi');
   });
