@@ -71,6 +71,10 @@ export default tseslint.config(
           selector: "CallExpression[callee.property.name='query']",
           message: 'SQL a mano solo in *.sql.ts (motivo nel commento): usare repository o QueryBuilder.',
         },
+        {
+          selector: "CallExpression[callee.computed=true][callee.property.value='query']",
+          message: 'SQL a mano solo in *.sql.ts (motivo nel commento): usare repository o QueryBuilder.',
+        },
       ],
     },
   }
