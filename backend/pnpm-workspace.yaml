@@ -15,6 +15,8 @@ overrides:
   # minimatch 7/9/10 (via typescript-eslint, glob, depcheck, test-exclude):
   # GHSA-g3hv-75wg-m249 corretto solo nella 11 (stessa API, CJS ed ESM).
   'minimatch@>=7.0.0 <11.0.1': ^11.0.8
+  # glob 10 e 13 (via test-exclude e jest): GHSA-3g3m-2fjr-6pw4 corretto solo in 14.0.2.
+  'glob@>=9.0.0 <14.0.2': ^14.0.6
   # follow-redirects (via axios): fermo a 1.16.0 senza override. Togliere quando axios
   # risolve da solo >= 1.16.2.
   'follow-redirects@<1.16.2': ^1.16.2

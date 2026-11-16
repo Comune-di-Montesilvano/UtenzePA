@@ -6,8 +6,14 @@ overrides:
   # minimatch 7/9/10 (via typescript-eslint, glob, depcheck, test-exclude):
   # GHSA-g3hv-75wg-m249 corretto solo nella 11 (stessa API, CJS ed ESM).
   'minimatch@>=7.0.0 <11.0.1': ^11.0.8
-  # qs (via body-parser 1.x del dev server, che chiede ~6.15.1): GHSA-6pq8-jhm2-2vcw
-  # corretto in 6.16.1, nessuna correzione sulla 6.15. API invariata nella 6.x.
+  # Via karma, peer di @angular/build installato da autoInstallPeers ma mai usato (test con
+  # Vitest): body-parser 1.x, engine.io (socket.io) e qs con advisory, corretti nella stessa major.
+  # body-parser: GHSA-27r3-jxmh-p828, corretto in 1.20.9.
+  'body-parser@<1.20.9': ^1.20.9
+  # engine.io: GHSA-2gc4-cqfq-p2gv, corretto in 6.6.10.
+  'engine.io@>=6.6.0 <6.6.10': ^6.6.10
+  # qs (body-parser 1.x chiede ~6.15.1): GHSA-6pq8-jhm2-2vcw corretto in 6.16.1, nessuna
+  # correzione sulla 6.15. API invariata nella 6.x.
   'qs@>=6.7.0 <6.16.1': ^6.17.1
 allowBuilds:
   esbuild: true
