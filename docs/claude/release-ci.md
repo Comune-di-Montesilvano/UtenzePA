@@ -11,7 +11,7 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezione "Git, CI e release").
 
 ## Branch protection e merge
 
-- `main` protetta da un ruleset (non più branch protection classica): PR obbligatoria, merge solo squash dalla **merge queue**, check richiesti `dependency-review`, `backend`, `frontend`, `migrations`, `docker (backend, production)`, `docker (frontend, prod)`, `docker (tinn, production)`, `tinn`, `tinn-runtime`, `e2e`, `security-scripts`, `pnpm-audit (backend)`, `pnpm-audit (frontend)`, `trivy-fs`, `trivy-image (backend)`, `trivy-image (frontend)`, `trivy-image (tinn)` e la regola code scanning di CodeQL (la coda e l'auto-merge aspettano solo i check richiesti: un job nuovo che deve fare da gate va aggiunto al ruleset), no force-push/delete, 0 approvazioni umane (CI come unico gate). Push diretti rifiutati.
+- `main` protetta da un ruleset (non più branch protection classica): PR obbligatoria, merge solo squash dalla **merge queue**, check richiesti `dependency-review`, `backend`, `frontend`, `migrations`, `docker (backend, production)`, `docker (frontend, prod)`, `docker (tinn, production)`, `tinn`, `tinn-runtime`, `e2e`, `security-scripts`, `pnpm-audit (backend)`, `pnpm-audit (frontend)`, `trivy-fs`, `integration` e la regola code scanning di CodeQL (i `trivy-image` di `security.yml` sono verdi per step su PR e coda: il gate delle immagini in coda è `docker (…)`) (la coda e l'auto-merge aspettano solo i check richiesti: un job nuovo che deve fare da gate va aggiunto al ruleset), no force-push/delete, 0 approvazioni umane (CI come unico gate). Push diretti rifiutati.
 - Merge queue: i check girano sull'evento `merge_group` (commit temporaneo = `main` + PR), quindi `tests.yml` deve restare in ascolto di `merge_group`. `dependency-review` lì risulta saltato (conta come superato).
 - Merge delle PR proprie: `gh pr merge N` la mette in coda (il metodo, squash, lo decide la coda: `--squash` dà solo un avviso; `--delete-branch` è rifiutato, il branch lo cancella GitHub dopo il merge con `delete_branch_on_merge`) (con check ancora in corso serve `--auto`); il merge vero lo fa la coda dopo i check sul commit unito.
 - `gh pr merge` fallisce se lanciato da un worktree diverso da quello con `main` ("'main' is already used by worktree at ..."): eseguirlo dal worktree principale.
@@ -66,7 +66,7 @@ Riferimento: `docs/ci-cd-security-baseline.md` di ComunicaPA. ✅ = fatto, ⚠�
 - ✅ Branch cancellati dopo il merge, solo squash. ✅ Bot = GitHub App (`BOT_CLIENT_ID`/`BOT_PRIVATE_KEY`).
 
 **Ruleset**
-- ✅ `main`: PR obbligatoria, niente force-push/cancellazione, nessun bypass; 17 check obbligatori (test, migration, docker, e2e, tinn, sicurezza); merge queue; regola code scanning.
+- ✅ `main`: PR obbligatoria, niente force-push/cancellazione, nessun bypass; 15 check obbligatori (test, integrazione, migration, docker, e2e, tinn, sicurezza); merge queue; regola code scanning.
 - ✅ Tag `v*` protetti (`release-tags`, solo admin).
 - ❌ Review di una seconda persona: un solo maintainer, gap dichiarato.
 
