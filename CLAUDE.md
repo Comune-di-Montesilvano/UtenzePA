@@ -99,7 +99,7 @@ pnpm run build    # ng build --configuration production
 - Utente di sistema `SYSTEM_USER_ID = -1` («UtenzePA (automatico)», v1.44.0, `system-users/system-user.constants.ts`): autore delle scritture automatiche (import fatture; `SupplyReconcileService` lo prende come `MIN(id)`), Disattivo senza password, escluso da elenco/lettura/modifica utenti e dal conteggio di `/setup`. Mai il primo Admin come autore di sistema.
 - Installazione nuova (v1.45.2): tipi di utenza di base creati dalla migration `DefaultUtilityTypes` solo se la tabella è vuota (uno per `hard_type`); comune dell'ente = `SettingsService.municipality()` dal nome in branding ("Comune di X" → "X"), mai scritto nel codice (geocodifica impianti, ricerca in mappa).
 - Bootstrap primo Admin: wizard `/setup` protetto da OTP email **e** `SETUP_BOOTSTRAP_TOKEN` (secret obbligatorio comunicato fuori banda). CORS ristretto da `CORS_ORIGIN`.
-- SQL a mano (`.query(`) solo in file `*.sql.ts` con il motivo nel commento, nelle migration e nei test; altrove repository o QueryBuilder (regola ESLint `no-restricted-syntax`, avviso finché la conversione non è finita).
+- SQL a mano (`.query(`) solo in file `*.sql.ts` con il motivo nel commento, nelle migration e nei test; altrove repository o QueryBuilder, letture in `<modulo>.queries.ts` (regola ESLint `no-restricted-syntax`, errore; eccezioni e schemi in `docs/claude/backend.md`).
 - `invalidWhereValuesBehavior` = `'throw'`: in una where object-criteria mai valori potenzialmente `undefined` senza guardia.
 - `findOne()` joina spesso più relazioni di `findAll()`: i dialog partono dalla riga di `findAll()`, verificare lì i join.
 - Body-parser 100KB di default: DTO con data URI base64 richiedono `json({limit})` in `main.ts`.

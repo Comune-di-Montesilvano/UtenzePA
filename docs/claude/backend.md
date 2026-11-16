@@ -30,6 +30,20 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezioni "Migration DB" e "Backe
 - MySQL 8: in una `SELECT DISTINCT` l'`ORDER BY` può usare solo colonne/alias selezionati.
 - Scrittura di sistema (ricalcoli/cron) che non deve spostare "Ultima modifica": `repo.update(id, {..., update_date: () => '`update_date`'})` — esclude sia `@UpdateDateColumn` sia `ON UPDATE` MySQL (vedi `ConsumptionRecalcService`).
 
+## SQL a mano e QueryBuilder
+
+- Regola ESLint `no-restricted-syntax` (errore, v1.58.5): `.query(` solo in `*.sql.ts` (motivo in un commento `// SQL a mano: …`), migration e test d'integrazione. Altrove repository o QueryBuilder; le letture di un modulo stanno in `<modulo>.queries.ts` (funzioni con `EntityManager` come primo argomento, righe grezze del driver: decimal come stringhe).
+- Schemi del QueryBuilder usati: `qb.subQuery()…getQuery()` per `EXISTS`/`IN` correlati; `addSelect((sub) => …, 'alias')` per le sotto-query scalari; tabelle di collegamento senza entity per nome (`.from('budget_commitment_contracts', 'x')`); tabelle derivate con `.from((sub) => …, 't')` o `.leftJoin((sub) => …, 'k', 'k.id = b.id')`; liste con `IN (:...ids)`; frammenti condivisi come stringhe (`NOT_REJECTED_SQL`, `inChargeSql`, `COMMITMENT_SPENT`).
+- Eccezioni rimaste, col motivo:
+  - `backup/backup.sql.ts`: dump e ripristino di tutte le tabelle, anche senza entity.
+  - `setup/setup.sql.ts`: comando di sessione MySQL.
+  - `utility/utility.sql.ts`: contratto corrente con `ROW_NUMBER() OVER`.
+  - `invoice-import/pattern/unknown-structures.sql.ts`: funzioni finestra.
+  - `spending/chapter-items.sql.ts`: voci di spesa per capitolo, `UNION ALL` di quote e righe (lette anche dalle anomalie).
+  - `budget-commitments/commitment-reconcile.sql.ts`: `INSERT … SELECT … WHERE NOT EXISTS` della quota automatica, atomico contro un salvataggio a mano concorrente.
+  - `anomalies/anomalies.sql.ts`: le due anomalie della contabilità con una CTE (chiavi normalizzate una volta: 40 s col confronto correlato; CTE letta due volte).
+- Unit spec di un service convertito: `jest.mock('./x.queries')` e letture simulate per nome; il testo SQL non si controlla negli unit spec (lo provano gli int-spec).
+
 ## Test d'integrazione
 
 - `*.int-spec.ts` accanto al codice (non presi da `test:unit`), config `backend/jest.integration.config.js` (in JS: Node 26 carica un config `.ts` come modulo ES), `pnpm run test:int` con `--runInBand`.
