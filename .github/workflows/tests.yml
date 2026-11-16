@@ -153,15 +153,23 @@ jobs:
         run: node ../scripts/ci/coverage-summary.mjs frontend "$(find coverage -name coverage-summary.json | head -n1)"
       - run: pnpm run build
 
-  # Build delle immagini di produzione come in release.yml (immagini base ripescate) per
-  # e2e e tinn-runtime. Nessun push. Le CVE delle immagini le controlla trivy-image di
-  # security.yml (merge queue, main, giro giornaliero); dependency-review e' li'.
-  # Build delle immagini solo in merge queue (servono a e2e e tinn-runtime, anche loro solo in
-  # coda): sulla PR gli step sono saltati e il job e' verde. Skip per step e non per job: un job
+  # Build delle immagini di produzione come in release.yml (immagini base ripescate), una
+  # sola per e2e, tinn-runtime e scansione Trivy differenziale. Nessun push. Su main e nel
+  # giro giornaliero la scansione assoluta e' trivy-image di security.yml.
+  # Solo in merge queue (e2e e tinn-runtime anche): sulla PR gli step sono saltati e il job
+  # e' verde. Skip per step e non per job: un job
   # matrice saltato non crea i check "docker (<app>, <target>)" richiesti dal ruleset.
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # security-events: SARIF di Trivy (stessa categoria che trivy-image di security.yml usa su
+    # main e nel giro giornaliero).
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      BASE_SHA: ${{ github.event.merge_group.base_sha }}
+      IMAGE: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:ci
     strategy:
       fail-fast: false
       matrix:
@@ -182,9 +190,25 @@ jobs:
         with:
           persist-credentials: false
 
+      # Gate differenziale preso dalla base: una PR non puo' indebolire il gate che la giudica.
+      - name: Checkout base
+        if: github.event_name == 'merge_group'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ env.BASE_SHA }}
+          path: .base
+          persist-credentials: false
+
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
         if: github.event_name == 'merge_group'
 
+      - name: Data per PKG_REFRESH
+        if: github.event_name == 'merge_group'
+        id: day
+        run: echo "pkg_refresh=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+      # Una sola build per e2e, tinn-runtime e Trivy, con gli stessi build-args di release.yml
+      # (PKG_REFRESH: pacchetti di sistema del giorno).
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         if: github.event_name == 'merge_group'
         with:
@@ -195,14 +219,59 @@ jobs:
           load: true
           # Stesso nome di docker-compose.yml con IMAGE_TAG=ci: il job e2e avvia lo stack di
           # produzione con queste immagini.
-          tags: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:ci
+          tags: ${{ env.IMAGE }}
+          build-args: |
+            PKG_REFRESH=${{ steps.day.outputs.pkg_refresh }}
           # Package ghcr pubblico: la cache si legge senza login, mai scritta dalle PR.
           cache-from: type=registry,ref=ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:buildcache
+
+      # Scansione dell'immagine in coda (prima in trivy-image di security.yml, con una seconda
+      # build). SARIF senza gate; il gate e' differenziale rispetto alla `latest` pubblicata:
+      # una CVE gia' in produzione non blocca le PR, la corregge il rebuild giornaliero.
+      - name: Trivy ${{ matrix.app }}
+        if: github.event_name == 'merge_group'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.76.1
+          image-ref: ${{ env.IMAGE }}
+          format: sarif
+          output: trivy-image.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '0'
+          ignore-unfixed: true
+          limit-severities-for-sarif: true
+          trivyignores: .trivyignore.yaml
+
+      - name: Trivy ${{ matrix.app }} differenziale (nuove rispetto a latest)
+        if: github.event_name == 'merge_group'
+        env:
+          TRIVY_CACHE_DIR: ${{ github.workspace }}/.cache/trivy
+          LATEST: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:latest
+        run: |
+          opts=(image --quiet --skip-db-update --scanners vuln --severity "CRITICAL,HIGH"
+            --ignore-unfixed --ignorefile .trivyignore.yaml --format json)
+          trivy "${opts[@]}" --output "$RUNNER_TEMP/head.json" "$IMAGE"
+          if docker pull --quiet "$LATEST" >/dev/null 2>&1; then
+            trivy "${opts[@]}" --output "$RUNNER_TEMP/base.json" "$LATEST"
+            base=(--base "$RUNNER_TEMP/base.json")
+          else
+            echo "::warning::$LATEST non disponibile: tutte le vulnerabilita' contano come nuove"
+            base=(--base-empty)
+          fi
+          GATE=.base/scripts/security/diff-gate.mjs; [ -f "$GATE" ] || GATE=scripts/security/diff-gate.mjs
+          node "$GATE" --format trivy --head "$RUNNER_TEMP/head.json" "${base[@]}"
+
+      - name: Upload SARIF
+        if: always() && github.event_name == 'merge_group'
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image-${{ matrix.app }}
 
       # backend e frontend per e2e, tinn per tinn-runtime (non fa parte dello stack di e2e).
       - name: Salva l'immagine per i job successivi
         if: github.event_name == 'merge_group'
-        run: docker save ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:ci | gzip -1 > image-${{ matrix.app }}.tar.gz
+        run: docker save "$IMAGE" | gzip -1 > image-${{ matrix.app }}.tar.gz
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: github.event_name == 'merge_group'

@@ -8,7 +8,7 @@ name: Alert di sicurezza aperti
 # viene chiusa.
 # Non e' un required check: un alert aperto su main bloccherebbe anche la PR che lo corregge.
 # Esclusi gli alert Scorecard (postura del repo, non vulnerabilita'). Le CVE delle
-# dipendenze sono gia' bloccanti in PR (pnpm-audit, trivy-fs, trivy-image).
+# dipendenze sono gia' bloccanti in PR (pnpm-audit, trivy-fs, Trivy sulle immagini nel job docker di tests.yml).
 on:
   schedule:
     # Dopo il giro giornaliero di security.yml (05:00 UTC).
