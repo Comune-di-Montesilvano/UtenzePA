@@ -91,7 +91,7 @@ describe('AuditLogService', () => {
     expect(repo.save).not.toHaveBeenCalled();
   });
 
-  describe('query — risoluzione entity_label', () => {
+  describe('search — risoluzione entity_label', () => {
     const buildQb = (items: unknown[]) => ({
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -106,7 +106,7 @@ describe('AuditLogService', () => {
       repo.createQueryBuilder.mockReturnValue(buildQb([{ entity_name: 'assets', entity_id: 42 }]));
       assetRepo.find.mockResolvedValue([{ id: 42, asset_name: 'Scuola Primaria' }]);
 
-      const result = await service.query({ entity: 'assets', page: 1, pageSize: 10 } as any);
+      const result = await service.search({ entity: 'assets', page: 1, pageSize: 10 } as any);
 
       expect(assetRepo.find).toHaveBeenCalled();
       expect(result.items[0].entity_label).toBe('Scuola Primaria');
@@ -118,7 +118,7 @@ describe('AuditLogService', () => {
       );
       utilityRepo.find.mockResolvedValue([{ id: 2523, utility_id: '71011979' }]);
 
-      const result = await service.query({ entity: 'utilities', page: 1, pageSize: 10 } as any);
+      const result = await service.search({ entity: 'utilities', page: 1, pageSize: 10 } as any);
 
       expect(result.items[0].entity_label).toBe('71011979');
     });
@@ -126,7 +126,7 @@ describe('AuditLogService', () => {
     it('ritorna entity_label null per entità senza resolver (es. contract)', async () => {
       repo.createQueryBuilder.mockReturnValue(buildQb([{ entity_name: 'contract', entity_id: 7 }]));
 
-      const result = await service.query({ entity: 'contract', page: 1, pageSize: 10 } as any);
+      const result = await service.search({ entity: 'contract', page: 1, pageSize: 10 } as any);
 
       expect(result.items[0].entity_label).toBeNull();
       expect(assetRepo.find).not.toHaveBeenCalled();
@@ -143,7 +143,7 @@ describe('AuditLogService', () => {
       assetRepo.find.mockResolvedValue([{ id: 42, asset_name: 'Scuola Primaria' }]);
       utilityRepo.find.mockResolvedValue([{ id: 2523, utility_id: '71011979' }]);
 
-      const result = await service.query({ page: 1, pageSize: 10 } as any);
+      const result = await service.search({ page: 1, pageSize: 10 } as any);
 
       expect(qb.andWhere).not.toHaveBeenCalledWith(
         expect.stringContaining('entity_name'),

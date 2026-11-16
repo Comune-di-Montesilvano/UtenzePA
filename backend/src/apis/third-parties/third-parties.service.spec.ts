@@ -7,6 +7,8 @@ import {
   ContractKind,
 } from '@apis/utilizer-grant/enum/real-estate-contract.enum';
 import { BaseService } from '@apis/shared/base.service';
+import { ConsipAgreement } from '@apis/consip-agreement/entity/consip-agreement.entity';
+import { Contract } from '@apis/contracts/entity/contract.entity';
 import { ThirdParty } from './entity/third-party.entity';
 import { PartyRole, ThirdPartyType } from './enum/third-party.enum';
 import { ThirdPartiesService } from './third-parties.service';
@@ -19,7 +21,30 @@ describe('ThirdPartiesService', () => {
     save: jest.fn(async (x) => ({ id: 7, ...x })),
     createQueryBuilder: jest.fn(),
   };
-  const dataSource = { query: jest.fn() };
+  const dataSource = { getRepository: jest.fn() };
+
+  // Indice dei ruoli: fornitori dai contratti, partecipazioni ai contratti immobiliari
+  // (le condizioni delle query sono provate in third-parties.int-spec.ts).
+  function mockRoleIndex(
+    suppliers: number[],
+    grants: { party_id: number; direction: ContractDirection; kind: ContractKind }[],
+  ) {
+    const grantQb = {
+      innerJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue(grants),
+    };
+    dataSource.getRepository.mockImplementation((entity: unknown) => {
+      if (entity === Contract)
+        return {
+          find: jest.fn().mockResolvedValue(suppliers.map((id) => ({ supplier_id_fk: id }))),
+        };
+      if (entity === ConsipAgreement) return { find: jest.fn().mockResolvedValue([]) };
+      return { createQueryBuilder: jest.fn(() => grantQb) };
+    });
+  }
 
   beforeEach(async () => {
     jest.restoreAllMocks();
@@ -93,10 +118,13 @@ describe('ThirdPartiesService', () => {
       ]),
     };
     repo.createQueryBuilder.mockReturnValue(qb);
-    dataSource.query.mockResolvedValueOnce([{ id: 42 }]).mockResolvedValueOnce([
-      { party_id: 1000, direction: ContractDirection.PASSIVE, kind: ContractKind.LEASE },
-      { party_id: 1001, direction: ContractDirection.ACTIVE, kind: ContractKind.CONCESSION },
-    ]);
+    mockRoleIndex(
+      [42],
+      [
+        { party_id: 1000, direction: ContractDirection.PASSIVE, kind: ContractKind.LEASE },
+        { party_id: 1001, direction: ContractDirection.ACTIVE, kind: ContractKind.CONCESSION },
+      ],
+    );
 
     const rows = await service.findAll({ roles: [PartyRole.SUPPLIER, PartyRole.LESSOR] });
     expect(rows.map((r) => [r.id, r.roles])).toEqual([
@@ -116,11 +144,10 @@ describe('ThirdPartiesService', () => {
       ]),
     };
     repo.createQueryBuilder.mockReturnValue(qb);
-    dataSource.query
-      .mockResolvedValueOnce([{ id: 42 }])
-      .mockResolvedValueOnce([
-        { party_id: 1001, direction: ContractDirection.ACTIVE, kind: ContractKind.CONCESSION },
-      ]);
+    mockRoleIndex(
+      [42],
+      [{ party_id: 1001, direction: ContractDirection.ACTIVE, kind: ContractKind.CONCESSION }],
+    );
 
     const rows = await service.findAll({ kind: ContractKind.CONCESSION });
     expect(rows.map((r) => r.id)).toEqual([1001]);

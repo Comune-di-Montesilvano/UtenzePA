@@ -41,13 +41,13 @@ import { dbDay } from '@/helpers/date.helpers';
 import { GrantUtilityDecision } from '@apis/utility-supply/entity/grant-utility-decision.entity';
 import { SupplyEventsService } from '@apis/utility-supply/supply-events.service';
 import { CommitmentReconcileService } from '@apis/budget-commitments/commitment-reconcile.service';
-import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
+import { UtilityType } from '@apis/utility-types/entity/utility_type.entity';
+import {
+  CURRENT_CONTRACT_FILTER,
+  CURRENT_CONTRACT_ORDER,
+  currentContractPairs,
+} from './utility.sql';
 import { nextContract } from './next-contract';
-
-// Contratto corrente: prima quelli già partiti (o senza data d'inizio), il più recente;
-// uno che parte in futuro solo se non ce n'è un altro (ordine nuovo firmato in anticipo).
-const CURRENT_CONTRACT_ORDER =
-  'ORDER BY (c.supply_start_date IS NOT NULL AND c.supply_start_date > CURDATE()), c.supply_start_date DESC, c.id DESC';
 
 // Colonne scritte solo dalla riconciliazione dello storico (apis/utility-supply):
 // mai dal payload di create/update, anche se un chiamante interno le passasse,
@@ -173,9 +173,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
                 )
                 .from('contract_utilities', 'cu')
                 .innerJoin('contracts', 'c', 'c.id = cu.contract_id AND c.deleted = 0')
-                .where(
-                  `c.closed = 0 AND ${NOT_DRAFT_SQL('c')} AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE())`,
-                ),
+                .where(CURRENT_CONTRACT_FILTER),
             'ranked',
           )
           .where('ranked.rn = 1'),
@@ -206,20 +204,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       return result;
     }
 
-    const pairs: { utility_id: number; contract_id: number }[] = await this.repo.manager.query(
-      `SELECT ranked.utility_id, ranked.contract_id FROM (
-         SELECT cu.utility_id, c.id AS contract_id,
-                ROW_NUMBER() OVER (
-                  PARTITION BY cu.utility_id
-                  ${CURRENT_CONTRACT_ORDER}
-                ) AS rn
-         FROM contract_utilities cu
-         INNER JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
-         WHERE cu.utility_id IN (?)
-           AND c.closed = 0 AND ${NOT_DRAFT_SQL('c')} AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE())
-       ) ranked WHERE ranked.rn = 1`,
-      [utilityIds],
-    );
+    const pairs = await currentContractPairs(this.repo.manager, utilityIds);
 
     if (!pairs.length) {
       return result;
@@ -742,20 +727,20 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
   }
 
   // La tipologia ARERA deve appartenere al tipo dell'utenza (luce/acqua/gas;
-  // Internet nessuna); la categoria d'uso esiste solo per il gas. hard_type
-  // letto con una query diretta: il service non ha il repository dei tipi.
+  // Internet nessuna); la categoria d'uso esiste solo per il gas.
   private async assertAreraCategory(
     utilityTypeId: number | null | undefined,
     category: AreraCategory | null | undefined,
     gasUse: GasUseCategory | null | undefined = null,
   ): Promise<void> {
     if (!category && !gasUse) return;
-    const rows: { hard_type: HardTypeEnum }[] = utilityTypeId
-      ? await this.repo.manager.query('SELECT hard_type FROM utility_types WHERE id = ?', [
-          utilityTypeId,
-        ])
-      : [];
-    const hardType = rows[0]?.hard_type;
+    const type = utilityTypeId
+      ? await this.repo.manager.getRepository(UtilityType).findOne({
+          select: { hard_type: true },
+          where: { id: utilityTypeId },
+        })
+      : null;
+    const hardType = type?.hard_type;
     if (category && (!hardType || !isAreraCategoryAllowed(hardType, category))) {
       throw new BadRequestException('Tipologia ARERA non valida per il tipo di utenza.');
     }

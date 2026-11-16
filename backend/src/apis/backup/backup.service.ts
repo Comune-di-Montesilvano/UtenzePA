@@ -3,9 +3,10 @@ import { randomBytes } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as tar from 'tar';
-import { createConnection, RowDataPacket } from 'mysql2/promise';
+import { createConnection } from 'mysql2/promise';
 import { maintenance } from '@common/maintenance/maintenance';
 import { RetentionPolicy, retentionPolicyFromEnv, selectBackupsToKeep } from './backup-retention';
+import { createTableSql, listTables, replayDump, tableRows } from './backup.sql';
 
 // Due formati: ".sql" (solo dump, sempre) e ".tar.gz" (dump.sql + foto,
 // solo backup manuali — vedi createBackup). Entrambi coesistono nella
@@ -180,14 +181,11 @@ export class BackupService {
       await write('SET FOREIGN_KEY_CHECKS=0;\n');
       await write('SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";\n\n');
 
-      const [tables] = await conn.query<RowDataPacket[]>('SHOW TABLES');
-      for (const tableRow of tables) {
-        const table = Object.values(tableRow)[0] as string;
-        const [[createRow]] = await conn.query<RowDataPacket[]>(`SHOW CREATE TABLE \`${table}\``);
+      for (const table of await listTables(conn)) {
         await write(`DROP TABLE IF EXISTS \`${table}\`;\n`);
-        await write(`${createRow['Create Table'] as string};\n\n`);
+        await write(`${await createTableSql(conn, table)};\n\n`);
 
-        const [rows] = await conn.query<RowDataPacket[]>(`SELECT * FROM \`${table}\``);
+        const rows = await tableRows(conn, table);
         if (rows.length > 0) {
           const cols = Object.keys(rows[0]);
           const colList = cols.map((c) => `\`${c}\``).join(', ');
@@ -385,16 +383,7 @@ export class BackupService {
     const sqlContent = this.filterDumpTables(rawSql, excludeTables);
     const conn = await createConnection({ ...this.dbConfig(), multipleStatements: true });
     try {
-      // Il dump ha un INSERT per riga: con autocommit ogni riga aspetta il
-      // commit su disco (minuti con le tabelle acc_*). Senza, si committa a
-      // ogni DROP/CREATE (commit implicito del DDL), cioè una volta per tabella.
-      await conn.query('SET autocommit=0');
-      // A blocchi sulla stessa connessione: le SET in testa al dump
-      // (FOREIGN_KEY_CHECKS, SQL_MODE) valgono per tutta la sessione.
-      for (const batch of sqlBatches(sqlContent)) {
-        await conn.query(batch);
-      }
-      await conn.query('COMMIT');
+      await replayDump(conn, sqlBatches(sqlContent));
       this.logger.log(`Restore completato da: ${sqlFilePath}`);
     } catch (err) {
       this.logger.error(`Restore fallito: ${(err as Error).message}`);

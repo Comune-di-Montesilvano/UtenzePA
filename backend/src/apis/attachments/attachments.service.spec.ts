@@ -8,7 +8,8 @@ import { AttachmentEntityType as T } from './enum/attachment-entity-type.enum';
 describe('AttachmentsService', () => {
   let dir: string;
   let repo: { find: jest.Mock; findOne: jest.Mock; create: jest.Mock; save: jest.Mock };
-  let query: jest.Mock;
+  let owner: jest.Mock;
+  let inspections: jest.Mock;
   let audit: { record: jest.Mock };
   let service: AttachmentsService;
 
@@ -35,12 +36,13 @@ describe('AttachmentsService', () => {
       create: jest.fn((x) => x),
       save: jest.fn(async (x) => ({ id: 7, ...x })),
     };
-    // Esistenza del proprietario: SELECT ... FROM <tabella> WHERE id = ? AND deleted = 0
-    query = jest.fn().mockResolvedValue([{ id: 3, plant_id: 5, kind: 'Verifica biennale' }]);
+    // Esistenza del proprietario (findOne non cancellato) e verifiche dell'impianto (find).
+    owner = jest.fn().mockResolvedValue({ id: 3, plant_id: 5, kind: 'Verifica biennale' });
+    inspections = jest.fn().mockResolvedValue([]);
     audit = { record: jest.fn() };
     service = new AttachmentsService(
       repo as never,
-      { query } as never,
+      { getRepository: () => ({ findOne: owner, find: inspections }) } as never,
       new ChunkedUploadService(),
       audit as never,
     );
@@ -81,7 +83,7 @@ describe('AttachmentsService', () => {
   });
 
   it('proprietario inesistente o cancellato → 400, nessun file residuo', async () => {
-    query.mockResolvedValue([]);
+    owner.mockResolvedValue(null);
     upload('u3', Buffer.from('%PDF-1.7'));
     await expect(finalize('u3', 'a.pdf', T.ACT, 9)).rejects.toThrow('Atto non trovato');
     expect(fs.readdirSync(path.join(dir, 'tmp'))).toEqual([]);
@@ -89,8 +91,8 @@ describe('AttachmentsService', () => {
 
   it('verifica di un impianto cancellato: proprietario non valido → 400', async () => {
     // Il DB risponde solo se la query esclude gli impianti cancellati.
-    query.mockImplementation(async (sql: string) =>
-      sql.includes('p.deleted = 0') ? [] : [{ id: 3, plant_id: 5, kind: 'Verifica' }],
+    owner.mockImplementation(async (opts: { where: { plant?: { deleted: boolean } } }) =>
+      opts.where.plant?.deleted === false ? null : { id: 3, plant_id: 5, kind: 'Verifica' },
     );
     upload('u6', Buffer.from('%PDF-1.7'));
     await expect(finalize('u6', 'v.pdf', T.PLANT_INSPECTION, 3)).rejects.toThrow(
@@ -145,7 +147,7 @@ describe('AttachmentsService', () => {
       stored_name: 'x.pdf',
       deleted: false,
     });
-    query.mockResolvedValueOnce([]);
+    owner.mockResolvedValueOnce(null);
     await expect(service.open(9)).rejects.toThrow('Atto non trovato');
     repo.findOne.mockResolvedValueOnce({
       id: 9,
@@ -171,7 +173,7 @@ describe('AttachmentsService', () => {
   });
 
   it('list(plant): allegati dell’impianto e delle sue verifiche non cancellate', async () => {
-    query.mockResolvedValue([{ id: 11, kind: 'Verifica biennale' }]);
+    inspections.mockResolvedValue([{ id: 11, kind: 'Verifica biennale' }]);
     repo.find
       .mockResolvedValueOnce([{ id: 1, entity_type: 'plant', entity_id: 5 }])
       .mockResolvedValueOnce([{ id: 2, entity_type: 'plant_inspection', entity_id: 11 }]);

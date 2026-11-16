@@ -1,3 +1,4 @@
+import { withoutForeignKeyChecks } from './setup.sql';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Not, Repository } from 'typeorm';
@@ -102,8 +103,7 @@ export class SetupService {
       // può puntare a un id esistente. Si disabilitano i check FK per la
       // sola connessione di questa transazione, si inserisce, si fa
       // puntare la riga a se stessa, si riabilitano i check.
-      await manager.query('SET FOREIGN_KEY_CHECKS=0');
-      try {
+      await withoutForeignKeyChecks(manager, async () => {
         const insertResult = await manager.insert(SystemUser, {
           firstName,
           lastName,
@@ -119,9 +119,7 @@ export class SetupService {
           created_by_user_id: newId,
           updated_by_user_id: newId,
         });
-      } finally {
-        await manager.query('SET FOREIGN_KEY_CHECKS=1');
-      }
+      });
     });
 
     this.pending = null;

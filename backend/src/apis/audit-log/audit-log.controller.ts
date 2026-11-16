@@ -25,6 +25,6 @@ export class AuditLogController {
     if ((query.entityId === undefined || !query.entity) && user.role !== 'Admin') {
       throw new ForbiddenException('Solo un amministratore può consultare il log globale');
     }
-    return this.service.query(query);
+    return this.service.search(query);
   }
 }

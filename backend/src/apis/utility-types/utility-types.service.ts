@@ -1,12 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, In, IsNull, Not, Repository } from 'typeorm';
 import { BaseService } from '@apis/shared/base.service';
 import { UtilityType } from './entity/utility_type.entity';
 import { CreateUtilityTypeDto } from './dto/create-utility-type.dto';
 import { UpdateUtilityTypeDto } from './dto/update-utility-type.dto';
 import { SearchUtilityTypeDto } from './dto/search-utility-type.dto';
 import { ARERA_CATEGORIES_BY_HARD_TYPE } from '@apis/utility/arera-category';
+import { Utility } from '@apis/utility/entity/utility.entity';
 import { HardTypeEnum } from './enum/hard-type.enum';
 
 @Injectable()
@@ -53,18 +54,15 @@ export class UtilityTypesService extends BaseService<
   async update(id: number, dto: UpdateUtilityTypeDto, userId?: number): Promise<UtilityType> {
     if (dto.hard_type) {
       const allowed = ARERA_CATEGORIES_BY_HARD_TYPE[dto.hard_type] ?? [];
-      const notIn = allowed.length
-        ? ` AND arera_category NOT IN (${allowed.map(() => '?').join(', ')})`
-        : '';
+      const own = { utility_type_id_fk: id, deleted: false };
+      // NOT IN esclude già le righe NULL; senza categorie ammesse conta ogni categoria.
+      const where: FindOptionsWhere<Utility>[] = [
+        { ...own, arera_category: allowed.length ? Not(In(allowed)) : Not(IsNull()) },
+      ];
       // La categoria d'uso esiste solo per il gas.
-      const gasUse = dto.hard_type !== HardTypeEnum.GAS ? ' OR gas_use_category IS NOT NULL' : '';
-      const rows: { n: string | number }[] = await this.repo.manager.query(
-        `SELECT COUNT(*) AS n FROM utilities
-          WHERE utility_type_id_fk = ? AND deleted = 0
-            AND ((arera_category IS NOT NULL${notIn})${gasUse})`,
-        [id, ...allowed],
-      );
-      const n = Number(rows[0]?.n ?? 0);
+      if (dto.hard_type !== HardTypeEnum.GAS)
+        where.push({ ...own, gas_use_category: Not(IsNull()) });
+      const n = await this.repo.manager.getRepository(Utility).count({ where });
       if (n > 0) {
         throw new BadRequestException(
           `Impossibile cambiare il tipo contatore: ${n} utenze hanno una tipologia ARERA o una categoria d'uso non compatibile. Svuotale prima.`,
