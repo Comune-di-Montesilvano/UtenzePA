@@ -20,6 +20,31 @@ permissions:
   contents: read
 
 jobs:
+  # PR o coda di sola documentazione (docs/, *.md, tranne la guida operatori): i job pesanti
+  # saltano restando verdi per il ruleset (per job, o per step nella matrice docker).
+  # security-scripts gira sempre (note di rilascio). scripts/ci/changes.mjs, testato in
+  # scripts/ci/test/changes.test.mjs.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: File cambiati rispetto alla base
+        id: diff
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: node scripts/ci/changes.mjs "$BASE_SHA" HEAD
+
   # Script dei gate di sicurezza (scripts/security, solo moduli Node built-in) usati da
   # security.yml: un errore qui renderebbe inaffidabili i differenziali sulle PR.
   security-scripts:
@@ -57,6 +82,8 @@ jobs:
         run: bash scripts/release-notes.sh check-publiccode
 
   backend:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -113,6 +140,8 @@ jobs:
       - run: pnpm run build
 
   frontend:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -160,6 +189,7 @@ jobs:
   # e' verde. Skip per step e non per job: un job
   # matrice saltato non crea i check "docker (<app>, <target>)" richiesti dal ruleset.
   docker:
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # security-events: SARIF di Trivy (stessa categoria che trivy-image di security.yml usa su
@@ -168,6 +198,8 @@ jobs:
       contents: read
       security-events: write
     env:
+      # Build solo in coda e se la PR non e' di sola documentazione.
+      BUILD: ${{ github.event_name == 'merge_group' && needs.changes.outputs.code == 'true' }}
       BASE_SHA: ${{ github.event.merge_group.base_sha }}
       IMAGE: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:ci
     strategy:
@@ -186,13 +218,13 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        if: github.event_name == 'merge_group'
+        if: env.BUILD == 'true'
         with:
           persist-credentials: false
 
       # Gate differenziale preso dalla base: una PR non puo' indebolire il gate che la giudica.
       - name: Checkout base
-        if: github.event_name == 'merge_group'
+        if: env.BUILD == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ env.BASE_SHA }}
@@ -200,17 +232,17 @@ jobs:
           persist-credentials: false
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
-        if: github.event_name == 'merge_group'
+        if: env.BUILD == 'true'
 
       - name: Data per PKG_REFRESH
-        if: github.event_name == 'merge_group'
+        if: env.BUILD == 'true'
         id: day
         run: echo "pkg_refresh=$(date -u +%F)" >> "$GITHUB_OUTPUT"
 
       # Una sola build per e2e, tinn-runtime e Trivy, con gli stessi build-args di release.yml
       # (PKG_REFRESH: pacchetti di sistema del giorno).
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
-        if: github.event_name == 'merge_group'
+        if: env.BUILD == 'true'
         with:
           context: ${{ matrix.app }}
           file: ${{ matrix.app }}/Dockerfile
@@ -229,7 +261,7 @@ jobs:
       # build). SARIF senza gate; il gate e' differenziale rispetto alla `latest` pubblicata:
       # una CVE gia' in produzione non blocca le PR, la corregge il rebuild giornaliero.
       - name: Trivy ${{ matrix.app }}
-        if: github.event_name == 'merge_group'
+        if: env.BUILD == 'true'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           version: v0.76.1
@@ -243,7 +275,7 @@ jobs:
           trivyignores: .trivyignore.yaml
 
       - name: Trivy ${{ matrix.app }} differenziale (nuove rispetto a latest)
-        if: github.event_name == 'merge_group'
+        if: env.BUILD == 'true'
         env:
           TRIVY_CACHE_DIR: ${{ github.workspace }}/.cache/trivy
           LATEST: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:latest
@@ -262,7 +294,7 @@ jobs:
           node "$GATE" --format trivy --head "$RUNNER_TEMP/head.json" "${base[@]}"
 
       - name: Upload SARIF
-        if: always() && github.event_name == 'merge_group'
+        if: always() && env.BUILD == 'true'
         uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with:
           sarif_file: trivy-image.sarif
@@ -270,11 +302,11 @@ jobs:
 
       # backend e frontend per e2e, tinn per tinn-runtime (non fa parte dello stack di e2e).
       - name: Salva l'immagine per i job successivi
-        if: github.event_name == 'merge_group'
+        if: env.BUILD == 'true'
         run: docker save "$IMAGE" | gzip -1 > image-${{ matrix.app }}.tar.gz
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: github.event_name == 'merge_group'
+        if: env.BUILD == 'true'
         with:
           name: image-${{ matrix.app }}
           path: image-${{ matrix.app }}.tar.gz
@@ -283,6 +315,8 @@ jobs:
   # Container Tinn: test Python e selftest dell'estrazione su un DB Firebird finto
   # (tinn/testdata, nessun dato reale). Nessun collegamento SFTP in CI.
   tinn:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -307,9 +341,9 @@ jobs:
   # in sola lettura, solo le capability dichiarate, tmpfs su /tmp. Il selftest usa Firebird
   # embedded come l'estrazione notturna (log e lock in /tmp): una scrittura fuori posto fallisce.
   tinn-runtime:
-    needs: docker
+    needs: [changes, docker]
     # Solo in merge queue, come la build delle immagini: sulla PR il job saltato vale verde.
-    if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -364,7 +398,8 @@ jobs:
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
   migrations:
-    needs: mysql-image
+    needs: [changes, mysql-image]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -426,13 +461,69 @@ jobs:
           echo "Migration nuove: ${added:-0}"
           sh scripts/check-migrations.sh "${added:-1}"
 
+  # Test d'integrazione (*.int-spec.ts) sull'SQL vero: database utenzepa_it ricreato e
+  # migrato dal globalSetup di jest, stessa immagine MySQL della produzione.
+  integration:
+    needs: [changes, mysql-image]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: ${{ needs.mysql-image.outputs.image }}
+        env:
+          MYSQL_ROOT_PASSWORD: ci
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -pci"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: backend/package.json
+
+      - name: Versione Node dall'immagine base
+        id: node
+        run: |
+          major=$(sed -nE 's/^FROM node:([0-9]+)-.*/\1/p' Dockerfile | head -n1)
+          [ -n "$major" ] || { echo "::error::FROM node:<major> non trovato in backend/Dockerfile"; exit 1; }
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ steps.node.outputs.major }}
+          cache: 'pnpm'
+          cache-dependency-path: backend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Test d'integrazione
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: '3306'
+          MYSQL_USER: root
+          MYSQL_PASSWORD: ci
+          MYSQL_DB: utenzepa_it
+        run: pnpm run test:int
+
   # Stack di produzione (docker-compose.yml) con le immagini del job docker su un DB nuovo:
   # avvio, migration all'avvio, Admin creato via SQL, poi smoke Playwright (e2e/).
   e2e:
-    needs: docker
+    needs: [changes, docker]
     # Solo in merge queue: prova lo stack con la PR gia' unita a main, un giro anche sulla PR
     # sarebbe un doppione. Sulla PR il job saltato vale verde per il ruleset.
-    if: github.event_name == 'merge_group'
+    if: github.event_name == 'merge_group' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:

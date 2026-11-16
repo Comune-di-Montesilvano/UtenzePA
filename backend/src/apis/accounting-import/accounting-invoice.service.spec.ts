@@ -3,7 +3,11 @@ import { Invoice } from '@apis/invoices/entity/invoice.entity';
 import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
 import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
 import type { AccCreditNoteRow, AccLiquidationRow } from './accounting-csv';
-import { AccountingInvoiceService, CONTRACTS_SQL } from './accounting-invoice.service';
+import { AccountingInvoiceService } from './accounting-invoice.service';
+import * as q from './accounting-import.queries';
+
+jest.mock('./accounting-import.queries');
+const mq = jest.mocked(q);
 import { RecordSource } from './record-source.enum';
 
 const liq = (key: string, patch: Partial<AccLiquidationRow> = {}): AccLiquidationRow => ({
@@ -43,14 +47,12 @@ function setup(f: Fixture) {
       updates.push({ id, values });
     }),
   };
+  // Letture simulate (query vere provate in accounting-import.int-spec.ts).
+  mq.matchableInvoices.mockResolvedValue((f.invoices ?? []) as never);
+  mq.contractsWithCig.mockResolvedValue((f.contracts ?? []) as never);
+  mq.sdiMessages.mockResolvedValue((f.messages ?? []) as never);
   const dataSource = {
-    query: jest.fn(async (sql: string) => {
-      const marker = /\/\* (a_\w+) \*\//.exec(sql)?.[1];
-      if (marker === 'a_invoices') return f.invoices ?? [];
-      if (marker === 'a_contracts') return f.contracts ?? [];
-      if (marker === 'a_messages') return f.messages ?? [];
-      return [];
-    }),
+    manager: {},
     transaction: jest.fn(async (cb: (m: typeof manager) => Promise<unknown>) => cb(manager)),
     getRepository: jest.fn(() => manager),
   };
@@ -281,11 +283,5 @@ describe('AccountingInvoiceService', () => {
       { amount: -50, noteId: 502, invoiceId: 501 },
       { amount: -10, noteId: undefined, invoiceId: undefined },
     ]);
-  });
-});
-
-describe('ordini in bozza', () => {
-  it('a_contracts esclude le bozze', () => {
-    expect(CONTRACTS_SQL).toContain('contracts.draft = 0');
   });
 });

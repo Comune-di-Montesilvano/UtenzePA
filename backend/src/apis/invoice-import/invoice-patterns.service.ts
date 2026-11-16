@@ -3,6 +3,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { InvoicePattern } from './entity/invoice-pattern.entity';
 import { SdiMessage } from './entity/sdi-message.entity';
+import { InvoiceImportIssue } from './entity/invoice-import-issue.entity';
 import { ImportIssueType } from './enum/import-issue-type.enum';
 import { SdiMessageStatus } from './enum/sdi-message-status.enum';
 import { InvoiceImportService } from './invoice-import.service';
@@ -39,11 +40,11 @@ import {
 import { pdfText } from './sdi/pdf-text';
 import { extractPdf } from './sdi/sdi-files';
 import {
-  toUnknownStructure,
-  UNTYPED_SQL,
-  UNKNOWN_STRUCTURES_SQL,
   type UnknownStructureRow,
-} from './pattern/unknown-structures';
+  unknownStructures,
+  untypedIds,
+} from './pattern/unknown-structures.sql';
+import * as q from './invoice-import.queries';
 
 export type UnknownStructure = UnknownStructureRow;
 
@@ -113,26 +114,6 @@ export interface SavePatternInput {
   rules: PatternRules;
 }
 
-const SUPPLIER_NAME = "COALESCE(tp.company_name, CONCAT_WS(' ', tp.last_name, tp.first_name))";
-
-const LIST_SQL =
-  `SELECT p.id, p.name, p.supplier_id_fk AS supplier_id, ${SUPPLIER_NAME} AS supplier, ` +
-  'p.ignored, p.document_type, p.structure_key, p.update_date, ' +
-  "(SELECT COUNT(*) FROM sdi_messages m WHERE m.pattern_id_fk = p.id AND m.status = 'EXTRACTED') AS extracted, " +
-  '(SELECT MAX(m.id) FROM sdi_messages m WHERE m.supplier_id_fk = p.supplier_id_fk ' +
-  "AND m.structure_key = p.structure_key AND m.kind = 'INVOICE') AS sample_message_id " +
-  'FROM invoice_patterns p JOIN third_parties tp ON tp.id = p.supplier_id_fk ' +
-  'WHERE p.deleted = 0 ORDER BY p.ignored, supplier, p.name';
-
-const SUPPLIER_SQL = `SELECT ${SUPPLIER_NAME} AS supplier FROM third_parties tp WHERE tp.id = ?`;
-
-// Simili: fatture del fornitore senza pattern, prima quelle con la stessa struttura.
-const SIMILAR_SQL =
-  'SELECT m.id, m.structure_key, m.document_number FROM sdi_messages m ' +
-  "WHERE m.kind = 'INVOICE' AND m.supplier_id_fk = ? AND IFNULL(m.document_type, '') = ? " +
-  "AND m.status IN ('PENDING', 'LINKED') AND m.pattern_id_fk IS NULL " +
-  'ORDER BY m.id DESC LIMIT 1000';
-
 // Simili per variante, dalla più numerosa (a parità la più recente): numerazione
 // stabile qualunque fattura sia aperta. Dentro la variante dalla più recente.
 export function groupVariants(
@@ -158,13 +139,6 @@ export function groupVariants(
   });
   return { similar, variants, numbers: similar.map((id) => numberOf.get(id) ?? null) };
 }
-
-// Da rielaborare: fatture del fornitore non estratte (senza pattern o ferme per
-// una differenza bloccante) e, in modifica, quelle estratte col pattern.
-const REPROCESS_SQL =
-  "SELECT id FROM sdi_messages WHERE kind = 'INVOICE' AND supplier_id_fk = ? " +
-  "AND (status IN ('PENDING', 'LINKED') OR (status = 'EXTRACTED' AND pattern_id_fk = ?)) " +
-  'ORDER BY id';
 
 const RULE_KINDS = ['field', ...WORD_KINDS, 'grossAmount', 'fromHeader', 'none'];
 const isWordKind = (kind: unknown) => (WORD_KINDS as unknown[]).includes(kind);
@@ -394,8 +368,7 @@ export class InvoicePatternsService {
   }
 
   async unknown(): Promise<UnknownStructure[]> {
-    const rows: Record<string, unknown>[] = await this.dataSource.query(UNKNOWN_STRUCTURES_SQL);
-    const result = rows.map(toUnknownStructure);
+    const result = await unknownStructures(this.dataSource.manager);
     if (result.some((r) => !r.document_type)) this.fillDocumentTypes();
     return result;
   }
@@ -410,9 +383,9 @@ export class InvoicePatternsService {
     this.typing = true;
     void (async () => {
       for (;;) {
-        const ids: { id: number }[] = await this.dataSource.query(UNTYPED_SQL);
+        const ids = await untypedIds(this.dataSource.manager);
         if (!ids.length) break;
-        const rows = await this.messagesRepo.findBy({ id: In(ids.map((r) => Number(r.id))) });
+        const rows = await this.messagesRepo.findBy({ id: In(ids) });
         const files = await this.importer.readMessageFiles(rows);
         for (const row of rows) {
           const content = files.get(row.id);
@@ -426,7 +399,7 @@ export class InvoicePatternsService {
   }
 
   async list(): Promise<Record<string, unknown>[]> {
-    const rows: Record<string, unknown>[] = await this.dataSource.query(LIST_SQL);
+    const rows = await q.patternList(this.dataSource.manager);
     return rows.map((r) => ({
       ...r,
       supplier_id: Number(r.supplier_id),
@@ -459,18 +432,18 @@ export class InvoicePatternsService {
         ranked[t].splice(PDF_FIRST.includes(t) ? 0 : PDF_AFTER, 0, field.key);
       }
     }
-    const [supplier] = await this.dataSource.query(SUPPLIER_SQL, [row.supplier_id_fk]);
+    const supplier = await q.supplierName(this.dataSource.manager, row.supplier_id_fk);
     const documentType = await this.documentTypeFor(row, xml);
     const { similar, variants, numbers } = groupVariants(
       row.structure_key
-        ? await this.dataSource.query(SIMILAR_SQL, [row.supplier_id_fk, documentType])
+        ? await q.similarMessages(this.dataSource.manager, row.supplier_id_fk, documentType)
         : [],
     );
     return {
       message: {
         id: row.id,
         supplier_id: row.supplier_id_fk!,
-        supplier: supplier?.supplier ?? '',
+        supplier,
         supplier_vat: row.supplier_vat,
         file_name: row.file_name,
         document_number: row.document_number,
@@ -601,17 +574,15 @@ export class InvoicePatternsService {
 
   // Segnalazione «dati dal PDF non trovati» o «lettura più bassa» silenziata: non compare più tra le anomalie.
   async muteIssue(id: number): Promise<void> {
-    const [issue] = await this.dataSource.query(
-      'SELECT id, type FROM invoice_import_issues WHERE id = ?',
-      [id],
-    );
+    const issues = this.dataSource.getRepository(InvoiceImportIssue);
+    const issue = await issues.findOne({ select: { id: true, type: true }, where: { id } });
     if (!issue) throw new BadRequestException('Segnalazione non trovata.');
     if (!MUTABLE_ISSUES.includes(issue.type)) {
       throw new BadRequestException(
         'Si possono silenziare solo i dati dal PDF non trovati e le letture più basse.',
       );
     }
-    await this.dataSource.query('UPDATE invoice_import_issues SET muted = 1 WHERE id = ?', [id]);
+    await issues.update(id, { muted: true });
   }
 
   async create(input: SavePatternInput, userId: number) {
@@ -718,11 +689,7 @@ export class InvoicePatternsService {
 
   // Rielaborazione in background: la risposta arriva subito col numero di fatture.
   private async reprocessFor(supplierId: number, patternId: number): Promise<number> {
-    const rows: { id: number }[] = await this.dataSource.query(REPROCESS_SQL, [
-      supplierId,
-      patternId,
-    ]);
-    const ids = rows.map((r) => Number(r.id));
+    const ids = await q.reprocessIds(this.dataSource.manager, supplierId, patternId);
     if (ids.length) void this.importer.reprocess(ids);
     return ids.length;
   }

@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { ImportIssueType } from './enum/import-issue-type.enum';
 import type { ExtractedInvoice, ExtractedReading } from './pattern/pattern-rules';
 import { normalizeUtilityCode } from './pattern/utility-code';
 import { normalizeInvoiceNumber } from '@apis/accounting-import/invoice-number';
 import { invoiceCompetenceYear } from '@apis/spending/line-year';
-import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
+import * as q from './invoice-matcher.queries';
+import type { UtilityRow } from './invoice-matcher.queries';
 
 export interface MatchedLine {
   utility_id_fk: number | null;
@@ -52,65 +53,10 @@ export interface MatchResult {
   meterFills: MeterFound[];
 }
 
-interface UtilityRow {
-  id: number;
-  budget_chapter_code_fk: number | null;
-  meter_number?: string | null;
-}
-
 // Matricole confrontabili: senza spazi, maiuscole e zeri iniziali.
 export function comparableMeter(meter: string | null | undefined): string {
   return (meter ?? '').replace(/\s/g, '').toUpperCase().replace(/^0+/, '');
 }
-
-// Il marcatore /* m_… */ identifica la query (anche nei test).
-// Il codice cliente è del fornitore: vale solo sulle utenze con un suo contratto.
-const UTILITY_SQL =
-  '/* m_utility */ SELECT u.id, u.budget_chapter_code_fk, u.meter_number FROM utilities u WHERE u.deleted = 0 ' +
-  'AND (u.utility_id = ? OR (u.utility_code = ? AND EXISTS (SELECT 1 FROM contract_utilities cu ' +
-  'JOIN contracts c ON c.id = cu.contract_id WHERE cu.utility_id = u.id AND c.supplier_id_fk = ? AND c.deleted = 0))) ' +
-  'ORDER BY u.utility_id = ? DESC, u.id LIMIT 1';
-// Un ordine in bozza non riceve fatture, nemmeno per CIG (contract-draft.ts).
-export const CONTRACT_REF_SQL =
-  '/* m_contract_ref */ SELECT DISTINCT u.id, u.budget_chapter_code_fk, u.meter_number FROM contracts c ' +
-  'JOIN contract_utilities cu ON cu.contract_id = c.id ' +
-  'JOIN utilities u ON u.id = cu.utility_id AND u.deleted = 0 ' +
-  `WHERE c.deleted = 0 AND ${NOT_DRAFT_SQL('c')} AND c.supplier_id_fk = ? AND (c.consip_order = ? OR c.cig_contract = ?) LIMIT 2`;
-export const CONTRACT_SQL =
-  '/* m_contract */ SELECT c.id, c.cig_contract FROM contracts c ' +
-  'JOIN contract_utilities cu ON cu.contract_id = c.id ' +
-  `WHERE cu.utility_id = ? AND c.supplier_id_fk = ? AND c.deleted = 0 AND ${NOT_DRAFT_SQL('c')} ` +
-  'AND (c.supply_start_date IS NULL OR c.supply_start_date <= ?) ' +
-  'AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= ?) ' +
-  'ORDER BY c.supply_start_date DESC, c.id DESC LIMIT 1';
-// Contratto della fattura dal CIG o dal riferimento ordine, per le righe senza utenza
-// (canoni di contratto, sedi senza codice): vale solo se ne indica uno.
-export const HEADER_CONTRACT_SQL =
-  `/* m_header_contract */ SELECT id, cig_contract FROM contracts WHERE deleted = 0 AND ${NOT_DRAFT_SQL('contracts')} AND supplier_id_fk = ? ` +
-  'AND (TRIM(cig_contract) IN (?, ?) OR TRIM(consip_order) = ?) LIMIT 2';
-// Esiste almeno un'annualità d'impegno del contratto nell'esercizio? L'impegno
-// lo assegna poi il ricalcolo (CommitmentReconcileService); qui solo la segnalazione.
-const CONTRACT_COMMITMENT_SQL =
-  '/* m_contract_commitment */ SELECT bc.id FROM budget_commitments bc ' +
-  'JOIN budget_commitment_contracts bcc ON bcc.commitment_id = bc.id ' +
-  'JOIN budget_commitment_years bcy ON bcy.commitment_id = bc.id ' +
-  'WHERE bc.deleted = 0 AND bcc.contract_id = ? AND bcy.fiscal_year = ? LIMIT 1';
-const SUPPLIER_SQL =
-  '/* m_supplier */ SELECT company_name, last_name, first_name FROM third_parties WHERE id = ?';
-const INVOICE_SQL =
-  '/* m_invoice */ SELECT id FROM invoices WHERE deleted = 0 AND supplier_id_fk = ? ' +
-  'AND invoice_id = ? AND invoice_date = ? ORDER BY id LIMIT 1';
-// Stesso fornitore e data con il numero scritto diversamente (fatture create
-// dalla contabilità o a mano): confronto sul numero normalizzato.
-const INVOICE_CANDIDATES_SQL =
-  '/* m_invoice_candidates */ SELECT id, invoice_id FROM invoices WHERE deleted = 0 AND supplier_id_fk = ? ' +
-  'AND invoice_date = ? ORDER BY id';
-// Ultimo tentativo: IdentificativoSdI del messaggio (la data del registro della
-// contabilità può differire dall'XML). Con un lotto SDI più fatture hanno lo
-// stesso identificativo: vale il numero normalizzato.
-const INVOICE_BY_SDI_SQL =
-  '/* m_invoice_by_sdi */ SELECT id, invoice_id FROM invoices WHERE deleted = 0 AND supplier_id_fk = ? ' +
-  'AND sdi_identifier = ? ORDER BY id';
 
 // Ragione sociale confrontabile: senza maiuscole, punteggiatura, «con socio unico» e forma societaria finale.
 export function comparableName(name: string): string {
@@ -130,6 +76,10 @@ export function comparableName(name: string): string {
 export class InvoiceMatcher {
   constructor(private readonly dataSource: DataSource) {}
 
+  private get m(): EntityManager {
+    return this.dataSource.manager;
+  }
+
   async match(
     extracted: ExtractedInvoice,
     supplierId: number,
@@ -140,13 +90,10 @@ export class InvoiceMatcher {
     const findUtility = async (code: string): Promise<UtilityRow | null> => {
       const normalized = normalizeUtilityCode(code);
       if (!utilities.has(normalized)) {
-        const rows: UtilityRow[] = await this.dataSource.query(UTILITY_SQL, [
+        utilities.set(
           normalized,
-          code.trim(),
-          supplierId,
-          normalized,
-        ]);
-        utilities.set(normalized, rows[0] ?? null);
+          await q.utilityByCode(this.m, normalized, code.trim(), supplierId),
+        );
       }
       return utilities.get(normalized) ?? null;
     };
@@ -155,11 +102,7 @@ export class InvoiceMatcher {
     let refUtility: UtilityRow | null = null;
     if (extracted.contractRef && extracted.lines.every((l) => !l.utility)) {
       const ref = extracted.contractRef.trim();
-      const rows: UtilityRow[] = await this.dataSource.query(CONTRACT_REF_SQL, [
-        supplierId,
-        ref,
-        ref,
-      ]);
+      const rows = await q.utilitiesOfContractRef(this.m, supplierId, ref);
       if (rows.length === 1) refUtility = rows[0];
     }
 
@@ -214,7 +157,7 @@ export class InvoiceMatcher {
       const ref = extracted.contractRef?.trim() || null;
       headerContract = null;
       if (cig || ref) {
-        const rows = await this.dataSource.query(HEADER_CONTRACT_SQL, [supplierId, cig, ref, ref]);
+        const rows = await q.headerContracts(this.m, supplierId, cig, ref);
         if (rows.length === 1) headerContract = rows[0];
       }
       return headerContract;
@@ -226,13 +169,10 @@ export class InvoiceMatcher {
       if (utility) {
         const contractKey = `${utility.id}|${day}`;
         if (!contracts.has(contractKey)) {
-          const rows = await this.dataSource.query(CONTRACT_SQL, [
-            utility.id,
-            supplierId,
-            day,
-            day,
-          ]);
-          contracts.set(contractKey, rows[0] ?? null);
+          contracts.set(
+            contractKey,
+            await q.contractOfUtility(this.m, utility.id, supplierId, day),
+          );
         }
         contract = contracts.get(contractKey) ?? null;
       } else {
@@ -280,8 +220,7 @@ export class InvoiceMatcher {
         extracted.lines.map((l) => ({ period_start: l.periodStart, period_end: l.periodEnd })),
         extracted.date,
       );
-      const rows = await this.dataSource.query(CONTRACT_COMMITMENT_SQL, [headerContracts[0], year]);
-      if (!rows.length) {
+      if (!(await q.hasCommitment(this.m, headerContracts[0], year))) {
         issues.push({
           type: ImportIssueType.MISSING_COMMITMENT,
           lineIndex: null,
@@ -291,7 +230,7 @@ export class InvoiceMatcher {
     }
 
     if (extracted.supplierName) {
-      const [supplier] = await this.dataSource.query(SUPPLIER_SQL, [supplierId]);
+      const supplier = await q.supplierNames(this.m, supplierId);
       const registered =
         supplier?.company_name ||
         [supplier?.last_name, supplier?.first_name].filter(Boolean).join(' ');
@@ -304,23 +243,22 @@ export class InvoiceMatcher {
       }
     }
 
-    let [existing] = await this.dataSource.query(INVOICE_SQL, [
+    let existing: { id: number } | null | undefined = await q.invoiceByNumber(
+      this.m,
       supplierId,
       extracted.number,
       extracted.date,
-    ]);
+    );
     if (!existing) {
-      const candidates: { id: number; invoice_id: string }[] = await this.dataSource.query(
-        INVOICE_CANDIDATES_SQL,
-        [supplierId, extracted.date],
-      );
+      // Stesso fornitore e data con il numero scritto diversamente (fatture create
+      // dalla contabilità o a mano): confronto sul numero normalizzato.
+      const candidates = await q.invoicesOfDay(this.m, supplierId, extracted.date);
       const number = normalizeInvoiceNumber(extracted.number);
       existing = candidates.find((c) => normalizeInvoiceNumber(c.invoice_id) === number);
       if (!existing && sdiIdentifier) {
-        const bySdi: { id: number; invoice_id: string }[] = await this.dataSource.query(
-          INVOICE_BY_SDI_SQL,
-          [supplierId, sdiIdentifier],
-        );
+        // Ultimo tentativo: IdentificativoSdI del messaggio (la data del registro
+        // della contabilità può differire dall'XML); vale il numero normalizzato.
+        const bySdi = await q.invoicesBySdi(this.m, supplierId, sdiIdentifier);
         existing = bySdi.find((c) => normalizeInvoiceNumber(c.invoice_id) === number);
       }
     }

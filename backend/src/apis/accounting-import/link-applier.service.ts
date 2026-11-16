@@ -5,34 +5,8 @@ import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
 import { AccountingDataService } from './accounting-data.service';
 import { planCommitmentContracts, planUtilityChapters } from './link-plan';
-import { RecordSource } from './record-source.enum';
 import { commitmentKey } from './scope';
-import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
-
-const COMMITMENTS_SQL =
-  '/* l_commitments */ SELECT id, commitment_year, commitment_num, commitment_sub FROM budget_commitments ' +
-  `WHERE deleted = 0 AND source = '${RecordSource.ACCOUNTING}'`;
-const LINKS_SQL =
-  '/* l_links */ SELECT commitment_id, contract_id FROM budget_commitment_contracts';
-export const CONTRACTS_SQL = `/* l_contracts */ SELECT id, cig_contract FROM contracts WHERE deleted = 0 AND ${NOT_DRAFT_SQL('contracts')} AND cig_contract IS NOT NULL`;
-// Contratti delle fatture pagate, per impegno.
-const PAID_SQL =
-  '/* l_paid */ SELECT DISTINCT s.commitment_id_fk AS commitment_id, i.contratto_id_fk AS contract_id ' +
-  "FROM invoice_commitment_shares s JOIN invoices i ON i.id = s.invoice_id_fk WHERE s.source = 'ACCOUNTING' " +
-  'AND i.deleted = 0 AND i.contratto_id_fk IS NOT NULL';
-// Utenze delle righe delle fatture pagate, con capitolo e anno delle quote.
-const UTILITY_ROWS_SQL =
-  '/* l_utility_rows */ SELECT DISTINCT l.utility_id_fk AS utility_id, s.fiscal_year, ' +
-  'bc.budget_chapter_id_fk AS chapter_id FROM invoice_commitment_shares s ' +
-  'JOIN budget_commitments bc ON bc.id = s.commitment_id_fk JOIN invoices i ON i.id = s.invoice_id_fk ' +
-  'JOIN invoice_lines l ON l.invoice_id_fk = i.id ' +
-  "WHERE s.source = 'ACCOUNTING' AND i.deleted = 0 AND l.utility_id_fk IS NOT NULL";
-const UTILITIES_SQL =
-  '/* l_utilities */ SELECT id, budget_chapter_code_fk FROM utilities WHERE deleted = 0';
-const LINK_INSERT_SQL =
-  'INSERT INTO budget_commitment_contracts (commitment_id, contract_id) VALUES ?';
-const UTILITY_CHAPTER_SQL =
-  'UPDATE utilities SET budget_chapter_code_fk = ?, updated_by_user_id = ?, update_date = CURRENT_TIMESTAMP(6) WHERE id = ?';
+import * as q from './accounting-import.queries';
 
 const groupIds = (
   rows: Record<string, unknown>[],
@@ -58,12 +32,12 @@ export class LinkApplierService {
   async apply(): Promise<Record<'contractsLinked' | 'utilityChapters', number>> {
     const [acc, commitments, links, contracts, paid, utilityRows, utilities] = await Promise.all([
       this.data.commitments(),
-      this.dataSource.query(COMMITMENTS_SQL),
-      this.dataSource.query(LINKS_SQL),
-      this.dataSource.query(CONTRACTS_SQL),
-      this.dataSource.query(PAID_SQL),
-      this.dataSource.query(UTILITY_ROWS_SQL),
-      this.dataSource.query(UTILITIES_SQL),
+      q.accountingCommitments(this.dataSource.manager),
+      q.commitmentContracts(this.dataSource.manager),
+      q.contractsWithCig(this.dataSource.manager),
+      q.paidContracts(this.dataSource.manager),
+      q.paidUtilityChapters(this.dataSource.manager),
+      q.utilityChapters(this.dataSource.manager),
     ]);
     // CIG dell'impegno: quello dell'anno di competenza più recente che lo indica.
     const cigByKey = new Map<string, string>();
@@ -115,7 +89,7 @@ export class LinkApplierService {
     const audits: RecordChangeInput[] = [];
     await this.dataSource.transaction(async (manager) => {
       for (const { commitmentId, add } of contractPlan) {
-        await manager.query(LINK_INSERT_SQL, [add.map((contractId) => [commitmentId, contractId])]);
+        await q.linkContracts(manager, commitmentId, add);
         const before = linked.get(commitmentId) ?? [];
         audits.push({
           entityName: 'budget_commitments',
@@ -132,7 +106,7 @@ export class LinkApplierService {
         });
       }
       for (const { utilityId, chapterId } of chapterPlan) {
-        await manager.query(UTILITY_CHAPTER_SQL, [chapterId, SYSTEM_USER_ID, utilityId]);
+        await q.setUtilityChapter(manager, utilityId, chapterId, SYSTEM_USER_ID);
         audits.push({
           entityName: 'utilities',
           entityId: utilityId,

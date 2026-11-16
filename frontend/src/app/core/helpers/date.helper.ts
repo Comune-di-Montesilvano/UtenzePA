@@ -4,6 +4,11 @@ export class DateHelper {
   static isoToLocalDate(value: string | null | undefined): Date | null {
     if (!value) return null;
 
+    // Solo data: giorno locale. new Date('AAAA-MM-GG') la legge in UTC e a ovest di
+    // UTC darebbe il giorno prima.
+    const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (day) return new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3]));
+
     const d = new Date(value);
     if (isNaN(d.getTime())) return null;
 

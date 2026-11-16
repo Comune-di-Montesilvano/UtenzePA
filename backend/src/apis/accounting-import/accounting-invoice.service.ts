@@ -4,7 +4,7 @@ import { AuditLogService, type RecordChangeInput } from '@apis/audit-log/audit-l
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { SdiMessageStatus } from '@apis/invoice-import/enum/sdi-message-status.enum';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
-import { deriveSdiStatus, NOT_REJECTED_SQL, type SdiEvent } from '@apis/invoices/sdi-status';
+import { deriveSdiStatus, type SdiEvent } from '@apis/invoices/sdi-status';
 import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
 import type { AccLiquidationRow } from './accounting-csv';
 import { AccountingDataService } from './accounting-data.service';
@@ -15,15 +15,8 @@ import {
   type MatchableInvoice,
 } from './invoice-match';
 import { RecordSource } from './record-source.enum';
-import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
+import * as q from './accounting-import.queries';
 
-const INVOICES_SQL =
-  '/* a_invoices */ SELECT i.id, COALESCE(NULLIF(t.vat_number, ""), t.tax_code) AS supplier_vat, ' +
-  "i.invoice_id AS invoice_number, DATE_FORMAT(i.invoice_date, '%Y-%m-%d') AS invoice_date, i.sdi_identifier " +
-  `FROM invoices i LEFT JOIN third_parties t ON t.id = i.supplier_id_fk WHERE i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}`;
-export const CONTRACTS_SQL = `/* a_contracts */ SELECT id, supplier_id_fk, cig_contract FROM contracts WHERE deleted = 0 AND ${NOT_DRAFT_SQL('contracts')} AND cig_contract IS NOT NULL`;
-const MESSAGES_SQL =
-  '/* a_messages */ SELECT kind, outcome, status, received_at, create_date FROM sdi_messages WHERE sdi_identifier = ?';
 // Stato SDI scritto dal sistema: non cambia «Ultima modifica».
 const KEEP_UPDATE_DATE = { update_date: () => '`update_date`' };
 
@@ -82,7 +75,7 @@ export class AccountingInvoiceService {
       this.data.liquidations(),
       this.invoices(),
       this.data.suppliersByVat(),
-      this.dataSource.query(CONTRACTS_SQL),
+      q.contractsWithCig(this.dataSource.manager),
     ]);
     const valid = liquidations.filter((l) => !l.cancelled);
     const matched = matchInvoices(valid, invoices);
@@ -150,7 +143,7 @@ export class AccountingInvoiceService {
   }
 
   private async invoices(): Promise<MatchableInvoice[]> {
-    const rows: Record<string, unknown>[] = await this.dataSource.query(INVOICES_SQL);
+    const rows = await q.matchableInvoices(this.dataSource.manager);
     return rows.map((r) => ({
       id: Number(r.id),
       supplier_vat: (r.supplier_vat as string | null) ?? null,
@@ -163,7 +156,7 @@ export class AccountingInvoiceService {
   // Stato SDI dai messaggi PEC già registrati con quell'identificativo, come
   // nell'import PEC; senza messaggi resta vuoto.
   private async refreshSdiStatus(manager: EntityManager, id: number, sdi: string): Promise<void> {
-    const rows: Record<string, unknown>[] = await this.dataSource.query(MESSAGES_SQL, [sdi]);
+    const rows = await q.sdiMessages(this.dataSource.manager, sdi);
     const events: SdiEvent[] = rows
       .filter((r) => r.status !== SdiMessageStatus.ERROR)
       .map((r) => ({

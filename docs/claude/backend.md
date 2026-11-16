@@ -30,6 +30,28 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezioni "Migration DB" e "Backe
 - MySQL 8: in una `SELECT DISTINCT` l'`ORDER BY` può usare solo colonne/alias selezionati.
 - Scrittura di sistema (ricalcoli/cron) che non deve spostare "Ultima modifica": `repo.update(id, {..., update_date: () => '`update_date`'})` — esclude sia `@UpdateDateColumn` sia `ON UPDATE` MySQL (vedi `ConsumptionRecalcService`).
 
+## SQL a mano e QueryBuilder
+
+- Regola ESLint `no-restricted-syntax` (errore, v1.58.5): `.query(` solo in `*.sql.ts` (motivo in un commento `// SQL a mano: …`), migration e test d'integrazione. Altrove repository o QueryBuilder; le letture di un modulo stanno in `<modulo>.queries.ts` (funzioni con `EntityManager` come primo argomento, righe grezze del driver: decimal come stringhe).
+- Schemi del QueryBuilder usati: `qb.subQuery()…getQuery()` per `EXISTS`/`IN` correlati; `addSelect((sub) => …, 'alias')` per le sotto-query scalari; tabelle di collegamento senza entity per nome (`.from('budget_commitment_contracts', 'x')`); tabelle derivate con `.from((sub) => …, 't')` o `.leftJoin((sub) => …, 'k', 'k.id = b.id')`; liste con `IN (:...ids)`; frammenti condivisi come stringhe (`NOT_REJECTED_SQL`, `inChargeSql`, `COMMITMENT_SPENT`).
+- Eccezioni rimaste, col motivo:
+  - `backup/backup.sql.ts`: dump e ripristino di tutte le tabelle, anche senza entity.
+  - `setup/setup.sql.ts`: comando di sessione MySQL.
+  - `utility/utility.sql.ts`: contratto corrente con `ROW_NUMBER() OVER`.
+  - `invoice-import/pattern/unknown-structures.sql.ts`: funzioni finestra.
+  - `spending/chapter-items.sql.ts`: voci di spesa per capitolo, `UNION ALL` di quote e righe (lette anche dalle anomalie).
+  - `budget-commitments/commitment-reconcile.sql.ts`: `INSERT … SELECT … WHERE NOT EXISTS` della quota automatica, atomico contro un salvataggio a mano concorrente.
+  - `anomalies/anomalies.sql.ts`: le due anomalie della contabilità con una CTE (chiavi normalizzate una volta: 40 s col confronto correlato; CTE letta due volte).
+- Unit spec di un service convertito: `jest.mock('./x.queries')` e letture simulate per nome; il testo SQL non si controlla negli unit spec (lo provano gli int-spec).
+
+## Test d'integrazione
+
+- `*.int-spec.ts` accanto al codice (non presi da `test:unit`), config `backend/jest.integration.config.js` (in JS: Node 26 carica un config `.ts` come modulo ES), `pnpm run test:int` con `--runInBand`.
+- `src/test/integration/global-setup.ts`: database `MYSQL_DB` (default `utenzepa_it`, deve finire con `_it`: `assertTestDatabase`) cancellato, ricreato e portato all'ultima migration con la CLI TypeORM, una volta per giro. Lo schema è quello di un'installazione nuova, non quello del DB di sviluppo (ha già fatto emergere `utilities.budget_chapter_code_fk` NOT NULL).
+- Per file: `itDataSource()` in `beforeAll`, `ds.destroy()` in `afterAll`, `resetTables(ds, [...])` in `beforeEach` (tabelle figlie per prime non serve: FK sospese). Fixture in `fixtures.ts` (colonne SQL, valori finti, autore utente di sistema `-1`): aggiungerne quando servono.
+- Service sotto test istanziati col DataSource vero (`new SpendingService(ds)`), collaboratori mock.
+- Ogni test nuovo su una query: **controllo di mutazione** (tolta una condizione, almeno un test diventa rosso), altrimenti il fixture non la esercita.
+
 ## Varie
 
 - Body-parser di default: limite 100KB. Un DTO con data URI base64 (logo/favicon, `MAX_DATA_URI_LENGTH` in `update-branding.dto.ts`) fallisce con `PayloadTooLargeError` **prima** della validazione, senza indizi nei log. Serve `app.use(json({limit:'Nmb'}))` in `main.ts`, allineato al DTO.

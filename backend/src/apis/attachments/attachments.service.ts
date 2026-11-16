@@ -1,6 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityTarget, In, Repository } from 'typeorm';
+import { Act } from '@apis/acts/entity/act.entity';
+import { Asset } from '@apis/asset/entity/asset.entity';
+import { BudgetCommitment } from '@apis/budget-commitments/entity/budget-commitment.entity';
+import { ConsipAgreement } from '@apis/consip-agreement/entity/consip-agreement.entity';
+import { Contract } from '@apis/contracts/entity/contract.entity';
+import { Plant } from '@apis/plants/entity/plant.entity';
+import { PlantInspection } from '@apis/plants/entity/plant-inspection.entity';
+import { UtilizerGrant } from '@apis/utilizer-grant/entity/utilizer-grant.entity';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -21,26 +29,29 @@ const HEAD_BYTES = 8192;
 // Pezzi di upload interrotti (rete caduta, scheda chiusa): eliminati dopo un giorno.
 const STALE_CHUNK_MS = 24 * 60 * 60 * 1000;
 
-// Proprietario: tabella per il controllo di esistenza, entità del log attività,
+// Proprietario: entity per il controllo di esistenza, entità del log attività,
 // etichetta nei messaggi. La verifica registra sull'impianto.
-const OWNERS: Record<T, { table: string; audit: string; label: string }> = {
-  [T.ASSET]: { table: 'assets', audit: 'assets', label: 'Immobile' },
-  [T.PLANT]: { table: 'plants', audit: 'plants', label: 'Impianto' },
-  [T.PLANT_INSPECTION]: { table: 'plant_inspections', audit: 'plants', label: 'Verifica' },
+const OWNERS: Record<
+  T,
+  { entity: EntityTarget<{ id: number; deleted: boolean }>; audit: string; label: string }
+> = {
+  [T.ASSET]: { entity: Asset, audit: 'assets', label: 'Immobile' },
+  [T.PLANT]: { entity: Plant, audit: 'plants', label: 'Impianto' },
+  [T.PLANT_INSPECTION]: { entity: PlantInspection, audit: 'plants', label: 'Verifica' },
   [T.UTILIZER_GRANT]: {
-    table: 'utilizer_grant',
+    entity: UtilizerGrant,
     audit: 'utilizer_grant',
     label: 'Contratto immobiliare',
   },
-  [T.CONTRACT]: { table: 'contracts', audit: 'contract', label: 'Contratto di fornitura' },
-  [T.ACT]: { table: 'acts', audit: 'acts', label: 'Atto' },
+  [T.CONTRACT]: { entity: Contract, audit: 'contract', label: 'Contratto di fornitura' },
+  [T.ACT]: { entity: Act, audit: 'acts', label: 'Atto' },
   [T.CONSIP_AGREEMENT]: {
-    table: 'consip_agreement',
+    entity: ConsipAgreement,
     audit: 'consip_agreement',
     label: 'Convenzione',
   },
   [T.BUDGET_COMMITMENT]: {
-    table: 'budget_commitments',
+    entity: BudgetCommitment,
     audit: 'budget_commitments',
     label: 'Impegno',
   },
@@ -75,13 +86,18 @@ export class AttachmentsService {
   private async owner(type: T, id: number): Promise<Owner> {
     const o = OWNERS[type];
     // Verifica: vale solo se anche il suo impianto non è cancellato.
-    const sql =
+    const found: Owner | null =
       type === T.PLANT_INSPECTION
-        ? 'SELECT i.id, i.plant_id, i.kind FROM `plant_inspections` i JOIN `plants` p ON p.id = i.plant_id WHERE i.id = ? AND i.deleted = 0 AND p.deleted = 0'
-        : `SELECT id FROM \`${o.table}\` WHERE id = ? AND deleted = 0`;
-    const rows: Owner[] = await this.dataSource.query(sql, [id]);
-    if (!rows.length) throw new BadRequestException(`${o.label} non trovato`);
-    return rows[0];
+        ? await this.dataSource.getRepository(PlantInspection).findOne({
+            select: { id: true, plant_id: true, kind: true },
+            where: { id, deleted: false, plant: { deleted: false } },
+          })
+        : await this.dataSource.getRepository(o.entity).findOne({
+            select: { id: true },
+            where: { id, deleted: false },
+          });
+    if (!found) throw new BadRequestException(`${o.label} non trovato`);
+    return found;
   }
 
   async list(type: T, id: number): Promise<AttachmentRow[]> {
@@ -93,10 +109,10 @@ export class AttachmentsService {
     });
     const rows: AttachmentRow[] = own.map((a) => this.withAuthor({ ...a, inspection: null }));
     if (type !== T.PLANT) return rows;
-    const inspections: { id: number; kind: string }[] = await this.dataSource.query(
-      'SELECT id, kind FROM plant_inspections WHERE plant_id = ? AND deleted = 0',
-      [id],
-    );
+    const inspections = await this.dataSource.getRepository(PlantInspection).find({
+      select: { id: true, kind: true },
+      where: { plant_id: id, deleted: false },
+    });
     if (!inspections.length) return rows;
     const kindOf = new Map(inspections.map((i) => [Number(i.id), i.kind]));
     const fromInspections = await this.repo.find({

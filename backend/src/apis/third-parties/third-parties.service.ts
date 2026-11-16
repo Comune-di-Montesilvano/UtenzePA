@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, IsNull, Not, Repository } from 'typeorm';
+import { ConsipAgreement } from '@apis/consip-agreement/entity/consip-agreement.entity';
+import { Contract } from '@apis/contracts/entity/contract.entity';
+import { UtilizerGrant } from '@apis/utilizer-grant/entity/utilizer-grant.entity';
 import { BaseService } from '@apis/shared/base.service';
 import { ThirdParty } from './entity/third-party.entity';
 import { PartyRole } from './enum/third-party.enum';
@@ -105,17 +108,31 @@ export class ThirdPartiesService extends BaseService<
   }
 
   private async roleIndex(): Promise<RoleIndex> {
-    const suppliers: { id: number }[] = await this.dataSource.query(
-      `SELECT supplier_id_fk AS id FROM contracts WHERE deleted = 0 AND supplier_id_fk IS NOT NULL
-       UNION SELECT supplier_id AS id FROM consip_agreement WHERE deleted = 0`,
-    );
-    const grants: RoleIndex['grants'] = await this.dataSource.query(
-      `SELECT gp.third_party_id AS party_id, g.direction, g.kind
-         FROM utilizer_grant_parties gp
-         JOIN utilizer_grant g ON g.id = gp.utilizer_grant_id AND g.deleted = 0`,
-    );
+    const [contracts, agreements, grants] = await Promise.all([
+      this.dataSource.getRepository(Contract).find({
+        select: { supplier_id_fk: true },
+        where: { deleted: false, supplier_id_fk: Not(IsNull()) },
+      }),
+      this.dataSource.getRepository(ConsipAgreement).find({
+        select: { supplier_id: true },
+        where: { deleted: false },
+      }),
+      this.dataSource
+        .getRepository(UtilizerGrant)
+        .createQueryBuilder('g')
+        .innerJoin('g.parties', 'p')
+        .select('p.id', 'party_id')
+        .addSelect('g.direction', 'direction')
+        .addSelect('g.kind', 'kind')
+        .where('g.deleted = :deleted', { deleted: false })
+        .getRawMany<RoleIndex['grants'][number]>(),
+    ]);
+    const suppliers = [
+      ...contracts.map((c) => c.supplier_id_fk),
+      ...agreements.map((a) => a.supplier_id),
+    ];
     return {
-      suppliers: new Set(suppliers.map((s) => Number(s.id))),
+      suppliers: new Set(suppliers.map(Number)),
       grants: grants.map((g) => ({ ...g, party_id: Number(g.party_id) })),
     };
   }

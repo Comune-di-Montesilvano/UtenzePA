@@ -1,6 +1,36 @@
 import { BadRequestException } from '@nestjs/common';
 import { BudgetCommitmentsService } from './budget-commitments.service';
 import { commitmentLabel } from './commitment-label';
+import * as q from './budget-commitments.queries';
+
+// Letture e scritture simulate per nome, instradate su `query` con un tag c_… e
+// i parametri di un tempo. Le query vere sono provate in budget-commitments.int-spec.ts.
+jest.mock('./budget-commitments.queries');
+const mq = jest.mocked(q);
+type Query = (tag: string, params?: unknown[]) => Promise<unknown>;
+function route(query: Query) {
+  mq.commitmentRows.mockImplementation(
+    (_m, f) => query('/* c_rows */', [f]) as Promise<Record<string, unknown>[]>,
+  );
+  mq.commitmentInvoices.mockImplementation(
+    (_m, id) => query('/* c_invoices */', [id]) as Promise<Record<string, unknown>[]>,
+  );
+  mq.manualInvoiceCount.mockImplementation(async (_m, id) => {
+    const [row] = (await query('/* c_manual */', [id])) as { n: number }[];
+    return Number(row?.n ?? 0);
+  });
+  mq.replaceYears.mockImplementation(async (_m, id, years) => {
+    await query('/* c_years_delete */', [id]);
+    await query('/* c_years_insert */', [years.map((y) => [id, y.fiscal_year, y.amount])]);
+  });
+  mq.manualOrphans.mockImplementation(
+    (_m, id, years) =>
+      query('/* c_manual_orphans */', [id, years]) as Promise<{ fiscal_year: number; n: string }[]>,
+  );
+  mq.moveManualShares.mockImplementation(async (_m, id, from, to) => {
+    await query('/* c_manual_move */', [to, id, from]);
+  });
+}
 
 describe('commitmentLabel', () => {
   it('anno/num/sub, trattino lungo senza numero', () => {
@@ -47,6 +77,7 @@ describe('BudgetCommitmentsService', () => {
     repo.manager.transaction.mockImplementation(async (cb: (m: { query: jest.Mock }) => unknown) =>
       cb({ query: repo.query }),
     );
+    route(repo.query);
     contractRepo = { find: jest.fn(async () => [{ id: 1 }, { id: 2 }]) };
     chapterRepo = { findOne: jest.fn().mockResolvedValue({ id: 7, deleted: false }) };
     reconcile = { reconcileSafe: jest.fn().mockResolvedValue(undefined) };
@@ -215,18 +246,10 @@ describe('BudgetCommitmentsService', () => {
     );
   });
 
-  it('quote a mano che bloccano l’eliminazione: fatture distinte, non cancellate e non rifiutate', async () => {
+  it('quote a mano che bloccano l’eliminazione: contate sull’impegno', async () => {
     repo.findOne.mockResolvedValue({ id: 9, ...dto, deleted: false, contracts: [{ id: 1 }] });
     await service.remove(9, 3).catch(() => undefined);
-    const [sql, params] = repo.query.mock.calls.find(([s]) =>
-      String(s).includes('/* c_manual */'),
-    )!;
-    expect(sql).toContain('FROM invoice_commitment_shares');
-    expect(sql).toContain("source = 'MANUAL'");
-    expect(sql).toContain('COUNT(DISTINCT');
-    expect(sql).toContain('i.deleted = 0');
-    expect(sql).toContain('sdi_status');
-    expect(sql).not.toContain('invoice_lines');
+    const [, params] = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_manual */'))!;
     expect(params).toEqual([9]);
   });
 
@@ -277,34 +300,8 @@ describe('BudgetCommitmentsService', () => {
         progressive: 49.5,
       },
     ]);
-    const [sql, params] = repo.query.mock.calls.find(([s]) =>
-      String(s).includes('/* c_invoices */'),
-    )!;
-    expect(sql).toContain('FROM invoice_commitment_shares');
-    expect(sql).toContain('i.deleted = 0');
-    expect(sql).toContain('sdi_status');
-    expect(sql).toMatch(/ORDER BY i\.invoice_date, i\.id/);
+    const [, params] = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_invoices */'))!;
     expect(params).toEqual([9]);
-  });
-
-  it('elenco e speso senza GROUP_CONCAT (troncato oltre 1024 caratteri)', async () => {
-    await service.listRows({});
-    const sql = repo.query.mock.calls.find(([s]) =>
-      String(s).includes('/* c_rows */'),
-    )![0] as string;
-    expect(sql).not.toContain('GROUP_CONCAT');
-  });
-
-  it('elenco: lo speso = quote di fatture non cancellate e non rifiutate', async () => {
-    await service.listRows({});
-    const sql = repo.query.mock.calls.find(([s]) =>
-      String(s).includes('/* c_rows */'),
-    )![0] as string;
-    expect(sql).toContain('i.deleted = 0');
-    expect(sql).toContain('sdi_status');
-    expect(sql).toContain('FROM invoice_commitment_shares');
-    expect(sql).toContain('s.fiscal_year = y.fiscal_year');
-    expect(sql).not.toContain('invoice_lines');
   });
 
   it('un esercizio ripetuto nelle annualità è rifiutato', async () => {
@@ -380,10 +377,8 @@ describe('BudgetCommitmentsService', () => {
     const orphans = repo.query.mock.calls.find(([s]) =>
       String(s).includes('/* c_manual_orphans */'),
     )!;
-    expect(orphans[0]).toContain("source = 'MANUAL'");
     expect(orphans[1]).toEqual([9, [2026, 2028]]);
     const move = repo.query.mock.calls.find(([s]) => String(s).includes('/* c_manual_move */'))!;
-    expect(move[0]).toContain("source = 'MANUAL'");
     expect(move[1]).toEqual([2026, 9, 2025]);
     expect(repo.manager.transaction).toHaveBeenCalledTimes(1);
     expect(audit).toHaveBeenCalledWith(
@@ -449,6 +444,7 @@ describe('BudgetCommitmentsService: import della contabilità attivo', () => {
         ),
       },
     };
+    route(repo.query);
     service = new BudgetCommitmentsService(
       repo as never,
       { find: jest.fn(async () => [{ id: 1 }, { id: 2 }]) } as never,

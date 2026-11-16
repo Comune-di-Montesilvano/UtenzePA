@@ -11,8 +11,8 @@ import { BaseService } from '@apis/shared/base.service';
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { Contract } from '@apis/contracts/entity/contract.entity';
 import { BudgetChapter } from '@apis/budget-chapters/entity/budgetChapter.entity';
-import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
 import { CommitmentShareSource } from '@apis/invoices/entity/commitment-share-source.enum';
+import * as q from './budget-commitments.queries';
 import { BudgetCommitment } from './entity/budget-commitment.entity';
 import { CreateBudgetCommitmentDto } from './dto/create-budget-commitment.dto';
 import { UpdateBudgetCommitmentDto } from './dto/update-budget-commitment.dto';
@@ -84,53 +84,6 @@ export interface CommitmentInvoice {
   source: CommitmentShareSource;
   progressive: number;
 }
-
-// Speso = quote di fatture non cancellate e non rifiutate; per annualità
-// quelle con il suo esercizio.
-const VALID_SHARES = `FROM invoice_commitment_shares s
-      JOIN invoices i ON i.id = s.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}`;
-const ROWS_SQL = (
-  where: string,
-) => `/* c_rows */ SELECT bc.id, bc.commitment_year, bc.commitment_num,
-    bc.commitment_sub, bc.budget_chapter_id_fk, CONCAT(ch.chapter_code, '/', ch.article) AS chapter_label,
-    ch.description AS chapter_description, bc.supplier_id_fk,
-    (SELECT MIN(y.fiscal_year) FROM budget_commitment_years y WHERE y.commitment_id = bc.id) AS fiscal_year,
-    (SELECT JSON_ARRAYAGG(JSON_OBJECT('fiscal_year', y.fiscal_year, 'amount', y.amount,
-       'spent', (SELECT COALESCE(SUM(s.amount), 0) ${VALID_SHARES}
-                 WHERE s.commitment_id_fk = bc.id AND s.fiscal_year = y.fiscal_year)))
-      FROM budget_commitment_years y WHERE y.commitment_id = bc.id) AS years,
-    COALESCE(tp.company_name, TRIM(CONCAT(COALESCE(tp.last_name, ''), ' ', COALESCE(tp.first_name, '')))) AS supplier_name,
-    bc.notes, bc.source, bc.deleted,
-    (SELECT JSON_ARRAYAGG(bcc.contract_id) FROM budget_commitment_contracts bcc
-      WHERE bcc.commitment_id = bc.id) AS contract_ids,
-    (SELECT COALESCE(SUM(s.amount), 0) ${VALID_SHARES} WHERE s.commitment_id_fk = bc.id) AS spent
-  FROM budget_commitments bc
-  JOIN budget_chapters ch ON ch.id = bc.budget_chapter_id_fk
-  LEFT JOIN third_parties tp ON tp.id = bc.supplier_id_fk
-  WHERE ${where}
-  ORDER BY fiscal_year DESC, bc.commitment_num IS NULL, bc.commitment_year, bc.commitment_num, bc.commitment_sub, bc.id`;
-
-const YEARS_DELETE_SQL =
-  '/* c_years_delete */ DELETE FROM budget_commitment_years WHERE commitment_id = ?';
-const YEARS_INSERT_SQL =
-  '/* c_years_insert */ INSERT INTO budget_commitment_years (commitment_id, fiscal_year, amount) VALUES ?';
-
-// Quote a mano su annualità tolte dall'impegno, per esercizio.
-const MANUAL_ORPHANS_SQL = `/* c_manual_orphans */ SELECT fiscal_year, COUNT(*) AS n FROM invoice_commitment_shares
-  WHERE commitment_id_fk = ? AND source = '${CommitmentShareSource.MANUAL}' AND fiscal_year NOT IN (?)
-  GROUP BY fiscal_year`;
-const MANUAL_MOVE_SQL = `/* c_manual_move */ UPDATE invoice_commitment_shares SET fiscal_year = ?
-  WHERE commitment_id_fk = ? AND source = '${CommitmentShareSource.MANUAL}' AND fiscal_year = ?`;
-
-// Fatture valide con quote a mano sull'impegno.
-const MANUAL_SHARES_SQL = `/* c_manual */ SELECT COUNT(DISTINCT s.invoice_id_fk) AS n ${VALID_SHARES}
-  WHERE s.commitment_id_fk = ? AND s.source = '${CommitmentShareSource.MANUAL}'`;
-
-const INVOICES_SQL = `/* c_invoices */ SELECT s.id AS share_id, i.id AS invoice_id, i.invoice_id AS invoice_number,
-    i.invoice_date, s.amount, s.fiscal_year, s.source
-  ${VALID_SHARES}
-  WHERE s.commitment_id_fk = ?
-  ORDER BY i.invoice_date, i.id, s.id`;
 
 function toYears(v: unknown): CommitmentYearRow[] {
   const list = (typeof v === 'string' ? JSON.parse(v) : (v ?? [])) as Record<string, unknown>[];
@@ -211,48 +164,25 @@ export class BudgetCommitmentsService extends BaseService<
   }
 
   async listRows(search: SearchBudgetCommitmentDto): Promise<CommitmentRow[]> {
-    const where = ['bc.deleted = ?'];
-    const params: unknown[] = [search.deleted ? 1 : 0];
-    const add = (sql: string, value: unknown) => {
-      where.push(sql);
-      params.push(value);
-    };
-    if (search.fiscal_year) {
-      add(
-        'EXISTS (SELECT 1 FROM budget_commitment_years y WHERE y.commitment_id = bc.id AND y.fiscal_year = ?)',
-        search.fiscal_year,
-      );
-    }
-    if (search.budget_chapter_id) add('bc.budget_chapter_id_fk = ?', search.budget_chapter_id);
-    if (search.supplier_id) add('bc.supplier_id_fk = ?', search.supplier_id);
-    if (search.contract_id) {
-      add(
-        'EXISTS (SELECT 1 FROM budget_commitment_contracts x WHERE x.commitment_id = bc.id AND x.contract_id = ?)',
-        search.contract_id,
-      );
-    }
-    if (search.consip_agreement_id) {
-      add(
-        'EXISTS (SELECT 1 FROM budget_commitment_contracts x JOIN contracts c ON c.id = x.contract_id AND c.deleted = 0 ' +
-          'WHERE x.commitment_id = bc.id AND c.consip_agreement_id = ?)',
-        search.consip_agreement_id,
-      );
-    }
-    const rows: Record<string, unknown>[] = await this.repo.query(
-      ROWS_SQL(where.join(' AND ')),
-      params,
-    );
+    const rows = await q.commitmentRows(this.repo.manager, {
+      deleted: !!search.deleted,
+      fiscal_year: search.fiscal_year,
+      budget_chapter_id: search.budget_chapter_id,
+      supplier_id: search.supplier_id,
+      contract_id: search.contract_id,
+      consip_agreement_id: search.consip_agreement_id,
+    });
     return rows.map(toRow);
   }
 
   async getRow(id: number): Promise<CommitmentRow> {
-    const rows: Record<string, unknown>[] = await this.repo.query(ROWS_SQL('bc.id = ?'), [id]);
+    const rows = await q.commitmentRows(this.repo.manager, { id });
     if (!rows.length) throw new BadRequestException('Impegno non trovato');
     return toRow(rows[0]);
   }
 
   async invoices(id: number): Promise<CommitmentInvoice[]> {
-    const rows: Record<string, unknown>[] = await this.repo.query(INVOICES_SQL, [id]);
+    const rows = await q.commitmentInvoices(this.repo.manager, id);
     let progressive = 0;
     return rows.map((r) => {
       progressive = round2(progressive + Number(r.amount));
@@ -378,17 +308,13 @@ export class BudgetCommitmentsService extends BaseService<
   ): Promise<{ fieldName: string; oldValue: unknown; newValue: unknown }[]> {
     const list = years.map((y) => y.fiscal_year);
     return this.repo.manager.transaction(async (m) => {
-      await m.query(YEARS_DELETE_SQL, [id]);
-      await m.query(YEARS_INSERT_SQL, [years.map((y) => [id, y.fiscal_year, y.amount])]);
-      const orphans: { fiscal_year: number; n: number }[] = await m.query(MANUAL_ORPHANS_SQL, [
-        id,
-        list,
-      ]);
+      await q.replaceYears(m, id, years);
+      const orphans = await q.manualOrphans(m, id, list);
       const moved: { fieldName: string; oldValue: unknown; newValue: unknown }[] = [];
       for (const o of orphans) {
         const from = Number(o.fiscal_year);
         const to = annualityFor(list, from)!;
-        await m.query(MANUAL_MOVE_SQL, [to, id, from]);
+        await q.moveManualShares(m, id, from, to);
         moved.push({
           fieldName: 'shares_moved',
           oldValue: `${from} (${Number(o.n)} quote)`,
@@ -424,9 +350,8 @@ export class BudgetCommitmentsService extends BaseService<
     });
     if (!current) throw new BadRequestException('Impegno non trovato');
     await assertCanChange(this.accounting, current, true);
-    const [{ n }] = await this.repo.query(MANUAL_SHARES_SQL, [id]);
-    if (Number(n) > 0)
-      throw new BadRequestException(`Impegno scelto a mano su ${Number(n)} fatture`);
+    const n = await q.manualInvoiceCount(this.repo.manager, id);
+    if (n > 0) throw new BadRequestException(`Impegno scelto a mano su ${n} fatture`);
     current.deleted = true;
     current.updated_by_user_id = userId;
     await this.repo.save(current);

@@ -1,16 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
-import { ASSET_REQUIRED_TYPES, missingInspections } from '@apis/plants/plant.calc';
+import { missingInspections } from '@apis/plants/plant.calc';
 import { GroundingClass, PlantStatus, PlantType } from '@apis/plants/enum/plant.enum';
 import { todayIso } from '@apis/utilizer-grant/real-estate-contract.calc';
 import { DataSource } from 'typeorm';
-import { partyNameSql } from '@apis/third-parties/third-party.name';
 import {
-  toUnknownStructure,
-  UNKNOWN_STRUCTURES_SQL,
+  unknownStructures,
   type UnknownStructureRow,
-} from '@apis/invoice-import/pattern/unknown-structures';
-import { CostStatus, costStatusSql, inChargeSql } from '@apis/utility/cost-status';
+} from '@apis/invoice-import/pattern/unknown-structures.sql';
+import { CostStatus } from '@apis/utility/cost-status';
 import { chaptersYearSummary, currentYear } from '@apis/spending/chapter-year';
 import { romeDay } from '@apis/utility-supply/supply-reconcile.service';
 import { dbDay } from '@/helpers/date.helpers';
@@ -20,17 +17,9 @@ import { SupplyEventType } from '@apis/utility-supply/enum/supply-event-type.enu
 import { imapConfigFromEnv, importForcedOff } from '@apis/invoice-import/pec-imap.client';
 import { commitmentLabel } from '@apis/budget-commitments/commitment-label';
 import { invoiceCompetenceYear } from '@apis/spending/line-year';
-import { CommitmentShareSource } from '@apis/invoices/entity/commitment-share-source.enum';
 import { inboxDir, inboxPresent } from '@apis/accounting-import/accounting-inbox.files';
-import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
-
-// Contratto valido oggi: stessa definizione di "contratto corrente" usata in
-// UtilitiesService (scadenza assente o non ancora passata).
-// Contratto valido oggi: non chiuso e con scadenza assente o non ancora passata
-// (stessa definizione di "contratto corrente" in UtilitiesService).
-// Un ordine in bozza non è un contratto valido (contract-draft.ts).
-const CURRENT = `(c.closed = 0 AND ${NOT_DRAFT_SQL('c')} AND (c.supply_expiry_date IS NULL OR c.supply_expiry_date >= CURDATE()))`;
-const HAS_CIG = "TRIM(IFNULL(c.cig_contract, '')) <> ''";
+import * as q from './anomalies.queries';
+import { liquidationsUnmatched, utilityChapterAmbiguous } from './anomalies.sql';
 
 export interface AgreementShortAnomaly {
   id: number;
@@ -213,6 +202,12 @@ export interface RealEstateContractAnomaly {
 
 const list = <T>(items: T[]): AnomalyList<T> => ({ count: items.length, items });
 
+// Righe grezze del driver lette con la forma attesa.
+const typed = <T>(rows: Promise<Record<string, unknown>[]>): Promise<T[]> =>
+  rows as unknown as Promise<T[]>;
+type PlantRow = { id: unknown; code: string; name: string; type: string };
+type AssetRow = { id: unknown; asset_name: string };
+
 export interface CommitmentAnomaly {
   id: number;
   label: string;
@@ -257,367 +252,71 @@ export class AnomaliesService {
   }
 
   async getAnomalies(): Promise<Anomalies> {
+    const m = this.dataSource.manager;
     const today = romeDay(this.now());
-    const contractsWithoutCig: Record<string, unknown>[] = await this.dataSource.query(
-      `SELECT c.id, ${partyNameSql('s')} AS supplier, ca.name AS agreement,
-              DATE_FORMAT(c.supply_expiry_date, '%Y-%m-%d') AS supply_expiry_date,
-              (SELECT COUNT(*) FROM contract_utilities cu WHERE cu.contract_id = c.id) AS utilities
-       FROM contracts c
-       LEFT JOIN third_parties s ON s.id = c.supplier_id_fk
-       LEFT JOIN consip_agreement ca ON ca.id = c.consip_agreement_id
-       WHERE c.deleted = 0 AND c.closed = 0 AND ${NOT_DRAFT_SQL('c')} AND c.contract_kind = 'STANDARD' AND NOT ${HAS_CIG}
-       ORDER BY supplier, c.id`,
-    );
-
-    const utilityColumns = `u.id, u.utility_id, t.name AS type`;
-    const currentContractsList = `(SELECT GROUP_CONCAT(CONCAT('#', c.id, ' ', IFNULL(${partyNameSql('s')}, '?')) ORDER BY c.id SEPARATOR ', ')
-        FROM contract_utilities cu JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
-        LEFT JOIN third_parties s ON s.id = c.supplier_id_fk
-        WHERE cu.utility_id = u.id AND ${CURRENT}) AS contracts`;
-    // Utenze in carico al Comune: attive e non volturate (decisione utente
-    // 2026-10-19). Non vale per byCostStatus, che elenca proprio le volture.
-    const activeUtilities = `FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
-       WHERE u.deleted = 0 AND ${inChargeSql('u')}`;
-    const currentContractOf = (extra = '') =>
-      `SELECT 1 FROM contract_utilities cu JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
-       WHERE cu.utility_id = u.id AND ${CURRENT} ${extra}`;
-
-    const withoutContract: UtilityAnomaly[] = await this.dataSource.query(
-      `SELECT ${utilityColumns} ${activeUtilities}
-       AND NOT EXISTS (${currentContractOf()}) ORDER BY t.name, u.utility_id`,
-    );
-
-    const withoutCigContract: UtilityAnomaly[] = await this.dataSource.query(
-      `SELECT ${utilityColumns}, ${currentContractsList} ${activeUtilities}
-       AND EXISTS (${currentContractOf()})
-       AND NOT EXISTS (${currentContractOf(`AND (${HAS_CIG} OR c.contract_kind <> 'STANDARD')`)})
-       ORDER BY t.name, u.utility_id`,
-    );
-
-    // Due contratti validi oggi con periodi sovrapposti sulla stessa utenza
-    // (un subentro senza sovrapposizione, es. vecchio fino al 31/10 e nuovo
-    // dal 01/11, non è un'anomalia).
-    const overlapping: UtilityAnomaly[] = await this.dataSource.query(
-      `SELECT ${utilityColumns}, ${currentContractsList} ${activeUtilities}
-       AND EXISTS (
-         SELECT 1 FROM contract_utilities cu1
-         JOIN contracts c1 ON c1.id = cu1.contract_id AND c1.deleted = 0 AND c1.closed = 0 AND ${NOT_DRAFT_SQL('c1')}
-         JOIN contract_utilities cu2 ON cu2.utility_id = cu1.utility_id AND cu2.contract_id > cu1.contract_id
-         JOIN contracts c2 ON c2.id = cu2.contract_id AND c2.deleted = 0 AND c2.closed = 0 AND ${NOT_DRAFT_SQL('c2')}
-         WHERE cu1.utility_id = u.id
-           AND (c1.supply_expiry_date IS NULL OR c1.supply_expiry_date >= CURDATE())
-           AND (c2.supply_expiry_date IS NULL OR c2.supply_expiry_date >= CURDATE())
-           AND IFNULL(c1.supply_start_date, '1900-01-01') <= IFNULL(c2.supply_expiry_date, '9999-12-31')
-           AND IFNULL(c2.supply_start_date, '1900-01-01') <= IFNULL(c1.supply_expiry_date, '9999-12-31'))
-       ORDER BY t.name, u.utility_id`,
-    );
-
-    const duplicateCigs: { cig: string; contracts: string }[] = await this.dataSource.query(
-      `SELECT MIN(TRIM(c.cig_contract)) AS cig, GROUP_CONCAT(c.id ORDER BY c.id) AS contracts
-       FROM contracts c WHERE c.deleted = 0 AND c.closed = 0 AND ${NOT_DRAFT_SQL('c')} AND ${HAS_CIG}
-       GROUP BY LOWER(TRIM(c.cig_contract)) HAVING COUNT(*) > 1`,
-    );
-
-    // Contratti immobiliari senza immobili attivi collegati (es. import non abbinato).
-    const contractsWithoutAssets: {
+    const contractsWithoutCig = await q.contractsWithoutCig(m);
+    const withoutContract = await typed<UtilityAnomaly>(q.utilitiesWithoutContract(m));
+    const withoutCigContract = await typed<UtilityAnomaly>(q.utilitiesWithoutCigContract(m));
+    const overlapping = await typed<UtilityAnomaly>(q.utilitiesWithOverlappingContracts(m));
+    const duplicateCigs = await q.duplicateCigs(m);
+    const contractsWithoutAssets = await typed<{
       id: unknown;
       counterparty: string | null;
       subject: string | null;
-    }[] = await this.dataSource.query(
-      `SELECT g.id,
-              (SELECT GROUP_CONCAT(${partyNameSql('tp')} ORDER BY tp.id SEPARATOR ', ')
-                 FROM utilizer_grant_parties gp JOIN third_parties tp ON tp.id = gp.third_party_id AND tp.deleted = 0
-                WHERE gp.utilizer_grant_id = g.id) AS counterparty,
-              g.subject
-         FROM utilizer_grant g
-         WHERE g.deleted = 0
-           AND NOT EXISTS (SELECT 1 FROM utilizer_grant_assets a JOIN assets s ON s.id = a.asset_id AND s.deleted = 0
-                           WHERE a.utilizer_grant_id = g.id)
-         ORDER BY counterparty, g.id`,
+    }>(q.grantsWithoutAssets(m));
+    const plantsWithoutPosition = await typed<PlantRow>(q.plantsWithoutPosition(m));
+    const plantsWithoutAsset = await typed<PlantRow>(q.plantsWithoutAsset(m));
+    const contractsWithoutParties = await typed<{ id: unknown; subject: string | null }>(
+      q.grantsWithoutParties(m),
     );
-
-    // Impianti senza alcuna posizione: né coordinate proprie, né geocodifica,
-    // né un immobile contenitore localizzato (stessa priorità di resolvePlantPosition).
-    const isSetSql = (col: string) => `IFNULL(TRIM(${col}), '') <> ''`;
-    const plantsWithoutPosition: { id: unknown; code: string; name: string; type: string }[] =
-      await this.dataSource.query(
-        `SELECT p.id, p.code, p.name, p.type
-           FROM plants p
-           WHERE p.deleted = 0
-             AND NOT (${isSetSql('p.latitude')} AND ${isSetSql('p.longitude')})
-             AND NOT (${isSetSql('p.geocoded_latitude')} AND ${isSetSql('p.geocoded_longitude')})
-             AND NOT EXISTS (
-               SELECT 1 FROM plant_assets pa JOIN assets a ON a.id = pa.asset_id AND a.deleted = 0
-               WHERE pa.plant_id = p.id AND (
-                    (${isSetSql('a.latitude')} AND ${isSetSql('a.longitude')})
-                 OR (${isSetSql('a.geocoded_latitude')} AND ${isSetSql('a.geocoded_longitude')})))
-           ORDER BY p.type, p.code`,
-      );
-
-    // Ascensori, antincendio e termici stanno sempre dentro un edificio.
-    const requiredTypes = ASSET_REQUIRED_TYPES.map((t) => `'${t}'`).join(', ');
-    const plantsWithoutAsset: { id: unknown; code: string; name: string; type: string }[] =
-      await this.dataSource.query(
-        `SELECT p.id, p.code, p.name, p.type FROM plants p
-           WHERE p.deleted = 0 AND p.type IN (${requiredTypes})
-             AND NOT EXISTS (SELECT 1 FROM plant_assets pa JOIN assets a ON a.id = pa.asset_id AND a.deleted = 0
-                             WHERE pa.plant_id = p.id)
-           ORDER BY p.type, p.code`,
-      );
-
-    const contractsWithoutParties: { id: unknown; subject: string | null }[] =
-      await this.dataSource.query(
-        `SELECT g.id, g.subject FROM utilizer_grant g
-          WHERE g.deleted = 0
-            AND NOT EXISTS (SELECT 1 FROM utilizer_grant_parties gp JOIN third_parties tp ON tp.id = gp.third_party_id AND tp.deleted = 0
-                            WHERE gp.utilizer_grant_id = g.id)
-          ORDER BY g.id`,
-      );
-
-    // Identificativo obbligatorio: P.IVA per i giuridici, CF per le persone.
-    const partiesWithoutIdentifier: { id: unknown; name: string; type: string }[] =
-      await this.dataSource.query(
-        `SELECT tp.id, ${partyNameSql('tp')} AS name, tp.type FROM third_parties tp
-          WHERE tp.deleted = 0
-            AND ((tp.type = 'LEGAL' AND IFNULL(TRIM(tp.vat_number), '') = '')
-              OR (tp.type = 'NATURAL' AND IFNULL(TRIM(tp.tax_code), '') = ''))
-          ORDER BY name`,
-      );
-
-    // Tipologia contrattuale ARERA da assegnare (Internet non ne ha).
-    const withoutAreraCategory: UtilityAnomaly[] = await this.dataSource.query(
-      `SELECT ${utilityColumns} ${activeUtilities}
-       AND t.hard_type <> 'INTERNET' AND u.arera_category IS NULL
-       ORDER BY t.name, u.utility_id`,
+    const partiesWithoutIdentifier = await typed<{ id: unknown; name: string; type: string }>(
+      q.partiesWithoutIdentifier(m),
     );
-
-    // Categoria d'uso del gas (C1–C5, T1, T2) da assegnare.
-    const gasWithoutUseCategory: UtilityAnomaly[] = await this.dataSource.query(
-      `SELECT ${utilityColumns} ${activeUtilities}
-       AND t.hard_type = 'GAS' AND u.gas_use_category IS NULL
-       ORDER BY u.utility_id`,
-    );
-
-    // «A carico di» dalla colonna di stato (SupplyReconcileService), giorni
-    // di attesa da pending_since. Contratti = parti dei contratti immobiliari
-    // in corso sugli immobili dell'utenza (possono mancare). Le più vecchie prima.
-    // In corso come isGrantActive: stato ACTIVE e fine effettiva non passata
-    // (con il rinnovo tacito la fine effettiva non è mai passata).
-    const grantPartiesJoin = `LEFT JOIN (SELECT ua.utility_id,
-                    GROUP_CONCAT(DISTINCT ${partyNameSql('tp')} ORDER BY tp.id SEPARATOR ', ') AS parties
-               FROM utility_assets ua
-               JOIN assets sa ON sa.id = ua.asset_id AND sa.deleted = 0
-               JOIN utilizer_grant_assets uga ON uga.asset_id = ua.asset_id
-               JOIN utilizer_grant g ON g.id = uga.utilizer_grant_id AND g.deleted = 0
-                 AND g.status = 'ACTIVE' AND g.direction = 'ACTIVE'
-                 AND (g.end_date IS NULL OR g.end_date >= ?
-                   OR (g.tacit_renewal = 1 AND IFNULL(g.renewal_months, 0) > 0))
-               JOIN utilizer_grant_parties gp ON gp.utilizer_grant_id = g.id
-               JOIN third_parties tp ON tp.id = gp.third_party_id AND tp.deleted = 0
-              GROUP BY ua.utility_id) x ON x.utility_id = u.id`;
-    const pendingColumns = `${utilityColumns}, DATE_FORMAT(u.pending_since, '%Y-%m-%d') AS pending_since`;
-    const pendingOrder = 'ORDER BY u.pending_since IS NULL, u.pending_since, u.utility_id';
-    const byCostStatus = (
-      status: CostStatus,
-      contractsSql: string,
-      join: string,
-      params: unknown[] = [],
-    ) =>
-      this.dataSource.query(
-        `SELECT ${pendingColumns}, ${contractsSql} AS contracts
-         FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
-         ${join}
-         WHERE u.deleted = 0 AND u.supply_active = 1
-           AND ${costStatusSql(status, 'u')}
-         ${pendingOrder}`,
-        params,
-      ) as Promise<Record<string, unknown>[]>;
-    const toTransfer = await byCostStatus(CostStatus.TO_TRANSFER, 'x.parties', grantPartiesJoin, [
-      today,
-    ]);
-    // Da reintestare: conta a chi è volturata oggi.
-    const toRecover = await byCostStatus(
-      CostStatus.TO_RECOVER,
-      partyNameSql('vt'),
-      'LEFT JOIN third_parties vt ON vt.id = u.transferred_to_third_party_id',
-    );
-
-    // Natura e funzione sono l'unica classificazione dell'immobile.
-    const assetsWithoutClassification: { id: unknown; asset_name: string; missing: string }[] =
-      await this.dataSource.query(
-        `SELECT a.id, a.asset_name,
-                CASE WHEN a.nature_id IS NULL AND a.function_id IS NULL THEN 'natura e funzione'
-                     WHEN a.nature_id IS NULL THEN 'natura' ELSE 'funzione' END AS missing
-           FROM assets a
-          WHERE a.deleted = 0 AND (a.nature_id IS NULL OR a.function_id IS NULL)
-          ORDER BY a.asset_name`,
-      );
-
-    // Immobile attivo non di proprietà: il Comune lo usa a un titolo, quindi
-    // serve un contratto immobiliare passivo attivo che lo copra.
-    const rentedWithoutPassive: { id: unknown; asset_name: string }[] = await this.dataSource.query(
-      `SELECT a.id, a.asset_name FROM assets a
-        WHERE a.deleted = 0 AND a.ownership = 0 AND a.status = 'Attivo'
-          AND NOT EXISTS (SELECT 1 FROM utilizer_grant_assets uga
-                          JOIN utilizer_grant g ON g.id = uga.utilizer_grant_id AND g.deleted = 0
-                           AND g.status = 'ACTIVE' AND g.direction = 'PASSIVE'
-                          WHERE uga.asset_id = a.id)
-        ORDER BY a.asset_name`,
-    );
-
-    // Solo contratti che hanno almeno un impegno censito: finché gli impegni
-    // sono vuoti segnalerebbe tutte le utenze.
-    const uncommitted: Record<string, unknown>[] = await this.dataSource.query(
-      `SELECT ${utilityColumns}, ${currentContractsList},
-              CONCAT(b.chapter_code, '/', b.article) AS chapter
-       FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
-       JOIN budget_chapters b ON b.id = u.budget_chapter_code_fk
-       WHERE u.deleted = 0 AND ${inChargeSql('u')}
-       AND EXISTS (
-         SELECT 1 FROM contract_utilities cu JOIN contracts c ON c.id = cu.contract_id AND c.deleted = 0
-         WHERE cu.utility_id = u.id AND c.closed = 0 AND ${NOT_DRAFT_SQL('c')}
-           AND EXISTS (SELECT 1 FROM budget_commitment_contracts x JOIN budget_commitments any_c ON any_c.id = x.commitment_id AND any_c.deleted = 0 WHERE x.contract_id = c.id)
-           AND NOT EXISTS (SELECT 1 FROM budget_commitment_contracts y
-                           JOIN budget_commitments bc ON bc.id = y.commitment_id AND bc.deleted = 0
-                           WHERE y.contract_id = c.id AND bc.budget_chapter_id_fk = u.budget_chapter_code_fk))
-       ORDER BY t.name, u.utility_id`,
-    );
-
-    // Capitolo facoltativo sull'utenza: senza capitolo è da sistemare, salvo
-    // che la fornitura sia di un contratto a titolo gratuito in corso.
-    const withoutChapter: Record<string, unknown>[] = await this.dataSource.query(
-      `SELECT ${utilityColumns}, ${currentContractsList} ${activeUtilities}
-       AND u.budget_chapter_code_fk IS NULL
-       AND NOT EXISTS (${currentContractOf("AND c.contract_kind = 'FREE'")})
-       ORDER BY t.name, u.utility_id`,
-    );
-
-    // Righe senza utenza né contratto in testata: quelle di una fattura con contratto
-    // (canoni, servizi del contratto) sono del contratto e non sono un'anomalia.
-    const withoutUtility: Record<string, unknown>[] = await this.dataSource.query(
-      `SELECT i.id AS invoice_id, i.invoice_id AS number, il.supply_code, il.amount
-       FROM invoice_lines il JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
-       WHERE il.utility_id_fk IS NULL AND i.contratto_id_fk IS NULL
-       ORDER BY i.invoice_date DESC, i.id`,
-    );
+    const withoutAreraCategory = await typed<UtilityAnomaly>(q.utilitiesWithoutAreraCategory(m));
+    const gasWithoutUseCategory = await typed<UtilityAnomaly>(q.gasWithoutUseCategory(m));
+    const toTransfer = await q.utilitiesByCostStatus(m, CostStatus.TO_TRANSFER, today);
+    const toRecover = await q.utilitiesByCostStatus(m, CostStatus.TO_RECOVER, today);
+    const assetsWithoutClassification = await typed<{
+      id: unknown;
+      asset_name: string;
+      missing: string;
+    }>(q.assetsWithoutClassification(m));
+    const rentedWithoutPassive = await typed<AssetRow>(q.rentedWithoutPassive(m));
+    const uncommitted = await q.utilitiesWithUncommittedChapter(m);
+    const withoutChapter = await q.utilitiesWithoutChapter(m);
+    const withoutUtility = await q.linesWithoutUtility(m);
 
     // Capitoli sull'esercizio in corso (scheda capitolo, roadmap voce 20).
     const year = currentYear();
-    const summary = await chaptersYearSummary(
-      (sql, params) => this.dataSource.query(sql, params),
-      year,
-    );
+    const summary = await chaptersYearSummary(m, year);
     const over = summary.filter((r) => r.over_budget);
-    const overLabels: Record<string, unknown>[] = over.length
-      ? await this.dataSource.query(
-          'SELECT id, chapter_code, article, description FROM budget_chapters WHERE deleted = 0 AND id IN (?)',
-          [over.map((r) => r.budget_chapter_id)],
+    const overLabels = over.length
+      ? await q.chapterLabels(
+          m,
+          over.map((r) => r.budget_chapter_id),
         )
       : [];
     const labelOf = new Map(overLabels.map((b) => [Number(b.id), b] as const));
-    const withoutBudget: Record<string, unknown>[] = await this.dataSource.query(
-      `SELECT b.id, b.chapter_code, b.article, b.description FROM budget_chapters b
-       WHERE b.deleted = 0
-         AND (EXISTS (SELECT 1 FROM utilities u WHERE u.budget_chapter_code_fk = b.id AND u.deleted = 0 AND ${inChargeSql('u')})
-              OR EXISTS (SELECT 1 FROM budget_commitments c JOIN budget_commitment_years cy ON cy.commitment_id = c.id
-                         WHERE c.budget_chapter_id_fk = b.id AND c.deleted = 0 AND cy.fiscal_year = ?))
-         AND NOT EXISTS (SELECT 1 FROM budget_chapter_spending s
-                         WHERE s.budget_chapter_id_fk = b.id AND s.deleted = 0 AND s.year = ? AND s.adjusted_budget IS NOT NULL)
-       ORDER BY b.chapter_code, b.article`,
-      [year, year],
-    );
+    const withoutBudget = await q.chaptersWithoutBudget(m, year);
     const chapterLabel = (b: Record<string, unknown>): ChapterAnomaly => ({
       id: Number(b.id),
       chapter: `${b.chapter_code}/${b.article}`,
       description: (b.description as string) ?? null,
     });
 
-    // Utenze attive senza posizione: né coordinate proprie, né un immobile
-    // localizzato, né un impianto localizzato (proprio o del suo immobile);
-    // stessa priorità della mappa.
-    const hasPositionSql = (t: string) =>
-      `((${isSetSql(`${t}.latitude`)} AND ${isSetSql(`${t}.longitude`)})
-        OR (${isSetSql(`${t}.geocoded_latitude`)} AND ${isSetSql(`${t}.geocoded_longitude`)}))`;
-    const utilitiesWithoutPosition: UtilityAnomaly[] = await this.dataSource.query(
-      `SELECT ${utilityColumns} ${activeUtilities}
-       AND NOT (${isSetSql('u.latitude')} AND ${isSetSql('u.longitude')})
-       AND NOT EXISTS (SELECT 1 FROM utility_assets ua JOIN assets a ON a.id = ua.asset_id AND a.deleted = 0
-                       WHERE ua.utility_id = u.id AND ${hasPositionSql('a')})
-       AND NOT EXISTS (
-         SELECT 1 FROM utility_plants up JOIN plants p ON p.id = up.plant_id AND p.deleted = 0
-         WHERE up.utility_id = u.id AND (${hasPositionSql('p')}
-           OR EXISTS (SELECT 1 FROM plant_assets pa JOIN assets pa_a ON pa_a.id = pa.asset_id AND pa_a.deleted = 0
-                      WHERE pa.plant_id = p.id AND ${hasPositionSql('pa_a')})))
-       ORDER BY t.name, u.utility_id`,
+    const utilitiesWithoutPosition = await typed<UtilityAnomaly>(q.utilitiesWithoutPosition(m));
+    const withoutCadastre = await typed<AssetRow>(q.assetsWithoutCadastre(m));
+    const withoutMefId = await typed<AssetRow>(q.assetsWithoutMefId(m));
+    const withoutSubordinate = await typed<AssetRow>(q.unitsWithoutSubordinate(m));
+    const functionsWithoutMefType = await typed<{ id: unknown; name: string }>(
+      q.functionsWithoutMefType(m),
     );
-
-    // Catasto e censimento MEF (alias b: "FROM assets a" è già usato sopra).
-    const withoutCadastre: { id: unknown; asset_name: string }[] = await this.dataSource.query(
-      `/* assets_without_cadastre */ SELECT b.id, b.asset_name FROM assets b
-        WHERE b.deleted = 0 AND b.ownership = 1
-          AND NOT EXISTS (SELECT 1 FROM asset_cadastral_units cu WHERE cu.asset_id = b.id)
-        ORDER BY b.asset_name`,
-    );
-    // Dipende dal nome della tipologia: rinominare «Fabbricato» azzera la segnalazione.
-    const withoutMefId: { id: unknown; asset_name: string }[] = await this.dataSource.query(
-      `/* assets_without_mef_id */ SELECT b.id, b.asset_name FROM assets b
-         JOIN asset_natures n ON n.id = b.nature_id AND n.name = 'Fabbricato' AND n.deleted = 0
-        WHERE b.deleted = 0 AND b.ownership = 1 AND b.mef_id IS NULL
-        ORDER BY b.asset_name`,
-    );
-    // Immobili indistinguibili al catasto: stessi via, civico, foglio e
-    // particella di un altro immobile, ma senza subalterno.
-    const withoutSubordinate: { id: unknown; asset_name: string }[] = await this.dataSource.query(
-      `/* units_without_subordinate */ SELECT DISTINCT b.id, b.asset_name FROM assets b
-         JOIN asset_cadastral_units u ON u.asset_id = b.id
-        WHERE b.deleted = 0 AND (u.subordinate IS NULL OR TRIM(u.subordinate) = '')
-          AND EXISTS (SELECT 1 FROM assets o JOIN asset_cadastral_units ou ON ou.asset_id = o.id
-                      WHERE o.deleted = 0 AND o.id <> b.id
-                        AND ou.sheet = u.sheet AND ou.parcel = u.parcel
-                        AND COALESCE(o.address, '') = COALESCE(b.address, '')
-                        AND COALESCE(o.toponym, '') = COALESCE(b.toponym, '')
-                        AND COALESCE(o.civic_number, '') = COALESCE(b.civic_number, ''))
-        ORDER BY b.asset_name`,
-    );
-    const functionsWithoutMefType: { id: unknown; name: string }[] = await this.dataSource.query(
-      `/* functions_without_mef_type */ SELECT f.id, f.name FROM asset_functions f
-        WHERE f.deleted = 0 AND f.mef_building_type IS NULL
-          AND EXISTS (SELECT 1 FROM assets b WHERE b.function_id = f.id AND b.deleted = 0 AND b.ownership = 1)
-        ORDER BY f.name`,
-    );
-    // Gemello SQL di fireEquipmentDeadlines (plants/plant.calc.ts): scadenza
-    // valida fino a fine mese, controllo semestrale = ultimo controllo + 6 mesi.
-    // Oggi passato da Node (stesso todayIso della scheda impianto), non CURDATE().
-    const fireOverdue: { id: unknown; code: string; name: string; type: string }[] =
-      await this.dataSource.query(
-        `/* plants_fire_equipment_overdue */ SELECT DISTINCT p.id, p.code, p.name, p.type FROM plants p
-           CROSS JOIN (SELECT CAST(? AS DATE) AS today) t
-           JOIN plant_fire_equipment e ON e.plant_id = p.id AND e.deleted = 0
-                AND e.equipment_type = 'EXTINGUISHER'
-          WHERE p.deleted = 0 AND p.type = 'FIRE_PROTECTION'
-            AND (LAST_DAY(e.revision_due_on) < t.today
-              OR LAST_DAY(e.test_due_on) < t.today
-              OR LAST_DAY(DATE_ADD(e.last_check_on, INTERVAL 6 MONTH)) < t.today)
-          ORDER BY p.code`,
-        [todayIso()],
-      );
-    // Penali per energia reattiva (basso cos φ) in un periodo terminato negli
-    // ultimi 365 giorni: impianto da rifasare. Oggi passato da Node.
-    const reactivePenalty: UtilityAnomaly[] = await this.dataSource.query(
-      `/* utilities_with_reactive_penalty */ SELECT DISTINCT ${utilityColumns}
-         FROM utilities u JOIN utility_types t ON t.id = u.utility_type_id_fk
-         CROSS JOIN (SELECT CAST(? AS DATE) AS today) d
-         JOIN utility_consumptions uc ON uc.utility_id_fk = u.id AND uc.deleted = 0
-              AND uc.kind = 'PERIOD' AND uc.reactive_penalty = 1
-              AND uc.period_end > DATE_SUB(d.today, INTERVAL 365 DAY)
-        WHERE u.deleted = 0
-        ORDER BY t.name, u.utility_id`,
-      [todayIso()],
-    );
+    const fireOverdue = await typed<PlantRow>(q.fireEquipmentOverdue(m, todayIso()));
+    const reactivePenalty = await typed<UtilityAnomaly>(q.reactivePenalty(m, todayIso()));
     // Verifiche obbligatorie per legge (plant.calc missingInspections): si
     // leggono i dati che le determinano e i nomi delle verifiche con data, il
     // confronto è in Node come nella scheda impianto.
-    const requiredCandidates: {
+    const requiredCandidates = await typed<{
       id: unknown;
       code: string;
       name: string;
@@ -627,18 +326,7 @@ export class AnomaliesService {
       lightning_protection: unknown;
       power_kw: string | number | null;
       dated_kinds: string | null;
-    }[] = await this.dataSource.query(
-      `/* plants_missing_inspections */ SELECT p.id, p.code, p.name, p.type, p.status,
-              e.grounding_class, e.lightning_protection, t.power_kw,
-              (SELECT GROUP_CONCAT(i.kind SEPARATOR '\n') FROM plant_inspections i
-                WHERE i.plant_id = p.id AND i.deleted = 0
-                  AND (i.last_date IS NOT NULL OR i.next_date IS NOT NULL)) AS dated_kinds
-         FROM plants p
-         LEFT JOIN plant_electrical e ON e.plant_id = p.id
-         LEFT JOIN plant_thermal t ON t.plant_id = p.id
-        WHERE p.deleted = 0 AND p.type IN ('ELEVATOR', 'ELECTRICAL_SYSTEM', 'THERMAL')
-        ORDER BY p.code`,
-    );
+    }>(q.inspectionCandidates(m));
     const missingRequired = requiredCandidates
       .map((p) => ({
         p,
@@ -659,24 +347,11 @@ export class AnomaliesService {
         ),
       }))
       .filter((x) => x.missing.length > 0);
-    // Storico utenze (roadmap voce 22): query nuove in fondo (spec posizionale).
-    const toDecide = await byCostStatus(CostStatus.TO_DECIDE, 'x.parties', grantPartiesJoin, [
-      today,
-    ]);
+    const toDecide = await q.utilitiesByCostStatus(m, CostStatus.TO_DECIDE, today);
 
     // Attivazioni e cessazioni manuali in sospeso; data evento = richiesta,
     // altrimenti giorno di inserimento (Roma). Una per utenza, la più vecchia.
-    const pendingSupply: Record<string, unknown>[] = await this.dataSource.query(
-      `SELECT u.id AS utility_pk, u.utility_id, t.name AS type, e.type AS event_type,
-              e.requested_on, e.create_date
-         FROM utility_supply_events e
-         JOIN utilities u ON u.id = e.utility_id_fk AND u.deleted = 0
-         JOIN utility_types t ON t.id = u.utility_type_id_fk
-        WHERE e.deleted = 0 AND e.cancelled_on IS NULL AND e.effective_on IS NULL
-          AND e.date_unknown = 0 AND e.utilizer_grant_id_fk IS NULL
-          AND e.type IN ('ACTIVATION', 'CESSATION')
-        ORDER BY t.name, u.utility_id`,
-    );
+    const pendingSupply = await q.pendingSupplyEvents(m);
     const pendingOf = (type: SupplyEventType): PendingUtilityAnomaly[] => {
       const oldest = new Map<number, { item: UtilityAnomaly; since: string }>();
       for (const r of pendingSupply) {
@@ -698,25 +373,9 @@ export class AnomaliesService {
 
     // Fatture fuori dai periodi di attività: righe degli ultimi 12 mesi con
     // utenza, poi lo storico di quelle utenze; il confronto è in Node.
-    const invoiceLines: Record<string, unknown>[] = await this.dataSource.query(
-      `SELECT i.id AS invoice_id, i.invoice_id AS number, i.invoice_date,
-              u.id AS utility_id, u.utility_id AS utility_code, il.period_start, il.period_end
-         FROM invoice_lines il
-         JOIN invoices i ON i.id = il.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
-         JOIN utilities u ON u.id = il.utility_id_fk AND u.deleted = 0
-        WHERE COALESCE(il.period_end, i.invoice_date) >= CAST(? AS DATE) - INTERVAL 12 MONTH`,
-      [today],
-    );
+    const invoiceLines = await q.recentUtilityLines(m, today);
     const lineUtilityIds = [...new Set(invoiceLines.map((r) => Number(r.utility_id)))];
-    const eventRows: Record<string, unknown>[] = lineUtilityIds.length
-      ? await this.dataSource.query(
-          `SELECT id, utility_id_fk, type, third_party_id_fk, requested_on, effective_on, date_unknown,
-                  cancelled_on, deleted, utilizer_grant_id_fk, create_date
-             FROM utility_supply_events
-            WHERE deleted = 0 AND utility_id_fk IN (?)`,
-          [lineUtilityIds],
-        )
-      : [];
+    const eventRows = lineUtilityIds.length ? await q.supplyEvents(m, lineUtilityIds) : [];
     const eventsByUtility = new Map<number, SupplyEventLike[]>();
     for (const r of eventRows) {
       const id = Number(r.utility_id_fk);
@@ -774,208 +433,21 @@ export class AnomaliesService {
       }));
 
     // Import fatture dalla PEC dello SDI.
-    const [importState]: Record<string, unknown>[] = await this.dataSource.query(
-      `/* invoice_import_stalled */
-       SELECT enabled, last_run_at, last_success_at, last_error FROM invoice_import_state WHERE id = 1`,
-    );
-    const importPending: Record<string, unknown>[] = await this.dataSource.query(
-      `/* invoice_import_pending */
-       SELECT m.id, ${partyNameSql('tp')} AS supplier, m.document_number, m.document_date
-         FROM sdi_messages m
-         LEFT JOIN third_parties tp ON tp.id = m.supplier_id_fk
-        WHERE m.status = 'PENDING'
-        ORDER BY m.document_date DESC, m.id DESC`,
-    );
-    const outcomeDiscarded: Record<string, unknown>[] = await this.dataSource.query(
-      `/* invoice_sdi_outcome_discarded */
-       SELECT i.id AS invoice_id, i.invoice_id AS number
-         FROM invoices i
-        WHERE i.deleted = 0 AND i.sdi_outcome_discarded = 1
-        ORDER BY i.invoice_date DESC, i.id DESC`,
-    );
-    const patternsUnknown: Record<string, unknown>[] = await this.dataSource.query(
-      `/* invoice_patterns_unknown */ ${UNKNOWN_STRUCTURES_SQL}`,
-    );
-    const importIssues: Record<string, unknown>[] = await this.dataSource.query(
-      `/* invoice_import_issues */
-       SELECT ii.id, ii.sdi_message_id_fk AS message_id,
-              ii.invoice_id_fk AS invoice_id, i.invoice_id AS number, ii.type, ii.detail,
-              ii.utility_id_fk AS utility_id, uu.utility_id AS utility_code
-         FROM invoice_import_issues ii
-         LEFT JOIN utilities uu ON uu.id = ii.utility_id_fk
-         JOIN sdi_messages m ON m.id = ii.sdi_message_id_fk
-         LEFT JOIN invoices i ON i.id = ii.invoice_id_fk
-         LEFT JOIN third_parties tp ON tp.id = m.supplier_id_fk
-        WHERE m.status <> 'IGNORED'
-          AND ii.muted = 0
-          AND (ii.invoice_id_fk IS NULL
-               OR (i.deleted = 0 AND i.import_locked = 0 AND COALESCE(i.sdi_status, '') <> 'REJECTED'))
-          -- Ricontrollate al momento: spariscono quando la causa è sistemata.
-          AND (ii.type <> 'UNKNOWN_UTILITY' OR EXISTS (SELECT 1 FROM invoice_lines l
-                 WHERE l.invoice_id_fk = ii.invoice_id_fk AND l.utility_id_fk IS NULL))
-          AND (ii.type <> 'MISSING_COMMITMENT' OR (ii.invoice_id_fk IS NOT NULL
-                 AND NOT EXISTS (SELECT 1 FROM invoice_commitment_shares fs WHERE fs.invoice_id_fk = ii.invoice_id_fk)))
-          AND (ii.type <> 'SUPPLIER_NAME_MISMATCH' OR tp.update_date <= ii.create_date)
-          AND (ii.type <> 'BATCH_NOT_SUPPORTED' OR m.status = 'PENDING')
-          AND (ii.type <> 'METER_MISMATCH' OR (m.status IN ('PENDING', 'LINKED') AND EXISTS (
-                 SELECT 1 FROM utilities u WHERE u.id = ii.utility_id_fk AND COALESCE(u.meter_number, '') <> ''
-                    AND UPPER(TRIM(LEADING '0' FROM REPLACE(u.meter_number, ' ', ''))) <>
-                        UPPER(TRIM(LEADING '0' FROM REPLACE(ii.value, ' ', ''))))))
-        ORDER BY ii.type, ii.id DESC`,
-    );
-    // Annualità dell'esercizio in corso e successive: speso dalle quote.
-    const commitmentRows: Record<string, unknown>[] = await this.dataSource.query(
-      `/* commitments_check */
-       SELECT bc.id, bc.commitment_year, bc.commitment_num, bc.commitment_sub, bcy.fiscal_year, bcy.amount,
-              CONCAT(b.chapter_code, '/', b.article) AS chapter,
-              (SELECT COUNT(*) FROM budget_commitment_contracts x WHERE x.commitment_id = bc.id) AS contracts,
-              (SELECT COALESCE(SUM(s.amount), 0) FROM invoice_commitment_shares s
-                 JOIN invoices i ON i.id = s.invoice_id_fk AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
-                WHERE s.commitment_id_fk = bc.id AND s.fiscal_year = bcy.fiscal_year) AS spent
-         FROM budget_commitment_years bcy JOIN budget_commitments bc ON bc.id = bcy.commitment_id
-         JOIN budget_chapters b ON b.id = bc.budget_chapter_id_fk
-        WHERE bc.deleted = 0 AND bcy.fiscal_year >= ?
-        ORDER BY bcy.fiscal_year, b.chapter_code, b.article, bc.commitment_year, bc.commitment_num, bc.commitment_sub`,
-      [year],
-    );
-    // Quote a mano che non sommano al totale (senza totale: somma delle righe).
-    const sharesMismatch: Record<string, unknown>[] = await this.dataSource.query(
-      `/* invoices_shares_mismatch */
-       SELECT i.id, i.invoice_id AS number, t.total, t.shares
-         FROM (SELECT s.invoice_id_fk AS id, SUM(s.amount) AS shares,
-                      COALESCE(MAX(si.total_amount),
-                               (SELECT SUM(l.amount) FROM invoice_lines l WHERE l.invoice_id_fk = s.invoice_id_fk), 0) AS total
-                 FROM invoice_commitment_shares s JOIN invoices si ON si.id = s.invoice_id_fk
-                WHERE s.source = '${CommitmentShareSource.MANUAL}'
-                GROUP BY s.invoice_id_fk) t
-         JOIN invoices i ON i.id = t.id AND i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
-        WHERE ABS(t.shares - t.total) > 0.01
-        ORDER BY i.invoice_date DESC, i.id DESC`,
-    );
-    // Fatture con contratto che il ricalcolo lascia senza quota (importo diverso da 0).
-    // Porta periodo complessivo delle righe e gli esercizi con annualità del contratto:
-    // la competenza si calcola in TS con la stessa regola del ricalcolo.
-    const withoutCommitment: Record<string, unknown>[] = await this.dataSource.query(
-      `/* invoices_without_commitment */
-       SELECT i.id, i.invoice_id AS number, i.invoice_date AS date, i.contratto_id_fk AS contract_id,
-              COALESCE(i.total_amount, (SELECT SUM(l.amount) FROM invoice_lines l WHERE l.invoice_id_fk = i.id), 0) AS amount,
-              (SELECT MIN(l.period_start) FROM invoice_lines l WHERE l.invoice_id_fk = i.id) AS period_start,
-              (SELECT MAX(l.period_end) FROM invoice_lines l WHERE l.invoice_id_fk = i.id) AS period_end,
-              (SELECT GROUP_CONCAT(DISTINCT bcy.fiscal_year)
-                 FROM budget_commitment_contracts x
-                 JOIN budget_commitments bc ON bc.id = x.commitment_id AND bc.deleted = 0
-                 JOIN budget_commitment_years bcy ON bcy.commitment_id = bc.id
-                WHERE x.contract_id = i.contratto_id_fk) AS years
-         FROM invoices i
-        WHERE i.deleted = 0 AND ${NOT_REJECTED_SQL('i')} AND i.contratto_id_fk IS NOT NULL
-          AND NOT EXISTS (SELECT 1 FROM invoice_commitment_shares s WHERE s.invoice_id_fk = i.id)
-          AND COALESCE(i.total_amount, (SELECT SUM(l.amount) FROM invoice_lines l WHERE l.invoice_id_fk = i.id), 0) <> 0
-        ORDER BY i.invoice_date DESC, i.id DESC`,
-    );
-    // Liquidazioni con riferimento a fattura, su impegni di UtenzePA, che non
-    // trovano fattura né per IdentificativoSdI né per fornitore + numero + data.
-    // Chiavi delle fatture normalizzate una volta sola nella CTE: col confronto
-    // correlato la REGEXP girava per ogni coppia liquidazione × fattura (40 s).
-    const accLiquidations: Record<string, unknown>[] = await this.dataSource.query(
-      `/* accounting_liquidations_unmatched */
-       WITH k AS (
-         SELECT DISTINCT i.invoice_date AS invoice_date, COALESCE(NULLIF(t.vat_number, ''), t.tax_code) AS vat,
-                TRIM(LEADING '0' FROM REGEXP_REPLACE(UPPER(i.invoice_id), '[^A-Z0-9]', '')) AS number
-           FROM invoices i JOIN third_parties t ON t.id = i.supplier_id_fk
-          WHERE i.deleted = 0 AND ${NOT_REJECTED_SQL('i')})
-       SELECT l.liquidation_key AS id, l.invoice_number AS number, l.invoice_date AS date, l.amount, l.supplier_vat,
-              CONCAT(l.commitment_year, '/', l.commitment_num, '/', l.commitment_sub) AS commitment
-         FROM acc_liquidations l
-         JOIN budget_commitments bc ON bc.deleted = 0 AND bc.commitment_year = l.commitment_year
-              AND bc.commitment_num = l.commitment_num AND bc.commitment_sub = l.commitment_sub
-        WHERE l.cancelled = 0 AND l.invoice_number IS NOT NULL
-          AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.deleted = 0 AND ${NOT_REJECTED_SQL('i')}
-                AND l.sdi_identifier IS NOT NULL AND i.sdi_identifier = l.sdi_identifier)
-          AND NOT EXISTS (SELECT 1 FROM k WHERE k.invoice_date = l.invoice_date AND k.vat = l.supplier_vat
-                AND k.number = TRIM(LEADING '0' FROM REGEXP_REPLACE(UPPER(l.invoice_number), '[^A-Z0-9]', '')))
-        ORDER BY l.invoice_date DESC, l.liquidation_key`,
-    );
-    const accCommitments: Record<string, unknown>[] = await this.dataSource.query(
-      `/* accounting_commitments_without_contract */
-       SELECT bc.id, bc.commitment_year, bc.commitment_num, bc.commitment_sub
-         FROM budget_commitments bc
-        WHERE bc.deleted = 0 AND bc.source = 'ACCOUNTING'
-          AND NOT EXISTS (SELECT 1 FROM budget_commitment_contracts x WHERE x.commitment_id = bc.id)
-        ORDER BY bc.commitment_year DESC, bc.commitment_num, bc.commitment_sub`,
-    );
-    // Utenze delle fatture pagate con quote su più capitoli nell'ultimo esercizio.
-    const accUtilityChapters: Record<string, unknown>[] = await this.dataSource.query(
-      `/* accounting_utility_chapter_ambiguous */
-       WITH r AS (
-         SELECT DISTINCT l.utility_id_fk AS utility_id, s.fiscal_year, bc.budget_chapter_id_fk AS chapter_id
-           FROM invoice_commitment_shares s
-           JOIN budget_commitments bc ON bc.id = s.commitment_id_fk
-           JOIN invoices i ON i.id = s.invoice_id_fk AND i.deleted = 0
-           JOIN invoice_lines l ON l.invoice_id_fk = i.id AND l.utility_id_fk IS NOT NULL
-          WHERE s.source = 'ACCOUNTING'),
-       m AS (SELECT utility_id, MAX(fiscal_year) AS fiscal_year FROM r GROUP BY utility_id)
-       SELECT u.id, u.utility_id,
-              GROUP_CONCAT(DISTINCT CONCAT(ch.chapter_code, '/', ch.article) ORDER BY ch.chapter_code SEPARATOR ', ') AS chapters
-         FROM r JOIN m ON m.utility_id = r.utility_id AND m.fiscal_year = r.fiscal_year
-         JOIN utilities u ON u.id = r.utility_id AND u.deleted = 0
-         JOIN budget_chapters ch ON ch.id = r.chapter_id
-        GROUP BY u.id, u.utility_id
-       HAVING COUNT(DISTINCT r.chapter_id) > 1
-        ORDER BY u.utility_id`,
-    );
-    const accState: Record<string, unknown>[] = await this.dataSource.query(
-      `/* accounting_import_stale */
-       SELECT enabled, last_success_at FROM accounting_import_state WHERE id = 1`,
-    );
-    const draftOverdue: Record<string, unknown>[] = await this.dataSource.query(
-      `/* contracts_draft_overdue */
-       SELECT c.id, c.cig_contract, DATE_FORMAT(c.supply_start_date, '%Y-%m-%d') AS supply_start_date
-         FROM contracts c
-        WHERE c.deleted = 0 AND c.closed = 0 AND c.draft = 1 AND c.supply_start_date < CURDATE()
-        ORDER BY c.supply_start_date, c.id`,
-    );
-    // Fabbisogno delle convenzioni: solo dalla cache (consip_agreement_forecasts),
-    // mai un ricalcolo qui. Esercizio in corso, convenzioni con un ordine non chiuso.
-    const OPEN_AGREEMENT = `EXISTS (SELECT 1 FROM contracts c
-          WHERE c.consip_agreement_id = a.id AND c.deleted = 0 AND c.closed = 0)`;
-    const agreementsShort: Record<string, unknown>[] = await this.dataSource.query(
-      `/* agreements_commitments_short */
-       SELECT f.consip_agreement_id_fk AS id, a.name, f.budget_chapter_id_fk AS chapter_id,
-              b.chapter_code, b.article, b.description, f.shortfall,
-              (SELECT GROUP_CONCAT(DISTINCT bcm.id) FROM budget_commitments bcm
-                 JOIN budget_commitment_years bcy ON bcy.commitment_id = bcm.id AND bcy.fiscal_year = f.fiscal_year
-                WHERE bcm.deleted = 0 AND bcm.budget_chapter_id_fk <=> f.budget_chapter_id_fk
-                  AND EXISTS (SELECT 1 FROM budget_commitment_contracts bcc
-                        JOIN contracts oc ON oc.id = bcc.contract_id AND oc.deleted = 0
-                       WHERE bcc.commitment_id = bcm.id
-                         AND oc.consip_agreement_id = f.consip_agreement_id_fk)) AS commitment_ids
-         FROM consip_agreement_forecasts f
-         JOIN consip_agreement a ON a.id = f.consip_agreement_id_fk AND a.deleted = 0
-         LEFT JOIN budget_chapters b ON b.id = f.budget_chapter_id_fk
-        WHERE f.fiscal_year = YEAR(CURDATE()) AND f.shortfall > 0 AND ${OPEN_AGREEMENT}
-        ORDER BY a.name, f.consip_agreement_id_fk, b.chapter_code, b.article`,
-    );
-    const variationNeeded: Record<string, unknown>[] = await this.dataSource.query(
-      `/* chapters_variation_needed */
-       SELECT b.id, b.chapter_code, b.article, b.description, x.missing,
-              s.adjusted_budget - COALESCE(k.committed, 0) AS available
-         FROM (SELECT f.budget_chapter_id_fk AS chapter_id, SUM(f.shortfall) AS missing
-                 FROM consip_agreement_forecasts f
-                 JOIN consip_agreement a ON a.id = f.consip_agreement_id_fk AND a.deleted = 0
-                WHERE f.fiscal_year = YEAR(CURDATE()) AND f.shortfall > 0
-                  AND f.budget_chapter_id_fk IS NOT NULL AND ${OPEN_AGREEMENT}
-                GROUP BY f.budget_chapter_id_fk) x
-         JOIN budget_chapters b ON b.id = x.chapter_id AND b.deleted = 0
-         JOIN budget_chapter_spending s ON s.budget_chapter_id_fk = b.id AND s.deleted = 0
-              AND s.year = YEAR(CURDATE()) AND s.adjusted_budget IS NOT NULL
-         LEFT JOIN (SELECT bcm.budget_chapter_id_fk AS chapter_id, SUM(bcy.amount) AS committed
-                      FROM budget_commitment_years bcy
-                      JOIN budget_commitments bcm ON bcm.id = bcy.commitment_id
-                     WHERE bcm.deleted = 0 AND bcy.fiscal_year = YEAR(CURDATE())
-                     GROUP BY bcm.budget_chapter_id_fk) k ON k.chapter_id = b.id
-        WHERE x.missing > s.adjusted_budget - COALESCE(k.committed, 0)
-        ORDER BY b.chapter_code, b.article`,
-    );
+    const importState = await q.invoiceImportState(m);
+    const importPending = await q.pendingSdiMessages(m);
+    const outcomeDiscarded = await q.outcomeDiscarded(m);
+    const patternsUnknown = await unknownStructures(m);
+    const importIssues = await q.importIssues(m);
+    const commitmentRows = await q.commitmentsCheck(m, year);
+    const sharesMismatch = await q.sharesMismatch(m);
+    const withoutCommitment = await q.invoicesWithoutCommitment(m);
+    const accLiquidations = await liquidationsUnmatched(m);
+    const accCommitments = await q.accountingCommitmentsWithoutContract(m);
+    const accUtilityChapters = await utilityChapterAmbiguous(m);
+    const accState = await q.accountingImportState(m);
+    const draftOverdue = await q.draftsOverdue(m);
+    const agreementsShort = await q.agreementsShort(m);
+    const variationNeeded = await q.chaptersVariationNeeded(m);
     const agreementsShortItems: AgreementShortAnomaly[] = [];
     for (const r of agreementsShort) {
       const id = Number(r.id);
@@ -1058,7 +530,7 @@ export class AnomaliesService {
           number: String(r.number),
         })),
       ),
-      invoice_patterns_unknown: list(patternsUnknown.map(toUnknownStructure)),
+      invoice_patterns_unknown: list(patternsUnknown),
       invoice_import_issues: list(
         importIssues.map((r) => ({
           id: Number(r.id),
@@ -1124,7 +596,7 @@ export class AnomaliesService {
           chapters: String(r.chapters),
         })),
       ),
-      accounting_import_stale: list(this.accountingStale(accState[0])),
+      accounting_import_stale: list(this.accountingStale(accState)),
       invoices_without_commitment: list(
         withoutCommitment.map((r) => {
           const date = dbDay(r.date);

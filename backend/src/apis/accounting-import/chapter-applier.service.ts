@@ -9,15 +9,7 @@ import { AccountingDataService } from './accounting-data.service';
 import { planChapters, type CurrentSpending } from './chapter-plan';
 import { RecordSource } from './record-source.enum';
 import { chapterKey } from './scope';
-
-// Liquidato per capitolo e anno di competenza: liquidazioni valide sulle
-// annualità degli impegni del file.
-const LIQUIDATED_SQL =
-  'SELECT c.chapter, c.article, l.fiscal_year, SUM(l.amount) AS total FROM acc_liquidations l ' +
-  'JOIN (SELECT DISTINCT commitment_year, commitment_num, commitment_sub, fiscal_year, chapter, article ' +
-  'FROM acc_commitments) c ON c.commitment_year = l.commitment_year AND c.commitment_num = l.commitment_num ' +
-  'AND c.commitment_sub = l.commitment_sub AND c.fiscal_year = l.fiscal_year ' +
-  'WHERE l.cancelled = 0 GROUP BY c.chapter, c.article, l.fiscal_year';
+import * as q from './accounting-import.queries';
 
 @Injectable()
 export class ChapterApplierService {
@@ -31,14 +23,9 @@ export class ChapterApplierService {
     const [acc, scope, chapters, spending, liquidatedRows] = await Promise.all([
       this.data.chapters(),
       this.data.scope(),
-      this.dataSource.query(
-        'SELECT id, chapter_code, article FROM budget_chapters WHERE deleted = 0',
-      ),
-      this.dataSource.query(
-        'SELECT id, budget_chapter_id_fk, year, initial_budget, adjusted_budget, amount, source ' +
-          'FROM budget_chapter_spending WHERE deleted = 0',
-      ),
-      this.dataSource.query(LIQUIDATED_SQL),
+      q.liveChapters(this.dataSource.manager),
+      q.liveSpending(this.dataSource.manager),
+      q.liquidatedByChapter(this.dataSource.manager),
     ]);
     const liquidated = new Map<string, number>(
       liquidatedRows.map(

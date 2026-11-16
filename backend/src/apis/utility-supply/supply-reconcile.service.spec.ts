@@ -7,14 +7,19 @@ import { Utility } from '@apis/utility/entity/utility.entity';
 import { GrantUtilityDecisionValue, SupplyEventType } from './enum/supply-event-type.enum';
 import { CANCEL_GRANT_ENDED } from './supply-reconcile';
 import { dbDay } from '@/helpers/date.helpers';
+import * as q from './supply-reconcile.queries';
+
+jest.mock('./supply-reconcile.queries');
+const mq = jest.mocked(q);
 
 const NOW = new Date('2026-10-19T10:00:00Z');
 const TODAY = '2026-10-19';
 
 type Row = Record<string, any>;
 
-// DB finto in memoria: repository via manager.getRepository, query grezze
-// smistate dal testo SQL.
+// DB finto in memoria: repository via manager.getRepository, letture dei
+// contratti (supply-reconcile.queries) sui dati in memoria. Le query vere sono
+// provate in supply-reconcile.int-spec.ts.
 function fakeDb(init: {
   utilities?: Row[];
   events?: Row[];
@@ -40,8 +45,8 @@ function fakeDb(init: {
         .filter((r) => Object.entries(where).every(([k, v]) => r[k] === v))
         .map((r) => ({ ...r }));
     }),
-    findOne: jest.fn(async ({ where }: { where: Row }) => {
-      calls.push(`findOne:${name}`);
+    findOne: jest.fn(async ({ where, lock }: { where: Row; lock?: unknown }) => {
+      calls.push(lock ? `lock:${where.id}` : `findOne:${name}`);
       const r = rows.find((x) => Object.entries(where).every(([k, v]) => x[k] === v));
       return r ? { ...r } : null;
     }),
@@ -67,7 +72,7 @@ function fakeDb(init: {
     [GrantUtilityDecision, repoOf('decision', decisions)],
   ]);
 
-  const grantRow = (g: Row, utilityId?: number) => ({
+  const grantRow = (g: Row) => ({
     direction: 'ACTIVE',
     status: 'ACTIVE',
     start_date: '2026-01-01',
@@ -77,62 +82,66 @@ function fakeDb(init: {
     notice_months: null,
     utilities_to_be_taken_over: 0,
     update_date: NOW,
+    deleted: false,
     ...g,
-    covers_utility:
-      utilityId === undefined
-        ? 1
-        : covered.some((c) => c.grant_id === g.id && c.utility_id === utilityId)
-          ? 1
-          : 0,
+  });
+  const read =
+    <A extends unknown[], R>(name: string, fn: (...args: A) => R) =>
+    async (...args: A) => {
+      calls.push(`read:${name}`);
+      return fn(...args);
+    };
+  const uniq = (ids: number[]) => [...new Set(ids)];
+
+  mq.coveredUtilityIds.mockImplementation(
+    read('covered', (_m, grantId: number) =>
+      uniq(covered.filter((c) => c.grant_id === grantId).map((c) => c.utility_id)).sort(
+        (a, b) => a - b,
+      ),
+    ),
+  );
+  mq.linkedUtilityIds.mockImplementation(
+    read('linkedUtilities', (_m, grantId: number) =>
+      decisions.filter((d) => d.utilizer_grant_id_fk === grantId).map((d) => d.utility_id_fk),
+    ),
+  );
+  mq.coveringGrantIds.mockImplementation(
+    read('covering', (_m, utilityId: number) =>
+      covered.filter((c) => c.utility_id === utilityId).map((c) => c.grant_id),
+    ),
+  );
+  mq.linkedGrantIds.mockImplementation(
+    read('linkedGrants', (_m, utilityId: number) => [
+      ...decisions.filter((d) => d.utility_id_fk === utilityId).map((d) => d.utilizer_grant_id_fk),
+      ...events
+        .filter((e) => e.utility_id_fk === utilityId && !e.deleted && e.utilizer_grant_id_fk)
+        .map((e) => e.utilizer_grant_id_fk),
+    ]),
+  );
+  mq.grantsByIds.mockImplementation(
+    read('grants', (_m, ids: number[]) =>
+      grants.filter((g) => ids.includes(g.id)).map((g) => grantRow(g) as never),
+    ),
+  );
+  mq.activeDirectionGrant.mockImplementation(
+    read('grant', (_m, grantId: number) => {
+      const g = grants.find((x) => x.id === grantId);
+      return g && !g.deleted && (g.direction ?? 'ACTIVE') === 'ACTIVE'
+        ? (grantRow(g) as never)
+        : null;
+    }),
+  );
+  mq.liveParties.mockImplementation(
+    read('parties', (_m, ids: number[]) =>
+      parties.filter((p) => ids.includes(p.utilizer_grant_id)),
+    ),
+  );
+  mq.firstUserId.mockImplementation(async () => {
+    calls.push('system_user');
+    return 1;
   });
 
-  const query = jest.fn(async (sql: string, params: unknown[] = []) => {
-    if (sql.includes('FOR UPDATE')) {
-      calls.push(`lock:${params[0]}`);
-      const u = utilities.find((x) => x.id === params[0]);
-      return u ? [{ id: u.id, deleted: u.deleted ? 1 : 0 }] : [];
-    }
-    if (sql.includes('system_users')) {
-      calls.push('system_user');
-      return [{ id: 1 }];
-    }
-    if (sql.includes('utilizer_grant_parties')) {
-      const ids = (params[0] as number[]) ?? [];
-      return parties.filter((p) => ids.includes(p.utilizer_grant_id));
-    }
-    if (sql.includes('AS utility_id')) {
-      const grantId = params[0] as number;
-      const ids = covered.filter((c) => c.grant_id === grantId).map((c) => c.utility_id);
-      if (sql.includes('utilizer_grant_utility_decisions')) {
-        for (const d of decisions)
-          if (d.utilizer_grant_id_fk === grantId) ids.push(d.utility_id_fk);
-      }
-      return [...new Set(ids)].map((utility_id) => ({ utility_id }));
-    }
-    if (sql.includes('FROM utilizer_grant g')) {
-      if (sql.includes('g.id = ?')) {
-        const g = grants.find((x) => x.id === params[0]);
-        return g ? [grantRow(g)] : [];
-      }
-      const utilityId = params[0] as number;
-      return grants
-        .filter(
-          (g) =>
-            covered.some((c) => c.grant_id === g.id && c.utility_id === utilityId) ||
-            decisions.some(
-              (d) => d.utilizer_grant_id_fk === g.id && d.utility_id_fk === utilityId,
-            ) ||
-            events.some((e) => e.utilizer_grant_id_fk === g.id && e.utility_id_fk === utilityId),
-        )
-        .map((g) => grantRow(g, utilityId));
-    }
-    if (sql.includes('FROM utilities')) {
-      return utilities.filter((u) => !u.deleted).map((u) => ({ id: u.id }));
-    }
-    throw new Error(`query non prevista: ${sql}`);
-  });
-
-  const manager = { getRepository: (e: unknown) => repos.get(e), query };
+  const manager = { getRepository: (e: unknown) => repos.get(e) };
   const dataSource = {
     manager,
     transaction: jest.fn(async (fn: (m: typeof manager) => Promise<unknown>) => fn(manager)),
@@ -140,7 +149,6 @@ function fakeDb(init: {
   return {
     dataSource,
     calls,
-    query,
     utilities,
     events,
     decisions,
@@ -376,17 +384,6 @@ describe('SupplyReconcileService.reconcile', () => {
       `Annullato in automatico: ${CANCEL_GRANT_ENDED}`,
     );
     expect(db.repo(Utility).update.mock.calls[0][1]).toMatchObject({ cost_status: 'COMUNE' });
-  });
-
-  it('carica anche i contratti eliminati o passivi legati da decisione o riga automatica', async () => {
-    const db = fakeDb({ utilities: [utility()], events: [activation] });
-    await build(db).reconcile(7);
-    const sql = db.query.mock.calls
-      .map((c) => c[0] as string)
-      .find((s) => s.includes('AS covers_utility') && !s.includes('g.id = ?'));
-    expect(sql).toMatch(/WHERE \(g\.deleted = 0 AND g\.direction = 'ACTIVE' AND EXISTS/);
-    expect(sql).toMatch(/\) OR EXISTS \(SELECT 1 FROM utilizer_grant_utility_decisions d/);
-    expect(sql).toMatch(/g\.deleted/);
   });
 
   it('scrive le colonne di stato dallo storico', async () => {
@@ -767,25 +764,17 @@ describe('SupplyReconcileService concorrenza e dati grezzi', () => {
         { grant_id: 10, utility_id: 8 },
       ],
     });
-    // Le query dentro la transazione sono segnate «tx».
-    let inTx = false;
+    // Inizio e fine della transazione segnati tra le chiamate.
     const tx = db.dataSource.transaction.getMockImplementation() as (
       fn: (m: unknown) => Promise<unknown>,
     ) => Promise<unknown>;
     db.dataSource.transaction.mockImplementation(async (fn: (m: never) => Promise<unknown>) => {
-      inTx = true;
       db.calls.push('begin');
       try {
         return await tx(fn as never);
       } finally {
-        inTx = false;
         db.calls.push('commit');
       }
-    });
-    const query = db.query.getMockImplementation() as (s: string, p?: unknown[]) => Promise<never>;
-    db.query.mockImplementation(async (sql: string, params?: unknown[]) => {
-      if (inTx && !sql.includes('FOR UPDATE')) db.calls.push('read');
-      return query(sql, params);
     });
     await build(db).applyProposal(10, 42);
     const begin = db.calls.indexOf('begin');

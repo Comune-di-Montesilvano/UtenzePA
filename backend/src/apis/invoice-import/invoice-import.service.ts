@@ -7,12 +7,14 @@ import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
 import { deriveSdiStatus, type SdiEvent } from '@apis/invoices/sdi-status';
 import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
 import { ConsumptionLinker } from './consumption-linker.service';
+import { InvoiceImportIssue } from './entity/invoice-import-issue.entity';
 import { InvoiceImportState } from './entity/invoice-import-state.entity';
 import { InvoicePattern } from './entity/invoice-pattern.entity';
 import { SdiMessage } from './entity/sdi-message.entity';
 import { ImportIssueType } from './enum/import-issue-type.enum';
 import { InvoiceApplier } from './invoice-applier.service';
 import { InvoiceMatcher } from './invoice-matcher.service';
+import * as q from './invoice-import.queries';
 import {
   extract,
   pickPattern,
@@ -34,7 +36,6 @@ import { parsePecMessage, type PecMessage, type SdiFile } from './sdi/pec-messag
 import { pdfText } from './sdi/pdf-text';
 import { extractPdf, parseInvoiceHeader, parseNotification } from './sdi/sdi-files';
 import { CommitmentReconcileService } from '@apis/budget-commitments/commitment-reconcile.service';
-import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
 
 export interface ImportRunResult {
   processed: number;
@@ -71,37 +72,8 @@ export interface InvoiceImportStatus {
 const STATE_ID = 1;
 const EMPTY: ImportRunResult = { processed: 0, linked: 0, pending: 0, extracted: 0 };
 
-// Messaggi registrati prima dei pattern (parte 1): struttura completata a blocchi.
-// Anche il tipo documento (v1.40.0), per separare fatture e note di credito.
-const BACKFILL_SQL =
-  "SELECT id FROM sdi_messages WHERE kind = 'INVOICE' AND status IN ('PENDING', 'LINKED') " +
-  "AND (structure_key IS NULL OR (document_type IS NULL AND structure_key <> '')) " +
-  'AND supplier_id_fk IS NOT NULL ORDER BY id LIMIT 200';
-
-// Fatture ferme per matricola diversa (fino alla v1.38): ora la matricola si
-// aggiorna dalla fattura, quindi si rielaborano; la rielaborazione toglie la segnalazione.
-const UNBLOCKED_SQL =
-  "SELECT m.id FROM sdi_messages m WHERE m.kind = 'INVOICE' AND m.status IN ('PENDING', 'LINKED') " +
-  'AND m.pattern_id_fk IS NOT NULL ' +
-  "AND EXISTS (SELECT 1 FROM invoice_import_issues ii WHERE ii.sdi_message_id_fk = m.id AND ii.type = 'METER_MISMATCH') " +
-  'ORDER BY m.id LIMIT 200';
-
-// Fatture fuori perimetro il cui fornitore ora è in perimetro (aggiunto in anagrafica
-// con un contratto dopo l'arrivo): tornano in attesa e si rielaborano. Senza
-// identificativo SDI (copie delle fatture emesse dal Comune) restano fuori.
-export const RESCOPE_SQL =
-  'SELECT m.id, tp.id AS supplier_id FROM sdi_messages m JOIN third_parties tp ON tp.vat_number = m.supplier_vat AND tp.deleted = 0 ' +
-  "WHERE m.kind = 'INVOICE' AND m.status = 'OUT_OF_SCOPE' AND m.sdi_identifier IS NOT NULL " +
-  `AND EXISTS (SELECT 1 FROM contracts c WHERE c.supplier_id_fk = tp.id AND c.deleted = 0 AND ${NOT_DRAFT_SQL('c')}) ` +
-  'ORDER BY m.id LIMIT 200';
-
 // structure_key vuota = messaggio non più sulla casella: non si ritenta.
 const GONE_STRUCTURE = '';
-
-// Fornitore in perimetro: in anagrafica con questa P.IVA e almeno un contratto di fornitura.
-export const SUPPLIER_SQL =
-  'SELECT tp.id FROM third_parties tp WHERE tp.deleted = 0 AND tp.vat_number = ? ' +
-  `AND EXISTS (SELECT 1 FROM contracts c WHERE c.supplier_id_fk = tp.id AND c.deleted = 0 AND ${NOT_DRAFT_SQL('c')}) LIMIT 1`;
 
 // Scrittura di sistema: non tocca "Ultima modifica" della fattura.
 const KEEP_UPDATE_DATE = { update_date: () => '`update_date`' };
@@ -154,12 +126,8 @@ export class InvoiceImportService {
 
   async getStatus(): Promise<InvoiceImportStatus> {
     const state = await this.state();
-    const rows: { status: string; total: string | number }[] = await this.dataSource.query(
-      'SELECT status, COUNT(*) AS total FROM sdi_messages GROUP BY status',
-    );
-    const recentErrors = await this.dataSource.query(
-      "SELECT file_name, error, create_date FROM sdi_messages WHERE status = 'ERROR' ORDER BY id DESC LIMIT 10",
-    );
+    const rows = await q.statusCounts(this.dataSource.manager);
+    const recentErrors = await q.recentErrors(this.dataSource.manager);
     return {
       configured: this.configured,
       forcedOff: this.forcedOff,
@@ -326,10 +294,9 @@ export class InvoiceImportService {
 
   // Dopo la lettura: rielaborazioni in coda e struttura dei messaggi della parte 1.
   private async processBacklog(ctx: RunContext): Promise<void> {
-    const backfill: { id: number }[] = await this.dataSource.query(BACKFILL_SQL);
-    const unblocked: { id: number }[] = await this.dataSource.query(UNBLOCKED_SQL);
-    const rescoped: { id: number; supplier_id: number }[] =
-      await this.dataSource.query(RESCOPE_SQL);
+    const backfill = await q.backfillIds(this.dataSource.manager);
+    const unblocked = await q.unblockedIds(this.dataSource.manager);
+    const rescoped = await q.rescopable(this.dataSource.manager);
     for (const r of rescoped) {
       await this.messagesRepo.update(Number(r.id), {
         supplier_id_fk: Number(r.supplier_id),
@@ -338,10 +305,7 @@ export class InvoiceImportService {
       });
     }
     const ids = [
-      ...new Set([
-        ...this.queue,
-        ...[...backfill, ...unblocked, ...rescoped].map((r) => Number(r.id)),
-      ]),
+      ...new Set([...this.queue, ...backfill, ...unblocked, ...rescoped.map((r) => r.id)]),
     ];
     this.queue.clear();
     if (ids.length) await this.withMailbox((mailbox) => this.processStored(mailbox, ids, ctx));
@@ -449,17 +413,13 @@ export class InvoiceImportService {
    */
   private async applyPattern(row: SdiMessage, xml: Buffer, ctx: RunContext): Promise<void> {
     if (parseInvoiceHeader(xml).documents.length > 1) {
-      await this.dataSource.query('DELETE FROM invoice_import_issues WHERE sdi_message_id_fk = ?', [
-        row.id,
-      ]);
-      await this.dataSource.query(
-        'INSERT INTO invoice_import_issues (sdi_message_id_fk, type, detail) VALUES (?, ?, ?)',
-        [
-          row.id,
-          ImportIssueType.BATCH_NOT_SUPPORTED,
-          'File con più fatture (lotto): da inserire a mano',
-        ],
-      );
+      const issues = this.dataSource.getRepository(InvoiceImportIssue);
+      await issues.delete({ sdi_message_id_fk: row.id });
+      await issues.insert({
+        sdi_message_id_fk: row.id,
+        type: ImportIssueType.BATCH_NOT_SUPPORTED,
+        detail: 'File con più fatture (lotto): da inserire a mano',
+      });
       return;
     }
     const patterns = await this.patternsFor(row.supplier_id_fk!, ctx);
@@ -475,10 +435,9 @@ export class InvoiceImportService {
     if (!pattern) {
       // Era ferma con un pattern che non la riconosce più: torna tra le fatture senza pattern.
       if (row.pattern_id_fk && row.status !== SdiMessageStatus.EXTRACTED) {
-        await this.dataSource.query(
-          'DELETE FROM invoice_import_issues WHERE sdi_message_id_fk = ?',
-          [row.id],
-        );
+        await this.dataSource
+          .getRepository(InvoiceImportIssue)
+          .delete({ sdi_message_id_fk: row.id });
         row.pattern_id_fk = null;
         await this.messagesRepo.update(row.id, { pattern_id_fk: null });
       }
@@ -571,15 +530,7 @@ export class InvoiceImportService {
   // Fatture inserite dopo l'arrivo del messaggio: le righe in attesa si
   // ricontrollano a ogni giro con lo stesso abbinamento (fornitore, numero, data).
   private async relinkPending(): Promise<number> {
-    const rows: { id: number; sdi_identifier: string; invoice_id: number }[] =
-      await this.dataSource.query(
-        `SELECT m.id, m.sdi_identifier, MIN(i.id) AS invoice_id
-           FROM sdi_messages m
-           JOIN invoices i ON i.supplier_id_fk = m.supplier_id_fk AND i.invoice_id = m.document_number
-                          AND i.invoice_date = m.document_date AND i.deleted = 0
-          WHERE m.status = 'PENDING' AND m.sdi_identifier IS NOT NULL
-          GROUP BY m.id, m.sdi_identifier`,
-      );
+    const rows = await q.pendingRelinks(this.dataSource.manager);
     for (const row of rows) {
       await this.invoicesRepo.update(Number(row.invoice_id), {
         sdi_identifier: row.sdi_identifier,
@@ -688,11 +639,11 @@ export class InvoiceImportService {
 
     // Perimetro prima dell'identificativo: le copie delle fatture emesse dal
     // Comune arrivano senza metadati e restano semplicemente fuori perimetro.
-    const [supplier] = header.supplierVat
-      ? await this.dataSource.query(SUPPLIER_SQL, [header.supplierVat])
-      : [];
-    if (!supplier) return (row.status = SdiMessageStatus.OUT_OF_SCOPE);
-    row.supplier_id_fk = Number(supplier.id);
+    const supplierId = header.supplierVat
+      ? await q.supplierInScope(this.dataSource.manager, header.supplierVat)
+      : null;
+    if (supplierId === null) return (row.status = SdiMessageStatus.OUT_OF_SCOPE);
+    row.supplier_id_fk = supplierId;
     row.structure_key = this.structureOf(file.content);
     if (!identifier) return this.fail(row, 'Identificativo SDI mancante');
 

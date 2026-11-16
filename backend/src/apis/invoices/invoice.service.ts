@@ -1,3 +1,4 @@
+import { AccLiquidation } from '@apis/accounting-import/entity/acc-liquidation.entity';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository, SelectQueryBuilder } from 'typeorm';
@@ -200,24 +201,17 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
 
   // Liquidazioni della fattura dalla contabilità (passo payments), per la scheda.
   async findPayments(id: number): Promise<InvoicePayment[]> {
-    const rows: Record<string, unknown>[] = await this.dataSource.query(
-      'SELECT liquidation_number, commitment_year, commitment_num, commitment_sub, amount, mandate_number, ' +
-        "DATE_FORMAT(mandate_date, '%Y-%m-%d') AS mandate_date, DATE_FORMAT(paid_date, '%Y-%m-%d') AS paid_date, " +
-        'paid_amount FROM acc_liquidations WHERE invoice_id_fk = ? AND cancelled = 0 ' +
-        'ORDER BY liquidation_number, id',
-      [id],
-    );
+    const rows = await this.dataSource.getRepository(AccLiquidation).find({
+      where: { invoice_id_fk: id, cancelled: false },
+      order: { liquidation_number: 'ASC', id: 'ASC' },
+    });
     return rows.map((r) => ({
-      liquidation_number: (r.liquidation_number as string | null) ?? null,
-      commitment: commitmentLabel(
-        Number(r.commitment_year),
-        Number(r.commitment_num),
-        Number(r.commitment_sub),
-      ),
+      liquidation_number: r.liquidation_number,
+      commitment: commitmentLabel(r.commitment_year, r.commitment_num, r.commitment_sub),
       amount: Number(r.amount),
-      mandate_number: (r.mandate_number as string | null) ?? null,
-      mandate_date: (r.mandate_date as string | null) ?? null,
-      paid_date: (r.paid_date as string | null) ?? null,
+      mandate_number: r.mandate_number,
+      mandate_date: r.mandate_date,
+      paid_date: r.paid_date,
       paid_amount: r.paid_amount === null ? null : Number(r.paid_amount),
     }));
   }

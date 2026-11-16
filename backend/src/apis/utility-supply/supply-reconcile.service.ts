@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
+import { UtilizerGrant } from '@apis/utilizer-grant/entity/utilizer-grant.entity';
 import { Utility } from '@apis/utility/entity/utility.entity';
 import {
   ContractDirection,
@@ -9,6 +10,7 @@ import { dbDay } from '@/helpers/date.helpers';
 import { UtilitySupplyEvent } from './entity/utility-supply-event.entity';
 import { GrantUtilityDecision } from './entity/grant-utility-decision.entity';
 import { GrantUtilityDecisionValue, SupplyEventType } from './enum/supply-event-type.enum';
+import * as q from './supply-reconcile.queries';
 import { SupplyEventLike, currentSnapshot } from './supply-state';
 import {
   DecisionLike,
@@ -66,16 +68,6 @@ interface Loaded {
   noHistory: boolean;
 }
 
-const GRANT_FIELDS =
-  'g.id, g.start_date, g.end_date, g.direction, g.status, g.tacit_renewal, g.renewal_months, ' +
-  'g.notice_months, g.utilities_to_be_taken_over, g.update_date, g.deleted';
-
-// Contratto che copre l'utenza da un immobile non cancellato.
-const COVERS_SQL =
-  'EXISTS (SELECT 1 FROM utility_assets ua JOIN assets a ON a.id = ua.asset_id AND a.deleted = 0 ' +
-  'JOIN utilizer_grant_assets uga ON uga.asset_id = ua.asset_id ' +
-  'WHERE uga.utilizer_grant_id = g.id AND ua.utility_id = ?)';
-
 // Riconciliazione dello storico di un'utenza con i contratti immobiliari
 // (roadmap voce 22). Carica i dati, chiama planReconcile (puro) e applica il
 // piano. Le colonne di stato su utilities si scrivono come ricalcolo di
@@ -125,9 +117,11 @@ export class SupplyReconcileService {
     let changed = 0;
     let failed = 0;
     try {
-      const rows: { id: number }[] = await this.dataSource.manager.query(
-        'SELECT id FROM utilities WHERE deleted = 0 ORDER BY id',
-      );
+      const rows = await this.dataSource.manager.getRepository(Utility).find({
+        select: { id: true },
+        where: { deleted: false },
+        order: { id: 'ASC' },
+      });
       for (const { id } of rows) {
         try {
           const didChange = await this.dataSource.transaction((m) =>
@@ -153,19 +147,13 @@ export class SupplyReconcileService {
   // decisione o con righe di storico collegate. Da chiamare prima e dopo il
   // salvataggio del contratto (un immobile tolto esce dalla prima query).
   async utilityIdsOfGrant(grantId: number): Promise<number[]> {
-    const rows: { utility_id: number }[] = await this.dataSource.manager.query(
-      'SELECT ua.utility_id AS utility_id FROM utility_assets ua ' +
-        'JOIN assets a ON a.id = ua.asset_id AND a.deleted = 0 ' +
-        'JOIN utilizer_grant_assets uga ON uga.asset_id = ua.asset_id AND uga.utilizer_grant_id = ? ' +
-        'JOIN utilities u ON u.id = ua.utility_id AND u.deleted = 0 ' +
-        'UNION SELECT d.utility_id_fk FROM utilizer_grant_utility_decisions d ' +
-        'JOIN utilities u ON u.id = d.utility_id_fk AND u.deleted = 0 WHERE d.utilizer_grant_id_fk = ? ' +
-        'UNION SELECT e.utility_id_fk FROM utility_supply_events e ' +
-        'JOIN utilities u ON u.id = e.utility_id_fk AND u.deleted = 0 ' +
-        'WHERE e.utilizer_grant_id_fk = ? AND e.deleted = 0',
-      [grantId, grantId, grantId],
-    );
-    return [...new Set(rows.map((r) => Number(r.utility_id)))];
+    const m = this.dataSource.manager;
+    return [
+      ...new Set([
+        ...(await q.coveredUtilityIds(m, grantId)),
+        ...(await q.linkedUtilityIds(m, grantId)),
+      ]),
+    ];
   }
 
   // ---- Decisioni per contratto -------------------------------------------
@@ -255,11 +243,12 @@ export class SupplyReconcileService {
     m: EntityManager,
     utilityId: number,
   ): Promise<{ id: number; deleted: boolean } | null> {
-    const rows: { id: number; deleted: number | boolean }[] = await m.query(
-      'SELECT id, deleted FROM utilities WHERE id = ? FOR UPDATE',
-      [utilityId],
-    );
-    return rows.length ? { id: Number(rows[0].id), deleted: !!Number(rows[0].deleted) } : null;
+    const row = await m.getRepository(Utility).findOne({
+      select: { id: true, deleted: true },
+      where: { id: utilityId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    return row ? { id: row.id, deleted: !!row.deleted } : null;
   }
 
   // ---- Interni -----------------------------------------------------------
@@ -328,24 +317,13 @@ export class SupplyReconcileService {
   }
 
   private async coveredUtilityIds(m: EntityManager, grantId: number): Promise<number[]> {
-    const rows: { utility_id: number }[] = await m.query(
-      'SELECT DISTINCT ua.utility_id AS utility_id FROM utility_assets ua ' +
-        'JOIN assets a ON a.id = ua.asset_id AND a.deleted = 0 ' +
-        'JOIN utilizer_grant_assets uga ON uga.asset_id = ua.asset_id AND uga.utilizer_grant_id = ? ' +
-        'JOIN utilities u ON u.id = ua.utility_id AND u.deleted = 0 ORDER BY ua.utility_id',
-      [grantId],
-    );
-    return rows.map((r) => Number(r.utility_id));
+    return q.coveredUtilityIds(m, grantId);
   }
 
   private async loadGrant(m: EntityManager, grantId: number): Promise<GrantLike | null> {
-    const rows: Record<string, unknown>[] = await m.query(
-      `SELECT ${GRANT_FIELDS}, 1 AS covers_utility FROM utilizer_grant g ` +
-        "WHERE g.id = ? AND g.deleted = 0 AND g.direction = 'ACTIVE'",
-      [grantId],
-    );
-    if (!rows.length) return null;
-    return (await this.toGrants(m, rows))[0];
+    const grant = await q.activeDirectionGrant(m, grantId);
+    if (!grant) return null;
+    return (await this.toGrants(m, [{ ...grant, covers_utility: true }]))[0];
   }
 
   // Contratti concessi dal Comune che riguardano l'utenza: coperti da un suo
@@ -354,26 +332,26 @@ export class SupplyReconcileService {
   // ultimi anche se eliminati o passati a passivi: valgono come finiti, così
   // l'utenza volturata con quel contratto torna al Comune.
   private async loadGrants(m: EntityManager, utilityId: number): Promise<GrantLike[]> {
-    const covers = `(g.deleted = 0 AND g.direction = 'ACTIVE' AND ${COVERS_SQL})`;
-    const rows: Record<string, unknown>[] = await m.query(
-      `SELECT ${GRANT_FIELDS}, ${covers} AS covers_utility FROM utilizer_grant g ` +
-        `WHERE ${covers} ` +
-        'OR EXISTS (SELECT 1 FROM utilizer_grant_utility_decisions d WHERE d.utilizer_grant_id_fk = g.id AND d.utility_id_fk = ?) ' +
-        'OR EXISTS (SELECT 1 FROM utility_supply_events e WHERE e.utilizer_grant_id_fk = g.id AND e.utility_id_fk = ? AND e.deleted = 0)',
-      [utilityId, utilityId, utilityId, utilityId],
+    const coveringIds = new Set(await q.coveringGrantIds(m, utilityId));
+    const ids = [...new Set([...coveringIds, ...(await q.linkedGrantIds(m, utilityId))])];
+    const grants = await q.grantsByIds(m, ids);
+    return this.toGrants(
+      m,
+      grants.map((g) => ({
+        ...g,
+        covers_utility:
+          !g.deleted && g.direction === ContractDirection.ACTIVE && coveringIds.has(g.id),
+      })),
     );
-    return this.toGrants(m, rows);
   }
 
-  private async toGrants(m: EntityManager, rows: Record<string, unknown>[]): Promise<GrantLike[]> {
+  private async toGrants(
+    m: EntityManager,
+    rows: (UtilizerGrant & { covers_utility: boolean })[],
+  ): Promise<GrantLike[]> {
     if (!rows.length) return [];
     const ids = rows.map((r) => Number(r.id));
-    const parties: { utilizer_grant_id: number; third_party_id: number }[] = await m.query(
-      'SELECT gp.utilizer_grant_id, gp.third_party_id FROM utilizer_grant_parties gp ' +
-        'JOIN third_parties tp ON tp.id = gp.third_party_id AND tp.deleted = 0 ' +
-        'WHERE gp.utilizer_grant_id IN (?)',
-      [ids],
-    );
+    const parties = await q.liveParties(m, ids);
     const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
     return rows.map((r) => {
       const status = r.status as ContractStatus;
@@ -529,8 +507,7 @@ export class SupplyReconcileService {
   // utente, cioè l'utente di sistema (SYSTEM_USER_ID = -1) dove esiste. Non in
   // cache: l'utente può essere eliminato tra un giro e l'altro.
   private async fallbackUserId(m: EntityManager): Promise<number> {
-    const rows: { id: number | null }[] = await m.query('SELECT MIN(id) AS id FROM system_users');
-    const id = rows[0]?.id;
+    const id = await q.firstUserId(m);
     if (id === null || id === undefined) {
       throw new Error('Nessun utente in system_users: impossibile registrare le righe automatiche');
     }

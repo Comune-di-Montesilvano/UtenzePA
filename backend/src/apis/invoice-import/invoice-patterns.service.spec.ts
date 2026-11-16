@@ -4,8 +4,11 @@ import { SdiMessageStatus } from './enum/sdi-message-status.enum';
 import { groupVariants, InvoicePatternsService } from './invoice-patterns.service';
 import { PDF_PATH, rulePaths, structureKey, type PatternRules } from './pattern/pattern-rules';
 import { pdfText } from './sdi/pdf-text';
+import * as q from './invoice-import.queries';
 
 jest.mock('./sdi/pdf-text', () => ({ pdfText: jest.fn() }));
+jest.mock('./invoice-import.queries');
+const mq = jest.mocked(q);
 const mockPdfText = pdfText as jest.MockedFunction<typeof pdfText>;
 
 const podXml = readFileSync(join(__dirname, 'sdi/fixtures/fattura-pod.xml'));
@@ -54,6 +57,20 @@ describe('InvoicePatternsService', () => {
       update: jest.fn(),
     };
     query = jest.fn().mockResolvedValue([]);
+    // Letture del modulo simulate sulla stessa `query` (marcatore al posto dell'SQL);
+    // le query vere sono provate in invoice-import.queries.int-spec.ts.
+    mq.reprocessIds.mockImplementation(async (_m, supplierId, patternId) =>
+      ((await query('reprocess', [supplierId, patternId])) as { id: number }[]).map((r) =>
+        Number(r.id),
+      ),
+    );
+    mq.supplierName.mockImplementation(async (_m, id) => {
+      const [row] = (await query('FROM third_parties', [id])) as { supplier?: string }[];
+      return row?.supplier ?? '';
+    });
+    mq.similarMessages.mockImplementation(
+      (_m, supplierId, documentType) => query('similar', [supplierId, documentType]) as never,
+    );
     importer = {
       readMessageFile: jest.fn().mockResolvedValue({ content: podXml }),
       readMessageFiles: jest.fn().mockResolvedValue(new Map()),
@@ -78,7 +95,7 @@ describe('InvoicePatternsService', () => {
     service = new InvoicePatternsService(
       patterns as never,
       messages as never,
-      { query } as never,
+      { query, manager: { query } } as never,
       importer as never,
       matcher as never,
     );
@@ -388,11 +405,8 @@ describe('InvoicePatternsService', () => {
     );
     expect(editor.similar).toEqual([12, 9]);
     expect(editor.variants).toEqual([{ start: 0, count: 2 }]);
-    // Simili: fatture del fornitore senza pattern.
-    const similarSql = query.mock.calls
-      .map(([s]) => String(s))
-      .find((s) => s.includes('SELECT m.id, m.structure_key'));
-    expect(similarSql).toContain('pattern_id_fk IS NULL');
+    // Simili: fatture del fornitore del messaggio, dello stesso tipo documento.
+    expect(mq.similarMessages).toHaveBeenCalledWith(expect.anything(), 46, expect.any(String));
     expect(editor.ranked.utility[0]).toContain('AltriDatiGestionali/TipoDato=POD');
     expect(editor.xml).toContain('<Numero>EP 7/26</Numero>');
   });

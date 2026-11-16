@@ -1,6 +1,38 @@
 import { maintenance } from '@common/maintenance/maintenance';
 import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
-import { InvoiceImportService, RESCOPE_SQL, SUPPLIER_SQL } from './invoice-import.service';
+import { InvoiceImportService } from './invoice-import.service';
+import * as q from './invoice-import.queries';
+
+jest.mock('./invoice-import.queries');
+const mq = jest.mocked(q);
+
+// Letture simulate sulla `query` del test: il marcatore sostituisce l'SQL di un tempo
+// (le query vere sono provate in invoice-import.queries.int-spec.ts).
+const ids = (rows: unknown) => (rows as { id: number }[]).map((r) => Number(r.id));
+function wireQueries(query: jest.Mock) {
+  mq.statusCounts.mockImplementation(() => query('GROUP BY status'));
+  mq.recentErrors.mockImplementation(() => query("status = 'ERROR'"));
+  mq.backfillIds.mockImplementation(async () => ids(await query('structure_key IS NULL')));
+  mq.unblockedIds.mockImplementation(async () => ids(await query('METER_MISMATCH')));
+  mq.rescopable.mockImplementation(() => query("m.status = 'OUT_OF_SCOPE'"));
+  mq.pendingRelinks.mockImplementation(() => query("m.status = 'PENDING'"));
+  mq.supplierInScope.mockImplementation(async (_m, vat) => {
+    const [row] = (await query('FROM third_parties', [vat])) as { id: number }[];
+    return row ? Number(row.id) : null;
+  });
+}
+
+// Segnalazioni dell'import scritte dal servizio (repository InvoiceImportIssue).
+const issuesRepo = { delete: jest.fn(), insert: jest.fn() };
+const dataSourceOf = (query: jest.Mock, manager: unknown = {}) => {
+  wireQueries(query);
+  return {
+    query,
+    manager,
+    getRepository: () => issuesRepo,
+    transaction: (cb: (m: unknown) => unknown) => cb(manager),
+  };
+};
 import { SdiMessageStatus } from './enum/sdi-message-status.enum';
 import { ImportIssueType } from './enum/import-issue-type.enum';
 import type { PecMailbox } from './pec-imap.client';
@@ -91,7 +123,7 @@ describe('InvoiceImportService.runOnce', () => {
       state as never,
       messages as never,
       invoices as never,
-      { query, transaction: (cb: (m: unknown) => unknown) => cb({}) } as never,
+      dataSourceOf(query) as never,
       () => mailbox as unknown as PecMailbox,
       fakeRepo() as never,
       {} as never,
@@ -325,7 +357,7 @@ describe('InvoiceImportService con i pattern', () => {
       state as never,
       messages as never,
       invoices as never,
-      { query, transaction: (cb: (m: unknown) => unknown) => cb(manager) } as never,
+      dataSourceOf(query, manager) as never,
       () => mailbox as unknown as PecMailbox,
       patterns as never,
       matcher as never,
@@ -502,10 +534,9 @@ describe('InvoiceImportService con i pattern', () => {
   it('a ogni giro si rielaborano le fatture ferme per matricola diversa', async () => {
     mailbox = fakeMailbox([]);
     await service().runOnce();
-    const sql = query.mock.calls.map(([s]) => String(s)).find((s) => s.includes('METER_MISMATCH'));
-    // Ora la matricola si aggiorna dalla fattura: si rielaborano tutte, senza altre condizioni.
-    expect(sql).toMatch(/EXISTS \(SELECT 1 FROM invoice_import_issues/);
-    expect(sql).not.toMatch(/NOT EXISTS/);
+    // Ora la matricola si aggiorna dalla fattura: si rielaborano tutte, senza altre
+    // condizioni (query provata in invoice-import.queries.int-spec.ts).
+    expect(mq.unblockedIds).toHaveBeenCalled();
   });
 
   it('fornitore aggiunto dopo: le fatture fuori perimetro tornano in attesa e si importano', async () => {
@@ -565,10 +596,12 @@ describe('InvoiceImportService con i pattern', () => {
     await service().runOnce();
     expect(applier.apply).not.toHaveBeenCalled();
     expect(messages.rows[0].status).toBe(SdiMessageStatus.PENDING);
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO invoice_import_issues'),
-      [messages.rows[0].id, 'BATCH_NOT_SUPPORTED', expect.any(String)],
-    );
+    expect(issuesRepo.delete).toHaveBeenCalledWith({ sdi_message_id_fk: messages.rows[0].id });
+    expect(issuesRepo.insert).toHaveBeenCalledWith({
+      sdi_message_id_fk: messages.rows[0].id,
+      type: 'BATCH_NOT_SUPPORTED',
+      detail: expect.any(String),
+    });
   });
 
   describe('reprocess', () => {
@@ -667,7 +700,7 @@ describe('InvoiceImportService.getStatus', () => {
       fakeRepo([{ id: 1, enabled: true }]) as never,
       fakeRepo() as never,
       fakeRepo() as never,
-      { query } as never,
+      dataSourceOf(query) as never,
       () => ({}) as PecMailbox,
       fakeRepo() as never,
       {} as never,
@@ -759,14 +792,5 @@ describe('InvoiceImportService.getDocument', () => {
     invoices.rows[0].sdi_identifier = null;
     await expect(service().getDocument(50, 'xml')).rejects.toThrow('Fattura senza messaggio SDI.');
     expect(mailbox.open).not.toHaveBeenCalled();
-  });
-});
-
-describe('perimetro: una bozza da sola non mette il fornitore in perimetro', () => {
-  it.each([
-    ['RESCOPE_SQL', RESCOPE_SQL],
-    ['SUPPLIER_SQL', SUPPLIER_SQL],
-  ])('%s esclude le bozze', (_name, sql) => {
-    expect(sql).toContain('c.draft = 0');
   });
 });

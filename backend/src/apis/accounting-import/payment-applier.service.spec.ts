@@ -1,34 +1,44 @@
 import { PaymentStatus } from '@apis/invoices/enum/payment-status.enum';
 import { PaymentApplierService } from './payment-applier.service';
+import * as q from './accounting-import.queries';
+
+jest.mock('./accounting-import.queries');
+const mq = jest.mocked(q);
 
 describe('PaymentApplierService', () => {
   it('collega le liquidazioni e scrive solo le fatture che cambiano, senza toccare update_date', async () => {
-    const queries: [string, unknown[] | undefined][] = [];
-    const manager = {
-      query: jest.fn((sql: string, params?: unknown[]) => {
-        queries.push([sql, params]);
-        return Promise.resolve();
-      }),
-    };
+    // Scritture registrate per nome (provate in accounting-import.int-spec.ts).
+    const writes: [string, ...unknown[]][] = [];
+    mq.clearLiquidationInvoices.mockImplementation(async () => {
+      writes.push(['clearLiquidationInvoices']);
+    });
+    mq.setLiquidationInvoices.mockImplementation(async (_m, links) => {
+      writes.push(['setLiquidationInvoices', links]);
+    });
+    mq.setPaymentStatus.mockImplementation(async (_m, ids, status, paidOn) => {
+      writes.push(['setPaymentStatus', ids, status, paidOn]);
+    });
+    const manager = {};
+    mq.paymentInvoices.mockResolvedValue([
+      {
+        id: 1,
+        invoice_date: '2026-03-01',
+        total_amount: '100.00',
+        excluded: 0,
+        payment_status: null,
+        paid_on: null,
+      },
+      {
+        id: 2,
+        invoice_date: '2026-03-01',
+        total_amount: '50.00',
+        excluded: 0,
+        payment_status: PaymentStatus.TO_LIQUIDATE,
+        paid_on: null,
+      },
+    ]);
     const dataSource = {
-      query: jest.fn().mockResolvedValue([
-        {
-          id: 1,
-          invoice_date: '2026-03-01',
-          total_amount: '100.00',
-          excluded: 0,
-          payment_status: null,
-          paid_on: null,
-        },
-        {
-          id: 2,
-          invoice_date: '2026-03-01',
-          total_amount: '50.00',
-          excluded: 0,
-          payment_status: PaymentStatus.TO_LIQUIDATE,
-          paid_on: null,
-        },
-      ]),
+      manager,
       transaction: jest.fn((fn: (m: typeof manager) => Promise<void>) => fn(manager)),
     };
     const data = {
@@ -53,12 +63,10 @@ describe('PaymentApplierService', () => {
     );
 
     expect(await service.apply({ fromYear: 2025 })).toEqual({ linked: 1, changed: 1 });
-    expect(queries[0][0]).toBe('UPDATE acc_liquidations SET invoice_id_fk = NULL');
-    expect(queries[1][1]).toEqual(['k1', 1, ['k1']]);
-    expect(queries[2]).toEqual([
-      'UPDATE invoices SET payment_status = ?, paid_on = ?, update_date = update_date WHERE id IN (?)',
-      [PaymentStatus.PAID, '2026-04-01', [1]],
+    expect(writes).toEqual([
+      ['clearLiquidationInvoices'],
+      ['setLiquidationInvoices', [['k1', 1]]],
+      ['setPaymentStatus', [1], PaymentStatus.PAID, '2026-04-01'],
     ]);
-    expect(queries).toHaveLength(3);
   });
 });

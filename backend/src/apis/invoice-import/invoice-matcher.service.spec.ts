@@ -1,22 +1,48 @@
 import { ImportIssueType } from './enum/import-issue-type.enum';
-import {
-  CONTRACT_REF_SQL,
-  CONTRACT_SQL,
-  HEADER_CONTRACT_SQL,
-  InvoiceMatcher,
-} from './invoice-matcher.service';
+import { InvoiceMatcher } from './invoice-matcher.service';
+import * as q from './invoice-matcher.queries';
 import type { ExtractedInvoice, ExtractedLine } from './pattern/pattern-rules';
 
 type Handler = (params: unknown[]) => unknown[];
 
-// Risponde in base al marcatore /* m_… */ della query.
+jest.mock('./invoice-matcher.queries');
+const mq = jest.mocked(q);
+
+// Letture del matcher simulate per nome (m_…), con i parametri nell'ordine di sempre;
+// `query` registra le chiamate. Le query vere sono provate in invoice-matcher.int-spec.ts.
 function fakeDb(handlers: Record<string, Handler>) {
-  return {
-    query: jest.fn(async (sql: string, params: unknown[]) => {
-      const marker = /\/\* (m_\w+) \*\//.exec(sql)?.[1] ?? '';
-      return handlers[marker]?.(params) ?? [];
-    }),
-  };
+  const query = jest.fn(
+    async (marker: string, params: unknown[]) => handlers[marker]?.(params) ?? [],
+  );
+  const first = async (marker: string, params: unknown[]) =>
+    ((await query(marker, params)) as never[])[0] ?? null;
+  mq.utilityByCode.mockImplementation((_m, normalized, code, supplierId) =>
+    first('m_utility', [normalized, code, supplierId, normalized]),
+  );
+  mq.utilitiesOfContractRef.mockImplementation(
+    (_m, supplierId, ref) => query('m_contract_ref', [supplierId, ref, ref]) as never,
+  );
+  mq.contractOfUtility.mockImplementation((_m, utilityId, supplierId, day) =>
+    first('m_contract', [utilityId, supplierId, day, day]),
+  );
+  mq.headerContracts.mockImplementation(
+    (_m, supplierId, cig, ref) => query('m_header_contract', [supplierId, cig, ref, ref]) as never,
+  );
+  mq.hasCommitment.mockImplementation(
+    async (_m, contractId, year) =>
+      (await query('m_contract_commitment', [contractId, year])).length > 0,
+  );
+  mq.supplierNames.mockImplementation((_m, supplierId) => first('m_supplier', [supplierId]));
+  mq.invoiceByNumber.mockImplementation((_m, supplierId, number, date) =>
+    first('m_invoice', [supplierId, number, date]),
+  );
+  mq.invoicesOfDay.mockImplementation(
+    (_m, supplierId, date) => query('m_invoice_candidates', [supplierId, date]) as never,
+  );
+  mq.invoicesBySdi.mockImplementation(
+    (_m, supplierId, sdi) => query('m_invoice_by_sdi', [supplierId, sdi]) as never,
+  );
+  return { query };
 }
 
 const line = (over: Partial<ExtractedLine> = {}): ExtractedLine => ({
@@ -275,7 +301,6 @@ describe('InvoiceMatcher: righe senza utenza', () => {
     const calls = db.query.mock.calls.filter(([sql]) => sql.includes('m_contract_commitment'));
     expect(calls).toHaveLength(1);
     expect(calls[0][1]).toEqual([5, 2025]);
-    expect(calls[0][0]).toContain('budget_commitment_years');
   });
 
   it('CIG di più contratti o di nessuno: fattura senza contratto', async () => {
@@ -298,15 +323,13 @@ describe('InvoiceMatcher: righe senza utenza', () => {
 
 describe('InvoiceMatcher: codice cliente del fornitore', () => {
   it('il codice cliente vale solo per le utenze con un contratto dello stesso fornitore', async () => {
-    const query = jest.fn(async () => []);
-    await new InvoiceMatcher({ query } as never).match(
+    // Il vincolo sul contratto del fornitore è provato in invoice-matcher.int-spec.ts.
+    const db = fakeDb({});
+    await new InvoiceMatcher(db as never).match(
       invoice({ lines: [line({ utility: '1234567' })] }),
       46,
     );
-    const call = query.mock.calls.find((c: unknown[]) =>
-      String(c[0]).includes('m_utility'),
-    ) as unknown[];
-    expect(String(call[0])).toMatch(/utility_code = \? AND EXISTS[\s\S]*c\.supplier_id_fk = \?/);
+    const call = db.query.mock.calls.find((c) => c[0] === 'm_utility') as unknown[];
     expect(call[1]).toEqual(['1234567', '1234567', 46, '1234567']);
   });
 });
@@ -352,18 +375,5 @@ describe('InvoiceMatcher: matricola del contatore', () => {
     const result = await matcher(withMeter('123')).match(invoice(), 46);
     expect(result.blocking).toEqual([]);
     expect(result.meterFills).toEqual([]);
-  });
-});
-
-describe('ordini in bozza: mai scelti dalla lettura delle fatture', () => {
-  it.each([
-    ['m_contract_ref', CONTRACT_REF_SQL],
-    ['m_contract', CONTRACT_SQL],
-  ])('%s esclude le bozze', (_name, sql) => {
-    expect(sql).toContain('c.draft = 0');
-  });
-
-  it('m_header_contract esclude le bozze anche con il CIG scritto', () => {
-    expect(HEADER_CONTRACT_SQL).toContain('contracts.draft = 0');
   });
 });

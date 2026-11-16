@@ -2,6 +2,7 @@ import { BadRequestException, HttpException, Logger } from '@nestjs/common';
 import { BaseService } from '@apis/shared/base.service';
 import { UtilitiesService } from './utility.service';
 import { Utility } from './entity/utility.entity';
+import { UtilityType } from '@apis/utility-types/entity/utility_type.entity';
 import { ExpiryStatus } from './enum/ExpiryStatus.enum';
 import { CostStatus, costStatusSql, inChargeSql } from './cost-status';
 import { MaintenanceStatus, maintenanceStatusSql } from './maintenance-status';
@@ -43,6 +44,7 @@ describe('UtilitiesService', () => {
     getOne: jest.Mock;
   };
   let contractRepo: { find: jest.Mock };
+  let typeRepo: { findOne: jest.Mock };
   let assetRepo: { count: jest.Mock; find: jest.Mock };
   let plantRepo: { count: jest.Mock; find: jest.Mock };
   let recalc: { recalcUtility: jest.Mock };
@@ -65,6 +67,7 @@ describe('UtilitiesService', () => {
     contractRepo = {
       find: jest.fn().mockResolvedValue([]),
     };
+    typeRepo = { findOne: jest.fn().mockResolvedValue(null) };
     repo = {
       createQueryBuilder: jest.fn().mockReturnValue(qb),
       findOne: jest.fn(),
@@ -75,7 +78,9 @@ describe('UtilitiesService', () => {
       manager: {
         // nessun contratto corrente per default: niente coppie utility/contratto
         query: jest.fn().mockResolvedValue([]),
-        getRepository: jest.fn().mockReturnValue(contractRepo),
+        getRepository: jest.fn((entity: unknown) =>
+          entity === UtilityType ? typeRepo : contractRepo,
+        ),
       },
     };
     assetRepo = { count: jest.fn().mockResolvedValue(1), find: jest.fn().mockResolvedValue([]) };
@@ -661,16 +666,14 @@ describe('UtilitiesService', () => {
     it('supply_pending: attivazione richiesta e non avvenuta', async () => {
       qb.getOne.mockResolvedValue({ id: 1, cost_status: 'COMUNE', assets: [] });
       const eventRepo = {
-        find: jest
-          .fn()
-          .mockResolvedValue([
-            {
-              utility_id_fk: 1,
-              type: 'ACTIVATION',
-              requested_on: '2026-10-07',
-              create_date: new Date('2026-10-08T08:00:00Z'),
-            },
-          ]),
+        find: jest.fn().mockResolvedValue([
+          {
+            utility_id_fk: 1,
+            type: 'ACTIVATION',
+            requested_on: '2026-10-07',
+            create_date: new Date('2026-10-08T08:00:00Z'),
+          },
+        ]),
       };
       repo.manager.getRepository.mockImplementation((entity: { name: string }) =>
         entity.name === 'UtilitySupplyEvent' ? eventRepo : contractRepo,
@@ -1250,11 +1253,9 @@ describe('UtilitiesService', () => {
   });
 
   describe('tipologia ARERA', () => {
-    // hard_type del tipo utenza letto con una query diretta.
+    // hard_type del tipo utenza letto dal repository dei tipi.
     const typeIs = (hardType: string | null) =>
-      repo.manager.query.mockImplementation(async (sql: string) =>
-        sql.includes('FROM utility_types') ? (hardType ? [{ hard_type: hardType }] : []) : [],
-      );
+      typeRepo.findOne.mockResolvedValue(hardType ? { hard_type: hardType } : null);
 
     it('create accetta una tipologia del tipo giusto', async () => {
       typeIs('WATER');
@@ -1369,9 +1370,7 @@ describe('UtilitiesService', () => {
 
   describe("categoria d'uso gas", () => {
     const typeIs = (hardType: string) =>
-      repo.manager.query.mockImplementation(async (sql: string) =>
-        sql.includes('FROM utility_types') ? [{ hard_type: hardType }] : [],
-      );
+      typeRepo.findOne.mockResolvedValue({ hard_type: hardType });
 
     it("create accetta una categoria d'uso su un'utenza gas", async () => {
       typeIs('GAS');

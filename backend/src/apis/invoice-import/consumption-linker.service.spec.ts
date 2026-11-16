@@ -6,6 +6,10 @@ import {
 } from '@apis/utility-consumptions/enum/consumption-kind.enum';
 import { ConsumptionLinker } from './consumption-linker.service';
 import { ImportIssueType } from './enum/import-issue-type.enum';
+import * as q from './consumption-linker.queries';
+
+jest.mock('./consumption-linker.queries');
+const mq = jest.mocked(q);
 
 type Handler = (params: unknown[]) => unknown[];
 
@@ -21,13 +25,33 @@ const line = (id: number, over: Partial<InvoiceLine> = {}) =>
     ...over,
   }) as InvoiceLine;
 
+// Letture simulate per nome (c_…), con i parametri nell'ordine di sempre; `query`
+// registra le chiamate. Le query vere sono provate in consumption-linker.int-spec.ts.
 function fakeManager(lines: InvoiceLine[], handlers: Record<string, Handler> = {}) {
+  const query = jest.fn(
+    async (marker: string, params: unknown[]) => handlers[marker]?.(params) ?? [],
+  );
+  const first = async (marker: string, params: unknown[]) =>
+    ((await query(marker, params)) as never[])[0] ?? null;
+  mq.owned.mockImplementation((_m, ids) => query('c_owned', [ids]) as never);
+  mq.adoptable.mockImplementation(async (_m, utilityId, start, end) => {
+    const row = (await first('c_adopt', [utilityId, start, end])) as { id: number } | null;
+    return row ? row.id : null;
+  });
+  mq.covering.mockImplementation((_m, utilityId, start, end, exclude) =>
+    first('c_overlap', [utilityId, end, start, exclude]),
+  );
+  mq.readingOn.mockImplementation((_m, utilityId, date) => first('c_reading', [utilityId, date]));
+  mq.previousReading.mockImplementation((_m, utilityId, date) =>
+    first('c_prev_reading', [utilityId, date]),
+  );
+  mq.ownReadings.mockImplementation(
+    (_m, invoiceId) => query('c_own_readings', [invoiceId]) as never,
+  );
+  mq.linkedToLines.mockImplementation((_m, invoiceId) => query('c_linked', [invoiceId]) as never);
   return {
     find: jest.fn(async () => lines),
-    query: jest.fn(async (sql: string, params: unknown[]) => {
-      const marker = /\/\* (c_\w+) \*\//.exec(sql)?.[1] ?? '';
-      return handlers[marker]?.(params) ?? [];
-    }),
+    query,
     save: jest.fn(async (_e: unknown, data: object) => ({ id: 900, ...data })),
     update: jest.fn(),
   };
@@ -149,15 +173,6 @@ describe('ConsumptionLinker.link', () => {
       (c: unknown[]) => c[0] === UtilityConsumption && c[1] === 55,
     );
     expect(update?.[2]).not.toHaveProperty('is_estimated');
-  });
-
-  it('solo le rilevazioni reali coprono il periodo: una stima non blocca il consumo della fattura', async () => {
-    const manager = fakeManager([line(1)]);
-    await linker.link(manager as never, 500, 7, []);
-    const sql = manager.query.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .find((q: string) => q.includes('c_overlap'));
-    expect(sql).toContain('c.is_estimated = 0');
   });
 
   it('rielaborazione: aggiorna la propria rilevazione e cancella quelle non più usate', async () => {

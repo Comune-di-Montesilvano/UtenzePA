@@ -58,5 +58,20 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  // SQL a mano solo nei file *.sql.ts (con il motivo nel commento), nelle migration e nei test:
+  // altrove repository o QueryBuilder.
+  {
+    files: ['src/**/*.ts'],
+    ignores: ['src/**/*.sql.ts', 'src/database/**', 'src/**/*.int-spec.ts', 'src/test/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.property.name='query']",
+          message: 'SQL a mano solo in *.sql.ts (motivo nel commento): usare repository o QueryBuilder.',
+        },
+      ],
+    },
   }
 );

@@ -114,7 +114,7 @@ export class AuditLogService {
     );
   }
 
-  async query(filters: QueryAuditLogDto): Promise<AuditLogQueryResult> {
+  async search(filters: QueryAuditLogDto): Promise<AuditLogQueryResult> {
     const page = filters.page ?? 1;
     const pageSize = filters.pageSize ?? 10;
 
