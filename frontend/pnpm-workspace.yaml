@@ -1,3 +1,14 @@
+overrides:
+  # Advisory medium in dipendenze transitive solo di sviluppo (lint, test, build), ognuna
+  # limitata alle versioni vulnerabili. Togliere quando i padri risolvono da soli.
+  # brace-expansion 1.x (via minimatch 3): GHSA-q2hr-2g5m-vwhr, corretto in 1.1.21.
+  'brace-expansion@<1.1.21': ^1.1.22
+  # minimatch 7/9/10 (via typescript-eslint, glob, depcheck, test-exclude):
+  # GHSA-g3hv-75wg-m249 corretto solo nella 11 (stessa API, CJS ed ESM).
+  'minimatch@>=7.0.0 <11.0.1': ^11.0.8
+  # qs (via body-parser 1.x del dev server, che chiede ~6.15.1): GHSA-6pq8-jhm2-2vcw
+  # corretto in 6.16.1, nessuna correzione sulla 6.15. API invariata nella 6.x.
+  'qs@>=6.7.0 <6.16.1': ^6.17.1
 allowBuilds:
   esbuild: true
   '@parcel/watcher': true
