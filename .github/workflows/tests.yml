@@ -48,6 +48,14 @@ jobs:
       - name: Test script di sicurezza
         run: node --test 'scripts/security/test/*.test.mjs'
 
+      - name: Test script di CI
+        run: node --test 'scripts/ci/test/*.test.mjs'
+
+      # La softwareVersion di publiccode.yml ha le sue note (docs/releases/<versione>.md):
+      # release.yml le richiede per buildare il tag e le pubblica come release GitHub.
+      - name: Note di rilascio
+        run: bash scripts/release-notes.sh check-publiccode
+
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 20
