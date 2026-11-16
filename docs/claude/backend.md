@@ -30,6 +30,14 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezioni "Migration DB" e "Backe
 - MySQL 8: in una `SELECT DISTINCT` l'`ORDER BY` può usare solo colonne/alias selezionati.
 - Scrittura di sistema (ricalcoli/cron) che non deve spostare "Ultima modifica": `repo.update(id, {..., update_date: () => '`update_date`'})` — esclude sia `@UpdateDateColumn` sia `ON UPDATE` MySQL (vedi `ConsumptionRecalcService`).
 
+## Test d'integrazione
+
+- `*.int-spec.ts` accanto al codice (non presi da `test:unit`), config `backend/jest.integration.config.js` (in JS: Node 26 carica un config `.ts` come modulo ES), `pnpm run test:int` con `--runInBand`.
+- `src/test/integration/global-setup.ts`: database `MYSQL_DB` (default `utenzepa_it`, deve finire con `_it`: `assertTestDatabase`) cancellato, ricreato e portato all'ultima migration con la CLI TypeORM, una volta per giro. Lo schema è quello di un'installazione nuova, non quello del DB di sviluppo (ha già fatto emergere `utilities.budget_chapter_code_fk` NOT NULL).
+- Per file: `itDataSource()` in `beforeAll`, `ds.destroy()` in `afterAll`, `resetTables(ds, [...])` in `beforeEach` (tabelle figlie per prime non serve: FK sospese). Fixture in `fixtures.ts` (colonne SQL, valori finti, autore utente di sistema `-1`): aggiungerne quando servono.
+- Service sotto test istanziati col DataSource vero (`new SpendingService(ds)`), collaboratori mock.
+- Ogni test nuovo su una query: **controllo di mutazione** (tolta una condizione, almeno un test diventa rosso), altrimenti il fixture non la esercita.
+
 ## Varie
 
 - Body-parser di default: limite 100KB. Un DTO con data URI base64 (logo/favicon, `MAX_DATA_URI_LENGTH` in `update-branding.dto.ts`) fallisce con `PayloadTooLargeError` **prima** della validazione, senza indizi nei log. Serve `app.use(json({limit:'Nmb'}))` in `main.ts`, allineato al DTO.

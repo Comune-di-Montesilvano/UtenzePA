@@ -426,6 +426,61 @@ jobs:
           echo "Migration nuove: ${added:-0}"
           sh scripts/check-migrations.sh "${added:-1}"
 
+  # Test d'integrazione (*.int-spec.ts) sull'SQL vero: database utenzepa_it ricreato e
+  # migrato dal globalSetup di jest, stessa immagine MySQL della produzione.
+  integration:
+    needs: mysql-image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: ${{ needs.mysql-image.outputs.image }}
+        env:
+          MYSQL_ROOT_PASSWORD: ci
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -pci"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: backend/package.json
+
+      - name: Versione Node dall'immagine base
+        id: node
+        run: |
+          major=$(sed -nE 's/^FROM node:([0-9]+)-.*/\1/p' Dockerfile | head -n1)
+          [ -n "$major" ] || { echo "::error::FROM node:<major> non trovato in backend/Dockerfile"; exit 1; }
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: ${{ steps.node.outputs.major }}
+          cache: 'pnpm'
+          cache-dependency-path: backend/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Test d'integrazione
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: '3306'
+          MYSQL_USER: root
+          MYSQL_PASSWORD: ci
+          MYSQL_DB: utenzepa_it
+        run: pnpm run test:int
+
   # Stack di produzione (docker-compose.yml) con le immagini del job docker su un DB nuovo:
   # avvio, migration all'avvio, Admin creato via SQL, poi smoke Playwright (e2e/).
   e2e:
