@@ -253,5 +253,25 @@ describe('SupplyReconcileService (integrazione)', () => {
       expect((await events(u))[2].created_by_user_id).toBe(SYSTEM_USER_ID);
       expect((await state(u)).cost_status).toBe('TO_RECOVER');
     });
+
+    it('voltura a mano: contratti passivi o cancellati sull’immobile non la fanno rientrare', async () => {
+      const landlord = await insertThirdParty(ds);
+      const passive = await grantOf([landlord], { direction: 'PASSIVE' });
+      const u = await activeCovered(passive);
+      const deleted = await grantOf([landlord], { deleted: 1 });
+      const [{ asset_id }] = await ds.query(
+        'SELECT asset_id FROM utility_assets WHERE utility_id = ?',
+        [u],
+      );
+      await cover(deleted, asset_id);
+      await event(u, { type: 'TRANSFER', third_party_id_fk: landlord, effective_on: '2021-01-01' });
+
+      await service.reconcile(u);
+      expect((await events(u)).map((e: { type: string }) => e.type)).toEqual([
+        'ACTIVATION',
+        'TRANSFER',
+      ]);
+      expect((await state(u)).cost_status).toBe('TRANSFERRED');
+    });
   });
 });

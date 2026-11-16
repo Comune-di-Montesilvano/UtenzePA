@@ -28,9 +28,17 @@ export async function coveredUtilityIds(m: EntityManager, grantId: number): Prom
   return rows.map((r) => Number(r.utility_id));
 }
 
-// Contratti che coprono l'utenza tramite un immobile (contratto non filtrato).
+// Contratti concessi dal Comune, non cancellati, che coprono l'utenza tramite un
+// immobile: un contratto passivo o cancellato conta solo se legato all'utenza da una
+// decisione o da righe di storico (linkedGrantIds).
 export async function coveringGrantIds(m: EntityManager, utilityId: number): Promise<number[]> {
   const rows: { id: number }[] = await covering(m)
+    .innerJoin(
+      'utilizer_grant',
+      'g',
+      'g.id = uga.utilizer_grant_id AND g.deleted = 0 AND g.direction = :active',
+      { active: ContractDirection.ACTIVE },
+    )
     .select('uga.utilizer_grant_id', 'id')
     .where('ua.utility_id = :utilityId', { utilityId })
     .getRawMany();
