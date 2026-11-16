@@ -156,6 +156,9 @@ jobs:
   # Build delle immagini di produzione come in release.yml (immagini base ripescate) per
   # e2e e tinn-runtime. Nessun push. Le CVE delle immagini le controlla trivy-image di
   # security.yml (merge queue, main, giro giornaliero); dependency-review e' li'.
+  # Build delle immagini solo in merge queue (servono a e2e e tinn-runtime, anche loro solo in
+  # coda): sulla PR gli step sono saltati e il job e' verde. Skip per step e non per job: un job
+  # matrice saltato non crea i check "docker (<app>, <target>)" richiesti dal ruleset.
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -175,12 +178,15 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: github.event_name == 'merge_group'
         with:
           persist-credentials: false
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+        if: github.event_name == 'merge_group'
 
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        if: github.event_name == 'merge_group'
         with:
           context: ${{ matrix.app }}
           file: ${{ matrix.app }}/Dockerfile
@@ -195,9 +201,11 @@ jobs:
 
       # backend e frontend per e2e, tinn per tinn-runtime (non fa parte dello stack di e2e).
       - name: Salva l'immagine per i job successivi
+        if: github.event_name == 'merge_group'
         run: docker save ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:ci | gzip -1 > image-${{ matrix.app }}.tar.gz
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.event_name == 'merge_group'
         with:
           name: image-${{ matrix.app }}
           path: image-${{ matrix.app }}.tar.gz
@@ -231,6 +239,8 @@ jobs:
   # embedded come l'estrazione notturna (log e lock in /tmp): una scrittura fuori posto fallisce.
   tinn-runtime:
     needs: docker
+    # Solo in merge queue, come la build delle immagini: sulla PR il job saltato vale verde.
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -351,6 +361,9 @@ jobs:
   # avvio, migration all'avvio, Admin creato via SQL, poi smoke Playwright (e2e/).
   e2e:
     needs: docker
+    # Solo in merge queue: prova lo stack con la PR gia' unita a main, un giro anche sulla PR
+    # sarebbe un doppione. Sulla PR il job saltato vale verde per il ruleset.
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
