@@ -203,25 +203,22 @@ jobs:
           sarif_file: trivy-fs.sarif
           category: trivy-fs
 
-  # Stesse immagini di release.yml, buildate dalla PR (nessun push) e scansionate prima del
-  # merge: un bump Dependabot dell'immagine base o di una dipendenza con CVE non arriva su
-  # main, invece di emergere solo nel rebuild notturno. Required check: l'auto-merge lo
-  # aspetta.
+  # Scansione assoluta delle immagini di main: su push e nel giro giornaliero (nuovi advisory
+  # su immagini invariate). Prima del merge la scansione differenziale la fa il job docker di
+  # tests.yml in merge queue, sulla stessa build usata da e2e: qui, sulle PR e in coda, gli
+  # step sono saltati e il check risulta verde.
   trivy-image:
     # Nome stabile: e' quello registrato come required check nel ruleset.
     name: trivy-image (${{ matrix.app }})
-    # Build e scansione solo in merge queue, su main e nel giro giornaliero: sulle PR gli
-    # step sono saltati (job verde). Skip per step e non per job: un job matrice saltato
-    # non crea i check "trivy-image (<app>)" richiesti dal ruleset.
-    # Workflow diversi non condividono artefatti: l'immagine si ricostruisce qui (il job
-    # docker di tests.yml la costruisce per e2e); il buildcache rende la seconda build breve.
+    # Skip per step e non per job: un job matrice saltato non crea i check
+    # "trivy-image (<app>)" richiesti dal ruleset.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
       security-events: write
     env:
-      BASE_SHA: ${{ github.event.merge_group.base_sha }}
+      SCAN: ${{ github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
     strategy:
       fail-fast: false
       matrix:
@@ -238,32 +235,22 @@ jobs:
           egress-policy: audit
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        if: github.event_name != 'pull_request'
+        if: env.SCAN == 'true'
         with:
-          persist-credentials: false
-
-      # Gate preso dalla base anche qui (in ComunicaPA mancava: .base non esisteva e
-      # valeva sempre lo script della PR).
-      - name: Checkout base
-        if: github.event_name == 'merge_group'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ env.BASE_SHA }}
-          path: .base
           persist-credentials: false
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
-        if: github.event_name != 'pull_request'
+        if: env.SCAN == 'true'
 
       - name: Data per PKG_REFRESH
-        if: github.event_name != 'pull_request'
+        if: env.SCAN == 'true'
         id: day
         run: echo "pkg_refresh=$(date -u +%F)" >> "$GITHUB_OUTPUT"
 
       # Cache in sola lettura dal registry (package pubblici): nessun login, nessuna
       # scrittura da codice di una PR.
       - name: Build ${{ matrix.app }} (senza push)
-        if: github.event_name != 'pull_request'
+        if: env.SCAN == 'true'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: ${{ matrix.app }}
@@ -277,11 +264,8 @@ jobs:
             PKG_REFRESH=${{ steps.day.outputs.pkg_refresh }}
           cache-from: type=registry,ref=ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:buildcache
 
-      # In merge queue il gate e' differenziale rispetto alla `latest` pubblicata (stesso run,
-      # stesso DB): una CVE gia' in produzione non blocca le PR, la corregge il rebuild
-      # giornaliero o un bump. Su push e schedule resta assoluto.
       - name: Trivy ${{ matrix.app }}
-        if: github.event_name != 'pull_request'
+        if: env.SCAN == 'true'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           version: v0.76.1
@@ -289,34 +273,13 @@ jobs:
           format: sarif
           output: trivy-image.sarif
           severity: CRITICAL,HIGH
-          exit-code: ${{ github.event_name == 'merge_group' && '0' || '1' }}
+          exit-code: '1'
           ignore-unfixed: true
           limit-severities-for-sarif: true
           trivyignores: .trivyignore.yaml
 
-      - name: Trivy ${{ matrix.app }} differenziale (nuove rispetto a latest)
-        if: github.event_name == 'merge_group'
-        env:
-          TRIVY_CACHE_DIR: ${{ github.workspace }}/.cache/trivy
-          LATEST: ghcr.io/comune-di-montesilvano/utenzepa-${{ matrix.app }}:latest
-          APP: ${{ matrix.app }}
-        run: |
-          opts=(image --quiet --skip-db-update --scanners vuln --severity "CRITICAL,HIGH"
-            --ignore-unfixed --ignorefile .trivyignore.yaml --format json)
-          trivy "${opts[@]}" --output "$RUNNER_TEMP/head.json" "scan/$APP:pr"
-          if docker pull --quiet "$LATEST" >/dev/null 2>&1; then
-            trivy "${opts[@]}" --output "$RUNNER_TEMP/base.json" "$LATEST"
-            base=(--base "$RUNNER_TEMP/base.json")
-          else
-            echo "::warning::$LATEST non disponibile: tutte le vulnerabilita' contano come nuove"
-            base=(--base-empty)
-          fi
-          # Gate dalla base quando esiste: una PR non può indebolire il gate che la giudica.
-          GATE=.base/scripts/security/diff-gate.mjs; [ -f "$GATE" ] || GATE=scripts/security/diff-gate.mjs
-          node "$GATE" --format trivy --head "$RUNNER_TEMP/head.json" "${base[@]}"
-
       - name: Upload SARIF
-        if: always() && github.event_name != 'pull_request'
+        if: always() && env.SCAN == 'true'
         uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with:
           sarif_file: trivy-image.sarif
