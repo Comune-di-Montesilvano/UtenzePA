@@ -16,7 +16,8 @@ Prima di aprire una PR:
 2. Frontend: `pnpm run lint`, `pnpm exec ng test --watch=false`, `pnpm run build` (controlla anche le ancore della guida).
 3. Migration nuove: generate e verificate come in `docs/claude/backend.md` (`schema:log` pulito sulle tabelle toccate).
 4. Modifiche visibili all'utente: guida `frontend/public/guida/guida.md` aggiornata nella stessa PR.
-5. Leggi `CLAUDE.md` e il file pertinente in `docs/claude/` per i pattern e i gotcha del progetto.
+5. PR di rilascio (bump di `publiccode.yml`): note `docs/releases/vX.Y.Z.md` con `## Changelog` e `### Sicurezza` (modello in `docs/releases/README.md`); diventano la release GitHub.
+6. Leggi `CLAUDE.md` e il file pertinente in `docs/claude/` per i pattern e i gotcha del progetto.
 
 ## Test automatici (policy)
 
