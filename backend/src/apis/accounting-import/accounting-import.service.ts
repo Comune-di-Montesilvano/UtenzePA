@@ -8,6 +8,7 @@ import { AccChapter } from './entity/acc-chapter.entity';
 import { AccCommitment } from './entity/acc-commitment.entity';
 import { AccLiquidation } from './entity/acc-liquidation.entity';
 import { AccCreditNote } from './entity/acc-credit-note.entity';
+import * as q from './accounting-import.queries';
 
 export const ACCOUNTING_STEPS = 'ACCOUNTING_STEPS';
 
@@ -42,14 +43,11 @@ export interface AccountingImportStatus {
   container: TinnStatus | null;
 }
 
-const TABLES: Record<
-  AccKind,
-  { table: string; entity: EntityTarget<ObjectLiteral>; yearField: string }
-> = {
-  chapters: { table: 'acc_chapters', entity: AccChapter, yearField: 'year' },
-  commitments: { table: 'acc_commitments', entity: AccCommitment, yearField: 'fiscal_year' },
-  liquidations: { table: 'acc_liquidations', entity: AccLiquidation, yearField: 'fiscal_year' },
-  credit_notes: { table: 'acc_credit_notes', entity: AccCreditNote, yearField: 'fiscal_year' },
+const TABLES: Record<AccKind, { entity: EntityTarget<ObjectLiteral>; yearField: string }> = {
+  chapters: { entity: AccChapter, yearField: 'year' },
+  commitments: { entity: AccCommitment, yearField: 'fiscal_year' },
+  liquidations: { entity: AccLiquidation, yearField: 'fiscal_year' },
+  credit_notes: { entity: AccCreditNote, yearField: 'fiscal_year' },
 };
 const KINDS: AccKind[] = ['chapters', 'commitments', 'liquidations', 'credit_notes'];
 const BATCH = 500;
@@ -71,10 +69,7 @@ export class AccountingImportService {
 
   async getStatus(): Promise<AccountingImportStatus> {
     const state = await this.states.state();
-    const [counts] = await this.dataSource.query(
-      'SELECT (SELECT COUNT(*) FROM acc_chapters) AS chapters, (SELECT COUNT(*) FROM acc_commitments) AS commitments, ' +
-        '(SELECT COUNT(*) FROM acc_liquidations) AS liquidations, (SELECT COUNT(*) FROM acc_credit_notes) AS credit_notes',
-    );
+    const counts = await q.accCounts(this.dataSource.manager);
     return {
       enabled: state.enabled,
       forcedOff: this.states.forcedOff,
@@ -84,12 +79,7 @@ export class AccountingImportService {
       lastSuccessAt: state.last_success_at,
       lastError: state.last_error,
       lastSummary: (state.last_summary as AccountingImportSummary | null) ?? null,
-      counts: {
-        chapters: Number(counts?.chapters ?? 0),
-        commitments: Number(counts?.commitments ?? 0),
-        liquidations: Number(counts?.liquidations ?? 0),
-        credit_notes: Number(counts?.credit_notes ?? 0),
-      },
+      counts,
       container: inboxPresent(inboxDir()) ? readStatus(inboxDir()) : null,
     };
   }
@@ -152,13 +142,13 @@ export class AccountingImportService {
     try {
       for (const kind of kinds) {
         const { rows, issues } = parseAccountingCsv(kind, (files[kind] as Buffer).toString('utf8'));
-        const { table, entity, yearField } = TABLES[kind];
+        const { entity, yearField } = TABLES[kind];
         const kept = rows.filter((row) => (row as Record<string, number>)[yearField] >= fromYear);
         summary.issues[kind] = issues;
         summary.loaded[kind] = kept.length;
         if (!kept.length) continue;
         await this.dataSource.transaction(async (manager) => {
-          await manager.query(`DELETE FROM \`${table}\``);
+          await q.clearTable(manager, entity);
           for (let i = 0; i < kept.length; i += BATCH) {
             await manager.insert(entity, kept.slice(i, i + BATCH) as ObjectLiteral[]);
           }

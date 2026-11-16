@@ -7,16 +7,9 @@ import type {
   AccLiquidationRow,
 } from './accounting-csv';
 import { computeScope, type AccountingScope } from './scope';
-import { NOT_DRAFT_SQL } from '@apis/contracts/contract-draft';
+import * as q from './accounting-import.queries';
 
 const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
-
-// Fornitori del perimetro: soggetti terzi con almeno un contratto di fornitura
-// (stessa regola dell'import PEC). Chiave = P.IVA, altrimenti codice fiscale.
-export const SUPPLIERS_SQL =
-  'SELECT t.id, COALESCE(NULLIF(t.vat_number, ""), t.tax_code) AS vat FROM third_parties t ' +
-  'WHERE t.deleted = 0 AND COALESCE(NULLIF(t.vat_number, ""), t.tax_code) IS NOT NULL ' +
-  `AND EXISTS (SELECT 1 FROM contracts c WHERE c.supplier_id_fk = t.id AND c.deleted = 0 AND ${NOT_DRAFT_SQL('c')})`;
 
 // Lettura delle tabelle di appoggio con i tipi del formato neutro (i decimal
 // arrivano da MySQL come stringhe) e calcolo del perimetro: in comune a tutti
@@ -25,10 +18,12 @@ export const SUPPLIERS_SQL =
 export class AccountingDataService {
   constructor(private readonly dataSource: DataSource) {}
 
+  private get m() {
+    return this.dataSource.manager;
+  }
+
   async chapters(): Promise<AccChapterRow[]> {
-    const rows = await this.dataSource.query(
-      'SELECT year, chapter, article, description, initial_budget, adjusted_budget, spent FROM acc_chapters',
-    );
+    const rows = await q.accChapters(this.m);
     return rows.map((r: Record<string, unknown>) => ({
       year: Number(r.year),
       chapter: String(r.chapter),
@@ -41,10 +36,7 @@ export class AccountingDataService {
   }
 
   async commitments(): Promise<AccCommitmentRow[]> {
-    const rows = await this.dataSource.query(
-      'SELECT commitment_year, commitment_num, commitment_sub, fiscal_year, chapter, article, supplier_vat, amount, ' +
-        'cig, cancelled, description FROM acc_commitments',
-    );
+    const rows = await q.accCommitments(this.m);
     return rows.map((r: Record<string, unknown>) => ({
       commitment_year: Number(r.commitment_year),
       commitment_num: Number(r.commitment_num),
@@ -61,13 +53,7 @@ export class AccountingDataService {
   }
 
   async liquidations(): Promise<AccLiquidationRow[]> {
-    const rows = await this.dataSource.query(
-      'SELECT liquidation_key, commitment_year, commitment_num, commitment_sub, fiscal_year, sdi_identifier, ' +
-        "invoice_number, DATE_FORMAT(invoice_date, '%Y-%m-%d') AS invoice_date, invoice_total, invoice_cig, " +
-        'supplier_vat, amount, cancelled, liquidation_number, mandate_number, ' +
-        "DATE_FORMAT(mandate_date, '%Y-%m-%d') AS mandate_date, DATE_FORMAT(paid_date, '%Y-%m-%d') AS paid_date, " +
-        'paid_amount FROM acc_liquidations',
-    );
+    const rows = await q.accLiquidations(this.m);
     return rows.map((r: Record<string, unknown>) => ({
       liquidation_key: String(r.liquidation_key),
       commitment_year: Number(r.commitment_year),
@@ -91,11 +77,7 @@ export class AccountingDataService {
   }
 
   async creditNotes(): Promise<AccCreditNoteRow[]> {
-    const rows = await this.dataSource.query(
-      'SELECT link_key, fiscal_year, amount, supplier_vat, note_sdi_identifier, note_number, ' +
-        "DATE_FORMAT(note_date, '%Y-%m-%d') AS note_date, note_total, invoice_sdi_identifier, invoice_number, " +
-        "DATE_FORMAT(invoice_date, '%Y-%m-%d') AS invoice_date, invoice_total FROM acc_credit_notes",
-    );
+    const rows = await q.accCreditNotes(this.m);
     return rows.map((r: Record<string, unknown>) => ({
       link_key: String(r.link_key),
       fiscal_year: Number(r.fiscal_year),
@@ -114,17 +96,14 @@ export class AccountingDataService {
 
   // P.IVA (o CF) → id del soggetto terzo, solo fornitori del perimetro.
   async suppliersByVat(): Promise<Map<string, number>> {
-    const rows: { id: number; vat: string }[] = await this.dataSource.query(SUPPLIERS_SQL);
+    const rows = await q.suppliersInScope(this.m);
     return new Map(rows.map((r) => [r.vat, Number(r.id)]));
   }
 
   // P.IVA (o CF) → id di qualsiasi soggetto terzo non cancellato: fornitore
   // dell'impegno anche fuori dal perimetro.
   async thirdPartiesByVat(): Promise<Map<string, number>> {
-    const rows: { id: number; vat: string }[] = await this.dataSource.query(
-      'SELECT id, COALESCE(NULLIF(vat_number, ""), tax_code) AS vat FROM third_parties ' +
-        'WHERE deleted = 0 AND COALESCE(NULLIF(vat_number, ""), tax_code) IS NOT NULL',
-    );
+    const rows = await q.partiesWithVat(this.m);
     return new Map(rows.map((r) => [r.vat, Number(r.id)]));
   }
 
@@ -133,7 +112,7 @@ export class AccountingDataService {
       this.commitments(),
       this.liquidations(),
       this.suppliersByVat(),
-      this.dataSource.query('SELECT chapter_code, article FROM budget_chapters WHERE deleted = 0'),
+      q.liveChapters(this.m),
     ]);
     return computeScope(
       { commitments, liquidations },

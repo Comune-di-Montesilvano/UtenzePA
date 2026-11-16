@@ -1,24 +1,32 @@
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
-import { CONTRACTS_SQL, LinkApplierService } from './link-applier.service';
+import { LinkApplierService } from './link-applier.service';
+import * as q from './accounting-import.queries';
+
+jest.mock('./accounting-import.queries');
+const mq = jest.mocked(q);
 
 function setup() {
-  const queries: { sql: string; params: unknown[] }[] = [];
-  const manager = {
-    query: jest.fn(async (sql: string, params: unknown[]) => {
-      queries.push({ sql, params });
-    }),
-  };
-  const routes: Record<string, unknown[]> = {
-    l_commitments: [{ id: 1, commitment_year: 2026, commitment_num: 1, commitment_sub: 1 }],
-    l_links: [],
-    l_contracts: [{ id: 5, cig_contract: 'CIG1' }],
-    l_paid: [],
-    l_utility_rows: [{ utility_id: 30, fiscal_year: 2026, chapter_id: 7 }],
-    l_utilities: [{ id: 30, budget_chapter_code_fk: null }],
-  };
+  // Letture simulate e scritture registrate per nome (query provate in
+  // accounting-import.int-spec.ts).
+  const writes: [string, ...unknown[]][] = [];
+  mq.accountingCommitments.mockResolvedValue([
+    { id: 1, commitment_year: 2026, commitment_num: 1, commitment_sub: 1 },
+  ]);
+  mq.commitmentContracts.mockResolvedValue([]);
+  mq.contractsWithCig.mockResolvedValue([{ id: 5, supplier_id_fk: 2, cig_contract: 'CIG1' }]);
+  mq.paidContracts.mockResolvedValue([]);
+  mq.paidUtilityChapters.mockResolvedValue([{ utility_id: 30, fiscal_year: 2026, chapter_id: 7 }]);
+  mq.utilityChapters.mockResolvedValue([{ id: 30, budget_chapter_code_fk: null }]);
+  mq.linkContracts.mockImplementation(async (_m, commitmentId, contractIds) => {
+    writes.push(['linkContracts', commitmentId, contractIds]);
+  });
+  mq.setUtilityChapter.mockImplementation(async (_m, utilityId, chapterId, userId) => {
+    writes.push(['setUtilityChapter', utilityId, chapterId, userId]);
+  });
+  const manager = {};
   const dataSource = {
-    query: jest.fn(async (sql: string) => routes[/\/\* (l_\w+) \*\//.exec(sql)?.[1] ?? ''] ?? []),
+    manager,
     transaction: jest.fn(async (cb: (m: typeof manager) => Promise<unknown>) => cb(manager)),
   };
   const data = {
@@ -35,15 +43,17 @@ function setup() {
   };
   const audit = { record: jest.fn(async () => undefined) };
   const service = new LinkApplierService(dataSource as never, data as never, audit as never);
-  return { service, queries, audit };
+  return { service, writes, audit };
 }
 
 describe('LinkApplierService', () => {
   it('collega il contratto dal CIG e aggiorna il capitolo dell utenza con audit', async () => {
-    const { service, queries, audit } = setup();
+    const { service, writes, audit } = setup();
     expect(await service.apply()).toEqual({ contractsLinked: 1, utilityChapters: 1 });
-    expect(queries[0].params).toEqual([[[1, 5]]]);
-    expect(queries[1].params).toEqual([7, SYSTEM_USER_ID, 30]);
+    expect(writes).toEqual([
+      ['linkContracts', 1, [5]],
+      ['setUtilityChapter', 30, 7, SYSTEM_USER_ID],
+    ]);
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
         entityName: 'utilities',
@@ -60,11 +70,5 @@ describe('LinkApplierService', () => {
         action: AuditAction.UPDATE,
       }),
     );
-  });
-});
-
-describe('ordini in bozza', () => {
-  it('l_contracts esclude le bozze', () => {
-    expect(CONTRACTS_SQL).toContain('contracts.draft = 0');
   });
 });

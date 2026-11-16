@@ -4,6 +4,10 @@ import { BudgetChapterSpending } from '@apis/budget-chapter-spending/entity/budg
 import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
 import { ChapterApplierService } from './chapter-applier.service';
 import { RecordSource } from './record-source.enum';
+import * as q from './accounting-import.queries';
+
+jest.mock('./accounting-import.queries');
+const mq = jest.mocked(q);
 
 function setup(current: { chapters: unknown[]; spending: unknown[] }) {
   const inserts: { entity: unknown; values: Record<string, unknown> }[] = [];
@@ -18,14 +22,13 @@ function setup(current: { chapters: unknown[]; spending: unknown[] }) {
       updates.push({ entity, id, values });
     }),
   };
+  mq.liveChapters.mockResolvedValue(current.chapters as never);
+  mq.liveSpending.mockResolvedValue(current.spending as never);
+  mq.liquidatedByChapter.mockResolvedValue([
+    { chapter: '200', article: 0, fiscal_year: 2026, total: '30.5' },
+  ]);
   const dataSource = {
-    query: jest.fn(async (sql: string) => {
-      if (sql.includes('FROM budget_chapters')) return current.chapters;
-      if (sql.includes('FROM budget_chapter_spending')) return current.spending;
-      if (sql.includes('FROM acc_liquidations'))
-        return [{ chapter: '200', article: 0, fiscal_year: 2026, total: '30.5' }];
-      return [];
-    }),
+    manager: {},
     transaction: jest.fn(async (cb: (m: typeof manager) => Promise<unknown>) => cb(manager)),
   };
   const data = {

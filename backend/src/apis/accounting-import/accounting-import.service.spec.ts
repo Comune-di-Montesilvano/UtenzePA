@@ -3,6 +3,10 @@ import { AccountingImportService, type AccountingStep } from './accounting-impor
 import { AccountingStateService } from './accounting-state.service';
 import { AccChapter } from './entity/acc-chapter.entity';
 import { AccCommitment } from './entity/acc-commitment.entity';
+import * as q from './accounting-import.queries';
+
+jest.mock('./accounting-import.queries');
+const mq = jest.mocked(q);
 
 type State = { id: number; enabled: boolean; from_year: number | null; last_run_at?: Date | null };
 
@@ -16,20 +20,21 @@ function stateService(state: State, env: Record<string, string | undefined> = {}
 }
 
 function setup(state: State, steps: AccountingStep[] = []) {
-  const queries: string[] = [];
+  // Tabelle di appoggio svuotate (entity), in ordine.
+  const queries: unknown[] = [];
+  mq.clearTable.mockImplementation(async (_m, entity) => {
+    queries.push(entity);
+  });
+  mq.accCounts.mockResolvedValue({ chapters: 0, commitments: 0, liquidations: 0, credit_notes: 0 });
   const inserts: { entity: unknown; rows: unknown[] }[] = [];
   const manager = {
-    query: jest.fn(async (sql: string) => {
-      queries.push(sql);
-      return [];
-    }),
     insert: jest.fn(async (entity: unknown, rows: unknown[]) => {
       inserts.push({ entity, rows });
     }),
   };
   const dataSource = {
     transaction: jest.fn(async (cb: (m: typeof manager) => Promise<unknown>) => cb(manager)),
-    query: jest.fn(async () => [{ chapters: 0, commitments: 0, liquidations: 0 }]),
+    manager: {},
   };
   const reconcile = { reconcileAll: jest.fn(async () => undefined) };
   const states = stateService(state);
@@ -66,7 +71,7 @@ describe('AccountingImportService.run', () => {
   it('ogni file sostituisce solo la sua tabella', async () => {
     const { service, queries, inserts } = setup(on());
     await service.run({ commitments: Buffer.from(COMMITMENTS) });
-    expect(queries).toEqual(['DELETE FROM `acc_commitments`']);
+    expect(queries).toEqual([AccCommitment]);
     expect(inserts.map((i) => i.entity)).toEqual([AccCommitment]);
   });
 

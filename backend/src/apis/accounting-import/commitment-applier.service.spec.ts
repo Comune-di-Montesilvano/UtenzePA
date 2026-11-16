@@ -3,6 +3,10 @@ import { BudgetCommitment } from '@apis/budget-commitments/entity/budget-commitm
 import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
 import { CommitmentApplierService } from './commitment-applier.service';
 import { RecordSource } from './record-source.enum';
+import * as q from './accounting-import.queries';
+
+jest.mock('./accounting-import.queries');
+const mq = jest.mocked(q);
 
 function setup(commitments: unknown[]) {
   const calls: string[] = [];
@@ -16,16 +20,22 @@ function setup(commitments: unknown[]) {
     update: jest.fn(async (_entity: unknown, id: number, values: Record<string, unknown>) => {
       calls.push(`update ${id} ${JSON.stringify(values)}`);
     }),
-    query: jest.fn(async (sql: string, params: unknown[]) => {
-      calls.push(`query ${sql.split(' ').slice(0, 3).join(' ')} ${JSON.stringify(params)}`);
-    }),
   };
+  // Scritture del modulo registrate per nome; le query vere sono provate in
+  // accounting-import.int-spec.ts.
+  const record =
+    (name: string) =>
+    async (...args: unknown[]) => {
+      calls.push(`${name} ${JSON.stringify(args.slice(1))}`);
+    };
+  mq.upsertYears.mockImplementation(record('upsertYears'));
+  mq.dropManualSplits.mockImplementation(record('dropManualSplits'));
+  mq.dropCommitmentShares.mockImplementation(record('dropCommitmentShares'));
+  mq.dropYears.mockImplementation(record('dropYears'));
+  mq.liveChapters.mockResolvedValue([{ id: 7, chapter_code: '100', article: 0 }]);
+  mq.currentCommitments.mockResolvedValue(commitments as never);
   const dataSource = {
-    query: jest.fn(async (sql: string) => {
-      if (sql.includes('FROM budget_chapters')) return [{ id: 7, chapter_code: '100', article: 0 }];
-      if (sql.includes('FROM budget_commitments')) return commitments;
-      return [];
-    }),
+    manager: {},
     transaction: jest.fn(async (cb: (m: typeof manager) => Promise<unknown>) => cb(manager)),
   };
   const data = {
@@ -62,7 +72,7 @@ describe('CommitmentApplierService', () => {
     expect(calls[0]).toContain('insert commitment');
     expect(calls[0]).toContain(`"source":"${RecordSource.ACCOUNTING}"`);
     expect(calls[0]).toContain(`"created_by_user_id":${SYSTEM_USER_ID}`);
-    expect(calls[1]).toContain('[50,2026,18500,"ACCOUNTING"]');
+    expect(calls[1]).toBe('upsertYears [50,[{"fiscal_year":2026,"amount":18500}]]');
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
         entityName: 'budget_commitments',
@@ -83,7 +93,7 @@ describe('CommitmentApplierService', () => {
         budget_chapter_id_fk: 7,
         supplier_id_fk: null,
         source: 'ACCOUNTING',
-        years: JSON.stringify([{ fiscal_year: 2026, amount: '18500.00', source: 'ACCOUNTING' }]),
+        years: [{ fiscal_year: 2026, amount: 18500, source: 'ACCOUNTING' }],
       },
       {
         id: 9,
@@ -93,15 +103,15 @@ describe('CommitmentApplierService', () => {
         budget_chapter_id_fk: 7,
         supplier_id_fk: null,
         source: 'MANUAL',
-        years: JSON.stringify([{ fiscal_year: 2026, amount: '10.00', source: 'MANUAL' }]),
+        years: [{ fiscal_year: 2026, amount: 10, source: 'MANUAL' }],
       },
     ]);
     const result = await service.apply();
     expect(calls).toEqual([
       // Fatture divise a mano anche su altri impegni: via tutte le loro quote a
       // mano, così tornano all'automatico (non restano quote che non tornano).
-      expect.stringMatching(/^query DELETE s FROM \[9\]/),
-      expect.stringMatching(/^query DELETE FROM invoice_commitment_shares \[9\]/),
+      'dropManualSplits [9]',
+      'dropCommitmentShares [9]',
       `update 9 {"deleted":true,"updated_by_user_id":${SYSTEM_USER_ID}}`,
     ]);
     expect(audit.record).toHaveBeenCalledWith(

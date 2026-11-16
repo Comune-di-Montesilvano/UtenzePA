@@ -4,9 +4,7 @@ import { AccountingDataService } from './accounting-data.service';
 import { AccountingInvoiceService } from './accounting-invoice.service';
 import { commitmentKey } from './scope';
 import { planShares, type CurrentShare } from './share-plan';
-
-const SHARES_INSERT_SQL =
-  'INSERT INTO invoice_commitment_shares (invoice_id_fk, commitment_id_fk, fiscal_year, amount, source) VALUES ?';
+import * as q from './accounting-import.queries';
 
 // Quote ACCOUNTING sulle fatture abbinate alle liquidazioni. Mai miste: le
 // ACCOUNTING sostituiscono automatiche e a mano. Nessun audit né «Ultima
@@ -23,13 +21,8 @@ export class ShareApplierService {
     const [liquidations, matched, commitments, current] = await Promise.all([
       this.data.liquidations(),
       this.invoices.matchedByKey(),
-      this.dataSource.query(
-        'SELECT id, commitment_year, commitment_num, commitment_sub FROM budget_commitments WHERE deleted = 0 ' +
-          'AND commitment_num IS NOT NULL',
-      ),
-      this.dataSource.query(
-        'SELECT invoice_id_fk, commitment_id_fk, fiscal_year, amount, source FROM invoice_commitment_shares',
-      ),
+      q.numberedCommitments(this.dataSource.manager),
+      q.allShares(this.dataSource.manager),
     ]);
     const commitmentIds = new Map<string, number>(
       commitments.map((c: Record<string, unknown>) => [
@@ -50,20 +43,11 @@ export class ShareApplierService {
     const result = { invoices: 0, cleared: 0 };
     await this.dataSource.transaction(async (manager) => {
       for (const { invoiceId, shares } of plan) {
+        await q.replaceShares(manager, invoiceId, shares);
         if (!shares.length) {
-          await manager.query(
-            "DELETE FROM invoice_commitment_shares WHERE invoice_id_fk = ? AND source = 'ACCOUNTING'",
-            [invoiceId],
-          );
           result.cleared++;
           continue;
         }
-        await manager.query('DELETE FROM invoice_commitment_shares WHERE invoice_id_fk = ?', [
-          invoiceId,
-        ]);
-        await manager.query(SHARES_INSERT_SQL, [
-          shares.map((s) => [invoiceId, s.commitment_id_fk, s.fiscal_year, s.amount, 'ACCOUNTING']),
-        ]);
         result.invoices++;
       }
     });
