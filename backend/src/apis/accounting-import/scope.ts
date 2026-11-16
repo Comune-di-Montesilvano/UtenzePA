@@ -7,9 +7,9 @@ export interface AccountingScope {
 
 export const chapterKey = (chapter: string, article: number): string => `${chapter}/${article}`;
 export const commitmentKey = (row: {
-  commitment_year: number;
-  commitment_num: number;
-  commitment_sub: number;
+  commitment_year: number | null;
+  commitment_num: number | null;
+  commitment_sub: number | null;
 }): string => `${row.commitment_year}/${row.commitment_num}/${row.commitment_sub}`;
 
 // Perimetro dell'import: capitoli già in UtenzePA più quelli degli impegni con

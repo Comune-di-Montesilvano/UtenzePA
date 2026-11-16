@@ -120,8 +120,9 @@ export class ThirdPartiesService extends BaseService<
       this.dataSource
         .getRepository(UtilizerGrant)
         .createQueryBuilder('g')
-        .innerJoin('g.parties', 'p')
-        .select('p.id', 'party_id')
+        // Solo la tabella ponte: l'anagrafica delle parti non serve.
+        .innerJoin('utilizer_grant_parties', 'p', 'p.utilizer_grant_id = g.id')
+        .select('p.third_party_id', 'party_id')
         .addSelect('g.direction', 'direction')
         .addSelect('g.kind', 'kind')
         .where('g.deleted = :deleted', { deleted: false })

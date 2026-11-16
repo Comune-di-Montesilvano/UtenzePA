@@ -9,8 +9,12 @@ export interface CommitmentNumber {
   commitment_sub: number;
 }
 
-export interface CurrentCommitment extends CommitmentNumber {
+export interface CurrentCommitment {
   id: number;
+  // null = preimpegno (senza numero): nessuna riga della contabilità lo ritrova.
+  commitment_year: number | null;
+  commitment_num: number | null;
+  commitment_sub: number | null;
   budget_chapter_id_fk: number;
   supplier_id_fk: number | null;
   source: RecordSource;

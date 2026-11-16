@@ -32,8 +32,9 @@ Dettaglio delle regole riassunte in `CLAUDE.md` (sezioni "Migration DB" e "Backe
 
 ## SQL a mano e QueryBuilder
 
-- Regola ESLint `no-restricted-syntax` (errore, v1.58.5): `.query(` solo in `*.sql.ts` (motivo in un commento `// SQL a mano: …`), migration e test d'integrazione. Altrove repository o QueryBuilder; le letture di un modulo stanno in `<modulo>.queries.ts` (funzioni con `EntityManager` come primo argomento, righe grezze del driver: decimal come stringhe).
+- Regola ESLint `no-restricted-syntax` (errore, v1.58.5): `.query(` (anche `['query'](`) solo in `*.sql.ts` (motivo in un commento `// SQL a mano: …`), migration e test d'integrazione. Altrove repository o QueryBuilder; le letture di un modulo stanno in `<modulo>.queries.ts` (funzioni con `EntityManager` come primo argomento, righe grezze del driver: decimal come stringhe).
 - Schemi del QueryBuilder usati: `qb.subQuery()…getQuery()` per `EXISTS`/`IN` correlati; `addSelect((sub) => …, 'alias')` per le sotto-query scalari; tabelle di collegamento senza entity per nome (`.from('budget_commitment_contracts', 'x')`); tabelle derivate con `.from((sub) => …, 't')` o `.leftJoin((sub) => …, 'k', 'k.id = b.id')`; liste con `IN (:...ids)`; frammenti condivisi come stringhe (`NOT_REJECTED_SQL`, `inChargeSql`, `COMMITMENT_SPENT`).
+- `${…}` nelle stringhe del QueryBuilder solo per testo scritto nel codice (alias, nomi di colonna presi dalle chiavi dei DTO validati, frammenti condivisi); i valori sempre come parametri `:nome`. La regola ESLint non lo controlla: va guardato in review.
 - Eccezioni rimaste, col motivo:
   - `backup/backup.sql.ts`: dump e ripristino di tutte le tabelle, anche senza entity.
   - `setup/setup.sql.ts`: comando di sessione MySQL.

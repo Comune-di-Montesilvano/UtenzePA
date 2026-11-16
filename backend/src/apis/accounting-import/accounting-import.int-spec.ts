@@ -14,6 +14,7 @@ import {
 } from '../../test/integration/fixtures';
 import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
 import { AccountingDataService } from './accounting-data.service';
+import { currentCommitments } from './accounting-import.queries';
 import { AccountingImportService, type AccountingStep } from './accounting-import.service';
 import { AccountingInvoiceService } from './accounting-invoice.service';
 import { ChapterApplierService } from './chapter-applier.service';
@@ -637,5 +638,27 @@ describe('import della contabilità: giro completo (integrazione)', () => {
     });
     // Nessuna scrittura: stesse righe, stesse date di modifica, nessuna voce di log in più.
     expect(await snapshot()).toEqual(before);
+  });
+
+  it('impegni correnti: un preimpegno resta senza numero, non 0/0/0', async () => {
+    const chapter = await insert(ds, 'budget_chapters', {
+      ...who,
+      chapter_code: '1000',
+      article: 0,
+      description: 'Energia',
+    });
+    const draft = await insert(ds, 'budget_commitments', {
+      ...who,
+      budget_chapter_id_fk: chapter,
+    });
+    const [row] = await currentCommitments(ds.manager);
+    expect(row).toEqual(
+      expect.objectContaining({
+        id: draft,
+        commitment_year: null,
+        commitment_num: null,
+        commitment_sub: null,
+      }),
+    );
   });
 });

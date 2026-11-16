@@ -237,7 +237,10 @@ export function liquidatedByChapter(
 
 // --- Impegni ---
 
-// Impegni non cancellati con le annualità.
+const nullableNumber = (v: number | string | null): number | null =>
+  v === null ? null : Number(v);
+
+// Impegni non cancellati con le annualità (preimpegni con i numeri a null).
 export async function currentCommitments(m: EntityManager): Promise<CurrentCommitment[]> {
   const commitments = await m.getRepository(BudgetCommitment).find({
     select: {
@@ -259,17 +262,17 @@ export async function currentCommitments(m: EntityManager): Promise<CurrentCommi
     : [];
   return commitments.map((c) => ({
     id: Number(c.id),
-    commitment_year: Number(c.commitment_year),
-    commitment_num: Number(c.commitment_num),
-    commitment_sub: Number(c.commitment_sub),
+    commitment_year: nullableNumber(c.commitment_year),
+    commitment_num: nullableNumber(c.commitment_num),
+    commitment_sub: nullableNumber(c.commitment_sub),
     budget_chapter_id_fk: Number(c.budget_chapter_id_fk),
-    supplier_id_fk: c.supplier_id_fk === null ? null : Number(c.supplier_id_fk),
+    supplier_id_fk: nullableNumber(c.supplier_id_fk),
     source: c.source,
     years: years
       .filter((y) => Number(y.commitment_id) === Number(c.id))
       .map((y) => ({
         fiscal_year: Number(y.fiscal_year),
-        amount: y.amount === null ? null : Number(y.amount),
+        amount: nullableNumber(y.amount),
         source: y.source,
       })),
   }));
