@@ -1,4 +1,9 @@
+import { EntityManager } from 'typeorm';
 import { partyNameSql } from '@apis/third-parties/third-party.name';
+
+// SQL a mano: le strutture sconosciute si contano con funzioni finestra (ROW_NUMBER,
+// SUM(COUNT(*)) OVER), che il QueryBuilder esprime solo come stringa; la stessa query
+// è letta anche dalle anomalie (invoice_patterns_unknown).
 
 const UNKNOWN_WHERE = `m.kind = 'INVOICE' AND m.status IN ('PENDING', 'LINKED') AND m.pattern_id_fk IS NULL
              AND m.structure_key IS NOT NULL AND m.structure_key <> ''`;
@@ -51,4 +56,14 @@ export function toUnknownStructure(r: Record<string, unknown>): UnknownStructure
     structures: Number(r.structures),
     message_id: Number(r.message_id),
   };
+}
+
+export async function unknownStructures(m: EntityManager): Promise<UnknownStructureRow[]> {
+  const rows: Record<string, unknown>[] = await m.query(UNKNOWN_STRUCTURES_SQL);
+  return rows.map(toUnknownStructure);
+}
+
+export async function untypedIds(m: EntityManager): Promise<number[]> {
+  const rows: { id: number }[] = await m.query(UNTYPED_SQL);
+  return rows.map((r) => Number(r.id));
 }

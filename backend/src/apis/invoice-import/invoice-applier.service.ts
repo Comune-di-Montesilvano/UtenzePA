@@ -4,6 +4,8 @@ import { AuditAction, AuditLog } from '@apis/audit-log/entity/audit-log.entity';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
 import { InvoiceLine } from '@apis/invoices/entity/invoice-line.entity';
 import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
+import { SystemUser } from '@apis/system-users/entity/system-user.entity';
+import { Utility } from '@apis/utility/entity/utility.entity';
 import { SdiStatus } from '@apis/invoices/enum/sdi-status.enum';
 import { ConsumptionRecalcService } from '@apis/utility-consumptions/consumption-recalc.service';
 import { ConsumptionLinker, type ConsumptionBands } from './consumption-linker.service';
@@ -18,12 +20,6 @@ const KEEP_UPDATE_DATE = { update_date: () => '`update_date`' };
 
 // Autore delle scritture dell'import: l'utente di sistema (prima il primo Admin attivo,
 // che risultava autore di fatture, letture e matricole).
-const IMPORT_USER_SQL = 'SELECT id FROM system_users WHERE id = ?';
-
-// Matricola completata solo se l'utenza non l'ha (eccezione alla regola: l'import non modifica le anagrafiche).
-// «Ultima modifica» dell'utenza a nome dell'import: senza autore resterebbe chi l'ha salvata prima.
-const FILL_METER_SQL =
-  'UPDATE utilities SET meter_number = ?, updated_by_user_id = ? WHERE id = ? AND NOT (meter_number <=> ?)';
 
 /**
  * Scrive la fattura estratta da un pattern: la crea, o arricchisce quella già
@@ -39,8 +35,10 @@ export class InvoiceApplier {
   ) {}
 
   async importUserId(): Promise<number | null> {
-    const [row] = await this.dataSource.query(IMPORT_USER_SQL, [SYSTEM_USER_ID]);
-    return row ? Number(row.id) : null;
+    const found = await this.dataSource
+      .getRepository(SystemUser)
+      .exists({ where: { id: SYSTEM_USER_ID } });
+    return found ? SYSTEM_USER_ID : null;
   }
 
   async apply(
@@ -175,13 +173,17 @@ export class InvoiceApplier {
     userId: number,
   ): Promise<void> {
     for (const { utilityId, meter, previous } of match.meterFills) {
-      const result: { affectedRows?: number } = await manager.query(FILL_METER_SQL, [
-        meter.slice(0, 255),
-        userId,
-        utilityId,
-        meter.slice(0, 255),
-      ]);
-      if (!result?.affectedRows) continue;
+      // Matricola dalla fattura dove l'utenza non l'ha o ne ha un'altra (eccezione alla
+      // regola: l'import non modifica le anagrafiche). «Ultima modifica» a nome
+      // dell'import: senza autore resterebbe chi l'ha salvata prima.
+      const value = meter.slice(0, 255);
+      const result = await manager
+        .createQueryBuilder()
+        .update(Utility)
+        .set({ meter_number: value, updated_by_user_id: userId })
+        .where('id = :utilityId AND NOT (meter_number <=> :value)', { utilityId, value })
+        .execute();
+      if (!result.affected) continue;
       await manager.save(AuditLog, {
         entity_name: 'utilities',
         entity_id: utilityId,

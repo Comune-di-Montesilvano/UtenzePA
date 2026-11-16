@@ -230,19 +230,33 @@ describe('InvoiceApplier: matricola', () => {
     save: jest.Mock;
     update: jest.Mock;
     delete: jest.Mock;
-    query: jest.Mock;
+    createQueryBuilder: jest.Mock;
   };
+  // Aggiornamento della matricola: set e where registrati (condizione provata in
+  // invoice-applier.int-spec.ts).
+  let meterUpdate: { set: jest.Mock; where: jest.Mock };
   let linker: { link: jest.Mock };
   let applier: InvoiceApplier;
 
   beforeEach(() => {
+    meterUpdate = { set: jest.fn(), where: jest.fn() };
     manager = {
       findOne: jest.fn().mockResolvedValue(null),
       find: jest.fn().mockResolvedValue([]),
       save: jest.fn(async (_e, data) => (Array.isArray(data) ? data : { id: 500, ...data })),
       update: jest.fn(),
       delete: jest.fn(),
-      query: jest.fn(async () => ({ affectedRows: 1 })),
+      createQueryBuilder: jest.fn(() => {
+        const qb = {
+          update: jest.fn(() => qb),
+          set: meterUpdate.set,
+          where: meterUpdate.where,
+          execute: jest.fn(async () => ({ affected: 1 })),
+        };
+        meterUpdate.set.mockReturnValue(qb);
+        meterUpdate.where.mockReturnValue(qb);
+        return qb;
+      }),
     };
     const dataSource = { transaction: jest.fn((cb) => cb(manager)), query: jest.fn() };
     linker = { link: jest.fn(async () => ({ issues: [], utilityIds: [812] })) };
@@ -264,11 +278,14 @@ describe('InvoiceApplier: matricola', () => {
       3,
       7,
     );
-    const [sql, params] = manager.query.mock.calls[0];
-    expect(sql).toMatch(
-      /UPDATE utilities SET meter_number = \?, updated_by_user_id = \? WHERE id = \? AND NOT \(meter_number <=> \?\)/,
-    );
-    expect(params).toEqual(['000000000000283767', 7, 812, '000000000000283767']);
+    expect(meterUpdate.set).toHaveBeenCalledWith({
+      meter_number: '000000000000283767',
+      updated_by_user_id: 7,
+    });
+    expect(meterUpdate.where.mock.calls[0][1]).toEqual({
+      utilityId: 812,
+      value: '000000000000283767',
+    });
     expect(manager.save).toHaveBeenCalledWith(
       AuditLog,
       expect.objectContaining({
@@ -303,7 +320,8 @@ describe('InvoiceApplier: matricola', () => {
       3,
       7,
     );
-    expect(manager.query.mock.calls[0][1]).toEqual(['285039', 7, 812, '285039']);
+    expect(meterUpdate.set).toHaveBeenCalledWith({ meter_number: '285039', updated_by_user_id: 7 });
+    expect(meterUpdate.where.mock.calls[0][1]).toEqual({ utilityId: 812, value: '285039' });
     expect(manager.save).toHaveBeenCalledWith(
       AuditLog,
       expect.objectContaining({

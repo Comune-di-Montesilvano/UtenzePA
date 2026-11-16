@@ -9,46 +9,14 @@ import {
 import { ImportIssueType } from './enum/import-issue-type.enum';
 import type { MatchIssue } from './invoice-matcher.service';
 import type { ExtractedReading } from './pattern/pattern-rules';
+import * as q from './consumption-linker.queries';
 
-interface OwnedRow {
-  id: number;
-  utility_id_fk: number;
-  period_start: string;
-  period_end: string;
-}
-
-// Il marcatore /* c_… */ identifica la query (anche nei test).
-const OWNED_SQL =
-  '/* c_owned */ SELECT id, utility_id_fk, period_start, period_end FROM utility_consumptions ' +
-  'WHERE id IN (?) AND deleted = 0';
-const ADOPT_SQL =
-  "/* c_adopt */ SELECT c.id FROM utility_consumptions c WHERE c.utility_id_fk = ? AND c.kind = 'PERIOD' " +
-  "AND c.source = 'INVOICE' AND c.deleted = 0 AND c.period_start = ? AND c.period_end = ? " +
-  'AND NOT EXISTS (SELECT 1 FROM invoice_lines l WHERE l.consumption_id_fk = c.id) ORDER BY c.id LIMIT 1';
-// Come il calcolo dei consumi: una stima non copre il dato reale della fattura.
-const OVERLAP_SQL =
-  "/* c_overlap */ SELECT c.id, c.period_start, c.period_end FROM utility_consumptions c WHERE c.utility_id_fk = ? AND c.kind = 'PERIOD' " +
-  'AND c.deleted = 0 AND c.is_estimated = 0 AND c.period_start <= ? AND c.period_end >= ? AND c.id NOT IN (?) ' +
-  'ORDER BY c.id LIMIT 1';
-const READING_SQL =
-  "/* c_reading */ SELECT id, invoice_id_fk, is_estimated FROM utility_consumptions WHERE utility_id_fk = ? AND kind = 'READING' " +
-  'AND deleted = 0 AND reading_date = ? ORDER BY id LIMIT 1';
 // Totalizzatori di fascia della lettura (null = monoraria: azzera quelli di una lettura precedente).
 const readingBands = (r: ExtractedReading) => ({
   consumption_f1: r.bands?.f1 ?? null,
   consumption_f2: r.bands?.f2 ?? null,
   consumption_f3: r.bands?.f3 ?? null,
 });
-
-// Lettura precedente dell'utenza (per data): una lettura nuova non può essere più bassa.
-const PREVIOUS_READING_SQL =
-  "/* c_prev_reading */ SELECT reading_value, reading_date, meter_number FROM utility_consumptions WHERE utility_id_fk = ? AND kind = 'READING' " +
-  'AND deleted = 0 AND reading_value IS NOT NULL AND reading_date < ? ORDER BY reading_date DESC, id DESC LIMIT 1';
-const OWN_READINGS_SQL =
-  "/* c_own_readings */ SELECT id, utility_id_fk FROM utility_consumptions WHERE invoice_id_fk = ? AND kind = 'READING' AND deleted = 0";
-const LINKED_SQL =
-  '/* c_linked */ SELECT DISTINCT c.id, c.utility_id_fk FROM invoice_lines l ' +
-  'JOIN utility_consumptions c ON c.id = l.consumption_id_fk WHERE l.invoice_id_fk = ?';
 
 const day = (value: unknown) =>
   value instanceof Date
@@ -87,9 +55,7 @@ export class ConsumptionLinker {
       where: { invoice_id_fk: invoiceId },
       order: { id: 'ASC' },
     });
-    const owned: OwnedRow[] = previousIds.length
-      ? await manager.query(OWNED_SQL, [previousIds])
-      : [];
+    const owned = previousIds.length ? await q.owned(manager, previousIds) : [];
     const utilityIds = new Set<number>(owned.map((o) => Number(o.utility_id_fk)));
     const used = new Set<number>();
     const issues: MatchIssue[] = [];
@@ -120,14 +86,13 @@ export class ConsumptionLinker {
             !used.has(o.id),
         )?.id ?? null;
       if (consumptionId === null) {
-        const [adoptable] = await manager.query(ADOPT_SQL, [utilityId, start, end]);
-        consumptionId = adoptable?.id ?? null;
+        consumptionId = await q.adoptable(manager, utilityId, start, end);
       }
       if (consumptionId === null) {
         // Le proprie rilevazioni non ancora riusate in questo giro non coprono; quelle riusate sì.
         const pending = previousIds.filter((id) => !used.has(id));
         const exclude = pending.length ? pending : [0];
-        const [covering] = await manager.query(OVERLAP_SQL, [utilityId, end, start, exclude]);
+        const covering = await q.covering(manager, utilityId, start, end, exclude);
         if (covering) {
           issues.push({
             type: ImportIssueType.PERIOD_COVERED,
@@ -197,15 +162,13 @@ export class ConsumptionLinker {
     readings: Map<number, ExtractedReading[]>,
     meters: Map<number, string>,
   ): Promise<{ utilityIds: number[]; issues: MatchIssue[] }> {
-    const own: { id: number; utility_id_fk: number }[] = await manager.query(OWN_READINGS_SQL, [
-      invoiceId,
-    ]);
+    const own = await q.ownReadings(manager, invoiceId);
     const utilityIds = new Set<number>(own.map((o) => Number(o.utility_id_fk)));
     const kept = new Set<number>();
     const issues: MatchIssue[] = [];
     for (const [utilityId, list] of readings) {
       for (const r of [...list].sort((a, b) => a.date.localeCompare(b.date))) {
-        const [previous] = await manager.query(PREVIOUS_READING_SQL, [utilityId, r.date]);
+        const previous = await q.previousReading(manager, utilityId, r.date);
         const meter = meters.get(utilityId);
         // Cambio contatore (matricola diversa): la lettura riparte, non è un errore.
         const sameMeter = !previous?.meter_number || !meter || previous.meter_number === meter;
@@ -219,7 +182,7 @@ export class ConsumptionLinker {
           });
           continue;
         }
-        const [existing] = await manager.query(READING_SQL, [utilityId, r.date]);
+        const existing = await q.readingOn(manager, utilityId, r.date);
         if (existing) {
           const mine = Number(existing.invoice_id_fk) === invoiceId;
           if (mine || (Number(existing.is_estimated) && !r.estimated)) {
@@ -306,9 +269,7 @@ export class ConsumptionLinker {
 
   // Fattura rifiutata: nessun effetto sui consumi.
   async unlink(manager: EntityManager, invoiceId: number): Promise<number[]> {
-    const rows: { id: number; utility_id_fk: number }[] = await manager.query(LINKED_SQL, [
-      invoiceId,
-    ]);
+    const rows = await q.linkedToLines(manager, invoiceId);
     if (rows.length) {
       await manager.update(
         UtilityConsumption,
@@ -317,10 +278,7 @@ export class ConsumptionLinker {
       );
     }
     await manager.update(InvoiceLine, { invoice_id_fk: invoiceId }, { consumption_id_fk: null });
-    const readings: { id: number; utility_id_fk: number }[] = await manager.query(
-      OWN_READINGS_SQL,
-      [invoiceId],
-    );
+    const readings = await q.ownReadings(manager, invoiceId);
     if (readings.length) {
       await manager.update(
         UtilityConsumption,
