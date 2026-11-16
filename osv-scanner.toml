@@ -1,0 +1,14 @@
+# Eccezioni di OSV-Scanner (lo usa la Scorecard OpenSSF, check «Vulnerabilities») per
+# advisory senza correzione applicabile, già chiusi come rischio accettato negli alert
+# Dependabot. Ogni voce scade: alla scadenza va rivalutata, non rinnovata alla cieca.
+# Copia in osv-scanner.toml alla radice del repo: tenerle uguali.
+
+[[IgnoredVulns]]
+id = "GHSA-8cw4-87c7-c6xx"
+ignoreUntil = 2027-05-16
+reason = "csv-parse < 7.0.2 via artillery 2.0.34 (test di carico lanciati a mano, solo dev). artillery importa l'export default rimosso in csv-parse 7: override impossibile. I test di carico non usano payload CSV. Rimuovere quando artillery passa a csv-parse >= 7.0.2."
+
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+ignoreUntil = 2027-05-16
+reason = "deepmerge 4.3.1 via jest-config e fork-ts-checker-webpack-plugin (solo dev), nessuna versione corretta. Unisce solo configurazioni del repo, mai input esterni. Rimuovere quando esce una correzione."
