@@ -12,6 +12,8 @@ import type { StatsLine } from './chapter-utility-stats';
 import {
   type AgreementForecast,
   agreementForecast,
+  annualCost,
+  chapterNeeds,
   consumptionTrend,
   dailySpend,
   expectedDayCost,
@@ -368,6 +370,19 @@ describe('agreementForecast', () => {
   it('caso base: fatturato reale, resto previsto, differenza sulla rimanenza', () => {
     const f = agreementForecast(base());
     expect(f.horizon).toEqual({ start: '2026-01-01', end: '2026-12-31' });
+    expect(f.billed_until).toBe('2026-01-31');
+    // Anno intero: 2025 tutto stimato (nessuna fattura), 2026 = gennaio fatturato
+    // + resto stimato, 2027 stimato anche se l'ordine scade a fine 2026.
+    expect(f.annual).toEqual([
+      { chapter_id: 7, year: 2025, utilities: 1, billed: 0, expected: 3650, coverage: 1 },
+      { chapter_id: 7, year: 2026, utilities: 1, billed: 310, expected: 3340, coverage: 1 },
+      { chapter_id: 7, year: 2027, utilities: 1, billed: 0, expected: 3650, coverage: 1 },
+    ]);
+    expect(f.utilities[0].annual).toEqual([
+      { year: 2025, billed: 0, expected: 3650 },
+      { year: 2026, billed: 310, expected: 3340 },
+      { year: 2027, billed: 0, expected: 3650 },
+    ]);
     expect(rowOf(f, 7, 2026)).toEqual({
       chapter_id: 7,
       year: 2026,
@@ -389,6 +404,11 @@ describe('agreementForecast', () => {
     expect(f.utilities[0].years).toEqual([
       { year: 2026, invoiced: 310, to_invoice: 3340, expected_consumption: 3340 },
     ]);
+  });
+
+  it('anno intero: niente spesa annua per le utenze con ordini già scaduti o chiusi', () => {
+    const f = agreementForecast(base({ orders: [order(1, '2025-01-01', '2025-12-31', [1])] }));
+    expect(f.annual).toEqual([]);
   });
 
   it('senza prezzo a mano usa il proposto', () => {
@@ -596,5 +616,159 @@ describe('agreementForecast', () => {
     expect(f.horizon).toBeNull();
     expect(f.warnings.orders_without_dates).toEqual([1]);
     expect(f.utilities).toEqual([]);
+  });
+});
+
+describe('annualCost', () => {
+  const today = toDay('2026-11-25');
+  const years = [2026, 2027];
+  const cost = () => 2;
+
+  it('fatture di qualunque contratto sui giorni dell’anno, il resto stimato, anche dopo la scadenza', () => {
+    const u = utility(1, {
+      lines: [line(181, '2026-01-01', '2026-06-30'), line(50, null, null, '2027-02-10')],
+    });
+    const [y26, y27] = annualCost(
+      [order(1, '2026-07-01', '2027-06-30', [1])],
+      u,
+      cost,
+      false,
+      today,
+      years,
+    );
+    expect(y26).toMatchObject({
+      year: 2026,
+      billed: 181,
+      expected: 184 * 2,
+      days: 365,
+      weakDays: 0,
+    });
+    // Riga senza periodo: nel fatturato del suo anno, non copre giorni.
+    expect(y27).toMatchObject({ year: 2027, billed: 50, expected: 365 * 2, days: 365 });
+  });
+
+  it('stima dalla sola spesa: giorni deboli', () => {
+    const [y] = annualCost(
+      [order(1, '2026-01-01', '2026-12-31', [1])],
+      utility(1),
+      cost,
+      true,
+      today,
+      [2026],
+    );
+    expect(y.weakDays).toBe(365);
+  });
+
+  it('cessazione: si ferma; ordine già scaduto o chiuso: nessuna spesa', () => {
+    const ceased = utility(1, {
+      events: [
+        event(1, SupplyEventType.ACTIVATION, '2020-01-01'),
+        event(2, SupplyEventType.CESSATION, '2027-03-31'),
+      ],
+    });
+    const [, y27] = annualCost(
+      [order(1, '2026-01-01', '2027-12-31', [1])],
+      ceased,
+      cost,
+      false,
+      today,
+      years,
+    );
+    expect(y27.days).toBe(90);
+    expect(
+      annualCost(
+        [order(1, '2025-01-01', '2026-06-30', [1])],
+        utility(1),
+        cost,
+        false,
+        today,
+        years,
+      ),
+    ).toEqual([]);
+    expect(
+      annualCost(
+        [{ ...order(1, '2026-01-01', '2027-06-30', [1]), closed: true }],
+        utility(1),
+        cost,
+        false,
+        today,
+        years,
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('chapterNeeds', () => {
+  const ann = (billed: number, expected: number) => [{ year: 2027, billed, expected }];
+  const share = (
+    agreement: number,
+    end: string,
+    utilities: { id: number; chapter_id: number | null; annual: ReturnType<typeof ann> }[],
+  ) => ({
+    agreement_id: agreement,
+    orders: [
+      order(
+        agreement * 10,
+        '2026-01-01',
+        end,
+        utilities.map((u) => u.id),
+      ),
+    ],
+    utilities,
+  });
+
+  it('somma le convenzioni sul capitolo, ogni utenza una volta nella convenzione che continua', () => {
+    const needs = chapterNeeds(
+      1,
+      [
+        // Utenza 1 passa dalla 1 (fino a giugno) alla 2 (fino a dicembre): conta nella 2.
+        share(1, '2027-06-30', [
+          { id: 1, chapter_id: 7, annual: ann(0, 100) },
+          { id: 2, chapter_id: 7, annual: ann(10, 20) },
+          { id: 5, chapter_id: null, annual: ann(0, 4) },
+        ]),
+        share(2, '2027-12-31', [
+          { id: 1, chapter_id: 7, annual: ann(0, 120) },
+          { id: 3, chapter_id: 7, annual: ann(0, 50) },
+          { id: 4, chapter_id: 9, annual: ann(0, 999) },
+          { id: 6, chapter_id: null, annual: ann(0, 8) },
+        ]),
+      ],
+      [7, null],
+    );
+    expect(needs).toEqual([
+      {
+        chapter_id: 7,
+        year: 2027,
+        utilities: 3,
+        billed: 10,
+        expected: 190,
+        own_utilities: 1,
+        own: 30,
+        agreements: [2],
+      },
+      {
+        chapter_id: null,
+        year: 2027,
+        utilities: 1,
+        billed: 0,
+        expected: 4,
+        own_utilities: 1,
+        own: 4,
+        agreements: [],
+      },
+    ]);
+  });
+
+  it('stesso totale da qualunque convenzione lo si guardi', () => {
+    const shares = [
+      share(1, '2027-12-31', [{ id: 1, chapter_id: 7, annual: ann(0, 10) }]),
+      share(2, '2027-12-31', [{ id: 1, chapter_id: 7, annual: ann(0, 99) }]),
+    ];
+    const a = chapterNeeds(1, shares, [7]);
+    const b = chapterNeeds(2, [...shares].reverse(), [7]);
+    expect(a[0].expected).toBe(10);
+    expect(b[0].expected).toBe(10);
+    expect(b[0].own).toBe(0);
   });
 });

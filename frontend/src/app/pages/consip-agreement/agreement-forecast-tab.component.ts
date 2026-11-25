@@ -1,34 +1,39 @@
 import {ChangeDetectionStrategy, Component, EventEmitter, inject, Input, OnChanges, Output} from '@angular/core';
 import {MatButtonModule} from '@angular/material/button';
+import {MatButtonToggleModule} from '@angular/material/button-toggle';
+import {MatCheckboxModule} from '@angular/material/checkbox';
 import {MatFormFieldModule} from '@angular/material/form-field';
 import {MatIconModule} from '@angular/material/icon';
 import {MatInputModule} from '@angular/material/input';
 import {MatTooltipModule} from '@angular/material/tooltip';
-import {keepOpen, SheetGroup, SheetGroupsComponent} from '../../core/components/entity-sheet/sheet-groups.component';
 import {toIsoDate} from '../../core/helpers/date.helper';
+import {downloadXlsx, XlsxCell} from '../../core/helpers/xlsx.helper';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {ToastService} from '../../core/services/toast.service';
 import {formatEuro} from '../budget-chapters/spending/budget-chapter-spending.service';
 import {HardType, HardTypeDescription} from '../utility-types/enum/hard-type.enum';
 import {
-  chapterLabelOf, forecastNotices, ForecastUtilityYear, PlanRow, PlanYear, planYears, SOURCE_LABEL, unitLabel, utilitiesOf,
+  chapterLabelOf, forecastNotices, MovePlan, RequestPlan, RequestRow, RequestUtility, requestPlan, requestUtilities,
+  simulateMoves, SOURCE_LABEL, unitLabel,
 } from './agreement-forecast.helpers';
-import type {AgreementForecast, ForecastPrice} from './agreement-forecast.model';
+import type {AgreementForecast, ForecastPrice, ForecastRow} from './agreement-forecast.model';
 import {ConsipAgreementService} from './consip-agreement.service';
 
-const CONSUMPTION_UNIT: Record<string, string> = {LIGHT: 'kWh', GAS: 'Smc'};
-
-// Tab «Fabbisogno» della convenzione: per capitolo ed esercizio (dal corrente
-// in poi) quanto resta da pagare, quanto resta sugli impegni e quanto chiedere
-// alla ragioneria di impegnare. Il calcolo è del backend
-// (GET /consip-agreement/:id/forecast); qui si mostra, si ricalcola e si
-// imposta il costo unitario a mano. La scheda carica il dato (le serve per il
-// badge) e lo passa qui.
+// Tab «Fabbisogno» della convenzione: quanti soldi chiedere alla ragioneria
+// per un esercizio, capitolo per capitolo. Per ogni capitolo la spesa
+// dell'anno prima (fatture arrivate + stima fino a fine anno), quanto servirà
+// nell'esercizio (stima dell'anno intero, come se la fornitura continuasse
+// anche dopo la scadenza degli ordini) e la differenza con lo stanziamento;
+// sotto, la simulazione degli spostamenti tra capitoli e il fabbisogno extra.
+// Il calcolo è del backend (GET /consip-agreement/:id/forecast); qui si
+// mostra, si ricalcola, si imposta il costo unitario a mano e si esporta in
+// Excel. La scheda carica il dato (le serve per il badge) e lo passa qui.
 @Component({
   selector: 'app-agreement-forecast-tab',
   standalone: true,
   imports: [
-    SheetGroupsComponent, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatTooltipModule,
+    MatButtonModule, MatButtonToggleModule, MatCheckboxModule, MatFormFieldModule, MatIconModule, MatInputModule,
+    MatTooltipModule,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
@@ -45,13 +50,16 @@ const CONSUMPTION_UNIT: Record<string, string> = {LIGHT: 'kWh', GAS: 'Smc'};
       } @else {
         <div class="fc-bar">
           <span class="fc-muted">Ultimo calcolo: {{ computedAt }}</span>
+          @if (billedUntil) {
+            <span class="fc-muted">Fatture arrivate fino al {{ billedUntil }}</span>
+          }
           @if (horizon) {
             <span class="fc-muted">Periodo degli ordini: {{ horizon }}</span>
           }
           <span class="fc-spacer"></span>
-          @if (groups.length) {
-            <button mat-stroked-button type="button" (click)="exportCsv()">
-              <mat-icon>download</mat-icon> Esporta
+          @if (plan) {
+            <button mat-stroked-button type="button" (click)="exportXlsx()">
+              <mat-icon>download</mat-icon> Esporta Excel
             </button>
           }
           <button mat-stroked-button type="button" [disabled]="busy" (click)="recompute()">
@@ -59,7 +67,7 @@ const CONSUMPTION_UNIT: Record<string, string> = {LIGHT: 'kWh', GAS: 'Smc'};
           </button>
         </div>
 
-        @if (!toForecast) {
+        @if (!plan) {
           <div class="fc-empty">
             <mat-icon>event_available</mat-icon>
             <div>
@@ -67,24 +75,52 @@ const CONSUMPTION_UNIT: Record<string, string> = {LIGHT: 'kWh', GAS: 'Smc'};
               @if (ordersRunning) {
                 <div class="fc-muted">
                   Gli ordini sono in corso, ma le loro fatture non hanno righe per utenza (canoni o servizi): il fabbisogno
-                  non si può stimare dalle utenze. Confronta il disponibile con i canoni ancora da pagare.
+                  non si può stimare dalle utenze.
                 </div>
-                @if (leftover) {
-                  <div class="fc-muted">Disponibile sugli impegni: {{ eur(leftover) }}.</div>
-                }
               } @else {
-                <div class="fc-muted">Gli ordini della convenzione sono chiusi o scaduti{{ leftover ? '.' : ': non serve impegnare altro.' }}</div>
-                @if (leftover) {
-                  <div class="fc-muted">Sugli impegni restano {{ eur(leftover) }} che a questa convenzione non servono più.</div>
-                }
+                <div class="fc-muted">Gli ordini della convenzione sono chiusi o scaduti: non serve chiedere altro.</div>
               }
             </div>
           </div>
         } @else {
+          <div class="fc-bar">
+            <mat-button-toggle-group [value]="year" (change)="setYear($event.value)" aria-label="Esercizio della richiesta"
+                                     hideSingleSelectionIndicator>
+              @for (y of years; track y) {
+                <mat-button-toggle [value]="y">Richiesta per il {{ y }}</mat-button-toggle>
+              }
+            </mat-button-toggle-group>
+          </div>
+
           <p class="fc-intro">
-            Per ogni capitolo: quanto resta da pagare fino alla fine degli ordini, quanto resta sugli impegni
-            e quanto chiedere alla ragioneria di <strong>impegnare</strong>.
+            Lo stanziamento è del capitolo: il fabbisogno comprende le utenze di tutte le convenzioni in corso sul capitolo,
+            ognuna una volta sola. Per ogni capitolo: quanto si spende nel {{ plan.year - 1 }} (fatture arrivate più la stima fino al 31 dicembre),
+            quanto servirà nel {{ plan.year }} (stima dell'anno intero, anche dopo la scadenza degli ordini, come se la
+            fornitura continuasse) e la <strong>differenza con lo stanziamento</strong>: quanto aggiungere o quanto avanza.
           </p>
+
+          <div class="fc-outcome" [class.fc-outcome--short]="plan.totals.increase > 0">
+            <mat-icon>{{ plan.totals.increase > 0 ? 'warning' : 'check_circle' }}</mat-icon>
+            <div>
+              <strong>
+                Per il {{ plan.year }} servono {{ eur(plan.totals.need) }}, stanziati {{ eur(plan.totals.budget) }}
+              </strong>
+              <div class="fc-sub">
+                @if (plan.totals.increase > 0) {
+                  Da aggiungere {{ eur(plan.totals.increase) }} su {{ chapters(plan.totals.increase_chapters) }}.
+                }
+                @if (plan.totals.decrease > 0) {
+                  Avanzano {{ eur(plan.totals.decrease) }} su {{ chapters(plan.totals.decrease_chapters) }}.
+                }
+                @if (plan.totals.increase > 0) {
+                  Dopo gli spostamenti: fabbisogno extra {{ eur(moves.extra) }}.
+                }
+                @if (plan.totals.without_budget) {
+                  {{ chapters(plan.totals.without_budget) }} senza stanziamento {{ plan.year }} caricato: caricalo nella scheda del capitolo.
+                }
+              </div>
+            </div>
+          </div>
 
           @if (notices.length) {
             <div class="fc-notices" role="note">
@@ -97,112 +133,184 @@ const CONSUMPTION_UNIT: Record<string, string> = {LIGHT: 'kWh', GAS: 'Smc'};
             </div>
           }
 
-          <app-sheet-groups [groups]="groups">
-            <ng-template let-rows let-group="group">
-              @if (planOf(group.key); as plan) {
-                <div class="fc-outcome" [class.fc-outcome--short]="plan.totals.to_commit > 0">
-                  <mat-icon>{{ plan.totals.to_commit > 0 ? 'warning' : 'check_circle' }}</mat-icon>
-                  @if (plan.totals.to_commit > 0) {
-                    <strong>{{ plan.totals.short_chapters }} {{ plan.totals.short_chapters === 1 ? 'capitolo' : 'capitoli' }} da integrare</strong>
-                  } @else {
-                    <strong>Gli impegni bastano</strong>
-                  }
-                  <span class="fc-muted">· da pagare ancora {{ eur(plan.totals.to_pay) }} · disponibile {{ eur(plan.totals.available) }}</span>
-                </div>
-                @if (rows.length) {
-                  <table class="sheet-table">
-                    <thead>
-                      <tr>
-                        <th>Capitolo</th>
-                        <th class="num" matTooltip="Quanto si prevede ancora di pagare fino alla fine degli ordini">Da pagare ancora</th>
-                        <th class="num" matTooltip="Impegnato meno quanto già speso dalle fatture">Disponibile sugli impegni</th>
-                        <th class="num">Da impegnare</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (r of rows; track r.chapter_id) {
-                        <tr class="row-clickable" tabindex="0" [attr.aria-expanded]="isOpen(r)"
-                            (click)="toggle(r)" (keydown.enter)="toggle(r)" (keydown.space)="$event.preventDefault(); toggle(r)">
-                          <td>
-                            <mat-icon class="fc-caret">{{ isOpen(r) ? 'expand_more' : 'chevron_right' }}</mat-icon>
-                            {{ chapterLabel(r.chapter_id) }}
-                            @if (r.uncertain) {
-                              <span class="fc-chip" matTooltip="Meno del 60 % della stima viene da fatture, consumi o presunto annuo">stima incerta</span>
-                            }
-                          </td>
-                          <td class="num">{{ eur(r.to_invoice) }}</td>
-                          <td class="num">{{ eur(r.remaining) }}</td>
-                          <td class="num">
-                            @if (r.to_commit > 0) {
-                              <strong class="fc-danger">{{ eur(r.to_commit) }}</strong>
-                            } @else if (r.surplus > 0) {
-                              <span class="fc-muted">avanzano {{ eur(r.surplus) }}</span>
-                            } @else {
-                              <span class="fc-muted">—</span>
-                            }
-                          </td>
-                        </tr>
-                        @if (isOpen(r)) {
-                          <tr class="fc-detail">
-                            <td colspan="4">
-                              <div class="fc-facts">
-                                <span>Impegnato <strong>{{ eur(r.committed) }}</strong></span>
-                                <span>Già speso sugli impegni <strong>{{ eur(r.spent) }}</strong></span>
-                                <span matTooltip="Righe di fattura sui giorni di fornitura di questo esercizio">Fatturato nell'anno <strong>{{ eur(r.invoiced) }}</strong></span>
-                                <span>Copertura della stima <strong>{{ percent(r.coverage) }}</strong></span>
-                              </div>
-                              @if (detail(r).length) {
-                                <table class="sheet-table fc-inner">
-                                  <thead>
-                                    <tr>
-                                      <th>Codice</th><th class="num">Consumo atteso</th><th class="num">Fatturato</th>
-                                      <th class="num">Da pagare ancora</th><th>Origine della stima</th><th></th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    @for (u of detail(r); track u.id) {
-                                      <tr class="row-clickable" tabindex="0" (click)="openUtility(u.id)" (keydown.enter)="openUtility(u.id)"
-                                          (keydown.space)="$event.preventDefault(); openUtility(u.id)">
-                                        <td>{{ u.utility_code || 'Utenza id ' + u.id }}</td>
-                                        <td class="num">{{ consumption(u) }}</td>
-                                        <td class="num">{{ eur(u.invoiced) }}</td>
-                                        <td class="num">{{ eur(u.to_invoice) }}</td>
-                                        <td>{{ sourceLabel[u.source] }}</td>
-                                        <td>
-                                          @if (u.from_draft) {
-                                            <span class="fc-chip">Bozza</span>
-                                          }
-                                        </td>
-                                      </tr>
-                                    }
-                                  </tbody>
-                                </table>
-                              } @else {
-                                <p class="fc-muted">Nessuna utenza della convenzione su questo capitolo nell'esercizio.</p>
-                              }
-                            </td>
-                          </tr>
+          <table class="sheet-table">
+            <thead>
+              <tr>
+                <th>Capitolo</th>
+                <th class="num" matTooltip="Assestato, altrimenti iniziale">Stanziato {{ plan.year - 1 }}</th>
+                <th class="num" matTooltip="Fatture arrivate più la stima dei giorni non ancora fatturati">Spesa {{ plan.year - 1 }}</th>
+                <th class="num" matTooltip="Assestato, altrimenti iniziale">Stanziato {{ plan.year }}</th>
+                <th class="num" matTooltip="Stima dell'anno intero">Serve nel {{ plan.year }}</th>
+                <th class="num" matTooltip="Serve meno stanziato: + da aggiungere, − avanza">Differenza</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of plan.rows; track r.chapter_id) {
+                <tr class="row-clickable" tabindex="0" [attr.aria-expanded]="isOpen(r)"
+                    (click)="toggle(r)" (keydown.enter)="toggle(r)" (keydown.space)="$event.preventDefault(); toggle(r)">
+                  <td>
+                    <mat-icon class="fc-caret">{{ isOpen(r) ? 'expand_more' : 'chevron_right' }}</mat-icon>
+                    {{ chapterLabel(r.chapter_id) }}
+                    @if (r.uncertain) {
+                      <span class="fc-chip" matTooltip="Meno del 60 % della stima viene da fatture, consumi o presunto annuo">stima incerta</span>
+                    }
+                    @if (r.agreements.length) {
+                      <span class="fc-chip fc-chip--info" [matTooltip]="'Comprende anche: ' + r.agreements.join('; ')">
+                        + {{ r.agreements.length === 1 ? '1 altra convenzione' : r.agreements.length + ' altre convenzioni' }}
+                      </span>
+                    }
+                    @if (r.other_utilities) {
+                      <span class="fc-chip" [matTooltip]="'Il capitolo paga anche ' + r.other_utilities + ' utenze attive fuori da questa convenzione: non sono nel calcolo'">
+                        + {{ r.other_utilities }} utenze fuori convenzione
+                      </span>
+                    }
+                  </td>
+                  <td class="num">{{ r.base_budget === null ? '—' : eur(r.base_budget) }}</td>
+                  <td class="num">{{ eur(r.base_total) }}</td>
+                  <td class="num">
+                    @if (r.budget === null) { <span class="fc-chip">non caricato</span> } @else { {{ eur(r.budget) }} }
+                  </td>
+                  <td class="num"><strong>{{ eur(r.need) }}</strong></td>
+                  <td class="num">
+                    @if (r.request === null) {
+                      <span class="fc-muted">—</span>
+                    } @else if (r.request > 0) {
+                      <strong class="fc-danger">+{{ eur(r.request) }}</strong>
+                    } @else if (r.request < 0) {
+                      <span class="fc-ok">−{{ eur(-r.request) }}</span>
+                    } @else {
+                      <span class="fc-muted">—</span>
+                    }
+                  </td>
+                </tr>
+                @if (isOpen(r)) {
+                  <tr class="fc-detail">
+                    <td colspan="6">
+                      <div class="fc-facts">
+                        <span>Spesa {{ plan.year - 1 }}: fatture arrivate <strong>{{ eur(r.base_billed) }}</strong></span>
+                        <span>stima del non ancora fatturato <strong>{{ eur(r.base_expected) }}</strong></span>
+                        <span>Utenze del capitolo <strong>{{ r.utilities }}</strong></span>
+                        @if (r.agreements.length) {
+                          <span>di cui questa convenzione <strong>{{ eur(r.own) }}</strong> ({{ r.own_utilities }} utenze),
+                            altre convenzioni <strong>{{ eur(r.need - r.own) }}</strong>: {{ r.agreements.join('; ') }}</span>
                         }
+                      </div>
+                      @if (commitments.get(r.chapter_id); as c) {
+                        <div class="fc-facts">
+                          <span>Impegni di questa convenzione nel {{ plan.year }}: impegnato <strong>{{ eur(c.committed) }}</strong></span>
+                          <span>rimanenza <strong>{{ eur(c.remaining) }}</strong></span>
+                          <span>da fatturare fino alla fine degli ordini <strong>{{ eur(c.to_invoice) }}</strong></span>
+                          @if (c.difference < 0) {
+                            <span class="fc-danger">da impegnare <strong>{{ eur(-c.difference) }}</strong></span>
+                          }
+                        </div>
                       }
-                    </tbody>
-                    <tfoot>
-                      <tr class="fc-totals">
-                        <td>Totale {{ plan.year }}</td>
-                        <td class="num">{{ eur(plan.totals.to_pay) }}</td>
-                        <td class="num">{{ eur(plan.totals.available) }}</td>
-                        <td class="num">{{ plan.totals.to_commit > 0 ? eur(plan.totals.to_commit) : '—' }}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                }
-                @if (plan.hidden) {
-                  <p class="fc-muted fc-hidden">
-                    {{ plan.hidden === 1 ? 'Un altro capitolo' : 'Altri ' + plan.hidden + ' capitoli' }} senza nulla da pagare né disponibile.
-                  </p>
+                      @if (r.agreements.length) {
+                        <div class="fc-title fc-small">Utenze di questa convenzione</div>
+                      }
+                      @if (detail(r).length) {
+                        <table class="sheet-table fc-inner">
+                          <thead>
+                            <tr>
+                              <th>Codice</th><th class="num">Fatture {{ plan.year - 1 }}</th><th class="num">Stima {{ plan.year - 1 }}</th>
+                              <th class="num">Serve nel {{ plan.year }}</th><th>Origine della stima</th><th></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (u of detail(r); track u.id) {
+                              <tr class="row-clickable" tabindex="0" (click)="openUtility(u.id)" (keydown.enter)="openUtility(u.id)"
+                                  (keydown.space)="$event.preventDefault(); openUtility(u.id)">
+                                <td>{{ u.utility_code || 'Utenza id ' + u.id }}</td>
+                                <td class="num">{{ eur(u.base_billed) }}</td>
+                                <td class="num">{{ eur(u.base_expected) }}</td>
+                                <td class="num">{{ eur(u.need) }}</td>
+                                <td>{{ sourceLabel[u.source] }}</td>
+                                <td>
+                                  @if (u.from_draft) {
+                                    <span class="fc-chip">Bozza</span>
+                                  }
+                                </td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                      } @else {
+                        <p class="fc-muted">Nessuna utenza della convenzione su questo capitolo.</p>
+                      }
+                    </td>
+                  </tr>
                 }
               }
-            </ng-template>
-          </app-sheet-groups>
+            </tbody>
+            <tfoot>
+              <tr class="fc-totals">
+                <td>Totale</td>
+                <td class="num">{{ eur(plan.totals.base_budget) }}</td>
+                <td class="num">{{ eur(plan.totals.base_total) }}</td>
+                <td class="num">{{ eur(plan.totals.budget) }}</td>
+                <td class="num">{{ eur(plan.totals.need) }}</td>
+                <td class="num">{{ signed(plan.totals.need - plan.totals.budget) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <section class="fc-sim" aria-label="Simulazione degli spostamenti">
+            <h3>Simulazione degli spostamenti tra capitoli</h3>
+            @if (!plan.totals.increase) {
+              <p class="fc-muted">Nessun capitolo da integrare: non serve spostare nulla.</p>
+            } @else {
+              <p class="fc-muted">
+                L'avanzo dei capitoli selezionati copre i capitoli da integrare, dal più grande. Togli la spunta ai capitoli
+                il cui avanzo serve ad altro (per esempio a utenze fuori convenzione).
+              </p>
+              <div class="fc-sim-grid">
+                <div>
+                  <div class="fc-title">Da dove togliere</div>
+                  @if (!donors.length) {
+                    <p class="fc-muted">Nessun capitolo con avanzo.</p>
+                  }
+                  @for (r of donors; track r.chapter_id) {
+                    <div class="fc-sim-row">
+                      <mat-checkbox [checked]="!excluded.has(r.chapter_id)" (change)="setDonor(r.chapter_id, $event.checked)">
+                        {{ chapterLabel(r.chapter_id) }}
+                      </mat-checkbox>
+                      <span class="num">avanza {{ eur(-(r.request ?? 0)) }} · tolti <strong>{{ eur(moves.taken.get(r.chapter_id) ?? 0) }}</strong></span>
+                    </div>
+                  }
+                </div>
+                <div>
+                  <div class="fc-title">Dove mettere</div>
+                  @for (r of takers; track r.chapter_id) {
+                    <div class="fc-sim-row">
+                      <span>{{ chapterLabel(r.chapter_id) }}</span>
+                      <span class="num">
+                        servono {{ eur(r.request ?? 0) }} · coperti <strong>{{ eur(moves.given.get(r.chapter_id) ?? 0) }}</strong>
+                        @if ((r.request ?? 0) - (moves.given.get(r.chapter_id) ?? 0) > 0.004) {
+                          · <span class="fc-danger">extra {{ eur((r.request ?? 0) - (moves.given.get(r.chapter_id) ?? 0)) }}</span>
+                        }
+                      </span>
+                    </div>
+                  }
+                </div>
+              </div>
+              @if (moves.moves.length) {
+                <table class="sheet-table fc-inner">
+                  <thead><tr><th>Da</th><th>A</th><th class="num">Importo</th></tr></thead>
+                  <tbody>
+                    @for (m of moves.moves; track $index) {
+                      <tr><td>{{ chapterLabel(m.from) }}</td><td>{{ chapterLabel(m.to) }}</td><td class="num">{{ eur(m.amount) }}</td></tr>
+                    }
+                  </tbody>
+                </table>
+              }
+              <div class="fc-sim-total" [class.fc-outcome--short]="moves.extra > 0">
+                <span>Da aggiungere <strong>{{ eur(plan.totals.increase) }}</strong></span>
+                <span>coperti con spostamenti <strong>{{ eur(plan.totals.increase - moves.extra) }}</strong></span>
+                <span>fabbisogno extra da finanziare <strong>{{ eur(moves.extra) }}</strong></span>
+                <span>avanzo che resta <strong>{{ eur(moves.leftover) }}</strong></span>
+              </div>
+            }
+          </section>
 
           @if (forecast.prices.length) {
             <div class="fc-cards">
@@ -242,13 +350,13 @@ const CONSUMPTION_UNIT: Record<string, string> = {LIGHT: 'kWh', GAS: 'Smc'};
     .fc-muted { color: var(--app-muted); margin: 0; font-size: 0.875rem; }
     .fc-intro { margin: 0; font-size: 0.875rem; }
     .fc-empty { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--app-border); border-radius: 6px; }
-    .fc-outcome { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 12px; margin-bottom: 8px; border-radius: 6px;
+    .fc-outcome { display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-radius: 6px;
       background: var(--tone-ok-bg); color: var(--tone-ok-fg); }
     .fc-outcome--short { background: var(--tone-danger-bg); color: var(--tone-danger-fg); }
-    .fc-outcome .fc-muted { color: inherit; opacity: 0.85; }
+    .fc-sub { font-size: 0.875rem; opacity: 0.9; margin-top: 2px; }
     .fc-cards { display: flex; gap: 1rem; flex-wrap: wrap; }
     .fc-card { flex: 1 1 280px; border: 1px solid var(--app-border); border-radius: 6px; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 6px; }
-    .fc-title { font-weight: 600; }
+    .fc-title { font-weight: 600; margin-bottom: 4px; }
     .fc-small { font-size: 0.875rem; }
     .fc-price { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .fc-price-field { width: 190px; }
@@ -258,12 +366,19 @@ const CONSUMPTION_UNIT: Record<string, string> = {LIGHT: 'kWh', GAS: 'Smc'};
     .sheet-table th.num { text-align: right; }
     .fc-caret { font-size: 18px; width: 18px; height: 18px; vertical-align: text-bottom; }
     .fc-danger { color: var(--tone-danger-fg); }
+    .fc-ok { color: var(--tone-ok-fg); }
+    .fc-chip--info { background: var(--tone-info-bg); color: var(--tone-info-fg); }
     .fc-chip { font-size: 0.75rem; padding: 1px 8px; border-radius: 10px; background: var(--tone-warn-bg); color: var(--tone-warn-fg); margin-left: 6px; white-space: nowrap; }
     .fc-detail > td { padding: 8px 0 8px 28px; background: var(--app-surface-2); }
     .fc-facts { display: flex; gap: 1.25rem; flex-wrap: wrap; font-size: 0.8125rem; margin-bottom: 8px; }
     .fc-inner { font-size: 0.8125rem; }
     .fc-totals td { font-weight: 600; border-bottom: 0; }
-    .fc-hidden { margin-top: 6px; }
+    .fc-sim { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--app-border); border-radius: 6px; padding: 12px; }
+    .fc-sim h3 { margin: 0; font-size: 1rem; }
+    .fc-sim-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; }
+    .fc-sim-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 0.875rem; padding: 2px 0; }
+    .fc-sim-total { display: flex; gap: 1.25rem; flex-wrap: wrap; padding: 8px 12px; border-radius: 6px; font-size: 0.875rem;
+      background: var(--tone-ok-bg); color: var(--tone-ok-fg); }
   `],
 })
 export class AgreementForecastTabComponent implements OnChanges {
@@ -282,20 +397,26 @@ export class AgreementForecastTabComponent implements OnChanges {
   readonly eur = formatEuro;
 
   busy = false;
-  // Campi cache, ricostruiti a ogni nuovo fabbisogno.
-  groups: SheetGroup<PlanRow>[] = [];
+  // Esercizi per cui si può fare la richiesta: in corso e successivo (di
+  // partenza il successivo, quello da chiedere alla ragioneria).
+  years: number[] = [];
+  year = new Date().getFullYear() + 1;
+  // Capitoli con avanzo da non usare negli spostamenti.
+  excluded = new Set<number | null>();
+  // Campi cache, ricostruiti a ogni nuovo fabbisogno, esercizio o spunta.
+  plan: RequestPlan | null = null;
+  moves: MovePlan = {moves: [], taken: new Map(), given: new Map(), extra: 0, leftover: 0};
+  donors: RequestRow[] = [];
+  takers: RequestRow[] = [];
   notices: string[] = [];
   computedAt = '';
   horizon = '';
-  // Qualcosa da pagare dall'esercizio in corso in poi.
-  toForecast = false;
-  // Disponibile sugli impegni quando non resta nulla da pagare.
-  leftover = 0;
-  // Ordini con date che arrivano almeno a oggi: nulla da pagare vuol dire
-  // fatture senza righe per utenza, non ordini finiti.
+  billedUntil = '';
+  // Ordini con date che arrivano almeno a oggi.
   ordersRunning = false;
-  private plans = new Map<string, PlanYear>();
-  private open = new Map<string, ForecastUtilityYear[]>();
+  // Impegni della convenzione sull'esercizio scelto, per capitolo.
+  commitments = new Map<number | null, ForecastRow>();
+  private open = new Map<number | null, RequestUtility[]>();
   // Fabbisogno già disegnato: la scheda ripassa quello appena ricalcolato
   // da qui, che non va ricostruito una seconda volta.
   private built: AgreementForecast | null | undefined;
@@ -304,43 +425,50 @@ export class AgreementForecastTabComponent implements OnChanges {
     if (this.forecast !== this.built) this.rebuild();
   }
 
+  setYear(year: number): void {
+    this.year = year;
+    this.excluded.clear();
+    this.rebuild();
+  }
+
+  setDonor(chapterId: number | null, use: boolean): void {
+    if (use) this.excluded.delete(chapterId);
+    else this.excluded.add(chapterId);
+    this.simulate();
+  }
+
   private rebuild(): void {
     const f = this.forecast;
     this.built = f;
-    this.plans.clear();
     if (!f) {
       this.open.clear();
-      this.groups = [];
+      this.plan = null;
       this.notices = [];
-      this.toForecast = false;
       return;
     }
     const currentYear = new Date().getFullYear();
-    // I dettagli aperti restano aperti, con le utenze del nuovo calcolo.
-    for (const key of [...this.open.keys()]) {
-      const [year, chapter] = key.split(':');
-      const chapterId = chapter === 'null' ? null : Number(chapter);
-      if (f.rows.some(r => r.year === Number(year) && r.chapter_id === chapterId)) {
-        this.open.set(key, utilitiesOf(f.utilities, chapterId, Number(year)));
-      } else {
-        this.open.delete(key);
-      }
-    }
+    this.years = [currentYear, currentYear + 1].filter(y => f.annual.some(a => a.year === y));
+    if (!this.years.includes(this.year)) this.year = this.years[this.years.length - 1] ?? currentYear + 1;
     this.computedAt = new Date(f.computed_at).toLocaleString('it-IT', {dateStyle: 'short', timeStyle: 'short'});
     this.horizon = f.horizon ? `${this.dateIt(f.horizon.start)} – ${this.dateIt(f.horizon.end)}` : '';
-    const years = planYears(f.rows, currentYear);
-    years.forEach(y => this.plans.set(String(y.year), y));
-    this.toForecast = years.some(y => y.totals.to_pay > 0);
-    this.leftover = years.reduce((s, y) => s + y.totals.available, 0);
+    this.billedUntil = f.billed_until ? this.dateIt(f.billed_until) : '';
     this.ordersRunning = !!f.horizon && f.horizon.end >= toIsoDate(new Date());
-    this.groups = keepOpen(years.map(y => ({
-      key: String(y.year),
-      label: String(y.year),
-      rows: y.rows,
-      summary: y.totals.to_commit > 0 ? `Da impegnare ${formatEuro(y.totals.to_commit)}` : 'Impegni sufficienti',
-      open: y.open,
-    })), this.groups);
+    this.plan = this.years.length ? requestPlan(f, this.year) : null;
+    this.commitments = new Map(f.rows.filter(r => r.year === this.year).map(r => [r.chapter_id, r]));
+    // I dettagli aperti restano aperti, con le utenze del nuovo calcolo.
+    for (const chapter of [...this.open.keys()]) {
+      if (this.plan?.rows.some(r => r.chapter_id === chapter)) this.open.set(chapter, requestUtilities(f.utilities, chapter, this.year));
+      else this.open.delete(chapter);
+    }
     this.notices = forecastNotices(f, currentYear);
+    this.simulate();
+  }
+
+  private simulate(): void {
+    const rows = this.plan?.rows ?? [];
+    this.donors = rows.filter(r => (r.request ?? 0) < 0);
+    this.takers = rows.filter(r => (r.request ?? 0) > 0);
+    this.moves = simulateMoves(rows, this.excluded);
   }
 
   private dateIt(iso: string): string {
@@ -348,26 +476,27 @@ export class AgreementForecastTabComponent implements OnChanges {
     return new Date(y, m - 1, d).toLocaleDateString('it-IT');
   }
 
-  private key(r: PlanRow): string {
-    return `${r.year}:${r.chapter_id}`;
+  chapters(n: number): string {
+    return n === 1 ? '1 capitolo' : `${n} capitoli`;
   }
 
-  planOf(key: string): PlanYear | null {
-    return this.plans.get(key) ?? null;
+  signed(value: number): string {
+    const v = Math.round(value * 100) / 100;
+    if (v === 0) return formatEuro(0);
+    return `${v > 0 ? '+' : '−'}${formatEuro(Math.abs(v))}`;
   }
 
-  isOpen(r: PlanRow): boolean {
-    return this.open.has(this.key(r));
+  isOpen(r: RequestRow): boolean {
+    return this.open.has(r.chapter_id);
   }
 
-  detail(r: PlanRow): ForecastUtilityYear[] {
-    return this.open.get(this.key(r)) ?? [];
+  detail(r: RequestRow): RequestUtility[] {
+    return this.open.get(r.chapter_id) ?? [];
   }
 
-  toggle(r: PlanRow): void {
-    const key = this.key(r);
-    if (this.open.has(key)) this.open.delete(key);
-    else this.open.set(key, utilitiesOf(this.forecast?.utilities ?? [], r.chapter_id, r.year));
+  toggle(r: RequestRow): void {
+    if (this.open.has(r.chapter_id)) this.open.delete(r.chapter_id);
+    else this.open.set(r.chapter_id, requestUtilities(this.forecast?.utilities ?? [], r.chapter_id, this.year));
   }
 
   chapterLabel(id: number | null): string {
@@ -390,16 +519,6 @@ export class AgreementForecastTabComponent implements OnChanges {
   trend(value: number): string {
     const pct = Math.round((value - 1) * 100);
     return `${pct > 0 ? '+' : pct < 0 ? '−' : ''}${Math.abs(pct)} %`;
-  }
-
-  percent(value: number): string {
-    return `${Math.round(value * 100)} %`;
-  }
-
-  consumption(u: ForecastUtilityYear): string {
-    if (u.expected_consumption === null) return '—';
-    const unit = CONSUMPTION_UNIT[u.hard_type ?? ''] ?? '';
-    return `${u.expected_consumption.toLocaleString('it-IT', {maximumFractionDigits: 0})} ${unit}`.trim();
   }
 
   recompute(): void {
@@ -445,26 +564,47 @@ export class AgreementForecastTabComponent implements OnChanges {
     });
   }
 
-  // Esporta il piano mostrato (esercizio in corso e successivi), capitoli a
-  // zero compresi.
-  exportCsv(): void {
+  // Excel con tre fogli: richiesta per capitolo, spostamenti simulati (con le
+  // spunte attuali) e utenze.
+  exportXlsx(): void {
     const f = this.forecast;
-    if (!f) return;
-    const n = (v: number): string => v.toLocaleString('it-IT', {minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false});
-    const header = ['Esercizio', 'Capitolo', 'Da pagare ancora', 'Disponibile sugli impegni', 'Da impegnare', 'Avanzo',
-      'Impegnato', 'Già speso sugli impegni', "Fatturato nell'anno", 'Copertura', 'Stima incerta'];
-    const rows = [...this.plans.values()].flatMap(y => y.rows).map(r => [
-      r.year, this.chapterLabel(r.chapter_id), n(r.to_invoice), n(r.remaining), n(r.to_commit), n(r.surplus),
-      n(r.committed), n(r.spent), n(r.invoiced), this.percent(r.coverage), r.uncertain ? 'sì' : '',
+    const plan = this.plan;
+    if (!f || !plan) return;
+    const y = plan.year;
+    const c = (v: number | null): XlsxCell => (v === null ? null : Math.round(v * 100) / 100);
+    const request: XlsxCell[][] = [
+      ['Capitolo', 'Utenze del capitolo', `Stanziato ${y - 1}`, `Fatture ${y - 1}`, `Stima non fatturato ${y - 1}`,
+        `Spesa ${y - 1}`, `Stanziato ${y}`, `Serve nel ${y}`, 'Differenza (+ da aggiungere, − avanza)',
+        `Di cui questa convenzione ${y}`, 'Altre convenzioni', 'Stima incerta', 'Utenze attive fuori convenzione'],
+      ...plan.rows.map(r => [
+        this.chapterLabel(r.chapter_id), r.utilities, c(r.base_budget), c(r.base_billed), c(r.base_expected), c(r.base_total),
+        c(r.budget), c(r.need), c(r.request), c(r.own), r.agreements.join('; '), r.uncertain ? 'sì' : '',
+        r.other_utilities || null,
+      ]),
+      ['Totale', null, c(plan.totals.base_budget), null, null, c(plan.totals.base_total), c(plan.totals.budget),
+        c(plan.totals.need), c(plan.totals.need - plan.totals.budget), null, null, null, null],
+    ];
+    const moves: XlsxCell[][] = [
+      ['Da capitolo', 'A capitolo', 'Importo'],
+      ...this.moves.moves.map(m => [this.chapterLabel(m.from), this.chapterLabel(m.to), c(m.amount)]),
+      [],
+      ['Da aggiungere', null, c(plan.totals.increase)],
+      ['Coperti con spostamenti', null, c(plan.totals.increase - this.moves.extra)],
+      ['Fabbisogno extra da finanziare', null, c(this.moves.extra)],
+      ['Avanzo che resta', null, c(this.moves.leftover)],
+      ...[...this.excluded].map(id => [`Avanzo non usato: ${this.chapterLabel(id)}`, null, null]),
+    ];
+    const utilities: XlsxCell[][] = [
+      ['Capitolo', 'Codice', `Fatture ${y - 1}`, `Stima non fatturato ${y - 1}`, `Serve nel ${y}`, 'Origine della stima'],
+      ...plan.rows.flatMap(r => requestUtilities(f.utilities, r.chapter_id, y).map(u => [
+        this.chapterLabel(r.chapter_id), u.utility_code ?? `id ${u.id}`, c(u.base_billed), c(u.base_expected), c(u.need),
+        SOURCE_LABEL[u.source],
+      ])),
+    ];
+    downloadXlsx(`fabbisogno_${y}_convenzione_${this.agreementId}_${new Date().toLocaleDateString('sv-SE')}.xlsx`, [
+      {name: `Richiesta ${y}`, rows: request, widths: [60, 12, 16, 16, 16, 16, 16, 16, 20, 18, 40, 10, 14]},
+      {name: 'Spostamenti', rows: moves, widths: [60, 60, 16]},
+      {name: 'Utenze', rows: utilities, widths: [60, 20, 16, 16, 16, 24]},
     ]);
-    const csv = '﻿' + [header, ...rows]
-      .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))
-      .join('\r\n');
-    const url = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8;'}));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `fabbisogno_convenzione_${this.agreementId}_${new Date().toLocaleDateString('sv-SE')}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
   }
 }

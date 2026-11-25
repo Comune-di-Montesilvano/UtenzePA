@@ -1,52 +1,92 @@
-import {differenceTone, forecastNotices, planYears, SOURCE_LABEL, unitLabel, utilitiesOf} from './agreement-forecast.helpers';
-import type {AgreementForecast, ForecastRow, ForecastUtilityRow} from './agreement-forecast.model';
+import {
+  forecastNotices, requestPlan, requestUtilities, simulateMoves, SOURCE_LABEL, unitLabel,
+} from './agreement-forecast.helpers';
+import type {AgreementForecast, AnnualRow, ForecastUtilityRow} from './agreement-forecast.model';
 
-const row = (over: Partial<ForecastRow>): ForecastRow => ({
-  chapter_id: 7, year: 2026, utilities: 1, invoiced: 0, to_invoice: 0, total: 0, committed: 0, remaining: 0,
-  difference: 0, coverage: 1, shortfall: null, alert: null, ...over,
+const annual = (over: Partial<AnnualRow>): AnnualRow => ({
+  chapter_id: 7, year: 2027, utilities: 1, billed: 0, expected: 0, coverage: 1, ...over,
 });
 
-describe('planYears', () => {
-  const rows = [
-    row({chapter_id: 7, year: 2026, invoiced: 100, to_invoice: 500, committed: 400, remaining: 120, coverage: 0.9}),
-    row({chapter_id: 8, year: 2026, to_invoice: 50, committed: 300, remaining: 200, coverage: 0.4}),
-    row({chapter_id: 9, year: 2026, to_invoice: 0, committed: 0, remaining: 0}),
-    row({chapter_id: 7, year: 2027, to_invoice: 900, remaining: 0}),
-    row({chapter_id: 7, year: 2025, invoiced: 80, committed: 80}),
-  ];
+const forecastWith = (over: Partial<AgreementForecast>): AgreementForecast => ({
+  horizon: null, billed_until: null, annual: [], prices: [], rows: [], utilities: [],
+  warnings: {orders_without_dates: [], utilities_without_data: [], utilities_other_type: [], commitments_without_amount: []},
+  computed_at: '2026-11-12T10:00:00.000Z', chapters: [], shared_commitments: [], shares_without_lines: [],
+  budgets: [], chapter_other_utilities: [], chapter_needs: [], agreements: [], ...over,
+});
 
-  it('solo esercizio in corso e successivi, dal più vicino; aperto quello in corso', () => {
-    const years = planYears(rows, 2026);
-    expect(years.map(y => y.year)).toEqual([2026, 2027]);
-    expect(years.map(y => y.open)).toEqual([true, false]);
+describe('requestPlan', () => {
+  // Capitolo 7: stanziati 30 nel 2027, spesi 45 nel 2026 → servono 48: +18.
+  // Capitolo 8: stanziati 100, servono 60: avanzano 40. Capitolo 9: nessuno stanziamento.
+  const f = forecastWith({
+    annual: [
+      annual({chapter_id: 7, year: 2026, billed: 40, expected: 5}),
+      annual({chapter_id: 7, year: 2027, expected: 48}),
+      annual({chapter_id: 8, year: 2027, expected: 60, coverage: 0.4}),
+      annual({chapter_id: 9, year: 2027, expected: 10}),
+      annual({chapter_id: 7, year: 2025, billed: 999}),
+    ],
+    budgets: [
+      {chapter_id: 7, year: 2026, budget: 35},
+      {chapter_id: 7, year: 2027, budget: 30},
+      {chapter_id: 8, year: 2027, budget: 100},
+      {chapter_id: 9, year: 2027, budget: null},
+    ],
+    chapter_other_utilities: [{chapter_id: 8, count: 2}],
   });
 
-  it('per capitolo: da impegnare o avanzo, già speso, stima incerta sotto il 60 %', () => {
-    const [y] = planYears(rows, 2026);
-    expect(y.rows.map(r => [r.chapter_id, r.to_commit, r.surplus, r.spent, r.uncertain])).toEqual([
-      [7, 380, 0, 280, false],
-      [8, 0, 150, 100, true],
+  it('per capitolo: spesa dell’anno prima, serve nell’esercizio, differenza con lo stanziamento', () => {
+    const plan = requestPlan(f, 2027);
+    expect(plan.rows.map(r => [r.chapter_id, r.base_budget, r.base_total, r.budget, r.need, r.request, r.uncertain, r.other_utilities]))
+      .toEqual([
+        [7, 35, 45, 30, 48, 18, false, 0],
+        [8, null, 0, 100, 60, -40, true, 2],
+        [9, null, 0, null, 10, null, false, 0],
+      ]);
+    expect(plan.rows[0]).toMatchObject({own: 48, own_utilities: 1, agreements: []});
+    expect(plan.totals).toEqual({
+      base_budget: 35, base_total: 45, budget: 130, need: 118, increase: 18, increase_chapters: 1,
+      decrease: 40, decrease_chapters: 1, without_budget: 1,
+    });
+  });
+});
+
+describe('requestPlan con più convenzioni sul capitolo', () => {
+  it('serve = tutto il capitolo (chapter_needs), quota di questa convenzione e nomi delle altre', () => {
+    const f = forecastWith({
+      annual: [annual({chapter_id: 7, year: 2027, expected: 48, coverage: 0.9})],
+      chapter_needs: [
+        {chapter_id: 7, year: 2027, utilities: 5, billed: 0, expected: 80, own_utilities: 1, own: 48, agreements: [5]},
+      ],
+      agreements: [{id: 5, label: 'Gas naturale 16'}],
+      budgets: [{chapter_id: 7, year: 2027, budget: 70}],
+    });
+    expect(requestPlan(f, 2027).rows[0]).toMatchObject({
+      need: 80, request: 10, own: 48, own_utilities: 1, utilities: 5, agreements: ['Gas naturale 16'], uncertain: false,
+    });
+  });
+});
+
+describe('simulateMoves', () => {
+  const plan = (requests: [number, number | null][]) =>
+    requests.map(([chapter, request]) => ({chapter_id: chapter, request}) as never);
+
+  it('l’avanzo più grande copre la mancanza più grande; il resto è fabbisogno extra', () => {
+    const m = simulateMoves(plan([[1, 50], [2, 20], [3, -30], [4, -10], [5, null]]), new Set());
+    expect(m.moves).toEqual([
+      {from: 3, to: 1, amount: 30},
+      {from: 4, to: 1, amount: 10},
     ]);
+    expect(m.extra).toBe(30);
+    expect(m.leftover).toBe(0);
+    expect(m.taken.get(3)).toBe(30);
+    expect(m.given.get(1)).toBe(40);
   });
 
-  it('capitoli senza nulla da pagare né disponibile: nascosti e contati', () => {
-    expect(planYears(rows, 2026)[0].hidden).toBe(1);
-  });
-
-  it('totali dell’anno: da impegnare sommato solo sui capitoli che mancano', () => {
-    expect(planYears(rows, 2026)[0].totals).toEqual({to_pay: 550, available: 320, to_commit: 380, short_chapters: 1});
-  });
-
-  it('nessun esercizio da oggi in poi: nessun gruppo', () => {
-    expect(planYears(rows.filter(r => r.year < 2026), 2026)).toEqual([]);
-  });
-});
-
-describe('differenceTone', () => {
-  it('danger con ammanco, warning con dati insufficienti, altrimenti niente', () => {
-    expect(differenceTone(row({alert: 'short'}))).toBe('danger');
-    expect(differenceTone(row({alert: 'insufficient_data'}))).toBe('warning');
-    expect(differenceTone(row({difference: -10}))).toBeNull();
+  it('capitolo escluso: il suo avanzo non si usa; avanzo che resta', () => {
+    const m = simulateMoves(plan([[1, 5], [3, -30], [4, -10]]), new Set([3]));
+    expect(m.moves).toEqual([{from: 4, to: 1, amount: 5}]);
+    expect(m.extra).toBe(0);
+    expect(m.leftover).toBe(5);
   });
 });
 
@@ -69,41 +109,36 @@ describe('SOURCE_LABEL', () => {
   });
 });
 
-describe('utilitiesOf', () => {
+describe('requestUtilities', () => {
   const utility = (over: Partial<ForecastUtilityRow>): ForecastUtilityRow => ({
     id: 1, utility_code: 'IT001', hard_type: 'LIGHT', chapter_id: 7, source: 'history', from_draft: false,
-    lines_without_period: false, years: [], ...over,
+    lines_without_period: false, years: [], annual: [], ...over,
   });
 
-  it('utenze del capitolo con dati nell’esercizio, per codice', () => {
+  it('utenze del capitolo con spesa dell’anno prima e fabbisogno, dalla più cara', () => {
     const list = [
-      utility({id: 1, utility_code: 'IT002', years: [{year: 2026, invoiced: 10, to_invoice: 5, expected_consumption: 20}]}),
-      utility({id: 2, utility_code: 'IT001', from_draft: true, source: 'annual', years: [{year: 2026, invoiced: 0, to_invoice: 7, expected_consumption: null}]}),
-      utility({id: 3, chapter_id: 8, years: [{year: 2026, invoiced: 1, to_invoice: 1, expected_consumption: 1}]}),
-      utility({id: 4, years: [{year: 2027, invoiced: 0, to_invoice: 9, expected_consumption: 3}]}),
+      utility({id: 1, annual: [{year: 2026, billed: 10, expected: 2}, {year: 2027, billed: 0, expected: 15}]}),
+      utility({id: 2, source: 'annual', from_draft: true, annual: [{year: 2027, billed: 0, expected: 30}]}),
+      utility({id: 3, chapter_id: 8, annual: [{year: 2027, billed: 0, expected: 99}]}),
+      utility({id: 4, annual: []}),
     ];
-    expect(utilitiesOf(list, 7, 2026)).toEqual([
-      {id: 2, utility_code: 'IT001', hard_type: 'LIGHT', source: 'annual', from_draft: true, invoiced: 0, to_invoice: 7, expected_consumption: null},
-      {id: 1, utility_code: 'IT002', hard_type: 'LIGHT', source: 'history', from_draft: false, invoiced: 10, to_invoice: 5, expected_consumption: 20},
+    expect(requestUtilities(list, 7, 2027)).toEqual([
+      {id: 2, utility_code: 'IT001', source: 'annual', from_draft: true, base_billed: 0, base_expected: 0, need: 30},
+      {id: 1, utility_code: 'IT001', source: 'history', from_draft: false, base_billed: 10, base_expected: 2, need: 15},
     ]);
-  });
-
-  it('capitolo null = utenze senza capitolo', () => {
-    const list = [utility({id: 5, chapter_id: null, years: [{year: 2026, invoiced: 0, to_invoice: 1, expected_consumption: null}]})];
-    expect(utilitiesOf(list, null, 2026).map(u => u.id)).toEqual([5]);
   });
 });
 
 describe('forecastNotices', () => {
   const u = (id: number, over: Partial<ForecastUtilityRow> = {}): ForecastUtilityRow => ({
     id, utility_code: `IT00${id}`, hard_type: 'LIGHT', chapter_id: 7, source: 'history', from_draft: false,
-    lines_without_period: false, years: [], ...over,
+    lines_without_period: false, years: [], annual: [], ...over,
   });
   const forecast = (over: Partial<AgreementForecast> = {}): AgreementForecast => ({
-    horizon: null, prices: [], rows: [], utilities: [],
+    horizon: null, billed_until: null, annual: [], prices: [], rows: [], utilities: [],
     warnings: {orders_without_dates: [], utilities_without_data: [], utilities_other_type: [], commitments_without_amount: []},
     computed_at: '2026-11-12T10:00:00.000Z', chapters: [{id: 7, label: '1234/0 — Luce scuole'}],
-    shared_commitments: [], shares_without_lines: [], ...over,
+    shared_commitments: [], shares_without_lines: [], budgets: [], chapter_other_utilities: [], chapter_needs: [], agreements: [], ...over,
   });
 
   it('niente da segnalare: nessun avviso', () => {

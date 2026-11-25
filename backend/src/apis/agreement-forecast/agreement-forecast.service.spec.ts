@@ -148,6 +148,51 @@ describe('AgreementForecastService', () => {
     expect(result.computed_at).toBe((inserted[0].computed_at as Date).toISOString());
   });
 
+  it('compute: stanziamenti per la spesa annua, mancante = null; utenze fuori convenzione', async () => {
+    answers.set('chapterBudgets', [{ chapter_id: 7, year: 2026, budget: '5000.00' }]);
+    answers.set('chapterOtherUtilities', [{ chapter_id: 7, count: '3' }]);
+    const result = await service.compute(3);
+    expect(readers.chapterBudgets).toHaveBeenCalledWith(expect.anything(), [7], [2025, 2026, 2027]);
+    expect(readers.chapterOtherUtilities).toHaveBeenCalledWith(expect.anything(), [7], [11]);
+    expect(result.budgets).toEqual([
+      { chapter_id: 7, year: 2025, budget: null },
+      { chapter_id: 7, year: 2026, budget: 5000 },
+      { chapter_id: 7, year: 2027, budget: null },
+    ]);
+    expect(result.chapter_other_utilities).toEqual([{ chapter_id: 7, count: 3 }]);
+  });
+
+  it('compute: fabbisogno del capitolo con le altre convenzioni attive, ognuna caricata', async () => {
+    answers.set('agreementsOnChapters', [5]);
+    answers.set('agreementNames', [{ id: 5, name: 'Convenzione Gas' }]);
+    const result = await service.compute(3);
+    expect(readers.agreementsOnChapters).toHaveBeenCalledWith(
+      expect.anything(),
+      [7],
+      3,
+      '2026-02-15',
+    );
+    // La convenzione 5 legge gli stessi dati finti: utenza 11 contata una volta,
+    // nella convenzione con l'id più basso a pari scadenza.
+    expect(readers.orders).toHaveBeenCalledWith(expect.anything(), 5);
+    const need2027 = result.chapter_needs.find((n) => n.year === 2027);
+    expect(need2027).toMatchObject({
+      chapter_id: 7,
+      utilities: 1,
+      own_utilities: 1,
+      agreements: [],
+    });
+    expect(result.agreements).toEqual([]);
+  });
+
+  it('cacheOnly: solo la cache, nessuna convenzione in più', async () => {
+    readers.agreementsOnChapters.mockClear();
+    const result = await service.compute(3, { cacheOnly: true });
+    expect(manager.insert).toHaveBeenCalled();
+    expect(readers.agreementsOnChapters).not.toHaveBeenCalled();
+    expect(result.chapter_needs).toEqual([]);
+  });
+
   it('compute: convenzione senza righe non inserisce nulla ma svuota la cache', async () => {
     answers.set('orders', []);
     answers.set('orderUtilities', []);
@@ -201,15 +246,15 @@ describe('AgreementForecastService', () => {
       .mockResolvedValueOnce({} as never);
     await service.refreshAgreements([1, 2, 2]);
     expect(compute).toHaveBeenCalledTimes(2);
-    expect(compute).toHaveBeenNthCalledWith(1, 1);
-    expect(compute).toHaveBeenNthCalledWith(2, 2);
+    expect(compute).toHaveBeenNthCalledWith(1, 1, { cacheOnly: true });
+    expect(compute).toHaveBeenNthCalledWith(2, 2, { cacheOnly: true });
   });
 
   it('refreshForContracts: risolve le convenzioni dei contratti; nessuna = nessun calcolo', async () => {
     const compute = jest.spyOn(service, 'compute').mockResolvedValue({} as never);
     answers.set('agreementIdsOfContracts', [3]);
     await service.refreshForContracts([1, 2]);
-    expect(compute).toHaveBeenCalledWith(3);
+    expect(compute).toHaveBeenCalledWith(3, { cacheOnly: true });
     compute.mockClear();
     answers.set('agreementIdsOfContracts', []);
     await service.refreshForContracts([1]);

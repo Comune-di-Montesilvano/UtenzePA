@@ -4,13 +4,17 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 import { commitmentLabel } from '@apis/budget-commitments/commitment-label';
 import {
   type AgreementForecast,
+  type AgreementShare,
   agreementForecast,
+  type ChapterNeed,
+  chapterNeeds,
   type ForecastOrder,
   type ForecastUtility,
 } from '@apis/spending/agreement-forecast';
 import type { StatsLine } from '@apis/spending/chapter-utility-stats';
 import {
   type ConsumptionRecord,
+  fromDay,
   toDay,
   todayDay,
 } from '@apis/utility-consumptions/consumption-calculator';
@@ -29,6 +33,15 @@ export interface ForecastResponse extends AgreementForecast {
   shared_commitments: { id: number; label: string }[];
   // Quote di fatture senza righe per utenza sugli impegni della convenzione.
   shares_without_lines: { year: number; amount: number }[];
+  // Stanziamento dei capitoli (assestato, altrimenti iniziale; null = non
+  // caricato) per gli esercizi della spesa annua.
+  budgets: { chapter_id: number; year: number; budget: number | null }[];
+  // Utenze attive sui capitoli fuori da ogni convenzione calcolata.
+  chapter_other_utilities: { chapter_id: number; count: number }[];
+  // Fabbisogno annuo dei capitoli con tutte le convenzioni attive su di essi.
+  chapter_needs: ChapterNeed[];
+  // Nomi delle altre convenzioni in chapter_needs.
+  agreements: { id: number; label: string }[];
 }
 
 const FAR_FUTURE = '9999-12-31';
@@ -60,7 +73,12 @@ export class AgreementForecastService {
 
   // Con asOf il calcolo è «come se fosse» quel giorno (prova di validità):
   // dati successivi ignorati, cache non scritta.
-  compute(agreementId: number, opts: { asOf?: string } = {}): Promise<ForecastResponse> {
+  // cacheOnly: solo la cache delle segnalazioni (giri in coda e notturno),
+  // senza capitoli né altre convenzioni.
+  compute(
+    agreementId: number,
+    opts: { asOf?: string; cacheOnly?: boolean } = {},
+  ): Promise<ForecastResponse> {
     if (opts.asOf) return this.computeNow(agreementId, opts);
     const previous = this.locks.get(agreementId) ?? Promise.resolve();
     const next = previous.catch(() => undefined).then(() => this.computeNow(agreementId, opts));
@@ -75,14 +93,110 @@ export class AgreementForecastService {
 
   private async computeNow(
     agreementId: number,
-    opts: { asOf?: string } = {},
+    opts: { asOf?: string; cacheOnly?: boolean } = {},
   ): Promise<ForecastResponse> {
     if (!(await q.agreementExists(this.m, agreementId))) {
       throw new BadRequestException('Convenzione non trovata');
     }
     const cutoff = opts.asOf ?? FAR_FUTURE;
     const today = opts.asOf ? toDay(opts.asOf) : todayDay();
+    const { forecast, orders, ids } = await this.load(agreementId, cutoff, today);
+    const computedAt = new Date();
+    if (!opts.asOf) await this.writeCache(agreementId, forecast, computedAt);
+    if (opts.cacheOnly) {
+      return {
+        ...forecast,
+        computed_at: computedAt.toISOString(),
+        chapters: [],
+        shared_commitments: [],
+        shares_without_lines: [],
+        budgets: [],
+        chapter_other_utilities: [],
+        chapter_needs: [],
+        agreements: [],
+      };
+    }
 
+    const chapterIds = [
+      ...new Set(
+        [...forecast.rows, ...forecast.annual]
+          .map((r) => r.chapter_id)
+          .filter((id): id is number => id !== null),
+      ),
+    ];
+    const chapters = chapterIds.length
+      ? (await q.chapters(this.m, chapterIds)).map((c) => ({
+          id: Number(c.id),
+          label: `${String(c.chapter_code)}/${String(c.article ?? 0)}${c.description ? ` — ${String(c.description)}` : ''}`,
+        }))
+      : [];
+    const shared = (await q.sharedCommitments(this.m, agreementId)).map((c) => ({
+      id: Number(c.id),
+      label: commitmentLabel(num(c.commitment_year), num(c.commitment_num), num(c.commitment_sub)),
+    }));
+    const sharesWithoutLines = (await q.sharesWithoutLines(this.m, agreementId)).map((s) => ({
+      year: Number(s.year),
+      amount: Number(s.amount),
+    }));
+
+    // Le altre convenzioni attive sugli stessi capitoli: il fabbisogno del
+    // capitolo le comprende, ogni utenza una volta sola (chapterNeeds).
+    const shares: AgreementShare[] = [
+      { agreement_id: agreementId, orders, utilities: forecast.utilities },
+    ];
+    const otherIds = chapterIds.length
+      ? await q.agreementsOnChapters(this.m, chapterIds, agreementId, fromDay(today))
+      : [];
+    for (const otherId of otherIds) {
+      const other = await this.load(otherId, cutoff, today);
+      shares.push({
+        agreement_id: otherId,
+        orders: other.orders,
+        utilities: other.forecast.utilities,
+      });
+    }
+    const needs = chapterNeeds(agreementId, shares, [
+      ...new Set(forecast.annual.map((r) => r.chapter_id)),
+    ]);
+    const counted = [
+      ...new Set([...ids, ...shares.flatMap((sh) => sh.utilities.map((u) => u.id))]),
+    ];
+    const contributing = [...new Set(needs.flatMap((n) => n.agreements))];
+    const agreements = contributing.length
+      ? (await q.agreementNames(this.m, contributing)).map((a) => ({
+          id: Number(a.id),
+          label: String(a.name),
+        }))
+      : [];
+
+    const years = [...new Set(forecast.annual.map((r) => r.year))];
+    const budgets = await this.chapterBudgets(chapterIds, years);
+    const others = chapterIds.length
+      ? (await q.chapterOtherUtilities(this.m, chapterIds, counted)).map((r) => ({
+          chapter_id: Number(r.chapter_id),
+          count: Number(r.count),
+        }))
+      : [];
+
+    return {
+      ...forecast,
+      computed_at: computedAt.toISOString(),
+      chapters,
+      shared_commitments: shared,
+      shares_without_lines: sharesWithoutLines,
+      budgets,
+      chapter_other_utilities: others,
+      chapter_needs: needs,
+      agreements,
+    };
+  }
+
+  // Dati e calcolo di una convenzione, senza cache né capitoli.
+  private async load(
+    agreementId: number,
+    cutoff: string,
+    today: number,
+  ): Promise<{ forecast: AgreementForecast; orders: ForecastOrder[]; ids: number[] }> {
     const orderRows = await q.orders(this.m, agreementId);
     const links = await q.orderUtilities(this.m, agreementId);
     const orders: ForecastOrder[] = orderRows.map((o) => ({
@@ -161,34 +275,25 @@ export class AgreementForecastService {
     }
 
     const forecast = agreementForecast({ today, orders, utilities, committed, manualPrices });
+    return { forecast, orders, ids };
+  }
 
-    const chapterIds = [
-      ...new Set(forecast.rows.map((r) => r.chapter_id).filter((id): id is number => id !== null)),
-    ];
-    const chapters = chapterIds.length
-      ? (await q.chapters(this.m, chapterIds)).map((c) => ({
-          id: Number(c.id),
-          label: `${String(c.chapter_code)}/${String(c.article ?? 0)}${c.description ? ` — ${String(c.description)}` : ''}`,
-        }))
-      : [];
-    const shared = (await q.sharedCommitments(this.m, agreementId)).map((c) => ({
-      id: Number(c.id),
-      label: commitmentLabel(num(c.commitment_year), num(c.commitment_num), num(c.commitment_sub)),
-    }));
-    const sharesWithoutLines = (await q.sharesWithoutLines(this.m, agreementId)).map((s) => ({
-      year: Number(s.year),
-      amount: Number(s.amount),
-    }));
-
-    const computedAt = new Date();
-    if (!opts.asOf) await this.writeCache(agreementId, forecast, computedAt);
-    return {
-      ...forecast,
-      computed_at: computedAt.toISOString(),
-      chapters,
-      shared_commitments: shared,
-      shares_without_lines: sharesWithoutLines,
-    };
+  private async chapterBudgets(
+    chapterIds: number[],
+    years: number[],
+  ): Promise<ForecastResponse['budgets']> {
+    if (!chapterIds.length || !years.length) return [];
+    const rows = await q.chapterBudgets(this.m, chapterIds, years);
+    const budgetBy = new Map(
+      rows.map((r) => [`${Number(r.chapter_id)}|${Number(r.year)}`, num(r.budget)] as const),
+    );
+    return chapterIds.flatMap((chapterId) =>
+      years.map((year) => ({
+        chapter_id: chapterId,
+        year,
+        budget: budgetBy.get(`${chapterId}|${year}`) ?? null,
+      })),
+    );
   }
 
   private async writeCache(
@@ -280,7 +385,7 @@ export class AgreementForecastService {
     let failed = 0;
     for (const id of ids) {
       try {
-        await this.compute(id);
+        await this.compute(id, { cacheOnly: true });
         processed++;
       } catch (e) {
         failed++;
