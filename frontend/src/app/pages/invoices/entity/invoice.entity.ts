@@ -66,6 +66,9 @@ export class Invoice extends AbstractEntity implements IInvoice {
   // Solo dall'elenco leggero (GET /invoices/list), mai inviati.
   @Exclude({toPlainOnly: true})
   utilities_count?: number;
+  // Righe senza utenza (canoni e servizi del contratto in testata).
+  @Exclude({toPlainOnly: true})
+  contract_lines_count?: number;
   @Exclude({toPlainOnly: true})
   lines_total?: number | null;
   @Exclude({toPlainOnly: true})

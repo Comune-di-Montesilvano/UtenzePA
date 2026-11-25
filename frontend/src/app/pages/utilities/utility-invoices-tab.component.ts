@@ -31,7 +31,8 @@ const isoOf = (v: Date | string | null | undefined): string =>
 
 // Tab "Fatture" della scheda utenza: una riga per fattura, periodo e capitolo (le righe
 // della stessa bolletta, es. energia, trasporto, oneri e imposte, sommate) e totale per anno.
-// Nessuna riga sull'utenza: le fatture dei suoi contratti (es. canoni di contratto).
+// Nessuna riga sull'utenza: le fatture dei suoi contratti con righe senza utenza (canoni,
+// servizi), mai quelle con righe su altre utenze dello stesso contratto.
 @Component({
   selector: 'app-utility-invoices-tab',
   standalone: true,
@@ -45,9 +46,9 @@ const isoOf = (v: Date | string | null | undefined): string =>
     }
     @if (!rows.length) {
       @if (loaded && contractIds.length) {
-        <app-invoices-tab [contractIds]="contractIds" [showContract]="contractIds.length > 1"
-                          intro="Nessuna fattura intestata a questa utenza: ecco le fatture del contratto."
-                          emptyText="Nessuna fattura su questa utenza né sul suo contratto."
+        <app-invoices-tab [contractIds]="contractIds" [showContract]="contractIds.length > 1" [contractOnly]="true"
+                          intro="Nessuna fattura intestata a questa utenza: ecco le fatture dei canoni e servizi del contratto."
+                          emptyText="Nessuna fattura su questa utenza."
                           (countChange)="countChange.emit($event)"></app-invoices-tab>
       } @else if (loaded) {
         <p class="sheet-empty">Nessuna fattura su questa utenza.</p>

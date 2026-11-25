@@ -74,7 +74,7 @@ const PARTY_FIELDS = ['id', 'type', 'company_name', 'last_name', 'first_name'] a
 // Aggregati delle righe e capitoli dalle quote, per fattura (elenco leggero).
 const LINES_AGG_SQL =
   'SELECT invoice_id_fk AS id, COUNT(DISTINCT utility_id_fk) AS utilities, SUM(amount) AS total, ' +
-  'MIN(period_start) AS period_start, MAX(period_end) AS period_end, ' +
+  'SUM(utility_id_fk IS NULL) AS contract_lines, MIN(period_start) AS period_start, MAX(period_end) AS period_end, ' +
   "GROUP_CONCAT(DISTINCT supply_code SEPARATOR ' ') AS supply_codes FROM invoice_lines GROUP BY invoice_id_fk";
 const CHAPTERS_AGG_SQL =
   "SELECT s.invoice_id_fk AS id, GROUP_CONCAT(DISTINCT CONCAT(c.chapter_code, '/', COALESCE(c.article, 0)) " +
@@ -94,6 +94,8 @@ export interface InvoicePayment {
 
 export type InvoiceListRow = Invoice & {
   utilities_count: number;
+  // Righe senza utenza (canoni e servizi del contratto in testata).
+  contract_lines_count: number;
   lines_total: number | null;
   period_start: string | null;
   period_end: string | null;
@@ -238,6 +240,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
       ...party('invoiceSupplier'),
       'agg.utilities AS agg_utilities',
       'agg.total AS agg_total',
+      'agg.contract_lines AS agg_contract_lines',
       'agg.period_start AS agg_period_start',
       'agg.period_end AS agg_period_end',
       'agg.supply_codes AS agg_supply_codes',
@@ -269,6 +272,7 @@ export class InvoicesService extends BaseService<Invoice, CreateInvoiceDto, Upda
               },
         supplier: pick('invoiceSupplier'),
         utilities_count: Number(r.agg_utilities ?? 0),
+        contract_lines_count: Number(r.agg_contract_lines ?? 0),
         lines_total: r.agg_total == null ? null : Number(r.agg_total),
         period_start: dbDay(r.agg_period_start),
         period_end: dbDay(r.agg_period_end),
