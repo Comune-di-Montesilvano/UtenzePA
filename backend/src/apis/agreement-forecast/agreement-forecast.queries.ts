@@ -242,3 +242,84 @@ export function sharesWithoutLines(m: EntityManager, agreementId: number): Promi
     .groupBy('s.fiscal_year')
     .getRawMany();
 }
+
+// --- Bilancio dei capitoli ---
+// Stanziamento dei capitoli per esercizio (assestato, altrimenti iniziale):
+// la base della richiesta alla ragioneria.
+
+export function chapterBudgets(
+  m: EntityManager,
+  chapterIds: number[],
+  years: number[],
+): Promise<Row[]> {
+  return m
+    .createQueryBuilder()
+    .select('s.budget_chapter_id_fk', 'chapter_id')
+    .addSelect('s.year', 'year')
+    .addSelect('COALESCE(s.adjusted_budget, s.initial_budget)', 'budget')
+    .from('budget_chapter_spending', 's')
+    .where(
+      's.deleted = 0 AND s.budget_chapter_id_fk IN (:...chapterIds) AND s.year IN (:...years)',
+      {
+        chapterIds,
+        years,
+      },
+    )
+    .getRawMany();
+}
+
+// Utenze attive su quei capitoli fuori dalla convenzione: il capitolo paga
+// anche loro, e lo stanziamento va letto tenendone conto.
+export function chapterOtherUtilities(
+  m: EntityManager,
+  chapterIds: number[],
+  ids: number[],
+): Promise<Row[]> {
+  const qb = m
+    .createQueryBuilder()
+    .select('u.budget_chapter_code_fk', 'chapter_id')
+    .addSelect('COUNT(*)', 'count')
+    .from('utilities', 'u')
+    .where(
+      'u.deleted = 0 AND u.supply_active = 1 AND u.budget_chapter_code_fk IN (:...chapterIds)',
+      {
+        chapterIds,
+      },
+    );
+  if (ids.length) qb.andWhere('u.id NOT IN (:...ids)', { ids });
+  return qb.groupBy('u.budget_chapter_code_fk').getRawMany();
+}
+
+// Altre convenzioni con un ordine non chiuso che arriva almeno a `today` su
+// utenze dei capitoli: il loro fabbisogno pesa sullo stesso stanziamento.
+export async function agreementsOnChapters(
+  m: EntityManager,
+  chapterIds: number[],
+  agreementId: number,
+  today: string,
+): Promise<number[]> {
+  const rows: { id: number }[] = await m
+    .createQueryBuilder()
+    .select('DISTINCT c.consip_agreement_id', 'id')
+    .from('contracts', 'c')
+    .innerJoin('contract_utilities', 'cu', 'cu.contract_id = c.id')
+    .innerJoin('utilities', 'u', 'u.id = cu.utility_id AND u.deleted = 0')
+    .innerJoin('consip_agreement', 'a', 'a.id = c.consip_agreement_id AND a.deleted = 0')
+    .where('c.deleted = 0 AND c.closed = 0 AND c.consip_agreement_id <> :agreementId', {
+      agreementId,
+    })
+    .andWhere('c.supply_start_date IS NOT NULL AND DATE(c.supply_expiry_date) >= :today', { today })
+    .andWhere('u.budget_chapter_code_fk IN (:...chapterIds)', { chapterIds })
+    .getRawMany();
+  return rows.map((r) => Number(r.id)).sort((a, b) => a - b);
+}
+
+export function agreementNames(m: EntityManager, ids: number[]): Promise<Row[]> {
+  return m
+    .createQueryBuilder()
+    .select('a.id', 'id')
+    .addSelect('a.name', 'name')
+    .from('consip_agreement', 'a')
+    .where('a.id IN (:...ids)', { ids })
+    .getRawMany();
+}

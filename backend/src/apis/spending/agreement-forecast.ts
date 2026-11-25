@@ -102,6 +102,78 @@ export function utilityDays(orders: ForecastOrder[], utility: ForecastUtility): 
   return [...days].sort((a, b) => a - b);
 }
 
+// Spesa di un'utenza nell'anno intero, per chi chiede lo stanziamento:
+// fatture arrivate sui giorni dell'anno (di qualunque contratto, anche prima
+// dell'ingresso nella convenzione) e stima dei giorni non ancora fatturati a
+// carico del Comune, come se la fornitura continuasse anche dopo la scadenza
+// degli ordini. Solo utenze con un ordine non chiuso che arriva almeno a oggi:
+// le altre sono passate a un'altra fornitura.
+export interface AnnualCost {
+  year: number;
+  billed: number;
+  expected: number;
+  // Giorni stimati senza consumi né presunto (sola spesa o nessun dato).
+  weakDays: number;
+  days: number;
+}
+
+export function annualCost(
+  orders: ForecastOrder[],
+  utility: ForecastUtility,
+  cost: (day: number) => number,
+  weak: boolean,
+  today: number,
+  years: number[],
+): AnnualCost[] {
+  const own = orders.filter(
+    (o) => !o.closed && hasBothDates(o) && o.utility_ids.includes(utility.id),
+  );
+  if (!own.length || Math.max(...own.map((o) => toDay(o.end as string))) < today) return [];
+  const intervals = chargeIntervals(utility.events).map((i) => ({
+    start: i.start === null ? -Infinity : toDay(i.start),
+    end: i.end === null ? Infinity : toDay(i.end),
+  }));
+  const first = toDay(`${Math.min(...years)}-01-01`);
+  const last = toDay(`${Math.max(...years)}-12-31`);
+  const billed = new Map<number, number>();
+  const loose = new Map<number, number>();
+  for (const l of utility.lines) {
+    const amount = Number(l.amount);
+    if (hasPeriod(l)) {
+      const { s, e } = periodOf(l);
+      const perDay = amount / (e - s + 1);
+      for (let d = Math.max(s, first); d <= Math.min(e, last); d++) {
+        billed.set(d, (billed.get(d) ?? 0) + perDay);
+      }
+    } else {
+      const year = lineFiscalYear(l.period_start, l.period_end, l.invoice_date);
+      loose.set(year, (loose.get(year) ?? 0) + amount);
+    }
+  }
+  return years.map((year) => {
+    const out: AnnualCost = {
+      year,
+      billed: loose.get(year) ?? 0,
+      expected: 0,
+      weakDays: 0,
+      days: 0,
+    };
+    const end = toDay(`${year}-12-31`);
+    for (let d = toDay(`${year}-01-01`); d <= end; d++) {
+      const real = billed.get(d);
+      if (real !== undefined) {
+        out.billed += real;
+        out.days++;
+      } else if (intervals.some((i) => d >= i.start && d <= i.end)) {
+        out.expected += cost(d);
+        out.days++;
+        if (weak) out.weakDays++;
+      }
+    }
+    return out;
+  });
+}
+
 // Stesso giorno dell'anno prima; il 29 febbraio diventa 28.
 export function sameDayLastYear(day: number): number {
   const iso = fromDay(day);
@@ -297,6 +369,19 @@ export interface ForecastUtilityRow {
     to_invoice: number;
     expected_consumption: number | null;
   }[];
+  // Spesa dell'anno intero (annualCost): anno prima, in corso e dopo.
+  annual: { year: number; billed: number; expected: number }[];
+}
+
+// Spesa dell'anno intero per capitolo (annualCost sommato sulle utenze).
+export interface AnnualRow {
+  chapter_id: number | null;
+  year: number;
+  utilities: number;
+  billed: number;
+  expected: number;
+  // Quota dei giorni da fatture o da consumi/presunto (non dalla sola spesa).
+  coverage: number;
 }
 
 export interface ForecastRow {
@@ -327,6 +412,9 @@ export interface ForecastPrice {
 
 export interface AgreementForecast {
   horizon: { start: string; end: string } | null;
+  // Ultimo giorno coperto da una riga di fattura delle utenze (fino a oggi).
+  billed_until: string | null;
+  annual: AnnualRow[];
   prices: ForecastPrice[];
   rows: ForecastRow[];
   utilities: ForecastUtilityRow[];
@@ -437,6 +525,17 @@ export function agreementForecast(input: ForecastInput): AgreementForecast {
 
   const utilityRows: ForecastUtilityRow[] = [];
   const withoutData: number[] = [];
+  const annualYears = [currentYear - 1, currentYear, currentYear + 1];
+  const annualBuckets = new Map<
+    string,
+    AnnualRow & { weak: number; days: number; ids: Set<number> }
+  >();
+  let billedUntil = -Infinity;
+  for (const u of utilities) {
+    for (const l of u.lines) {
+      if (hasPeriod(l)) billedUntil = Math.max(billedUntil, Math.min(periodOf(l).e, today));
+    }
+  }
 
   for (const u of utilities) {
     const days = utilityDays(orders, u);
@@ -520,6 +619,39 @@ export function agreementForecast(input: ForecastInput): AgreementForecast {
       b.invoiced += y.invoiced;
       b.toInvoice += y.toInvoice;
     }
+    const annual = annualCost(
+      orders,
+      u,
+      expected.cost,
+      expected.source === 'spend' || expected.source === 'none',
+      today,
+      annualYears,
+    );
+    for (const a of annual) {
+      if (!a.days && !a.billed) continue;
+      const key = keyOf(u.chapter_id, a.year);
+      let b = annualBuckets.get(key);
+      if (!b) {
+        b = {
+          chapter_id: u.chapter_id,
+          year: a.year,
+          utilities: 0,
+          billed: 0,
+          expected: 0,
+          coverage: 0,
+          weak: 0,
+          days: 0,
+          ids: new Set(),
+        };
+        annualBuckets.set(key, b);
+      }
+      b.ids.add(u.id);
+      b.billed += a.billed;
+      b.expected += a.expected;
+      b.weak += a.weakDays;
+      b.days += a.days;
+    }
+
     utilityRows.push({
       id: u.id,
       utility_code: u.utility_code,
@@ -536,6 +668,11 @@ export function agreementForecast(input: ForecastInput): AgreementForecast {
           to_invoice: round2(y.toInvoice),
           expected_consumption: y.consumption === null ? null : round2(y.consumption),
         })),
+      annual: annual.map((a) => ({
+        year: a.year,
+        billed: round2(a.billed),
+        expected: round2(a.expected),
+      })),
     });
   }
 
@@ -568,8 +705,21 @@ export function agreementForecast(input: ForecastInput): AgreementForecast {
       return { ...base, ...alert };
     });
 
+  const annualRows: AnnualRow[] = [...annualBuckets.values()]
+    .sort((a, b) => a.year - b.year || (a.chapter_id ?? Infinity) - (b.chapter_id ?? Infinity))
+    .map((b) => ({
+      chapter_id: b.chapter_id,
+      year: b.year,
+      utilities: b.ids.size,
+      billed: round2(b.billed),
+      expected: round2(b.expected),
+      coverage: b.days ? round4(1 - b.weak / b.days) : 0,
+    }));
+
   return {
     horizon,
+    billed_until: billedUntil === -Infinity ? null : fromDay(billedUntil),
+    annual: annualRows,
     prices,
     rows,
     utilities: utilityRows,
@@ -583,4 +733,95 @@ export function agreementForecast(input: ForecastInput): AgreementForecast {
         .map((c) => ({ chapter_id: c.chapter_id, year: c.year, count: c.without_amount })),
     },
   };
+}
+
+// Fabbisogno del capitolo con tutte le convenzioni che lo usano: lo
+// stanziamento è del capitolo, non della convenzione. Ogni utenza conta una
+// volta sola, nella convenzione con l'ordine non chiuso che finisce più tardi
+// (al cambio di convenzione quella che continua; a pari data l'id più basso),
+// così il totale è lo stesso da qualunque convenzione lo si guardi. Utenze
+// senza capitolo solo della convenzione `own`.
+export interface AgreementShare {
+  agreement_id: number;
+  orders: ForecastOrder[];
+  utilities: Pick<ForecastUtilityRow, 'id' | 'chapter_id' | 'annual'>[];
+}
+
+export interface ChapterNeed {
+  chapter_id: number | null;
+  year: number;
+  utilities: number;
+  billed: number;
+  expected: number;
+  // Quota delle utenze assegnate alla convenzione `own`.
+  own_utilities: number;
+  own: number;
+  // Altre convenzioni che hanno utenze sul capitolo nell'anno.
+  agreements: number[];
+}
+
+export function chapterNeeds(
+  own: number,
+  shares: AgreementShare[],
+  chapterIds: (number | null)[],
+): ChapterNeed[] {
+  const wanted = new Set(chapterIds);
+  const lastEnd = (share: AgreementShare, utilityId: number): number =>
+    Math.max(
+      -Infinity,
+      ...share.orders
+        .filter((o) => !o.closed && hasBothDates(o) && o.utility_ids.includes(utilityId))
+        .map((o) => toDay(o.end as string)),
+    );
+  const owners = new Map<
+    number,
+    { share: AgreementShare; utility: AgreementShare['utilities'][number]; end: number }
+  >();
+  for (const share of [...shares].sort((a, b) => a.agreement_id - b.agreement_id)) {
+    for (const u of share.utilities) {
+      if (!u.annual.length || !wanted.has(u.chapter_id)) continue;
+      if (u.chapter_id === null && share.agreement_id !== own) continue;
+      const end = lastEnd(share, u.id);
+      const current = owners.get(u.id);
+      if (!current || end > current.end) owners.set(u.id, { share, utility: u, end });
+    }
+  }
+  const buckets = new Map<string, ChapterNeed>();
+  for (const { share, utility: u } of owners.values()) {
+    for (const a of u.annual) {
+      const key = keyOf(u.chapter_id, a.year);
+      let b = buckets.get(key);
+      if (!b) {
+        b = {
+          chapter_id: u.chapter_id,
+          year: a.year,
+          utilities: 0,
+          billed: 0,
+          expected: 0,
+          own_utilities: 0,
+          own: 0,
+          agreements: [],
+        };
+        buckets.set(key, b);
+      }
+      b.utilities++;
+      b.billed += a.billed;
+      b.expected += a.expected;
+      if (share.agreement_id === own) {
+        b.own_utilities++;
+        b.own += a.billed + a.expected;
+      } else if (!b.agreements.includes(share.agreement_id)) {
+        b.agreements.push(share.agreement_id);
+      }
+    }
+  }
+  return [...buckets.values()]
+    .sort((a, b) => a.year - b.year || (a.chapter_id ?? Infinity) - (b.chapter_id ?? Infinity))
+    .map((b) => ({
+      ...b,
+      billed: round2(b.billed),
+      expected: round2(b.expected),
+      own: round2(b.own),
+      agreements: b.agreements.sort((x, y) => x - y),
+    }));
 }
