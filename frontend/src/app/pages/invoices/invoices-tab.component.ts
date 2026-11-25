@@ -39,6 +39,13 @@ const totalOf = (inv: Invoice): number =>
 const periodOf = (inv: Invoice): string =>
   inv.period_start || inv.period_end ? `${dateIt(inv.period_start)} – ${dateIt(inv.period_end)}` : '';
 
+// Fatture del contratto in sé tra quelle di un contratto (vedi contractOnly).
+export const contractOwnInvoices = (invoices: Invoice[]): Invoice[] => {
+  const splitByUtility = invoices.some(inv => (inv.utilities_count ?? 0) > 0);
+  return invoices.filter(inv =>
+    !inv.utilities_count && ((inv.contract_lines_count ?? 0) > 0 || (!splitByUtility && inv.lines_total == null)));
+};
+
 // Tab "Fatture" per contratto di fornitura, fornitore o contratti di un'utenza: una riga
 // per fattura (anche senza righe sulle utenze, es. canoni) e totale per anno della fattura.
 @Component({
@@ -101,6 +108,11 @@ export class InvoicesTabComponent implements OnChanges {
   @Input() showContract = false;
   @Input() intro: string | null = null;
   @Input() emptyText = 'Nessuna fattura.';
+  // Solo fatture del contratto in sé (canoni, servizi): nessuna riga su un'utenza e almeno
+  // una riga senza utenza, oppure nessuna riga se il contratto non ha fatture divise per
+  // utenza (una fattura senza righe di un contratto a utenze è solo da completare). Per
+  // l'utenza senza righe proprie: le fatture delle altre utenze non la riguardano.
+  @Input() contractOnly = false;
   @Output() countChange = new EventEmitter<number>();
 
   private invoices = inject(InvoicesService);
@@ -122,7 +134,7 @@ export class InvoicesTabComponent implements OnChanges {
       : this.contractIds.map(id => this.invoices.list({contratto_id_fk: id}));
     (requests.length ? forkJoin(requests) : of([] as Invoice[][])).subscribe(lists => {
       const byId = new Map<number, Invoice>();
-      lists.flat().forEach(inv => byId.set(inv.id, inv));
+      (this.contractOnly ? lists.map(contractOwnInvoices) : lists).flat().forEach(inv => byId.set(inv.id, inv));
       this.rows = [...byId.values()]
         .map(inv => ({
           id: inv.id,

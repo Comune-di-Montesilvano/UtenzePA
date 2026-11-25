@@ -1,6 +1,6 @@
 # UtenzePA – Guida per gli operatori
 
-_Ultimo aggiornamento: 2026-11-13_
+_Ultimo aggiornamento: 2026-11-25_
 
 ## Cos'è e chi lo usa
 
@@ -56,7 +56,7 @@ Eliminare un elemento non lo cancella davvero: sparisce dagli elenchi ma resta r
    Le righe non hanno un impegno: servono per utenze, consumi e spesa per utenza e immobile.
 5. Premi **Salva**.
 
-Una fattura non deve per forza indicare le utenze: per i canoni e i servizi di un contratto (es. Servizio Luce, connettività) basta il contratto di fornitura nel Riepilogo, con righe senza utenza o anche senza righe: la fattura pesa sull'impegno del contratto per il suo totale se gli impegni del contratto per l'esercizio sono tutti sullo stesso capitolo, altrimenti va divisa a mano nel tab **Impegni**. Il tab **Fatture** della scheda del contratto di fornitura elenca tutte le fatture del contratto, quello della scheda del soggetto terzo tutte le fatture del fornitore (con il CIG del contratto): una riga per fattura con data, numero, periodo, totale e stato SDI, divise per anno della fattura con il totale dell'anno nell'intestazione (escluse le rifiutate, barrate nell'elenco). Lo stesso vale per il tab **Fatture** della scheda dell'utenza.
+Una fattura non deve per forza indicare le utenze: per i canoni e i servizi di un contratto (es. Servizio Luce, connettività) basta il contratto di fornitura nel Riepilogo, con righe senza utenza o anche senza righe: la fattura pesa sull'impegno del contratto per il suo totale se gli impegni del contratto per l'esercizio sono tutti sullo stesso capitolo, altrimenti va divisa a mano nel tab **Impegni**. Il tab **Fatture** della scheda del contratto di fornitura elenca tutte le fatture del contratto, quello della scheda del soggetto terzo tutte le fatture del fornitore (con il CIG del contratto): una riga per fattura con data, numero, periodo, totale e stato SDI, divise per anno della fattura con il totale dell'anno nell'intestazione (escluse le rifiutate, barrate nell'elenco). Il tab **Fatture** della scheda dell'utenza elenca le fatture con righe sull'utenza; se non ce ne sono, mostra solo le fatture dei canoni e servizi del suo contratto (righe senza utenza, oppure nessuna riga se il contratto non ha fatture divise per utenza), mai le fatture delle altre utenze dello stesso contratto.
 
 Se con la fattura il fatturato dell'anno supera l'assestato del capitolo, compare un avviso giallo (vedi «Il fatturato supera l'assestato del capitolo»). L'avviso non blocca il salvataggio.
 
