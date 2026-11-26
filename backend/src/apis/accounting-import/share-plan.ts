@@ -50,7 +50,8 @@ export function planShares(
       continue;
     }
     const shares = planned.get(invoiceId) ?? new Map<string, PlannedShare>();
-    const year = annualityFor(yearsByCommitment.get(commitmentId) ?? [], l.fiscal_year) ?? l.fiscal_year;
+    const year =
+      annualityFor(yearsByCommitment.get(commitmentId) ?? [], l.fiscal_year) ?? l.fiscal_year;
     const key = `${commitmentId}:${year}`;
     const share = shares.get(key) ?? {
       commitment_id_fk: commitmentId,
