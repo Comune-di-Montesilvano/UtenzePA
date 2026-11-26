@@ -18,12 +18,18 @@ export class ShareApplierService {
   ) {}
 
   async apply(): Promise<Record<'invoices' | 'cleared', number>> {
-    const [liquidations, matched, commitments, current] = await Promise.all([
+    const [liquidations, matched, commitments, current, years] = await Promise.all([
       this.data.liquidations(),
       this.invoices.matchedByKey(),
       q.numberedCommitments(this.dataSource.manager),
       q.allShares(this.dataSource.manager),
+      q.numberedCommitmentYears(this.dataSource.manager),
     ]);
+    const yearsByCommitment = new Map<number, number[]>();
+    for (const y of years as Record<string, unknown>[]) {
+      const id = Number(y.commitment_id);
+      yearsByCommitment.set(id, [...(yearsByCommitment.get(id) ?? []), Number(y.fiscal_year)]);
+    }
     const commitmentIds = new Map<string, number>(
       commitments.map((c: Record<string, unknown>) => [
         commitmentKey({
@@ -39,6 +45,7 @@ export class ShareApplierService {
       matched,
       commitmentIds,
       (current as CurrentShare[]).map((s) => ({ ...s, invoice_id_fk: Number(s.invoice_id_fk) })),
+      yearsByCommitment,
     );
     const result = { invoices: 0, cleared: 0 };
     await this.dataSource.transaction(async (manager) => {

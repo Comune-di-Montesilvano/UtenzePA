@@ -1,6 +1,6 @@
 # UtenzePA – Guida per gli operatori
 
-_Ultimo aggiornamento: 2026-11-25_
+_Ultimo aggiornamento: 2026-11-26_
 
 ## Cos'è e chi lo usa
 
@@ -336,7 +336,7 @@ Cosa fa il caricamento:
 - **Capitoli**: entrano i capitoli già presenti e quelli su cui la ragioneria ha pagato fatture di un fornitore con contratto di fornitura. Per ogni anno presente nel file stanziamento iniziale, assestato e spesa della ragioneria (se manca, il liquidato del capitolo nell'anno) arrivano dalla contabilità.
 - **Impegni**: tutti quelli non annullati dei capitoli importati, con un'annualità per anno di competenza. Negli anni presenti nel file gli impegni e le annualità che la contabilità non ha (inseriti a mano o annullati in ragioneria) si tolgono, con le loro quote: le fatture tornano al calcolo automatico.
 - **Fatture**: una fattura pagata che UtenzePA non ha viene creata (fornitore, numero, data, totale, identificativo SDI e contratto dal CIG); a una fattura presente senza identificativo SDI si aggiunge quello della contabilità. Le righe arrivano poi dall'import PEC o si inseriscono a mano. Una fattura non ancora liquidata non è un errore: semplicemente non è ancora stata pagata.
-- **Quote d'impegno**: le fatture pagate pesano sugli impegni come le ha liquidate la ragioneria (origine **Ragioneria**), al posto delle quote automatiche o a mano.
+- **Quote d'impegno**: le fatture pagate pesano sugli impegni come le ha liquidate la ragioneria (origine **Ragioneria**), al posto delle quote automatiche o a mano. La quota consuma l'esercizio dell'impegno: una fattura pagata nel 2024 su un impegno 2023 senza esercizio 2024 (residuo) pesa sul 2023, nella rimanenza dell'impegno e nella spesa del capitolo.
 - **Pagamenti**: ogni fattura dall'anno di partenza prende lo stato di pagamento dalle sue liquidazioni, dai mandati e dalle note di credito che la compensano (vedi [Stati di pagamento delle fatture](#stati-di-pagamento-delle-fatture)).
 - **Collegamenti**: l'impegno si collega al contratto indicato dal suo CIG e ai contratti delle fatture pagate (i collegamenti esistenti restano); il capitolo di un'utenza diventa quello su cui sono state pagate le sue fatture nell'ultimo esercizio, se è uno solo.
 

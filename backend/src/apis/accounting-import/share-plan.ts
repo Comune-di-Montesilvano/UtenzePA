@@ -1,3 +1,4 @@
+import { annualityFor } from '@apis/budget-commitments/annuality';
 import type { AccLiquidationRow } from './accounting-csv';
 import { commitmentKey } from './scope';
 
@@ -23,14 +24,20 @@ const shareKey = (s: {
 }): string => `${s.commitment_id_fk}:${s.fiscal_year}:${cents(s.amount)}`;
 
 // Quote d'impegno delle fatture pagate: liquidazioni valide sommate per
-// impegno e anno. Una fattura con una liquidazione su un impegno che UtenzePA
-// non ha resta com'è; una fattura con quote della ragioneria e nessuna
-// liquidazione valida le perde (shares = []).
+// impegno e annualità. L'anno della quota è l'annualità dell'impegno che la
+// liquidazione consuma, non l'esercizio della liquidazione: una liquidazione
+// del 2024 su un impegno 2023 senza annualità 2024 (residuo) consuma
+// l'annualità 2023 (`annualityFor`: stessa annualità, altrimenti la più
+// vicina). Impegno senza annualità = esercizio della liquidazione.
+// Una fattura con una liquidazione su un impegno che UtenzePA non ha resta
+// com'è; una fattura con quote della ragioneria e nessuna liquidazione valida
+// le perde (shares = []).
 export function planShares(
   liquidations: AccLiquidationRow[],
   matched: Map<string, number>,
   commitmentIdByNumber: Map<string, number>,
   current: CurrentShare[],
+  yearsByCommitment: Map<number, number[]> = new Map(),
 ): { invoiceId: number; shares: PlannedShare[] }[] {
   const planned = new Map<number, Map<string, PlannedShare>>();
   const skipped = new Set<number>();
@@ -43,10 +50,12 @@ export function planShares(
       continue;
     }
     const shares = planned.get(invoiceId) ?? new Map<string, PlannedShare>();
-    const key = `${commitmentId}:${l.fiscal_year}`;
+    const year =
+      annualityFor(yearsByCommitment.get(commitmentId) ?? [], l.fiscal_year) ?? l.fiscal_year;
+    const key = `${commitmentId}:${year}`;
     const share = shares.get(key) ?? {
       commitment_id_fk: commitmentId,
-      fiscal_year: l.fiscal_year,
+      fiscal_year: year,
       amount: 0,
     };
     share.amount = Math.round((share.amount + l.amount) * 100) / 100;

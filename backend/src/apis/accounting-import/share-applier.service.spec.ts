@@ -14,6 +14,7 @@ function setup(current: unknown[]) {
     { id: 10, commitment_year: 2026, commitment_num: 1, commitment_sub: 1 },
   ]);
   mq.allShares.mockResolvedValue(current as never);
+  mq.numberedCommitmentYears.mockResolvedValue([{ commitment_id: 10, fiscal_year: 2026 }]);
   const manager = {};
   const dataSource = {
     manager,
