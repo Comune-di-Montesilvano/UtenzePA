@@ -39,6 +39,38 @@ describe('planShares', () => {
     ]);
   });
 
+  it('residuo: liquidazione di un esercizio senza annualità = annualità più vicina', () => {
+    const plan = planShares(
+      [
+        liq('L1', { commitment_year: 2023, fiscal_year: 2023, amount: 50 }),
+        liq('L2', { commitment_year: 2023, fiscal_year: 2024, amount: 174.24 }),
+      ],
+      new Map([
+        ['L1', 40],
+        ['L2', 40],
+      ]),
+      new Map([['2023/1/1', 12]]),
+      [],
+      new Map([[12, [2023]]]),
+    );
+    expect(plan).toEqual([
+      { invoiceId: 40, shares: [{ commitment_id_fk: 12, fiscal_year: 2023, amount: 224.24 }] },
+    ]);
+  });
+
+  it('pluriennale: annualità dello stesso esercizio della liquidazione', () => {
+    const plan = planShares(
+      [liq('L1', { fiscal_year: 2027, amount: 30 })],
+      new Map([['L1', 40]]),
+      commitments,
+      [],
+      new Map([[10, [2026, 2027]]]),
+    );
+    expect(plan).toEqual([
+      { invoiceId: 40, shares: [{ commitment_id_fk: 10, fiscal_year: 2027, amount: 30 }] },
+    ]);
+  });
+
   it('più impegni = più quote', () => {
     const plan = planShares(
       [liq('L1', { amount: 60 }), liq('L2', { commitment_num: 2, amount: 40 })],

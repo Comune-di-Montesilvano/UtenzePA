@@ -355,6 +355,17 @@ export function numberedCommitments(m: EntityManager): Promise<Row[]> {
     .getRawMany();
 }
 
+// Annualità degli impegni numerati: l'anno della quota di una liquidazione.
+export function numberedCommitmentYears(m: EntityManager): Promise<Row[]> {
+  return m
+    .getRepository(BudgetCommitmentYear)
+    .createQueryBuilder('y')
+    .innerJoin(BudgetCommitment, 'bc', 'bc.id = y.commitment_id')
+    .select(['y.commitment_id AS commitment_id', 'y.fiscal_year AS fiscal_year'])
+    .where('bc.deleted = 0 AND bc.commitment_num IS NOT NULL')
+    .getRawMany();
+}
+
 // Impegni creati o aggiornati dalla contabilità.
 export function accountingCommitments(m: EntityManager): Promise<Row[]> {
   return m
