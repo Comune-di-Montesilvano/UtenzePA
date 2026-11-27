@@ -24,32 +24,38 @@ export function derivationUtilities(m: EntityManager): Promise<Row[]> {
 }
 
 // Destinazioni (non cancellate) degli immobili collegati alle utenze.
-export function assetDestinations(m: EntityManager): Promise<Row[]> {
-  return m
+export function assetDestinations(m: EntityManager, utilityId?: number): Promise<Row[]> {
+  const qb = m
     .createQueryBuilder()
     .from('utility_assets', 'ua')
     .innerJoin(Asset, 'a', 'a.id = ua.asset_id AND a.deleted = 0')
     .innerJoin(SpendingDestination, 'd', 'd.id = a.spending_destination_id AND d.deleted = 0')
     .select('ua.utility_id', 'utility_id')
     .addSelect('d.id', 'destination_id')
-    .getRawMany();
+    .addSelect('a.id', 'link_id')
+    .addSelect('a.asset_name', 'link_label');
+  if (utilityId !== undefined) qb.where('ua.utility_id = :utilityId', { utilityId });
+  return qb.getRawMany();
 }
 
 // Destinazioni proprie degli impianti collegati alle utenze.
-export function plantDestinations(m: EntityManager): Promise<Row[]> {
-  return m
+export function plantDestinations(m: EntityManager, utilityId?: number): Promise<Row[]> {
+  const qb = m
     .createQueryBuilder()
     .from('utility_plants', 'up')
     .innerJoin(Plant, 'p', 'p.id = up.plant_id AND p.deleted = 0')
     .innerJoin(SpendingDestination, 'd', 'd.id = p.spending_destination_id AND d.deleted = 0')
     .select('up.utility_id', 'utility_id')
     .addSelect('d.id', 'destination_id')
-    .getRawMany();
+    .addSelect('p.id', 'link_id')
+    .addSelect('p.name', 'link_label');
+  if (utilityId !== undefined) qb.where('up.utility_id = :utilityId', { utilityId });
+  return qb.getRawMany();
 }
 
 // Destinazioni degli immobili degli impianti collegati alle utenze.
-export function plantAssetDestinations(m: EntityManager): Promise<Row[]> {
-  return m
+export function plantAssetDestinations(m: EntityManager, utilityId?: number): Promise<Row[]> {
+  const qb = m
     .createQueryBuilder()
     .from('utility_plants', 'up')
     .innerJoin(Plant, 'p', 'p.id = up.plant_id AND p.deleted = 0')
@@ -58,7 +64,32 @@ export function plantAssetDestinations(m: EntityManager): Promise<Row[]> {
     .innerJoin(SpendingDestination, 'd', 'd.id = a.spending_destination_id AND d.deleted = 0')
     .select('up.utility_id', 'utility_id')
     .addSelect('d.id', 'destination_id')
-    .getRawMany();
+    .addSelect('p.id', 'link_id')
+    .addSelect("CONCAT(p.name, ' (', a.asset_name, ')')", 'link_label');
+  if (utilityId !== undefined) qb.where('up.utility_id = :utilityId', { utilityId });
+  return qb.getRawMany();
+}
+
+// Capitolo attuale dell'utenza con origine ed etichetta.
+export function utilityChapterRow(m: EntityManager, utilityId: number): Promise<Row | undefined> {
+  return m
+    .createQueryBuilder(Utility, 'u')
+    .leftJoin(BudgetChapter, 'b', 'b.id = u.budget_chapter_code_fk')
+    .select('u.id', 'id')
+    .addSelect('u.budget_chapter_code_fk', 'chapter_id')
+    .addSelect('u.chapter_source', 'source')
+    .addSelect("CONCAT(b.chapter_code, '/', b.article)", 'chapter_label')
+    .where('u.id = :utilityId AND u.deleted = 0', { utilityId })
+    .getRawOne();
+}
+
+export function destinationName(m: EntityManager, id: number): Promise<Row | undefined> {
+  return m
+    .createQueryBuilder(SpendingDestination, 'd')
+    .select('d.id', 'id')
+    .addSelect('d.name', 'name')
+    .where('d.id = :id', { id })
+    .getRawOne();
 }
 
 // Capitoli non cancellati con una destinazione non cancellata.

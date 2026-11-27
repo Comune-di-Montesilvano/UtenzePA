@@ -7,6 +7,7 @@ import { SpendingDestination } from './entity/spending-destination.entity';
 import { SpendingDestinationsService } from './spending-destinations.service';
 import { SpendingDestinationsController } from './spending-destinations.controller';
 import { ChapterDerivationService } from './chapter-derivation.service';
+import { ChapterInfoController } from './chapter-info.controller';
 
 // Globale: immobili, impianti, utenze e capitoli chiedono il ricalcolo dopo
 // ogni salvataggio senza importare questo modulo (eviterebbe import circolari).
@@ -15,7 +16,7 @@ import { ChapterDerivationService } from './chapter-derivation.service';
 @Global()
 @Module({
   imports: [TypeOrmModule.forFeature([SpendingDestination]), BudgetCommitmentsModule],
-  controllers: [SpendingDestinationsController],
+  controllers: [SpendingDestinationsController, ChapterInfoController],
   providers: [SpendingDestinationsService, ChapterDerivationService],
   exports: [SpendingDestinationsService, ChapterDerivationService],
 })

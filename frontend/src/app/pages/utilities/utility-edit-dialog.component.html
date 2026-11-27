@@ -82,6 +82,12 @@
             @if (freeOfCharge && !form.controls.budget_chapter_code_fk.value) {
               <span class="sheet-hint">Contratto a titolo gratuito: capitolo non necessario</span>
             }
+            @if (chapterInfo) {
+              <span class="sheet-hint" style="display: block">{{ chapterOrigin }}</span>
+              @for (line of paidElsewhere; track line) {
+                <span class="sheet-hint" style="display: block; color: var(--tone-warn-fg)">{{ line }}</span>
+              }
+            }
           </div>
         </div>
 

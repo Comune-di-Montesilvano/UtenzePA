@@ -1,3 +1,4 @@
+import type {ChapterInfo} from './chapter-info';
 import {Injectable} from '@angular/core';
 import {HttpParams} from '@angular/common/http';
 import {Observable} from 'rxjs';
@@ -41,6 +42,13 @@ export class UtilityService extends AbstractService<Utility> {
 
   override getById(id: number): Observable<Utility> {
     return this.http.get<Utility>(`${this.BASE_URL}/${id}`, {
+      headers: this.getAuthHeaders(),
+    });
+  }
+
+  // Da dove viene il capitolo dell'utenza (destinazione di spesa o a mano).
+  getChapterInfo(id: number): Observable<ChapterInfo> {
+    return this.http.get<ChapterInfo>(`${this.BASE_URL}/${id}/chapter-info`, {
       headers: this.getAuthHeaders(),
     });
   }

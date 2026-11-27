@@ -197,6 +197,53 @@ const linesWithHere = (m: EntityManager, chapterId: number, start: string, end: 
     .andWhere('COALESCE(il.period_start, il.period_end, i.invoice_date) <= :end', { end })
     .setParameter('chapterId', chapterId);
 
+// Righe dell'utenza nel periodo con la quota (0..1) pagata su ogni capitolo
+// delle quote d'impegno della fattura (fatture senza quote escluse).
+export function utilityLinesByChapter(
+  m: EntityManager,
+  utilityId: number,
+  start: string,
+  end: string,
+): Promise<Row[]> {
+  return validLines(m)
+    .innerJoin(
+      (sub) =>
+        sub
+          .select('s.invoice_id_fk', 'invoice_id')
+          .addSelect('SUM(s.amount)', 'total')
+          .from('invoice_commitment_shares', 's')
+          .groupBy('s.invoice_id_fk'),
+      'tot',
+      'tot.invoice_id = il.invoice_id_fk AND tot.total <> 0',
+    )
+    .innerJoin(
+      (sub) =>
+        sub
+          .select('s.invoice_id_fk', 'invoice_id')
+          .addSelect('bcm.budget_chapter_id_fk', 'chapter_id')
+          .addSelect('SUM(s.amount)', 'amount')
+          .from('invoice_commitment_shares', 's')
+          .innerJoin(BudgetCommitment, 'bcm', 'bcm.id = s.commitment_id_fk')
+          .groupBy('s.invoice_id_fk')
+          .addGroupBy('bcm.budget_chapter_id_fk'),
+      'shc',
+      'shc.invoice_id = il.invoice_id_fk',
+    )
+    .innerJoin(BudgetChapter, 'b', 'b.id = shc.chapter_id')
+    .select('il.amount', 'amount')
+    .addSelect(ymd('il.period_start'), 'period_start')
+    .addSelect(ymd('il.period_end'), 'period_end')
+    .addSelect(ymd('i.invoice_date'), 'invoice_date')
+    .addSelect('shc.chapter_id', 'chapter_id')
+    .addSelect("CONCAT(b.chapter_code, '/', b.article)", 'chapter_label')
+    .addSelect('shc.amount / tot.total', 'share')
+    .where('il.utility_id_fk = :utilityId', { utilityId })
+    .andWhere(`${NOT_OFFSET_SQL('i')}`)
+    .andWhere('COALESCE(il.period_end, il.period_start, i.invoice_date) >= :start', { start })
+    .andWhere('COALESCE(il.period_start, il.period_end, i.invoice_date) <= :end', { end })
+    .getRawMany();
+}
+
 // Righe delle utenze che toccano il periodo [start, end] (giorni 'AAAA-MM-GG'),
 // con la quota pagata sul capitolo (here).
 export function utilityLines(

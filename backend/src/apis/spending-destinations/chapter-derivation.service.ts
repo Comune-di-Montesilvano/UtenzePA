@@ -6,8 +6,35 @@ import { CommitmentReconcileService } from '@apis/budget-commitments/commitment-
 import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { ChapterSource } from './chapter-source.enum';
-import { DerivationResult, DerivationUtility, deriveChapters } from './chapter-derivation';
+import {
+  DerivationReason,
+  DerivationResult,
+  DerivationUtility,
+  deriveChapters,
+} from './chapter-derivation';
 import * as q from './chapter-derivation.queries';
+import * as sq from '@apis/spending/spending.queries';
+import { periodWindows } from '@apis/spending/chapter-utility-stats';
+import { fromDay, toDay } from '@apis/utility-consumptions/consumption-calculator';
+import { PaidElsewhere, paidElsewhere } from './chapter-info';
+
+export interface ChapterInfo {
+  source: ChapterSource;
+  reason: DerivationReason | null;
+  destination: { id: number; name: string } | null;
+  via: { kind: 'asset' | 'plant'; id: number; label: string } | null;
+  chapter_label: string | null;
+  // Ultimi 12 mesi pagati su capitoli diversi da quello dell'utenza.
+  paid_elsewhere: PaidElsewhere[];
+}
+
+// Giorno 'AAAA-MM-GG' a Roma (il container gira in UTC).
+const ROME_DAY = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/Rome',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
 
 type Row = Record<string, unknown>;
 
@@ -70,6 +97,56 @@ export class ChapterDerivationService {
   async currentResults(): Promise<Map<number, DerivationResult>> {
     if (!this.results.size) await this.requestAll();
     return this.results;
+  }
+
+  // Da dove viene il capitolo dell'utenza (scheda utenza).
+  async chapterInfo(utilityId: number): Promise<ChapterInfo | null> {
+    const m = this.dataSource.manager;
+    const row = await q.utilityChapterRow(m, utilityId);
+    if (!row) return null;
+    const result = (await this.currentResults()).get(utilityId);
+    const destinationId = result?.destination_id ?? null;
+    let via: ChapterInfo['via'] = null;
+    let destination: ChapterInfo['destination'] = null;
+    if (destinationId !== null) {
+      const d = await q.destinationName(m, destinationId);
+      destination = d ? { id: Number(d.id), name: String(d.name) } : null;
+      const sources: ['asset' | 'plant', Row[]][] = [
+        ['asset', await q.assetDestinations(m, utilityId)],
+        ['plant', await q.plantDestinations(m, utilityId)],
+        ['plant', await q.plantAssetDestinations(m, utilityId)],
+      ];
+      for (const [kind, rows] of sources) {
+        const hit = rows.find((r) => Number(r.destination_id) === destinationId);
+        if (hit) {
+          via = { kind, id: Number(hit.link_id), label: String(hit.link_label) };
+          break;
+        }
+      }
+    }
+    const today = toDay(ROME_DAY.format(new Date()));
+    const { current } = periodWindows('last12', today);
+    const chapterId = row.chapter_id == null ? null : Number(row.chapter_id);
+    const lines = (
+      await sq.utilityLinesByChapter(m, utilityId, fromDay(current.start), fromDay(current.end))
+    )
+      .filter((l) => Number(l.chapter_id) !== chapterId)
+      .map((l) => ({
+        amount: Number(l.amount),
+        period_start: (l.period_start as string) ?? null,
+        period_end: (l.period_end as string) ?? null,
+        invoice_date: String(l.invoice_date),
+        chapter_label: String(l.chapter_label),
+        share: Number(l.share),
+      }));
+    return {
+      source: row.source as ChapterSource,
+      reason: result?.reason ?? null,
+      destination,
+      via,
+      chapter_label: (row.chapter_label as string) ?? null,
+      paid_elsewhere: paidElsewhere(lines, current),
+    };
   }
 
   private async run(): Promise<void> {

@@ -49,6 +49,7 @@ import {
 } from './utility.sql';
 import { nextContract } from './next-contract';
 import { ChapterDerivationService } from '@apis/spending-destinations/chapter-derivation.service';
+import { ChapterSource } from '@apis/spending-destinations/chapter-source.enum';
 
 // Colonne scritte solo dalla riconciliazione dello storico (apis/utility-supply):
 // mai dal payload di create/update, anche se un chiamante interno le passasse,
@@ -855,6 +856,15 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       ...(linksChanged ? { relations: { assets: true, plants: true } } : {}),
     });
     if (!current) throw new BadRequestException('Utenza non trovata');
+    if (
+      current.chapter_source === ChapterSource.DERIVED &&
+      rest.budget_chapter_code_fk !== undefined &&
+      rest.budget_chapter_code_fk !== current.budget_chapter_code_fk
+    ) {
+      throw new BadRequestException(
+        "Capitolo ricavato dalla destinazione: modificare la destinazione dell'immobile o dell'impianto",
+      );
+    }
     // Valida se cambia la tipologia o il tipo: un cambio di tipo che lascia
     // la tipologia vecchia (non più ammessa) va rifiutato.
     if (

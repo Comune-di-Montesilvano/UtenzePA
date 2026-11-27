@@ -1064,6 +1064,35 @@ describe('UtilitiesService', () => {
       expect(commitments.reconcileUtilities).toHaveBeenCalledWith([10]);
     });
 
+    it('capitolo ricavato dalla destinazione: stesso capitolo ok, diverso 400', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 10,
+        utility_id: 'U1',
+        deleted: false,
+        budget_chapter_code_fk: 7,
+        chapter_source: 'DERIVED',
+      });
+      await expect(
+        service.update(10, { budget_chapter_code_fk: 7 } as never, 1),
+      ).resolves.toBeDefined();
+      await expect(service.update(10, { budget_chapter_code_fk: 8 } as never, 1)).rejects.toThrow(
+        "Capitolo ricavato dalla destinazione: modificare la destinazione dell'immobile o dell'impianto",
+      );
+    });
+
+    it('capitolo a mano: cambio ammesso', async () => {
+      repo.findOne.mockResolvedValue({
+        id: 10,
+        utility_id: 'U1',
+        deleted: false,
+        budget_chapter_code_fk: 7,
+        chapter_source: 'MANUAL',
+      });
+      await expect(
+        service.update(10, { budget_chapter_code_fk: 8 } as never, 1),
+      ).resolves.toBeDefined();
+    });
+
     it('stesso capitolo o capitolo non inviato: nessun ricalcolo degli impegni', async () => {
       repo.findOne.mockResolvedValue({
         id: 10,

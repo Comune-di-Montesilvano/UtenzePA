@@ -7,6 +7,8 @@ import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
 import { itDataSource, resetTables } from '../../test/integration/data-source';
 import {
   insert,
+  insertInvoice,
+  insertInvoiceLine,
   insertPlant,
   insertUtility,
   insertUtilityType,
@@ -37,6 +39,11 @@ describe('ChapterDerivationService (integrazione)', () => {
     reconcile.reconcileUtilities.mockClear();
     await resetTables(ds, [
       'audit_logs',
+      'invoice_commitment_shares',
+      'budget_commitment_years',
+      'budget_commitments',
+      'invoice_lines',
+      'invoices',
       'utility_assets',
       'utility_plants',
       'plant_assets',
@@ -116,6 +123,44 @@ describe('ChapterDerivationService (integrazione)', () => {
     expect(Number(row.chapter)).toBe(c3);
     expect(row.source).toBe('MANUAL');
     expect(service.lastResults().get(u)?.reason).toBe('no_destination');
+  });
+
+  it('chapterInfo: destinazione, immobile e spesa pagata su altri capitoli', async () => {
+    const d = await destination('Scuola primaria');
+    const own = await chapter('1300', { spending_destination_id: d });
+    const other = await chapter('1400');
+    const a = await asset({ spending_destination_id: d, asset_name: 'Scuola Rossi' });
+    const u = await insertUtility(ds);
+    await insert(ds, 'utility_assets', { utility_id: u, asset_id: a });
+    await service.requestAll();
+    const k = await insert(ds, 'budget_commitments', {
+      ...AUTHOR,
+      commitment_num: 1,
+      budget_chapter_id_fk: other,
+    });
+    const day = new Date().toISOString().slice(0, 10);
+    const inv = await insertInvoice(ds, { invoice_date: day });
+    await insertInvoiceLine(ds, inv, 80, { utility_id_fk: u });
+    await insert(ds, 'invoice_commitment_shares', {
+      invoice_id_fk: inv,
+      commitment_id_fk: k,
+      fiscal_year: Number(day.slice(0, 4)),
+      amount: 80,
+      source: 'MANUAL',
+    });
+
+    const info = await service.chapterInfo(u);
+    expect(info).toMatchObject({
+      source: 'DERIVED',
+      reason: null,
+      destination: { id: d, name: 'Scuola primaria' },
+      via: { kind: 'asset', id: a, label: 'Scuola Rossi' },
+      chapter_label: '1300/0',
+    });
+    expect(info!.paid_elsewhere).toEqual([
+      { chapter_label: '1400/0', amount: 80, months: [day.slice(0, 7)] },
+    ]);
+    expect(own).toBeGreaterThan(0);
   });
 
   it("impianto senza destinazione: vale quella dell'immobile dell'impianto", async () => {
