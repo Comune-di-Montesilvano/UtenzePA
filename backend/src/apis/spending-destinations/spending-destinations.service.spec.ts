@@ -49,6 +49,43 @@ describe('SpendingDestinationsService', () => {
     );
   });
 
+  it('assegna la destinazione agli immobili: audit su quelli che cambiano, poi ricalcolo', async () => {
+    const audit = { record: jest.fn().mockResolvedValue(undefined) };
+    const derivation = { requestAllSafe: jest.fn().mockResolvedValue(undefined) };
+    service = new SpendingDestinationsService(
+      repo as never,
+      { manager: {} } as never,
+      audit as never,
+      derivation as never,
+    );
+    repo.findOne.mockResolvedValue({ id: 5, name: 'Scuola materna', deleted: false });
+    (q.assetDestinationsOf as jest.Mock).mockResolvedValue([
+      { id: 1, spending_destination_id: null },
+      { id: 2, spending_destination_id: 5 },
+    ]);
+    expect(await service.assignAssets(5, [1, 2], 9)).toEqual({ assigned: 1 });
+    expect(q.setAssetDestination).toHaveBeenCalledWith(expect.anything(), [1], 5, 9);
+    expect(audit.record).toHaveBeenCalledTimes(1);
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityName: 'assets',
+        entityId: 1,
+        userId: 9,
+        fields: [{ fieldName: 'spending_destination_id', oldValue: null, newValue: 5 }],
+      }),
+    );
+    expect(derivation.requestAllSafe).toHaveBeenCalled();
+  });
+
+  it('proposte dalle righe delle utenze', async () => {
+    (q.suggestionRows as jest.Mock).mockResolvedValue([
+      { asset_id: '1', label: 'Scuola Rossi', destination_id: '5' },
+    ]);
+    expect(await service.suggestions()).toEqual([
+      { asset_id: 1, label: 'Scuola Rossi', destination_id: 5, utilities: 1 },
+    ]);
+  });
+
   it('elenco con i conteggi di uso', async () => {
     repo.find.mockResolvedValue([
       { id: 5, name: 'Scuola materna' },

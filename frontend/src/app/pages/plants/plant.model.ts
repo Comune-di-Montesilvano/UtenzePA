@@ -341,6 +341,8 @@ export interface PlantPayload {
   type: PlantType;
   code: string;
   name: string;
+  // Vuota = vale quella degli immobili dell'impianto.
+  spending_destination_id?: number | null;
   asset_ids: number[];
   toponym: string | null;
   address: string | null;

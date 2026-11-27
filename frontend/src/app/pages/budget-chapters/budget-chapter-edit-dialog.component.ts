@@ -19,6 +19,9 @@ import {PreviewCardComponent, PreviewItem} from '../../core/components/entity-sh
 import {dateIt, hasInvalid, isEditorRole, lastModifiedLabel, selectTab} from '../../core/components/entity-sheet/sheet-utils';
 import {EntityHistoryComponent} from '../../core/components/entity-history.component';
 import {MultiSelectComponent} from '../../core/components/multi-select.component';
+import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
+import {MatSelectModule} from '@angular/material/select';
+import {destinationOptions, SpendingDestinationService} from '../spending-destinations/spending-destination.service';
 import {OnlyNumbersDirective} from '../../core/directives/only-numbers.directive';
 import {ACCOUNTING_BADGE, chapterBudgetStatus, StatusInfo} from '../../core/helpers/entity-status';
 import {ACCOUNTING_SOURCE, AccountingStateService} from '../../core/services/accounting-state.service';
@@ -44,7 +47,7 @@ import {HardTypeDescription} from '../utility-types/enum/hard-type.enum';
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatTabsModule,
     MatIconModule, MatTooltipModule, ChapterBudgetBarComponent, EntitySheetComponent, StatusBadgeComponent, TabLabelComponent, LinkedTableComponent,
-    PreviewCardComponent, EntityHistoryComponent, MultiSelectComponent, OnlyNumbersDirective,
+    PreviewCardComponent, EntityHistoryComponent, MultiSelectComponent, OnlyNumbersDirective, FilterableSelectComponent, MatSelectModule,
     BudgetChapterUtilitiesTabComponent, BudgetChapterYearsTabComponent, SheetGroupsComponent,
   ],
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -113,6 +116,8 @@ export class BudgetChapterEditDialogComponent implements OnInit {
     article: [this.data.item.article ?? '', Validators.required],
     pdc: [this.data.item.pdc ?? ''],
     notes: [this.data.item.notes ?? ''],
+    spending_destination_id: [this.data.item.spending_destination_id ?? null],
+    hard_type: [this.data.item.hard_type ?? null],
     utility_type_ids: [(this.data.item.utilityTypes ?? []).map(t => t.id)],
     description: [this.data.item.description ?? ''],
   });
@@ -125,7 +130,17 @@ export class BudgetChapterEditDialogComponent implements OnInit {
     });
   }
 
+  destinationOptions: {label: string; value: number; sublabel?: string}[] = [];
+  readonly natureOptions = [
+    {label: 'Tutte le nature', value: null},
+    {label: 'Luce', value: 'LIGHT'},
+    {label: 'Gas', value: 'GAS'},
+    {label: 'Acqua', value: 'WATER'},
+  ];
+  private destinations = inject(SpendingDestinationService);
+
   ngOnInit(): void {
+    this.destinations.list().subscribe(list => (this.destinationOptions = destinationOptions(list)));
     this.accounting.active$.subscribe(active => {
       this.accountingActive = active;
       if (active && this.fromAccounting && this.canEdit) {

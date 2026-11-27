@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { BaseService } from '@apis/shared/base.service';
@@ -7,6 +7,9 @@ import { SpendingDestination } from './entity/spending-destination.entity';
 import { CreateSpendingDestinationDto } from './dto/create-spending-destination.dto';
 import { UpdateSpendingDestinationDto } from './dto/update-spending-destination.dto';
 import * as q from './spending-destinations.queries';
+import { AuditLogService } from '@apis/audit-log/audit-log.service';
+import { ChapterDerivationService } from './chapter-derivation.service';
+import { DestinationSuggestion, suggestDestinations } from './destination-suggestions';
 
 export interface DestinationUsage {
   assets: number;
@@ -35,8 +38,58 @@ export class SpendingDestinationsService extends BaseService<
     @InjectRepository(SpendingDestination)
     protected readonly repo: Repository<SpendingDestination>,
     private readonly dataSource: DataSource,
+    @Optional() private readonly audit?: AuditLogService,
+    @Optional() private readonly derivation?: ChapterDerivationService,
   ) {
     super();
+  }
+
+  async suggestions(): Promise<DestinationSuggestion[]> {
+    const rows = await q.suggestionRows(this.dataSource.manager);
+    return suggestDestinations(
+      rows.map((r) => ({
+        asset_id: Number(r.asset_id),
+        label: String(r.label),
+        destination_id: Number(r.destination_id),
+      })),
+    );
+  }
+
+  // Battesimo di più immobili in una volta (tab «Da battezzare»), con audit
+  // sull'immobile; poi il capitolo delle utenze si ricalcola.
+  async assignAssets(
+    id: number,
+    assetIds: number[],
+    userId: number,
+  ): Promise<{ assigned: number }> {
+    const destination = await this.repo.findOne({ where: { id, deleted: false } });
+    if (!destination) throw new BadRequestException('Destinazione non trovata');
+    if (!assetIds.length) return { assigned: 0 };
+    const m = this.dataSource.manager;
+    const current = await q.assetDestinationsOf(m, assetIds);
+    const changed = current.filter((a) => Number(a.spending_destination_id) !== id);
+    const ids = changed.map((a) => Number(a.id));
+    if (ids.length) {
+      await q.setAssetDestination(m, ids, id, userId);
+      for (const a of changed) {
+        await this.audit?.record({
+          entityName: 'assets',
+          entityId: Number(a.id),
+          action: AuditAction.UPDATE,
+          userId,
+          fields: [
+            {
+              fieldName: 'spending_destination_id',
+              oldValue:
+                a.spending_destination_id == null ? null : Number(a.spending_destination_id),
+              newValue: id,
+            },
+          ],
+        });
+      }
+      await this.derivation?.requestAllSafe();
+    }
+    return { assigned: ids.length };
   }
 
   async findAll(): Promise<(SpendingDestination & DestinationUsage)[]> {

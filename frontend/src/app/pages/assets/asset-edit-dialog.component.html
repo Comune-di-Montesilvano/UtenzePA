@@ -61,6 +61,10 @@
             [errorMessage]="form.controls.function_id.invalid && form.controls.function_id.touched ? 'Obbligatorio' : null">
           </app-filterable-select>
 
+          <app-filterable-select class="span-all" label="Destinazione di spesa" placeholder="Cerca destinazione..."
+            [options]="destinationOptions" formControlName="spending_destination_id" [errorMessage]="null">
+          </app-filterable-select>
+
           <mat-form-field class="span-all">
             <mat-label>Descrizione fabbricato</mat-label>
             <textarea matInput formControlName="associated_building" rows="2" maxlength="255"></textarea>

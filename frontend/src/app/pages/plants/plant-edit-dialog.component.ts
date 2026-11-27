@@ -1,3 +1,5 @@
+import {destinationOptions, SpendingDestinationService} from '../spending-destinations/spending-destination.service';
+import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {ChangeDetectionStrategy, Component, inject, OnInit, QueryList, ViewChild, ViewChildren} from '@angular/core';
 import {FormBuilder, ReactiveFormsModule, Validators} from '@angular/forms';
 import {HttpErrorResponse} from '@angular/common/http';
@@ -103,7 +105,7 @@ const toDate = (iso?: string | null): Date | null => {
 @Component({
   selector: 'app-plant-edit-dialog',
   standalone: true,
-  imports: [EntityDocumentsComponent, ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
+  imports: [EntityDocumentsComponent, FilterableSelectComponent, ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatSelectModule,
     MatCheckboxModule, MatButtonModule, MatIconModule, MatTabsModule, MatDatepickerModule, MatProgressBarModule,
     LocationMapComponent, PhotoGalleryComponent, EntityHistoryComponent,
     PlantInspectionsTabComponent, PlantFireEquipmentTabComponent,
@@ -174,11 +176,15 @@ export class PlantEditDialogComponent implements OnInit {
   };
   readonly utilityStatusOf = (u: Utility): StatusInfo => utilityStatus(u);
 
+  destinationOptions: {label: string; value: number; sublabel?: string}[] = [];
+  private destinations = inject(SpendingDestinationService);
+
   form = this.fb.group({
     type: ['FOUNTAIN' as PlantType, Validators.required],
     code: ['', [Validators.required, Validators.maxLength(100)]],
     name: ['', [Validators.required, Validators.maxLength(255)]],
     status: ['ACTIVE' as PlantStatus],
+    spending_destination_id: [null as number | null],
     asset_ids: [(this.data.assetId ? [this.data.assetId] : []) as (string | number | boolean)[]],
     toponym: [''],
     address: [''],
@@ -236,6 +242,7 @@ export class PlantEditDialogComponent implements OnInit {
   private savedUtilityIds = new Set<number>();
 
   ngOnInit(): void {
+    this.destinations.list().subscribe(list => (this.destinationOptions = destinationOptions(list)));
     if (!this.canEdit) this.form.disable();
     else {
       this.syncTypeGroups();
@@ -585,6 +592,7 @@ export class PlantEditDialogComponent implements OnInit {
       code: p.code,
       name: p.name,
       status: p.status,
+      spending_destination_id: p.spending_destination_id ?? null,
       asset_ids: (p.assets ?? []).map(a => a.id),
       toponym: p.toponym ?? '',
       address: p.address ?? '',
@@ -657,6 +665,7 @@ export class PlantEditDialogComponent implements OnInit {
       code: (v.code ?? '').trim(),
       name: (v.name ?? '').trim(),
       status: v.status as PlantStatus,
+      spending_destination_id: v.spending_destination_id ?? null,
       asset_ids: (v.asset_ids ?? []).map(Number),
       toponym: text(v.toponym),
       address: text(v.address),

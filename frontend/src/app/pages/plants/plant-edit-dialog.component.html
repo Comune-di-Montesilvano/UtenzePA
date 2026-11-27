@@ -62,6 +62,11 @@
             <mat-label>Nome</mat-label>
             <input matInput formControlName="name">
           </mat-form-field>
+          <div class="span-all">
+            <app-filterable-select label="Destinazione di spesa" placeholder="Vuota = quella degli immobili"
+              [options]="destinationOptions" formControlName="spending_destination_id" [errorMessage]="null">
+            </app-filterable-select>
+          </div>
         </div>
 
         <div class="sheet-section-title"><mat-icon>place</mat-icon>Indirizzo e posizione</div>

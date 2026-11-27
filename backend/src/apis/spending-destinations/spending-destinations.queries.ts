@@ -15,6 +15,45 @@ const countOf =
       .from(entity, 'x')
       .where('x.spending_destination_id = d.id AND x.deleted = 0');
 
+// Immobili non cancellati senza destinazione, una riga per utenza con un
+// capitolo che ha una destinazione (proposte per il primo popolamento).
+export function suggestionRows(m: EntityManager): Promise<Row[]> {
+  return m
+    .createQueryBuilder(Asset, 'a')
+    .innerJoin('utility_assets', 'ua', 'ua.asset_id = a.id')
+    .innerJoin(Utility, 'u', 'u.id = ua.utility_id AND u.deleted = 0')
+    .innerJoin(BudgetChapter, 'b', 'b.id = u.budget_chapter_code_fk AND b.deleted = 0')
+    .innerJoin(SpendingDestination, 'd', 'd.id = b.spending_destination_id AND d.deleted = 0')
+    .select('a.id', 'asset_id')
+    .addSelect('a.asset_name', 'label')
+    .addSelect('d.id', 'destination_id')
+    .where('a.deleted = 0 AND a.spending_destination_id IS NULL')
+    .getRawMany();
+}
+
+export function assetDestinationsOf(m: EntityManager, ids: number[]): Promise<Row[]> {
+  return m
+    .createQueryBuilder(Asset, 'a')
+    .select('a.id', 'id')
+    .addSelect('a.spending_destination_id', 'spending_destination_id')
+    .where('a.id IN (:...ids) AND a.deleted = 0', { ids })
+    .getRawMany();
+}
+
+export async function setAssetDestination(
+  m: EntityManager,
+  ids: number[],
+  destinationId: number,
+  userId: number,
+): Promise<void> {
+  await m
+    .createQueryBuilder()
+    .update(Asset)
+    .set({ spending_destination_id: destinationId, updated_by_user_id: userId })
+    .where('id IN (:...ids)', { ids })
+    .execute();
+}
+
 // Immobili, impianti e capitoli con la destinazione, utenze sui suoi capitoli.
 export function destinationUsage(m: EntityManager, ids?: number[]): Promise<Row[]> {
   const qb = m
