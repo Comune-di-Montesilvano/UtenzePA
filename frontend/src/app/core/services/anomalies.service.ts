@@ -5,6 +5,15 @@ import {environment} from '../../../environments/environment';
 import {AuthService} from '../../services/auth.service';
 
 // Anomalie dei dati (GET /anomalies): dashboard e segnalazioni degli elenchi.
+// Perché il capitolo dell'utenza non si ricava dalla destinazione di spesa.
+export type DerivationReason = 'no_destination' | 'ambiguous' | 'no_chapter';
+
+export const DERIVATION_REASON_LABEL: Record<DerivationReason, string> = {
+  no_destination: 'nessun immobile o impianto con destinazione',
+  ambiguous: 'immobili o impianti con destinazioni diverse',
+  no_chapter: 'nessun capitolo per destinazione e natura',
+};
+
 export interface CommitmentAnomaly {
   id: number;
   label: string;
@@ -91,11 +100,13 @@ export interface Anomalies {
   commitments_without_amount: AnomalyList<CommitmentAnomaly>;
   // Fatture divise a mano con quote che non sommano al totale.
   invoices_shares_mismatch: AnomalyList<{id: number; number: string; total: number; shares: number}>;
-  // Import della contabilità: liquidazioni senza fattura, impegni importati senza contratto,
-  // utenze con più capitoli nell'ultimo esercizio pagato.
+  // Import della contabilità: liquidazioni senza fattura, impegni importati senza contratto.
   accounting_liquidations_unmatched: AnomalyList<{id: string; number: string; date: string | null; amount: number; supplier_vat: string | null; commitment: string}>;
   accounting_commitments_without_contract: AnomalyList<{id: number; label: string}>;
-  accounting_utility_chapter_ambiguous: AnomalyList<{id: number; utility_id: string; chapters: string}>;
+  // Utenze con righe degli ultimi 365 giorni pagate su capitoli diversi dal loro.
+  utilities_paid_on_other_chapters: AnomalyList<{id: number; utility_id: string; chapters: string; amount: number}>;
+  // Utenze in carico il cui capitolo non si ricava dalla destinazione di spesa.
+  utilities_destination_missing: AnomalyList<{id: number; utility_id: string; reason: DerivationReason}>;
   // Scaricamento automatico installato ma nessun caricamento riuscito da più di 2 giorni.
   accounting_import_stale: AnomalyList<{id: number; label: string}>;
   // Convenzioni con impegni che non basteranno nell'esercizio in corso (cache del fabbisogno).

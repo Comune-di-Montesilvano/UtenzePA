@@ -18,27 +18,3 @@ export function planCommitmentContracts(
   }
   return result;
 }
-
-// Capitolo dell'utenza dalle fatture pagate: quello delle quote della
-// ragioneria nell'ultimo esercizio, solo se è uno e diverso dall'attuale.
-export function planUtilityChapters(
-  rows: { utility_id: number; fiscal_year: number; chapter_id: number }[],
-  current: Map<number, number | null>,
-): { utilityId: number; chapterId: number }[] {
-  const byUtility = new Map<number, { year: number; chapters: Set<number> }>();
-  for (const r of rows) {
-    const entry = byUtility.get(r.utility_id);
-    if (!entry || r.fiscal_year > entry.year) {
-      byUtility.set(r.utility_id, { year: r.fiscal_year, chapters: new Set([r.chapter_id]) });
-    } else if (r.fiscal_year === entry.year) {
-      entry.chapters.add(r.chapter_id);
-    }
-  }
-  const result: { utilityId: number; chapterId: number }[] = [];
-  for (const [utilityId, { chapters }] of byUtility) {
-    if (chapters.size !== 1) continue;
-    const [chapterId] = chapters;
-    if ((current.get(utilityId) ?? null) !== chapterId) result.push({ utilityId, chapterId });
-  }
-  return result;
-}

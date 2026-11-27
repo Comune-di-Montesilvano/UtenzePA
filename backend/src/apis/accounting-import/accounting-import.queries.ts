@@ -8,7 +8,6 @@ import { SdiMessage } from '@apis/invoice-import/entity/sdi-message.entity';
 import { InvoiceCommitmentShare } from '@apis/invoices/entity/invoice-commitment-share.entity';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
 import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
-import { Utility } from '@apis/utility/entity/utility.entity';
 import type { CurrentSpending } from './chapter-plan';
 import type { CurrentCommitment } from './commitment-plan';
 import type { CurrentShare } from './share-plan';
@@ -439,30 +438,6 @@ export function paidContracts(m: EntityManager): Promise<Row[]> {
     .getRawMany();
 }
 
-// Utenze delle righe delle fatture pagate, con capitolo e anno delle quote.
-export function paidUtilityChapters(m: EntityManager): Promise<Row[]> {
-  return accountingShares(m)
-    .select([
-      'l.utility_id_fk AS utility_id',
-      's.fiscal_year AS fiscal_year',
-      'bc.budget_chapter_id_fk AS chapter_id',
-    ])
-    .distinct(true)
-    .innerJoin(BudgetCommitment, 'bc', 'bc.id = s.commitment_id_fk')
-    .innerJoin('invoice_lines', 'l', 'l.invoice_id_fk = i.id')
-    .andWhere('l.utility_id_fk IS NOT NULL')
-    .getRawMany();
-}
-
-export function utilityChapters(m: EntityManager): Promise<Row[]> {
-  return m
-    .getRepository(Utility)
-    .createQueryBuilder('u')
-    .select(['u.id AS id', 'u.budget_chapter_code_fk AS budget_chapter_code_fk'])
-    .where('u.deleted = 0')
-    .getRawMany();
-}
-
 export async function linkContracts(
   m: EntityManager,
   commitmentId: number,
@@ -474,18 +449,6 @@ export async function linkContracts(
     .into('budget_commitment_contracts', ['commitment_id', 'contract_id'])
     .values(contractIds.map((contract_id) => ({ commitment_id: commitmentId, contract_id })))
     .execute();
-}
-
-export async function setUtilityChapter(
-  m: EntityManager,
-  utilityId: number,
-  chapterId: number,
-  userId: number,
-): Promise<void> {
-  await m.update(Utility, utilityId, {
-    budget_chapter_code_fk: chapterId,
-    updated_by_user_id: userId,
-  });
 }
 
 // --- Fatture e pagamenti ---

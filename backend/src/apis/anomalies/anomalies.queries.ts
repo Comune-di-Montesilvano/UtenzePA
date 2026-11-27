@@ -55,6 +55,11 @@ function utilitiesInCharge(m: EntityManager): Qb {
     .where(`u.deleted = 0 AND ${inChargeSql('u')}`);
 }
 
+// Utenze in carico al Comune (id e codice), per le anomalie calcolate fuori da SQL.
+export function utilitiesInChargeList(m: EntityManager): Promise<Row[]> {
+  return utilitiesInCharge(m).getRawMany();
+}
+
 // Elenco «#id fornitore» dei contratti validi oggi dell'utenza.
 function withCurrentContracts(q: Qb): Qb {
   return q.addSelect(

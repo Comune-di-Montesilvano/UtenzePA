@@ -16,13 +16,8 @@ function setup() {
   mq.commitmentContracts.mockResolvedValue([]);
   mq.contractsWithCig.mockResolvedValue([{ id: 5, supplier_id_fk: 2, cig_contract: 'CIG1' }]);
   mq.paidContracts.mockResolvedValue([]);
-  mq.paidUtilityChapters.mockResolvedValue([{ utility_id: 30, fiscal_year: 2026, chapter_id: 7 }]);
-  mq.utilityChapters.mockResolvedValue([{ id: 30, budget_chapter_code_fk: null }]);
   mq.linkContracts.mockImplementation(async (_m, commitmentId, contractIds) => {
     writes.push(['linkContracts', commitmentId, contractIds]);
-  });
-  mq.setUtilityChapter.mockImplementation(async (_m, utilityId, chapterId, userId) => {
-    writes.push(['setUtilityChapter', utilityId, chapterId, userId]);
   });
   const manager = {};
   const dataSource = {
@@ -47,21 +42,12 @@ function setup() {
 }
 
 describe('LinkApplierService', () => {
-  it('collega il contratto dal CIG e aggiorna il capitolo dell utenza con audit', async () => {
+  it('collega il contratto dal CIG; il capitolo delle utenze non lo scrive più (viene dalla destinazione)', async () => {
     const { service, writes, audit } = setup();
-    expect(await service.apply()).toEqual({ contractsLinked: 1, utilityChapters: 1 });
-    expect(writes).toEqual([
-      ['linkContracts', 1, [5]],
-      ['setUtilityChapter', 30, 7, SYSTEM_USER_ID],
-    ]);
-    expect(audit.record).toHaveBeenCalledWith(
-      expect.objectContaining({
-        entityName: 'utilities',
-        entityId: 30,
-        action: AuditAction.UPDATE,
-        userId: SYSTEM_USER_ID,
-        fields: [{ fieldName: 'budget_chapter_code_fk', oldValue: null, newValue: 7 }],
-      }),
+    expect(await service.apply()).toEqual({ contractsLinked: 1 });
+    expect(writes).toEqual([['linkContracts', 1, [5]]]);
+    expect(audit.record).not.toHaveBeenCalledWith(
+      expect.objectContaining({ entityName: 'utilities' }),
     );
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
