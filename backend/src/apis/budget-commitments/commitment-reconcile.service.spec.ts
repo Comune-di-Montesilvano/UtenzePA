@@ -342,6 +342,77 @@ describe('CommitmentReconcileService', () => {
     expect(inserts(calls).map((c) => c.params)).toEqual([[3, 10, 2026, 100, 3]]);
   });
 
+  describe('esercizi chiusi', () => {
+    // Impegno A sul capitolo 7 (vecchio capitolo dell'utenza), B sul capitolo 8 (nuovo).
+    const both = () => [
+      { ...commitment(10, 100, 1000), chapter: 7, fiscal_year: 2025 },
+      { ...commitment(20, 200, 1000), chapter: 8, fiscal_year: 2025 },
+      { ...commitment(10, 100, 1000), chapter: 7, fiscal_year: 2026 },
+      { ...commitment(20, 200, 1000), chapter: 8, fiscal_year: 2026 },
+    ];
+    const service = (ds: DataSource) => {
+      const s = new CommitmentReconcileService(ds);
+      s.now = () => new Date('2026-11-27T10:00:00Z');
+      return s;
+    };
+
+    it("fattura di un esercizio chiuso con quota automatica: invariata anche se cambia il capitolo dell'utenza", async () => {
+      const { ds, calls } = fakeDataSource({
+        commitments: both(),
+        invoices: [
+          invoice(1, 50, '2025-03-10', {
+            chapters: '[8]',
+            auto_share: { commitment_id: 10, fiscal_year: 2025, amount: 50 },
+          }),
+        ],
+      });
+      await service(ds).reconcileContracts([1]);
+      expect(deletes(calls)).toHaveLength(0);
+      expect(inserts(calls)).toHaveLength(0);
+    });
+
+    it("fattura dell'esercizio in corso nella stessa situazione: quota spostata sul nuovo impegno", async () => {
+      const { ds, calls } = fakeDataSource({
+        commitments: both(),
+        invoices: [
+          invoice(1, 50, '2026-03-10', {
+            chapters: '[8]',
+            auto_share: { commitment_id: 10, fiscal_year: 2026, amount: 50 },
+          }),
+        ],
+      });
+      await service(ds).reconcileContracts([1]);
+      expect(inserts(calls).map((c) => c.params)).toEqual([[1, 20, 2026, 50, 1]]);
+    });
+
+    it('fattura di un esercizio chiuso senza quota: allocata', async () => {
+      const { ds, calls } = fakeDataSource({
+        commitments: both(),
+        invoices: [invoice(1, 50, '2025-03-10', { chapters: '[8]' })],
+      });
+      await service(ds).reconcileContracts([1]);
+      expect(inserts(calls).map((c) => c.params)).toEqual([[1, 20, 2025, 50, 1]]);
+    });
+
+    it("la quota congelata consuma la rimanenza dell'impegno", async () => {
+      const { ds, calls } = fakeDataSource({
+        commitments: [
+          { ...commitment(10, 100, 50), chapter: 7, fiscal_year: 2025 },
+          { ...commitment(20, 200, 100), chapter: 7, fiscal_year: 2025 },
+        ],
+        invoices: [
+          invoice(1, 50, '2025-03-10', {
+            auto_share: { commitment_id: 10, fiscal_year: 2025, amount: 50 },
+          }),
+          invoice(2, 30, '2025-04-10'),
+        ],
+      });
+      await service(ds).reconcileContracts([1]);
+      // 50 - 50 = 0: la seconda passa all'impegno successivo.
+      expect(inserts(calls).map((c) => c.params)).toEqual([[2, 20, 2025, 30, 2]]);
+    });
+  });
+
   describe('onReconciled', () => {
     it('dopo un giro riuscito avvisa con i contratti ricalcolati', async () => {
       const { ds } = fakeDataSource({ closure: [{ contract_id: 2 }] });
