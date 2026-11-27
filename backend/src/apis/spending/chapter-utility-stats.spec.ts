@@ -4,6 +4,7 @@ import { toDay } from '@apis/utility-consumptions/consumption-calculator';
 import {
   chapterUtilityStats,
   lineShare,
+  monthWindows,
   periodWindows,
   type StatsUtility,
 } from './chapter-utility-stats';
@@ -57,6 +58,16 @@ describe('periodWindows', () => {
       current: w('2026-01-01', '2026-10-27'),
       previous: w('2025-01-01', '2025-10-27'),
     });
+  });
+});
+
+describe('monthWindows', () => {
+  it('mesi del periodo tagliati sulla finestra', () => {
+    expect(monthWindows(w('2025-11-28', '2026-01-10'))).toEqual([
+      { month: '2025-11', window: w('2025-11-28', '2025-11-30') },
+      { month: '2025-12', window: w('2025-12-01', '2025-12-31') },
+      { month: '2026-01', window: w('2026-01-01', '2026-01-10') },
+    ]);
   });
 });
 
@@ -119,6 +130,7 @@ describe('chapterUtilityStats', () => {
         hard_type: HardTypeEnum.LIGHT,
         unit: 'kWh',
         utilities: 1,
+        ceased: 0,
         spend: 1200,
         consumption: 6000,
         unit_cost: 0.2,
@@ -182,5 +194,78 @@ describe('chapterUtilityStats', () => {
       outliers: [],
     });
     expect(stats.summary).toMatchObject({ change: null, compared_utilities: 0 });
+  });
+
+  it('consumo molto sotto la mediana del tipo: costo unitario mai fuori norma', () => {
+    const normal = monthly(2025, 100, 1000);
+    const tiny = monthly(2025, 10, 1);
+    const stats = chapterUtilityStats(
+      [
+        utility(1, { ...normal }),
+        utility(2, { ...normal }),
+        utility(3, { ...normal }),
+        utility(4, { ...tiny }),
+      ],
+      2025,
+      today,
+    );
+    const t = stats.utilities.find((u) => u.id === 4)!;
+    expect(t).toMatchObject({ unit_cost: 10, low_consumption: true, outliers: [] });
+  });
+
+  it('per tipo conta attive e cessate a parte', () => {
+    const stats = chapterUtilityStats(
+      [utility(1), utility(2), utility(3, { active: false })],
+      2025,
+      today,
+    );
+    expect(stats.summary.types[0]).toMatchObject({ utilities: 2, ceased: 1 });
+  });
+
+  it('pagato sul capitolo: utenze del capitolo, di altri capitoli, senza utenza; mesi qui e altrove', () => {
+    const line = (month: string, amount: number, here: number) => ({
+      amount,
+      period_start: `2025-${month}-01`,
+      period_end: `2025-${month}-28`,
+      invoice_date: `2025-${month}-28`,
+      here,
+    });
+    const stats = chapterUtilityStats(
+      [
+        utility(1, { lines: [line('01', 100, 1), line('02', 100, 0)] }),
+        utility(2, {
+          on_chapter: false,
+          chapter_label: '2000/1',
+          lines: [line('03', 60, 1), line('04', 40, 0.5)],
+        }),
+      ],
+      2025,
+      today,
+      [line('05', 10, 1)],
+    );
+    expect(stats.utilities.find((u) => u.id === 1)).toMatchObject({
+      on_chapter: true,
+      chapter_label: null,
+      paid_here: 100,
+      paid_elsewhere: 100,
+      months_here: ['2025-01'],
+      months_elsewhere: ['2025-02'],
+    });
+    expect(stats.utilities.find((u) => u.id === 2)).toMatchObject({
+      on_chapter: false,
+      chapter_label: '2000/1',
+      spend: 100,
+      paid_here: 80,
+      months_here: ['2025-03', '2025-04'],
+      months_elsewhere: ['2025-04'],
+    });
+    // Riepilogo e tipi solo sulle utenze del capitolo.
+    expect(stats.summary).toMatchObject({
+      spend: 200,
+      active_utilities: 1,
+      paid_here: { total: 190, own: 100, others: 80, without_utility: 10 },
+      own_elsewhere: 100,
+    });
+    expect(stats.summary.types[0]).toMatchObject({ utilities: 1, spend: 200 });
   });
 });

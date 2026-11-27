@@ -146,17 +146,33 @@ export class SpendingService {
   }
 
   // Scheda capitolo → Utenze: statistiche delle utenze oggi sul capitolo nel
-  // periodo, con gli anni che hanno fatture per il selettore.
+  // periodo e di quelle di altri capitoli pagate sul capitolo dalla ragioneria
+  // (quote d'impegno), con gli anni che hanno fatture per il selettore.
   async chapterUtilityStats(
     chapterId: number,
     period: StatsPeriod,
   ): Promise<ChapterUtilityStats & { years: number[] }> {
-    const utilities = await q.chapterUtilities(this.m, chapterId);
-    const ids = utilities.map((u) => Number(u.id));
     const today = todayDay();
     const { current, previous } = periodWindows(period, today);
+    const paidHere = await q.paidHereLines(
+      this.m,
+      chapterId,
+      fromDay(current.start),
+      fromDay(current.end),
+    );
+    const otherIds = [
+      ...new Set(paidHere.filter((l) => l.utility_id != null).map((l) => Number(l.utility_id))),
+    ];
+    const utilities = await q.statsUtilities(this.m, chapterId, otherIds);
+    const ids = utilities.map((u) => Number(u.id));
     const lines = ids.length
-      ? await q.utilityLines(this.m, ids, fromDay(previous.start), fromDay(current.end))
+      ? await q.utilityLines(
+          this.m,
+          chapterId,
+          ids,
+          fromDay(previous.start),
+          fromDay(current.end),
+        )
       : [];
     const consumptions = ids.length ? await q.utilityConsumptions(this.m, ids) : [];
     const years = ids.length ? await q.utilityLineYears(this.m, ids) : [];
@@ -170,6 +186,13 @@ export class SpendingService {
     };
     const linesOf = byUtility(lines);
     const consumptionsOf = byUtility(consumptions);
+    const toLine = (l: Record<string, unknown>) => ({
+      amount: Number(l.amount),
+      period_start: (l.period_start as string) ?? null,
+      period_end: (l.period_end as string) ?? null,
+      invoice_date: String(l.invoice_date),
+      here: Number(l.here) || 0,
+    });
     const stats = chapterUtilityStats(
       utilities.map((u) => ({
         id: Number(u.id),
@@ -177,12 +200,9 @@ export class SpendingService {
         type_name: (u.type_name as string) ?? null,
         hard_type: (u.hard_type as HardTypeEnum) ?? null,
         active: u.supply_active === null || Number(u.supply_active) !== 0,
-        lines: (linesOf.get(Number(u.id)) ?? []).map((l) => ({
-          amount: Number(l.amount),
-          period_start: (l.period_start as string) ?? null,
-          period_end: (l.period_end as string) ?? null,
-          invoice_date: String(l.invoice_date),
-        })),
+        on_chapter: Number(u.chapter_id) === chapterId,
+        chapter_label: (u.chapter_label as string) ?? null,
+        lines: (linesOf.get(Number(u.id)) ?? []).map(toLine),
         consumptions: (consumptionsOf.get(Number(u.id)) ?? []).map((c) => ({
           ...c,
           id: Number(c.id),
@@ -191,6 +211,7 @@ export class SpendingService {
       })),
       period,
       today,
+      paidHere.filter((l) => l.utility_id == null).map(toLine),
     );
     const yearList = new Set(years.map((y) => Number(y.year)));
     yearList.add(currentYear());

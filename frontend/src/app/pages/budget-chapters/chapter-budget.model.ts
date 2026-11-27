@@ -93,13 +93,26 @@ export interface ChapterUtilityStatsRow {
   unit: string | null;
   consumption: number | null;
   unit_cost: number | null;
+  // Consumo troppo basso perché il costo unitario dica qualcosa.
+  low_consumption: boolean;
   outliers: StatsOutlier[];
+  // false = utenza di un altro capitolo (chapter_label) pagata su questo.
+  on_chapter: boolean;
+  chapter_label: string | null;
+  // Spesa del periodo pagata su questo capitolo / altrove (o non imputata).
+  paid_here: number;
+  paid_elsewhere: number;
+  // Mesi 'AAAA-MM'.
+  months_here: string[];
+  months_elsewhere: string[];
 }
 
 export interface ChapterTypeStats {
   hard_type: HardType | null;
   unit: string | null;
+  // Utenze del capitolo attive e cessate.
   utilities: number;
+  ceased: number;
   spend: number;
   consumption: number | null;
   unit_cost: number | null;
@@ -115,6 +128,10 @@ export interface ChapterUtilityStats {
     active_utilities: number;
     average_per_active: number | null;
     types: ChapterTypeStats[];
+    // Pagato sul capitolo nel periodo (quote d'impegno della ragioneria).
+    paid_here: {total: number; own: number; others: number; without_utility: number};
+    // Spesa delle utenze del capitolo pagata su altri capitoli o non imputata.
+    own_elsewhere: number;
   };
   utilities: ChapterUtilityStatsRow[];
   years: number[];

@@ -11,7 +11,10 @@ import { CONSUMPTION_UNIT } from '@apis/utility-consumptions/consumption-unit';
 // Utenze). Funzioni pure, niente DB: spesa dalle righe di fattura ripartite
 // pro rata sui giorni del periodo della riga, consumo dalla mappa giornaliera
 // dei consumi (stime superate escluse), costo unitario = spesa dei giorni con
-// consumo / consumo.
+// consumo / consumo. Ogni riga porta la quota della fattura pagata sul capitolo
+// (here, dalle quote d'impegno: in ragioneria la stessa utenza può passare da
+// un capitolo all'altro), così le utenze di altri capitoli pagate qui entrano
+// nell'elenco con i mesi pagati qui.
 
 // 'last12' = ultimi 12 mesi fino a oggi, altrimenti un anno.
 export type StatsPeriod = 'last12' | number;
@@ -27,6 +30,8 @@ export interface StatsLine {
   period_start: string | null;
   period_end: string | null;
   invoice_date: string;
+  // Quota dell'importo pagata sul capitolo (0..1); assente = 0.
+  here?: number;
 }
 
 export interface StatsUtility {
@@ -35,6 +40,11 @@ export interface StatsUtility {
   type_name: string | null;
   hard_type: HardTypeEnum | null;
   active: boolean;
+  // Utenza assegnata al capitolo in UtenzePA (assente = sì); le altre sono
+  // pagate sul capitolo dalla ragioneria.
+  on_chapter?: boolean;
+  // Capitolo assegnato all'utenza, per quelle di altri capitoli.
+  chapter_label?: string | null;
   lines: StatsLine[];
   consumptions: ConsumptionRecord[];
 }
@@ -57,13 +67,27 @@ export interface UtilityStats {
   unit: string | null;
   consumption: number | null;
   unit_cost: number | null;
+  // Consumo sotto LOW_CONSUMPTION_SHARE della mediana del tipo: costo unitario
+  // non significativo (quota fissa su pochi kWh), mai fuori norma per costo.
+  low_consumption: boolean;
   outliers: OutlierReason[];
+  on_chapter: boolean;
+  chapter_label: string | null;
+  // Spesa del periodo pagata su questo capitolo e su altri (o non ancora
+  // imputata): paid_here + paid_elsewhere = spend.
+  paid_here: number;
+  paid_elsewhere: number;
+  // Mesi ('AAAA-MM') del periodo con spesa pagata qui / altrove.
+  months_here: string[];
+  months_elsewhere: string[];
 }
 
 export interface TypeStats {
   hard_type: HardTypeEnum | null;
   unit: string | null;
+  // Utenze del capitolo attive e cessate.
   utilities: number;
+  ceased: number;
   spend: number;
   consumption: number | null;
   unit_cost: number | null;
@@ -80,6 +104,11 @@ export interface ChapterUtilityStats {
     active_utilities: number;
     average_per_active: number | null;
     types: TypeStats[];
+    // Pagato sul capitolo nel periodo (quote d'impegno ripartite sulle righe):
+    // utenze del capitolo, di altri capitoli, righe senza utenza; own_elsewhere =
+    // spesa delle utenze del capitolo pagata su altri capitoli o non imputata.
+    paid_here: { total: number; own: number; others: number; without_utility: number };
+    own_elsewhere: number;
   };
   utilities: UtilityStats[];
 }
@@ -89,6 +118,11 @@ export const UNIT_COST_MEDIAN_FACTOR = 2;
 export const SPEND_CHANGE_LIMIT = 0.5;
 // Sotto questo numero di utenze dello stesso tipo la mediana non dice nulla.
 const MIN_FOR_MEDIAN = 3;
+// Sotto questa quota della mediana dei consumi del tipo il costo unitario non
+// dice nulla (utenza attivata da poco, contatore quasi fermo).
+export const LOW_CONSUMPTION_SHARE = 0.1;
+// Sotto il centesimo una quota di mese non conta.
+const CENT = 0.005;
 // Quota dei giorni del periodo coperta dalle righe di fattura sotto la quale
 // la spesa è incompleta (fatture senza righe per utenza, bollette mancanti).
 export const MIN_COVERAGE = 0.8;
@@ -170,6 +204,28 @@ function coveredDays(lines: StatsLine[], w: DayWindow): number {
   return days.size;
 }
 
+// Mesi del periodo ('AAAA-MM'), ognuno tagliato sulla finestra.
+export function monthWindows(w: DayWindow): { month: string; window: DayWindow }[] {
+  const out: { month: string; window: DayWindow }[] = [];
+  let [y, m] = fromDay(w.start).split('-').map(Number);
+  for (;;) {
+    const first = toDay(`${y}-${String(m).padStart(2, '0')}-01`);
+    if (first > w.end) break;
+    const ny = m === 12 ? y + 1 : y;
+    const nm = m === 12 ? 1 : m + 1;
+    const last = toDay(`${ny}-${String(nm).padStart(2, '0')}-01`) - 1;
+    out.push({
+      month: `${y}-${String(m).padStart(2, '0')}`,
+      window: { start: Math.max(first, w.start), end: Math.min(last, w.end) },
+    });
+    y = ny;
+    m = nm;
+  }
+  return out;
+}
+
+const hereOf = (l: StatsLine): number => Math.min(1, Math.max(0, Number(l.here ?? 0)));
+
 function median(values: number[]): number | null {
   if (values.length < MIN_FOR_MEDIAN) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -181,13 +237,27 @@ export function chapterUtilityStats(
   utilities: StatsUtility[],
   period: StatsPeriod,
   today: number,
+  // Righe senza utenza pagate sul capitolo (canoni, servizi del contratto).
+  unassigned: StatsLine[] = [],
 ): ChapterUtilityStats {
   const { current, previous } = periodWindows(period, today);
+  const months = monthWindows(current);
   const types = new Map<string, TypeStats & { costSpend: number }>();
 
   const rows = utilities.map((u) => {
+    const onChapter = u.on_chapter !== false;
     const sum = (w: DayWindow) => u.lines.reduce((t, l) => t + lineShare(l, w), 0);
+    const sumHere = (w: DayWindow) =>
+      u.lines.reduce((t, l) => t + lineShare(l, w) * hereOf(l), 0);
     const spend = sum(current);
+    const paidHere = sumHere(current);
+    const monthsHere: string[] = [];
+    const monthsElsewhere: string[] = [];
+    for (const { month, window } of months) {
+      const here = sumHere(window);
+      if (here > CENT) monthsHere.push(month);
+      if (sum(window) - here > CENT) monthsElsewhere.push(month);
+    }
     const previousSpend = sum(previous);
     const covered = (w: DayWindow) =>
       coveredDays(u.lines, w) >= MIN_COVERAGE * (w.end - w.start + 1);
@@ -211,23 +281,27 @@ export function chapterUtilityStats(
       }
     }
 
-    const key = String(u.hard_type);
-    const t = types.get(key) ?? {
-      hard_type: u.hard_type,
-      unit,
-      utilities: 0,
-      spend: 0,
-      consumption: unit ? 0 : null,
-      unit_cost: null,
-      costSpend: 0,
-    };
-    t.utilities++;
-    t.spend += spend;
-    if (consumption) {
-      t.consumption = (t.consumption ?? 0) + consumption;
-      t.costSpend += costSpend;
+    if (onChapter) {
+      const key = String(u.hard_type);
+      const t = types.get(key) ?? {
+        hard_type: u.hard_type,
+        unit,
+        utilities: 0,
+        ceased: 0,
+        spend: 0,
+        consumption: unit ? 0 : null,
+        unit_cost: null,
+        costSpend: 0,
+      };
+      if (u.active) t.utilities++;
+      else t.ceased++;
+      t.spend += spend;
+      if (consumption) {
+        t.consumption = (t.consumption ?? 0) + consumption;
+        t.costSpend += costSpend;
+      }
+      types.set(key, t);
     }
-    types.set(key, t);
 
     const row: UtilityStats = {
       id: u.id,
@@ -242,7 +316,14 @@ export function chapterUtilityStats(
       unit,
       consumption: consumption === null ? null : round2(consumption),
       unit_cost: consumption ? round4(costSpend / consumption) : null,
+      low_consumption: false,
       outliers: [],
+      on_chapter: onChapter,
+      chapter_label: onChapter ? null : (u.chapter_label ?? null),
+      paid_here: round2(paidHere),
+      paid_elsewhere: round2(spend - paidHere),
+      months_here: monthsHere,
+      months_elsewhere: monthsElsewhere,
     };
     return row;
   });
@@ -250,8 +331,16 @@ export function chapterUtilityStats(
   for (const r of rows) {
     if (r.change !== null && Math.abs(r.change) > SPEND_CHANGE_LIMIT) r.outliers.push('change');
   }
-  for (const key of types.keys()) {
-    const same = rows.filter((r) => String(r.hard_type) === key && r.unit_cost !== null);
+  // Mediane su tutte le utenze dell'elenco, anche quelle di altri capitoli.
+  for (const key of new Set(rows.map((r) => String(r.hard_type)))) {
+    const withCost = rows.filter((r) => String(r.hard_type) === key && r.unit_cost !== null);
+    const mc = median(withCost.map((r) => r.consumption as number));
+    if (mc !== null) {
+      for (const r of withCost) {
+        if ((r.consumption as number) < mc * LOW_CONSUMPTION_SHARE) r.low_consumption = true;
+      }
+    }
+    const same = withCost.filter((r) => !r.low_consumption);
     const m = median(same.map((r) => r.unit_cost as number));
     if (m === null) continue;
     for (const r of same) {
@@ -259,12 +348,20 @@ export function chapterUtilityStats(
     }
   }
 
-  const spend = rows.reduce((t, r) => t + r.spend, 0);
-  const previousSpend = rows.reduce((t, r) => t + r.previous_spend, 0);
-  const compared = rows.filter((r) => r.comparable);
+  const own = rows.filter((r) => r.on_chapter);
+  const others = rows.filter((r) => !r.on_chapter);
+  const spend = own.reduce((t, r) => t + r.spend, 0);
+  const previousSpend = own.reduce((t, r) => t + r.previous_spend, 0);
+  const compared = own.filter((r) => r.comparable);
   const comparedSpend = compared.reduce((t, r) => t + r.spend, 0);
   const comparedPrevious = compared.reduce((t, r) => t + r.previous_spend, 0);
-  const active = rows.filter((r) => r.active);
+  const active = own.filter((r) => r.active);
+  const paidOwn = own.reduce((t, r) => t + r.paid_here, 0);
+  const paidOthers = others.reduce((t, r) => t + r.paid_here, 0);
+  const paidUnassigned = unassigned.reduce(
+    (t, l) => t + lineShare(l, current) * hereOf(l),
+    0,
+  );
   const activeSpend = active.reduce((t, r) => t + r.spend, 0);
 
   return {
@@ -287,6 +384,13 @@ export function chapterUtilityStats(
         consumption: t.consumption === null ? null : round2(t.consumption),
         unit_cost: t.consumption ? round4(costSpend / t.consumption) : null,
       })),
+      paid_here: {
+        total: round2(paidOwn + paidOthers + paidUnassigned),
+        own: round2(paidOwn),
+        others: round2(paidOthers),
+        without_utility: round2(paidUnassigned),
+      },
+      own_elsewhere: round2(own.reduce((t, r) => t + r.paid_elsewhere, 0)),
     },
     utilities: rows.sort((a, b) => b.spend - a.spend),
   };
