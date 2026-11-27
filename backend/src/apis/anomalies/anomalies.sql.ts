@@ -1,6 +1,7 @@
 import { EntityManager } from 'typeorm';
 import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
-import { NOT_OFFSET_SQL } from '@apis/invoices/enum/payment-status.enum';
+// Pagate su altri capitoli: query condivisa con la scheda utenza.
+export { utilitiesPaidOnOtherChapters } from '@apis/spending/paid-elsewhere.sql';
 
 // SQL a mano: le due letture delle anomalie con una CTE, che il
 // QueryBuilder non compone (le altre sono in anomalies.queries.ts).
@@ -29,34 +30,5 @@ export function liquidationsUnmatched(m: EntityManager): Promise<Row[]> {
         AND NOT EXISTS (SELECT 1 FROM k WHERE k.invoice_date = l.invoice_date AND k.vat = l.supplier_vat
               AND k.number = TRIM(LEADING '0' FROM REGEXP_REPLACE(UPPER(l.invoice_number), '[^A-Z0-9]', '')))
       ORDER BY l.invoice_date DESC, l.liquidation_key`,
-  );
-}
-
-// SQL a mano: CTE con le quote per fattura e capitolo e il loro totale, lette
-// insieme alle righe (il QueryBuilder non compone le CTE).
-// Utenze con righe di fatture degli ultimi 365 giorni pagate su capitoli diversi
-// dal loro: importo = riga × quote sugli altri capitoli / quote totali.
-export function utilitiesPaidOnOtherChapters(m: EntityManager): Promise<Row[]> {
-  return m.query(
-    `WITH sh AS (
-       SELECT s.invoice_id_fk AS invoice_id, bc.budget_chapter_id_fk AS chapter_id, SUM(s.amount) AS amount
-         FROM invoice_commitment_shares s
-         JOIN budget_commitments bc ON bc.id = s.commitment_id_fk
-        GROUP BY s.invoice_id_fk, bc.budget_chapter_id_fk),
-     tot AS (SELECT invoice_id, SUM(amount) AS total FROM sh GROUP BY invoice_id)
-     SELECT u.id, u.utility_id,
-            GROUP_CONCAT(DISTINCT CONCAT(ch.chapter_code, '/', ch.article) ORDER BY ch.chapter_code SEPARATOR ', ') AS chapters,
-            ROUND(SUM(l.amount * sh.amount / tot.total), 2) AS amount
-       FROM invoices i
-       JOIN invoice_lines l ON l.invoice_id_fk = i.id
-       JOIN utilities u ON u.id = l.utility_id_fk AND u.deleted = 0 AND u.budget_chapter_code_fk IS NOT NULL
-       JOIN tot ON tot.invoice_id = i.id AND tot.total <> 0
-       JOIN sh ON sh.invoice_id = i.id AND sh.chapter_id <> u.budget_chapter_code_fk
-       JOIN budget_chapters ch ON ch.id = sh.chapter_id
-      WHERE i.deleted = 0 AND ${NOT_REJECTED_SQL('i')} AND ${NOT_OFFSET_SQL('i')}
-        AND i.invoice_date >= CURDATE() - INTERVAL 365 DAY
-      GROUP BY u.id, u.utility_id
-     HAVING amount > 1
-      ORDER BY u.utility_id`,
   );
 }

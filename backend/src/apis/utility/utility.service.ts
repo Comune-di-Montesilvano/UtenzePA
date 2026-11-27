@@ -856,15 +856,10 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
       ...(linksChanged ? { relations: { assets: true, plants: true } } : {}),
     });
     if (!current) throw new BadRequestException('Utenza non trovata');
-    if (
-      current.chapter_source === ChapterSource.DERIVED &&
-      rest.budget_chapter_code_fk !== undefined &&
-      rest.budget_chapter_code_fk !== current.budget_chapter_code_fk
-    ) {
-      throw new BadRequestException(
-        "Capitolo ricavato dalla destinazione: modificare la destinazione dell'immobile o dell'impianto",
-      );
-    }
+    // Capitolo ricavato dalla destinazione: non si cambia a mano. Il valore
+    // inviato si ignora (la scheda aperta può averne uno superato da un
+    // ricalcolo fatto nel frattempo, es. destinazione cambiata dall'immobile).
+    if (current.chapter_source === ChapterSource.DERIVED) delete rest.budget_chapter_code_fk;
     // Valida se cambia la tipologia o il tipo: un cambio di tipo che lascia
     // la tipologia vecchia (non più ammessa) va rifiutato.
     if (

@@ -13,7 +13,7 @@ import {
   deriveChapters,
 } from './chapter-derivation';
 import * as q from './chapter-derivation.queries';
-import * as sq from '@apis/spending/spending.queries';
+import { utilityLinesElsewhere } from '@apis/spending/paid-elsewhere.sql';
 import { periodWindows } from '@apis/spending/chapter-utility-stats';
 import { fromDay, toDay } from '@apis/utility-consumptions/consumption-calculator';
 import { PaidElsewhere, paidElsewhere } from './chapter-info';
@@ -128,7 +128,7 @@ export class ChapterDerivationService {
     const { current } = periodWindows('last12', today);
     const chapterId = row.chapter_id == null ? null : Number(row.chapter_id);
     const lines = (
-      await sq.utilityLinesByChapter(m, utilityId, fromDay(current.start), fromDay(current.end))
+      await utilityLinesElsewhere(m, utilityId, fromDay(current.start), fromDay(current.end))
     )
       .filter((l) => Number(l.chapter_id) !== chapterId)
       .map((l) => ({

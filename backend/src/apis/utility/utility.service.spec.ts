@@ -1064,7 +1064,7 @@ describe('UtilitiesService', () => {
       expect(commitments.reconcileUtilities).toHaveBeenCalledWith([10]);
     });
 
-    it('capitolo ricavato dalla destinazione: stesso capitolo ok, diverso 400', async () => {
+    it('capitolo ricavato dalla destinazione: valore inviato diverso ignorato (scheda aperta da prima del ricalcolo)', async () => {
       repo.findOne.mockResolvedValue({
         id: 10,
         utility_id: 'U1',
@@ -1075,9 +1075,10 @@ describe('UtilitiesService', () => {
       await expect(
         service.update(10, { budget_chapter_code_fk: 7 } as never, 1),
       ).resolves.toBeDefined();
-      await expect(service.update(10, { budget_chapter_code_fk: 8 } as never, 1)).rejects.toThrow(
-        "Capitolo ricavato dalla destinazione: modificare la destinazione dell'immobile o dell'impianto",
-      );
+      await expect(
+        service.update(10, { budget_chapter_code_fk: 8 } as never, 1),
+      ).resolves.toBeDefined();
+      expect(commitments.reconcileUtilities).not.toHaveBeenCalled();
     });
 
     it('capitolo a mano: cambio ammesso', async () => {

@@ -178,7 +178,19 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
         fiscal_year: Number(f.fiscal_year),
         amount: Number(f.amount),
       }));
-      if (auto && !fixedShares.length && year < thisYear) {
+      // Solo se l'impegno e l'annualità esistono ancora sul contratto della
+      // fattura: impegno cancellato o fattura spostata = quota riassegnata.
+      const contractId = r.contract_id === null ? null : Number(r.contract_id);
+      const stillValid =
+        auto &&
+        contractId !== null &&
+        commitments.some(
+          (c) =>
+            c.id === auto.commitment_id &&
+            c.fiscal_year === auto.fiscal_year &&
+            c.contract_ids.includes(contractId),
+        );
+      if (auto && stillValid && !fixedShares.length && year < thisYear) {
         frozen.add(id);
         fixedShares.push({ ...auto, amount: noAmount ? 0 : Number(r.amount) } as AllocShare);
       }

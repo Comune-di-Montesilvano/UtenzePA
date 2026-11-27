@@ -385,6 +385,38 @@ describe('CommitmentReconcileService', () => {
       expect(inserts(calls).map((c) => c.params)).toEqual([[1, 20, 2026, 50, 1]]);
     });
 
+    it('esercizio chiuso con quota su un impegno cancellato: riassegnata', async () => {
+      const { ds, calls } = fakeDataSource({
+        // Impegno 10 cancellato: non è più tra i candidati.
+        commitments: both().filter((c) => c.id !== 10),
+        invoices: [
+          invoice(1, 50, '2025-03-10', {
+            chapters: '[8]',
+            auto_share: { commitment_id: 10, fiscal_year: 2025, amount: 50 },
+          }),
+        ],
+      });
+      await service(ds).reconcileContracts([1]);
+      expect(inserts(calls).map((c) => c.params)).toEqual([[1, 20, 2025, 50, 1]]);
+    });
+
+    it('esercizio chiuso con quota su un impegno di un altro contratto: riassegnata', async () => {
+      const { ds, calls } = fakeDataSource({
+        commitments: [
+          { ...commitment(10, 100, 1000, '2'), chapter: 7, fiscal_year: 2025 },
+          { ...commitment(20, 200, 1000), chapter: 8, fiscal_year: 2025 },
+        ],
+        invoices: [
+          invoice(1, 50, '2025-03-10', {
+            chapters: '[8]',
+            auto_share: { commitment_id: 10, fiscal_year: 2025, amount: 50 },
+          }),
+        ],
+      });
+      await service(ds).reconcileContracts([1, 2]);
+      expect(inserts(calls).map((c) => c.params)).toEqual([[1, 20, 2025, 50, 1]]);
+    });
+
     it('fattura di un esercizio chiuso senza quota: allocata', async () => {
       const { ds, calls } = fakeDataSource({
         commitments: both(),

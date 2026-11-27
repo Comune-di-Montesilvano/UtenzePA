@@ -163,6 +163,46 @@ describe('ChapterDerivationService (integrazione)', () => {
     expect(own).toBeGreaterThan(0);
   });
 
+  it('chapterInfo: fattura multi-POD divisa correttamente tra i capitoli = niente pagato altrove', async () => {
+    const d = await destination('Scuola media');
+    const own = await chapter('1500', { spending_destination_id: d });
+    const other = await chapter('1600');
+    const a = await asset({ spending_destination_id: d, asset_name: 'Scuola Verdi' });
+    const u = await insertUtility(ds);
+    const v = await insertUtility(ds, { budget_chapter_code_fk: other });
+    await insert(ds, 'utility_assets', { utility_id: u, asset_id: a });
+    await service.requestAll();
+    const day = new Date().toISOString().slice(0, 10);
+    const year = Number(day.slice(0, 4));
+    const kOwn = await insert(ds, 'budget_commitments', {
+      ...AUTHOR,
+      commitment_num: 11,
+      budget_chapter_id_fk: own,
+    });
+    const kOther = await insert(ds, 'budget_commitments', {
+      ...AUTHOR,
+      commitment_num: 12,
+      budget_chapter_id_fk: other,
+    });
+    const inv = await insertInvoice(ds, { invoice_date: day });
+    await insertInvoiceLine(ds, inv, 80, { utility_id_fk: u });
+    await insertInvoiceLine(ds, inv, 20, { utility_id_fk: v });
+    for (const [k, amount] of [
+      [kOwn, 80],
+      [kOther, 20],
+    ])
+      await insert(ds, 'invoice_commitment_shares', {
+        invoice_id_fk: inv,
+        commitment_id_fk: k,
+        fiscal_year: year,
+        amount,
+        source: 'MANUAL',
+      });
+
+    expect((await service.chapterInfo(u))!.paid_elsewhere).toEqual([]);
+    expect((await service.chapterInfo(v))!.paid_elsewhere).toEqual([]);
+  });
+
   it("impianto senza destinazione: vale quella dell'immobile dell'impianto", async () => {
     const d = await destination('Illuminazione pubblica');
     const c = await chapter('1500', { spending_destination_id: d });
