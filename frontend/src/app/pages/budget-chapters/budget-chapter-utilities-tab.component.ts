@@ -19,8 +19,12 @@ import {DateHelper} from '../../core/helpers/date.helper';
 import {ChapterBudgetService} from './chapter-budget.service';
 import {ChapterTypeStats, ChapterUtilityStats, ChapterUtilityStatsRow} from './chapter-budget.model';
 import {formatEuro} from './spending/budget-chapter-spending.service';
+import {formatMonths} from './stats-months';
 
 const NOT_COMPARABLE = "Non confrontabile: fatture con righe per meno dell'80% dei giorni in uno dei due periodi, o utenza cessata";
+const LOW_CONSUMPTION = 'Consumo sotto il 10% della mediana delle utenze dello stesso tipo: costo unitario poco significativo, mai fuori norma';
+const PAID_HERE = "Quote delle fatture che la ragioneria ha liquidato su questo capitolo, ripartite sui giorni del periodo. " +
+  "Il tab Fatture somma invece per esercizio: i totali coincidono solo sull'anno intero.";
 
 // Utenze del capitolo: statistiche del periodo (spesa, consumo, costo
 // unitario, variazione, fuori norma) e, nella vista Anagrafica, la stessa
@@ -70,7 +74,7 @@ const NOT_COMPARABLE = "Non confrontabile: fatture con righe per meno dell'80% d
             <div class="cu-big">{{ eur(stats.summary.spend) }}</div>
             <div class="cu-small" [matTooltip]="changeTooltip()">
               {{ changeText(stats.summary.change) }}
-              @if (stats.summary.change !== null && stats.summary.compared_utilities < stats.utilities.length) {
+              @if (stats.summary.change !== null && stats.summary.compared_utilities < ownCount) {
                 (su {{ stats.summary.compared_utilities }} utenze confrontabili)
               }
             </div>
@@ -79,9 +83,23 @@ const NOT_COMPARABLE = "Non confrontabile: fatture con righe per meno dell'80% d
               ({{ stats.summary.active_utilities }} attive)
             </div>
           </div>
+          <div class="cu-card">
+            <div class="cu-title" [matTooltip]="paidHereTooltip">Pagato su questo capitolo</div>
+            <div class="cu-big">{{ eur(stats.summary.paid_here.total) }}</div>
+            <div class="cu-small">Utenze del capitolo: <strong>{{ eur(stats.summary.paid_here.own) }}</strong></div>
+            @if (stats.summary.paid_here.others) {
+              <div class="cu-small">Utenze di altri capitoli: <strong>{{ eur(stats.summary.paid_here.others) }}</strong></div>
+            }
+            @if (stats.summary.paid_here.without_utility) {
+              <div class="cu-small">Righe senza utenza: <strong>{{ eur(stats.summary.paid_here.without_utility) }}</strong></div>
+            }
+            @if (stats.summary.own_elsewhere) {
+              <div class="cu-small cu-muted">Utenze del capitolo pagate altrove o non imputate: {{ eur(stats.summary.own_elsewhere) }}</div>
+            }
+          </div>
           @for (t of stats.summary.types; track t.hard_type) {
             <div class="cu-card">
-              <div class="cu-title">{{ typeLabel(t) }} · {{ t.utilities }} utenze</div>
+              <div class="cu-title">{{ typeLabel(t) }} · {{ typeCount(t) }}</div>
               <div class="cu-small">Spesa: <strong>{{ eur(t.spend) }}</strong></div>
               @if (t.unit) {
                 <div class="cu-small">Consumo: <strong>{{ formatQty(t.consumption, t.unit) }}</strong></div>
@@ -104,13 +122,19 @@ const NOT_COMPARABLE = "Non confrontabile: fatture con righe per meno dell'80% d
               <thead>
                 <tr>
                   <th>Utenza</th><th>Tipo</th><th class="num">Spesa</th><th class="num">Precedente</th>
-                  <th class="num">Variazione</th><th class="num">Consumo</th><th class="num">Costo unitario</th><th></th>
+                  <th class="num">Variazione</th><th class="num">Consumo</th><th class="num">Costo unitario</th>
+                  <th class="num">Pagato qui</th><th>Mesi</th><th></th>
                 </tr>
               </thead>
               <tbody>
                 @for (u of rows; track u.id) {
                   <tr class="row-clickable" [class.cu-out]="u.outliers.length" (click)="openUtility(u.id)">
-                    <td>{{ u.utility_code }}</td>
+                    <td>
+                      {{ u.utility_code }}
+                      @if (!u.on_chapter) {
+                        <div class="cu-muted cu-sub">capitolo in UtenzePA: {{ u.chapter_label ?? 'nessuno' }}</div>
+                      }
+                    </td>
                     <td>{{ u.type_name }}</td>
                     <td class="num">{{ eur(u.spend) }}</td>
                     <td class="num">{{ eur(u.previous_spend) }}</td>
@@ -119,7 +143,15 @@ const NOT_COMPARABLE = "Non confrontabile: fatture con righe per meno dell'80% d
                       {{ u.change === null ? '—' : percent(u.change) }}
                     </td>
                     <td class="num">{{ u.unit ? formatQty(u.consumption, u.unit) : '—' }}</td>
-                    <td class="num" [class.cu-flag]="u.outliers.includes('unit_cost')">{{ unitCost(u.unit_cost, u.unit) }}</td>
+                    <td class="num" [class.cu-flag]="u.outliers.includes('unit_cost')" [class.cu-muted]="u.low_consumption"
+                        [matTooltip]="u.low_consumption ? lowConsumption : ''">{{ unitCost(u.unit_cost, u.unit) }}</td>
+                    <td class="num">{{ eur(u.paid_here) }}</td>
+                    <td class="cu-months">
+                      @if (monthsText(u); as m) {
+                        @if (m.here) { <div>qui: {{ m.here }}</div> }
+                        @if (m.elsewhere) { <div class="cu-muted">altrove: {{ m.elsewhere }}</div> }
+                      } @else { — }
+                    </td>
                     <td>
                       @if (u.outliers.length) {
                         <mat-icon class="cu-warn" [matTooltip]="outlierText(u)" aria-label="Fuori norma">warning</mat-icon>
@@ -159,6 +191,8 @@ const NOT_COMPARABLE = "Non confrontabile: fatture con righe per meno dell'80% d
     .cu-title { font-weight: 600; margin-bottom: 4px; }
     .cu-big { font-size: 1.4rem; font-weight: 600; }
     .cu-small { font-size: 0.875rem; }
+    .cu-sub { font-size: 0.75rem; }
+    .cu-months { font-size: 0.8125rem; min-width: 140px; }
     .num { text-align: right; white-space: nowrap; }
     .sheet-table th.num { text-align: right; }
     .cu-flag { color: var(--tone-warn-fg); font-weight: 600; }
@@ -185,6 +219,8 @@ export class BudgetChapterUtilitiesTabComponent implements OnInit {
   readonly formatQty = formatQty;
   readonly hardTypeLabel = HardTypeDescription;
   readonly notComparable = NOT_COMPARABLE;
+  readonly lowConsumption = LOW_CONSUMPTION;
+  readonly paidHereTooltip = PAID_HERE;
 
   utilities: Utility[] = [];
   // Attive aperte, cessate (fornitura non attiva) chiuse.
@@ -201,6 +237,8 @@ export class BudgetChapterUtilitiesTabComponent implements OnInit {
   statGroups: SheetGroup<ChapterUtilityStatsRow>[] = [];
   onlyOutliers = false;
   outlierCount = 0;
+  // Utenze assegnate al capitolo (senza quelle di altri capitoli pagate qui).
+  ownCount = 0;
 
   ngOnInit(): void {
     this.reload();
@@ -243,6 +281,7 @@ export class BudgetChapterUtilitiesTabComponent implements OnInit {
         this.stats = stats;
         this.years = stats.years;
         this.outlierCount = stats.utilities.filter(u => u.outliers.length).length;
+        this.ownCount = stats.utilities.filter(u => u.on_chapter).length;
         if (!this.outlierCount) this.onlyOutliers = false;
         this.statsLoading = false;
         this.buildStatGroups();
@@ -263,12 +302,28 @@ export class BudgetChapterUtilitiesTabComponent implements OnInit {
   private buildStatGroups(): void {
     const rows = (this.stats?.utilities ?? []).filter(u => !this.onlyOutliers || u.outliers.length);
     const total = (list: ChapterUtilityStatsRow[]) => formatEuro(Math.round(list.reduce((s, u) => s + u.spend, 0) * 100) / 100);
-    const active = rows.filter(u => u.active);
-    const ceased = rows.filter(u => !u.active);
+    const own = rows.filter(u => u.on_chapter);
+    const active = own.filter(u => u.active);
+    const ceased = own.filter(u => !u.active);
+    // Utenze di altri capitoli: in testa il pagato qui, non la loro spesa intera.
+    const others = rows.filter(u => !u.on_chapter).sort((a, b) => b.paid_here - a.paid_here);
+    const paidHere = formatEuro(Math.round(others.reduce((s, u) => s + u.paid_here, 0) * 100) / 100);
     this.statGroups = keepOpen([
       {key: 'active', label: 'Attive', rows: active, summary: total(active), open: true},
       {key: 'ceased', label: 'Cessate', rows: ceased, summary: total(ceased), open: false},
+      {key: 'others', label: 'Di altri capitoli, pagate qui', rows: others, summary: `${paidHere} pagati qui`, open: true},
     ].filter(g => g.rows.length), this.statGroups);
+  }
+
+  typeCount(t: ChapterTypeStats): string {
+    const active = `${t.utilities} ${t.utilities === 1 ? 'attiva' : 'attive'}`;
+    return t.ceased ? `${active} · ${t.ceased} ${t.ceased === 1 ? 'cessata' : 'cessate'}` : active;
+  }
+
+  monthsText(u: ChapterUtilityStatsRow): {here: string; elsewhere: string} | null {
+    const here = formatMonths(u.months_here);
+    const elsewhere = formatMonths(u.months_elsewhere);
+    return here || elsewhere ? {here, elsewhere} : null;
   }
 
   openUtility(id: number): void {

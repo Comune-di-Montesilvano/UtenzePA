@@ -481,5 +481,51 @@ describe('SpendingService (integrazione)', () => {
       expect(a.consumption).toBeCloseTo((100 * 12) / 53, 2);
       expect(a.previous_spend).toBe(0);
     });
+
+    it('chapterUtilityStats: utenze di altri capitoli pagate sul capitolo, mesi e riconciliazione', async () => {
+      // Fattura dell'utenza di chB liquidata su un impegno di chA, con una riga senza utenza.
+      const i6 = await insertInvoice(ds, {
+        invoice_id: 'F6',
+        invoice_date: '2025-07-05',
+        supplier_id_fk: enel,
+        contratto_id_fk: k,
+      });
+      await insertInvoiceLine(ds, i6, 30, {
+        utility_id_fk: uB,
+        period_start: '2025-06-01',
+        period_end: '2025-06-30',
+      });
+      await insertInvoiceLine(ds, i6, 5, { period_start: '2025-06-01', period_end: '2025-06-30' });
+      await insert(ds, 'invoice_commitment_shares', {
+        invoice_id_fk: i6,
+        commitment_id_fk: c1,
+        fiscal_year: 2025,
+        amount: 35,
+        source: 'AUTO',
+      });
+
+      const stats = await service.chapterUtilityStats(chA, 2025);
+      const a = stats.utilities.find((u) => u.id === uA)!;
+      const b = stats.utilities.find((u) => u.id === uB)!;
+      // uA: I1 con quota su chA, I2 e I5 senza quote (capitolo dell'utenza), I4 compensata no.
+      expect(a).toMatchObject({ on_chapter: true, months_elsewhere: ['2025-05'] });
+      expect(a.paid_here).toBeCloseTo(80 + 40 + (25 * 12) / 53, 2);
+      expect(a.paid_elsewhere).toBeCloseTo(7, 2);
+      // uB (chB): I2 senza quote resta su chB, I6 pagata su chA.
+      expect(b).toMatchObject({
+        on_chapter: false,
+        chapter_label: '2000/1',
+        spend: 40,
+        paid_here: 30,
+        paid_elsewhere: 10,
+        months_here: ['2025-06'],
+        months_elsewhere: ['2025-04'],
+      });
+      expect(stats.summary.paid_here.others).toBe(30);
+      expect(stats.summary.paid_here.without_utility).toBe(5);
+      expect(stats.summary.own_elsewhere).toBeCloseTo(7, 2);
+      // Riepilogo per tipo solo sulle utenze del capitolo.
+      expect(stats.summary.types.reduce((t, x) => t + x.utilities + x.ceased, 0)).toBe(2);
+    });
   });
 });

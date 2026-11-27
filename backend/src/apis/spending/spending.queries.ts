@@ -5,6 +5,7 @@ import { BudgetCommitmentYear } from '@apis/budget-commitments/entity/budget-com
 import { BudgetCommitment } from '@apis/budget-commitments/entity/budget-commitment.entity';
 import { InvoiceLine } from '@apis/invoices/entity/invoice-line.entity';
 import { Invoice } from '@apis/invoices/entity/invoice.entity';
+import { NOT_OFFSET_SQL } from '@apis/invoices/enum/payment-status.enum';
 import { NOT_REJECTED_SQL } from '@apis/invoices/sdi-status';
 import { ThirdParty } from '@apis/third-parties/entity/third-party.entity';
 import { partyNameSql } from '@apis/third-parties/third-party.name';
@@ -132,37 +133,95 @@ export function chapterCommitments(m: EntityManager, chapterId: number): Promise
 
 // --- Statistiche delle utenze del capitolo ---
 
-export function chapterUtilities(m: EntityManager, chapterId: number): Promise<Row[]> {
-  return m
+// Utenze del capitolo (non cancellate) più quelle indicate (di altri capitoli,
+// pagate sul capitolo), con il capitolo assegnato.
+export function statsUtilities(
+  m: EntityManager,
+  chapterId: number,
+  extraIds: number[],
+): Promise<Row[]> {
+  const qb = m
     .createQueryBuilder(Utility, 'u')
     .leftJoin(UtilityType, 't', 't.id = u.utility_type_id_fk')
+    .leftJoin(BudgetChapter, 'b', 'b.id = u.budget_chapter_code_fk')
     .select([
       'u.id AS id',
       'u.utility_id AS utility_code',
       't.name AS type_name',
       't.hard_type AS hard_type',
       'u.supply_active AS supply_active',
+      'u.budget_chapter_code_fk AS chapter_id',
     ])
-    .where('u.budget_chapter_code_fk = :chapterId AND u.deleted = 0', { chapterId })
-    .getRawMany();
+    .addSelect("CONCAT(b.chapter_code, '/', b.article)", 'chapter_label')
+    .where('u.budget_chapter_code_fk = :chapterId AND u.deleted = 0', { chapterId });
+  if (extraIds.length) qb.orWhere('u.id IN (:...extraIds)', { extraIds });
+  return qb.getRawMany();
 }
 
-// Righe delle utenze che toccano il periodo [start, end] (giorni 'AAAA-MM-GG').
-export function utilityLines(
-  m: EntityManager,
-  utilityIds: number[],
-  start: string,
-  end: string,
-): Promise<Row[]> {
-  return validLines(m)
+// Quota di ogni fattura pagata sul capitolo (:chapterId): quote d'impegno del
+// capitolo sul totale delle quote (a pari zero, per numero); senza quote conta
+// il capitolo dell'utenza della riga (regola di CHAPTER_ITEMS); stornate e note
+// compensate non pesano su nessun capitolo.
+const HERE = `CASE WHEN NOT ${NOT_OFFSET_SQL('i')} THEN 0
+  WHEN sh.invoice_id IS NULL THEN IF(lu.budget_chapter_code_fk = :chapterId, 1, 0)
+  WHEN sh.total <> 0 THEN sh.here / sh.total
+  ELSE sh.n_here / sh.n END`;
+
+const linesWithHere = (m: EntityManager, chapterId: number, start: string, end: string) =>
+  validLines(m)
+    .leftJoin(Utility, 'lu', 'lu.id = il.utility_id_fk')
+    .leftJoin(
+      (sub) =>
+        sub
+          .select('s.invoice_id_fk', 'invoice_id')
+          .addSelect('SUM(s.amount)', 'total')
+          .addSelect(
+            'SUM(CASE WHEN bcm.budget_chapter_id_fk = :chapterId THEN s.amount ELSE 0 END)',
+            'here',
+          )
+          .addSelect('COUNT(*)', 'n')
+          .addSelect('SUM(bcm.budget_chapter_id_fk = :chapterId)', 'n_here')
+          .from('invoice_commitment_shares', 's')
+          .innerJoin(BudgetCommitment, 'bcm', 'bcm.id = s.commitment_id_fk')
+          .groupBy('s.invoice_id_fk'),
+      'sh',
+      'sh.invoice_id = il.invoice_id_fk',
+    )
     .select('il.utility_id_fk', 'utility_id')
     .addSelect('il.amount', 'amount')
     .addSelect(ymd('il.period_start'), 'period_start')
     .addSelect(ymd('il.period_end'), 'period_end')
     .addSelect(ymd('i.invoice_date'), 'invoice_date')
-    .where('il.utility_id_fk IN (:...utilityIds)', { utilityIds })
-    .andWhere('COALESCE(il.period_end, il.period_start, i.invoice_date) >= :start', { start })
+    .addSelect(HERE, 'here')
+    .where('COALESCE(il.period_end, il.period_start, i.invoice_date) >= :start', { start })
     .andWhere('COALESCE(il.period_start, il.period_end, i.invoice_date) <= :end', { end })
+    .setParameter('chapterId', chapterId);
+
+// Righe delle utenze che toccano il periodo [start, end] (giorni 'AAAA-MM-GG'),
+// con la quota pagata sul capitolo (here).
+export function utilityLines(
+  m: EntityManager,
+  chapterId: number,
+  utilityIds: number[],
+  start: string,
+  end: string,
+): Promise<Row[]> {
+  return linesWithHere(m, chapterId, start, end)
+    .andWhere('il.utility_id_fk IN (:...utilityIds)', { utilityIds })
+    .getRawMany();
+}
+
+// Righe pagate in parte sul capitolo nel periodo: le utenze di altri capitoli
+// (utility_id) e le righe senza utenza (canoni, servizi del contratto).
+export function paidHereLines(
+  m: EntityManager,
+  chapterId: number,
+  start: string,
+  end: string,
+): Promise<Row[]> {
+  return linesWithHere(m, chapterId, start, end)
+    .andWhere('sh.here IS NOT NULL AND sh.n_here > 0')
+    .andWhere(`${NOT_OFFSET_SQL('i')}`)
     .getRawMany();
 }
 
