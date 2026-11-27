@@ -166,13 +166,7 @@ export class SpendingService {
     const utilities = await q.statsUtilities(this.m, chapterId, otherIds);
     const ids = utilities.map((u) => Number(u.id));
     const lines = ids.length
-      ? await q.utilityLines(
-          this.m,
-          chapterId,
-          ids,
-          fromDay(previous.start),
-          fromDay(current.end),
-        )
+      ? await q.utilityLines(this.m, chapterId, ids, fromDay(previous.start), fromDay(current.end))
       : [];
     const consumptions = ids.length ? await q.utilityConsumptions(this.m, ids) : [];
     const years = ids.length ? await q.utilityLineYears(this.m, ids) : [];

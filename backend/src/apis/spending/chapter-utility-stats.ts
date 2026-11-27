@@ -247,8 +247,7 @@ export function chapterUtilityStats(
   const rows = utilities.map((u) => {
     const onChapter = u.on_chapter !== false;
     const sum = (w: DayWindow) => u.lines.reduce((t, l) => t + lineShare(l, w), 0);
-    const sumHere = (w: DayWindow) =>
-      u.lines.reduce((t, l) => t + lineShare(l, w) * hereOf(l), 0);
+    const sumHere = (w: DayWindow) => u.lines.reduce((t, l) => t + lineShare(l, w) * hereOf(l), 0);
     const spend = sum(current);
     const paidHere = sumHere(current);
     const monthsHere: string[] = [];
@@ -358,10 +357,7 @@ export function chapterUtilityStats(
   const active = own.filter((r) => r.active);
   const paidOwn = own.reduce((t, r) => t + r.paid_here, 0);
   const paidOthers = others.reduce((t, r) => t + r.paid_here, 0);
-  const paidUnassigned = unassigned.reduce(
-    (t, l) => t + lineShare(l, current) * hereOf(l),
-    0,
-  );
+  const paidUnassigned = unassigned.reduce((t, l) => t + lineShare(l, current) * hereOf(l), 0);
   const activeSpend = active.reduce((t, r) => t + r.spend, 0);
 
   return {
