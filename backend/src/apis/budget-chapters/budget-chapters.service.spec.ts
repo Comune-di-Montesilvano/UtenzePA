@@ -353,3 +353,66 @@ describe('BudgetChaptersService: import della contabilità attivo', () => {
     await expect(service.remove(7, 3)).rejects.toThrow(LOCKED);
   });
 });
+
+describe('BudgetChaptersService destinazione + natura', () => {
+  const dest = { id: 3, name: 'Scuola materna' };
+  let repo: {
+    findOne: jest.Mock;
+    create: jest.Mock;
+    save: jest.Mock;
+    manager: { findOne: jest.Mock };
+  };
+  let service: BudgetChaptersService;
+
+  beforeEach(() => {
+    repo = {
+      findOne: jest.fn(),
+      create: jest.fn((d) => d),
+      save: jest.fn(async (d) => ({ id: 9, ...d })),
+      manager: { findOne: jest.fn().mockResolvedValue(dest) },
+    };
+    service = new BudgetChaptersService(repo as never, {} as never);
+  });
+
+  it('stessa destinazione e stessa natura di un altro capitolo: 400', async () => {
+    repo.findOne.mockResolvedValue({ id: 4, chapter_code: '1210', article: 1 });
+    await expect(
+      service.assertDestinationFree(
+        { spending_destination_id: 3, hard_type: 'LIGHT' as never },
+        null,
+      ),
+    ).rejects.toThrow('Esiste già un capitolo 1210/1 per Scuola materna · Luce');
+  });
+
+  it('stessa destinazione, natura assente su entrambi: 400', async () => {
+    repo.findOne.mockResolvedValue({ id: 4, chapter_code: '1210', article: 0 });
+    await expect(
+      service.assertDestinationFree({ spending_destination_id: 3, hard_type: null }, null),
+    ).rejects.toThrow('Esiste già un capitolo 1210/0 per Scuola materna · tutte le nature');
+    expect(repo.findOne.mock.calls[0][0].where.hard_type).toEqual(
+      expect.objectContaining({ _type: 'isNull' }),
+    );
+  });
+
+  it('natura diversa o capitolo stesso: ammesso', async () => {
+    repo.findOne.mockResolvedValue(null);
+    await expect(
+      service.assertDestinationFree(
+        { spending_destination_id: 3, hard_type: 'GAS' as never },
+        null,
+      ),
+    ).resolves.toBeUndefined();
+    repo.findOne.mockResolvedValue({ id: 4, chapter_code: '1210', article: 1 });
+    await expect(
+      service.assertDestinationFree({ spending_destination_id: 3, hard_type: 'GAS' as never }, 4),
+    ).resolves.toBeUndefined();
+  });
+
+  it('senza destinazione nessun controllo', async () => {
+    await service.assertDestinationFree(
+      { spending_destination_id: null, hard_type: 'GAS' as never },
+      null,
+    );
+    expect(repo.findOne).not.toHaveBeenCalled();
+  });
+});

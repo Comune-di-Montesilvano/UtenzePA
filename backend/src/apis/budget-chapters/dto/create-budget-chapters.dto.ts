@@ -1,5 +1,14 @@
-import { IsArray, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
+import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 
 export class CreateBudgetChapterDto {
   @IsNotEmpty({ message: 'Il campo chapter_code è obbligatorio' })
@@ -33,6 +42,15 @@ export class CreateBudgetChapterDto {
   @IsArray({ message: 'I tipi utenza devono essere un array.' })
   @IsInt({ each: true, message: 'Ogni tipo utenza deve essere un ID intero.' })
   utility_type_ids?: number[];
+
+  // Destinazione di spesa + natura: insieme individuano il capitolo delle utenze.
+  @IsOptional()
+  @IsInt()
+  spending_destination_id?: number | null;
+
+  @IsOptional()
+  @IsEnum(HardTypeEnum)
+  hard_type?: HardTypeEnum | null;
 
   @IsOptional()
   @IsInt()
