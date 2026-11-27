@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { BaseService } from '@apis/shared/base.service';
@@ -37,6 +37,7 @@ import {
 } from './plant.calc';
 import { ThermalPlantObligations, thermalPlantObligations } from './thermal-plant-obligations';
 import { SettingsService } from '@apis/settings/settings.service';
+import { ChapterDerivationService } from '@apis/spending-destinations/chapter-derivation.service';
 
 export type PlantRow = Plant & {
   position_quality: PositionQuality;
@@ -115,6 +116,7 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     @InjectRepository(Utility) private readonly utilityRepo: Repository<Utility>,
     private readonly geocodingService: GeocodingService,
     private readonly settings: SettingsService,
+    @Optional() private readonly chapterDerivation?: ChapterDerivationService,
   ) {
     super();
   }
@@ -183,7 +185,14 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     return s;
   }
 
+  // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async create(dto: CreatePlantDto, userId?: number): Promise<PlantRow> {
+    const result = await this.createWithoutDerivation(dto, userId);
+    await this.chapterDerivation?.requestAllSafe();
+    return result;
+  }
+
+  private async createWithoutDerivation(dto: CreatePlantDto, userId?: number): Promise<PlantRow> {
     const { thermal, elevator, electrical, utility_ids, asset_ids, ...rest } = dto;
     await this.assertCodeFree(rest.code, null);
     const assets = await this.resolveAssets(asset_ids ?? []);
@@ -212,7 +221,18 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     return this.findOne(saved.id);
   }
 
+  // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async update(id: number, dto: UpdatePlantDto, userId?: number): Promise<PlantRow> {
+    const result = await this.updateWithoutDerivation(id, dto, userId);
+    await this.chapterDerivation?.requestAllSafe();
+    return result;
+  }
+
+  private async updateWithoutDerivation(
+    id: number,
+    dto: UpdatePlantDto,
+    userId?: number,
+  ): Promise<PlantRow> {
     const { thermal, elevator, electrical, utility_ids, asset_ids, ...rest } = dto;
     const current = await this.repo.findOne({
       where: { id, deleted: false },
@@ -281,7 +301,13 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
     return this.findOne(id);
   }
 
+  // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async remove(id: number, userId: number): Promise<void> {
+    await this.removeWithoutDerivation(id, userId);
+    await this.chapterDerivation?.requestAllSafe();
+  }
+
+  private async removeWithoutDerivation(id: number, userId: number): Promise<void> {
     const entity = await this.repo.findOne({
       where: { id, deleted: false },
       relations: { utilities: true },

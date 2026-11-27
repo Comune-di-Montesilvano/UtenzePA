@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
 import { Utility } from './entity/utility.entity';
@@ -48,6 +48,7 @@ import {
   currentContractPairs,
 } from './utility.sql';
 import { nextContract } from './next-contract';
+import { ChapterDerivationService } from '@apis/spending-destinations/chapter-derivation.service';
 
 // Colonne scritte solo dalla riconciliazione dello storico (apis/utility-supply):
 // mai dal payload di create/update, anche se un chiamante interno le passasse,
@@ -91,6 +92,7 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     private readonly supplyReconcile: SupplyReconcileService,
     private readonly supplyEvents: SupplyEventsService,
     private readonly commitments: CommitmentReconcileService,
+    @Optional() private readonly chapterDerivation?: ChapterDerivationService,
   ) {
     super();
   }
@@ -749,7 +751,14 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     }
   }
 
+  // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async create(dto: CreateUtilityDto, userId?: number): Promise<Utility> {
+    const result = await this.createWithoutDerivation(dto, userId);
+    await this.chapterDerivation?.requestAllSafe();
+    return result;
+  }
+
+  private async createWithoutDerivation(dto: CreateUtilityDto, userId?: number): Promise<Utility> {
     const { asset_ids, plant_ids, initial_supply, ...rest } = withoutSupplyFields(dto);
     // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
     if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
@@ -822,7 +831,18 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     }
   }
 
+  // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async update(id: number, dto: UpdateUtilityDto, userId?: number): Promise<Utility> {
+    const result = await this.updateWithoutDerivation(id, dto, userId);
+    await this.chapterDerivation?.requestAllSafe();
+    return result;
+  }
+
+  private async updateWithoutDerivation(
+    id: number,
+    dto: UpdateUtilityDto,
+    userId?: number,
+  ): Promise<Utility> {
     const { asset_ids, plant_ids, ...rest } = withoutSupplyFields(dto);
     // Matricola salvata già normalizzata nei bordi (import Access: tab/NBSP).
     if (typeof rest.meter_number === 'string') rest.meter_number = rest.meter_number.trim();
@@ -1006,7 +1026,13 @@ export class UtilitiesService extends BaseService<Utility, CreateUtilityDto, Upd
     return ids.map((assetId) => ({ id: assetId }) as Asset);
   }
 
+  // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async remove(id: number, updatedByUserId: number): Promise<void> {
+    await this.removeWithoutDerivation(id, updatedByUserId);
+    await this.chapterDerivation?.requestAllSafe();
+  }
+
+  private async removeWithoutDerivation(id: number, updatedByUserId: number): Promise<void> {
     // Nota: usa repo.findOne diretto (non this.findOne, che ora restituisce
     // un oggetto "appiattito" con i campi del contratto corrente) per non
     // rischiare di persistere quei valori derivati sulle colonne dirette di

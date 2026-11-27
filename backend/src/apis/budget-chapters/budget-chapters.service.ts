@@ -19,6 +19,7 @@ import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { CONSUMPTION_UNIT } from '@apis/utility-consumptions/consumption-unit';
 import { hardTypeLabel } from '@apis/utility-types/enum/hard-type-label';
 import { SpendingDestination } from '@apis/spending-destinations/entity/spending-destination.entity';
+import { ChapterDerivationService } from '@apis/spending-destinations/chapter-derivation.service';
 
 export interface ChapterConsumptionSummaryRow {
   hard_type: HardTypeEnum;
@@ -47,6 +48,7 @@ export class BudgetChaptersService extends BaseService<
     @InjectRepository(Utility)
     private readonly utilityRepo: Repository<Utility>,
     @Optional() private readonly accounting?: AccountingStateService,
+    @Optional() private readonly chapterDerivation?: ChapterDerivationService,
   ) {
     super();
   }
@@ -80,7 +82,17 @@ export class BudgetChaptersService extends BaseService<
     return qb.orderBy(`${alias}.id`, 'ASC').getMany();
   }
 
+  // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async create(dto: CreateBudgetChapterDto, userId?: number): Promise<BudgetChapter> {
+    const result = await this.createWithoutDerivation(dto, userId);
+    await this.chapterDerivation?.requestAllSafe();
+    return result;
+  }
+
+  private async createWithoutDerivation(
+    dto: CreateBudgetChapterDto,
+    userId?: number,
+  ): Promise<BudgetChapter> {
     await assertCanCreate(this.accounting);
     await this.assertDestinationFree(dto, null);
     const { utility_type_ids, ...rest } = dto;
@@ -99,7 +111,18 @@ export class BudgetChaptersService extends BaseService<
     return (await this.findOne(saved.id)) ?? saved;
   }
 
+  // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async update(id: number, dto: UpdateBudgetChapterDto, userId?: number): Promise<BudgetChapter> {
+    const result = await this.updateWithoutDerivation(id, dto, userId);
+    await this.chapterDerivation?.requestAllSafe();
+    return result;
+  }
+
+  private async updateWithoutDerivation(
+    id: number,
+    dto: UpdateBudgetChapterDto,
+    userId?: number,
+  ): Promise<BudgetChapter> {
     const current = await this.repo.findOne({ where: { id } });
     if (current) {
       await assertCanChange(
@@ -130,7 +153,13 @@ export class BudgetChaptersService extends BaseService<
     return this.findOne(id);
   }
 
+  // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async remove(id: number, updatedByUserId: number): Promise<void> {
+    await this.removeWithoutDerivation(id, updatedByUserId);
+    await this.chapterDerivation?.requestAllSafe();
+  }
+
+  private async removeWithoutDerivation(id: number, updatedByUserId: number): Promise<void> {
     const current = await this.repo.findOne({ where: { id } });
     if (current) await assertCanChange(this.accounting, current, true);
     return super.remove(id, updatedByUserId);

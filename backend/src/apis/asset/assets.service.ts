@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Asset } from './entity/asset.entity';
@@ -14,6 +14,7 @@ import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { AssetCadastralUnit } from './entity/asset-cadastral-unit.entity';
 import { CadastralUnitDto } from './dto/cadastral-unit.dto';
 import { AssetMef, computeAssetMef } from './asset-mef';
+import { ChapterDerivationService } from '@apis/spending-destinations/chapter-derivation.service';
 
 const ADDRESS_FIELDS = ['toponym', 'address', 'civic_number', 'zip_code', 'municipality'] as const;
 
@@ -87,6 +88,7 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     private readonly complexRepo: Repository<Complex>,
     @InjectRepository(AssetCadastralUnit)
     private readonly unitRepo: Repository<AssetCadastralUnit>,
+    @Optional() private readonly chapterDerivation?: ChapterDerivationService,
   ) {
     super();
     this.auditLabelResolvers = {
@@ -208,7 +210,14 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     return asset ? this.withMef(asset) : null;
   }
 
+  // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async create(dto: CreateAssetDto, userId?: number): Promise<Asset> {
+    const result = await this.createWithoutDerivation(dto, userId);
+    await this.chapterDerivation?.requestAllSafe();
+    return result;
+  }
+
+  private async createWithoutDerivation(dto: CreateAssetDto, userId?: number): Promise<Asset> {
     await this.assertClassification(dto.nature_id, dto.function_id);
     await this.assertComplex(dto.complex_id);
     const { cadastral_units: units, ...rest } = dto;
@@ -306,7 +315,23 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
     }
   }
 
+  // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
+  async remove(id: number, userId: number): Promise<void> {
+    await super.remove(id, userId);
+    await this.chapterDerivation?.requestAllSafe();
+  }
+
   async update(id: number, dto: UpdateAssetDto, userId?: number): Promise<Asset> {
+    const result = await this.updateWithoutDerivation(id, dto, userId);
+    await this.chapterDerivation?.requestAllSafe();
+    return result;
+  }
+
+  private async updateWithoutDerivation(
+    id: number,
+    dto: UpdateAssetDto,
+    userId?: number,
+  ): Promise<Asset> {
     const { cadastral_units: units, ...updateDto } = dto;
     const existing = await this.repo.findOne({ where: { id } as never });
     const addressChanged = ADDRESS_FIELDS.some(
