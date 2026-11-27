@@ -1,3 +1,4 @@
+import { ChapterSource } from '@apis/spending-destinations/chapter-source.enum';
 import { InternetTechnology } from '../internet-technology';
 import {
   Column,
@@ -202,6 +203,10 @@ export class Utility {
   // Facoltativo (es. utenze di un contratto a titolo gratuito).
   @Column({ type: 'int', nullable: true })
   budget_chapter_code_fk: number | null;
+
+  // DERIVED = capitolo ricavato dalla destinazione (scritto dal ricalcolo), MANUAL = a mano.
+  @Column({ type: 'varchar', length: 10, default: ChapterSource.MANUAL })
+  chapter_source: ChapterSource;
 
   @ManyToOne(() => UtilityType, (type) => type.utilities)
   @JoinColumn({ name: 'utility_type_id_fk', referencedColumnName: 'id' })

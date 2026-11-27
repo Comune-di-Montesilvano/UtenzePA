@@ -117,6 +117,10 @@ export class Asset {
   @Column({ type: 'int', nullable: true })
   function_id: number | null;
 
+  // Destinazione di spesa (capitoli per destinazione + natura).
+  @Column({ type: 'int', nullable: true })
+  spending_destination_id: number | null;
+
   @Column({ type: 'int', nullable: true })
   complex_id: number | null;
 

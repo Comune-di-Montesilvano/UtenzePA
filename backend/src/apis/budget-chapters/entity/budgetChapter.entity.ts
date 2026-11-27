@@ -1,3 +1,4 @@
+import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import {
   Column,
   CreateDateColumn,
@@ -61,6 +62,14 @@ export class BudgetChapter {
 
   @Column({ type: 'boolean', default: false })
   deleted: boolean;
+
+  // Destinazione di spesa (capitoli per destinazione + natura).
+  @Column({ type: 'int', nullable: true })
+  spending_destination_id: number | null;
+
+  // Natura della spesa (tipo di utenza); null = tutte le nature della destinazione.
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  hard_type: HardTypeEnum | null;
 
   @Column({ type: 'varchar', length: 20, default: RecordSource.MANUAL })
   source: RecordSource;
