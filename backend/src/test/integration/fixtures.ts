@@ -141,10 +141,14 @@ export async function insertAttachment(
   });
 }
 
+const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+
 export async function insertUtilityType(ds: DataSource, over: Row = {}): Promise<number> {
   return insert(ds, 'utility_types', {
     ...authored(),
-    name: `Tipo di prova ${next()}`,
+    // utility_types non si azzera tra i file e il contatore riparte in ogni
+    // file: il prefisso dell'ora evita i nomi (unici) ripetuti.
+    name: `Tipo di prova ${RUN}-${next()}`,
     hard_type: 'LIGHT',
     ...over,
   });

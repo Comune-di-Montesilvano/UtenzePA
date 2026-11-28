@@ -222,12 +222,23 @@ describe('ChapterDerivationService (integrazione)', () => {
     const d = await destination('Palestre');
     await chapter('1700', { spending_destination_id: d, hard_type: 'GAS' });
     const all = await chapter('1701', { spending_destination_id: d });
-    const t = await insertUtilityType(ds, { hard_type: 'GAS', deleted: 1 });
-    const a = await asset({ spending_destination_id: d });
-    const u = await insertUtility(ds, { utility_type_id_fk: t });
-    await insert(ds, 'utility_assets', { utility_id: u, asset_id: a });
-    await service.requestAll();
-    expect(Number((await utilityOf(u)).chapter)).toBe(all);
+    // Nome proprio e pulizia: utility_types non si azzera tra i file di test.
+    const t = await insertUtilityType(ds, {
+      name: 'Tipo cancellato (derivazione)',
+      hard_type: 'GAS',
+      deleted: 1,
+    });
+    try {
+      const a = await asset({ spending_destination_id: d });
+      const u = await insertUtility(ds, { utility_type_id_fk: t });
+      await insert(ds, 'utility_assets', { utility_id: u, asset_id: a });
+      await service.requestAll();
+      expect(Number((await utilityOf(u)).chapter)).toBe(all);
+    } finally {
+      await ds.query('DELETE FROM utility_assets');
+      await ds.query('DELETE FROM utilities WHERE utility_type_id_fk = ?', [t]);
+      await ds.query('DELETE FROM utility_types WHERE id = ?', [t]);
+    }
   });
 
   it('nessuna utenza: currentResults non ricalcola a ogni chiamata', async () => {
