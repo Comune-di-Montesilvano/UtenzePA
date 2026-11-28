@@ -241,6 +241,20 @@ const itDate = (day: string): string => `${day.slice(8, 10)}/${day.slice(5, 7)}/
 
 // Anomalie dei dati contrattuali mostrate in dashboard. Regola di fondo: un
 // contratto senza CIG (e non esplicitamente escluso) è di fatto inesistente.
+
+const ROME_DAY = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/Rome',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+// 'AAAA-MM-GG' di n giorni fa, contati dal giorno di Roma (MySQL gira in UTC).
+function romeDaysAgo(n: number): string {
+  const [y, m, d] = ROME_DAY.format(new Date()).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d - n)).toISOString().slice(0, 10);
+}
+
 @Injectable()
 export class AnomaliesService {
   constructor(
@@ -460,7 +474,7 @@ export class AnomaliesService {
     const draftOverdue = await q.draftsOverdue(m);
     const agreementsShort = await q.agreementsShort(m);
     const variationNeeded = await q.chaptersVariationNeeded(m);
-    const paidElsewhere = await utilitiesPaidOnOtherChapters(m);
+    const paidElsewhere = await utilitiesPaidOnOtherChapters(m, romeDaysAgo(365));
     const inCharge = await q.utilitiesInChargeList(m);
     const derivedAll = this.derivation ? await this.derivation.currentResults() : new Map();
     // Destinazioni non ancora usate (nessuna utenza ne trova una): niente segnalazioni.

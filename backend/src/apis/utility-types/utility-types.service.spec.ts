@@ -89,3 +89,26 @@ describe('UtilityTypesService', () => {
     expect(utilities.count.mock.calls[1][0].where).toHaveLength(2);
   });
 });
+
+describe('UtilityTypesService: natura e capitoli ricavati', () => {
+  it('cambio del tipo contatore: capitoli delle utenze ricalcolati', async () => {
+    const count = jest.fn().mockResolvedValue(0);
+    const repo = {
+      manager: { getRepository: () => ({ count }) },
+      findOne: jest.fn().mockResolvedValue({ id: 3, deleted: false }),
+      save: jest.fn(async (e) => e),
+      merge: jest.fn((a, b) => ({ ...a, ...b })),
+      preload: jest.fn(async (e) => e),
+      update: jest.fn(),
+    };
+    const derivation = { requestAllSafe: jest.fn() };
+    const service = new UtilityTypesService(repo as never, derivation as never);
+    jest
+      .spyOn(Object.getPrototypeOf(Object.getPrototypeOf(service)), 'update')
+      .mockResolvedValue({ id: 3 } as never);
+    await service.update(3, { name: 'Nome' } as never, 1);
+    expect(derivation.requestAllSafe).not.toHaveBeenCalled();
+    await service.update(3, { hard_type: 'WATER' } as never, 1);
+    expect(derivation.requestAllSafe).toHaveBeenCalledTimes(1);
+  });
+});

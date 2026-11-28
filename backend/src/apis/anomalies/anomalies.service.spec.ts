@@ -636,4 +636,21 @@ describe('AnomaliesService', () => {
       { id: 9, number: 'F9', total: 100, shares: 99.98 },
     ]);
   });
+
+  it('pagate su altri capitoli: ultimi 365 giorni contati dal giorno di Roma', async () => {
+    jest.useFakeTimers({
+      now: new Date('2026-12-31T23:30:00Z'),
+      doNotFake: ['nextTick', 'setImmediate', 'setTimeout', 'setInterval', 'queueMicrotask'],
+    });
+    try {
+      await run();
+    } finally {
+      jest.useRealTimers();
+    }
+    // A Roma è già il 2027-01-01: 365 giorni prima = 2026-01-01.
+    expect(ms.utilitiesPaidOnOtherChapters).toHaveBeenLastCalledWith(
+      expect.anything(),
+      '2026-01-01',
+    );
+  });
 });

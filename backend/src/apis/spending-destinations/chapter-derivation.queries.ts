@@ -14,7 +14,7 @@ type Row = Record<string, unknown>;
 export function derivationUtilities(m: EntityManager): Promise<Row[]> {
   return m
     .createQueryBuilder(Utility, 'u')
-    .leftJoin(UtilityType, 't', 't.id = u.utility_type_id_fk')
+    .leftJoin(UtilityType, 't', 't.id = u.utility_type_id_fk AND t.deleted = 0')
     .select('u.id', 'id')
     .addSelect('t.hard_type', 'hard_type')
     .addSelect('u.budget_chapter_code_fk', 'chapter_id')
@@ -88,6 +88,7 @@ export function destinationName(m: EntityManager, id: number): Promise<Row | und
     .createQueryBuilder(SpendingDestination, 'd')
     .select('d.id', 'id')
     .addSelect('d.name', 'name')
+    .addSelect('d.deleted', 'deleted')
     .where('d.id = :id', { id })
     .getRawOne();
 }

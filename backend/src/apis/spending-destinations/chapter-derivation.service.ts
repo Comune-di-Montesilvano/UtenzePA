@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { AuditLogService, type RecordChangeInput } from '@apis/audit-log/audit-log.service';
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
@@ -58,6 +58,7 @@ export class ChapterDerivationService {
   private chain: Promise<void> = Promise.resolve();
   private queued: Promise<void> | null = null;
   private results = new Map<number, DerivationResult>();
+  private computed = false;
 
   constructor(
     private readonly dataSource: DataSource,
@@ -93,10 +94,19 @@ export class ChapterDerivationService {
     return this.results;
   }
 
-  // Come lastResults, ma con un giro se non ne è ancora stato fatto nessuno.
+  // Come lastResults, ma con un giro se non ne è ancora stato fatto nessuno
+  // (anche un giro senza utenze conta: niente ricalcolo a ogni chiamata).
   async currentResults(): Promise<Map<number, DerivationResult>> {
-    if (!this.results.size) await this.requestAll();
+    if (!this.computed) await this.requestAll();
     return this.results;
+  }
+
+  // Destinazione indicata su immobile, impianto o capitolo: deve esistere e
+  // non essere cancellata (nessuna FK sulle colonne). null/assente = ok.
+  async assertDestinationUsable(id: number | null | undefined): Promise<void> {
+    if (id === null || id === undefined) return;
+    const d = await q.destinationName(this.dataSource.manager, id);
+    if (!d || Number(d.deleted)) throw new BadRequestException('Destinazione di spesa non trovata');
   }
 
   // Da dove viene il capitolo dell'utenza (scheda utenza).
@@ -209,6 +219,7 @@ export class ChapterDerivationService {
     }
     for (const entry of audits) await this.audit.record(entry);
     this.results = new Map(results.map((r) => [r.id, r]));
+    this.computed = true;
     const moved = audits.map((x) => x.entityId);
     if (moved.length) await this.reconcile?.reconcileUtilities(moved);
     if (changed.length) {

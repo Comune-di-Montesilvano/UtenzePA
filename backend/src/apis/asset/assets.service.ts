@@ -212,6 +212,7 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
 
   // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async create(dto: CreateAssetDto, userId?: number): Promise<Asset> {
+    await this.chapterDerivation?.assertDestinationUsable(dto.spending_destination_id);
     const result = await this.createWithoutDerivation(dto, userId);
     await this.chapterDerivation?.requestAllSafe();
     return result;
@@ -322,6 +323,7 @@ export class AssetsService extends BaseService<Asset, CreateAssetDto, UpdateAsse
   }
 
   async update(id: number, dto: UpdateAssetDto, userId?: number): Promise<Asset> {
+    await this.chapterDerivation?.assertDestinationUsable(dto.spending_destination_id);
     const result = await this.updateWithoutDerivation(id, dto, userId);
     await this.chapterDerivation?.requestAllSafe();
     return result;

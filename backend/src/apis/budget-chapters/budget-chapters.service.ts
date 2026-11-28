@@ -84,6 +84,7 @@ export class BudgetChaptersService extends BaseService<
 
   // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async create(dto: CreateBudgetChapterDto, userId?: number): Promise<BudgetChapter> {
+    await this.chapterDerivation?.assertDestinationUsable(dto.spending_destination_id);
     const result = await this.createWithoutDerivation(dto, userId);
     await this.chapterDerivation?.requestAllSafe();
     return result;
@@ -113,6 +114,7 @@ export class BudgetChaptersService extends BaseService<
 
   // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async update(id: number, dto: UpdateBudgetChapterDto, userId?: number): Promise<BudgetChapter> {
+    await this.chapterDerivation?.assertDestinationUsable(dto.spending_destination_id);
     const result = await this.updateWithoutDerivation(id, dto, userId);
     await this.chapterDerivation?.requestAllSafe();
     return result;

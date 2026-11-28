@@ -17,6 +17,8 @@ import { SystemUser } from '../../system-users/entity/system-user.entity';
 import { RecordSource } from '@apis/accounting-import/record-source.enum';
 import { UtilityType } from '../../utility-types/entity/utility_type.entity';
 
+// Indice unico funzionale su destinazione + natura (migration ChapterDestinationUnique).
+@Index('UQ_budget_chapters_destination', { synchronize: false })
 @Entity('budget_chapters')
 export class BudgetChapter {
   @PrimaryGeneratedColumn('increment')

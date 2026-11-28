@@ -56,9 +56,10 @@ function elsewhereCte(invoiceFilter: string): string {
 }
 
 // Utenze con fatture degli ultimi 365 giorni pagate su altri capitoli (anomalia).
-export function utilitiesPaidOnOtherChapters(m: EntityManager): Promise<Row[]> {
+// `since` = 'AAAA-MM-GG' calcolato sul giorno di Roma (MySQL gira in UTC).
+export function utilitiesPaidOnOtherChapters(m: EntityManager, since: string): Promise<Row[]> {
   return m.query(
-    `${elsewhereCte('i.invoice_date >= CURDATE() - INTERVAL 365 DAY')}
+    `${elsewhereCte('i.invoice_date >= ?')}
      SELECT u.id, u.utility_id,
             GROUP_CONCAT(DISTINCT CONCAT(ch.chapter_code, '/', ch.article) ORDER BY ch.chapter_code SEPARATOR ', ') AS chapters,
             ROUND(SUM(e.amount * e.share), 2) AS amount
@@ -68,6 +69,7 @@ export function utilitiesPaidOnOtherChapters(m: EntityManager): Promise<Row[]> {
       GROUP BY u.id, u.utility_id
      HAVING amount > 1
       ORDER BY u.utility_id`,
+    [since],
   );
 }
 

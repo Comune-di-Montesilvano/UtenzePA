@@ -187,6 +187,7 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
 
   // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async create(dto: CreatePlantDto, userId?: number): Promise<PlantRow> {
+    await this.chapterDerivation?.assertDestinationUsable(dto.spending_destination_id);
     const result = await this.createWithoutDerivation(dto, userId);
     await this.chapterDerivation?.requestAllSafe();
     return result;
@@ -223,6 +224,7 @@ export class PlantsService extends BaseService<Plant, CreatePlantDto, UpdatePlan
 
   // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async update(id: number, dto: UpdatePlantDto, userId?: number): Promise<PlantRow> {
+    await this.chapterDerivation?.assertDestinationUsable(dto.spending_destination_id);
     const result = await this.updateWithoutDerivation(id, dto, userId);
     await this.chapterDerivation?.requestAllSafe();
     return result;

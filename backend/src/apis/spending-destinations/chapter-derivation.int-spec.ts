@@ -14,6 +14,7 @@ import {
   insertUtilityType,
 } from '../../test/integration/fixtures';
 import { ChapterDerivationService } from './chapter-derivation.service';
+import * as q from './chapter-derivation.queries';
 
 const AUTHOR = { created_by_user_id: SYSTEM_USER_ID, updated_by_user_id: SYSTEM_USER_ID };
 
@@ -201,6 +202,59 @@ describe('ChapterDerivationService (integrazione)', () => {
 
     expect((await service.chapterInfo(u))!.paid_elsewhere).toEqual([]);
     expect((await service.chapterInfo(v))!.paid_elsewhere).toEqual([]);
+  });
+
+  it('destinazione inesistente o cancellata: 400; nessuna destinazione: ok', async () => {
+    const d = await destination('Asilo nido');
+    await expect(service.assertDestinationUsable(null)).resolves.toBeUndefined();
+    await expect(service.assertDestinationUsable(undefined)).resolves.toBeUndefined();
+    await expect(service.assertDestinationUsable(d)).resolves.toBeUndefined();
+    await expect(service.assertDestinationUsable(d + 1000)).rejects.toThrow(
+      'Destinazione di spesa non trovata',
+    );
+    await ds.query('UPDATE spending_destinations SET deleted = 1 WHERE id = ?', [d]);
+    await expect(service.assertDestinationUsable(d)).rejects.toThrow(
+      'Destinazione di spesa non trovata',
+    );
+  });
+
+  it('tipo utenza cancellato: natura sconosciuta, vale il capitolo «tutte le nature»', async () => {
+    const d = await destination('Palestre');
+    await chapter('1700', { spending_destination_id: d, hard_type: 'GAS' });
+    const all = await chapter('1701', { spending_destination_id: d });
+    const t = await insertUtilityType(ds, { hard_type: 'GAS', deleted: 1 });
+    const a = await asset({ spending_destination_id: d });
+    const u = await insertUtility(ds, { utility_type_id_fk: t });
+    await insert(ds, 'utility_assets', { utility_id: u, asset_id: a });
+    await service.requestAll();
+    expect(Number((await utilityOf(u)).chapter)).toBe(all);
+  });
+
+  it('nessuna utenza: currentResults non ricalcola a ogni chiamata', async () => {
+    await service.requestAll();
+    const spy = jest.spyOn(q, 'derivationUtilities');
+    try {
+      await service.currentResults();
+      await service.currentResults();
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('indice unico su destinazione + natura tra i capitoli non cancellati', async () => {
+    const d = await destination('Uffici');
+    await chapter('1800', { spending_destination_id: d, hard_type: 'LIGHT' });
+    await expect(
+      chapter('1801', { spending_destination_id: d, hard_type: 'LIGHT' }),
+    ).rejects.toThrow(/Duplicate entry/);
+    await chapter('1802', { spending_destination_id: d });
+    await expect(chapter('1803', { spending_destination_id: d })).rejects.toThrow(
+      /Duplicate entry/,
+    );
+    await chapter('1804', { spending_destination_id: d, hard_type: 'LIGHT', deleted: 1 });
+    await chapter('1805');
+    await chapter('1806');
   });
 
   it("impianto senza destinazione: vale quella dell'immobile dell'impianto", async () => {

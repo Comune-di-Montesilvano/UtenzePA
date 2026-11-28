@@ -473,6 +473,16 @@ describe('BackupService', () => {
       expect(fs.existsSync(sqlFile)).toBe(false);
     });
 
+    it('startRestore riuscito: capitoli delle utenze ricalcolati sui dati ripristinati', async () => {
+      const sqlFile = path.join(backupDir, 'u3.sql');
+      fs.writeFileSync(sqlFile, 'INSERT INTO x VALUES (1);');
+      mockConn.query.mockResolvedValue([[], []]);
+      const derivation = { requestAllSafe: jest.fn(async () => undefined) };
+      const withDerivation = new BackupService(derivation as never);
+      await withDerivation.startRestore(() => sqlFile, []);
+      expect(derivation.requestAllSafe).toHaveBeenCalledTimes(1);
+    });
+
     it('startRestore: un errore toglie la manutenzione e resta nello stato', async () => {
       const sqlFile = path.join(backupDir, 'u2.sql');
       fs.writeFileSync(sqlFile, 'INVALID;');

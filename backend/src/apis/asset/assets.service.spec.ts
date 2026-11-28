@@ -469,3 +469,33 @@ describe('AssetsService', () => {
     });
   });
 });
+
+const unusableAsset = () => ({
+  assertDestinationUsable: jest.fn(async () => {
+    throw new Error('Destinazione di spesa non trovata');
+  }),
+  requestAllSafe: jest.fn(),
+});
+
+describe('AssetsService: destinazione di spesa', () => {
+  it('create e update controllano la destinazione prima di salvare', async () => {
+    const repo = { save: jest.fn(), createQueryBuilder: jest.fn() };
+    const d = unusableAsset();
+    const service = new AssetsService(
+      repo as never,
+      {} as never,
+      { createQueryBuilder: jest.fn() } as never,
+      {} as never,
+      {} as never,
+      d as never,
+    );
+    await expect(service.create({ spending_destination_id: 9 } as never, 1)).rejects.toThrow(
+      'Destinazione di spesa non trovata',
+    );
+    await expect(service.update(1, { spending_destination_id: 9 } as never, 1)).rejects.toThrow(
+      'Destinazione di spesa non trovata',
+    );
+    expect(d.assertDestinationUsable).toHaveBeenCalledWith(9);
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+});

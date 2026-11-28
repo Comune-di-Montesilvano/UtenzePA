@@ -136,6 +136,7 @@ export class BudgetChapterEditDialogComponent implements OnInit {
     {label: 'Luce', value: 'LIGHT'},
     {label: 'Gas', value: 'GAS'},
     {label: 'Acqua', value: 'WATER'},
+    {label: 'Internet', value: 'INTERNET'},
   ];
   private destinations = inject(SpendingDestinationService);
 

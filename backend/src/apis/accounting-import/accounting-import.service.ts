@@ -1,4 +1,5 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Optional } from '@nestjs/common';
+import { ChapterDerivationService } from '@apis/spending-destinations/chapter-derivation.service';
 import { DataSource, EntityTarget, ObjectLiteral } from 'typeorm';
 import { CommitmentReconcileService } from '@apis/budget-commitments/commitment-reconcile.service';
 import { parseAccountingCsv, type AccKind, type CsvIssue } from './accounting-csv';
@@ -65,6 +66,7 @@ export class AccountingImportService {
     private readonly states: AccountingStateService,
     private readonly reconcile: CommitmentReconcileService,
     @Inject(ACCOUNTING_STEPS) private readonly steps: AccountingStep[],
+    @Optional() private readonly derivation?: ChapterDerivationService,
   ) {}
 
   async getStatus(): Promise<AccountingImportStatus> {
@@ -158,6 +160,8 @@ export class AccountingImportService {
         summary.steps[step.name] = await step.apply({ fromYear });
       }
       await this.reconcile.reconcileAll();
+      // Capitoli e destinazioni possono essere cambiati con l'import.
+      await this.derivation?.requestAllSafe();
       const now = new Date();
       await this.states.update({
         last_run_at: now,

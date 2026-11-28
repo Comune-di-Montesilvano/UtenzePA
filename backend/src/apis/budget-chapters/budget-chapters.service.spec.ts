@@ -416,3 +416,26 @@ describe('BudgetChaptersService destinazione + natura', () => {
     expect(repo.findOne).not.toHaveBeenCalled();
   });
 });
+
+const unusableChapter = () => ({
+  assertDestinationUsable: jest.fn(async () => {
+    throw new Error('Destinazione di spesa non trovata');
+  }),
+  requestAllSafe: jest.fn(),
+});
+
+describe('BudgetChaptersService: destinazione di spesa', () => {
+  it('create e update controllano la destinazione prima di salvare', async () => {
+    const repo = { save: jest.fn(), findOne: jest.fn(), createQueryBuilder: jest.fn() };
+    const d = unusableChapter();
+    const service = new BudgetChaptersService(repo as never, {} as never, undefined, d as never);
+    await expect(
+      service.create({ chapter_code: '1', article: '0', spending_destination_id: 9 } as never, 1),
+    ).rejects.toThrow('Destinazione di spesa non trovata');
+    await expect(service.update(1, { spending_destination_id: 9 } as never, 1)).rejects.toThrow(
+      'Destinazione di spesa non trovata',
+    );
+    expect(d.assertDestinationUsable).toHaveBeenCalledWith(9);
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+});
