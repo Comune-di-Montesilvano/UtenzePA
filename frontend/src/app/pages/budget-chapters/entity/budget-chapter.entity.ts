@@ -14,6 +14,10 @@ export class BudgetChapter extends AbstractEntity implements IBudgetChapter {
   description?: string;
   // Note libere (es. cosa paga il capitolo, accordi con la ragioneria).
   notes?: string | null;
+  // Destinazione + natura (LIGHT/GAS/WATER, null = tutte): le utenze con quella
+  // destinazione e quel tipo prendono questo capitolo.
+  spending_destination_id?: number | null;
+  hard_type?: string | null;
   // MANUAL o ACCOUNTING (dalla contabilità), mai inviato.
   source?: string;
   // Tipi utenza del capitolo; nessuno = tutti (es. SPRAR).
@@ -37,6 +41,8 @@ export class BudgetChapter extends AbstractEntity implements IBudgetChapter {
     return {
       chapter_code: e.chapter_code, article: e.article, description: e.description, pdc: e.pdc,
       notes: e.notes?.trim() || null,
+      spending_destination_id: e.spending_destination_id ?? null,
+      hard_type: e.hard_type || null,
       utility_type_ids: e.utility_type_ids ?? (e.utilityTypes ?? []).map(t => t.id),
     };
   }

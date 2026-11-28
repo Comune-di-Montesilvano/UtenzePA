@@ -13,6 +13,7 @@ import {UtilizerGrantComponent} from "./pages/utilizer-grant/utilizer-grant.comp
 import {PlantsComponent} from './pages/plants/plants.component';
 import {ComplexesComponent} from './pages/complexes/complexes.component';
 import {ActTypesComponent} from './pages/act-types/act-types.component';
+import {SpendingDestinationsComponent} from './pages/spending-destinations/spending-destinations.component';
 import {ActsComponent} from './pages/acts/acts.component';
 import {UtilitiesComponent} from "./pages/utilities/utilities.component";
 import {InvoicesComponent} from "./pages/invoices/invoices.component";
@@ -49,6 +50,7 @@ export const routes: Routes = [
       {path: 'branding', component: BrandingSettingsComponent},
       {path: 'utility-types', component: UtilityTypesComponent},
       {path: 'act-types', component: ActTypesComponent},
+      {path: 'spending-destinations', component: SpendingDestinationsComponent},
       {path: 'third-parties', component: ThirdPartiesComponent},
       {path: 'asset-nature', component: AssetNatureComponent},
       {path: 'asset-function', component: AssetFunctionComponent},

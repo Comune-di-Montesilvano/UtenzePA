@@ -43,12 +43,16 @@ const sameShare = (a: Share | null, b: Share | null): boolean =>
 // toccano, consumano solo la rimanenza; scrittura di sistema: nessun audit e
 // "Ultima modifica" della fattura invariata (si scrive solo invoice_commitment_shares).
 // Le chiamate si accodano: contratti già in attesa non fanno un secondo giro.
+// Anno corrente a Roma (il container gira in UTC).
+const ROME_YEAR = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Rome', year: 'numeric' });
+
 @Injectable()
 export class CommitmentReconcileService implements OnApplicationBootstrap {
   private readonly logger = new Logger(CommitmentReconcileService.name);
   private chain: Promise<void> = Promise.resolve();
   private readonly pending = new Set<number>();
   private readonly listeners: ((contractIds: number[]) => void)[] = [];
+  now: () => Date = () => new Date();
 
   constructor(private readonly dataSource: DataSource) {}
 
@@ -149,6 +153,11 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
     const rows = await q.reconcileInvoices(this.m, contracts, commitmentIds);
 
     const invoices: AllocInvoice[] = [];
+    // Esercizi chiusi congelati: la quota automatica già scritta resta sul suo
+    // impegno e annualità (consuma la rimanenza come una quota fissa) anche se
+    // cambia il capitolo dell'utenza; l'importo segue la fattura.
+    const thisYear = Number(ROME_YEAR.format(this.now()));
+    const frozen = new Set<number>();
     // Quota automatica attuale per fattura (null = nessuna).
     const current = new Map<number, Share | null>();
     for (const r of rows) {
@@ -162,6 +171,29 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
       if (OFFSET_STATUSES.includes(r.payment_status as PaymentStatus) && !fixed.length) continue;
       const date = dbDay(r.date) ?? '';
       const chapters = [...new Set((parseJson<unknown[]>(r.chapters) ?? []).map(Number))];
+      const year = lineFiscalYear(dbDay(r.period_start), dbDay(r.period_end), date);
+      const auto = current.get(id);
+      const fixedShares = fixed.map((f): AllocShare => ({
+        commitment_id: Number(f.commitment_id),
+        fiscal_year: Number(f.fiscal_year),
+        amount: Number(f.amount),
+      }));
+      // Solo se l'impegno e l'annualità esistono ancora sul contratto della
+      // fattura: impegno cancellato o fattura spostata = quota riassegnata.
+      const contractId = r.contract_id === null ? null : Number(r.contract_id);
+      const stillValid =
+        auto &&
+        contractId !== null &&
+        commitments.some(
+          (c) =>
+            c.id === auto.commitment_id &&
+            c.fiscal_year === auto.fiscal_year &&
+            c.contract_ids.includes(contractId),
+        );
+      if (auto && stillValid && !fixedShares.length && year < thisYear) {
+        frozen.add(id);
+        fixedShares.push({ ...auto, amount: noAmount ? 0 : Number(r.amount) } as AllocShare);
+      }
       invoices.push({
         id,
         date,
@@ -169,12 +201,8 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
         contract_id: r.contract_id === null ? undefined : Number(r.contract_id),
         // Utenza senza capitolo: 0 = nessun impegno candidato; nessuna utenza o più capitoli: null.
         chapter: chapters.length === 1 ? chapters[0] : null,
-        year: lineFiscalYear(dbDay(r.period_start), dbDay(r.period_end), date),
-        fixed: fixed.map((f): AllocShare => ({
-          commitment_id: Number(f.commitment_id),
-          fiscal_year: Number(f.fiscal_year),
-          amount: Number(f.amount),
-        })),
+        year,
+        fixed: fixedShares,
       });
     }
 
@@ -182,12 +210,14 @@ export class CommitmentReconcileService implements OnApplicationBootstrap {
     const amounts = new Map(invoices.map((i) => [i.id, i.amount]));
     const withFixed = new Set(invoices.filter((i) => i.fixed.length).map((i) => i.id));
     for (const [id, share] of current) {
-      if (withFixed.has(id)) {
+      if (withFixed.has(id) && !frozen.has(id)) {
         // Quote miste: la quota automatica residua si toglie.
         if (share) await q.dropAutoShare(this.m, id);
         continue;
       }
-      const target = targets.get(id) ?? null;
+      const target = frozen.has(id)
+        ? { id: share!.commitment_id, fiscal_year: share!.fiscal_year }
+        : (targets.get(id) ?? null);
       const wanted: Share | null = target
         ? { commitment_id: target.id, fiscal_year: target.fiscal_year, amount: amounts.get(id)! }
         : null;

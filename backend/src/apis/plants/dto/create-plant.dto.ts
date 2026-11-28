@@ -34,6 +34,11 @@ export class CreatePlantDto {
   @IsInt({ each: true })
   asset_ids?: number[];
 
+  // Destinazione di spesa (null = nessuna): con la natura individua il capitolo delle utenze.
+  @IsOptional()
+  @IsInt()
+  spending_destination_id?: number | null;
+
   @IsOptional()
   @IsString()
   @MaxLength(255)

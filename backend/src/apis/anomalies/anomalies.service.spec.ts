@@ -34,7 +34,7 @@ describe('AnomaliesService', () => {
     mq.invoiceImportState.mockResolvedValue(undefined);
     mq.accountingImportState.mockResolvedValue(undefined);
     ms.liquidationsUnmatched.mockResolvedValue([]);
-    ms.utilityChapterAmbiguous.mockResolvedValue([]);
+    ms.utilitiesPaidOnOtherChapters.mockResolvedValue([]);
     jest.mocked(unknown.unknownStructures).mockResolvedValue([]);
     summary.mockResolvedValue([]);
     service = new AnomaliesService({ manager: {} } as never);
@@ -48,6 +48,42 @@ describe('AnomaliesService', () => {
   });
 
   const run = () => service.getAnomalies();
+
+  it('utenze in carico senza destinazione: motivo dal ricalcolo dei capitoli', async () => {
+    const derivation = {
+      currentResults: jest.fn().mockResolvedValue(
+        new Map([
+          [1, { id: 1, reason: 'ambiguous' }],
+          [2, { id: 2, reason: null }],
+          [3, { id: 3, reason: 'no_chapter' }],
+        ]),
+      ),
+    };
+    service = new AnomaliesService({ manager: {} } as never, derivation as never);
+    service.now = () => NOW;
+    mq.utilitiesInChargeList.mockResolvedValue([
+      { id: '1', utility_id: 'IT1' },
+      { id: '2', utility_id: 'IT2' },
+    ]);
+    const a = await run();
+    expect(a.utilities_destination_missing.items).toEqual([
+      { id: 1, utility_id: 'IT1', reason: 'ambiguous' },
+    ]);
+  });
+
+  it('nessuna destinazione configurata: nessuna utenza segnalata', async () => {
+    const derivation = {
+      currentResults: jest
+        .fn()
+        .mockResolvedValue(
+          new Map([[1, { id: 1, destination_id: null, reason: 'no_destination' }]]),
+        ),
+    };
+    service = new AnomaliesService({ manager: {} } as never, derivation as never);
+    service.now = () => NOW;
+    mq.utilitiesInChargeList.mockResolvedValue([{ id: '1', utility_id: 'IT1' }]);
+    expect((await run()).utilities_destination_missing.count).toBe(0);
+  });
 
   it('numeri e liste convertiti: contratti senza CIG e CIG duplicati', async () => {
     mq.contractsWithoutCig.mockResolvedValue([
@@ -574,8 +610,8 @@ describe('AnomaliesService', () => {
     mq.accountingCommitmentsWithoutContract.mockResolvedValue([
       { id: '3', commitment_year: '2025', commitment_num: '3', commitment_sub: '1' },
     ]);
-    ms.utilityChapterAmbiguous.mockResolvedValue([
-      { id: '2', utility_id: 'IT2', chapters: 'A/0, B/0' },
+    ms.utilitiesPaidOnOtherChapters.mockResolvedValue([
+      { id: '2', utility_id: 'IT2', chapters: 'A/0, B/0', amount: '12.50' },
     ]);
     mq.sharesMismatch.mockResolvedValue([
       { id: '9', number: 'F9', total: '100.00', shares: '99.98' },
@@ -592,11 +628,29 @@ describe('AnomaliesService', () => {
       },
     ]);
     expect(a.accounting_commitments_without_contract.items).toEqual([{ id: 3, label: '2025/3/1' }]);
-    expect(a.accounting_utility_chapter_ambiguous.items).toEqual([
-      { id: 2, utility_id: 'IT2', chapters: 'A/0, B/0' },
+    expect(a.utilities_paid_on_other_chapters.items).toEqual([
+      { id: 2, utility_id: 'IT2', chapters: 'A/0, B/0', amount: 12.5 },
     ]);
+    expect('accounting_utility_chapter_ambiguous' in a).toBe(false);
     expect(a.invoices_shares_mismatch.items).toEqual([
       { id: 9, number: 'F9', total: 100, shares: 99.98 },
     ]);
+  });
+
+  it('pagate su altri capitoli: ultimi 365 giorni contati dal giorno di Roma', async () => {
+    jest.useFakeTimers({
+      now: new Date('2026-12-31T23:30:00Z'),
+      doNotFake: ['nextTick', 'setImmediate', 'setTimeout', 'setInterval', 'queueMicrotask'],
+    });
+    try {
+      await run();
+    } finally {
+      jest.useRealTimers();
+    }
+    // A Roma è già il 2027-01-01: 365 giorni prima = 2026-01-01.
+    expect(ms.utilitiesPaidOnOtherChapters).toHaveBeenLastCalledWith(
+      expect.anything(),
+      '2026-01-01',
+    );
   });
 });

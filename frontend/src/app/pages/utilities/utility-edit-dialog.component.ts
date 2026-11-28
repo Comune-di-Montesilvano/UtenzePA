@@ -55,6 +55,7 @@ import {toIsoDate} from '../../core/helpers/date.helper';
 import type {CostInfo} from './entity/utility.interface';
 import {CommitmentService} from '../commitments/commitment.service';
 import {forkJoin} from 'rxjs';
+import {ChapterInfo, chapterOriginText, paidElsewhereText} from './chapter-info';
 
 
 // Un'utenza serve almeno un immobile o un impianto (stessa regola del backend).
@@ -268,7 +269,12 @@ export class UtilityEditDialogComponent implements OnInit {
     for (const [name, control] of Object.entries(this.form.controls)) this.snapshot.set(name, control.value);
   }
 
+  chapterInfo: ChapterInfo | null = null;
+  chapterOrigin = '';
+  paidElsewhere: string[] = [];
+
   ngOnInit(): void {
+    this.loadChapterInfo();
     this.refreshLinks();
     this.loadPlants();
     this.loadAssets();
@@ -278,6 +284,22 @@ export class UtilityEditDialogComponent implements OnInit {
     if (this.canEdit) {
       this.form.controls.utility_type_id_fk.valueChanges.subscribe(id => this.onUtilityTypeChange(id));
     }
+  }
+
+  // Capitolo ricavato dalla destinazione: in sola lettura, con la spiegazione.
+  private loadChapterInfo(): void {
+    if (this.isNew || !this.data.item?.id) return;
+    this.utilityService.getChapterInfo(this.data.item.id).subscribe({
+      next: info => {
+        this.chapterInfo = info;
+        this.chapterOrigin = chapterOriginText(info);
+        this.paidElsewhere = info.paid_elsewhere.map(paidElsewhereText);
+        const control = this.form.controls.budget_chapter_code_fk;
+        if (info.source === 'DERIVED') control.disable({emitEvent: false});
+        else if (this.canEdit) control.enable({emitEvent: false});
+      },
+      error: () => (this.chapterInfo = null),
+    });
   }
 
   private loadBudgetChapters(): void {

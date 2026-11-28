@@ -13,7 +13,7 @@ import {isEditorRole} from '../../core/components/entity-sheet/sheet-utils';
 import {InvoicePatternsService} from '../invoice-import/invoice-patterns.service';
 import {EntityNavigatorService} from '../../core/services/entity-navigator.service';
 import {sinceDays} from '../../core/components/entity-sheet/sheet-utils';
-import {Anomalies, AnomaliesService} from '../../core/services/anomalies.service';
+import {Anomalies, AnomaliesService, DERIVATION_REASON_LABEL} from '../../core/services/anomalies.service';
 import {importIssueLabel} from '../invoice-import/import-issues';
 
 const formatDate = (iso: string | null): string => {
@@ -471,6 +471,36 @@ const formatDate = (iso: string | null): string => {
               </ul>
             </mat-expansion-panel>
             }
+            @if (data.utilities_paid_on_other_chapters.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.utilities_paid_on_other_chapters.count }}</span>
+                  Utenze pagate su altri capitoli (ultimi 12 mesi)
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (u of data.utilities_paid_on_other_chapters.items; track u.id) {
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ eur(u.amount) }} su {{ u.chapters }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
+            @if (data.utilities_destination_missing.count > 0) {
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <span class="anomaly-count">{{ data.utilities_destination_missing.count }}</span>
+                  Utenze senza capitolo dalla destinazione
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="anomaly-list">
+                @for (u of data.utilities_destination_missing.items; track u.id) {
+                  <li (click)="openUtility(u.id)">{{ u.utility_id }} · {{ reasonLabel[u.reason] }}</li>
+                }
+              </ul>
+            </mat-expansion-panel>
+            }
             @if (data.chapters_over_budget.count > 0) {
             <mat-expansion-panel>
               <mat-expansion-panel-header>
@@ -840,6 +870,8 @@ export class AnomaliesCardComponent implements OnInit {
   dateIt(iso: string): string {
     return iso.split('-').reverse().join('/');
   }
+
+  readonly reasonLabel = DERIVATION_REASON_LABEL;
 
   eur(n: number): string {
     return n.toLocaleString('it-IT', {style: 'currency', currency: 'EUR'});

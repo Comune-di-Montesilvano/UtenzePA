@@ -38,13 +38,15 @@ function setup(state: State, steps: AccountingStep[] = []) {
   };
   const reconcile = { reconcileAll: jest.fn(async () => undefined) };
   const states = stateService(state);
+  const derivation = { requestAllSafe: jest.fn(async () => undefined) };
   const service = new AccountingImportService(
     dataSource as never,
     states,
     reconcile as never,
     steps,
+    derivation as never,
   );
-  return { service, queries, inserts, reconcile, state };
+  return { service, queries, inserts, reconcile, state, derivation };
 }
 
 const COMMITMENTS =
@@ -121,6 +123,12 @@ describe('AccountingImportService.run', () => {
     ).rejects.toThrow(BadRequestException);
     expect(inserts.map((i) => i.entity)).toEqual([AccChapter]);
     expect(state).toEqual(expect.objectContaining({ last_error: 'boom' }));
+  });
+
+  it('import riuscito: capitoli delle utenze ricalcolati dopo gli impegni', async () => {
+    const { service, derivation } = setup(on());
+    await service.run({ chapters: Buffer.from('year;chapter;article\n2026;1;0\n') });
+    expect(derivation.requestAllSafe).toHaveBeenCalledTimes(1);
   });
 
   it('errore in un passo: il ricalcolo degli impegni parte lo stesso', async () => {

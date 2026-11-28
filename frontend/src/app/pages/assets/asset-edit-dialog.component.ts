@@ -23,6 +23,7 @@ import {AssetFunction} from '../asset-function/entity/asset-function.entity';
 import {ASSET_STATUS_OPTIONS, AssetStatus} from './enum/asset-status.enum';
 import {AssetService} from './asset.service';
 import {TOption} from '../../core/types/option.interface';
+import {destinationOptions, SpendingDestinationService} from '../spending-destinations/spending-destination.service';
 import {FilterableSelectComponent} from '../../core/components/filterable-select.component';
 import {HardType, HardTypeMatIcon} from '../utility-types/enum/hard-type.enum';
 import {Utility} from '../utilities/entity/utility.entity';
@@ -130,6 +131,7 @@ interface UtilityTypeButton {
 })
 export class AssetEditDialogComponent implements OnInit {
   private fb = inject(FormBuilder);
+  private destinations = inject(SpendingDestinationService);
   private dialogRef = inject(MatDialogRef<AssetEditDialogComponent, Asset | undefined>);
   private authService = inject(AuthService);
   private naturesService = inject(AssetNaturesService);
@@ -162,6 +164,7 @@ export class AssetEditDialogComponent implements OnInit {
   natures: AssetNature[] = [];
   private allFunctions: AssetFunction[] = [];
   natureSelectOptions: TOption[] = [];
+  destinationOptions: TOption[] = [];
   functionSelectOptions: TOption[] = [];
   statusOptions = ASSET_STATUS_OPTIONS;
 
@@ -207,6 +210,7 @@ export class AssetEditDialogComponent implements OnInit {
     asset_name: [this.data.item.asset_name ?? '', Validators.required],
     nature_id: [this.data.item.nature_id ?? null, this.mustClassify ? Validators.required : []],
     function_id: [this.data.item.function_id ?? null, this.mustClassify ? Validators.required : []],
+    spending_destination_id: [this.data.item.spending_destination_id ?? null],
     status: [this.data.item.status ?? AssetStatus.ATTIVO, Validators.required],
     ownership: [this.data.item.ownership ?? 1],
     toponym: [this.data.item.toponym ?? null],
@@ -310,6 +314,7 @@ export class AssetEditDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.destinations.list().subscribe(list => (this.destinationOptions = destinationOptions(list)));
     if (!this.isNew) {
       this.spendingService.asset(this.data.item.id).subscribe({
         next: s => this.assetSpending = s,

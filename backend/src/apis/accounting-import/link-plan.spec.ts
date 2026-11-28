@@ -1,4 +1,4 @@
-import { planCommitmentContracts, planUtilityChapters } from './link-plan';
+import { planCommitmentContracts } from './link-plan';
 
 describe('planCommitmentContracts', () => {
   const byCig = new Map([
@@ -40,44 +40,6 @@ describe('planCommitmentContracts', () => {
         [{ id: 1, cig: 'CIG1', contractIds: [5, 9] }],
         byCig,
         new Map([[1, [9]]]),
-      ),
-    ).toEqual([]);
-  });
-});
-
-describe('planUtilityChapters', () => {
-  it('utenza con un solo capitolo nell ultimo esercizio = aggiornata', () => {
-    expect(
-      planUtilityChapters(
-        [
-          { utility_id: 1, fiscal_year: 2026, chapter_id: 7 },
-          { utility_id: 1, fiscal_year: 2026, chapter_id: 7 },
-        ],
-        new Map([[1, 3]]),
-      ),
-    ).toEqual([{ utilityId: 1, chapterId: 7 }]);
-  });
-
-  it('due capitoli = invariata', () => {
-    expect(
-      planUtilityChapters(
-        [
-          { utility_id: 1, fiscal_year: 2026, chapter_id: 7 },
-          { utility_id: 1, fiscal_year: 2026, chapter_id: 8 },
-        ],
-        new Map([[1, null]]),
-      ),
-    ).toEqual([]);
-  });
-
-  it('esercizi vecchi ignorati', () => {
-    expect(
-      planUtilityChapters(
-        [
-          { utility_id: 1, fiscal_year: 2025, chapter_id: 8 },
-          { utility_id: 1, fiscal_year: 2026, chapter_id: 7 },
-        ],
-        new Map([[1, 7]]),
       ),
     ).toEqual([]);
   });

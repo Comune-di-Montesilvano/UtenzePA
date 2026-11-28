@@ -85,6 +85,10 @@ export class Plant {
   @Column({ type: 'boolean', default: false })
   deleted: boolean;
 
+  // Destinazione di spesa (capitoli per destinazione + natura).
+  @Column({ type: 'int', nullable: true })
+  spending_destination_id: number | null;
+
   @ManyToMany(() => Asset)
   @JoinTable({
     name: 'plant_assets',

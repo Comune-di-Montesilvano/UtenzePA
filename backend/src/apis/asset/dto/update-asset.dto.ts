@@ -97,6 +97,11 @@ export class UpdateAssetDto extends AssetMefFieldsDto {
   @IsInt()
   function_id?: number | null;
 
+  // Destinazione di spesa (null = nessuna): con la natura individua il capitolo delle utenze.
+  @IsOptional()
+  @IsInt()
+  spending_destination_id?: number | null;
+
   // Complesso di appartenenza (null = nessuno).
   @IsOptional()
   @Transform(({ value }) =>

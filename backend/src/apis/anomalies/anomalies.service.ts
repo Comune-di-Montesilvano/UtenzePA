@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { missingInspections } from '@apis/plants/plant.calc';
 import { GroundingClass, PlantStatus, PlantType } from '@apis/plants/enum/plant.enum';
 import { todayIso } from '@apis/utilizer-grant/real-estate-contract.calc';
@@ -19,7 +19,9 @@ import { commitmentLabel } from '@apis/budget-commitments/commitment-label';
 import { invoiceCompetenceYear } from '@apis/spending/line-year';
 import { inboxDir, inboxPresent } from '@apis/accounting-import/accounting-inbox.files';
 import * as q from './anomalies.queries';
-import { liquidationsUnmatched, utilityChapterAmbiguous } from './anomalies.sql';
+import { liquidationsUnmatched, utilitiesPaidOnOtherChapters } from './anomalies.sql';
+import { ChapterDerivationService } from '@apis/spending-destinations/chapter-derivation.service';
+import type { DerivationReason } from '@apis/spending-destinations/chapter-derivation';
 
 export interface AgreementShortAnomaly {
   id: number;
@@ -154,10 +156,18 @@ export interface Anomalies {
     commitment: string;
   }>;
   accounting_commitments_without_contract: AnomalyList<{ id: number; label: string }>;
-  accounting_utility_chapter_ambiguous: AnomalyList<{
+  // Righe degli ultimi 365 giorni pagate su capitoli diversi da quello dell'utenza.
+  utilities_paid_on_other_chapters: AnomalyList<{
     id: number;
     utility_id: string;
     chapters: string;
+    amount: number;
+  }>;
+  // Utenze in carico il cui capitolo non si ricava dalla destinazione di spesa.
+  utilities_destination_missing: AnomalyList<{
+    id: number;
+    utility_id: string;
+    reason: DerivationReason;
   }>;
   // Container Tinn installato e acceso, ma nessun caricamento riuscito da più di 2 giorni.
   accounting_import_stale: AnomalyList<{ id: number; label: string }>;
@@ -231,9 +241,26 @@ const itDate = (day: string): string => `${day.slice(8, 10)}/${day.slice(5, 7)}/
 
 // Anomalie dei dati contrattuali mostrate in dashboard. Regola di fondo: un
 // contratto senza CIG (e non esplicitamente escluso) è di fatto inesistente.
+
+const ROME_DAY = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/Rome',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+// 'AAAA-MM-GG' di n giorni fa, contati dal giorno di Roma (MySQL gira in UTC).
+function romeDaysAgo(n: number): string {
+  const [y, m, d] = ROME_DAY.format(new Date()).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d - n)).toISOString().slice(0, 10);
+}
+
 @Injectable()
 export class AnomaliesService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    @Optional() private readonly derivation?: ChapterDerivationService,
+  ) {}
 
   // Sostituibile nei test.
   now: () => Date = () => new Date();
@@ -443,11 +470,17 @@ export class AnomaliesService {
     const withoutCommitment = await q.invoicesWithoutCommitment(m);
     const accLiquidations = await liquidationsUnmatched(m);
     const accCommitments = await q.accountingCommitmentsWithoutContract(m);
-    const accUtilityChapters = await utilityChapterAmbiguous(m);
     const accState = await q.accountingImportState(m);
     const draftOverdue = await q.draftsOverdue(m);
     const agreementsShort = await q.agreementsShort(m);
     const variationNeeded = await q.chaptersVariationNeeded(m);
+    const paidElsewhere = await utilitiesPaidOnOtherChapters(m, romeDaysAgo(365));
+    const inCharge = await q.utilitiesInChargeList(m);
+    const derivedAll = this.derivation ? await this.derivation.currentResults() : new Map();
+    // Destinazioni non ancora usate (nessuna utenza ne trova una): niente segnalazioni.
+    const derived = [...derivedAll.values()].some((r) => r.reason !== 'no_destination')
+      ? derivedAll
+      : new Map();
     const agreementsShortItems: AgreementShortAnomaly[] = [];
     for (const r of agreementsShort) {
       const id = Number(r.id);
@@ -589,12 +622,19 @@ export class AnomaliesService {
           ),
         })),
       ),
-      accounting_utility_chapter_ambiguous: list(
-        accUtilityChapters.map((r) => ({
+      utilities_paid_on_other_chapters: list(
+        paidElsewhere.map((r) => ({
           id: Number(r.id),
           utility_id: String(r.utility_id),
           chapters: String(r.chapters),
+          amount: Number(r.amount),
         })),
+      ),
+      utilities_destination_missing: list(
+        inCharge.flatMap((r) => {
+          const reason = derived.get(Number(r.id))?.reason;
+          return reason ? [{ id: Number(r.id), utility_id: String(r.utility_id), reason }] : [];
+        }),
       ),
       accounting_import_stale: list(this.accountingStale(accState)),
       invoices_without_commitment: list(

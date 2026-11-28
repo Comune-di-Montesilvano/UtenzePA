@@ -178,7 +178,7 @@ describe('AnomaliesService (integrazione)', () => {
 
   it('a DB vuoto ogni categoria è vuota, con il conteggio uguale alle voci', async () => {
     const a = await run();
-    expect(Object.keys(a)).toHaveLength(51);
+    expect(Object.keys(a)).toHaveLength(52);
     for (const list of Object.values(a)) expect(list).toEqual({ count: 0, items: [] });
   });
 
@@ -908,7 +908,7 @@ describe('AnomaliesService (integrazione)', () => {
     ]);
   });
 
-  it('contabilità: impegni senza contratto e utenze con più capitoli nell’ultimo esercizio', async () => {
+  it('contabilità: impegni senza contratto; utenze pagate su capitoli diversi dal loro', async () => {
     const chA = await chapter('A1');
     const chB = await chapter('B1');
     const acc = await commitment(
@@ -923,24 +923,27 @@ describe('AnomaliesService (integrazione)', () => {
     );
     await commitment({ budget_chapter_id_fk: chA }, { 2025: 10 });
     const kB = await commitment({ budget_chapter_id_fk: chB }, { 2025: 10 }, [await contract()]);
-    const ambiguous = await utility();
-    const settled = await utility();
-    const paid = async (u: number, k: number, y: number) => {
-      const inv = await insertInvoice(ds);
-      await insertInvoiceLine(ds, inv, 5, { utility_id_fk: u });
-      await share(inv, k, y, 5, 'ACCOUNTING');
+    const elsewhere = await utility({ budget_chapter_code_fk: chA });
+    const own = await utility({ budget_chapter_code_fk: chA });
+    const old = await utility({ budget_chapter_code_fk: chA });
+    const today = romeDay(new Date());
+    const paid = async (u: number, k: number, date: string, amount = 5) => {
+      const inv = await insertInvoice(ds, { invoice_date: date });
+      await insertInvoiceLine(ds, inv, amount, { utility_id_fk: u });
+      await share(inv, k, year, amount, 'ACCOUNTING');
     };
-    await paid(ambiguous, acc, 2025);
-    await paid(ambiguous, kB, 2025);
-    await paid(settled, acc, 2024);
-    await paid(settled, kB, 2024);
-    await paid(settled, acc, 2025);
+    await paid(elsewhere, kB, today);
+    await paid(elsewhere, acc, today);
+    await paid(own, acc, today);
+    await paid(own, kB, today, 0.5);
+    await paid(old, kB, '2020-01-10');
     const a = await run();
     expect(a.accounting_commitments_without_contract.items).toEqual([
       { id: acc, label: '2025/3/1' },
     ]);
-    expect(a.accounting_utility_chapter_ambiguous.items).toEqual([
-      expect.objectContaining({ id: ambiguous, chapters: 'A1/0, B1/0' }),
+    // own: 0,50 € altrove, sotto la soglia di 1 €; old: fuori dagli ultimi 365 giorni.
+    expect(a.utilities_paid_on_other_chapters.items).toEqual([
+      expect.objectContaining({ id: elsewhere, chapters: 'B1/0', amount: 5 }),
     ]);
   });
 

@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
+import { ChapterDerivationService } from '@apis/spending-destinations/chapter-derivation.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, In, IsNull, Not, Repository } from 'typeorm';
 import { BaseService } from '@apis/shared/base.service';
@@ -22,6 +23,7 @@ export class UtilityTypesService extends BaseService<
   constructor(
     @InjectRepository(UtilityType)
     protected readonly repo: Repository<UtilityType>,
+    @Optional() private readonly derivation?: ChapterDerivationService,
   ) {
     super();
   }
@@ -69,6 +71,9 @@ export class UtilityTypesService extends BaseService<
         );
       }
     }
-    return super.update(id, dto, userId);
+    const result = await super.update(id, dto, userId);
+    // La natura del capitolo segue il tipo contatore: capitoli ricalcolati.
+    if (dto.hard_type !== undefined) await this.derivation?.requestAllSafe();
+    return result;
   }
 }

@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
+import { ChapterDerivationService } from '@apis/spending-destinations/chapter-derivation.service';
 import { randomBytes } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -102,7 +103,7 @@ export class BackupService {
   // finirebbe tutto nella memoria del browser.
   private readonly downloadTickets = new Map<string, { filename: string; expiresAt: number }>();
 
-  constructor() {
+  constructor(@Optional() private readonly derivation?: ChapterDerivationService) {
     this.backupDir = process.env.BACKUP_DIR ?? path.join(process.cwd(), 'backups');
     fs.mkdirSync(this.backupDir, { recursive: true });
   }
@@ -459,6 +460,8 @@ export class BackupService {
     return (async () => {
       filePath = prepare();
       await this.restoreFromFile(filePath, excludeTables);
+      // Destinazioni e capitoli ripristinati: capitoli delle utenze riallineati.
+      await this.derivation?.requestAllSafe();
     })()
       .then(() => {
         this.jobs.lastRestore = { finishedAt: new Date() };

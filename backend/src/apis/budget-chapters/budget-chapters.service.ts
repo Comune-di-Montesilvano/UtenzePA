@@ -1,4 +1,4 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import {
   assertCanChange,
   assertCanCreate,
@@ -6,7 +6,7 @@ import {
 } from '@apis/accounting-import/accounting-lock';
 import { AccountingStateService } from '@apis/accounting-import/accounting-state.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { BudgetChapter } from './entity/budgetChapter.entity';
 import { CreateBudgetChapterDto } from './dto/create-budget-chapters.dto';
 import { UpdateBudgetChapterDto } from './dto/update-budget-chapters.dto';
@@ -17,6 +17,9 @@ import { BaseService } from '@apis/shared/base.service';
 import { Utility } from '@apis/utility/entity/utility.entity';
 import { HardTypeEnum } from '@apis/utility-types/enum/hard-type.enum';
 import { CONSUMPTION_UNIT } from '@apis/utility-consumptions/consumption-unit';
+import { hardTypeLabel } from '@apis/utility-types/enum/hard-type-label';
+import { SpendingDestination } from '@apis/spending-destinations/entity/spending-destination.entity';
+import { ChapterDerivationService } from '@apis/spending-destinations/chapter-derivation.service';
 
 export interface ChapterConsumptionSummaryRow {
   hard_type: HardTypeEnum;
@@ -45,6 +48,7 @@ export class BudgetChaptersService extends BaseService<
     @InjectRepository(Utility)
     private readonly utilityRepo: Repository<Utility>,
     @Optional() private readonly accounting?: AccountingStateService,
+    @Optional() private readonly chapterDerivation?: ChapterDerivationService,
   ) {
     super();
   }
@@ -78,8 +82,20 @@ export class BudgetChaptersService extends BaseService<
     return qb.orderBy(`${alias}.id`, 'ASC').getMany();
   }
 
+  // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async create(dto: CreateBudgetChapterDto, userId?: number): Promise<BudgetChapter> {
+    await this.chapterDerivation?.assertDestinationUsable(dto.spending_destination_id);
+    const result = await this.createWithoutDerivation(dto, userId);
+    await this.chapterDerivation?.requestAllSafe();
+    return result;
+  }
+
+  private async createWithoutDerivation(
+    dto: CreateBudgetChapterDto,
+    userId?: number,
+  ): Promise<BudgetChapter> {
     await assertCanCreate(this.accounting);
+    await this.assertDestinationFree(dto, null);
     const { utility_type_ids, ...rest } = dto;
     const entity = this.repo.create({
       ...rest,
@@ -96,7 +112,19 @@ export class BudgetChaptersService extends BaseService<
     return (await this.findOne(saved.id)) ?? saved;
   }
 
+  // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async update(id: number, dto: UpdateBudgetChapterDto, userId?: number): Promise<BudgetChapter> {
+    await this.chapterDerivation?.assertDestinationUsable(dto.spending_destination_id);
+    const result = await this.updateWithoutDerivation(id, dto, userId);
+    await this.chapterDerivation?.requestAllSafe();
+    return result;
+  }
+
+  private async updateWithoutDerivation(
+    id: number,
+    dto: UpdateBudgetChapterDto,
+    userId?: number,
+  ): Promise<BudgetChapter> {
     const current = await this.repo.findOne({ where: { id } });
     if (current) {
       await assertCanChange(
@@ -104,6 +132,18 @@ export class BudgetChaptersService extends BaseService<
         current,
         changedFields(current, dto, LOCKED_FIELDS).length > 0,
       );
+      if (dto.spending_destination_id !== undefined || dto.hard_type !== undefined) {
+        await this.assertDestinationFree(
+          {
+            spending_destination_id:
+              dto.spending_destination_id !== undefined
+                ? dto.spending_destination_id
+                : current.spending_destination_id,
+            hard_type: dto.hard_type !== undefined ? dto.hard_type : current.hard_type,
+          },
+          id,
+        );
+      }
     }
     const { utility_type_ids, ...rest } = dto;
     const result = await super.update(id, rest as UpdateBudgetChapterDto, userId);
@@ -115,10 +155,40 @@ export class BudgetChaptersService extends BaseService<
     return this.findOne(id);
   }
 
+  // Destinazioni, collegamenti o capitoli cambiati: capitolo delle utenze ricalcolato.
   async remove(id: number, updatedByUserId: number): Promise<void> {
+    await this.removeWithoutDerivation(id, updatedByUserId);
+    await this.chapterDerivation?.requestAllSafe();
+  }
+
+  private async removeWithoutDerivation(id: number, updatedByUserId: number): Promise<void> {
     const current = await this.repo.findOne({ where: { id } });
     if (current) await assertCanChange(this.accounting, current, true);
     return super.remove(id, updatedByUserId);
+  }
+
+  // Una sola coppia destinazione + natura tra i capitoli non cancellati (natura
+  // assente = tutte le nature della destinazione, anch'essa unica).
+  async assertDestinationFree(
+    v: { spending_destination_id?: number | null; hard_type?: HardTypeEnum | null },
+    selfId: number | null,
+  ): Promise<void> {
+    if (v.spending_destination_id == null) return;
+    const other = await this.repo.findOne({
+      where: {
+        spending_destination_id: v.spending_destination_id,
+        hard_type: v.hard_type ?? IsNull(),
+        deleted: false,
+        ...(selfId !== null && { id: Not(selfId) }),
+      },
+    });
+    if (!other || other.id === selfId) return;
+    const destination = await this.repo.manager.findOne(SpendingDestination, {
+      where: { id: v.spending_destination_id },
+    });
+    throw new BadRequestException(
+      `Esiste già un capitolo ${other.chapter_code}/${other.article} per ${destination?.name ?? 'questa destinazione'} · ${hardTypeLabel(v.hard_type)}`,
+    );
   }
 
   private toTypeRefs(ids: number[]): UtilityType[] {

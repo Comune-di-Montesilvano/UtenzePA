@@ -35,6 +35,17 @@
           </mat-form-field>
           <app-multi-select formControlName="utility_type_ids" label="Tipi utenza" placeholder="Tutti i tipi"
                             [options]="utilityTypeOptions"></app-multi-select>
+          <app-filterable-select label="Destinazione di spesa" placeholder="Cerca destinazione..."
+            [options]="destinationOptions" formControlName="spending_destination_id" [errorMessage]="null">
+          </app-filterable-select>
+          <mat-form-field>
+            <mat-label>Natura</mat-label>
+            <mat-select formControlName="hard_type">
+              @for (n of natureOptions; track n.value) {
+                <mat-option [value]="n.value">{{ n.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
           <mat-form-field class="span-all">
             <mat-label>Descrizione</mat-label>
             <textarea matInput formControlName="description" rows="2"></textarea>

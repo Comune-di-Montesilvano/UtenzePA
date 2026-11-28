@@ -484,7 +484,7 @@ describe('import della contabilità: giro completo (integrazione)', () => {
       commitments: { created: 4, updated: 1, deleted: 1 },
       invoices: { created: 1, sdiCompleted: 1 },
       shares: { invoices: 2, cleared: 0 },
-      links: { contractsLinked: 2, utilityChapters: 1 },
+      links: { contractsLinked: 2 },
       payments: { linked: 2, changed: 5 },
     });
     expect((await service.getStatus()).counts).toEqual({
@@ -605,8 +605,8 @@ describe('import della contabilità: giro completo (integrazione)', () => {
       row({ invoice_id: 'F9', payment_status: 'TO_LIQUIDATE', paid_on: null }),
       row({ invoice_id: 'NC1', payment_status: 'COMPENSATED' }),
     ]);
-    // Capitolo dell'utenza dall'esercizio liquidato della fattura pagata.
-    expect(s.utilityChapters).toEqual([{ chapter_code: '1000' }]);
+    // Capitolo dell'utenza invariato: viene dalla destinazione, non dalle liquidazioni.
+    expect(s.utilityChapters).toEqual([{ chapter_code: null }]);
     expect(s.liquidations).toEqual([
       { liquidation_key: 'L1', invoice_id: 'F1' },
       { liquidation_key: 'L2', invoice_id: 'F2' },
@@ -623,7 +623,6 @@ describe('import della contabilità: giro completo (integrazione)', () => {
       { entity_name: 'budget_commitments', action: 'DELETE', n: '1' },
       { entity_name: 'invoices', action: 'CREATE', n: '1' },
       { entity_name: 'invoices', action: 'UPDATE', n: '1' },
-      { entity_name: 'utilities', action: 'UPDATE', n: '1' },
     ]);
 
     const before = await snapshot();
@@ -633,7 +632,7 @@ describe('import della contabilità: giro completo (integrazione)', () => {
       commitments: { created: 0, updated: 0, deleted: 0 },
       invoices: { created: 0, sdiCompleted: 0 },
       shares: { invoices: 0, cleared: 0 },
-      links: { contractsLinked: 0, utilityChapters: 0 },
+      links: { contractsLinked: 0 },
       payments: { linked: 2, changed: 0 },
     });
     // Nessuna scrittura: stesse righe, stesse date di modifica, nessuna voce di log in più.

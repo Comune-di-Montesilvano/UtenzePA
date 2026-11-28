@@ -55,6 +55,8 @@ export class Asset extends AbstractEntity implements IAsset {
   mef?: AssetMef;
   nature_id?: number | null;
   function_id?: number | null;
+  // Destinazione di spesa: con la natura del capitolo decide il capitolo delle utenze.
+  spending_destination_id?: number | null;
   complex_id?: number | null;
 
   // Solo lettura (il salvataggio usa complex_id).

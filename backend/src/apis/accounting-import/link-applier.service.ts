@@ -4,7 +4,7 @@ import { AuditLogService, type RecordChangeInput } from '@apis/audit-log/audit-l
 import { AuditAction } from '@apis/audit-log/entity/audit-log.entity';
 import { SYSTEM_USER_ID } from '@apis/system-users/system-user.constants';
 import { AccountingDataService } from './accounting-data.service';
-import { planCommitmentContracts, planUtilityChapters } from './link-plan';
+import { planCommitmentContracts } from './link-plan';
 import { commitmentKey } from './scope';
 import * as q from './accounting-import.queries';
 
@@ -20,7 +20,8 @@ const groupIds = (
 };
 
 // Collegamenti dopo le quote: contratti degli impegni della contabilità (dal
-// CIG e dalle fatture pagate) e capitolo delle utenze delle fatture pagate.
+// CIG e dalle fatture pagate). Il capitolo delle utenze non si scrive più: viene
+// dalla destinazione di spesa (spending-destinations/chapter-derivation.ts).
 @Injectable()
 export class LinkApplierService {
   constructor(
@@ -29,15 +30,13 @@ export class LinkApplierService {
     private readonly audit: AuditLogService,
   ) {}
 
-  async apply(): Promise<Record<'contractsLinked' | 'utilityChapters', number>> {
-    const [acc, commitments, links, contracts, paid, utilityRows, utilities] = await Promise.all([
+  async apply(): Promise<Record<'contractsLinked', number>> {
+    const [acc, commitments, links, contracts, paid] = await Promise.all([
       this.data.commitments(),
       q.accountingCommitments(this.dataSource.manager),
       q.commitmentContracts(this.dataSource.manager),
       q.contractsWithCig(this.dataSource.manager),
       q.paidContracts(this.dataSource.manager),
-      q.paidUtilityChapters(this.dataSource.manager),
-      q.utilityChapters(this.dataSource.manager),
     ]);
     // CIG dell'impegno: quello dell'anno di competenza più recente che lo indica.
     const cigByKey = new Map<string, string>();
@@ -69,22 +68,6 @@ export class LinkApplierService {
       contractsByCig,
       groupIds(paid, 'commitment_id', 'contract_id'),
     );
-    const current = new Map<number, number | null>(
-      (utilities as Record<string, unknown>[]).map((u) => [
-        Number(u.id),
-        u.budget_chapter_code_fk === null ? null : Number(u.budget_chapter_code_fk),
-      ]),
-    );
-    const chapterPlan = planUtilityChapters(
-      (utilityRows as Record<string, unknown>[])
-        .map((r) => ({
-          utility_id: Number(r.utility_id),
-          fiscal_year: Number(r.fiscal_year),
-          chapter_id: Number(r.chapter_id),
-        }))
-        .filter((r) => current.has(r.utility_id)),
-      current,
-    );
 
     const audits: RecordChangeInput[] = [];
     await this.dataSource.transaction(async (manager) => {
@@ -105,24 +88,8 @@ export class LinkApplierService {
           ],
         });
       }
-      for (const { utilityId, chapterId } of chapterPlan) {
-        await q.setUtilityChapter(manager, utilityId, chapterId, SYSTEM_USER_ID);
-        audits.push({
-          entityName: 'utilities',
-          entityId: utilityId,
-          action: AuditAction.UPDATE,
-          userId: SYSTEM_USER_ID,
-          fields: [
-            {
-              fieldName: 'budget_chapter_code_fk',
-              oldValue: current.get(utilityId) ?? null,
-              newValue: chapterId,
-            },
-          ],
-        });
-      }
     });
     for (const entry of audits) await this.audit.record(entry);
-    return { contractsLinked: contractPlan.length, utilityChapters: chapterPlan.length };
+    return { contractsLinked: contractPlan.length };
   }
 }
